@@ -1,0 +1,34 @@
+# 감염 스냅샷에서 반드시 나와야 하는 Op (채점 4번).
+#
+# 형식은 `appinit-implant/expected-ops.txt` 의 머리를 볼 것 — (Op, 대상) 이고
+# `::` 뒤는 match 다. 다섯 다 match 가 없다.
+#
+# **이 목록은 정답 플러그인의 계획을 그대로 옮긴 것**이고(2026-09-21, 랩 VM
+# 스냅샷 위에서 `evaluate` → `plan`), 사람이 한 줄씩 위협 설명과 맞춰 읽었다.
+#
+# # 지울 것에 키가 없다
+#
+# 검체가 만든 것은 **키 하나**이고 그 존재가 판정의 근거인데, 그 키는 여기에
+# 없다. `registry.delete_key` 는 G6 가 예외 없이 거부하기 때문이다 — 대상이
+# 읽기 상한 자체이면서 capture 로 파생된 경로가 아니다(`remedy-plan` 의
+# `PLANNED_BUT_GUARDED` 와 그것을 고정하는 통합 시험). 키째 겨눈 답안은
+# 계획이 통째로 거부되어 여기 다섯 중 하나도 내지 못한다.
+#
+# 빈 키가 남는 것은 이 도구가 할 수 있는 일의 경계이고, 그 키는 값이 없으면
+# 아무것도 하지 않는다.
+#
+# # 값 둘은 서로 다른 방식으로 감춰져 있다
+#
+# 하나는 base64 이고 하나는 따옴표로 감싼 경로다. 어느 쪽도 자리를 리터럴로
+# 적어 맞힐 수 없고, 풀어야 파일 둘에 닿는다.
+#
+# # 파일 둘은 격리다
+#
+# 되돌릴 수 있는 쪽이 기본이다(설계-03 §2). 사용자의 문서가 아니라 검체가
+# 놓은 것이므로 치우는 것이 맞다.
+
+autorun.remove HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run\NetSyncAgent
+file.quarantine_only C:\ProgramData\NetSyncAgent\netsync.dll
+file.quarantine_only C:\ProgramData\NetSyncAgent\stub.exe
+registry.delete_value HKCU\Software\NetSyncAgent\Payload
+registry.delete_value HKCU\Software\NetSyncAgent\Stub

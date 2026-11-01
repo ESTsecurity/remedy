@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "kind": "remedy.plan",
+  "run_id": "example-ex01",
+  "created": "2026-08-21T00:00:00Z",
+  "host": {
+    "hostname": "EXAMPLE-PC",
+    "os": "windows",
+    "version": "10.0.19045",
+    "arch": "x86_64"
+  },
+  "core": {
+    "version": "0.0.0",
+    "build": "example"
+  },
+  "plugins": [],
+  "actions": [],
+  "verdicts": [
+    "g0"
+  ],
+  "observation": {
+    "truncated": false,
+    "denied_dirs": 0,
+    "declared_roots": 2
+  }
+}

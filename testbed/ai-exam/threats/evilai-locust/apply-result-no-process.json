@@ -1,0 +1,69 @@
+{
+    "schema":  "remedy-exam-apply/4",
+    "threat":  "evilai-locust",
+    "platform":  "windows",
+    "mode":  "unattended",
+    "variant":  "no-process",
+    "verdict":  "pass",
+    "exit_code":  1,
+    "measured":  5,
+    "scope_targets":  5,
+    "changes_in_scope":  4,
+    "trace":  {
+                  "host":  "DESKTOP-2GQIRP1",
+                  "stages":  [
+                                 {
+                                     "stage":  "clean",
+                                     "at":  "2026-10-26T02:01:39Z",
+                                     "sha256":  "1a83c4f20ad18f1ccb88d844a83d64211124af8c63d852f8dc61262e89d22712",
+                                     "counts":  {
+                                                    "processes":  178,
+                                                    "services":  281,
+                                                    "tasks":  218,
+                                                    "autoruns":  18,
+                                                    "files":  0
+                                                }
+                                 },
+                                 {
+                                     "stage":  "infected",
+                                     "at":  "2026-10-26T02:01:52Z",
+                                     "sha256":  "889c841b9fd754448941e1e807fbd8a15322a1bec2508303e59030f632be907b",
+                                     "counts":  {
+                                                    "processes":  172,
+                                                    "services":  281,
+                                                    "tasks":  219,
+                                                    "autoruns":  19,
+                                                    "files":  1
+                                                }
+                                 },
+                                 {
+                                     "stage":  "treated",
+                                     "at":  "2026-10-26T02:04:25Z",
+                                     "sha256":  "4fc83ebc26fd3949173b3b8a16272e61cca67d1f939f022797c91aa15ddcf514",
+                                     "counts":  {
+                                                    "processes":  169,
+                                                    "services":  281,
+                                                    "tasks":  218,
+                                                    "autoruns":  19,
+                                                    "files":  0
+                                                }
+                                 }
+                             ],
+                  "actions_done":  6
+              },
+    "content_checks":  0,
+    "content_measured":  0,
+    "must_remain":  0,
+    "must_remain_measured":  0,
+    "plugin_files":  {
+                         "MANIFEST":  "9614d42045fe6f3fb8106d829fe7d9facae0e6b1cc8b8245b016ad60a0028dde",
+                         "MANIFEST.minisig":  "35ff663d6689ae76e9c8582ad927dca488398800391be540ebe954792bf4e7ad",
+                         "plugin.yaml":  "c63ea9cc04900cb5692f4b4cdf536c0b39f3f69fd0401d5c1e1dcb767f438f9b",
+                         "RELEASE.md":  "f4266ca133aab7f614789a8f846a9dc7b99ae01ee20d40105fd786487dfe935e",
+                         "rules/evilai.yar":  "0e51ab4f33e9136f77c3ad4390e62409606df2b6a729593acc3c090c2bc346b2"
+                     },
+    "expected_ops_sha256":  "25bd91a2becc1cd3ab61223f7a031fb6bc45fd52a81628cf39bfc97ab1157127",
+    "must_remain_sha256":  "8dbb08d9955111ea1f0760d84ef4c0c72d08749cca694b293f7f1594828888a5",
+    "binary_sha256":  "8c033721ac5e4132d2fe8f054251c7818724ac3a1ae8ad3b44032d92178c6a2b",
+    "ran_at":  "2026-10-26T02:04:26Z"
+}

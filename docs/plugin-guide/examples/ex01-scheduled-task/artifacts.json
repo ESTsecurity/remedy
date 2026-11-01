@@ -1,0 +1,128 @@
+{
+  "schema_version": 1,
+  "kind": "remedy.artifacts",
+  "run_id": "example-ex01",
+  "created": "2026-08-21T00:00:00Z",
+  "host": {
+    "hostname": "EXAMPLE-PC",
+    "os": "windows",
+    "version": "10.0.19045",
+    "arch": "x86_64"
+  },
+  "core": {
+    "version": "0.0.0",
+    "build": "example"
+  },
+  "plugins": [],
+  "collected_at": "2026-08-21T00:00:00Z",
+  "collector": {
+    "version": "0.0.0",
+    "bitness": 64,
+    "os_bitness": 64
+  },
+  "scope": {
+    "scan_roots": [
+      "C:\\Windows\\System32\\Tasks",
+      "C:\\Users\\analyst\\AppData\\Local\\Programs"
+    ],
+    "subjects": ["file", "persistence"],
+    "truncated": false,
+    "denied_dirs": 0
+  },
+  "security_products": [
+    { "vendor": "Microsoft Defender", "realtime": true }
+  ],
+  "persistence": [
+    {
+      "id": "\\Microsoft\\Windows\\ExampleUpdate",
+      "name": "ExampleUpdate",
+      "enabled": true,
+      "trigger": ["logon"],
+      "command": "C:\\Program Files\\nodejs\\node.exe",
+      "args": "\"C:\\Users\\analyst\\AppData\\Local\\Programs\\app-7f3a\\main.js\" --run",
+      "principal": "S-1-5-18",
+      "source": "C:\\Windows\\System32\\Tasks\\Microsoft\\Windows\\ExampleUpdate",
+      "win": {
+        "task": {
+          "register_path": "\\Microsoft\\Windows\\",
+          "actions": ["exec"],
+          "run_level": "HighestAvailable"
+        }
+      }
+    },
+    {
+      "id": "\\Microsoft\\Windows\\UpdateOrchestrator\\Reboot",
+      "name": "Reboot",
+      "enabled": true,
+      "trigger": ["calendar"],
+      "command": "%systemroot%\\system32\\MusNotification.exe",
+      "args": "Reboot",
+      "principal": "S-1-5-18",
+      "source": "C:\\Windows\\System32\\Tasks\\Microsoft\\Windows\\UpdateOrchestrator\\Reboot",
+      "win": {
+        "task": {
+          "register_path": "\\Microsoft\\Windows\\UpdateOrchestrator\\",
+          "actions": ["exec"]
+        }
+      }
+    },
+    {
+      "id": "\\DevTools\\watch-build",
+      "name": "watch-build",
+      "enabled": true,
+      "trigger": ["logon"],
+      "command": "C:\\Program Files\\nodejs\\node.exe",
+      "args": "\"C:\\Users\\analyst\\AppData\\Local\\Programs\\my-tool\\main.js\" --watch",
+      "principal": "EXAMPLE-PC\\analyst",
+      "source": "C:\\Windows\\System32\\Tasks\\DevTools\\watch-build",
+      "win": {
+        "task": {
+          "register_path": "\\DevTools\\",
+          "actions": ["exec"]
+        }
+      }
+    },
+    {
+      "id": "\\Microsoft\\Windows\\.NET Framework\\NGEN v4.0.30319",
+      "name": "NGEN v4.0.30319",
+      "enabled": true,
+      "trigger": [],
+      "command": "",
+      "args": "",
+      "principal": "SYSTEM",
+      "source": "C:\\Windows\\System32\\Tasks\\Microsoft\\Windows\\.NET Framework\\NGEN v4.0.30319",
+      "win": {
+        "task": {
+          "register_path": "\\Microsoft\\Windows\\.NET Framework\\",
+          "actions": ["com_handler"]
+        }
+      }
+    }
+  ],
+  "file": [
+    {
+      "path": "C:\\Users\\analyst\\AppData\\Local\\Programs\\app-7f3a\\main.js",
+      "size": 4821,
+      "mtime": "2026-08-20T11:02:13Z",
+      "sha256": "3b1f0c9a5d2e47b8c6a10f93e847d25b0c7f4a89e1b3d6528f0a4c7e9d21b5f6"
+    },
+    {
+      "path": "C:\\Users\\analyst\\AppData\\Local\\Programs\\app-7f3a\\config.json",
+      "size": 212,
+      "mtime": "2026-08-20T11:02:13Z",
+      "sha256": "9e4a7c2b8f1d3056a9c4e7b0d2f3a5c8e1b4d70926f3a8c5e0b7d4a1f6c9e32b"
+    },
+    {
+      "path": "C:\\Users\\analyst\\AppData\\Local\\Programs\\my-tool\\main.js",
+      "size": 1533,
+      "mtime": "2026-06-02T08:41:55Z",
+      "sha256": "7c0e2a9b4d6f81350a7c2e9b4d6f8135a0c7e2b9d4f6813507ac2e9b4d6f8135"
+    },
+    {
+      "path": "C:\\Users\\analyst\\AppData\\Local\\Programs\\my-tool\\package.json",
+      "size": 348,
+      "mtime": "2026-06-02T08:41:55Z",
+      "sha256": "1a2b3c4d5e6f70819a2b3c4d5e6f70819a2b3c4d5e6f70819a2b3c4d5e6f7081"
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "schema": "remedy-exam-apply/4",
+  "threat": "ssh-backdoor",
+  "platform": "linux",
+  "mode": "unattended",
+  "verdict": "pass",
+  "exit_code": 1,
+  "measured": 4,
+  "scope_targets": 4,
+  "trace": {
+    "host": "28eb60aa0dbd Linux 5.15.167.4-microsoft-standard-WSL2",
+    "stages": [
+      { "stage": "clean", "at": "2026-10-26T01:36:21Z", "sha256": "2b204ecf4adf66a221fc5a56e16b8c8ba2090745c5f585e63aede1ce49b14c5f", "counts": { "rows": 8 } },
+      { "stage": "infected", "at": "2026-10-26T01:36:21Z", "sha256": "c6c3ae1371bba74511a5ee30590a56dcab5bed7215e44e1ea41d365082db5eff", "counts": { "rows": 8 } },
+      { "stage": "treated", "at": "2026-10-26T01:36:22Z", "sha256": "1ee9d9a7e21ecc491f0dde2368a7dbbae0d53e1e99f599661f73d6759073fc07", "counts": { "rows": 8 } }
+    ],
+    "actions_done": 4
+  },
+  "content_checks": 0,
+  "content_measured": 0,
+  "must_remain": 3,
+  "must_remain_measured": 3,
+  "plugin_files": {
+    "plugin.yaml": "ba5d7ec9d19f1eee15858687169b1399cec123fc6fdaed737662580b266498ae"
+  },
+  "expected_ops_sha256": "b233472f9463b0c10441c278560d9773f7ac5d6ae46d020b6deb9875def0fe06",
+  "must_remain_sha256": "ca5b7513f86069c59b2ae096fa5afd31c452656c57bec4a4417705b2ba99d69c",
+  "binary_sha256": "b7a264440a4f95d40b1bc3c6586ba4ba434a848a3cd9af0b7f1b566ae3984dd7",
+  "ran_at": "2026-10-26T01:36:22Z"
+}

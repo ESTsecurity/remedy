@@ -1,0 +1,68 @@
+# npm 전역 패키지의 package.json 에 검체가 더한 설치 훅 항목 하나와,
+# 그 항목이 부르는 /var/tmp 의 스크립트를 함께 치운다.
+
+schema_version: 1
+id: npm-postinstall-var-tmp-hook
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [linux]
+name:
+  ko: "npm 전역 패키지에 주입된 설치 훅(postinstall) 제거"
+  en: "Injected npm postinstall hook removal (global packages)"
+
+# 권한 상한 — 관측된 두 자리뿐이다.
+scan_roots:
+  - "/usr/local/lib/node_modules"   # 훅이 심긴 package.json. 패키지 이름은 검체가 고른 피해자라 적지 않는다
+  - "/var/tmp/.npm-cache"           # 훅이 부르는 검체 스크립트의 폴더 — 관측한 이름 그대로
+
+# subject 마다 제 자리에서만 모은다. file 을 node_modules 에서 모으지 않으므로
+# 벤더 본체(dist/index.js)·옆 패키지 스크립트(scripts/build-native.js)·
+# package.json 파일 자체는 file 레코드가 되지 못한다 — 격리될 길이 없다.
+subject_roots:
+  structured_config: ["/usr/local/lib/node_modules"]
+  file: ["/var/tmp/.npm-cache"]
+
+subjects: [structured_config, file]
+
+detect:
+  # ── 부모: 검체 스크립트 ─────────────────────────────────────
+  # 훅 값 "node /var/tmp/.npm-cache/telemetry.js" 에서 스크립트 경로(두 번째
+  # 토큰)를 뽑는 capture 함수는 없다 — first_path 는 "node" 를 낸다.
+  # 그래서 방향을 뒤집는다: 스크립트를 부모로 두고 그 path 를 그대로 capture 해
+  # 설정 항목의 value 에 보간한다.
+  - id: script
+    subject: file
+    where:
+      # /var/tmp 아래 폴더 한 겹 바로 안의 .js — 관측된 모양. 폴더 이름은
+      # scan_roots 가 정한다. 뿌리 규칙이라 상한에 기대지 않고 조건만으로도 좁게 둔다.
+      - { field: path, op: matches, value: '^/var/tmp/[^/]+/[^/]+\.js$' }
+    capture:
+      file_path: "path"
+
+  # ── 자식: 그 스크립트를 부르는 설치 훅 항목 ─────────────────
+  # 키 이름은 옆 패키지(imgtools)도 같다. 가르는 것은 값이 어디를 부르는가다 —
+  # 부모가 찾은 스크립트의 절대 경로를 담은 값만 맞는다. 정상 훅은 제 폴더 안
+  # 상대 경로(node scripts/build-native.js)를 부르므로 빠진다.
+  - id: hook
+    subject: structured_config
+    where:
+      all:
+        - { field: path,     op: ends_with, value: "/package.json" }
+        - { field: key_path, op: equals,    value: "scripts.postinstall" }
+        - { field: value,    op: contains,  value: "${script.file_path}" }
+
+# 서로 다른 대상 둘의 논리곱 — 설정 파일 속 항목 하나와 디스크 위 파일 하나.
+verdict:
+  require: "hook and script"
+
+remediate:
+  remove:
+    # JSON 잎 하나만 뺀다(structured_config.remove_key). 파일은 남고
+    # name·version·main·scripts.build·scripts.test 는 그대로다.
+    - { ref: hook }
+    # 스크립트는 격리한다(file.quarantine_only — 되돌릴 수 있다).
+    - { ref: script }
+
+submit_hint:
+  samples: [script]          # 올릴 것은 검체 스크립트 — 벤더의 package.json 이 아니다
+  confidentiality_min: 1

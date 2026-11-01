@@ -1,0 +1,199 @@
+# EvilAI (Locust) — 정상 Node.js 런타임을 빌려 쓰는 JS 로더
+#
+# 검체는 런타임을 갖고 오지 않는다. 이미 설치된 서명 유효한 node.exe 를
+# 예약 작업과 Run 값의 **인자**로 부른다. 그래서 실행 파일이 아니라
+# **무엇을 실행하는가**로 가른다 (30-antipatterns.md 8번).
+#
+# 배치:
+#   plugins/evilai-locust-node-loader/
+#     plugin.yaml
+#     rules/evilai.yar      ← 분석가에게 받은 파일 그대로. 고치지 않는다.
+
+schema_version: 1
+id: evilai-locust-node-loader
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [windows]
+name:
+  ko: "EvilAI (Locust) Node 로더 제거"
+  en: "EvilAI (Locust) Node loader removal"
+
+# ── 권한 상한 ─────────────────────────────────────────────────────────
+#
+# **%ALLUSERPROFILES% 를 쓰는 이유.** 이 위협은 사용자마다 설치된다 —
+# 페이로드가 사용자 프로필의 AppData\Local\Programs 아래이고 자동 실행이
+# HKCU 다. %LOCALAPPDATA% 는 현재 사용자 하나뿐이라 다중 사용자 기계에서
+# 나머지 사용자가 감염된 채 남는다. 더 나쁜 것은 조용히 남는다는 것이다 —
+# 다른 사용자의 폴더는 `from: "${task.dir}"` 가 상한 밖이 되어 경고가 아니라
+# **그룹째 제외**된다 (10-manifest.md §지정 확장 토큰 · 30-antipatterns.md 6번).
+# 그만큼 삭제가 닿는 범위도 넓어지므로 이 주석이 그 이유다.
+#
+# 여기에 **적지 않은 것**과 그 이유:
+#   - 예약 작업 경로    `persistence` 는 상한과 무관하게 수집된다. 적으면
+#                       작업 정의 XML 이 `file` 로 딸려 들어와 지울 수 있는
+#                       범위만 넓어진다(실측 219건).
+#   - HKCU\…\Run        `autorun` 도 무관하다. 그 자리는 수집기가 알고 있고
+#                       `subjects` 선언만으로 온다. 적으면 효과 없이 넓어진다.
+#   - Defender 제외 키  `av_exclusion` 도 무관하다. 레지스트리 루트를 적는
+#                       것은 `registry_value`·`registry_key` 를 쓸 때뿐이다
+#                       (10-manifest.md §scan_roots 표).
+scan_roots:
+  - "%ALLUSERPROFILES%\\AppData\\Local\\Programs"
+
+subjects: [persistence, file, autorun, av_exclusion, process]
+
+detect:
+  # ── 부모 ────────────────────────────────────────────────────────────
+  # 부모가 될 수 있는 것은 예약 작업뿐이다. `persistence` 만 `command`
+  # (node.exe)와 `args`(스크립트)를 나눠 주므로 `args | first_path` 가
+  # 스크립트를 집는다. 이 한 그룹의 capture 로 나머지 다섯 규칙이 묶인다.
+  - id: task
+    subject: persistence
+    where:
+      all:
+        # OS 자신의 작업 트리 안에 숨는다. 정상 Node 개발 도구의 업데이트
+        # 작업은 자기 벤더 폴더에 등록되므로 이 조건이 그 둘을 가른다.
+        - { field: win.task.register_path, op: starts_with, value: '\Microsoft\Windows\' }
+        - { field: command,                op: matches,     value: '(?i)\\node\.exe$' }
+        # 폴더가 **최소 한 겹** 있어야 매치된다. 그 한 겹이 없으면 dirname 이
+        # 상한(…\Programs) 자체가 되고, 거기에는 사용자가 설치한 정상 프로그램이
+        # 전부 있다. 계획기가 조건 5 로 거부하지만 거부는 마지막 방어선이지
+        # 정상 경로가 아니다 (22-remediate-recipes.md §조건 5).
+        # 관측이 "폴더 안에" 라고 말했으므로 그 한 겹을 조건에 넣는다.
+        - { field: args,                   op: matches,     value: '(?i)\\AppData\\Local\\Programs\\[^"]+\\[^\\"]+\.js("|\s|$)' }
+    capture:
+      script: "args | first_path"
+      dir: "${script} | dirname"
+
+  # ── 페이로드: 경로로 잡는다 ─────────────────────────────────────────
+  # 본문 없이 매치되어야 한다. collect_extra 가 이 규칙을 가리킨다 —
+  # YARA 규칙 자신을 가리키면 순환이다 (30-antipatterns.md 1번).
+  - id: payload-file
+    subject: file
+    from: "${task.dir}"
+    where:
+      - { field: path, op: ends_with, value: ".js" }
+
+  # ── 페이로드: 본문으로 잡는다 ───────────────────────────────────────
+  # 검체에는 평문 IOC 가 0건이라 사람이 뽑을 문자열이 없다. 분석가가 검체
+  # 16건에서 도출한 룰을 그대로 부른다. 공개 룰은 `evilai_locust_js` 하나이고
+  # 나머지 셋은 `private rule` 이라 직접 부르지 않는다.
+  #
+  # **`from` 이 룰 머리의 경고를 지키는 자리다.** rc4 룰은 악성코드가 아니라
+  # 난독화기의 골격을 겨누므로 같은 도구로 난독화한 정상 소프트웨어에 원리상
+  # 걸릴 수 있다. 악성 판정된 증거가 가리킨 디렉터리 안에 가둬야 그 위험이
+  # 실질적으로 막힌다 — 전역 스캔에 풀지 않는다.
+  #
+  # `.js` 조건을 다시 거는 이유: 본문은 .js 에만 담기므로, 이 조건이 없으면
+  # 그 폴더의 나머지 파일이 "안 맞았다" 가 아니라 **"재지 못했다"** 가 되고
+  # 그것은 관측 불완전(종료 코드 6)이다.
+  - id: payload
+    subject: file
+    from: "${task.dir}"
+    where:
+      - { field: path, op: ends_with, value: ".js" }
+      - { yara: "rules/evilai.yar:evilai_locust_js" }
+
+  # ── 자동 실행 ───────────────────────────────────────────────────────
+  # `autorun` 에는 path 가 없어 `from` 이 통하지 않는다. 부모의 capture 를
+  # 값에 보간해 묶는다. 리터럴 조각(`\AppData\Local\Programs\`)으로 대신하면
+  # 다른 감염 인스턴스의 항목까지 이 그룹에 붙는다.
+  - id: runkey
+    subject: autorun
+    where:
+      - { field: command, op: contains, value: "${task.dir}" }
+
+  # ── Defender 제외 ───────────────────────────────────────────────────
+  # `restore: [av_exclusions]` 가 되돌릴 **증거**가 이것이다. 이 규칙이
+  # 없으면 되돌릴 것이 잡히지 않아 Action 이 아예 만들어지지 않고, deferred
+  # 에도 걸리지 않아 계획은 초록인데 제외 경로는 그대로 남는다.
+  - id: exclusion
+    subject: av_exclusion
+    where:
+      - { field: value, op: contains, value: "${task.dir}" }
+
+  # ── 실행 중 프로세스 ────────────────────────────────────────────────
+  # 스냅샷에 있을 때도 없을 때도 처리돼야 한다. 없으면 이 규칙이 0건일 뿐
+  # 판정은 아래 require 로 선다.
+  # `process` 에는 `command` 가 없다 — `image_path`·`args` 다.
+  - id: payload-process
+    subject: process
+    where:
+      all:
+        - { field: image_path, op: matches,  value: '(?i)\\node\.exe$' }
+        - { field: args,       op: contains, value: "${task.dir}" }
+
+  # ── 같은 폴더의 나머지 파일 ─────────────────────────────────────────
+  # **판정에는 쓰지 않는다.** 폴더 자체가 검체가 만든 것이고 감염 전부터
+  # 있던 사용자 파일이 섞인 경우가 관측되지 않았으므로, 재귀 삭제가 보류될
+  # 때 남지 않도록 격리 대상으로 겹쳐 둔다 (22-remediate-recipes.md).
+  - id: companion
+    subject: file
+    from: "${task.dir}"
+    where:
+      - { field: path, op: not_equals, value: "${task.script}" }
+
+# ── 판정 ──────────────────────────────────────────────────────────────
+#
+# 부모 하나 + 독립 근거 아무거나 하나.
+#
+# 두 번째 근거를 `payload` 로 못박지 않는 이유(40-review-checklist.md 2번):
+# 다른 백신이 .js 만 잡아갔거나 관리자가 폴더만 지운 기계에서는 그 근거가
+# **이미 없다.** 못박으면 그런 기계에서 판정이 서지 않고, 서로를 되살리는
+# 예약 작업·Run 값과 Defender 제외가 그대로 남는다. 근거마다 "이것이 없어도
+# 위협인가" 를 물으면 셋 다 그렇다 — 페이로드는 다시 받으면 그만이지만
+# 남은 쪽이 그것을 다시 부른다.
+#
+# 세 근거는 서로 독립이다 — 파일 본문 · HKCU 자동 실행 · 보안 제품 예외
+# 목록으로 대상이 전부 다르다. 같은 예약 작업의 두 필드를 두 근거로 세는
+# 것과 다르다(같은 항목 1번).
+verdict:
+  require: "task and (payload or runkey or exclusion)"
+
+# ── 제거 ──────────────────────────────────────────────────────────────
+#
+# **순서를 적지 않는다.** 프로세스 종료·비활성화·백업·삭제의 차례는 코어가
+# 정하고, 유발자(예약 작업·Run 값)를 산출물보다 먼저 놓는다.
+remediate:
+  remove:
+    # 파일을 먼저 지우려 하면 사용 중이라 실패한다. 없으면 0건일 뿐이다.
+    - { ref: payload-process }
+    # 지속성 둘. 하나만 지우면 나머지가 되살린다 — 둘 다 선언한다.
+    - { ref: task }
+    - { ref: runkey }
+    # 페이로드. 본문으로 잡힌 것과 경로로 잡힌 것을 함께 둔다 — YARA 가
+    # 변종을 놓쳐도 경로로는 잡힌다.
+    - { ref: payload }
+    - { ref: payload-file }
+    - { ref: companion }
+    # 폴더 전체가 검체가 만든 것이라는 **관측 근거가 있어** 재귀 삭제를 연다.
+    # 위 파일 ref 를 빼지 않는다 — 재귀 삭제는 조건 3·4·5·6 에 걸려
+    # deferred 가 될 수 있고, 그때 페이로드가 그대로 남는다.
+    # file.quarantine_only 는 low, dir.delete_recursive 는 high 다.
+    # 둘은 대체가 아니라 겹침이다.
+    - { path: "${task.dir}", recursive: true, guard: payload }
+  restore:
+    # 제외 목록을 비우는 것이 아니라 **룰이 짚은 항목만** 되돌린다.
+    - av_exclusions
+  verify:
+    # 지속성이 둘이고 서로를 되살린다. 재부팅 뒤 같은 플러그인이 다시
+    # 판정하는지 본다 — 재감염은 다른 랜덤 이름으로 오므로 "지운 경로가
+    # 비어 있는가" 로는 알 수 없다.
+    after_reboot: true
+
+# ── 본문 수집 ─────────────────────────────────────────────────────────
+# YARA 가 훑을 바이트가 스냅샷에 들어오는 **유일한 문**이다. 없으면 위
+# `payload` 규칙은 실기기에서 "재지 못했다" 가 되고 판정이 서지 않는다.
+# 경로로 매치되는 규칙을 가리켜야 2패스(수집 → 1차 평가 → 본문 담기 →
+# 재평가)가 성립한다. 관측된 페이로드는 254 바이트라 기본 상한 8 MB 로 족하다.
+collect_extra:
+  - { ref: payload-file, content: true }
+
+submit_hint:
+  samples: [payload]
+  # 경로에 사용자 계정명이 들어 있고, 폴더에 검체가 모아 둔 것이 섞일 수 있다.
+  confidentiality_min: 1
+
+# `signed_malware` 는 **두지 않는다.** 이 검체에서 서명된 것은 빌려 쓰는
+# node.exe 뿐이고 그것은 실제로 정상이다 — 지울 대상이 아니다. 근거 없이
+# 예외를 여는 것보다 비워 두는 쪽이 옳은 실패 방향이다.

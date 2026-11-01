@@ -1,0 +1,65 @@
+{
+    "schema":  "remedy-exam-apply/4",
+    "threat":  "search-hijack",
+    "platform":  "windows",
+    "mode":  "unattended",
+    "variant":  "default",
+    "verdict":  "pass",
+    "exit_code":  1,
+    "measured":  7,
+    "scope_targets":  7,
+    "changes_in_scope":  7,
+    "trace":  {
+                  "host":  "DESKTOP-2GQIRP1",
+                  "stages":  [
+                                 {
+                                     "stage":  "clean",
+                                     "at":  "2026-10-26T01:52:58Z",
+                                     "sha256":  "ed8c2932708aed073fd5fad4f2bdfa4c58dac9459f07d0b04575f319d4c4883a",
+                                     "counts":  {
+                                                    "processes":  173,
+                                                    "services":  281,
+                                                    "tasks":  218,
+                                                    "autoruns":  18,
+                                                    "files":  501
+                                                }
+                                 },
+                                 {
+                                     "stage":  "infected",
+                                     "at":  "2026-10-26T01:53:14Z",
+                                     "sha256":  "10aa5d6dbaf9b7e786d618e00beb912307557383c66e8bd78767faa695d9fb9b",
+                                     "counts":  {
+                                                    "processes":  175,
+                                                    "services":  281,
+                                                    "tasks":  218,
+                                                    "autoruns":  18,
+                                                    "files":  147
+                                                }
+                                 },
+                                 {
+                                     "stage":  "treated",
+                                     "at":  "2026-10-26T01:53:27Z",
+                                     "sha256":  "82aeaf6d72229ceae090e1327094538d389b5601dfea9cc6a4b40843d68df9b3",
+                                     "counts":  {
+                                                    "processes":  173,
+                                                    "services":  281,
+                                                    "tasks":  218,
+                                                    "autoruns":  18,
+                                                    "files":  144
+                                                }
+                                 }
+                             ],
+                  "actions_done":  8
+              },
+    "content_checks":  0,
+    "content_measured":  0,
+    "must_remain":  2,
+    "must_remain_measured":  2,
+    "plugin_files":  {
+                         "plugin.yaml":  "5ac3458bad872a133cd04bf3551da9a28f64dff47aa17bbc6c333990ccee8718"
+                     },
+    "expected_ops_sha256":  "c202f43461bf3d0880d0affd9ef46ec5fbabf6da6365988b710275c9c86e4cfd",
+    "must_remain_sha256":  "2c31abf143efb4b112a4f438831fe35466c1f31a79c0694155e141826c74a7c0",
+    "binary_sha256":  "8c033721ac5e4132d2fe8f054251c7818724ac3a1ae8ad3b44032d92178c6a2b",
+    "ran_at":  "2026-10-26T01:53:31Z"
+}

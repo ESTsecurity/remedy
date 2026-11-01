@@ -1,0 +1,25 @@
+# 줄바꿈을 LF 로 고정한다.
+#
+# 취향이 아니라 기능적 요구다 — 플러그인 서명이 파일 다이제스트 기반이므로
+# (설계-02 §1) 줄바꿈이 플랫폼마다 달라지면 같은 내용의 서명이 깨진다.
+* text=auto eol=lf
+
+*.rs    text eol=lf
+*.toml  text eol=lf
+*.md    text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.json  text eol=lf
+*.yar   text eol=lf
+
+# `.ps1` 은 UTF-8 BOM 이 필수다 (PowerShell 5.1 이 없으면 한글을 깨뜨린다).
+# `text` 로 두면 git 이 내용을 만질 수 있으므로 손대지 않게 한다.
+*.ps1   -text
+# 셸 스크립트는 LF 여야 한다. CRLF 면 `#!/bin/bash` 뒤의 `` 때문에 안 돈다.
+*.sh    text eol=lf
+
+# 격리 컨테이너·코퍼스 번들은 바이너리다
+*.rq            binary
+*.bin           binary
+*.gz            binary
+corpus/**/*.blob binary

@@ -1,0 +1,103 @@
+# 정답 플러그인 — tls-intercept
+#
+# **출제자의 답이지 응시자에게 주는 것이 아니다.** 기대 Op 이 도달 가능한지
+# 확인하는 것이 목적이다.
+
+schema_version: 1
+id: tls-intercept
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [linux]
+name:
+  ko: "TLS 가로채기 키트 제거"
+  en: "TLS interception kit removal"
+
+# 읽기 권한 상한.
+#
+# **인증서 저장소는 여기 적지 않는다.** `cert_store` 는 자리가 정해져 있어
+# 이 상한과 무관하게 수집된다(10-manifest.md 의 표 · guard.rs 의
+# `collected_from_a_fixed_place`). 적어도 아무것도 얻지 못하고 상한만 넓어진다.
+# **`/etc/hosts` 도 적지 않는다.** 처음에 "되돌릴 줄이 있는 파일" 이라며
+# 적어 두었는데, `hosts_entry` 도 자리가 정해진 대상이라 그 줄 없이도 원복
+# Action 이 그대로 선다 — tls-r1 응시자가 그것 없이 통과해 드러났다.
+scan_roots:
+  - "/opt/netguard"     # 페이로드. 패키지 형태라 자리가 고정이다.
+
+subjects: [cert_store, hosts_entry, file]
+
+detect:
+  # ── 근거 1 · 심어진 루트 CA ──────────────────────────────────
+  # **자리로는 가를 수 없다.** 청정 기계의 시스템 저장소에도 루트 CA 가
+  # 263개 있고 그것들도 전부 자기 서명이다(루트란 원래 그렇다). 조직이
+  # 자기 내부 CA 를 넣어 두는 자리도 같다.
+  #
+  # 가르는 것은 **관측된 그 주체 이름**이다. 인증서에서 지문이 곧 신원이므로
+  # 리터럴로 적는 것이 옳다 — 감염마다 바뀌는 값이 아니다.
+  #
+  # # `store` 를 조건에 넣지 않는다 — 2026-09-04 에 뺐다
+  #
+  # 여기에 `store equals "system"` 이 있었다. **그러면 이 위협을 놓친다.**
+  # 수집기의 `CERT_DIRS` 는 자리마다 이름이 다르다:
+  #
+  #   local   /usr/local/share/ca-certificates   손으로 더한 CA
+  #   system  /usr/share/ca-certificates         배포판이 넣은 것
+  #
+  # 검체가 놓인 자리는 `/usr/local/share/ca-certificates/netguard-proxy.crt`
+  # 이므로 `local` 이다. 소스 주석이 그 자리를 **"악성 루트 CA 가 들어오는
+  # 자리"** 라고 부른다 — 하필 그쪽을 조건으로 잘라 내고 있었다.
+  #
+  # 합성 스냅샷이 그 자리의 인증서에 `store: "system"` 을 적어 두었고, 우리
+  # 정답이 그 거짓 값에 맞춰져 있었다. **실기기 스냅샷으로 바꾸자 판정이
+  # 통째로 서지 않았다** — 손으로 쓴 채점 데이터가 무엇을 가릴 수 있는지의
+  # 표본이다.
+  #
+  # 다시 넣지 않는다. 주체 이름 하나가 이 인증서를 이미 특정하고, `store` 는
+  # 좁히기만 할 뿐 아무것도 더 가르지 않는다. 공격자가 `system` 쪽에 놓는
+  # 변종도 같은 룰에 걸려야 한다.
+  - id: ca
+    subject: cert_store
+    where:
+      - { field: subject, op: contains, value: "CN=NetGuard Secure Proxy CA" }
+
+  # ── 근거 2 · 돌려진 이름 ─────────────────────────────────────
+  # `hostnames` 는 목록이라 문자열로 펼쳐져 비교된다.
+  # 로컬로 돌린다는 사실만으로 가르면 `127.0.0.1 localhost` 가 걸린다 —
+  # 가르는 것은 **어느 이름을 돌렸는가**다.
+  - id: redirect
+    subject: hosts_entry
+    where:
+      - { field: hostnames, op: contains, value: "example-av.com" }
+
+  # ── 페이로드 ─────────────────────────────────────────────────
+  # `/opt` 에는 정상 소프트웨어도 산다(청정 코퍼스의 `/opt/goodware`).
+  # 그래서 `/opt` 가 아니라 그 아래 폴더까지 적는다.
+  - id: payload
+    subject: file
+    where:
+      - { field: path, op: starts_with, value: "/opt/netguard/" }
+
+# 서로 다른 두 자리에서 온 근거의 논리곱 — 신뢰 저장소의 CA 와 이름 해석의
+# 변조. 어느 하나만으로는 정상일 수 있다: 조직 내부 CA 도 있고, 사내 이름을
+# hosts 로 고정해 두는 기계도 있다. **둘이 함께 있는 것이 이 키트다.**
+#
+# 페이로드는 판정에 넣지 않는다 — 바이너리를 지우고 CA 와 hosts 만 남긴
+# 기계도 치료해야 한다.
+verdict:
+  require: "ca and redirect"
+
+remediate:
+  remove:
+    - { ref: ca }        # cert_store.remove   — 신뢰 저장소에서 뺀다
+    - { ref: payload }   # file.quarantine_only — 프록시와 그 개인키
+
+  # **hosts 는 `remove` 가 아니라 `restore` 다.**
+  #
+  # `remove` 에 넣으면 계획이 `text_config.remove_line` 을 낸다 — 줄은
+  # 사라지지만 그것은 "원래대로" 가 아니라 "지웠다" 이고, `av_exclusions` 와
+  # 같은 부류의 되돌리기가 이쪽에 따로 있다(카탈로그 `RESTORE_NAMED`).
+  restore:
+    - hosts              # hosts.restore_line
+
+submit_hint:
+  samples: [payload]
+  confidentiality_min: 1

@@ -1,0 +1,20 @@
+[package]
+name = "remedy-detect"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+remedy-sdk = { path = "../remedy-sdk" }
+remedy-artifacts = { path = "../remedy-artifacts" }
+remedy-yara = { path = "../remedy-yara" }
+serde.workspace = true
+serde_json.workspace = true
+regex.workspace = true
+base64.workspace = true
+
+[dev-dependencies]
+serde_yaml_ng.workspace = true
+unicode-normalization.workspace = true

@@ -1,0 +1,57 @@
+# 넣는 목록 — GitHub 공개 저장소에 들어갈 수 있는 경로. `cargo xtask leaks` 가 읽는다.
+#
+# 빼는 목록이 아니다. 여기 없는 추적 파일은 공개 트리에 들어가지 못하고, 공개
+# 저장소에서는 CI 가 실패한다. 새 자리를 만들면 이 파일에 줄을 더한다 — 그 줄이
+# 검토를 거친다. 작업 중에 생긴 임시 문서·스크립트가 조용히 공개되지 않게 하는 장치다.
+#
+# 한 줄에 경로 하나. `/` 로 끝나면 그 아래 전부, 아니면 그 파일 하나다.
+# 뿌리의 파일은 하나씩 적는다 — 임시 파일이 가장 흔히 놓이는 자리다.
+# `#` 뒤는 주석이다.
+#
+# 넣지 않는 것: 작업 문서 폴더 · GitLab 설정(.gitlab-ci.yml · .gitlab/) · .cargo 의 YAML
+# (견본 `*.example.yml` 셋만 넣는다 — 값이 아니라 칸 이름이다)
+
+# ── 제품 · 도구
+crates/
+xtask/
+docs/
+ci/
+plugins/                      # 위협 룰 — 배포한 룰은 공개한다 (꾸러미가 평문으로 담는다). 배포 전 룰은 올리지 않는다
+
+# ── 시험 자료 — 실기기 값(랩 주소·이름)이 든 갈래가 있다. 공개 범위는 측정을 보고 정한다
+corpus/clean/
+corpus/infected/
+testbed/ai-exam/PROMPT.md
+testbed/ai-exam/README.md
+testbed/ai-exam/inject.txt
+testbed/ai-exam/runs/
+testbed/ai-exam/threats/
+testbed/demo/
+testbed/fixtures/
+testbed/harness/README.md
+testbed/harness/baseline/
+testbed/harness/guest/
+testbed/harness/host/
+testbed/harness/linux/
+testbed/harness/windows/
+testbed/observation/
+
+# ── 뿌리
+.cargo/config.toml
+.cargo/host.example.yml       # 견본 — 하네스가 값을 못 찾으면 이 파일을 가리킨다
+.cargo/linux_lab.example.yml
+.cargo/windows_lab.example.yml
+.editorconfig
+.gitattributes
+.gitignore                    # 공개 저장소에서는 공개용 판이 이 자리에 들어간다
+AGENTS.md                     # 공개 저장소에서는 공개용 판이 이 자리에 들어간다
+CLAUDE.md
+CODEOWNERS                    # 공개 저장소에서는 공개용 판이 이 자리에 들어간다
+Cargo.lock
+Cargo.toml
+README.md
+SECURITY.md
+clippy.toml
+deny.toml
+rust-toolchain.toml
+rustfmt.toml

@@ -1,0 +1,71 @@
+schema_version: 1
+id: evilai-locust-exam
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [windows]
+name:
+  ko: "EvilAI(Locust) 제거"
+  en: "EvilAI (Locust) removal"
+
+# 권한 상한. 관측된 두 자리만 연다.
+scan_roots:
+  - "%SystemRoot%\\System32\\Tasks"     # 예약 작업 정의
+  - "%LOCALAPPDATA%\\Programs"          # 런타임 + 스크립트가 함께 떨어지는 곳
+
+subjects: [persistence, file, autorun, av_exclusion, process]
+
+detect:
+  # 부모. 세 조건의 논리곱이다 — node.exe 하나만으로는 정상 개발 환경과
+  # 갈라지지 않는다.
+  - id: task
+    subject: persistence
+    where:
+      all:
+        - { field: win.task.register_path, op: starts_with, value: '\Microsoft\Windows\' }
+        - { field: command,                op: matches,     value: '(?i)\\node\.exe$' }
+        - { field: args,                   op: matches,     value: '(?i)\.js("|\s|$)' }
+    capture:
+      script: "args | first_path"
+      dir: "${script} | dirname"
+
+  # 폴더 이름은 검체마다 바뀌므로 리터럴로 적을 수 없다. 부모가 가리킨
+  # 디렉터리 안에서만 찾는다.
+  - id: payload
+    subject: file
+    from: "${task.dir}"
+    where:
+      - { yara: "rules/evilai.yar:evilai_locust_js" }
+
+  - id: runkey
+    subject: autorun
+    where:
+      - { field: command, op: contains, value: "${task.dir}" }
+
+  - id: exclusion
+    subject: av_exclusion
+    where:
+      - { field: value, op: contains, value: "${task.dir}" }
+
+  - id: payload-process
+    subject: process
+    where:
+      all:
+        - { field: image_path, op: matches,  value: '(?i)\\node\.exe$' }
+        - { field: args,       op: contains, value: "${task.dir}" }
+
+# 독립적인 두 근거. 예약 작업 모양 하나로는 판정하지 않는다 — 정상 개발
+# 도구도 node.exe 로 .js 를 도는 작업을 등록한다.
+verdict:
+  require: "task and payload"
+
+remediate:
+  remove:
+    - { ref: payload-process }
+    - { ref: task }
+    - { ref: runkey }
+    - { ref: payload }
+    - { path: "${task.dir}", recursive: true, guard: payload }
+  restore:
+    - av_exclusions
+  verify:
+    after_reboot: true

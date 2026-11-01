@@ -1,0 +1,181 @@
+{
+  "schema_version": 1,
+  "kind": "remedy.artifacts",
+  "run_id": "run-1790036428-1bcc-20c0cb08",
+  "created": "2026-09-22T00:20:28Z",
+  "host": {
+    "hostname": "DESKTOP-2GQIRP1",
+    "os": "windows",
+    "version": "",
+    "arch": "x86_64"
+  },
+  "core": {
+    "version": "1.0.0",
+    "build": "x86_64-pc-windows-msvc"
+  },
+  "plugins": [],
+  "collected_at": "2026-09-22T00:20:28Z",
+  "collector": {
+    "version": "1.0.0",
+    "bitness": 64,
+    "os_bitness": 64
+  },
+  "scope": {
+    "scan_roots": [
+      "C:\\ProgramData\\BuildKit\\hooks"
+    ],
+    "subjects": [
+      "file",
+      "autorun"
+    ],
+    "truncated": false,
+    "denied_dirs": 0
+  },
+  "security_products": [
+    {
+      "vendor": "Microsoft Defender 바이러스 백신",
+      "realtime": true
+    },
+    {
+      "vendor": "알약"
+    }
+  ],
+  "blobs": {
+    "sha256:716bf76e3c919569dbfedf86d1882928fdd3a8910bf84aa3ba9f011964a4b623": "Ly8gUkVNRURZIEFJLUVYQU0gRklYVFVSRS4g7Iuk7ZaJ65CY7KeAIOyViuuKlCDsnpDrpqwg7LGE7Jqw6riw64ukLg0KLy8gQnVpbGRLaXQgaG9vazogcHVibGlzaCAtIOyCsOy2nOusvOydhCDsgqzrgrQg7KCA7J6l7IaM66GcIOyYrOumsOuLpC4NCnZhciBDRkcgPSB7IGVuZHBvaW50OiAiaHR0cHM6Ly9idWlsZGtpdC5leGFtcGxlLmxvY2FsL2FwaS92Mi9hcnRpZmFjdHMiLCByZXRyeTogMyB9Ow0KZnVuY3Rpb24gdXBsb2FkQXJ0aWZhY3RzKGxpc3QpIHsgfQ0KZnVuY3Rpb24gcmVwb3J0UmVzdWx0KGNvZGUpIHsgfQ0KcmVwb3J0UmVzdWx0KHVwbG9hZEFydGlmYWN0cyhbXSkpOw0K",
+    "sha256:e000195479f4f94d254b80c1752462fcd378ec38774fa32852e3631a8052e749": "Ly8gUkVNRURZIEFJLUVYQU0gRklYVFVSRS4g7Iuk7ZaJ65CY7KeAIOyViuuKlCDsnpDrpqwg7LGE7Jqw6riw64ukLg0KLy8g7J20IO2MjOydvOydgCDrtoTshJ3qsIAg66Ow7J20IOunnu2eiOuPhOuhnSDtkZzsp4Ag66y47J6Q7Je07J2EIOqwluqzoCDsnojri6QuIOuPmeyekeydgCDsl4bri6QuDQp2YXIgUyA9IHsgbWFyazogIkhYLTlGMkEtQ0hVTktFRCIsIHN0YWdlOiAiYmt0LXN0YWdlLTIiLCBjaHVuazogNDA5NiB9Ow0KZnVuY3Rpb24gY29sbGVjdEFuZFBvc3QoY2h1bmspIHsgfQ0KY29sbGVjdEFuZFBvc3QoUy5jaHVuayk7DQo=",
+    "sha256:f843dc00b9b81102566673045c7109defaef5713af880fd48afbf41e00fd38ed": "Ly8gUkVNRURZIEFJLUVYQU0gRklYVFVSRS4g7Iuk7ZaJ65CY7KeAIOyViuuKlCDsnpDrpqwg7LGE7Jqw6riw64ukLg0KLy8gQnVpbGRLaXQgaG9vazogcHJlcGFyZSAtIOu5jOuTnCDsoITsl5Ag7J6R7JeFIO2PtOuNlOydmCDrrLXsnYAg7IKw7Lac66y87J2EIOyngOyatOuLpC4NCnZhciBGUyA9IHsgcm9vdDogIkM6XFByb2dyYW1EYXRhXEJ1aWxkS2l0XHdvcmsiLCBrZWVwOiAzIH07DQpmdW5jdGlvbiBsaXN0U3RhbGUocm9vdCwga2VlcCkgeyByZXR1cm4gW107IH0NCmZ1bmN0aW9uIHJlbW92ZVN0YWxlKGl0ZW1zKSB7IH0NCnJlbW92ZVN0YWxlKGxpc3RTdGFsZShGUy5yb290LCBGUy5rZWVwKSk7DQo="
+  },
+  "autorun": [
+    {
+      "id": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\BuildKitPublish",
+      "scope": "user",
+      "name": "BuildKitPublish",
+      "command": "wscript.exe \"C:\\ProgramData\\BuildKit\\hooks\\publish.js\"",
+      "source": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\BuildKitTelemetry",
+      "scope": "user",
+      "name": "BuildKitTelemetry",
+      "command": "wscript.exe \"C:\\ProgramData\\BuildKit\\hooks\\telemetry.js\"",
+      "source": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\CrossEXService",
+      "scope": "user",
+      "name": "CrossEXService",
+      "command": "C:\\Program Files (x86)\\iniLINE\\CrossEX\\crossex\\CrossEXService.exe",
+      "source": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\MicrosoftEdgeAutoLaunch_AF2BBCAD27A22A0C1234356BDE5EE233",
+      "scope": "user",
+      "name": "MicrosoftEdgeAutoLaunch_AF2BBCAD27A22A0C1234356BDE5EE233",
+      "command": "\"C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe\" --no-startup-window --win-session-start",
+      "source": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\Shell",
+      "scope": "system",
+      "name": "Shell",
+      "command": "explorer.exe",
+      "source": "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\Userinit",
+      "scope": "system",
+      "name": "Userinit",
+      "command": "C:\\Windows\\system32\\userinit.exe,",
+      "source": "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\ALNotify",
+      "scope": "system",
+      "name": "ALNotify",
+      "command": "C:\\Program Files (x86)\\ESTsoft\\ALToolsManager\\alnotify.exe",
+      "source": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\ALYac",
+      "scope": "system",
+      "name": "ALYac",
+      "command": "\"C:\\Program Files\\ESTsoft\\ALYac\\AYLaunch.exe\" /run",
+      "source": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\AhnLab Safe Transaction Application",
+      "scope": "system",
+      "name": "AhnLab Safe Transaction Application",
+      "command": "\"C:\\Program Files\\AhnLab\\Safe Transaction\\stsess.exe\" /tray",
+      "source": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\Everything",
+      "scope": "system",
+      "name": "Everything",
+      "command": "\"C:\\Program Files\\Everything\\Everything.exe\" -startup",
+      "source": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\SecurityHealth",
+      "scope": "system",
+      "name": "SecurityHealth",
+      "command": "%windir%\\system32\\SecurityHealthSystray.exe",
+      "source": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\VMware User Process",
+      "scope": "system",
+      "name": "VMware User Process",
+      "command": "\"C:\\Program Files\\VMware\\VMware Tools\\vmtoolsd.exe\" -n vmusr",
+      "source": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\wizvera-veraport-x64",
+      "scope": "system",
+      "name": "wizvera-veraport-x64",
+      "command": "\"C:\\Program Files\\Wizvera\\Veraport20\\veraport-x64.exe\" wizvera-veraport://exec/x86/16105/",
+      "source": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Run\\AnySign4PC",
+      "scope": "system",
+      "name": "AnySign4PC",
+      "command": "\"C:\\Program Files (x86)\\SoftForum\\XecureWeb\\AnySign\\dll\\AnySign4PC.exe\" \"port=10530;port_s=10531;no_shut=1\"",
+      "source": "HKLM\\SOFTWARE\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Run\\ipinside-lws",
+      "scope": "system",
+      "name": "ipinside-lws",
+      "command": "C:\\Program Files (x86)\\IPinside_LWS\\I3GProc.exe",
+      "source": "HKLM\\SOFTWARE\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Run"
+    }
+  ],
+  "file": [
+    {
+      "path": "C:\\ProgramData\\BuildKit\\hooks\\prepare.js",
+      "size": 344,
+      "mtime": "2026-09-08T04:11:02Z",
+      "ctime": "2026-09-22T00:20:27Z",
+      "sha256": "f843dc00b9b81102566673045c7109defaef5713af880fd48afbf41e00fd38ed",
+      "content_ref": "sha256:f843dc00b9b81102566673045c7109defaef5713af880fd48afbf41e00fd38ed"
+    },
+    {
+      "path": "C:\\ProgramData\\BuildKit\\hooks\\publish.js",
+      "size": 333,
+      "mtime": "2026-09-08T04:11:02Z",
+      "ctime": "2026-09-22T00:20:27Z",
+      "sha256": "716bf76e3c919569dbfedf86d1882928fdd3a8910bf84aa3ba9f011964a4b623",
+      "content_ref": "sha256:716bf76e3c919569dbfedf86d1882928fdd3a8910bf84aa3ba9f011964a4b623"
+    },
+    {
+      "path": "C:\\ProgramData\\BuildKit\\hooks\\telemetry.js",
+      "size": 305,
+      "mtime": "2026-09-08T04:11:02Z",
+      "ctime": "2026-09-22T00:20:27Z",
+      "sha256": "e000195479f4f94d254b80c1752462fcd378ec38774fa32852e3631a8052e749",
+      "content_ref": "sha256:e000195479f4f94d254b80c1752462fcd378ec38774fa32852e3631a8052e749"
+    }
+  ]
+}

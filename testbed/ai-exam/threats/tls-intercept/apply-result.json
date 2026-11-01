@@ -1,0 +1,31 @@
+{
+  "schema": "remedy-exam-apply/4",
+  "threat": "tls-intercept",
+  "platform": "linux",
+  "mode": "attended",
+  "verdict": "pass",
+  "exit_code": 1,
+  "measured": 4,
+  "scope_targets": 4,
+  "trace": {
+    "host": "0216298a6e42 Linux 5.15.167.4-microsoft-standard-WSL2",
+    "stages": [
+      { "stage": "clean", "at": "2026-10-26T01:36:26Z", "sha256": "7fd0864e236d80e26d8a85f19724b375e096a558b3c10142e03b2ff4c4b2539e", "counts": { "rows": 5 } },
+      { "stage": "infected", "at": "2026-10-26T01:36:26Z", "sha256": "f874a42318dff2d2538948b330f8b67fdfc59c46c3d617430f0561b7fc4cf30b", "counts": { "rows": 5 } },
+      { "stage": "refused", "at": "2026-10-26T01:36:27Z", "sha256": "f874a42318dff2d2538948b330f8b67fdfc59c46c3d617430f0561b7fc4cf30b", "counts": { "rows": 5 } },
+      { "stage": "treated", "at": "2026-10-26T01:36:28Z", "sha256": "8c0188b3dd1b2cf85ecb40cc83cd03b24cf956a7449baefeb869ac0c71f30854", "counts": { "rows": 5 } }
+    ],
+    "actions_done": 5
+  },
+  "content_checks": 1,
+  "content_measured": 1,
+  "must_remain": 1,
+  "must_remain_measured": 1,
+  "plugin_files": {
+    "plugin.yaml": "fd410ec946e67bf127b018a9a261d336229a20bf7994dfa651d84ed7b13671a2"
+  },
+  "expected_ops_sha256": "987a8ccb1217a44d1653e4de6f105c689327a5cf93387e241cc81ecec447b7e0",
+  "must_remain_sha256": "4cdd12b82c1fc9cdf1106c25a20679156f55f4247ef86ef7c432cd79a3fdcf78",
+  "binary_sha256": "b7a264440a4f95d40b1bc3c6586ba4ba434a848a3cd9af0b7f1b566ae3984dd7",
+  "ran_at": "2026-10-26T01:36:28Z"
+}

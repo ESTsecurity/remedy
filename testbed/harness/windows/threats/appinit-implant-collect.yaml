@@ -1,0 +1,53 @@
+# 감염 스냅샷을 뜨기 위한 수집 매니페스트 — appinit-implant.
+#
+# # 이것은 탐지 룰이 아니다
+#
+# `detect` 는 **아무것도 맞히지 않도록** 일부러 짰다 (`corpus-all-subjects.yaml`
+# 과 같다). 매니페스트가 있어야 선언 모드로 수집되고, 선언 모드여야 subject 를
+# 고를 수 있을 뿐이다. 여기에 진짜 조건을 적으면 그 순간 스냅샷이 오염된다.
+#
+# # 왜 `C:\ProgramData` 를 통째로 쓰지 않는가 — 실측
+#
+# 다른 두 위협은 `C:\ProgramData` 를 쓴다(파일 5,643개, 잘리지 않는다).
+# 여기서만 좁히는 이유는 **`structured_config` 때문**이다.
+#
+# 2026-09-04 랩 VM 실측: `C:\ProgramData` 로 뜨자 종료 코드 6(관측 불완전)이
+# 나왔다 — `structured_config` 가 `scope.max_files`(5만)에 걸려 잘렸다. 범인은
+# Windows 자신의 원격 분석 설정이다:
+#
+#   C:\ProgramData\Microsoft\Diagnosis\DownloadedSettings\utc.privacy.json  4.0 MB
+#   C:\ProgramData\Microsoft\Diagnosis\DownloadedSettings\utc.allow.json    2.4 MB
+#
+# JSON 하나가 잎 수만 개를 낸다. **잘린 스냅샷은 채점 데이터가 될 수 없다** —
+# 그 상태의 "위협 없음" 은 "못 봤다" 이기 때문이다(코퍼스 규칙과 같다).
+#
+# 이 위협이 재는 것은 레지스트리 값과 방화벽 규칙이고 둘 다 자리가 정해져 있어
+# 이 목록과 무관하게 모인다. 좁혀도 잃는 것은 파일 오탐 압력뿐이다.
+#
+# **작성자에게 그대로 해당된다** — 넓은 경로에 `structured_config` 를 걸면
+# 평범한 Win10 기계에서 스캔이 통째로 종료 코드 6 이 된다.
+
+schema_version: 1
+id: appinit-implant-collect
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [windows]
+name:
+  ko: "감염 스냅샷 수집용 — appinit-implant"
+  en: "infected snapshot collection - appinit-implant"
+
+scan_roots:
+  - "C:\\ProgramData\\SvcAssist"
+  - "C:\\ProgramData\\Acme"
+  - "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows"
+  - "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon"
+
+subjects: [file, registry_value, firewall_rule, structured_config]
+
+detect:
+  - id: never
+    subject: file
+    where:
+      - { field: path, op: equals, value: "C:\\nonexistent\\remedy-exam-never-matches" }
+
+verdict: { require: "never" }

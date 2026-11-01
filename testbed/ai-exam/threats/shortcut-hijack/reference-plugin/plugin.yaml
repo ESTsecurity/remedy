@@ -1,0 +1,73 @@
+# 정답 플러그인 — shortcut-hijack (바로가기에 인자만 덧붙인 검체)
+#
+# # 이 위협이 묻는 것
+#
+# **지울 것이 바로가기가 아니다.** 검체는 정상 브라우저를 가리키는 바로가기를
+# 그대로 두고 **인자만 덧붙였다.** 바로가기를 치우면 사용자가 브라우저를 여는
+# 길이 사라지고, 가리키는 곳을 바꾸면 그것대로 부수 피해다.
+#
+#   Chrome.lnk          chrome.exe   --load-extension=… --disable-features=…
+#   Edge.lnk            msedge.exe   (인자 없음)                  ← 정상
+#   Microsoft Edge.lnk  msedge.exe   (인자 없음)                  ← 정상 (기계에 원래 있던 것)
+#   Notepad.lnk         notepad.exe  C:\Users\test\Documents\memo.txt  ← **정상인데 인자가 있다**
+#
+# **"인자가 붙어 있으면 검체" 라는 규칙은 여기서 무너진다.** 문서를 열어 주는
+# 바로가기에 경로가 붙는 것은 흔한 구성이다. 갈라지는 지점은 인자의 **유무**가
+# 아니라 **무엇을 가리키는가**다.
+#
+# # `.lnk` 를 Windows 에서 처음 밟는다
+#
+# `shortcut.strip_args` 는 리눅스 쪽 `ldso-preload` 가 `.desktop` 의 `Exec=`
+# 로만 밟고 있었다. 그래서 Windows 채점기도 `args=` 매치를 볼 줄 몰랐고
+# (`line=` 과 같은 부류의 비대칭), 2026-09-21 에 그 검사를 더했다.
+
+schema_version: 1
+id: shortcut-hijack
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [windows]
+name:
+  ko: "바로가기 인자 변조 제거"
+  en: "Shortcut argument hijack removal"
+
+scan_roots:
+  - "C:\\ProgramData\\WebHelper"
+  - "C:\\ProgramData\\WebTools"
+  - "%USERPROFILE%\\Desktop"
+
+subjects: [file, shortcut]
+
+detect:
+  # 변조된 바로가기. **인자가 가리키는 자리**로 겨눈다.
+  #
+  # 인자가 있다는 사실로 겨누면 `Notepad.lnk` 가 걸리고, 브라우저를 가리킨다는
+  # 사실로 겨누면 `Edge.lnk` 둘이 걸린다. 검체의 폴더를 가리키는 인자만이
+  # 이 하나를 집는다.
+  - id: launcher
+    subject: shortcut
+    where:
+      - { field: args, op: contains, value: "C:\\ProgramData\\WebHelper\\" }
+
+  # 그 인자가 싣는 것. 폴더 전체가 검체의 것이고, 옆의 `WebTools` 는 이름이
+  # 닮은 정상 도구다.
+  - id: payload
+    subject: file
+    where:
+      - { field: path, op: starts_with, value: "C:\\ProgramData\\WebHelper\\" }
+
+# 바로가기 하나만으로는 부족하다 — 인자가 가리키는 것이 실제로 있어야 이
+# 바로가기가 무엇을 싣는지 말할 수 있다.
+verdict:
+  require: "launcher and payload"
+
+remediate:
+  remove:
+    # **바로가기는 `remove` 라도 지워지지 않는다.** 이 subject 의 치료는
+    # `shortcut.strip_args` 하나뿐이고(카탈로그), 그것은 덧붙은 인자만 뗀다 —
+    # 파일도 가리키는 곳도 그대로 남는다.
+    - { ref: launcher } # shortcut.strip_args  — 덧붙은 인자만
+    - { ref: payload } # file.quarantine_only — 폴더의 파일 둘
+
+submit_hint:
+  samples: [payload]
+  confidentiality_min: 1

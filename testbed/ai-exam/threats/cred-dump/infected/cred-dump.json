@@ -1,0 +1,219 @@
+{
+  "schema_version": 1,
+  "kind": "remedy.artifacts",
+  "run_id": "run-1789999539-084c-32c64bac",
+  "created": "2026-09-21T14:05:39Z",
+  "host": {
+    "hostname": "DESKTOP-2GQIRP1",
+    "os": "windows",
+    "version": "",
+    "arch": "x86_64"
+  },
+  "core": {
+    "version": "1.0.0",
+    "build": "x86_64-pc-windows-msvc"
+  },
+  "plugins": [],
+  "collected_at": "2026-09-21T14:05:39Z",
+  "collector": {
+    "version": "1.0.0",
+    "bitness": 64,
+    "os_bitness": 64
+  },
+  "scope": {
+    "scan_roots": [
+      "C:\\ProgramData\\SysDiag",
+      "C:\\ProgramData\\SysMon",
+      "HKLM\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\WDigest"
+    ],
+    "subjects": [
+      "file",
+      "registry_value",
+      "autorun"
+    ],
+    "truncated": false,
+    "denied_dirs": 0
+  },
+  "security_products": [
+    {
+      "vendor": "Microsoft Defender 바이러스 백신",
+      "realtime": true
+    },
+    {
+      "vendor": "알약"
+    }
+  ],
+  "autorun": [
+    {
+      "id": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\CrossEXService",
+      "scope": "user",
+      "name": "CrossEXService",
+      "command": "C:\\Program Files (x86)\\iniLINE\\CrossEX\\crossex\\CrossEXService.exe",
+      "source": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\MicrosoftEdgeAutoLaunch_AF2BBCAD27A22A0C1234356BDE5EE233",
+      "scope": "user",
+      "name": "MicrosoftEdgeAutoLaunch_AF2BBCAD27A22A0C1234356BDE5EE233",
+      "command": "\"C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe\" --no-startup-window --win-session-start",
+      "source": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\SysDiagnostics",
+      "scope": "user",
+      "name": "SysDiagnostics",
+      "command": "\"C:\\ProgramData\\SysDiag\\dump.exe\" /quiet",
+      "source": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\Shell",
+      "scope": "system",
+      "name": "Shell",
+      "command": "explorer.exe",
+      "source": "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\Userinit",
+      "scope": "system",
+      "name": "Userinit",
+      "command": "C:\\Windows\\system32\\userinit.exe,",
+      "source": "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\ALNotify",
+      "scope": "system",
+      "name": "ALNotify",
+      "command": "C:\\Program Files (x86)\\ESTsoft\\ALToolsManager\\alnotify.exe",
+      "source": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\ALYac",
+      "scope": "system",
+      "name": "ALYac",
+      "command": "\"C:\\Program Files\\ESTsoft\\ALYac\\AYLaunch.exe\" /run",
+      "source": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\AhnLab Safe Transaction Application",
+      "scope": "system",
+      "name": "AhnLab Safe Transaction Application",
+      "command": "\"C:\\Program Files\\AhnLab\\Safe Transaction\\stsess.exe\" /tray",
+      "source": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\Everything",
+      "scope": "system",
+      "name": "Everything",
+      "command": "\"C:\\Program Files\\Everything\\Everything.exe\" -startup",
+      "source": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\SecurityHealth",
+      "scope": "system",
+      "name": "SecurityHealth",
+      "command": "%windir%\\system32\\SecurityHealthSystray.exe",
+      "source": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\VMware User Process",
+      "scope": "system",
+      "name": "VMware User Process",
+      "command": "\"C:\\Program Files\\VMware\\VMware Tools\\vmtoolsd.exe\" -n vmusr",
+      "source": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\wizvera-veraport-x64",
+      "scope": "system",
+      "name": "wizvera-veraport-x64",
+      "command": "\"C:\\Program Files\\Wizvera\\Veraport20\\veraport-x64.exe\" wizvera-veraport://exec/x86/16105/",
+      "source": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Run\\AnySign4PC",
+      "scope": "system",
+      "name": "AnySign4PC",
+      "command": "\"C:\\Program Files (x86)\\SoftForum\\XecureWeb\\AnySign\\dll\\AnySign4PC.exe\" \"port=10530;port_s=10531;no_shut=1\"",
+      "source": "HKLM\\SOFTWARE\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Run\\ipinside-lws",
+      "scope": "system",
+      "name": "ipinside-lws",
+      "command": "C:\\Program Files (x86)\\IPinside_LWS\\I3GProc.exe",
+      "source": "HKLM\\SOFTWARE\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Run"
+    }
+  ],
+  "file": [
+    {
+      "path": "C:\\ProgramData\\SysDiag\\dump.exe",
+      "size": 892928,
+      "mtime": "2026-09-14T02:35:41Z",
+      "ctime": "2026-09-21T14:05:38Z",
+      "sha256": "a3532abcf981c8371882fef05afd5afc506af72e32a1e03641e1adb083e568ba",
+      "signature": {
+        "trusted": false
+      }
+    },
+    {
+      "path": "C:\\ProgramData\\SysDiag\\lsass_0914.dmp",
+      "size": 4194304,
+      "mtime": "2026-09-14T02:35:41Z",
+      "ctime": "2026-09-21T14:05:38Z",
+      "sha256": "3a20eb9b0ef72d3d88b33fd5ba7ad6f27da5abdc087cba099706b38fcd2ea310"
+    },
+    {
+      "path": "C:\\ProgramData\\SysMon\\perfcheck.exe",
+      "size": 331776,
+      "mtime": "2025-12-03T08:20:41Z",
+      "ctime": "2026-09-21T14:05:38Z",
+      "sha256": "d5ad40090ef588f550def1bc557d918d7b1f5dd3465658c064f45b1bc9aea015",
+      "signature": {
+        "trusted": false
+      }
+    }
+  ],
+  "registry_value": [
+    {
+      "hive": "HKLM",
+      "key": "SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\WDigest",
+      "name": "Debuglevel",
+      "type": "REG_DWORD",
+      "data": "0"
+    },
+    {
+      "hive": "HKLM",
+      "key": "SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\WDigest",
+      "name": "DigestEncryptionAlgorithms",
+      "type": "REG_SZ",
+      "data": "3des,rc4"
+    },
+    {
+      "hive": "HKLM",
+      "key": "SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\WDigest",
+      "name": "Negotiate",
+      "type": "REG_DWORD",
+      "data": "0"
+    },
+    {
+      "hive": "HKLM",
+      "key": "SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\WDigest",
+      "name": "UTF8HTTP",
+      "type": "REG_DWORD",
+      "data": "1"
+    },
+    {
+      "hive": "HKLM",
+      "key": "SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\WDigest",
+      "name": "UTF8SASL",
+      "type": "REG_DWORD",
+      "data": "1"
+    },
+    {
+      "hive": "HKLM",
+      "key": "SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\WDigest",
+      "name": "UseLogonCredential",
+      "type": "REG_DWORD",
+      "data": "1"
+    }
+  ]
+}

@@ -1,0 +1,91 @@
+# cargo-deny 설정.
+#
+# 1주차부터 상시 검사하는 이유는 크레이트 280여 개의 라이선스를 상용 배포 직전에
+# 몰아서 보면 늦기 때문이다 (설계-01 미결 6).
+
+[graph]
+targets = [
+    "x86_64-pc-windows-msvc",
+    "i686-pc-windows-msvc",
+    "x86_64-unknown-linux-gnu",
+    "x86_64-unknown-linux-musl",
+]
+all-features = false
+
+[advisories]
+version = 2
+yanked = "deny"
+ignore = [
+    # wasmtime 43.0.2 — yara-x 1.19.0 이 이 계열에 묶여 있고 43.x 에는 수정본이 없다
+    # (수정: >=24.0.12 · >=36.0.13 · >=46.0.2 · >=47.0.3).
+    #
+    # 우리 사용 형태에 적용되지 않는다. 상위 권고 원문:
+    #   "It requires the embedder to create two `Engine`s and mix objects between them."
+    #   "This bug is *not triggerable by guest WebAssembly programs*."
+    # remedy 는 wasmtime 을 직접 쓰지 않고 yara-x 를 통해서만 닿으며, Engine 을
+    # 여러 개 만들지 않는다. 악성 YARA 룰이나 스캔 대상 데이터로는 촉발할 수 없다.
+    # CVSS 3.8 LOW · Local · 높은 권한 필요.
+    #
+    # 재검토 조건: yara-x 가 wasmtime 을 46+ 로 올리는 즉시 이 항목을 지운다.
+    # P4(remedy-yara 실제 구현) 착수 시 반드시 다시 확인한다.
+    { id = "RUSTSEC-2026-0222", reason = "yara-x 1.19 가 wasmtime 43 에 고정. 임베더가 Engine 을 섞을 때만 발생하므로 우리 사용 형태에 해당 없음. yara-x 갱신 시 제거" },
+
+    # rsa 0.9.10 — Marvin 공격(타이밍 사이드채널로 개인키 복구).
+    #
+    # 권고 원문: "information about the private key is leaked through timing
+    # information which is observable over the network."
+    #
+    # 두 전제가 모두 성립하지 않는다.
+    #   1. remedy 는 RSA **개인키를 갖지 않는다.** yara-x 가 rsa 를 쓰는 곳은
+    #      PE·Mach-O·MSI 모듈의 **서명 검증**(공개키 연산)이다.
+    #   2. remedy 는 네트워크 서비스를 노출하지 않는다 — 치료 경로에 네트워크가
+    #      없다(설계-01 D8). 공격자가 타이밍을 관측할 통로가 없다.
+    # 상위에 안전한 업그레이드가 없다("No safe upgrade is available!").
+    #
+    # 재검토 조건: 코어가 RSA 개인키를 다루게 되면(플러그인 서명 생성 등, P10)
+    # 즉시 재평가한다.
+    #
+    # **2026-08-25 재평가 완료 (P10).** 서명 방식이 Ed25519 기반 minisign 으로
+    # 확정됐다(설계-01 미결 5). rsa 경로를 쓰지 않으며, 개인키를 다루는 코드는
+    # 제품이 아니라 `xtask` 에만 있고 그것도 Ed25519 다.
+    { id = "RUSTSEC-2023-0071", reason = "개인키 연산과 네트워크 노출이 모두 없어 해당 없음. P10 에서 서명 방식이 Ed25519 로 확정되어 재평가 완료" },
+
+    # bincode 2.0.1 — 미유지보수(취약점 아님). yara-x 내부 직렬화에 쓰인다.
+    # 상위에 대체가 없고 우리가 직접 호출하지 않는다.
+    # 재검토 조건: yara-x 가 대체하거나, bincode 에 실제 취약점이 공지되면 즉시.
+    { id = "RUSTSEC-2025-0141", reason = "yara-x 내부 의존. 미유지보수 공지이며 취약점 아님. 대체 없음" },
+]
+
+[licenses]
+version = 2
+# 상용 배포 가능한 허용적 라이선스만 받는다. 목록에 없는 것은 실패한다.
+allow = [
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "MIT",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "Zlib",
+    "MPL-2.0",
+    "CDLA-Permissive-2.0",
+]
+confidence-threshold = 0.9
+exceptions = []
+# 워크스페이스 자체 크레이트는 publish = false 이며 사내 소유다.
+private = { ignore = true }
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+# 워크스페이스 내부 path 의존은 버전을 적지 않는다. 배포 대상이 아니므로 허용한다.
+allow-wildcard-paths = true
+# 치료 경로에 네트워크 코드가 링크되지 않아야 한다 (설계-01 D9).
+# 크레이트 수준 금지는 P10(enrich/submit 도입) 시점에 대상별로 다시 검토한다.
+deny = []
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

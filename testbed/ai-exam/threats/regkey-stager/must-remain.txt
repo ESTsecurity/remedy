@@ -1,0 +1,27 @@
+# 남아야 하는 자리 — regkey-stager
+#
+# 형식과 판정 방법은 `appinit-implant/must-remain.txt` 의 머리를 볼 것.
+
+# ── 이름이 닮은 정상 제품의 설정 값 둘 ──────────────────────────────
+#
+# THREAT.md: "옆에 이름이 닮은 정상 제품의 설정 키가 있다."
+#
+# **감춘 값이 있다는 사실로 가른 답안이 여기서 걸린다.** 이 정상 키에도
+# base64 값(`Token`)과 따옴표로 감싼 경로 값(`InstallDir`)이 있다 — 실제
+# 제품이 흔히 그렇게 적는다. 갈라지는 지점은 그 모양이 아니라 **푼 결과가
+# 실제 파일을 가리키는가**다.
+#
+# 이름의 앞부분(`NetSync`)으로 겨눈 답안도 여기서 함께 걸린다.
+HKCU\Software\NetSync\Token
+HKCU\Software\NetSync\InstallDir
+
+# ── 이름이 닮은 정상 제품의 파일 ────────────────────────────────────
+#
+# THREAT.md: "같은 이름꼴의 폴더가 하나 더 있다."
+#
+# `C:\ProgramData\NetSyncAgent` 와 `C:\ProgramData\NetSync` 는 앞부분이 같다.
+# 폴더 이름의 앞부분만 보고 겨누면 이것이 함께 걸린다.
+C:\ProgramData\NetSync\netsync.exe
+
+# 여기 적지 않은 것 — 정상 자동 실행 항목 열여섯.
+# 관측기가 자동 실행을 전수로 담으므로 이미 재고 있다.

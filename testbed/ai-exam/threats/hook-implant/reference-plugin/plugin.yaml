@@ -1,0 +1,105 @@
+# 정답 플러그인 — hook-implant (훅 폴더의 스크립트 셋 중 하나만 검체)
+#
+# **출제자의 답이지 응시자에게 주는 것이 아니다.** 기대 Op 이 도달 가능한지
+# 확인하는 것이 목적이다.
+#
+# # 이 위협이 묻는 것
+#
+# **내용으로만 갈린다.** 셋이 같은 폴더 · 같은 확장자 · 같은 시각이고 크기도
+# 몇백 바이트 차이다. 그리고 **자동 실행에 걸린 것이 둘**이라 그것으로도
+# 갈리지 않는다. 남는 것은 파일 안이고, 그것을 보는 길은 분석가가 함께 준 룰뿐이다.
+#
+# # 본문을 담는 선언이 없으면 이 답안은 실기기에서 미평가다
+#
+# 룰 술어는 레코드의 본문을 훑고, 그 본문은 `collect_extra` 가 선언해야
+# 스냅샷에 담긴다. 선언이 없으면 평가기는 *"안 맞았다"* 가 아니라 *"재지
+# 못했다"* 를 내고 판정이 영영 서지 않는다(린트가 오류로 막는다).
+#
+# **`ref` 가 가리키는 규칙은 본문 없이 매치돼야 한다.** 2패스이기 때문이다 —
+# 수집 → 1차 평가 → 그 증거의 본문 담기 → 재평가. 그래서 `hooks` 는 경로로만
+# 맞힌다. 룰 술어가 든 `implant` 를 가리키면 순환이다(본문이 있어야 증거가
+# 서고, 증거가 있어야 본문을 담는다).
+#
+# **`hooks` 는 치료 대상이 아니다.** 그것은 폴더의 스크립트 셋 전부이고,
+# 치료에 넣으면 정상 훅 둘이 함께 격리된다.
+#
+# # 자동 실행은 파일에서 파생한다
+#
+# 훅 폴더를 부르는 자동 실행이 둘인데 하나는 벤더가 설치한 정상 항목이다.
+# 폴더 이름으로 가르면 둘 다 걸리므로, **룰이 가려낸 그 파일의 경로**로
+# 좁힌다.
+
+schema_version: 1
+id: hook-implant
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [windows]
+name:
+  ko: "빌드 훅 임플란트 제거"
+  en: "Build-hook implant removal"
+
+# 읽기 권한 상한. 이 위협은 훅 폴더 하나 안에서 갈린다.
+# 자동 실행은 자리가 정해져 있어 적지 않는다(10-manifest.md 의 표).
+scan_roots:
+  - "C:\\ProgramData\\BuildKit\\hooks"
+
+subjects: [file, autorun]
+
+# 본문을 담는다. **경로로 매치되는 규칙**을 가리킨다(위 머리말의 2패스).
+collect_extra:
+  - { ref: hooks, content: true }
+
+detect:
+  # ── 후보 — 훅 폴더의 스크립트 전부 ────────────────────
+  # 본문을 담을 범위를 정하는 규칙이다. 판정에도 치료에도 쓰지 않는다.
+  # **본문이 담기는 범위와 아래 룰 술어의 범위가 같아야 한다** — 담기지 않은
+  # 파일이 룰 대상이 되면 그 레코드는 미평가로 남는다.
+  - id: hooks
+    subject: file
+    where:
+      all:
+        - {
+            field: path,
+            op: starts_with,
+            value: "C:\\ProgramData\\BuildKit\\hooks\\",
+          }
+        - { field: path, op: ends_with, value: ".js" }
+
+  # ── 검체 — 룰이 가려낸 하나 ───────────────────────────
+  # 자리로 먼저 좁힌다. `all` 은 첫 거짓에서 멈추므로 폴더 밖 레코드에
+  # 룰이 돌지 않는다.
+  - id: implant
+    subject: file
+    where:
+      all:
+        - {
+            field: path,
+            op: starts_with,
+            value: "C:\\ProgramData\\BuildKit\\hooks\\",
+          }
+        - { field: path, op: ends_with, value: ".js" }
+        - { yara: "rules/hook-implant.yar:hook_implant_marks" }
+    capture:
+      script: "path"
+
+  # ── 그 파일을 부르는 자동 실행 ────────────────────────
+  # 같은 폴더를 부르는 정상 항목이 하나 더 있으므로 **파일 경로**로 좁힌다.
+  - id: runkey
+    subject: autorun
+    where:
+      - { field: command, op: contains, value: "${implant.script}" }
+
+# 서로 다른 자리에서 온 두 근거의 논리곱 — 파일의 내용과 로그온 항목.
+# 룰 매치만으로 판정하면, 같은 표지를 가진 파일이 분석용으로 남아 있는
+# 기계에서 곧바로 오탐이 된다.
+verdict:
+  require: "implant and runkey"
+
+remediate:
+  remove:
+    - { ref: implant } # file.quarantine_only — 룰이 가려낸 하나
+    - { ref: runkey } # autorun.remove
+
+submit_hint:
+  samples: [implant]
+  confidentiality_min: 1

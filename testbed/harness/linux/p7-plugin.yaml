@@ -1,0 +1,36 @@
+# P12 P7 — 재부팅 뒤 재검사 실험 플러그인 (리눅스 랩 VM).
+#
+# 실제 위협을 다루지 않는다. `reboot-verify.sh` 가 세우는 **무해한 표지 파일
+# 하나**를 격리하고, 재부팅 뒤 재검사를 건다. 재검사 때는 표지가 금고에 있으므로
+# 판정이 없다(clean) — 그것이 이 회차가 기대하는 결과다.
+#
+# scan_roots 와 표지 경로는 `reboot-verify.sh` 의 FIXTURE_DIR 과 함께 바뀌어야 한다.
+
+schema_version: 1
+id: remedy-lab-p7
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [linux]
+name:
+  ko: "P7 재부팅 재검사 실험 플러그인"
+  en: "P7 reboot re-check lab plugin"
+
+scan_roots:
+  - "/opt/remedy-lab/p7"
+
+subjects: [file]
+
+detect:
+  - id: marker
+    subject: file
+    where:
+      - { field: path, op: equals, value: "/opt/remedy-lab/p7/marker.txt" }
+
+verdict:
+  require: "marker"
+
+remediate:
+  remove:
+    - { ref: marker }
+  verify:
+    after_reboot: true

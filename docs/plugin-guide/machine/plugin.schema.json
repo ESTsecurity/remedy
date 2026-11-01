@@ -1,0 +1,683 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "AllOf": {
+      "additionalProperties": false,
+      "properties": {
+        "all": {
+          "items": {
+            "$ref": "#/definitions/Condition"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "all"
+      ],
+      "type": "object"
+    },
+    "AnyOf": {
+      "additionalProperties": false,
+      "properties": {
+        "any": {
+          "items": {
+            "$ref": "#/definitions/Condition"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "any"
+      ],
+      "type": "object"
+    },
+    "CollectExtra": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/CollectRef"
+        },
+        {
+          "$ref": "#/definitions/CollectPath"
+        },
+        {
+          "$ref": "#/definitions/CollectSubject"
+        }
+      ]
+    },
+    "CollectPath": {
+      "additionalProperties": false,
+      "properties": {
+        "max_size": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "type": "object"
+    },
+    "CollectRef": {
+      "additionalProperties": false,
+      "properties": {
+        "content": {
+          "default": false,
+          "description": "파일 본문을 아티팩트에 담는다. 스냅샷이 커지고 개인정보 위험이 올라간다.",
+          "type": "boolean"
+        },
+        "ref": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "type": "object"
+    },
+    "CollectSubject": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "subject": {
+          "$ref": "#/definitions/Subject"
+        }
+      },
+      "required": [
+        "path",
+        "subject"
+      ],
+      "type": "object"
+    },
+    "Condition": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/AllOf"
+        },
+        {
+          "$ref": "#/definitions/AnyOf"
+        },
+        {
+          "$ref": "#/definitions/Predicate"
+        },
+        {
+          "items": {
+            "$ref": "#/definitions/Condition"
+          },
+          "type": "array"
+        }
+      ],
+      "description": "조건식. 술어 하나, 술어 목록(암묵적 all), 또는 `all`/`any` 묶음."
+    },
+    "DetectRule": {
+      "additionalProperties": false,
+      "properties": {
+        "capture": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "증거에서 값을 뽑아 이름을 붙인다. 감염마다 바뀌는 값(랜덤 폴더명 등)을 다루는 유일한 방법이다.",
+          "type": "object"
+        },
+        "exclude": {
+          "items": {
+            "$ref": "#/definitions/Predicate"
+          },
+          "type": "array"
+        },
+        "from": {
+          "description": "앞선 증거에서 파생된 경로로 탐색 범위를 좁힌다. 예: `${task.payload_dir}`",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "score": {
+          "description": "보고·우선순위 표시용. **판정 게이트가 아니다** (설계-02 §5).",
+          "format": "uint8",
+          "minimum": 0.0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "subject": {
+          "$ref": "#/definitions/Subject"
+        },
+        "where": {
+          "$ref": "#/definitions/Condition"
+        }
+      },
+      "required": [
+        "id",
+        "subject",
+        "where"
+      ],
+      "type": "object"
+    },
+    "EditOp": {
+      "enum": [
+        "strip"
+      ],
+      "type": "string"
+    },
+    "EditTarget": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "$ref": "#/definitions/EditOp"
+        },
+        "ref": {
+          "type": "string"
+        },
+        "value": {
+          "description": "*증거에서 파생된 값이어야 한다.** 리터럴 문자열로 임의 편집을 지시할 수 없다.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "op",
+        "ref",
+        "value"
+      ],
+      "type": "object"
+    },
+    "FieldPredicate": {
+      "additionalProperties": false,
+      "properties": {
+        "field": {
+          "type": "string"
+        },
+        "op": {
+          "$ref": "#/definitions/Operator"
+        },
+        "value": {
+          "description": "`exists` 를 제외한 모든 연산자가 요구한다."
+        }
+      },
+      "required": [
+        "field",
+        "op"
+      ],
+      "type": "object"
+    },
+    "Operator": {
+      "description": "룰 조건 연산자 15종 (설계-02 §4). 닫힌 집합이다.",
+      "oneOf": [
+        {
+          "enum": [
+            "equals",
+            "not_equals",
+            "contains",
+            "starts_with",
+            "ends_with",
+            "in",
+            "glob",
+            "exists",
+            "gt",
+            "lt"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "정규식. **RE2** 다 — 역참조·전방탐색이 없는 대신 입력 길이에 선형이라 룰이 스캐너를 정지시키는 사고가 원천적으로 불가능하다.",
+          "enum": [
+            "matches"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "버전 비교 — **점으로 나눈 숫자**만 견준다 (`8.2.29`).\n\n# 왜 `lt` 로 되지 않는가\n\n`lt` 는 수와 RFC3339 시각만 본다. `8.2.29` 는 둘 다 아니어서 *\"견줄 수 없습니다\"* 진단과 함께 거짓이 됐다. 두 자리로 줄여 적으면 읽히기는 하는데 **순서가 뒤집힌다** — 수로는 `8.10 < 8.9` 다.\n\n# 왜 `lt` 를 고치지 않았는가\n\n`1.10` 은 수로도 버전으로도 읽히고 순서가 반대다. 기존 연산자에 버전 의미를 끼워 넣으면 **이미 출하된 룰의 뜻이 조용히 바뀐다** — `sideload-drop` 이 `gt`·`lt` 로 시각과 크기를 견주고 있다. 그래서 작성자가 버전임을 적게 한다.\n\n# 꼬리는 받지 않는다\n\n`8.4.0RC1`(사전 배포)은 `8.4.0` 보다 **낮고** `8.2.29-1ubuntu1`(패키지 개정)은 `8.2.29` 보다 **높다**. 모양이 같고 순서가 반대라 문자열만으로 정할 수 없어 **추측하지 않고 견줄 수 없다고 말한다**. 패키지 개정을 가리는 것은 패키지 subject 의 몫이다.",
+          "enum": [
+            "version_lt"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "`version_lt` 의 반대 방향. 의미론은 그쪽 설명과 같다.",
+          "enum": [
+            "version_gt"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "**배포판이 적은 판**을 견준다 — 개정 꼬리까지 (`8.1.2-1ubuntu2.28`).\n\n# 왜 `version_lt` 로 안 되는가\n\n그쪽은 꼬리를 **일부러 거절한다** — 위 설명대로 모양이 같고 순서가 반대인 두 종류를 문자열만 보고 가를 수 없기 때문이다. 그래서 배포판 기계에서는 *\"재지 못했다\"*(종료 6)로 끝났고, **백포트를 가릴 수 없던 이유의 절반이 그것이다**: 배포판은 상류 번호를 올리지 않고 고치므로 고친 기계와 안 고친 기계의 상류 판이 **같다**(실측: ubuntu 22.04 의 `php8.1-cli` 가 `8.1.2-1ubuntu2.28`, 상류는 `8.1.2` 고정).\n\n# 꼬리의 순서는 추측이 아니라 규칙이다\n\ndpkg 가 그것을 정의한다(데비안 정책 §5.6.12) — `[epoch:]상류[-개정]` 을 셋으로 갈라 견주고, 조각 안에서는 숫자 아닌 부분과 숫자 부분을 번갈아 본다. **`~` 는 무엇보다도 먼저**이므로 `1.0~rc1 < 1.0 < 1.0+b1` 이다. 구현과 시험은 `remedy_detect::compare::pkg_version_cmp` 에 있다.\n\n# `_` 는 받지 않는다\n\napk 의 `_alpha` 는 그 판보다 **낮고** dpkg 의 규칙에서 `_` 는 글자보다 **뒤**다 — 같은 문자열의 순서가 두 매니저에서 반대다. 거절하고 *\"재지 못했다\"* 로 돌린다([`is_pkg_version`]). `-rN` 개정은 두 규칙이 같은 답을 내므로 apk 판도 이 연산자로 견준다.\n\n# 반대 방향을 두지 않은 이유\n\n`not pkg_version_lt` 가 `>=` 이므로 범위는 둘로 적을 수 있다 (`pkg_version_lt(위) and not pkg_version_lt(아래)`). `version_gt` 가 짝으로 있는 것은 그쪽이 먼저 생겼기 때문이고, 닫힌 집합은 **쓰이는 것만** 늘린다.",
+          "enum": [
+            "pkg_version_lt"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "파일 전용이 아니다. 바이트열을 제공하는 모든 필드에 적용된다.",
+          "enum": [
+            "yara"
+          ],
+          "type": "string"
+        }
+      ]
+    },
+    "PathTarget": {
+      "additionalProperties": false,
+      "properties": {
+        "guard": {
+          "description": "`recursive: true` 는 이것을 **필수로** 요구한다. 그 디렉터리 안에서 악성으로 판정된 파일 증거를 가리킨다 (설계-03 §4).",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "path": {
+          "type": "string"
+        },
+        "recursive": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "type": "object"
+    },
+    "Platform": {
+      "enum": [
+        "windows",
+        "linux",
+        "darwin"
+      ],
+      "type": "string"
+    },
+    "PluginKind": {
+      "description": "플러그인의 종류. [`PluginManifest::kind`] 를 보라.",
+      "oneOf": [
+        {
+          "description": "**바꾸지 않는다.** 취약한지만 본다.\n\n이 선언이 코어에게 주는 것은 둘이다. ① 선언한 자리가 전부 없으면 *\"다 보지 못했다\"* 가 아니라 **해당 없음**이다 — 제품이 설치되지 않은 기계가 가장 흔한 경우인데 그것이 *확인 필요*(종료 6)로 나갔다. ② 화면이 *위협* 이 아니라 **취약**이라고 말한다.",
+          "enum": [
+            "check"
+          ],
+          "type": "string"
+        }
+      ]
+    },
+    "Predicate": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/FieldPredicate"
+        },
+        {
+          "$ref": "#/definitions/YaraPredicate"
+        }
+      ],
+      "description": "단일 술어. 필드 비교 또는 YARA 참조."
+    },
+    "RefTarget": {
+      "additionalProperties": false,
+      "properties": {
+        "descendants": {
+          "default": false,
+          "description": "프로세스 대상의 **자손까지** 집합에 포함한다 (설계-03 §2).\n\n디렉터리의 `recursive: true` 와 같은 자리다 — 둘 다 \"이것 하나가 아니라 이것이 거느린 것까지\" 를 뜻하고, 둘 다 **명시해야만** 켜진다.\n\n부모-자식 관계로만 식별되는 감시자를 술어로 잡을 수 없을 때 쓴다. 켜도 `max_targets` 상한은 확장된 집합 전체에 그대로 걸리고, 보호 대상인 뿌리는 자손의 문이 되지 않는다.",
+          "type": "boolean"
+        },
+        "ref": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "type": "object"
+    },
+    "Remediate": {
+      "additionalProperties": false,
+      "description": "\"무엇이 남아 있으면 안 되는가\" 를 선언한다.\n\n**순서·백업·프로세스 종료를 여기 적지 않는다.** 계획기가 도출한다 (설계-03 §2).",
+      "properties": {
+        "edit": {
+          "description": "값의 악성 부분만 제거한다. 통째로 지우면 시스템을 못 쓰게 되는 대상이 오히려 주류다 (설계-02 §6-1).",
+          "items": {
+            "$ref": "#/definitions/EditTarget"
+          },
+          "type": "array"
+        },
+        "remove": {
+          "items": {
+            "$ref": "#/definitions/RemoveTarget"
+          },
+          "type": "array"
+        },
+        "restore": {
+          "items": {
+            "$ref": "#/definitions/RestoreTarget"
+          },
+          "type": "array"
+        },
+        "verify": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/VerifySpec"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "RemoveTarget": {
+      "anyOf": [
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/RefTarget"
+            }
+          ],
+          "description": "증거 참조."
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/PathTarget"
+            }
+          ],
+          "description": "증거에서 파생된 경로. **리터럴 절대 경로는 거부한다** — 증거 없는 삭제를 문법 수준에서 불가능하게 한다 (설계-02 §6)."
+        }
+      ]
+    },
+    "RestoreDefaultKind": {
+      "enum": [
+        "default"
+      ],
+      "type": "string"
+    },
+    "RestoreTarget": {
+      "anyOf": [
+        {
+          "description": "이름으로 지정하는 원복. 예: `av_exclusions`",
+          "type": "string"
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/RestoreToDefault"
+            }
+          ],
+          "description": "코어가 내장한 OS 기본값 카탈로그에서만 값을 가져온다."
+        }
+      ]
+    },
+    "RestoreToDefault": {
+      "additionalProperties": false,
+      "properties": {
+        "ref": {
+          "type": "string"
+        },
+        "to": {
+          "$ref": "#/definitions/RestoreDefaultKind"
+        }
+      },
+      "required": [
+        "ref",
+        "to"
+      ],
+      "type": "object"
+    },
+    "SignerRef": {
+      "additionalProperties": false,
+      "description": "서명 주체. 둘 중 하나만 적으면 그 항목만으로 대조한다.",
+      "properties": {
+        "subject": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "thumbprint": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "Subject": {
+      "description": "관찰 대상 타입 18종 (설계-02 §3).\n\n순서는 설계-02 §3 표와 같다. 사람이 두 목록을 대조할 일이 남아 있는 한 순서가 같은 편이 낫다.\n\n카탈로그에서 **뺀** 것은 [`RETIRED_SUBJECTS`] 에 이유와 함께 남는다.",
+      "enum": [
+        "persistence",
+        "autorun",
+        "service",
+        "process",
+        "file",
+        "indicator",
+        "registry_value",
+        "registry_key",
+        "text_config",
+        "structured_config",
+        "shortcut",
+        "boot_config",
+        "hosts_entry",
+        "browser_extension",
+        "av_exclusion",
+        "cert_store",
+        "proxy_config",
+        "firewall_rule",
+        "package"
+      ],
+      "type": "string"
+    },
+    "SubmitHint": {
+      "additionalProperties": false,
+      "description": "제출 시 무엇이 유용한지에 대한 **제안이지 명령이 아니다.** 실제 제출은 사용자 동의·미리보기·마스킹을 거친다 (설계-00 §7). 분석가가 **손으로 올릴 때** 볼 판단 근거.\n\n# 자동 제출기가 볼 값이 아니다\n\n제출 기능은 제품 범위 밖이다 (2026-08-28 P13 결정, 설계-09 \"제출을 제품 밖으로\"). 되돌릴 수 없는 유일한 동작이 되고, 선행 조건(법무 검토)이 설계 밖에 있으며, 손으로 올리는 경로가 이미 있기 때문이다.\n\n**그래도 이 필드는 남는다.** 플러그인 작성자의 판단 — *\"무엇을 함께 올리면 유용한가\"* 와 *\"이것을 어느 등급으로 다뤄야 하는가\"* — 는 제출을 자동화하든 안 하든 유효하다. 계획이 그것을 나르고 `support-bundle` 이 보여 준다.",
+      "properties": {
+        "confidentiality_min": {
+          "description": "기밀 등급 **하한**. 0 공개 · 1 대외비 · 2 기밀 · 3 극비.\n\n**하한만 올릴 수 있다.** 플러그인이 기밀 등급을 낮추는 방향으로 영향을 줄 수 없다 (설계-05 §4-2) — 낮출 수 있으면 서명된 룰 하나가 고객 데이터의 등급을 내릴 수 있고, 그것 자체가 유출 경로다.\n\n자동 제출기가 없는 지금은 **손으로 올리는 사람에게 주는 경고**다.",
+          "format": "uint8",
+          "minimum": 0.0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "samples": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "Verdict": {
+      "additionalProperties": false,
+      "description": "감염 판정 게이트.\n\n**점수 임계값을 게이트로 쓸 수 없다.** 서로 독립적인 근거의 논리곱을 명시하게 하면 룰 하나의 오탐이 곧바로 삭제로 이어지지 않는다 (설계-02 §5).",
+      "properties": {
+        "require": {
+          "description": "`and` `or` `not` `(...)` 과 `<rule-id>`, `count(<rule-id>) >= N` 만 지원한다.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "require"
+      ],
+      "type": "object"
+    },
+    "VerifySpec": {
+      "additionalProperties": false,
+      "properties": {
+        "after_reboot": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "YaraPredicate": {
+      "additionalProperties": false,
+      "description": "`rules/<파일>.yar:<룰 이름>` 형태로 참조한다.",
+      "properties": {
+        "yara": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "yara"
+      ],
+      "type": "object"
+    }
+  },
+  "properties": {
+    "allow_removable": {
+      "default": false,
+      "description": "이동식 매체 접근. 기본 false.\n\n켜는 것만으로는 부족하다 — 이동식 매체 대상 파괴 Action 은 대화형에서 별도 승인을 받고 무인 모드에서는 계획에 포함되지 않는다. 연결된 USB 가 다른 사람의 것일 수 있기 때문이다 (설계-02 §2).",
+      "type": "boolean"
+    },
+    "collect_extra": {
+      "default": [],
+      "description": "분석에 필요한 추가 수집. 파괴가 아니므로 계획에 나타나지 않지만 수집된 사실은 감사 로그에 남는다 (설계-02 §6-1).",
+      "items": {
+        "$ref": "#/definitions/CollectExtra"
+      },
+      "type": "array"
+    },
+    "detect": {
+      "items": {
+        "$ref": "#/definitions/DetectRule"
+      },
+      "type": "array"
+    },
+    "id": {
+      "description": "전역 고유. `[a-z0-9-]+`",
+      "type": "string"
+    },
+    "kind": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/PluginKind"
+        }
+      ],
+      "default": null,
+      "description": "이 플러그인이 **무엇을 하는 것인가.** 적지 않으면 치료 플러그인이다.\n\n# 왜 선언이어야 하는가 (B-1 · 2026-10-26)\n\n코어는 점검과 치료를 **가릴 수 없었다.** `remediate` 가 없다는 사실로 유추하는 길이 있었지만 그것은 틀린다 — 가이드 예제 `ex01-scheduled-task` 는 `remediate` 가 없고 **악성 예약 작업을 탐지한다**(점검이 아니다). 그 유추를 코어에 넣으면 악성 작업에 *\"취약\"* 이라고 말하게 된다.\n\n더 나쁜 것이 있었다. 관측 회귀를 지키는 장치들의 픽스처가 전부 `remediate` 없이 만들어진다 — `Invoke-ObsVerify.ps1` 의 여덟, `capture-console.sh` 의 `force-incomplete`, `verify_record.rs` 의 `plugin_at`. 유추를 넣으면 **그 셋이 먼저 꺼지고**, 아무 곳도 열어 보지 못한 스캔이 *\"위협 없음\"* 을 내는 구멍(관측 01 D2)의 회귀 방지가 사라진다.\n\n# 값이 하나뿐인 이유\n\n`check` 하나다. *\"치료\"* 를 적는 길을 **문법으로 닫는다** — 출하 중인 플러그인 20개는 전부 `remediate` 를 갖고 이 키를 적지 않으므로, 값을 둘로 만들면 20개에 `kind: remediate` 를 적는 길이 열리고 그 길은 버전 올림 20개 · `versions.lock.json` · 실기기 치료 증거 20벌 재측정 · `RELEASE.md` · 재서명을 한꺼번에 켠다. 막는 것을 규율이 아니라 타입으로 한다.\n\n# 키가 있으면 값이 있어야 한다\n\n`#[serde(default)]` 만 걸면 **`kind:`(값 없음) · `kind: null` · `kind: ~` 가 키를 지운 것과 같아진다** — 플러그인이 조용히 치료로 돌아가고 네 관문 (serde · `validate` · `plugin lint` · 공개 스키마)이 **전부 초록**이다. 값 오타(`chekc`)와 키 오타(`knid`)는 거부되는데 *\"값을 비웠다\"* 만 통과했다 (실측 2026-10-26: 종료 0 → 6, *취약* → *위협*). 가장 흔한 사고가 가장 조용했다. 그래서 키가 오면 열거값이기를 요구한다. 공개 스키마도 같은 말을 해야 한다 — `Option` 그대로 두면 생성물이 `anyOf: [PluginKind, null]` 로 **null 을 명시적으로 허용**해 외부 검증기가 통과시킨다. 키 부재는 `required` 에 없는 것으로 이미 표현된다."
+    },
+    "min_core": {
+      "description": "요구 코어 최소 버전",
+      "type": "string"
+    },
+    "name": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "type": "object"
+    },
+    "platforms": {
+      "items": {
+        "$ref": "#/definitions/Platform"
+      },
+      "type": "array"
+    },
+    "references": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "remediate": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Remediate"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "scan_roots": {
+      "description": "스캔·읽기가 허용되는 경로 상한.\n\n**성능 최적화가 아니라 권한 상한이다.** 서명된 플러그인이 임의 경로를 읽을 수 있으면 그 자체가 정보 수집 도구가 된다 (설계-02 §2).",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "schema_version": {
+      "description": "SDK 스키마 버전. 코어가 호환성을 판단한다 (설계-02 §10).",
+      "format": "uint32",
+      "minimum": 0.0,
+      "type": "integer"
+    },
+    "signed_malware": {
+      "default": [],
+      "description": "정상 코드서명 인증서로 서명된 악성코드를 다룰 때 열거하는 서명 주체.\n\n설계-03 §3 2층(신뢰 서명 검증)은 유효한 서명이 있는 실행 파일을 기본적으로 삭제 대상에서 제외한다. 서명된 악성코드는 실재하므로(EvilAI 계열) 예외 경로가 필요하지만, **포괄적 무시는 불가**다.\n\n설계-03 은 \"`signed_malware: true` 와 함께 서명 주체를 열거\" 로 적었으나 플래그와 목록을 따로 두면 \"true + 빈 목록\" 이라는 포괄적 무시가 표현 가능해진다. **목록 자체를 플래그로 삼아 그것을 표현 불가능하게 만든다.** 비어 있거나 없으면 2층을 통과하지 못한다.",
+      "items": {
+        "$ref": "#/definitions/SignerRef"
+      },
+      "type": "array"
+    },
+    "subject_roots": {
+      "additionalProperties": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "description": "subject 하나에만 적용되는 **더 좁은** 상한. 적지 않은 subject 는 `scan_roots` 전부를 쓴다.\n\n# 왜 필요한가\n\n두 요구가 부딪히는 자리가 있다. 2026-09-04 `appinit-r3` 회차가 그것을 처음 짚었고, 실기기에서 확인했다.\n\n검체의 페이로드 폴더 이름은 **증거에서 파생된다**(`AppInit_DLLs` 값이 가리키는 경로). 미리 못박을 수 없으니 부모인 `%PROGRAMDATA%` 를 선언해야 한다. 그런데 거기에 `structured_config` 를 함께 선언하면 JSON 을 잎 단위로 펴다가 상한에 걸린다 — 실측(2026-09-05, 당시 상한 5만)으로 정확히 50,000 에서 잘렸고 종료 코드 6(관측 불완전)이 나왔다. 상한은 2026-09-07 에 500,000 으로 올렸지만 넓은 루트에 펴는 것은 여전히 낭비다. Windows 자신의 원격 분석 설정(`utc.privacy.json` 4.2 MB)이 그것을 삼킨다.\n\n그전에는 셋 중 하나를 골라야 했고 **셋 다 무언가를 잃었다** — 넓히면 종료 코드 6, 폴더 이름을 못박으면 변종을 놓치고, `structured_config` 를 포기하면 정상 제품 설정에 끼워 넣은 항목을 뺄 수 없다.\n\n```yaml scan_roots: - \"%PROGRAMDATA%\"                       # 파일은 여기 전부 - \"HKLM\\\\SOFTWARE\\\\...\\\\Windows\" subject_roots: structured_config: [\"%PROGRAMDATA%\\\\Acme\\\\Agent\"]   # 설정은 여기만 ```\n\n# 좁히기만 한다\n\n여기 적는 경로는 **`scan_roots` 안에 있어야 한다**(린트가 오류로 막는다). 그래서 읽기 권한의 상한은 여전히 `scan_roots` 하나이고, 이 필드는 그 안에서 subject 하나를 더 좁힐 뿐이다 — 넓히는 길이 없다는 것이 이 설계의 요점이다.\n\n빈 목록은 적을 수 없다. 그것은 \"이 subject 는 아무 데도 보지 않는다\" 이고, 결과는 조용한 0건이다.",
+      "type": "object"
+    },
+    "subjects": {
+      "description": "열거가 허용되는 대상 타입 상한. 선언하지 않은 subject 는 detect 에서 쓸 수 없다.",
+      "items": {
+        "$ref": "#/definitions/Subject"
+      },
+      "type": "array"
+    },
+    "submit_hint": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/SubmitHint"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "text_config_dirs": {
+      "description": "확장자가 없어도 `text_config` 로 읽을 **드롭인 디렉터리** (C-5).\n\n# 왜 필요한가\n\n코어는 확장자로 설정 파일을 가린다(`.ini` · `.conf` · `.htaccess` …). 그런데 **드롭인 디렉터리의 파일은 확장자가 없다** — 실측(청정 코퍼스): `/etc/pam.d/` 171건이 전부 그렇고 `text_config` 로 잡힌 것이 **0건**이었다. 그 디렉터리에 파일 하나를 떨어뜨리는 것이 바로 그 자리를 쓰는 수법이라 **이름을 미리 적는 방식으로는 막을 수 없다.**\n\n```yaml scan_roots: [\"/etc\"] subjects: [text_config] text_config_dirs: [\"/etc/pam.d\", \"/etc/sudoers.d\"] ```\n\n# 왜 코어가 아니라 매니페스트인가\n\n자리가 **배포판마다 다르다**(`/etc/php/8.2/fpm/conf.d` · `/etc/php.d`). 코어에 박으면 그 목록이 영원히 낡고, 룰만 배포하는 길 (전체 그림 §16)이 그 자리에서 끊긴다. 반대로 접미사는 배포판과 무관하므로 코어가 들고 있다 — 매니페스트가 정하면 같은 목록을 플러그인마다 적는다.\n\n# 상한은 여전히 `scan_roots` 하나다\n\n여기 적는 경로는 **`scan_roots` 안에 있어야 한다**(린트가 오류로 막는다). `subject_roots` 와 방향만 반대다 — 그쪽은 같은 상한 안에서 좁히고 이쪽은 같은 상한 안에서 읽는 것을 넓힌다. **상한 밖으로 나가는 길은 없다.**\n\n그리고 **직접 자식만** 읽는다. 재귀로 열면 `/etc` 한 줄로 트리 전체가 설정이 되어 스냅샷이 터지고 `/etc/ssl/private` 같은 자리가 줄 단위로 따라 들어온다. 드롭인 디렉터리는 평평하므로 잃는 것이 없다.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "verdict": {
+      "$ref": "#/definitions/Verdict"
+    },
+    "version": {
+      "description": "semver",
+      "type": "string"
+    }
+  },
+  "required": [
+    "detect",
+    "id",
+    "min_core",
+    "name",
+    "platforms",
+    "scan_roots",
+    "schema_version",
+    "subjects",
+    "verdict",
+    "version"
+  ],
+  "title": "PluginManifest",
+  "type": "object"
+}

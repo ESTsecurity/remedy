@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "kind": "remedy.plan",
+  "run_id": "example-ex02",
+  "created": "2026-08-26T00:00:00Z",
+  "host": {
+    "hostname": "EXAMPLE-PC",
+    "os": "windows",
+    "version": "10.0.19045",
+    "arch": "x86_64"
+  },
+  "core": {
+    "version": "0.0.0",
+    "build": "example"
+  },
+  "plugins": [],
+  "actions": [
+    {
+      "seq": 1,
+      "op": "registry.delete_value",
+      "target": "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\taskmgr.exe\\Debugger",
+      "because": [
+        "ifeo#0"
+      ],
+      "backup": {
+        "entry": "",
+        "kind": "registry_value"
+      },
+      "reversible": true,
+      "risk": "medium"
+    },
+    {
+      "seq": 2,
+      "op": "file.quarantine_only",
+      "target": "C:\\Users\\analyst\\AppData\\Local\\Programs\\svc-9f2c\\hook.exe",
+      "because": [
+        "payload#0"
+      ],
+      "backup": {
+        "entry": "",
+        "kind": "file"
+      },
+      "reversible": true,
+      "risk": "low"
+    }
+  ],
+  "verdicts": [
+    "g0"
+  ],
+  "observation": {
+    "truncated": false,
+    "denied_dirs": 0,
+    "declared_roots": 2
+  }
+}

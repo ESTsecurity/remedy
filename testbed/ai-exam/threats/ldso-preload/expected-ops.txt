@@ -1,0 +1,40 @@
+# 감염 스냅샷에서 반드시 나와야 하는 Op (채점 4번).
+#
+# 이 위협이 처음 밟는 자리가 둘이다 — text_config.remove_line 과
+# shortcut.strip_args. 앞의 두 위협은 파일·레지스트리·서비스만 다뤘고,
+# 10-manifest.md 표의 "scan_roots 가 범위를 정한다" 쪽 subject 는 아무도
+# 밟지 않았다.
+#
+# 둘 다 **지우는 것이 아니라 빼는 것**이다. 설정 파일도 .desktop 도 정상
+# 응용의 것이라 통째로 지우면 그 응용이 깨진다. service-userinit 의
+# Userinit 과 같은 판단을 다른 subject 에서 한 번 더 묻는다.
+#
+# **dir.delete_recursive 는 여기 없다.** 그 Op 은 Windows 전용이고
+# (machine/ops.json 의 linux_from 이 null 이다) 이 위협은 리눅스다.
+# 페이로드 폴더는 폴더째가 아니라 파일 단위로 격리된다. 처음 이 목록에
+# 넣었다가 정답 플러그인이 도달하지 못해 드러났다 — 그것을 재라고 있는
+# 검사(every_threat_has_a_reference_answer_that_passes)가 잡았다.
+
+# ── 2026-09-04: Op 이름만 적던 것을 (Op, 대상)으로 조인다 ──────────────
+#
+# 그전까지 이 파일은 `registry.delete_value` 처럼 **종류만** 적었고, 그것은
+# "그 종류가 하나라도 있으면 통과" 를 뜻했다. appinit-r3 회차의 사전 기준에
+# 실측으로 적었듯 — AppInit_DLLs 만 지우고 LoadAppInit_DLLs 를 남긴 변형이
+# 네 판정을 전부 통과하고 경고도 0이었다.
+#
+# 개수를 세는 것으로는 부족하다. 그러면 AppInit_DLLs 와 Spooler 를 지운 답이
+# 2건으로 통과한다 — 절반짜리 치료보다 나쁜 실패다. 그래서 **대상**을 적는다.
+#
+# 대상 문자열은 응시자가 아니라 코어가 증거에서 조립한다(`derive.rs`). 룰을
+# 어떻게 적었든 같은 레코드를 짚으면 같은 문자열이 나오므로, 답안마다 표기가
+# 달라 비교가 무너지지 않는다. `::` 뒤는 `match` 다 — 대상만으로는 구분되지
+# 않는 Op 이 있다(`structured_config.remove_key` 는 어느 항목을 빼는가가
+# 거기에만 있고, `process.kill` 은 대상 자체가 없다).
+#
+# 아래 목록은 **정답 플러그인의 계획을 그대로 옮긴 것**이고, 사람이 한 줄씩
+# 읽어 위협 설명의 요구와 맞는지 확인했다.
+
+file.quarantine_only /usr/local/lib/.crypt-9d41/.seed
+file.quarantine_only /usr/local/lib/.crypt-9d41/libnsl_compat.so.2
+shortcut.strip_args /usr/share/applications/org.example.Editor.desktop :: args=--module /usr/local/lib/.crypt-9d41/libnsl_compat.so.2
+text_config.remove_line /etc/ld.so.conf.d/libc.conf :: line_no=3, line=/usr/local/lib/.crypt-9d41

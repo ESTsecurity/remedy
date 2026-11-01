@@ -1,0 +1,91 @@
+schema_version: 1
+id: evilai-locust-node-loader
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [windows]
+name:
+  ko: "EvilAI (Locust) - 정상 node.exe 를 빌려 쓰는 JavaScript 로더"
+  en: "EvilAI (Locust) - JavaScript loader riding a legitimate node.exe"
+
+# 권한 제한. 여기 밖은 볼 수도 지울 수도 없다. 관측된 위치만 연다.
+scan_roots:
+  - "%SystemRoot%\\System32\\Tasks\\Microsoft\\Windows"            # 예약 작업이 숨는 곳 (\Microsoft\Windows\ 아래만)
+  - "%LOCALAPPDATA%\\Programs"                                      # 페이로드 폴더의 부모. 파생 경로가 여기 안이어야 한다
+  - "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"       # 자동 실행 값
+  - "HKLM\\SOFTWARE\\Microsoft\\Windows Defender\\Exclusions\\Paths" # Defender 경로 제외
+
+subjects: [persistence, file, autorun, process, av_exclusion]
+
+detect:
+  # ── 근거 1: 예약 작업 (부모, 재발원) ───────────────────────────────
+  # 정상 Node 개발 PC 도 node.exe + .js 예약 작업을 갖는다. 이 규칙 하나로는
+  # 판정하지 않는다. 폴더 이름은 감염마다 바뀌므로 리터럴 대신 증거에서 뽑는다.
+  - id: task
+    subject: persistence
+    where:
+      all:
+        - { field: win.task.register_path, op: starts_with, value: '\Microsoft\Windows\' }
+        - { field: command,                op: matches,     value: '(?i)\\node\.exe"?$' }
+        - { field: args,                   op: matches,     value: '(?i)\.js("|\s|$)' }
+    capture:
+      script: "args | first_path"
+      dir: "${script} | dirname"
+
+  # ── 자식: 폴더 안의 .js (경로 매치 - 본문 없이 매치되므로 collect_extra 의 ref 대상) ──
+  - id: payload-file
+    subject: file
+    from: "${task.dir}"
+    where:
+      - { field: path, op: ends_with, value: ".js" }
+
+  # ── 근거 2: 그 .js 의 본문 (분석가 YARA). 전역이 아니라 task.dir 안에서만 돈다 ──
+  - id: payload
+    subject: file
+    from: "${task.dir}"
+    where:
+      - { yara: "rules/evilai.yar:evilai_locust_js" }
+
+  # ── 자식: 같은 스크립트를 가리키는 Run 값 (재발원). 판정 근거가 아니라 제거 대상 ──
+  - id: run
+    subject: autorun
+    from: "${task.dir}"
+    where:
+      - { field: command, op: matches, value: '(?i)\\node\.exe"?\s+.*\\AppData\\Local\\Programs\\.*\.js("|\s|$)' }
+
+  # ── 자식: 그 스크립트를 인자로 받아 떠 있는 node.exe (있을 때만). 파일 잠금 해제용 ──
+  - id: proc
+    subject: process
+    from: "${task.dir}"
+    where:
+      all:
+        - { field: image_path, op: matches, value: '(?i)\\node\.exe$' }
+        - { field: args,       op: matches, value: '(?i)\\AppData\\Local\\Programs\\.*\.js("|\s|$)' }
+
+# 독립적인 두 근거의 논리곱: 예약 작업(persistence) AND 그 폴더 안 파일 본문(file/YARA).
+# Run 값·프로세스는 판정에 넣지 않는다 - 없을 때도 있다고 관측됐다.
+verdict:
+  require: "task and payload"
+
+# YARA 가 볼 본문은 저절로 생기지 않는다. 경로로 매치되는 규칙을 가리켜 본문을 읽힌다.
+collect_extra:
+  - { ref: payload-file, content: true }
+
+remediate:
+  remove:
+    - { ref: task }                                        # 예약 작업 (재발원 - 코어가 먼저 처리)
+    - { ref: run }                                         # Run 값 (재발원)
+    - { ref: proc }                                        # 스크립트를 물고 있는 node.exe 프로세스
+    - { ref: payload }                                     # YARA 로 확인된 페이로드 파일
+    - { path: "${task.dir}", recursive: true, guard: payload }   # 검체가 만든 폴더. guard 는 그 안의 악성 판정
+  restore:
+    - av_exclusions                                        # Defender 제외 목록에서 우리 경로를 뺀다
+  verify:
+    after_reboot: true                                     # 재발원이 둘이라 재부팅 후 같은 룰로 재판정
+
+# 서명된 실행 파일을 지우려는 것이 아니다. node.exe 는 대상이 아니므로 비워 둔다.
+# (signed_malware 는 선언하지 않는다)
+
+# 검체 경로에 사용자 계정명이 들어간다 (C:\Users\<이름>\...). 공개(0) 로 나가면 안 된다.
+submit_hint:
+  samples: [payload]
+  confidentiality_min: 1

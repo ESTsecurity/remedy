@@ -1,0 +1,81 @@
+# 이 기계(개발·하네스를 돌리는 호스트)의 사실 — **견본**
+#
+# 쓰는 법: 이 파일을 `host.yml` 로 복사하고 자기 값을 채운다. `host.yml` 은
+# 커밋되지 않는다(`.gitignore`). 견본만 저장소에 있다.
+#
+# 왜 파일로 두는가: 하네스 스크립트와 문서가 경로·주소를 **한 곳**에서 보게
+# 하려는 것이다. 코드에 박으면 기계가 바뀔 때마다 여러 곳이 어긋난다.
+# 값을 모르면 그 칸을 비워 둔다 — 비어 있는 것과 틀린 것은 다르다.
+#
+# 값은 따옴표로 감싼다. 따옴표 없는 YAML 값은 `: ` 나 꼬리 0 에서 뜻이 바뀐다.
+
+updated: 'YYYY-MM-DD'
+
+host:
+  pc: '<이 기계의 이름>'
+  os: '<운영체제와 판>'
+  ram_gb: 0
+  # 외장 디스크에 큰 자료를 두는 경우에만 적는다. 안 쓰면 이 절을 지운다.
+  external_ssd:
+    drive: '<드라이브 글자>'
+    note: '<없으면 무엇이 안 도는지>'
+    source: '<어떻게 확인했나>'
+  samples: '<검체를 두는 폴더 — 저장소 밖>'
+  os_images: '<설치 이미지를 두는 폴더>'
+
+vmware:
+  product: '<VMware 제품과 판>'
+  vmrun: '<vmrun 실행 파일의 전체 경로>'
+  vmrun_from_wsl: '<WSL 에서 본 같은 경로>'
+  network:
+    # 랩 VM 이 붙는 NAT 망. 호스트 쪽 주소가 게스트에서 본 '호스트' 다.
+    vmnet8_nat: '<NAT 대역>'
+    host_ip: '<호스트의 NAT 주소>'
+    reachable_from_wsl: '<WSL 에서 닿는지와 확인 방법>'
+
+wsl:
+  distro: '<배포판과 판>'
+  user: '<WSL 계정 이름>'
+  vhdx: '<WSL 디스크 파일의 자리>'
+  repo: '<WSL 에서 본 이 저장소 경로>'
+  cargo_home: '<WSL 에서 쓸 CARGO_HOME>'
+  lab_ssh_dir: '<랩 전용 SSH 키를 두는 폴더>'
+
+docker:
+  version: '<도커 판>'
+  data_root: '<도커 데이터 자리>'
+  build_image: '<리눅스 배포본을 짓는 이미지>'
+
+# 배포 바이너리의 신원. **해시를 적어 두는 까닭**: 채점 증거가 어느 바이너리로
+# 재어진 것인지 뒤에 알 수 없으면 그 증거는 증거가 아니다.
+binaries:
+  code_commit: '<이 둘을 지은 커밋>'
+  linux:
+    path: '<만들어진 자리>'
+    sha256: '<64 자리>'
+    code_commit: '<이 바이너리를 지은 커밋>'
+    evidence: '<무엇을 이것으로 쟀나>'
+    build: '<지은 명령>'
+    build_from: '<어디서 지었나 — 컨테이너·WSL·호스트>'
+    source: '<확인한 방법>'
+  windows:
+    path: ''
+    sha256: ''
+    note: '<알아 둘 것 — 예컨대 정적 링크 여부>'
+    evidence: ''
+    build: ''
+    source: ''
+
+# 채점·검증을 어떤 명령으로 돌리는가. 사람이 기억하는 대신 적어 둔다.
+grading:
+  exam_bundles: '<응시 꾸러미를 만드는 명령>'
+  exam_score: '<채점 명령>'
+  apply_windows: '<Windows 실기기 채점 명령>'
+  apply_linux: '<Linux 실기기 채점 명령>'
+  results: '<결과가 남는 자리 — 저장소 밖>'
+  local_ci: '<리눅스 검사를 로컬에서 도는 명령>'
+
+git:
+  remote: '<원격 주소>'
+  push: '<push 에 제약이 있으면 적는다>'
+  source: '<확인한 방법>'

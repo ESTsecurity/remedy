@@ -1,0 +1,94 @@
+# 정답 플러그인 — ssh-backdoor (리눅스 SSH 백도어)
+#
+# # 이 위협이 묻는 것
+#
+# **리눅스 cron 을 처음 다룬다.** 앞의 여덟은 지속성을 Windows 예약 작업으로만
+# 밟았다(`evilai-locust`). cron 수집기(`cron.rs`)는 P12 에 섰는데 그것을 밟는
+# 위협이 없었다 — cron 줄은 `persistence` 로 모인다.
+#
+# **다만 밟는 것은 탐지 쪽이다.** 치료는 `persistence.delete` 가 아니라 파일
+# 격리로 한다. 까닭 둘: (1) 이 cron 파일은 통째로 검체의 것이라 줄만 빼면 빈
+# 파일이 남고, (2) 리눅스 채점기가 cron 대상 모양(`<파일>:<줄번호>`)을 몰라
+# 그 대상이 사라졌는지 재지 못한다. (2)는 하네스의 공백이고 위협 설계로 덮을
+# 자리가 아니다 — `expected-ops.txt` 의 머리에 적어 두었다.
+#
+# # 판정 근거는 내용, 치료 대상은 파일
+#
+# `sshd_config.d/` 에 조각 둘이 나란히 있다. 이름(`99-maint` vs `10-hardening`)
+# 으로는 가를 수 없고 — 둘 다 그럴듯하다 — 자리로도 가를 수 없다. 갈라지는
+# 지점은 **한 줄**이다: 공격자 키 파일을 `AuthorizedKeysFile` 로 지정하는 줄.
+# 그 줄이 `text_config` 로 거둬지므로 그것을 증거로 쓴다.
+#
+# 다만 **치료는 줄이 아니라 파일**이다. 그 조각은 통째로 공격자가 만든 것이고,
+# 줄 하나만 빼면 `PermitRootLogin yes` 가 남는다. `ldso-preload` 와 반대의
+# 판단이다 — 저쪽은 정상 파일에 줄이 끼어든 것이라 줄만 뺐다.
+#
+# # 넷이 서로를 되살린다
+#
+# 설정 조각 · 키 파일 · cron · 페이로드. cron 이 10분마다 앞의 둘을 다시
+# 깔므로 **cron 을 남기면 나머지를 지워도 돌아온다.** `service-userinit` 의
+# 이중 지속성과 같은 부류이고, 여기서는 되살리는 쪽이 cron 이다.
+
+schema_version: 1
+id: ssh-backdoor
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [linux]
+name:
+  ko: "SSH 백도어 제거"
+  en: "SSH backdoor removal"
+
+scan_roots:
+  - "/etc/ssh"
+  - "/etc/cron.d"
+  - "/usr/local/sbin"
+
+subjects: [file, persistence, text_config]
+
+detect:
+  # 증거. 정상 조각에는 이 줄이 없다 — 그쪽은 `PermitRootLogin no` 로 끝난다.
+  - id: keyfile_line
+    subject: text_config
+    where:
+      - { field: line, op: starts_with, value: "AuthorizedKeysFile /etc/ssh/.maint/" }
+
+  # 치료 대상 1 — 그 줄이 사는 조각. 통째로 공격자의 것이라 줄만 빼지 않는다.
+  - id: backdoor_conf
+    subject: file
+    where:
+      - { field: path, op: equals, value: "/etc/ssh/sshd_config.d/99-maint.conf" }
+
+  # 치료 대상 2 — 공격자 키, 그 키를 다시 까는 페이로드, 그리고 그 페이로드를
+  # 10분마다 부르는 정기 작업 파일.
+  #
+  # **정기 작업은 줄이 아니라 파일로 없앤다.** `/etc/cron.d/ssh-maint` 는
+  # 통째로 검체의 것이라(정상 정기 작업은 `logrotate-custom` 이라는 다른
+  # 파일이다) 줄만 빼면 빈 파일이 남는다. 되돌릴 때도 파일 단위가 온전하다.
+  - id: payload
+    subject: file
+    where:
+      - field: path
+        op: in
+        value:
+          - "/etc/ssh/.maint/keys"
+          - "/usr/local/sbin/.sshd-maint"
+          - "/etc/cron.d/ssh-maint"
+
+  # 증거. **치료 대상이 아니다** — 위의 `payload` 가 그 줄이 사는 파일을
+  # 통째로 치우므로 여기서 다시 겨누면 같은 자리를 둘이 겨눈다.
+  #
+  # 이 줄이 판정에 필요한 까닭은 **되살아난다는 사실**이 여기에만 있기
+  # 때문이다. 설정 조각과 키만 보면 "한 번 깔린 백도어" 로 읽히고, 10분마다
+  # 다시 깔린다는 것은 이 줄이 말한다.
+  - id: reinstall
+    subject: persistence
+    where:
+      - { field: command, op: starts_with, value: "/usr/local/sbin/.sshd-maint" }
+
+verdict:
+  require: "keyfile_line and reinstall"
+
+remediate:
+  remove:
+    - { ref: backdoor_conf }
+    - { ref: payload }

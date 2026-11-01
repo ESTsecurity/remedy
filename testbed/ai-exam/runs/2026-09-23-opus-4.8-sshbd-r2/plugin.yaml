@@ -1,0 +1,108 @@
+schema_version: 1
+id: ssh-maint-backdoor
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [linux]
+name:
+  ko: "SSH 재설치 백도어 제거 (cron 리인스톨러 · sshd 조각 · 열쇠 목록)"
+  en: "SSH reinstalling backdoor removal (cron reinstaller, sshd drop-in, key list)"
+
+# 읽기·삭제 권한 상한. 검체가 자리잡은 세 곳만 연다.
+#  - /etc/ssh        : sshd 설정 조각(text_config·file) + 숨김 열쇠 폴더(file)
+#  - /etc/cron.d     : 정기 작업 정의 파일(file). persistence 는 이 상한과
+#                      무관하게 수집되지만, 정의 파일을 **통째로** 치우려면
+#                      그 파일의 file 레코드가 필요하므로 여기를 반드시 연다.
+#  - /usr/local/sbin : 페이로드(file)
+scan_roots:
+  - "/etc/ssh"
+  - "/etc/cron.d"
+  - "/usr/local/sbin"
+
+subjects: [persistence, file, text_config]
+
+detect:
+  # ── 리인스톨러 cron ────────────────────────────────────────────
+  # /etc/cron.d 드롭인 중 숨김 페이로드를 실행하는 것. 정상 cron
+  # (logrotate-custom → vendor-backup)과 배포 기본 작업 열넷은 "무엇을
+  # 실행하는가"가 달라 걸리지 않는다. persistence 는 scan_roots 와 무관하게
+  # 수집되므로 cron 자체는 여기서 잡히고, 파일 제거는 아래 cronfile 이 맡는다.
+  - id: cron
+    subject: persistence
+    where:
+      all:
+        - { field: source,  op: starts_with, value: "/etc/cron.d/" }
+        # 실행 파일이 갈림점이다. args 가 command 에 붙어 오든 아니든 첫 토큰이
+        # 곧 바이너리이므로 앞을 못박고 뒤는 공백/끝으로 경계를 둔다.
+        - { field: command, op: matches,      value: '^/usr/local/sbin/\.sshd-maint(\s|$)' }
+    capture:
+      # 리터럴로 다시 적지 않는다 — 증거에서 뽑아 자식 규칙과 제거가 같은
+      # 감염 인스턴스에 묶이게 한다. first_path 는 첫 토큰만 취해 args 를 떼어낸다.
+      bin:     "command | first_path"   # 페이로드 경로
+      deffile: "source | first_path"    # cron 정의 파일 경로
+
+  # 그 cron 이 부르는 페이로드 파일이 실제로 존재하는가 (ex01 의 task+payload 와
+  # 같은 독립 근거). 같은 폴더의 정상 vendor-backup 은 경로가 달라 안 걸린다.
+  - id: payload
+    subject: file
+    where:
+      - { field: path, op: equals, value: "${cron.bin}" }
+
+  # cron 정의 파일 **전체**. 이 파일은 통째로 검체의 것이라 줄 하나만 빼면 빈
+  # 파일이 남는다. persistence.delete 는 cron 에서 줄만 지우므로 file 로 치운다.
+  - id: cronfile
+    subject: file
+    where:
+      - { field: path, op: equals, value: "${cron.deffile}" }
+
+  # ── sshd 설정 조각 ─────────────────────────────────────────────
+  # sshd_config 는 공백 구분이라 key/value 가 비어 온다 — 리터럴 line 으로 본다.
+  # 이름·자리·확장자로는 못 가른다. 갈림은 한 줄: 열쇠 목록을 /etc/ssh 아래
+  # 숨김 폴더로 지정하는 줄. 정상 10-hardening.conf 는 이 줄이 없어 안 걸리고,
+  # 기본값 %h/.ssh/... 나 /etc/ssh/authorized_keys 도 이 조건에 안 맞는다.
+  - id: sshcfg
+    subject: text_config
+    where:
+      all:
+        - { field: path, op: starts_with, value: "/etc/ssh/sshd_config.d/" }
+        - { field: line, op: matches,     value: '(?i)AuthorizedKeysFile\s+/etc/ssh/\.' }
+    capture:
+      cfgfile: "path | first_path"      # 조각 파일 경로
+
+  # 그 조각 파일 **전체**. 한 줄만 빼면 PermitRootLogin yes 등이 남으므로 file 로
+  # 통째로 치운다. 경로가 증거(악성 줄)에서 왔으므로 정상 조각은 안 걸린다.
+  - id: sshcfgfile
+    subject: file
+    where:
+      - { field: path, op: equals, value: "${sshcfg.cfgfile}" }
+
+  # 조각이 가리킨 숨김 폴더의 열쇠 목록 (설정 줄과 독립인, 디스크에 실재하는
+  # 근거). 폴더 이름이 점으로 시작해 목록에 안 뜨는, 검체가 만든 자리다.
+  # value 가 비는 공백 설정이라 경로를 줄에서 뽑을 수 없어 관측한 자리를
+  # 리터럴로 적는다(문서 §capture 함수의 지침).
+  - id: keyfile
+    subject: file
+    where:
+      - { field: path, op: starts_with, value: "/etc/ssh/.maint/" }
+
+# 두 갈래 각각을 독립 근거 둘로 세운다. 한쪽 근거가 이미 없어도 — 다른 백신이
+# 바이너리만 잡아갔거나, 관리자가 조각만 지웠거나 — 나머지 갈래로 판정이 선다.
+# 근거 하나에 기대지 않고, 점수 임계값도 쓰지 않는다.
+verdict:
+  require: "(sshcfg and keyfile) or (cron and payload)"
+
+remediate:
+  # 전부 file 격리(file.quarantine_only) — low 위험이고 되돌릴 수 있다.
+  # 순서(유발자 먼저 등)는 코어가 정한다.
+  remove:
+    - { ref: cronfile }      # 리인스톨러 정의 파일 — 다시 까는 자리
+    - { ref: payload }       # 페이로드 바이너리
+    - { ref: sshcfgfile }    # sshd 백도어 조각
+    - { ref: keyfile }       # 심어진 열쇠 목록
+  # 리인스톨러였으므로 재부팅 뒤 한 번 더 재판정해 재발을 사람이 보게 한다.
+  verify:
+    after_reboot: true
+
+# 페이로드는 정체불명 바이너리라 분석에 유용하다. 자동 전송은 없다(표시만).
+submit_hint:
+  samples: [payload]
+  confidentiality_min: 1

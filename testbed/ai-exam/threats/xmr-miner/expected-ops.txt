@@ -1,0 +1,35 @@
+# 감염 스냅샷에서 반드시 나와야 하는 Op (채점 4번).
+#
+# 형식은 `ldso-preload/expected-ops.txt` 의 머리를 볼 것 — (Op, 대상) 이고
+# `::` 뒤는 match 다. 다섯 다 match 가 없다: 유닛은 자리가 통째로 없어지고
+# 페이로드는 파일 단위로 격리된다.
+#
+# **이 목록은 정답 플러그인의 계획을 그대로 옮긴 것**이고(2026-09-21, 컨테이너
+# 에서 `evaluate` → `plan`), 사람이 한 줄씩 위협 설명과 맞춰 읽었다.
+#
+# # 이 위협이 처음 밟는 자리 — 리눅스 `service`
+#
+# 앞의 여섯은 서비스를 **Windows 에서만** 다뤘다(`service-userinit` 의 넷:
+# stop → disable → delete → clear_recovery). 리눅스 수집기(`systemd.rs`)와 쓰기
+# 백엔드는 P12 에 섰는데 그것을 밟는 위협이 없었다.
+#
+# # 여기 없는 것 둘과 그 이유
+#
+# service.clear_recovery : **리눅스에는 개념이 없다.** `ops.json` 의 `linux_from`
+#   이 null 이고, 계획기가 그 사실을 화면에 적는다 — *"이 계획은 치료의 전부가
+#   아니다"*. systemd 의 자동 소생(`Restart=`)은 유닛 본문이고, 정지가 먼저 돌면
+#   되살아나지 않으므로 필요도 없다.
+#
+#   `service.stop` 도 처음(2026-09-21)에는 여기 있었다. 2026-09-29 에 리눅스에서
+#   열려(설계-09 P12 결정 A — 시스템 유닛을 systemd 에게 멈추게 한다) 목록에
+#   들어갔다. 그래서 이 위협의 서비스 Op 은 Windows 의 넷 가운데 셋이다:
+#   stop → disable → delete.
+#
+# dir.delete_recursive : Windows 전용이다(`linux_from` 이 null). 페이로드
+#   폴더는 폴더째가 아니라 파일 단위로 격리된다 — `ldso-preload` 와 같은 이유.
+
+file.quarantine_only /usr/local/lib/.metrics/config.json
+file.quarantine_only /usr/local/lib/.metrics/xmrig
+service.delete /etc/systemd/system/sys-metrics.service
+service.disable /etc/systemd/system/sys-metrics.service
+service.stop /etc/systemd/system/sys-metrics.service

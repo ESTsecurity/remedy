@@ -1,0 +1,85 @@
+# 코퍼스용 — Linux 에서 수집되는 subject 전부 (설계-09 P12 순서 9).
+#
+# # 왜 이 파일이 있는가
+#
+# 진단 모드(`Scope::diagnostic`)는 `file` 과 `persistence` 만 모은다. 그래서
+# `service`·`autorun`·`shortcut` 을 보는 룰은 **G1 이 태울 것이 아예 없다** —
+# 코퍼스에 그 레코드가 한 건도 없기 때문이다.
+#
+# 그 상태의 초록은 "오탐이 없다" 가 아니라 **"재지 않았다"** 다. Windows 쪽이
+# 같은 이유로 `autorun`·`av_exclusion` 을 재지 못하고 있고(설계-09 P9 준비 점검),
+# 이 파일은 Linux 가 그 자리를 물려받지 않게 한다.
+#
+# # 이것은 탐지 룰이 아니다
+#
+# `detect` 는 **아무것도 맞히지 않도록** 일부러 짰다. 매니페스트가 있어야
+# 선언 모드로 수집되고, 선언 모드여야 subject 를 고를 수 있을 뿐이다.
+# 여기에 진짜 조건을 적으면 그 순간 이 파일이 코퍼스를 오염시킨다.
+#
+# # 쓰는 법
+#
+#     wsl -u root -e bash testbed/harness/linux/new-corpus-snapshot.sh \
+#         --label wsl-ubuntu24
+#
+# 스크립트가 이것을 집어 `<label>-declared` 스냅샷을 함께 만든다.
+
+schema_version: 1
+id: linux-corpus-all-subjects
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [linux]
+name:
+  ko: "코퍼스용 — Linux 에서 수집되는 subject 전부"
+  en: "corpus fixture - every Linux-collectable subject"
+
+# 자리가 정해진 subject(`persistence`·`service`·`autorun`·`cert_store`·`process`)는
+# 이 목록과 무관하게 모인다. 여기 적는 것은 **경로를 가진 것**의 상한이다.
+scan_roots:
+  - "/etc"
+  - "/usr/share/applications"
+  # **`browser_extension` 은 이 줄이 없으면 영영 0건이다.**
+  #
+  # 아래 `subjects` 가 그것을 선언하는데 상한이 `/etc` 와
+  # `/usr/share/applications` 뿐이었다. 확장은
+  # `<프로필>/Extensions/<id>/<판>/manifest.json` 에 사는데 그 자리는 사용자
+  # 홈이므로, 선언은 되어 있으나 **구조적으로 닿을 수 없는 상태**였다
+  # (2026-09-04 압력 게이트로 드러났다).
+  #
+  # 도달성 린트는 이것을 잡지 못한다 — "경로 루트가 하나라도 있는가" 만
+  # 보므로 `/etc` 하나로 통과한다. 어느 경로에 그 subject 가 사는지는 정적으로
+  # 알 수 없고, 그래서 **여기 적는 것 말고는 막을 방법이 없다.**
+  - "%ALLUSERPROFILES%/.config"
+
+subjects:
+  [
+    file,
+    persistence,
+    service,
+    autorun,
+    shortcut,
+    text_config,
+    structured_config,
+    hosts_entry,
+    browser_extension,
+    cert_store,
+    process,
+    indicator,
+    # 패키지 DB 는 자리가 정해져 있다(`/var/lib/dpkg/status` ·
+    # `/lib/apk/db/installed`). `scan_roots` 와 무관하게 모인다 (C-2).
+    package,
+  ]
+
+# 드롭인 디렉터리 — 확장자가 없어서 접미사 축으로는 닿지 않는다 (C-5).
+# 코퍼스가 이 자리를 담지 않으면 `text_config_dirs` 를 쓰는 룰은 **G1 이 태울
+# 것이 아예 없다.**
+text_config_dirs:
+  - "/etc/pam.d"
+
+detect:
+  # **아무것도 맞히지 않는다.** 존재할 수 없는 경로를 겨눈다.
+  - id: never
+    subject: file
+    where:
+      - { field: path, op: equals, value: "/nonexistent/remedy-corpus-never-matches" }
+
+verdict: { require: "never" }

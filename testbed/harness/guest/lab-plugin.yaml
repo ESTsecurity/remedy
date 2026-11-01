@@ -1,0 +1,66 @@
+﻿# P2 실기기 검증용 실험 플러그인.
+#
+# 실제 위협을 다루지 않는다. New-Fixtures 가 만드는 **무해한 모형**을 조준해
+# 설계-09 P2 의 판정 요건을 실기기에서 확인하는 것이 목적이다:
+#   · 증거 그룹 — 부모 N건 → 그룹 N개, 자식은 각 그룹 안에서만
+#   · capture 로 감염마다 바뀌는 폴더명을 다룬다
+#   · verdict.require 가 그룹 단위로 평가된다
+#   · NFC 정규화 — 한글 경로가 NFD 로 들어와도 매치된다
+#
+# 픽스처 배치는 Verify-P2.ps1 이 만든다:
+#   p2-a  : 작업 + main.js  → 그룹 통과
+#   p2-b  : 작업 + main.js  → 그룹 통과 (그룹이 둘로 갈리는지 본다)
+#   p2-c  : 작업만, main.js 없음 → 그룹은 생기되 판정은 실패
+#   한글-테스트(NFD) : 작업 + main.js → NFC 정규화가 되어야만 통과
+#   p2-decoy : main.js 만 있고 작업 없음 → 어느 그룹의 증거도 아니다
+#
+# scan_roots 의 C:\remedy-lab 은 하네스의 LabRoot 기본값이다. LabRoot 를 바꾸면
+# 이 파일도 함께 바꿔야 한다 — scan_roots 는 상한이므로 밖은 읽을 수 없다.
+
+schema_version: 1
+id: remedy-lab-p2
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [windows]
+name:
+  ko: "P2 실기기 검증 실험 플러그인"
+  en: "P2 on-metal verification lab plugin"
+
+scan_roots:
+  - "C:\\remedy-lab\\fixtures"
+  # **여기 Tasks 가 있는 것은 일부러다.** 가르치는 자료(ex01 · 참조
+  # 플러그인)에서는 2026-09-01 에 뺐다 — persistence 는 이 상한과
+  # 무관하게 수집되므로 거기서는 파괴 상한만 넓히는 줄이었다.
+  # 여기는 시험 픽스처이고, 작업 정의 XML 이 file 로 들어와야 스냅샷이
+  # 충분히 커진다(파일 8건 -> 230건). 같은 결함으로 보고 지우지 말 것.
+  - "%SystemRoot%\\System32\\Tasks"
+
+subjects: [persistence, file]
+
+detect:
+  # 부모 — 실험대의 예약 작업. 인스턴스 하나마다 독립된 그룹이 생긴다.
+  # win.task.register_path 는 작업이 들어 있는 **폴더**다 (Windows 자신의
+  # TaskPath 와 같다). 작업 이름까지 포함한 전체 경로를 쓰려면 id 를 봐야 한다.
+  # 처음에 register_path 를 전체 경로로 착각해 룰이 하나도 안 맞았다.
+  - id: lab-task
+    subject: persistence
+    where:
+      all:
+        - { field: win.task.register_path, op: equals,   value: "\\REMEDY-LAB\\" }
+        - { field: id,                     op: contains, value: "\\P2-" }
+        - { field: command,                op: contains, value: "\\remedy-lab\\fixtures\\" }
+    capture:
+      # 폴더 이름이 실행마다 바뀌므로 리터럴로 적을 수 없다. 증거에서 뽑아낸다.
+      payload_dir: "command | dirname"
+
+  # 자식 — 부모가 가리킨 디렉터리 **안에서만** 찾는다.
+  # p2-decoy 의 main.js 는 어느 부모도 가리키지 않으므로 증거가 되지 않는다.
+  - id: lab-payload
+    subject: file
+    from: "${lab-task.payload_dir}"
+    where:
+      - { field: path, op: ends_with, value: "\\main.js" }
+
+# 독립적인 두 근거의 논리곱. 룰 하나의 오탐이 곧바로 판정으로 이어지지 않는다.
+verdict:
+  require: "lab-task and lab-payload"

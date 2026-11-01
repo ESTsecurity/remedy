@@ -1,0 +1,30 @@
+{
+  "schema": "remedy-exam-apply/4",
+  "threat": "npm-posthook",
+  "platform": "linux",
+  "mode": "unattended",
+  "verdict": "pass",
+  "exit_code": 1,
+  "measured": 2,
+  "scope_targets": 2,
+  "trace": {
+    "host": "52f9fb730ed1 Linux 5.15.167.4-microsoft-standard-WSL2",
+    "stages": [
+      { "stage": "clean", "at": "2026-10-26T01:36:16Z", "sha256": "18951fdb9dcd862d8f72e09a1a17ad25ca978575851efc3501574a3dc6656709", "counts": { "rows": 5 } },
+      { "stage": "infected", "at": "2026-10-26T01:36:16Z", "sha256": "ebdc6869cdbade4f1d11c78ee772d85d1611e74c29d705b3ddf6f3c027576250", "counts": { "rows": 5 } },
+      { "stage": "treated", "at": "2026-10-26T01:36:16Z", "sha256": "054445197e447ccb779ac78096755ab0cadc8877937fe887847d6bde5a7895c9", "counts": { "rows": 5 } }
+    ],
+    "actions_done": 2
+  },
+  "content_checks": 1,
+  "content_measured": 1,
+  "must_remain": 3,
+  "must_remain_measured": 3,
+  "plugin_files": {
+    "plugin.yaml": "f58813ecdd998f33d5b319cf1fee1a96b8414b139a7682d2e0804796368e06d5"
+  },
+  "expected_ops_sha256": "ac2724603e25579f781477754d71f8f418feb0b2f6f786b78a5d0ef9f02a45df",
+  "must_remain_sha256": "e300af8d011e2f2bee1d7f8e72109d1505cdac202e3069e3ecb44daf54cea992",
+  "binary_sha256": "b7a264440a4f95d40b1bc3c6586ba4ba434a848a3cd9af0b7f1b566ae3984dd7",
+  "ran_at": "2026-10-26T01:36:17Z"
+}

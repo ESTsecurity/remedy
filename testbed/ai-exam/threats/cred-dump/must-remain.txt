@@ -1,0 +1,27 @@
+# 남아야 하는 자리 — cred-dump
+#
+# 형식과 판정 방법은 `appinit-implant/must-remain.txt` 의 머리를 볼 것.
+
+# ── 같은 키의 정상 설정 값 ──────────────────────────────────────────
+#
+# THREAT.md: "그 자리에는 원래 있던 설정 값 다섯이 함께 산다."
+#
+# **키째 겨눈 답안이 여기서 걸린다.** 검체가 만든 것은 하나뿐인데 그 키를
+# 통째로 정리하면 다섯이 함께 사라지고, 그러면 이 기계의 인증 구성이
+# 망가진다.
+#
+# 다섯 중 둘만 적는다. 같은 실수에 다섯이 함께 걸리므로 더 적어도 재는 것이
+# 늘지 않는다.
+HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest\Negotiate
+HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest\DigestEncryptionAlgorithms
+
+# ── 이름이 닮은 정상 도구 ───────────────────────────────────────────
+#
+# THREAT.md: "옆 폴더에 성능을 재는 정상 도구가 있다."
+#
+# `C:\ProgramData\SysDiag` 와 `C:\ProgramData\SysMon` 은 앞 세 글자가 같다.
+# 폴더 이름의 앞부분만 보고 겨누면 이것이 함께 걸린다.
+C:\ProgramData\SysMon\perfcheck.exe
+
+# 여기 적지 않은 것 — 정상 자동 실행 항목 열여섯.
+# 관측기가 자동 실행을 전수로 담으므로 이미 재고 있다.

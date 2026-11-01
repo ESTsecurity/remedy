@@ -1,0 +1,19 @@
+# 워치독 쌍 픽스처. **워크스페이스 밖이다.**
+#
+# 제품 크레이트가 아니라 실험 대상이므로 `cargo xtask arch` 의 크레이트 수와
+# 금지 의존 검사에 섞이면 안 된다. 루트 `Cargo.toml` 의 `exclude` 가 그것을
+# 보장하고, 하네스가 `--manifest-path` 로 따로 빌드한다.
+[package]
+name = "remedy-lab-watchdog"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "lab-watchdog"
+path = "src/main.rs"
+
+[dependencies]
+
+[profile.release]
+opt-level = 1

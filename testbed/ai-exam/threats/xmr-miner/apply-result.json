@@ -1,0 +1,30 @@
+{
+  "schema": "remedy-exam-apply/4",
+  "threat": "xmr-miner",
+  "platform": "linux",
+  "mode": "unattended",
+  "verdict": "pass",
+  "exit_code": 1,
+  "measured": 3,
+  "scope_targets": 3,
+  "trace": {
+    "host": "f8105e410fc4 Linux 5.15.167.4-microsoft-standard-WSL2",
+    "stages": [
+      { "stage": "clean", "at": "2026-10-26T01:36:24Z", "sha256": "542ec4c27a90400339230fc7113ad209f78c2aea8169dc6d4f60e936d2ac7b6c", "counts": { "rows": 13 } },
+      { "stage": "infected", "at": "2026-10-26T01:36:24Z", "sha256": "0fd1cc2b317757f76549f6a35ef94306e6de5f38efd743b67e829da4516b7492", "counts": { "rows": 13 } },
+      { "stage": "treated", "at": "2026-10-26T01:36:25Z", "sha256": "c281f527652cd69e3adf729ae24f145a559a02b157f321a0cfc4303923ac8db1", "counts": { "rows": 13 } }
+    ],
+    "actions_done": 5
+  },
+  "content_checks": 0,
+  "content_measured": 0,
+  "must_remain": 2,
+  "must_remain_measured": 2,
+  "plugin_files": {
+    "plugin.yaml": "f6d9f7668f476e5f3b821d0da9a163f69772c2e1d4bcfff84af32e6eeafe7d50"
+  },
+  "expected_ops_sha256": "791e560dcadc310e63a45ff882cb106834587fa6ccb20b8d89f2cf02edbdde93",
+  "must_remain_sha256": "c801ae47c408c1d0e1386741b60578bbb54a44fa69030d88441d68ead73aabe6",
+  "binary_sha256": "b7a264440a4f95d40b1bc3c6586ba4ba434a848a3cd9af0b7f1b566ae3984dd7",
+  "ran_at": "2026-10-26T01:36:25Z"
+}

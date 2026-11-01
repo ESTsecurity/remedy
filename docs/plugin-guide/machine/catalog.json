@@ -1,0 +1,207 @@
+{
+  "artifact_kinds": [
+    {
+      "kind": "remedy.artifacts",
+      "stage": "collect"
+    },
+    {
+      "kind": "remedy.scan",
+      "stage": "evaluate"
+    },
+    {
+      "kind": "remedy.plan",
+      "stage": "plan"
+    },
+    {
+      "kind": "remedy.result",
+      "stage": "apply"
+    }
+  ],
+  "capture_functions": [
+    "first_path",
+    "dirname",
+    "basename",
+    "lower",
+    "expand_env",
+    "trim_quotes",
+    "base64_decode",
+    "hex_decode"
+  ],
+  "designated_tokens": [
+    {
+      "expands_to": "모든 사용자 레지스트리 하이브 (프로필 수 상한 적용)",
+      "requires_allow_removable": false,
+      "token": "HKU\\*"
+    },
+    {
+      "expands_to": "모든 사용자 프로필 디렉터리",
+      "requires_allow_removable": false,
+      "token": "%ALLUSERPROFILES%"
+    },
+    {
+      "expands_to": "연결된 이동식 매체",
+      "requires_allow_removable": true,
+      "token": "%REMOVABLE%"
+    }
+  ],
+  "exit_codes": [
+    {
+      "code": 0,
+      "meaning": "위협 없음"
+    },
+    {
+      "code": 1,
+      "meaning": "위협 발견 · 치료 완료"
+    },
+    {
+      "code": 2,
+      "meaning": "위협 발견 · 치료 안 함 (드라이런/사용자 거절)"
+    },
+    {
+      "code": 3,
+      "meaning": "부분 실패 (일부 Action 실패)"
+    },
+    {
+      "code": 4,
+      "meaning": "사용법·입력 오류"
+    },
+    {
+      "code": 5,
+      "meaning": "안전 가드에 의한 중단 (상한 초과·보호 경로·서명 검증 실패)"
+    },
+    {
+      "code": 6,
+      "meaning": "관측 불완전 - 다 보지 못해 '위협 없음' 을 말할 수 없습니다 (사유는 '주의' 아래 줄)"
+    },
+    {
+      "code": 7,
+      "meaning": "내부 오류 - 도구 자체가 멈췄습니다 (logs/crash-*.txt 를 신고에 붙이십시오)"
+    }
+  ],
+  "implemented_through": "P12",
+  "operators": [
+    {
+      "id": "equals",
+      "implemented_in": "P2",
+      "takes_value": true
+    },
+    {
+      "id": "not_equals",
+      "implemented_in": "P4",
+      "takes_value": true
+    },
+    {
+      "id": "matches",
+      "implemented_in": "P2",
+      "takes_value": true
+    },
+    {
+      "id": "contains",
+      "implemented_in": "P2",
+      "takes_value": true
+    },
+    {
+      "id": "starts_with",
+      "implemented_in": "P2",
+      "takes_value": true
+    },
+    {
+      "id": "ends_with",
+      "implemented_in": "P2",
+      "takes_value": true
+    },
+    {
+      "id": "in",
+      "implemented_in": "P4",
+      "takes_value": true
+    },
+    {
+      "id": "glob",
+      "implemented_in": "P4",
+      "takes_value": true
+    },
+    {
+      "id": "exists",
+      "implemented_in": "P4",
+      "takes_value": false
+    },
+    {
+      "id": "gt",
+      "implemented_in": "P4",
+      "takes_value": true
+    },
+    {
+      "id": "lt",
+      "implemented_in": "P4",
+      "takes_value": true
+    },
+    {
+      "id": "version_lt",
+      "implemented_in": "P4",
+      "takes_value": true
+    },
+    {
+      "id": "version_gt",
+      "implemented_in": "P4",
+      "takes_value": true
+    },
+    {
+      "id": "pkg_version_lt",
+      "implemented_in": "P4",
+      "takes_value": true
+    },
+    {
+      "id": "yara",
+      "implemented_in": "P4",
+      "takes_value": true
+    }
+  ],
+  "restore_defaults": [
+    {
+      "default": "explorer.exe",
+      "target": "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\Shell",
+      "type": "REG_SZ"
+    },
+    {
+      "default": "C:\\Windows\\system32\\userinit.exe,",
+      "target": "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\Userinit",
+      "type": "REG_SZ"
+    },
+    {
+      "default": "",
+      "target": "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\Taskman",
+      "type": "REG_SZ"
+    },
+    {
+      "default": "\"%1\" %*",
+      "target": "HKLM\\SOFTWARE\\Classes\\exefile\\shell\\open\\command\\",
+      "type": "REG_SZ"
+    },
+    {
+      "default": "\"%1\" %*",
+      "target": "HKLM\\SOFTWARE\\Classes\\batfile\\shell\\open\\command\\",
+      "type": "REG_SZ"
+    },
+    {
+      "default": "\"%1\" %*",
+      "target": "HKLM\\SOFTWARE\\Classes\\cmdfile\\shell\\open\\command\\",
+      "type": "REG_SZ"
+    },
+    {
+      "default": "cmd.exe",
+      "target": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\SafeBoot\\AlternateShell",
+      "type": "REG_SZ"
+    },
+    {
+      "default": "",
+      "target": "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\AppInit_DLLs",
+      "type": "REG_SZ"
+    },
+    {
+      "default": 0,
+      "target": "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\LoadAppInit_DLLs",
+      "type": "REG_DWORD"
+    }
+  ],
+  "schema_version": 1
+}

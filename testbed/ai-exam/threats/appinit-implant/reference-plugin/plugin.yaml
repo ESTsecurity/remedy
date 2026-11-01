@@ -1,0 +1,123 @@
+# 정답 플러그인 — appinit-implant
+#
+# **출제자의 답이지 응시자에게 주는 것이 아니다.** 기대 Op 이 도달 가능한지
+# 확인하는 것이 목적이다.
+
+schema_version: 1
+id: appinit-implant
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [windows]
+name:
+  ko: "AppInit 주입 원격 임플란트 제거"
+  en: "AppInit-injection remote implant removal"
+
+# 읽기 권한 상한.
+#
+# **레지스트리 값은 여기 적어야 모인다** — `registry_value` 는 이 상한을 받는
+# 몇 안 되는 subject 다 (10-manifest.md 의 표). `firewall_rule` 은 반대로
+# 자리가 정해져 있어 적지 않는다.
+scan_roots:
+  - "C:\\ProgramData\\SvcAssist" # 페이로드
+  - "C:\\ProgramData\\Acme\\Agent" # 개입당한 에이전트 설정
+  - "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows" # AppInit 값이 사는 키
+
+subjects: [file, registry_value, firewall_rule, structured_config]
+
+detect:
+  # ── 부모 ──────────────────────────────────────────────
+  # AppInit_DLLs 는 **정상 기계에서 비어 있다.** 값이 있고 그것이 경로면
+  # 그 경로가 이 감염의 뿌리다. 폴더 이름을 리터럴로 적지 않고 여기서 뽑는다.
+  - id: appinit
+    subject: registry_value
+    where:
+      all:
+        - { field: hive, op: equals, value: "HKLM" }
+        - {
+            field: key,
+            op: equals,
+            value: "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows",
+          }
+        - { field: name, op: equals, value: "AppInit_DLLs" }
+        - { field: data, op: matches, value: '(?i)\.dll$' }
+    capture:
+      dll: "data | first_path"
+      dir: "${dll} | dirname"
+
+  # ── 판정의 두 번째 근거 ───────────────────────────────
+  # 레지스트리가 가리키는 그 DLL 이 실제로 디스크에 있어야 한다. 값만 남고
+  # 파일이 없는 잔해로 삭제를 열지 않는다.
+  - id: payload
+    subject: file
+    from: "${appinit.dir}"
+    where:
+      - { field: path, op: equals, value: "${appinit.dll}" }
+
+  # 같은 폴더의 나머지(관측된 실행 파일). 판정에는 쓰지 않는다.
+  - id: companion
+    subject: file
+    from: "${appinit.dir}"
+    where:
+      - { field: path, op: not_equals, value: "${appinit.dll}" }
+
+  # ── 주입을 켜는 스위치 ────────────────────────────────
+  # AppInit_DLLs 만 지우고 이것을 남기면 다음 검체가 값만 다시 써도 곧바로
+  # 실행된다. **같은 키의 다른 값이므로 따로 짚는다.**
+  - id: loadflag
+    subject: registry_value
+    where:
+      all:
+        - { field: hive, op: equals, value: "HKLM" }
+        - {
+            field: key,
+            op: equals,
+            value: "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows",
+          }
+        - { field: name, op: equals, value: "LoadAppInit_DLLs" }
+        - { field: data, op: equals, value: "1" }
+
+  # ── 열어 둔 인바운드 ──────────────────────────────────
+  # 그 폴더의 실행 파일을 가리키는 규칙만. 정상 벤더 규칙(svchost·에이전트)은
+  # 값 보간으로 걸러진다.
+  - id: fwrule
+    subject: firewall_rule
+    where:
+      all:
+        - { field: application, op: contains, value: "${appinit.dir}" }
+        - { field: direction, op: equals, value: "In" }
+
+  # ── 정상 에이전트 설정에 끼워 넣은 항목 ───────────────
+  # **파일은 정상 제품의 것이다.** 통째로 지우면 그 에이전트가 깨진다 —
+  # 검체가 넣은 키 하나만 뺀다.
+  - id: agentcfg
+    subject: structured_config
+    where:
+      - { field: value, op: contains, value: "${appinit.dir}" }
+
+# 서로 다른 자리에서 온 두 근거의 논리곱 — 레지스트리 값과 디스크의 파일.
+# AppInit_DLLs 에 값이 있다는 사실만으로 판정하면, 그 자리를 정당하게 쓰는
+# 오래된 소프트웨어가 곧바로 오탐이 된다.
+verdict:
+  require: "appinit and payload"
+
+remediate:
+  remove:
+    - { ref: fwrule } # firewall.restore_rule
+    - { ref: agentcfg } # structured_config.remove_key — 그 키 하나만
+    - { ref: payload } # file.quarantine_only
+    - { ref: companion } # file.quarantine_only
+  # **지우지 않고 되돌린다.** 이 둘은 청정 Windows 에 이미 있는 값이고
+  # 검체가 만든 것이 아니라 덮어쓴 것이다 — `AppInit_DLLs` 는 빈 문자열,
+  # `LoadAppInit_DLLs` 는 `0` 이다.
+  #
+  # 2026-09-05 채점 5 의 첫 회차 전까지 이 둘은 `remove` 에 있었다. 지워도
+  # 기능은 같아서(값이 없으면 Windows 는 AppInit 을 쓰지 않는다) 네 판정이
+  # 전부 초록이었고, `apply` 도 완전 치료(1)로 끝났다. 그런데 **기계가 청정
+  # 기준과 달랐다.**
+  restore:
+    - { ref: appinit, to: default } # registry.restore_default — 비운다
+    - { ref: loadflag, to: default } # registry.restore_default — 0 으로
+
+submit_hint:
+  samples: [payload, companion]
+  confidentiality_min: 1

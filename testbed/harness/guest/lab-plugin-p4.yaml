@@ -1,0 +1,64 @@
+# P4 실기기 수집 확인용 플러그인.
+#
+# 목적은 탐지가 아니라 **subject 마다 수집기가 실기기에서 도는가**다
+# (설계-09 P4 검증 — "subject마다 실기기 수집 확인").
+#
+# 그래서 `detect` 는 아무것도 맞지 않을 조건 하나뿐이다. 맞는 룰을 두면 판정이
+# 서고, 그러면 이 플러그인이 무해하지 않게 된다 — 확인용 도구가 치료를 하면
+# 안 된다. `remediate` 도 없다.
+#
+# `scan_roots` 에 지정 확장 토큰 셋을 전부 넣는다. 토큰이 펼쳐지지 않으면
+# 존재하지 않는 경로가 되어 조용히 0건이 되는데, 그것이 P4 에서 실제로 있었던
+# 결함이다(`HKU\*` 가 하이브만 적은 경로를 열지 못해 통째로 펼쳐지지 않았다).
+
+schema_version: 1
+id: remedy-lab-p4
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [windows]
+name:
+  ko: "P4 실기기 수집 확인"
+  en: "P4 on-metal collection probe"
+
+# 이동식 매체는 꽂혀 있지 않을 수 있다. 그때 "연결된 이동식 매체가 없다" 는
+# 사실이 보고되는지도 함께 본다.
+allow_removable: true
+
+scan_roots:
+  - 'C:\remedy-lab\p4-fix'
+  - '%ALLUSERPROFILES%\AppData\Local\Programs'
+  - '%REMOVABLE%\'
+  - 'HKU\*\Software\Microsoft\Windows\CurrentVersion\Run'
+  - 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run'
+
+subjects:
+  - file
+  - persistence
+  - autorun
+  - service
+  - process
+  - registry_value
+  - registry_key
+  - text_config
+  - structured_config
+  - shortcut
+  - hosts_entry
+  - browser_extension
+  - av_exclusion
+  - cert_store
+  - proxy_config
+  - firewall_rule
+  - boot_config
+  - indicator
+
+collect_extra:
+  - { path: 'C:\remedy-lab\p4-fix\payload.js' }
+
+detect:
+  - id: never
+    subject: file
+    where:
+      - { field: path, op: ends_with, value: '\이런파일은없다.zzz' }
+
+verdict:
+  require: "never"

@@ -1,0 +1,149 @@
+# AppInit_DLLs 주입 원격 임플란트 제거
+#
+# 관측 요약
+#   HKLM\...\CurrentVersion\Windows 의 AppInit_DLLs 에 경로가 채워지고
+#   LoadAppInit_DLLs 가 1 로 켜져, UI 를 쓰는 거의 모든 프로세스가 그 DLL 을
+#   함께 읽는다. 같은 폴더의 실행 파일 앞에는 인바운드 허용 규칙이 서 있고,
+#   정상 관리 에이전트의 설정에는 그 DLL 을 가리키는 항목 하나가 덧붙었다.
+#
+# 파괴 범위의 원칙
+#   키가 아니라 **값 둘**만, 파일이 아니라 **항목 하나**만, 규칙은 삭제가 아니라
+#   **원복**이다. 같은 키의 Spooler·IconServiceLib, 설정 파일의 나머지 세 항목,
+#   정상 방화벽 규칙은 전부 남는다.
+
+schema_version: 1
+id: appinit-svcassist-implant
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [windows]
+name:
+  ko: "AppInit_DLLs 주입 원격 임플란트 제거"
+  en: "AppInit_DLLs injected remote implant removal"
+
+# 읽기 권한 상한.
+#
+#   %PROGRAMDATA%
+#     페이로드(file)와 에이전트 설정(structured_config)이 여기 산다. 주입 값에서
+#     파생되는 경로(dirname)가 놓일 수 있는 범위이기도 하다. 이 상한이 곧
+#     오탐 방어선이다 — 주입 값이 %SystemRoot% 같은 다른 곳을 가리키면 그 그룹은
+#     경고가 아니라 **제외**된다.
+#
+#   HKLM\...\CurrentVersion\Windows
+#     registry_value 는 scan_roots 에 레지스트리 루트를 적어야 수집된다
+#     (10-manifest.md §scan_roots). 적지 않으면 이 subject 는 언제나 0건이고
+#     룰이 아무것도 못 맞힌 채 초록이 된다. 필요한 키 **하나만** 적는다.
+#
+#   firewall_rule 은 이 상한과 무관하게 수집되므로 적지 않는다.
+scan_roots:
+  - "%PROGRAMDATA%"
+  - "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows"
+
+subjects: [registry_value, file, firewall_rule, structured_config]
+
+detect:
+  # ── 부모 ────────────────────────────────────────────────────────────
+  # 주입 경로 값. 정상 기계에서 이 값은 비어 있다.
+  # 경로를 리터럴로 적지 않는다 — 검체가 어디에 자리잡았는지는 이 값이 말한다.
+  - id: appinit
+    subject: registry_value
+    where:
+      all:
+        - { field: hive, op: equals,   value: "HKLM" }
+        - { field: key,  op: equals,   value: "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows" }
+        - { field: name, op: equals,   value: "AppInit_DLLs" }
+        # 비어 있지 않고 DLL 을 가리킨다. 정상 기계는 여기서 걸러진다.
+        - { field: data, op: contains, value: ".dll" }
+    capture:
+      hook: "data | first_path"
+      dir: "${hook} | dirname"
+
+  # 스위치. 값 하나만 처리하면 부족하므로 이것도 증거로 세운다.
+  # 이 키·이름은 기계마다 하나뿐인 시스템 값이라 그룹이 섞일 여지가 없다.
+  - id: loadswitch
+    subject: registry_value
+    where:
+      all:
+        - { field: hive, op: equals, value: "HKLM" }
+        - { field: key,  op: equals, value: "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows" }
+        - { field: name, op: equals, value: "LoadAppInit_DLLs" }
+        - { field: data, op: equals, value: "1" }
+
+  # ── 독립 근거 ───────────────────────────────────────────────────────
+  # 열어 둔 인바운드. firewall_rule 에는 path 가 없어 from 이 통하지 않으므로
+  # where 값 보간으로 부모 그룹에 묶는다 (20-detect-recipes.md).
+  #
+  # 들어오는 규칙이라는 사실만으로 판정하지 않는다 — Windows 자신의 svchost 규칙과
+  # 에이전트의 나가는 규칙을 막지 않기 위해, **부모가 가리킨 폴더의 실행 파일**
+  # 앞에 선 것만 잡는다. 포트 번호는 조건에 넣지 않는다(변종이 바꾼다).
+  # enabled 도 걸지 않는다 — 꺼 둔 채 심긴 규칙도 되돌릴 대상이다.
+  - id: fwrule
+    subject: firewall_rule
+    where:
+      all:
+        - { field: direction,   op: equals,   value: "inbound" }
+        - { field: action,      op: equals,   value: "allow" }
+        - { field: application, op: contains, value: "${appinit.dir}" }
+    capture:
+      exe: "application | first_path"
+
+  # ── 산출물 ─────────────────────────────────────────────────────────
+  # 주입되는 DLL — 레지스트리 값이 **실제로 가리키는** 그 파일.
+  - id: payload-dll
+    subject: file
+    from: "${appinit.dir}"
+    where:
+      - { field: path, op: equals, value: "${appinit.hook}" }
+
+  # 원격 접속을 받는 실행 파일 — 인바운드 규칙이 앞에 세워 준 **그** 파일.
+  # `.exe 전부` 로 적지 않는다. 그러면 주입 값이 정상 제품 폴더를 가리키도록
+  # 조작됐을 때 그 제품의 실행 파일이 함께 격리된다.
+  - id: payload-exe
+    subject: file
+    from: "${appinit.dir}"
+    where:
+      - { field: path, op: equals, value: "${fwrule.exe}" }
+
+  # 정상 에이전트 설정에 끼워 넣은 항목.
+  # 파일도 키 이름도 못박지 않는다. 값이 **주입 DLL 경로 그 자체**인 항목만
+  # 짚으므로, 그 제품의 나머지 세 항목과 다른 제품의 설정은 걸리지 않는다.
+  - id: agentcfg
+    subject: structured_config
+    where:
+      - { field: value, op: equals, value: "${appinit.hook}" }
+
+# 서로 독립적인 두 대상의 논리곱 — 레지스트리(주입 무장)와 방화벽(열린 인바운드).
+# 산출물(DLL·EXE)은 판정에 넣지 않는다. 실행 파일은 다시 받으면 그만이고,
+# 남는 쪽이 그것을 다시 부르기 때문이다 (40-review-checklist.md 2번).
+# 그래서 다른 백신이 파일만 잡아간 기계에서도 이 판정은 선다.
+verdict:
+  require: "appinit and loadswitch and fwrule"
+
+remediate:
+  remove:
+    # 유발자 둘 — registry.delete_value 로 **값만** 빠진다. 키는 남으므로
+    # 같은 키의 Spooler·IconServiceLib 은 그대로다. 이 둘은 restore_default
+    # 카탈로그에 없는 대상이고, 정상 상태가 "비어 있음 / 없음" 이므로 삭제가 맞다.
+    - { ref: appinit }
+    - { ref: loadswitch }
+
+    # 유발자 — structured_config.remove_key 로 **항목 하나만** 빠진다.
+    # 파일은 남고, 이것을 남기면 에이전트가 다음 주기에 그 경로를 다시 부른다.
+    - { ref: agentcfg }
+
+    # 산출물 — file.quarantine_only. 되돌릴 수 있는 가장 덜 위험한 Op 이다.
+    - { ref: payload-dll }
+    - { ref: payload-exe }
+
+  # 방화벽 규칙은 파괴가 아니라 원복이다. 룰이 짚은 규칙 하나만 되돌아간다 —
+  # 정상 규칙들은 건드리지 않는다.
+  restore:
+    - firewall
+
+  # 이 DLL 은 거의 모든 프로세스에 로드돼 있어 파일이 잠겨 있을 수 있다.
+  # 재부팅 뒤 같은 플러그인이 다시 판정하는지로 치료를 확인한다.
+  verify:
+    after_reboot: true
+
+submit_hint:
+  samples: [payload-dll, payload-exe]
+  confidentiality_min: 1

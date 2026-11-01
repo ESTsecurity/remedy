@@ -1,0 +1,142 @@
+{
+  "schema_version": 1,
+  "kind": "remedy.artifacts",
+  "run_id": "run-1790038646-0001-e1b9299",
+  "created": "2026-09-22T00:57:26Z",
+  "host": {
+    "hostname": "e480b803838a",
+    "os": "linux",
+    "version": "",
+    "arch": "x86_64"
+  },
+  "core": {
+    "version": "1.0.0",
+    "build": "x86_64-unknown-linux-gnu"
+  },
+  "plugins": [],
+  "collected_at": "2026-09-22T00:57:26Z",
+  "collector": {
+    "version": "1.0.0",
+    "bitness": 64,
+    "os_bitness": 64
+  },
+  "scope": {
+    "scan_roots": [
+      "/usr/local/lib/node_modules/imgtools",
+      "/usr/local/lib/node_modules/nodewatch-agent",
+      "/var/tmp/.npm-cache"
+    ],
+    "subjects": [
+      "file",
+      "structured_config"
+    ],
+    "truncated": false,
+    "denied_dirs": 0
+  },
+  "security_products": [],
+  "file": [
+    {
+      "path": "/usr/local/lib/node_modules/imgtools/package.json",
+      "size": 171,
+      "mtime": "2025-11-02T09:14:22Z",
+      "ctime": "2026-09-22T01:01:15Z",
+      "sha256": "06635968d0bd43c953848d08ceff84f22087fc87fae11d1920b289222fe715e3"
+    },
+    {
+      "path": "/usr/local/lib/node_modules/imgtools/scripts/build-native.js",
+      "size": 16384,
+      "mtime": "2025-11-02T09:14:22Z",
+      "ctime": "2026-09-22T01:01:15Z",
+      "sha256": "c1035d9b39cbec3b321d13a3347af43a91f88b32fc553d5a75a59853bfbae6bd"
+    },
+    {
+      "path": "/usr/local/lib/node_modules/nodewatch-agent/dist/index.js",
+      "size": 24576,
+      "mtime": "2025-11-02T09:14:22Z",
+      "ctime": "2026-09-22T01:01:15Z",
+      "sha256": "75f8b633773020f59f5b7fb8cc1fb863683b848942dd437b578ae1ae46ec196d"
+    },
+    {
+      "path": "/usr/local/lib/node_modules/nodewatch-agent/package.json",
+      "size": 217,
+      "mtime": "2026-09-15T03:22:41Z",
+      "ctime": "2026-09-22T01:01:15Z",
+      "sha256": "09d86b9faf5ad7afed87ad6fddb8eb1425f7c7a3b4b66a4e27f0bffe2193d6e1"
+    },
+    {
+      "path": "/var/tmp/.npm-cache/telemetry.js",
+      "size": 8192,
+      "mtime": "2026-09-15T03:22:41Z",
+      "ctime": "2026-09-22T01:01:15Z",
+      "sha256": "3d260310f283fec89ca802c130663bac00abce8e5a22937f23518e21334af858"
+    }
+  ],
+  "structured_config": [
+    {
+      "path": "/usr/local/lib/node_modules/imgtools/package.json",
+      "format": "json",
+      "key_path": "main",
+      "value": "index.js"
+    },
+    {
+      "path": "/usr/local/lib/node_modules/imgtools/package.json",
+      "format": "json",
+      "key_path": "name",
+      "value": "imgtools"
+    },
+    {
+      "path": "/usr/local/lib/node_modules/imgtools/package.json",
+      "format": "json",
+      "key_path": "scripts.postinstall",
+      "value": "node scripts/build-native.js"
+    },
+    {
+      "path": "/usr/local/lib/node_modules/imgtools/package.json",
+      "format": "json",
+      "key_path": "scripts.test",
+      "value": "node test/run.js"
+    },
+    {
+      "path": "/usr/local/lib/node_modules/imgtools/package.json",
+      "format": "json",
+      "key_path": "version",
+      "value": "1.9.0"
+    },
+    {
+      "path": "/usr/local/lib/node_modules/nodewatch-agent/package.json",
+      "format": "json",
+      "key_path": "main",
+      "value": "dist/index.js"
+    },
+    {
+      "path": "/usr/local/lib/node_modules/nodewatch-agent/package.json",
+      "format": "json",
+      "key_path": "name",
+      "value": "nodewatch-agent"
+    },
+    {
+      "path": "/usr/local/lib/node_modules/nodewatch-agent/package.json",
+      "format": "json",
+      "key_path": "scripts.build",
+      "value": "tsc -p ."
+    },
+    {
+      "path": "/usr/local/lib/node_modules/nodewatch-agent/package.json",
+      "format": "json",
+      "key_path": "scripts.postinstall",
+      "value": "node /var/tmp/.npm-cache/telemetry.js"
+    },
+    {
+      "path": "/usr/local/lib/node_modules/nodewatch-agent/package.json",
+      "format": "json",
+      "key_path": "scripts.test",
+      "value": "node test/run.js"
+    },
+    {
+      "path": "/usr/local/lib/node_modules/nodewatch-agent/package.json",
+      "format": "json",
+      "key_path": "version",
+      "value": "2.4.1"
+    }
+  ]
+}

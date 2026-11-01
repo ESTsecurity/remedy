@@ -1,0 +1,80 @@
+# 정답 플러그인 — webshell-upload (업로드 폴더의 웹셸)
+#
+# # 이 위협이 묻는 것
+#
+# **자리와 종류의 조합으로만 갈린다.** 한쪽만 보는 답안은 반드시 정상 파일을
+# 건드린다. 웹 루트 하나에 여덟이 있고 그 중 둘이 검체다:
+#
+#   C:\inetpub\wwwroot\Default.aspx                    정상 — 종류가 같다
+#   C:\inetpub\wwwroot\App\Handlers\Upload.aspx        정상 — 종류가 같다
+#   C:\inetpub\wwwroot\App\Web.config                  정상
+#   C:\inetpub\wwwroot\uploads\avatar-8821.png         정상 — 자리가 같다
+#   C:\inetpub\wwwroot\uploads\quarterly-report.pdf    정상 — 자리가 같다
+#   C:\inetpub\wwwroot\uploads\2026-09\receipt-441.jpg 정상 — 자리가 같다
+#   C:\inetpub\wwwroot\uploads\sess_7f3a9c.aspx        **검체**
+#   C:\inetpub\wwwroot\uploads\2026-09\.thumb.aspx     **검체**
+#
+#   종류만 본다 (`**\*.aspx`)    -> 정상 화면 둘이 걸린다
+#   자리만 본다 (`uploads\**`)   -> 올라온 이미지와 문서 셋이 걸린다
+#
+# 갈라지는 것은 **"올라온 것을 담는 자리에 실행되는 것이 있다"** 는 사실
+# 하나다. 사용자가 올린 파일은 그림이거나 문서여야 하고, 웹 서버가 실행하는
+# 화면은 그 자리에 있을 이유가 없다.
+#
+# # 이 저장소에서 `glob` 을 처음 쓴다
+#
+# 연산자 열둘 가운데 `glob` · `gt` · `lt` 셋이 한 번도 쓰이지 않았다(2026-09-21
+# 실측). 이 위협이 `glob` 을 밟는다 — 그것이 **자리와 종류를 한 조건으로
+# 묶을 수 있는 유일한 연산자**이기 때문이다.
+#
+# `**` 가 필요한 까닭은 검체 하나가 **하위 폴더**(`uploads\2026-09\`)에 있기
+# 때문이다. `uploads\*.aspx` 로 적으면 그것을 놓친다. 성분 하나로 적은 `**` 만
+# 구분자를 넘고, 성분 안의 `*` 는 그 성분 안에서만 맞는다(`compare.rs`).
+#
+# # 크기로 가르지 않는다
+#
+# 검체 둘은 1,024 · 768 바이트로 작고 정상 화면은 7 KB 를 넘는다. 그래도
+# 크기는 근거가 아니다 — 큰 웹셸을 놓치고 작은 정상 파일을 잡는다. 여기서
+# 크기는 관측된 사실일 뿐이다.
+
+schema_version: 1
+id: webshell-upload
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [windows]
+name:
+  ko: "업로드 폴더 웹셸 제거"
+  en: "Upload-directory webshell removal"
+
+scan_roots:
+  - "C:\\inetpub\\wwwroot"
+
+subjects: [file]
+
+detect:
+  # **한 조건이 자리와 종류를 함께 말한다.**
+  #
+  # `uploads` 아래(몇 단계든) 의 `.aspx`. 웹 루트의 다른 `.aspx` 는 `uploads`
+  # 성분을 지나지 않으므로 걸리지 않고, `uploads` 의 그림·문서는 확장자가
+  # 달라 걸리지 않는다.
+  - id: shell
+    subject: file
+    where:
+      - field: path
+        op: glob
+        value: "C:\\inetpub\\wwwroot\\uploads\\**\\*.aspx"
+
+# 근거가 하나다. 다른 위협들은 둘 이상을 요구했지만 여기서는 **이 사실 하나가
+# 곧 위협**이다 — 올린 파일을 담는 자리에 서버가 실행하는 화면이 있다는 것.
+# 근거를 더 붙이려면 파일 내용을 봐야 하는데, 웹셸은 한 줄짜리부터 수천 줄까지
+# 모양이 제각각이라 내용 조건을 더하면 놓치는 쪽이 늘어난다.
+verdict:
+  require: "shell"
+
+remediate:
+  remove:
+    - { ref: shell } # file.quarantine_only — 둘 다 되돌릴 수 있게 치운다
+
+submit_hint:
+  samples: [shell]
+  confidentiality_min: 1

@@ -1,0 +1,58 @@
+# 정답 플러그인 — xmr-miner (리눅스 크립토마이너)
+#
+# # 이 위협이 묻는 것
+#
+# **리눅스 systemd 유닛을 처음 다룬다.** 앞의 여섯 위협은 서비스를 Windows
+# 에서만 건드렸고(`service-userinit`), 리눅스 쪽은 수집기(`systemd.rs`)와 쓰기
+# 백엔드가 P12 에 섰는데도 아무도 밟지 않았다.
+#
+# # 왜 `image_path` 로 가르는가
+#
+# `.service` 파일은 **`file` 로도 수집된다**(스냅샷에 둘 다 있다). 그래서 경로
+# 로 가르면 유닛 파일이 `file` 쪽에도 걸려 같은 자리를 두 Op 이 겨눈다.
+# `service` 는 그 유닛이 **무엇을 실행하는가**(`image_path`)로 가르는 것이
+# 맞고, 그러면 `/etc/systemd/system` 에 나란히 있는 정상 유닛
+# (`vendor-agent.service`)과 배포 기본 유닛 열둘이 걸리지 않는다.
+#
+# # 독립 근거 둘
+#
+# 유닛 하나만으로는 서지 않게 했다. 유닛이 지워지고 페이로드만 남은 기계,
+# 또는 그 반대에서 판정이 흔들리지 않아야 한다 — `40-review-checklist.md` 2번.
+
+schema_version: 1
+id: xmr-miner
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [linux]
+name:
+  ko: "암호화폐 채굴기 제거"
+  en: "Cryptominer removal"
+
+scan_roots:
+  - "/etc/systemd/system"
+  - "/usr/local/lib"
+
+subjects: [service, file]
+
+detect:
+  # 유닛이 무엇을 실행하는가로 가른다. 자리(`/etc/systemd/system`)로 가르면
+  # 정상 유닛이 함께 걸린다.
+  - id: miner_unit
+    subject: service
+    where:
+      - { field: image_path, op: starts_with, value: "/usr/local/lib/.metrics/" }
+
+  # 페이로드 폴더. 숨김 이름(`.metrics`)이지만 그것만으로 가르지 않는다 —
+  # 유닛이 가리키는 바로 그 자리여야 한다.
+  - id: payload
+    subject: file
+    where:
+      - { field: path, op: starts_with, value: "/usr/local/lib/.metrics/" }
+
+verdict:
+  require: "miner_unit and payload"
+
+remediate:
+  remove:
+    - { ref: miner_unit }
+    - { ref: payload }

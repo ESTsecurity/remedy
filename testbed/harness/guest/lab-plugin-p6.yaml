@@ -1,0 +1,56 @@
+# P6 실기기 검증용 실험 플러그인 — **치료까지 간다.**
+#
+# `lab-plugin.yaml`(P2)과 나누는 이유: 그쪽은 읽기 전용 검증의 도구이고 여기는
+# 파괴 Action 을 만든다. 한 파일에 합치면 P2 검증이 "아무것도 지우지 않는다"를
+# 재는 동안 지울 수 있는 플러그인을 들고 있게 된다.
+#
+# 이것으로 재는 것은 **G3** 다 — `apply` 가 계획에 없는 것을 건드리지 않았는가
+# (설계-09 P6). 그래서 픽스처에 일부러 건드리면 안 되는 것을 섞어 둔다.
+#
+#   p6-fix\alpha\REMEDY-LAB-P6.marker + payload.js  → 그룹 통과, payload 가 격리된다
+#   p6-fix\beta\REMEDY-LAB-P6.marker  + payload.js  → 그룹이 둘로 갈리는지 본다
+#   p6-fix\decoy\payload.js (마커 없음)             → 어느 그룹의 증거도 아니다
+#   p6-fix\lonely\REMEDY-LAB-P6.marker (페이로드 없음) → 그룹은 생기되 판정이 선다
+#
+# **마커 자체는 치료 대상이 아니다.** 증거이면서 남는 것이 있어야, 격리된 것과
+# 남은 것을 상태 diff 에서 함께 볼 수 있다.
+
+schema_version: 1
+id: remedy-lab-p6
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [windows]
+name:
+  ko: "P6 실기기 검증 실험 플러그인"
+  en: "P6 on-metal verification lab plugin"
+
+scan_roots:
+  - "C:\\remedy-lab\\p6-fix"
+
+subjects: [file]
+
+detect:
+  # 부모 — 인스턴스 하나마다 독립된 그룹이 생긴다.
+  - id: lab-marker
+    subject: file
+    where:
+      - { field: path, op: ends_with, value: "\\REMEDY-LAB-P6.marker" }
+    capture:
+      payload_dir: "path | dirname"
+
+  # 자식 — 부모가 가리킨 디렉터리 **안에서만** 찾는다.
+  # decoy 의 payload.js 는 어느 부모도 가리키지 않으므로 증거가 되지 않는다.
+  - id: lab-payload
+    subject: file
+    from: "${lab-marker.payload_dir}"
+    where:
+      - { field: path, op: ends_with, value: "\\payload.js" }
+
+verdict:
+  require: "lab-marker and lab-payload"
+
+remediate:
+  # 산출물만 없앤다. 마커는 그대로 둔다 — 계획에 없는 것을 건드리지 않았는지
+  # 재려면 **건드리면 안 되는 것**이 실험대에 남아 있어야 한다.
+  remove:
+    - { ref: lab-payload }

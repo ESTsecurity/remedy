@@ -1,0 +1,86 @@
+# 정답 플러그인 — cred-dump (평문 자격 증명을 남기게 해 두고 덤프를 뜬 검체)
+#
+# # 이 위협이 묻는 것
+#
+# **키가 아니라 값 하나를 겨누는가.** 검체가 만든 것은 설정 값 하나뿐이고,
+# 같은 키에는 배포판이 넣어 둔 값 다섯이 함께 산다(2026-09-21 랩 VM 실측):
+#
+#   Debuglevel · Negotiate · UTF8HTTP · UTF8SASL · DigestEncryptionAlgorithms
+#
+# 키째 겨누면 다섯이 함께 사라지고 **인증 구성이 망가진다.**
+#
+# # 지우는 것이 원상복구인 자리다
+#
+# `ransomware` 의 바탕화면 값과 반대다. 저쪽은 **있던 값을 검체가 덮어쓴**
+# 것이라 지워도 사용자의 그림이 돌아오지 않아 치료 범위 밖으로 뺐고, 이쪽은
+# **검체가 새로 만든** 값이라 지우면 그 자리가 청정 기준과 같아진다.
+#
+# 값의 내용까지 보는 까닭은 **꺼져 있는 기계에서 아무것도 맞히지 않기**
+# 위해서다. 조직이 이 값을 0 으로 명시해 둔 기계를 치료가 건드릴 이유가 없다.
+#
+# # 덤프 파일은 치운다 — `*.locked` 와 반대다
+#
+# 덤프 안에는 사용자의 자격 증명이 들어 있다. 그래도 **그 파일 자체는 검체가
+# 만든 것**이라 치우는 것이 맞다. `ransomware` 의 `*.locked` 는 사용자가 만든
+# 문서가 망가진 것이라 남겼다 — 안에 무엇이 들었는가가 아니라 **누가 만든
+# 파일인가**가 가른다.
+
+schema_version: 1
+id: cred-dump
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [windows]
+name:
+  ko: "자격 증명 덤프 흔적 제거"
+  en: "Credential dump artifact removal"
+
+scan_roots:
+  - "C:\\ProgramData\\SysDiag"
+  - "C:\\ProgramData\\SysMon"
+  - "HKLM\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\WDigest"
+
+subjects: [file, registry_value, autorun]
+
+detect:
+  # 평문 자격 증명을 메모리에 남기게 하는 값. **넷을 모두 맞혀야 이 하나만
+  # 걸린다.**
+  - id: plaintext
+    subject: registry_value
+    where:
+      - { field: hive, op: equals, value: "HKLM" }
+      - {
+          field: key,
+          op: equals,
+          value: "SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\WDigest",
+        }
+      - { field: name, op: equals, value: "UseLogonCredential" }
+      - { field: data, op: equals, value: "1" }
+
+  # 덤프 도구와 그 산출물. 폴더 전체가 검체의 것이고, 옆의 `SysMon` 은 이름이
+  # 닮은 정상 도구다.
+  - id: tooling
+    subject: file
+    where:
+      - { field: path, op: starts_with, value: "C:\\ProgramData\\SysDiag\\" }
+
+  # 주기적으로 다시 뜨는 자리. 같은 키에 정상 항목 열여섯이 있으므로
+  # **무엇을 실행하는가**로 가른다.
+  - id: runkey
+    subject: autorun
+    where:
+      - { field: command, op: contains, value: "C:\\ProgramData\\SysDiag\\" }
+
+# 설정 값 하나만으로는 부족하다 — 오래된 기계나 시험 구성에서 그 값이 켜져
+# 있을 수 있다. 덤프 도구가 실제로 있을 때만 위협으로 선언한다.
+verdict:
+  require: "plaintext and tooling"
+
+remediate:
+  remove:
+    - { ref: plaintext } # registry.delete_value — 값 하나만
+    - { ref: tooling } # file.quarantine_only  — 도구와 덤프
+    - { ref: runkey } # autorun.remove
+
+submit_hint:
+  samples: [tooling]
+  confidentiality_min: 1

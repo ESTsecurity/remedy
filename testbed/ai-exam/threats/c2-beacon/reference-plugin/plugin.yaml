@@ -1,0 +1,87 @@
+# 정답 플러그인 — c2-beacon.
+#
+# # 이 위협이 재는 것
+#
+# **알려진 지표 목록으로만 가려지는가.** 앞의 여섯 위협은 자리·이름·모양으로
+# 갈랐다. 여기서는 같은 폴더에 사용자 파일이 있고, 같은 모양의 정상 자동 시작
+# 항목이 자기 도메인을 갖는다 — 자리·모양·"서버 주소가 있다" 로 가르면 그것들이
+# 함께 지워진다. 가려지는 것은 위협 정보가 준 **다이제스트 목록**과 **도메인
+# 목록**뿐이다.
+#
+# 그래서 이 플러그인은 `in` 연산자와 `indicator` 대상을 처음으로 밟는다.
+# 2026-09-09 까지 둘은 엔진에만 있었고 어느 룰도 쓰지 않았다 — 가이드에 예제가
+# 없고 시험도 없었다. 이 파일이 그 첫 사용례이자 실기기 증거다.
+#
+# # 값은 실측이다
+#
+# 아래 해시 넷 중 둘은 `infected/c2-beacon.json` 의 `file[].sha256` 그대로다
+# (`agent.bin`·`helper.so`). 나머지 둘은 "변종" 몫 — 이 기계에 없는 값이라 목록이
+# 있는 것만 맞히고 없는 것은 조용히 지나감을 함께 잰다. 도메인 셋 중 관측된 것은
+# 첫째뿐이다.
+
+schema_version: 1
+id: c2-beacon
+version: 1.0.1
+min_core: "1.0.0"
+platforms: [linux]
+name:
+  ko: "C2 비컨 자동 시작 항목 제거"
+  en: "C2 beacon autostart removal"
+
+# `/opt` 다 — `/opt/.cache-9f2` 가 아니다. 폴더 이름의 꼬리는 감염마다 바뀐다
+# (THREAT.md). 그리고 `/opt/vendor-tools` 가 같은 부모 아래 있어야 "자리로
+# 가르지 않는다" 가 실제로 재어진다.
+scan_roots:
+  - "/opt"
+
+subjects: [autorun, file, indicator]
+
+detect:
+  # (1) 알려진 검체 — 위협 정보 피드의 SHA-256 목록 그대로.
+  #
+  # 같은 폴더의 notes.txt 는 목록에 없으므로 걸리지 않는다. 32 MiB 를 넘는
+  # 파일은 수집이 해시를 내지 않는다 — 이 위협의 검체는 그보다 작다.
+  - id: payload
+    subject: file
+    where:
+      - field: sha256
+        op: in
+        value:
+          - fec8aa606ec99721bd2a5153d2973816484c18b755e23fd508b1146d954195c7   # agent.bin
+          - 384670229c221ff5384c8b7691d711efe8763a41c48490f184727d334e95f5fe   # helper.so
+          - 7a1c0e4d9b2f6853a0c7e1b4d8f2a6c9e3b5d7f1a4c8e0b2d6f9a3c5e7b1d4f8   # 변종 — 이 기계에 없다
+          - c3e9a1f7b5d2064e8a0c2f4b6d8e1a3c5f7b9d0e2a4c6f8b1d3e5a7c9f0b2d4e   # 변종 — 이 기계에 없다
+
+  # (2) 알려진 명령 통제 서버 — 수집이 자동 시작 항목의 실행 줄에서 뽑아 둔
+  # 지표 가운데 도메인만 목록과 견준다. vendor-update 의 도메인은 목록에 없다.
+  - id: beacon
+    subject: indicator
+    where:
+      - { field: kind, op: equals, value: "domain" }
+      - field: value
+        op: in
+        value:
+          - cdn.evil-metrics.example
+          - api.evil-metrics.example
+          - relay.evil-metrics.example
+
+  # (3) 검체를 띄우는 자동 시작 항목. 실행 파일이 검체 폴더 안에 있다 — 이것이
+  # 없애야 할 대상이다. 지표 자체는 없앨 것이 아니므로 (2) 는 판정에만 쓴다.
+  - id: autostart
+    subject: autorun
+    where:
+      - { field: command, op: starts_with, value: "/opt/.cache-9f2/" }
+
+# 셋이 모두 서야 한다. 둘 중 하나가 빠지면 목록 하나가 헛돈 것이고, 그것이
+# 바로 이 위협이 재려는 실패다.
+verdict:
+  require: "autostart and payload and beacon"
+
+remediate:
+  remove:
+    - { ref: autostart }   # autorun.remove — 항목 파일 하나
+    - { ref: payload }     # file.quarantine_only — 목록에 있는 둘만. notes.txt 는 남는다
+
+submit_hint:
+  samples: [payload]
+  confidentiality_min: 1

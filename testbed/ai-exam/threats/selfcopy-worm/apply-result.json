@@ -1,0 +1,30 @@
+{
+  "schema": "remedy-exam-apply/4",
+  "threat": "selfcopy-worm",
+  "platform": "linux",
+  "mode": "unattended",
+  "verdict": "pass",
+  "exit_code": 1,
+  "measured": 6,
+  "scope_targets": 6,
+  "trace": {
+    "host": "9081dd6e5aac Linux 5.15.167.4-microsoft-standard-WSL2",
+    "stages": [
+      { "stage": "clean", "at": "2026-10-26T01:36:18Z", "sha256": "14f995d8521dd1dbc3dd616af1f4d73406b0a50eeaefe5ce5a4d425fa53c95e1", "counts": { "rows": 15 } },
+      { "stage": "infected", "at": "2026-10-26T01:36:18Z", "sha256": "304c70beda5705857155fa8c4e2cdaa590da120ed8788c60e2fe48a4f0e06222", "counts": { "rows": 15 } },
+      { "stage": "treated", "at": "2026-10-26T01:36:19Z", "sha256": "edd798915454623254e45a9c4c2c5dd3ba0742005cbd832fc8cb0ec4c19a2b2b", "counts": { "rows": 15 } }
+    ],
+    "actions_done": 6
+  },
+  "content_checks": 0,
+  "content_measured": 0,
+  "must_remain": 6,
+  "must_remain_measured": 6,
+  "plugin_files": {
+    "plugin.yaml": "bc3b1493adfbafcda4a246fcde35122b84b439365fcec66daf0c85a07bc1ee11"
+  },
+  "expected_ops_sha256": "ec4c32a28daf39db748db325f899c1546c4c6d99397bcd0787ad04b124999391",
+  "must_remain_sha256": "3c7f24012b85d9fd81dc8dd80a93402b4ca148eded380f4babb925deb1c6df5f",
+  "binary_sha256": "b7a264440a4f95d40b1bc3c6586ba4ba434a848a3cd9af0b7f1b566ae3984dd7",
+  "ran_at": "2026-10-26T01:36:19Z"
+}

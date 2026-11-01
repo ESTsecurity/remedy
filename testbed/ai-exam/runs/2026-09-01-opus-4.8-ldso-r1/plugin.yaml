@@ -1,0 +1,98 @@
+schema_version: 1
+id: ldso-searchpath-loader
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [linux]
+name:
+  ko: "동적 링커 검색 경로에 심어진 로더 제거"
+  en: "Removal of a loader planted in the dynamic linker search path"
+
+# ── 읽기 권한 상한 ────────────────────────────────────────────
+# 성능 설정이 아니라 권한 상한이다. 세 자리 모두 관측 보고가 짚은 곳이며,
+# 필요 이상으로 넓히지 않는다(넓히면 그만큼 읽을 수 있는 것이 늘어난다).
+#   /etc/ld.so.conf.d      : 링커 설정 조각          → conf 규칙(text_config)
+#   /usr/local/lib         : 검체 폴더가 자리잡는 상위 → payload·companion 의 from 이 이 안으로 파생된다
+#   /usr/share/applications: 변조된 .desktop 실행 항목  → launcher 규칙(shortcut)
+scan_roots:
+  - "/etc/ld.so.conf.d"
+  - "/usr/local/lib"
+  - "/usr/share/applications"
+
+subjects: [text_config, file, shortcut]
+
+detect:
+  # ── 근거 1 : 링커 설정에 덧붙은 줄 ──────────────────────────
+  # /etc/ld.so.conf.d/* 의 한 줄이 "점으로 시작하는 성분"을 가진 경로를 더했다.
+  # 정상 라이브러리 경로에는 그런 성분이 없다(관측). 폴더 꼬리(.crypt-9d41)는
+  # 감염마다 바뀌므로 리터럴로 적지 않고 '모양'만 본다.
+  - id: conf
+    subject: text_config
+    where:
+      all:
+        - { field: path, op: starts_with, value: "/etc/ld.so.conf.d/" }
+        # 슬래시 바로 뒤에 점, 그 뒤가 슬래시가 아닌 경로 성분.
+        #   /usr/local/lib/.crypt-9d41   → "/.c" 에 걸린다.
+        # 청정 기계의 정상 줄에는 이 모양이 없다:
+        #   /usr/local/lib · /lib/x86_64-linux-gnu · include /etc/ld.so.conf.d/*.conf …
+        - { field: line, op: matches, value: '/\.[^/]' }
+    capture:
+      # 이 줄 자체가 폴더 경로다. dirname 하지 않는다 — 줄이 곧 디렉터리다.
+      dir: "line | first_path"
+
+  # ── 근거 2 : 그 폴더 안의 공유 라이브러리 ───────────────────
+  # 부모가 가리킨 디렉터리 안에서만 찾는다. 설정 줄 하나로 판정하지 않고,
+  # 실제로 먼저 로드될 라이브러리가 그 자리에 있어야 판정이 선다.
+  - id: payload
+    subject: file
+    from: "${conf.dir}"
+    where:
+      # .so / .so.N 형태의 공유 오브젝트 (libnsl_compat.so.2 를 포함).
+      - { field: path, op: matches, value: '\.so(\.[0-9]+)*$' }
+
+  # ── 제거 범위 : 검체 폴더의 모든 파일 ───────────────────────
+  # 관측: "폴더 전체가 검체가 만든 것이고, 감염 전부터 있던 사용자 파일이
+  # 섞여 있는 경우는 관측되지 않았다." → 그 폴더의 파일은 전부 격리한다
+  # (라이브러리와 .seed 를 함께). from 이 검체 폴더로 이미 좁혔으므로,
+  # /usr/local/lib 바로 아래의 무관한 정상 라이브러리(libfoo.so.1 등)에는 닿지 않는다.
+  - id: companion
+    subject: file
+    from: "${conf.dir}"
+    where:
+      - { field: path, op: exists }
+
+  # ── 변조된 실행 항목 ────────────────────────────────────────
+  # .desktop 의 Exec 인자에 '확정된 검체 폴더 경로'가 들어간 것만 잡는다.
+  # conf.dir 로 묶으므로 이 감염에만 걸리고, 인자가 %U 뿐인 정상 Viewer 항목이나
+  # 다른 앱의 실행기에는 걸리지 않는다. 리터럴 조각으로 대신하지 않는다.
+  - id: launcher
+    subject: shortcut
+    where:
+      - { field: args, op: contains, value: "${conf.dir}" }
+
+# 독립적인 두 근거의 논리곱:
+#   (1) 링커 설정 줄(text_config)   (2) 그 폴더의 공유 라이브러리(file)
+# 서로 다른 대상에서 오므로, 한쪽 룰의 오탐이 곧바로 삭제가 되지 않는다.
+# 점수 임계값 문법은 없다.
+verdict:
+  require: "conf and payload"
+
+remediate:
+  remove:
+    # 유발자: 덧붙은 '줄'만 제거한다(파일은 남는다). 이 줄을 남긴 채 파일만
+    # 지우면, 공격자가 같은 자리에 다시 떨어뜨렸을 때 그대로 다시 로드된다.
+    #   text_config 증거 → text_config.remove_line (그 한 줄만)
+    - { ref: conf }
+    # 덧붙은 '인자'만 뺀다(실행 항목·실행 파일·%F 는 남는다).
+    #   shortcut 증거 → shortcut.strip_args
+    - { ref: launcher }
+    # 검체 폴더의 파일 전부 격리(라이브러리 + .seed).
+    #   file 증거 → file.quarantine_only (되돌릴 수 있는 가장 덜 위험한 Op)
+    # ※ dir.delete_recursive 는 Linux 에 없다(카탈로그 Linux 축이 비어 있음).
+    #    그래서 폴더 통삭제가 아니라 폴더 안 파일을 증거로 하나하나 격리한다.
+    - { ref: companion }
+
+# 손으로 분석에 올릴 사람을 위한 표시(자동 전송 기능은 제품에 없다).
+# 경로에 사용자 계정명이 실릴 수 있어 기밀 하한을 올려 둔다.
+submit_hint:
+  samples: [payload]
+  confidentiality_min: 1

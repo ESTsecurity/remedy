@@ -1,0 +1,12 @@
+# 남아야 하는 자리 — service-userinit
+#
+# 형식과 판정 방법은 `appinit-implant/must-remain.txt` 의 머리를 볼 것.
+
+# THREAT.md: "`C:\ProgramData\Acme\updater.exe` 를 가리키는 `Acme Update
+# Service` — 정상 설치 프로그램의 업데이트 서비스다."
+#
+# **서비스 자체는 여기 적지 않는다** — 관측기의 `services` 섹션이 전수를
+# 담으므로 `AcmeUpdater` 가 지워지면 범위 밖 변화로 이미 잡힌다. 잡히지 않던
+# 것은 그것이 가리키는 **파일**이다. 청정 기계에 없는 파일이라 지워져도
+# 청정↔치료 차분에는 아무것도 나타나지 않는다.
+C:\ProgramData\Acme\updater.exe

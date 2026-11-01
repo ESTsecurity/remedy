@@ -1,0 +1,30 @@
+{
+  "schema": "remedy-exam-apply/4",
+  "threat": "c2-beacon",
+  "platform": "linux",
+  "mode": "unattended",
+  "verdict": "pass",
+  "exit_code": 1,
+  "measured": 3,
+  "scope_targets": 3,
+  "trace": {
+    "host": "4c93a1bdf7b6 Linux 5.15.167.4-microsoft-standard-WSL2",
+    "stages": [
+      { "stage": "clean", "at": "2026-10-26T01:36:10Z", "sha256": "c7c9b50379c6692598b766917b6fd275f6d3f76634c0ab54b7f0f73c1f383e44", "counts": { "rows": 6 } },
+      { "stage": "infected", "at": "2026-10-26T01:36:10Z", "sha256": "2f32f8443c0a4fbaac672a2ea6772559a0b71672ef1cac3368fbc8c63ea6a7cd", "counts": { "rows": 6 } },
+      { "stage": "treated", "at": "2026-10-26T01:36:10Z", "sha256": "360680c6d55f6b7a6f90843e8a0c0a95768e73e132a3a0fa24d545b638291ed0", "counts": { "rows": 6 } }
+    ],
+    "actions_done": 3
+  },
+  "content_checks": 0,
+  "content_measured": 0,
+  "must_remain": 3,
+  "must_remain_measured": 3,
+  "plugin_files": {
+    "plugin.yaml": "92e6df1f13f86c21b43c0b01d3cb7a83c2d74e4487a193c653f42b76b95c0a38"
+  },
+  "expected_ops_sha256": "6194fa10487ac30976d582e9ba6df18e68dcaea1b019bc0f30d0432c903c0c83",
+  "must_remain_sha256": "0c60fe30a97ca1dcc9e1156fb7d540e977d5b199518bbc7e1e134bedc86e92dc",
+  "binary_sha256": "b7a264440a4f95d40b1bc3c6586ba4ba434a848a3cd9af0b7f1b566ae3984dd7",
+  "ran_at": "2026-10-26T01:36:10Z"
+}

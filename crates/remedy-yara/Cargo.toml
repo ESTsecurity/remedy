@@ -1,0 +1,12 @@
+[package]
+name = "remedy-yara"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+remedy-sdk = { path = "../remedy-sdk" }
+# P0 의존성 스파이크. 빈 크레이트로는 wasmtime 의 C 빌드 의존이 드러나지 않는다.
+yara-x = { workspace = true }

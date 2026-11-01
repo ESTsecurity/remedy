@@ -1,0 +1,60 @@
+# 감염 스냅샷을 뜨기 위한 수집 매니페스트 — selfcopy-worm.
+#
+# # 이것은 탐지 룰이 아니다
+#
+# `detect` 는 **아무것도 맞히지 않도록** 일부러 짰다 (`xmr-miner-collect.yaml`
+# 과 같다). 매니페스트가 있어야 선언 모드로 수집되고, 선언 모드여야 subject 를
+# 고를 수 있을 뿐이다. 여기에 진짜 조건을 적으면 그 순간 스냅샷이 오염된다.
+#
+# # 범위가 다섯인 것이 이 위협의 요점이다
+#
+# 복제본이 최상위 디렉터리 다섯에 흩어져 있다. `distinct_top_dirs` 상한이
+# 5 이므로 **닿되 넘지 않는다** — 넘기면 무인 모드가 중단하고 채점 5 로는
+# 아무것도 잴 수 없다(`new-threat-fixtures.sh` 의 selfcopy-worm 주석).
+#
+# **최상위 바로 아래를 범위로 쓰지 않는다.** 린트가 `/home` 과 `/opt` 를
+# 그 이유로 잡았고(*"사실상 전체를 훑는다 · scan_roots 는 읽기 권한 상한"*),
+# 복제 자리를 한 단계 깊은 곳으로 옮겨 그것을 피했다. 여기도 같은 자리를
+# 쓴다 — 수집 범위가 정답 플러그인보다 넓으면 스냅샷이 커지고 기계마다
+# 달라진다.
+
+schema_version: 1
+id: selfcopy-worm-collect
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [linux]
+name:
+  ko: "감염 스냅샷 수집용 — selfcopy-worm"
+  en: "infected snapshot collection - selfcopy-worm"
+
+scan_roots:
+  - "/usr/local/bin"
+  - "/usr/local/lib"
+  - "/opt/backup"
+  - "/var/tmp"
+  - "/srv/data"
+  - "/etc/cron.d"
+
+# **`persistence` 를 함께 담는다** (2026-09-22, `worm-r1` 이 드러냈다).
+#
+# 정기 작업은 가이드의 표가 `persistence` 로 분류하는 자리다
+# (`10-manifest.md` §scan_roots 표 — *"`scan_roots` 와 무관하게 수집된다"*).
+# 그런데 이 스냅샷은 `file` 만 담고 있어서, cron 을 그 표대로 다룬 답안이
+# **원리적으로 아무것도 맞히지 못했다** — 정답이 cron 파일을 `file` 로
+# 다루므로 정답의 길만 열려 있었던 것이다.
+#
+# 뺀 이유는 어디에도 적혀 있지 않았다. 선언하지 않았을 뿐이다. `ssh-backdoor`
+# 는 선언해서 16건이 담긴다. **두 길을 다 열어 둔다** — 어느 쪽으로 풀든
+# 시험이 성립해야 한다.
+#
+# 정답 플러그인은 `file` 만 쓰므로 이 추가로 바뀌지 않는다(회귀 0 을 실측으로
+# 확인한다).
+subjects: [file, persistence]
+
+detect:
+  - id: never
+    subject: file
+    where:
+      - { field: path, op: equals, value: "/nonexistent/remedy-exam-never-matches" }
+
+verdict: { require: "never" }

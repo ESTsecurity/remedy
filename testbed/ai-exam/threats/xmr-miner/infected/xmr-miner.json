@@ -1,0 +1,209 @@
+{
+  "schema_version": 1,
+  "kind": "remedy.artifacts",
+  "run_id": "run-1789959061-0085-2b6e4c8",
+  "created": "2026-09-21T02:51:01Z",
+  "host": {
+    "hostname": "775b04143820",
+    "os": "linux",
+    "version": "",
+    "arch": "x86_64"
+  },
+  "core": {
+    "version": "1.0.0",
+    "build": "x86_64-unknown-linux-gnu"
+  },
+  "plugins": [],
+  "collected_at": "2026-09-21T02:51:01Z",
+  "collector": {
+    "version": "1.0.0",
+    "bitness": 64,
+    "os_bitness": 64
+  },
+  "scope": {
+    "scan_roots": [
+      "/etc/systemd/system",
+      "/usr/local/lib"
+    ],
+    "subjects": [
+      "service",
+      "file"
+    ],
+    "truncated": false,
+    "denied_dirs": 0
+  },
+  "security_products": [],
+  "file": [
+    {
+      "path": "/etc/systemd/system/multi-user.target.wants/e2scrub_reap.service",
+      "size": 40,
+      "mtime": "2026-06-23T00:00:00Z",
+      "ctime": "2026-08-25T02:30:23Z"
+    },
+    {
+      "path": "/etc/systemd/system/sys-metrics.service",
+      "size": 226,
+      "mtime": "2026-09-14T22:41:07Z",
+      "ctime": "2026-09-21T02:51:01Z",
+      "sha256": "2175e9f5a600052e33a2898262dc20f2cb21a6d647161d9e60c9d092695ceb43"
+    },
+    {
+      "path": "/etc/systemd/system/timers.target.wants/apt-daily-upgrade.timer",
+      "size": 43,
+      "mtime": "2026-06-23T00:00:00Z",
+      "ctime": "2026-08-25T02:30:23Z"
+    },
+    {
+      "path": "/etc/systemd/system/timers.target.wants/apt-daily.timer",
+      "size": 35,
+      "mtime": "2026-06-23T00:00:00Z",
+      "ctime": "2026-08-25T02:30:23Z"
+    },
+    {
+      "path": "/etc/systemd/system/timers.target.wants/dpkg-db-backup.timer",
+      "size": 40,
+      "mtime": "2026-06-23T00:00:00Z",
+      "ctime": "2026-08-25T02:30:23Z"
+    },
+    {
+      "path": "/etc/systemd/system/timers.target.wants/e2scrub_all.timer",
+      "size": 37,
+      "mtime": "2026-06-23T00:00:00Z",
+      "ctime": "2026-08-25T02:30:23Z"
+    },
+    {
+      "path": "/etc/systemd/system/timers.target.wants/fstrim.timer",
+      "size": 32,
+      "mtime": "2026-06-23T00:00:00Z",
+      "ctime": "2026-08-25T02:30:23Z"
+    },
+    {
+      "path": "/etc/systemd/system/vendor-agent.service",
+      "size": 180,
+      "mtime": "2025-11-02T09:14:22Z",
+      "ctime": "2026-09-21T02:51:01Z",
+      "sha256": "83d81f9334af29215aceb29c010643e1d2d1dec930a166fafc8b88c8c87c520c"
+    },
+    {
+      "path": "/usr/local/lib/.metrics/config.json",
+      "size": 1024,
+      "mtime": "2026-09-14T22:41:07Z",
+      "ctime": "2026-09-21T02:51:01Z",
+      "sha256": "a253cc2b06bd427c62af7ba4276b9344950ccf9c53e215e15ef0cfb6875d8aac"
+    },
+    {
+      "path": "/usr/local/lib/.metrics/xmrig",
+      "size": 204800,
+      "mtime": "2026-09-14T22:41:07Z",
+      "ctime": "2026-09-21T02:51:01Z",
+      "sha256": "c6e5e0b8aa569717c7e5b7b219451cc94f6606bbe8fc2921ef361d6266a3a907"
+    },
+    {
+      "path": "/usr/local/lib/vendor/agent",
+      "size": 40960,
+      "mtime": "2025-11-02T09:14:22Z",
+      "ctime": "2026-09-21T02:51:01Z",
+      "sha256": "489782c9ec51e95fe6f344aade612d29de637c55e121366a7eacf2725957c394"
+    }
+  ],
+  "service": [
+    {
+      "id": "/lib/systemd/system/apt-daily-upgrade.service",
+      "name": "apt-daily-upgrade.service",
+      "state": "unknown",
+      "start_type": "static",
+      "image_path": "/usr/lib/apt/apt.systemd.daily"
+    },
+    {
+      "id": "/lib/systemd/system/apt-daily.service",
+      "name": "apt-daily.service",
+      "state": "unknown",
+      "start_type": "static",
+      "image_path": "/usr/lib/apt/apt.systemd.daily"
+    },
+    {
+      "id": "/usr/lib/systemd/user/dirmngr.service",
+      "name": "dirmngr.service",
+      "state": "unknown",
+      "start_type": "static",
+      "image_path": "/usr/bin/dirmngr"
+    },
+    {
+      "id": "/lib/systemd/system/dpkg-db-backup.service",
+      "name": "dpkg-db-backup.service",
+      "state": "unknown",
+      "start_type": "static",
+      "image_path": "/usr/libexec/dpkg/dpkg-db-backup"
+    },
+    {
+      "id": "/lib/systemd/system/e2scrub@.service",
+      "name": "e2scrub@.service",
+      "state": "unknown",
+      "start_type": "static",
+      "image_path": "/sbin/e2scrub"
+    },
+    {
+      "id": "/lib/systemd/system/e2scrub_all.service",
+      "name": "e2scrub_all.service",
+      "state": "unknown",
+      "start_type": "static",
+      "image_path": "/sbin/e2scrub_all"
+    },
+    {
+      "id": "/lib/systemd/system/e2scrub_fail@.service",
+      "name": "e2scrub_fail@.service",
+      "state": "unknown",
+      "start_type": "static",
+      "image_path": "/usr/lib/x86_64-linux-gnu/e2fsprogs/e2scrub_fail"
+    },
+    {
+      "id": "/lib/systemd/system/e2scrub_reap.service",
+      "name": "e2scrub_reap.service",
+      "state": "unknown",
+      "start_type": "disabled",
+      "image_path": "/sbin/e2scrub_all"
+    },
+    {
+      "id": "/lib/systemd/system/fstrim.service",
+      "name": "fstrim.service",
+      "state": "unknown",
+      "start_type": "static",
+      "image_path": "/sbin/fstrim"
+    },
+    {
+      "id": "/usr/lib/systemd/user/gpg-agent.service",
+      "name": "gpg-agent.service",
+      "state": "unknown",
+      "start_type": "static",
+      "image_path": "/usr/bin/gpg-agent"
+    },
+    {
+      "id": "/lib/systemd/system/pam_namespace.service",
+      "name": "pam_namespace.service",
+      "state": "unknown",
+      "start_type": "static",
+      "image_path": "/sbin/pam_namespace_helper"
+    },
+    {
+      "id": "/usr/lib/systemd/user/ssh-agent.service",
+      "name": "ssh-agent.service",
+      "state": "unknown",
+      "start_type": "enabled",
+      "image_path": "/usr/lib/openssh/agent-launch"
+    },
+    {
+      "id": "/etc/systemd/system/sys-metrics.service",
+      "name": "sys-metrics.service",
+      "state": "unknown",
+      "start_type": "disabled",
+      "image_path": "/usr/local/lib/.metrics/xmrig"
+    },
+    {
+      "id": "/etc/systemd/system/vendor-agent.service",
+      "name": "vendor-agent.service",
+      "state": "unknown",
+      "start_type": "disabled",
+      "image_path": "/usr/local/lib/vendor/agent"
+    }
+  ]
+}

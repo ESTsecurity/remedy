@@ -1,0 +1,109 @@
+# PHP2Shell 사후 처리 — 공격자가 남긴 것을 되돌릴 수 있게 지운다
+#
+# **취약점은 고치지 않는다.** 이 룰은 판을 보지 않는다 — 점검은 옆의 두 파일이
+# 한다. 여기서 다루는 것은 **악용된 뒤에 남은 것**이고, 그것이 단순 스캐너가
+# 하지 못하는 자리다:
+#
+# | 스캐너 | 이 룰 |
+# |---|---|
+# | 웹셸이 있다고 말한다 | **격리하고, 되돌릴 수 있다** |
+# | 정상 파일이 수상하다고 말한다 | **심은 줄만 빼고 나머지는 그대로 둔다** |
+# | 되돌릴 수 없다 | `restore` 가 **원본 바이트로** 되돌린다 (실측) |
+#
+# # 두 모양을 가른다
+#
+# 올리는 자리에 떨어진 **웹셸 파일**은 파일 전체가 공격자의 것이므로 격리한다.
+# 정상 `.php` 에 **심은 줄**은 그 줄만 뺀다 — 파일째 격리하면 사이트가 깨진다.
+# 둘을 가르는 것은 **자리**다: 올리는 디렉터리에 실행되는 `.php` 가 있을 이유가
+# 없다(`webshell-upload` 위협 설명이 가르치는 그 자리다).
+#
+# # 🔴 웹 루트를 통째로 줄 단위로 읽지 않는다
+#
+# 첫 초안은 `text_config_dirs` 에 웹 루트를 적었고 **린트가 막았다** — 그 아래
+# 모든 파일이 줄 단위로 스냅샷에 들어오고, 워드프레스의 `wp-config.php` 가
+# 거기 있다(DB 비밀번호). 이 사고의 주 대상이 워드프레스이므로 그 경고는
+# 정확히 이 룰을 두고 하는 말이다.
+#
+# 그래서 둘로 갈랐다 — **올린 웹셸은 줄을 읽지 않고** `file` 로 잡고(자리가
+# 근거다), 줄 단위 읽기는 **애플리케이션 디렉터리 하나**로 좁혔다. 운영에서
+# 이 줄을 고치는 사람은 **웹 루트를 적지 말 것** — 필요한 디렉터리를 이름으로
+# 적는다.
+#
+# # 🔴 줄 단위의 경계
+#
+# 심은 코드가 **정상 코드와 같은 줄**에 있으면 이 룰로 고치지 않는다 — 줄이
+# 지우는 단위이므로 정상 코드까지 사라진다(실측: 문법은 멀쩡하고 동작이
+# 깨진다). 그 모양은 사람이 보고 파일째 격리로 보낸다.
+schema_version: 1
+id: demo-php2shell-aftermath
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [windows, linux]
+
+name:
+  ko: "PHP2Shell 사후 처리 — 올린 자리의 웹셸과 정상 파일에 심은 줄"
+  en: "PHP2Shell aftermath - uploaded web shells and lines implanted in legitimate files"
+
+references:
+  - "CVE-2026-109618"
+  - "CVE-2026-109619"
+
+# 웹 루트 둘을 적는다. 그 플랫폼에 없는 쪽은 `missing_roots` 로 남고, **전부
+# 없을 때만** 관측이 불완전해진다(설계-02 §8) — Windows 회차에서 리눅스 루트가
+# 없는 것은 정상이다.
+scan_roots:
+  - 'C:\inetpub\wwwroot'
+  - "/var/www/html"
+
+subjects: [file, text_config]
+
+# **확장자 벽 밖을 연다 — 그러나 좁게.** `.php` 는 설정 확장자가 아니므로
+# 선언이 없으면 줄 단위로 읽히지 않는다. 여기 적은 디렉터리의 파일은 **전부**
+# 줄로 들어오므로(직접 자식만) **웹 루트를 적지 않는다** — 위 머리의 빨간
+# 문단이 그 이유다.
+text_config_dirs:
+  - 'C:\inetpub\wwwroot\app'
+  - "/var/www/html/app"
+
+detect:
+  # ── ① 올리는 자리에 떨어진 웹셸 ──────────────────────────────────
+  #
+  # **자리가 근거다.** 올리는 디렉터리에 실행되는 `.php` 가 있을 이유가 없다 —
+  # 그 디렉터리는 받은 파일을 담는 곳이고, 받은 파일이 실행되면 그것이 사고다.
+  # **줄을 읽지 않는다**: 경로만으로 서므로 그 디렉터리를 줄 단위로 열 이유가
+  # 없고, 열지 않는 편이 안전하다.
+  - id: uploaded_shell
+    subject: file
+    where:
+      any:
+        - { field: path, op: glob, value: 'C:\inetpub\wwwroot\uploads\*.php' }
+        - { field: path, op: glob, value: "/var/www/html/uploads/*.php" }
+
+  # ── ② 정상 파일에 심은 줄 ────────────────────────────────────────
+  #
+  # 애플리케이션 디렉터리의 `.php` 는 사이트의 것이므로 **줄만 뺀다.** 자리가
+  # 아니라 **내용**이 근거이고, 그래서 여기만 줄 단위로 읽는다.
+  - id: implanted_line
+    subject: text_config
+    where:
+      all:
+        - { field: path, op: ends_with, value: ".php" }
+        - { field: line, op: contains, value: "eval(base64_decode(" }
+
+# 둘 중 하나라도 서면 치료한다. **근거가 하나뿐인 판정이 아니다** — 각 룰이
+# 자리나 내용을 제 안에서 못박았고, 둘이 서로 다른 모양을 겨눈다.
+verdict:
+  require: "uploaded_shell or implanted_line"
+
+remediate:
+  remove:
+    # 파일째 격리된다 — 계획기가 `file` 증거에 `file.quarantine_only` 를 고른다.
+    # **지우는 것이 아니라 옮기는 것**이고, 되돌리기가 Op 의 정의에 들어 있다.
+    - ref: uploaded_shell
+    # 줄만 빠진다 — `text_config` 증거에 `text_config.remove_line` 이다.
+    - ref: implanted_line
+
+# `verify` 를 적지 않는다. 재검사는 `remedy verify` 가 **같은 룰로** 하는 일이고
+# 매니페스트의 그 칸에는 `after_reboot` 하나뿐이다 — 재부팅이 필요한 Op 이
+# 없으므로 적을 것이 없다. 다 보지 못한 재검사가 *치료 성공* 이 되지 않는 것은
+# 코어가 지킨다(2026-10-26).

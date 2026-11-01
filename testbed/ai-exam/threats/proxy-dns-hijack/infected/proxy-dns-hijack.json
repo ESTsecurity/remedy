@@ -1,0 +1,206 @@
+{
+  "schema_version": 1,
+  "kind": "remedy.artifacts",
+  "run_id": "run-1789979733-1b64-1018337c",
+  "created": "2026-09-21T08:35:33Z",
+  "host": {
+    "hostname": "DESKTOP-2GQIRP1",
+    "os": "windows",
+    "version": "",
+    "arch": "x86_64"
+  },
+  "core": {
+    "version": "1.0.0",
+    "build": "x86_64-pc-windows-msvc"
+  },
+  "plugins": [],
+  "collected_at": "2026-09-21T08:35:33Z",
+  "collector": {
+    "version": "1.0.0",
+    "bitness": 64,
+    "os_bitness": 64
+  },
+  "scope": {
+    "scan_roots": [
+      "C:\\ProgramData\\NetOpt",
+      "C:\\ProgramData\\NetTools"
+    ],
+    "subjects": [
+      "file",
+      "hosts_entry",
+      "proxy_config",
+      "autorun"
+    ],
+    "truncated": false,
+    "denied_dirs": 0
+  },
+  "security_products": [
+    {
+      "vendor": "Microsoft Defender 바이러스 백신",
+      "realtime": true
+    },
+    {
+      "vendor": "알약"
+    }
+  ],
+  "autorun": [
+    {
+      "id": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\CrossEXService",
+      "scope": "user",
+      "name": "CrossEXService",
+      "command": "C:\\Program Files (x86)\\iniLINE\\CrossEX\\crossex\\CrossEXService.exe",
+      "source": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\MicrosoftEdgeAutoLaunch_AF2BBCAD27A22A0C1234356BDE5EE233",
+      "scope": "user",
+      "name": "MicrosoftEdgeAutoLaunch_AF2BBCAD27A22A0C1234356BDE5EE233",
+      "command": "\"C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe\" --no-startup-window --win-session-start",
+      "source": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\NetOptimizer",
+      "scope": "user",
+      "name": "NetOptimizer",
+      "command": "\"C:\\ProgramData\\NetOpt\\netopt.exe\" /min",
+      "source": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\Shell",
+      "scope": "system",
+      "name": "Shell",
+      "command": "explorer.exe",
+      "source": "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\Userinit",
+      "scope": "system",
+      "name": "Userinit",
+      "command": "C:\\Windows\\system32\\userinit.exe,",
+      "source": "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\ALNotify",
+      "scope": "system",
+      "name": "ALNotify",
+      "command": "C:\\Program Files (x86)\\ESTsoft\\ALToolsManager\\alnotify.exe",
+      "source": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\ALYac",
+      "scope": "system",
+      "name": "ALYac",
+      "command": "\"C:\\Program Files\\ESTsoft\\ALYac\\AYLaunch.exe\" /run",
+      "source": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\AhnLab Safe Transaction Application",
+      "scope": "system",
+      "name": "AhnLab Safe Transaction Application",
+      "command": "\"C:\\Program Files\\AhnLab\\Safe Transaction\\stsess.exe\" /tray",
+      "source": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\Everything",
+      "scope": "system",
+      "name": "Everything",
+      "command": "\"C:\\Program Files\\Everything\\Everything.exe\" -startup",
+      "source": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\SecurityHealth",
+      "scope": "system",
+      "name": "SecurityHealth",
+      "command": "%windir%\\system32\\SecurityHealthSystray.exe",
+      "source": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\VMware User Process",
+      "scope": "system",
+      "name": "VMware User Process",
+      "command": "\"C:\\Program Files\\VMware\\VMware Tools\\vmtoolsd.exe\" -n vmusr",
+      "source": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\wizvera-veraport-x64",
+      "scope": "system",
+      "name": "wizvera-veraport-x64",
+      "command": "\"C:\\Program Files\\Wizvera\\Veraport20\\veraport-x64.exe\" wizvera-veraport://exec/x86/16105/",
+      "source": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Run\\AnySign4PC",
+      "scope": "system",
+      "name": "AnySign4PC",
+      "command": "\"C:\\Program Files (x86)\\SoftForum\\XecureWeb\\AnySign\\dll\\AnySign4PC.exe\" \"port=10530;port_s=10531;no_shut=1\"",
+      "source": "HKLM\\SOFTWARE\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Run\\ipinside-lws",
+      "scope": "system",
+      "name": "ipinside-lws",
+      "command": "C:\\Program Files (x86)\\IPinside_LWS\\I3GProc.exe",
+      "source": "HKLM\\SOFTWARE\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Run"
+    }
+  ],
+  "file": [
+    {
+      "path": "C:\\ProgramData\\NetOpt\\netopt.exe",
+      "size": 1245184,
+      "mtime": "2026-09-17T09:26:04Z",
+      "ctime": "2026-09-21T08:35:31Z",
+      "sha256": "890b8fb991b81e1bf517962a67f88e088db60541671a10d9d6fe915c5a05ae19",
+      "signature": {
+        "trusted": false
+      }
+    },
+    {
+      "path": "C:\\ProgramData\\NetTools\\latency-probe.exe",
+      "size": 331776,
+      "mtime": "2025-12-03T08:20:41Z",
+      "ctime": "2026-09-21T08:35:31Z",
+      "sha256": "f5807d843d770e4703fc61e609008126cfe3aa4f2c00c9a3d6538d566fa8b3a7",
+      "signature": {
+        "trusted": false
+      }
+    }
+  ],
+  "hosts_entry": [
+    {
+      "ip": "192.168.10.14",
+      "hostnames": [
+        "buildserver",
+        "buildserver.corp.example"
+      ],
+      "line_no": 22,
+      "source": "C:\\Windows\\System32\\drivers\\etc\\hosts",
+      "line": "192.168.10.14\tbuildserver buildserver.corp.example"
+    },
+    {
+      "ip": "10.20.30.40",
+      "hostnames": [
+        "update.microsoft.com"
+      ],
+      "line_no": 23,
+      "source": "C:\\Windows\\System32\\drivers\\etc\\hosts",
+      "line": "10.20.30.40\tupdate.microsoft.com"
+    },
+    {
+      "ip": "10.20.30.40",
+      "hostnames": [
+        "login.bank-example.co.kr"
+      ],
+      "line_no": 24,
+      "source": "C:\\Windows\\System32\\drivers\\etc\\hosts",
+      "line": "10.20.30.40\tlogin.bank-example.co.kr"
+    }
+  ],
+  "proxy_config": [
+    {
+      "scope": "user",
+      "server": "10.20.30.40:8080",
+      "pac_url": "",
+      "bypass": "127.0.0.1:16105;127.0.0.1:16106;;127.0.0.1:21300;"
+    }
+  ]
+}

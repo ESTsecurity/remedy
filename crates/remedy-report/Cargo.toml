@@ -1,0 +1,17 @@
+[package]
+name = "remedy-report"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+remedy-sdk = { path = "../remedy-sdk" }
+# 점검 결과를 항목으로 적으려면 `Evidence.target` 을 읽어야 한다 (2026-10-28).
+# **새 의존처럼 보이지만 전이 의존이었다** — 그 필드의 형이 이미
+# `serde_json::Value` 라, 이 크레이트는 그것을 쓰지 않고는 `Evidence` 를 다룰
+# 수 없었다. 설계-04 §1 의 금지 표는 내부 `remedy-*` 쌍만 보고(그 문단이
+# `object` 에 같은 판단을 적는다), 이 크레이트는 **문자열만 만든다** — 읽기도
+# 쓰기도 없다.
+serde_json.workspace = true

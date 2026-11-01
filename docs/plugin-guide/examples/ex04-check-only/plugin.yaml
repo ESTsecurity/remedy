@@ -1,0 +1,65 @@
+schema_version: 1
+id: example-check-only                # 예제 고유 값 — 대상에 맞게 교체
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [linux]
+
+# **점검 전용임을 선언한다.** 이 한 줄이 코어에게 둘을 준다 — 선언한 자리가 전부
+# 없으면 *확인 필요* 가 아니라 **해당 없음**(0), 그리고 화면이 *위협* 이 아니라
+# **취약**이라고 말한다. 적지 않으면 치료 플러그인이고, `remediate` 와 함께
+# 적으면 린트 오류다.
+kind: check
+
+name:
+  ko: "예제 — 점검 전용: PHP-FPM 이 세션 업로드 진행 표시를 꺼 두지 않았다"
+  en: "Example - check only: PHP-FPM leaves session upload progress on"
+
+# 점검도 읽기 권한의 상한을 적는다. 바꾸지 않는다고 넓게 읽어도 되는 것이 아니다.
+# PHP 가 없는 기계에서는 이 루트가 없는데, `kind: check` 라서 그것은 **해당 없음**
+# 이다(종료 0) — README 참조.
+scan_roots:
+  - "/etc/php"
+
+subjects: [text_config]
+
+detect:
+  # 부모 — FPM 풀이 열려 있다. 풀 설정의 `listen` 줄이 그 증거다.
+  # `*` 는 경로 성분 하나만 삼킨다 — 버전 폴더(8.2 · 8.3)마다 따로 맞는다.
+  - id: pool
+    subject: text_config
+    where:
+      all:
+        - { field: path, op: glob,   value: "/etc/php/*/fpm/pool.d/*.conf" }
+        - { field: key,  op: equals, value: "listen" }
+    capture:
+      # /etc/php/8.2/fpm/pool.d/www.conf → /etc/php/8.2/fpm
+      fpm_dir: "path | dirname | dirname"
+
+  # 자식 — 같은 FPM 의 php.ini 가 그 기능을 **명시적으로 껐다**.
+  # 기본값이 켜짐이라, 끄는 줄이 없으면 켜져 있는 것이다.
+  # **이 예제는 php.ini 만 본다** — conf.d · 풀의 php_admin_value · PHP_VALUE ·
+  # .user.ini 는 보지 않는다(README "보지 않는 것").
+  - id: turned_off
+    subject: text_config
+    from: "${pool.fpm_dir}"
+    where:
+      all:
+        - { field: path,  op: ends_with, value: "/php.ini" }
+        - { field: key,   op: equals,    value: "session.upload_progress.enabled" }
+        # PHP 가 거짓으로 읽는 표기 전부 — Off · 0 · false · no · none · null · 빈 값,
+        # 따옴표 친 값, 줄 끝 `;` 주석. 수집기의 value 는 `=` 뒤를 다듬기만 한
+        # 원문이라 따옴표와 주석이 남는다. 작은따옴표여야 `\s` 가 YAML 에서 산다.
+        - { field: value, op: matches,   value: '(?i)^"?(off|0|false|no|none|null)?"?\s*(;.*)?$' }
+    exclude:
+      # `[PATH=…]` · `[HOST=…]` 안의 값은 그 경로 · 호스트에만 걸린다(FastCGI).
+      # 거기서 끈 것은 FPM 전체를 끈 것이 아니다.
+      - { field: section, op: matches, value: "(?i)^(path|host)=" }
+
+# 풀이 열려 있고, 그 풀이 쓰는 php.ini 가 끄지 않았다.
+# `not` 은 혼자 쓰지 않는다 — 풀이 없으면 자식은 평가되지 않아 0건이고 `not` 은 참이
+# 된다. 판정을 설치본으로 좁히는 것은 앞의 `pool and` 다.
+verdict:
+  require: "pool and not turned_off"
+
+# remediate 가 없다. 위의 `kind: check` 와 함께 이것이 "점검 전용" 이다 —
+# 계획이 비고, 승인을 묻지 않는다.

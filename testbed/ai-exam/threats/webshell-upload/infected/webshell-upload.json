@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "kind": "remedy.artifacts",
+  "run_id": "run-1789975730-1c6c-1192a96c",
+  "created": "2026-09-21T07:28:50Z",
+  "host": {
+    "hostname": "DESKTOP-2GQIRP1",
+    "os": "windows",
+    "version": "",
+    "arch": "x86_64"
+  },
+  "core": {
+    "version": "1.0.0",
+    "build": "x86_64-pc-windows-msvc"
+  },
+  "plugins": [],
+  "collected_at": "2026-09-21T07:28:50Z",
+  "collector": {
+    "version": "1.0.0",
+    "bitness": 64,
+    "os_bitness": 64
+  },
+  "scope": {
+    "scan_roots": [
+      "C:\\inetpub\\wwwroot"
+    ],
+    "subjects": [
+      "file"
+    ],
+    "truncated": false,
+    "denied_dirs": 0
+  },
+  "security_products": [
+    {
+      "vendor": "Microsoft Defender 바이러스 백신",
+      "realtime": true
+    },
+    {
+      "vendor": "알약"
+    }
+  ],
+  "file": [
+    {
+      "path": "C:\\inetpub\\wwwroot\\App\\Handlers\\Upload.aspx",
+      "size": 7168,
+      "mtime": "2025-12-03T08:20:41Z",
+      "ctime": "2026-09-21T07:28:49Z",
+      "sha256": "8f4ebb2bd81c7b72f703aca396a6768750c908860d1df96d648c3f7f46abca53"
+    },
+    {
+      "path": "C:\\inetpub\\wwwroot\\App\\Web.config",
+      "size": 2048,
+      "mtime": "2025-12-03T08:20:41Z",
+      "ctime": "2026-09-21T07:28:49Z",
+      "sha256": "0caae217c9110317e3a73137f877d7c0f192874d7ed98eca0a935c3142c98e41"
+    },
+    {
+      "path": "C:\\inetpub\\wwwroot\\Default.aspx",
+      "size": 12288,
+      "mtime": "2025-12-03T08:20:41Z",
+      "ctime": "2026-09-21T07:28:49Z",
+      "sha256": "27f75a396e7df2cdf746f31a858341b5f5038e32192aec0190e55841dcc83b8d"
+    },
+    {
+      "path": "C:\\inetpub\\wwwroot\\uploads\\2026-09\\.thumb.aspx",
+      "size": 768,
+      "mtime": "2026-09-20T14:33:19Z",
+      "ctime": "2026-09-21T07:28:49Z",
+      "sha256": "c2a26d8394bc33fa9e3ba3d1ce28f3801e1abca5175ebc92df11a8ba1170a58f"
+    },
+    {
+      "path": "C:\\inetpub\\wwwroot\\uploads\\2026-09\\receipt-441.jpg",
+      "size": 131072,
+      "mtime": "2025-12-03T08:20:41Z",
+      "ctime": "2026-09-21T07:28:49Z",
+      "sha256": "23dfdb20587375551dc1868feb068692efb846533af9e59d5ad42f4e25c6803f"
+    },
+    {
+      "path": "C:\\inetpub\\wwwroot\\uploads\\avatar-8821.png",
+      "size": 65536,
+      "mtime": "2025-12-03T08:20:41Z",
+      "ctime": "2026-09-21T07:28:49Z",
+      "sha256": "97fc8fab0fa204d4e7ad0bc76832bfa363af8b33bda406273d12f0de649609a5"
+    },
+    {
+      "path": "C:\\inetpub\\wwwroot\\uploads\\quarterly-report.pdf",
+      "size": 262144,
+      "mtime": "2025-12-03T08:20:41Z",
+      "ctime": "2026-09-21T07:28:49Z",
+      "sha256": "cc7882c277742bd98fa9a3942528a6554d474eb42176425ebc16b2d13ec83e23"
+    },
+    {
+      "path": "C:\\inetpub\\wwwroot\\uploads\\sess_7f3a9c.aspx",
+      "size": 1024,
+      "mtime": "2026-09-20T14:33:19Z",
+      "ctime": "2026-09-21T07:28:49Z",
+      "sha256": "36287e75fff83d39b6fb9f30477f0338af963a9617a590a43485b57004363a48"
+    }
+  ]
+}

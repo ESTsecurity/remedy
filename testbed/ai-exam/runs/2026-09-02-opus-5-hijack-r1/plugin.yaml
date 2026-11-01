@@ -1,0 +1,168 @@
+# WebBoost — 검색을 가로채는 광고 임플란트
+#
+# 관측된 것만 조건에 넣는다. 파일 크기(1,245,184 · 172,032)와 확장 판(3.2.0)은
+# 재빌드 한 번에 바뀌므로 조건으로 쓰지 않는다 — 좁은 룰은 오탐이 아니라
+# 미탐을 낳고, 미탐은 아무도 잡아 주지 않는다 (30-antipatterns.md 10번).
+
+schema_version: 1
+id: webboost-search-hijack
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [windows]
+name:
+  ko: "WebBoost — 검색 가로채기 광고 임플란트 제거"
+  en: "WebBoost - search-hijacking ad implant removal"
+
+# ── 권한 상한 ────────────────────────────────────────────────────────────
+# 여기 밖은 읽을 수도 지울 수도 없다. 넓으면 린트가 경고하지만 **좁으면 아무도
+# 경고하지 않고 룰이 통째로 죽는다** — 그래서 수집이 필요한 다섯 자리를 전부 적는다.
+scan_roots:
+  # 페이로드 폴더. 이 검체는 폴더 이름이 감염마다 바뀌지 않으므로
+  # 상한 자체가 위치가 된다. 아래 file 규칙에 절대 경로를 적지 않는 이유다.
+  - "%PROGRAMDATA%\\WebBoost"
+
+  # **레지스트리 값도 이 상한을 받는다.** 적지 않으면 registry_value 는 언제나
+  # 0건이고 그 위에서 도는 룰은 아무것도 못 맞힌 채 초록이 된다.
+  # 값 수집은 재귀하지 않으므로 BootExecute 가 있는 키와 Path 가 있는
+  # Environment 키를 따로 적는다. 하위 키 이름을 이미 아는 자리라
+  # 끝의 `\*` 는 쓰지 않는다 (넓히기만 할 뿐이다).
+  - "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager"
+  - "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment"
+
+  # browser_extension 도 상한을 받는다. 확장은 **사용자마다** 설치되므로
+  # %ALLUSERPROFILES% 로 편다 — 보통 환경변수를 쓰면 현재 로그온 사용자만
+  # 치료되고 나머지 사용자는 감염된 채 남는다.
+  # 관측이 "기본 프로필 양쪽" 이라고 말했으므로 Extensions 까지 내려 잡는다.
+  # `User Data` 를 상한으로 잡으면 쿠키·기록·로그인 정보까지 읽을 수 있게 되고,
+  # 그것은 이 룰이 필요로 하는 범위가 아니다.
+  - "%ALLUSERPROFILES%\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions"
+  - "%ALLUSERPROFILES%\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions"
+
+subjects: [file, browser_extension, registry_value, proxy_config, process]
+
+detect:
+  # ── 페이로드 ───────────────────────────────────────────────────────────
+  # 상한이 페이로드 폴더 자체이므로 파일 이름만 본다.
+  # 리터럴 절대 경로는 조건에 적지 않는다 — 안 바뀌는 것은 scan_roots 가 이미 정했다.
+  - id: svc
+    subject: file
+    where:
+      - { field: path, op: ends_with, value: "\\wbsvc.exe" }
+    capture:
+      # 아래 편집·묶음이 쓸 폴더 경로. 리터럴이 아니라 증거에서 나온다.
+      dir: "path | dirname"
+
+  # 부속 페이로드 — 부팅 때 나머지를 되살린다.
+  # **판정에는 넣지 않는다**(부속 파일). 제거 대상이자, 부팅 목록에서 뺄
+  # 문자열의 출처다.
+  - id: wbb
+    subject: file
+    from: "${svc.dir}"
+    where:
+      - { field: path, op: ends_with, value: "\\wbboot.exe" }
+    capture:
+      # 부팅 목록에서 뺄 항목은 이 이름 하나다. 증거에서 뽑아야 리터럴 편집이
+      # 되지 않는다.
+      entry: "path | basename"
+
+  # ── 브라우저 확장 ──────────────────────────────────────────────────────
+  # **식별자로만 가른다.** 브라우저·프로필 이름으로 고르면 같은 자리에 사는
+  # 정상 확장이 함께 없어진다 — 청정 기계에도 이 자리에 확장이 넷 있고
+  # 그중 하나는 두 브라우저에 같이 설치돼 있다.
+  # 조건이 식별자 하나이므로 두 브라우저의 두 레코드가 모두 증거가 되고,
+  # 아래 { ref: ext } 가 그 둘을 함께 뺀다.
+  # `name`·`version` 은 조건에 넣지 않는다 — 판이 오르면 조용히 안 맞는다.
+  - id: ext
+    subject: browser_extension
+    where:
+      - { field: ext_id, op: equals, value: "pknbjlbmgcodmfilnjadgpkcnkmlpkkn" }
+
+  # ── 실행 경로에 끼어든 항목 ────────────────────────────────────────────
+  # 값 전체가 아니라 **덧붙은 조각**을 문제 삼는다. 나머지 다섯은 이 기계가
+  # 원래 갖고 있던 것이다.
+  - id: pathvar
+    subject: registry_value
+    where:
+      all:
+        - { field: hive, op: equals,   value: "HKLM" }
+        - { field: key,  op: equals,   value: "SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment" }
+        - { field: name, op: equals,   value: "Path" }
+        # 경로 조각이다. 드라이브 문자를 박은 절대 경로가 아니므로
+        # ProgramData 가 다른 드라이브에 있는 기계에서도 맞는다.
+        - { field: data, op: contains, value: "\\ProgramData\\WebBoost" }
+
+  # ── 부팅 목록에 덧붙은 줄 ──────────────────────────────────────────────
+  # 앞 두 줄(autocheck autochk * · bootalyac.exe)은 Windows 와 정상 보안
+  # 제품의 것이다. 값 전체를 지우면 그 둘이 함께 사라진다.
+  - id: bootexec
+    subject: registry_value
+    where:
+      all:
+        - { field: hive, op: equals,   value: "HKLM" }
+        - { field: key,  op: equals,   value: "SYSTEM\\CurrentControlSet\\Control\\Session Manager" }
+        - { field: name, op: equals,   value: "BootExecute" }
+        - { field: data, op: contains, value: "wbboot.exe" }
+
+  # ── 프록시 ─────────────────────────────────────────────────────────────
+  # 자리가 아니라 **무엇을 가리키는지**로 가른다. 프록시 설정 자체는 정상
+  # 기계에도 있다.
+  # 관측된 값 그대로 못박는다 — 넓히면(예: 127.0.0.1 전부) 로컬 디버깅
+  # 프록시를 쓰는 기계에서 사용자의 설정을 되돌려 버린다.
+  # restore 는 이 규칙이 짚은 증거만 되돌린다. 그래서 이 규칙이 있어야 한다.
+  - id: proxy
+    subject: proxy_config
+    where:
+      all:
+        - { field: scope,  op: equals, value: "user" }
+        - { field: server, op: equals, value: "127.0.0.1:8899" }
+
+  # ── 상주 프로세스 ──────────────────────────────────────────────────────
+  # 실행 파일 이름이 아니라 **어디서 도는가**로 가른다. 판정에는 넣지 않는다.
+  - id: proc
+    subject: process
+    where:
+      - { field: image_path, op: starts_with, value: "${svc.dir}" }
+
+# 실체(페이로드·확장) 하나 + 이 검체가 바꾼 시스템 설정 하나의 논리곱.
+# 서로 다른 대상에서 온 근거이므로 독립이다.
+#
+# `or` 를 쓴 이유: 두 번째 근거를 하나로 못박으면 그 근거가 이미 사라진
+# 기계에서 판정이 서지 않는다. 다른 백신이 바이너리만 잡아간 기계에서도
+# 확장과 설정이 남아 있으면 판정이 서고, 사용자가 확장만 지운 기계에서도
+# 페이로드와 설정으로 선다.
+#
+# 확장 하나만으로는 서지 않는다 — 스토어에서 받은 확장을 지우는 룰이 되면 안 된다.
+verdict:
+  require: "(svc or ext) and (pathvar or bootexec or proxy)"
+
+remediate:
+  # 순서는 적지 않는다. 유발자·프로세스·백업·삭제의 차례는 코어가 정한다.
+  remove:
+    - { ref: ext }    # browser_ext.remove — 두 브라우저의 같은 확장 두 건
+    - { ref: proc }   # process.kill
+    - { ref: svc }    # file.quarantine_only — 격리는 되돌릴 수 있다
+    - { ref: wbb }
+
+  # 통째로 지우면 기계를 못 쓰게 되는 값들이다. 값을 남기고 덧붙은 부분만 뺀다.
+  # 두 value 모두 증거에서 파생됐다 — 리터럴 문자열로 임의 편집을 지시하지 않는다.
+  edit:
+    # 검색 경로 계열이므로 env.strip_path 로 간다.
+    # 뺄 값이 파일 증거의 dirname 이라 **경로 하나**임이 보장된다 —
+    # 목록 전체가 대상이 될 수 있는 형태를 애초에 만들지 않는다.
+    - { ref: pathvar,  op: strip, value: "${svc.dir}" }
+    # MULTI_SZ 의 한 항목이므로 registry.strip_value 로 간다.
+    # BootExecute 는 restore_default 카탈로그에 없어 `to: default` 를 쓸 수 없다.
+    - { ref: bootexec, op: strip, value: "${wbb.entry}" }
+
+  # 되돌리기다. 예외 목록을 비우듯 통째로 비우지 않고 룰이 짚은 증거만 되돌린다.
+  restore:
+    - proxy
+
+  # 부팅 때 되살리는 부속물이 있는 검체다. 경로 확인이 아니라 재판정을 건다.
+  verify:
+    after_reboot: true
+
+submit_hint:
+  samples: [svc, wbb]
+  # 계획·보고에 브라우저 프로필 경로가 실리고 거기에 사용자 계정명이 들어간다.
+  confidentiality_min: 1

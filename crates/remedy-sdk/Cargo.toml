@@ -1,0 +1,19 @@
+[package]
+name = "remedy-sdk"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+serde.workspace = true
+regex.workspace = true
+serde_json.workspace = true
+schemars.workspace = true
+unicode-normalization.workspace = true
+# 생성기(`generate::lint_errors_md`)가 사례 매니페스트를 실제로 파싱해 린트를
+# 돌린다. 오류 표를 손으로 적으면 낡고, 낡은 오류 메시지를 읽은 AI 는 지금은
+# 없는 수정법을 시도한다. remedy-cli·core·collect·detect 가 이미 같은 파서를
+# 쓰므로 의존 그래프가 넓어지지 않는다.
+serde_yaml_ng.workspace = true

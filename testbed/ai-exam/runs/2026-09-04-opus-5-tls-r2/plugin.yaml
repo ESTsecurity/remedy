@@ -1,0 +1,116 @@
+# NetGuard TLS 가로채기 키트 — 심어진 루트 CA · 돌려진 이름 · 페이로드
+#
+# 관측 근거: 분석가 보고 (감염된 Debian 계열 1대)
+#   - 신뢰 저장소 `local` 에 자가 발급 루트 CA 1장
+#   - /etc/hosts 에 덧붙은 줄 2개 (보안 제품 업데이트·전송 대상을 루프백으로)
+#   - /opt/netguard/ 에 프록시 바이너리와 그 CA 의 개인키
+
+schema_version: 1
+id: netguard-tls-intercept
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [linux]
+name:
+  ko: "NetGuard TLS 가로채기 키트 제거"
+  en: "NetGuard TLS interception kit removal"
+
+# 읽기 권한 상한.
+#
+# `file` 규칙만 이 상한을 받는다 — `cert_store` 와 `hosts_entry` 는 상한과
+# 무관하게 수집된다 (10-manifest.md §scan_roots 의 표). 그래서 인증서 저장소
+# 경로도 /etc 도 여기 적지 않는다. 적으면 지울 수 있는 범위만 넓어진다.
+#
+# 페이로드 자리는 **감염마다 바뀌지 않는다**(패키지처럼 설치된다). 바뀌지 않는
+# 것은 조건이 아니라 상한이 정한다 (20-detect-recipes.md §자주 막히는 곳).
+# `/opt` 로 넓히지 않는다 — 거기에는 정상 소프트웨어(`/opt/goodware/`)가 산다.
+scan_roots:
+  - "/opt/netguard"
+
+subjects: [cert_store, hosts_entry, file]
+
+detect:
+  # ── 근거 1 · 신뢰 저장소에 심긴 루트 CA ────────────────────────────
+  # 이것이 이 위협의 본체다. 나머지가 전부 없어도 이 기계의 모든 TLS 는
+  # 가운데서 열린다.
+  #
+  # **자가 발급으로 가르지 않는다.** 청정 기계의 루트 529장이 전부 자가
+  # 발급이다 — 그것으로 가르면 그 기계의 루트가 통째로 지워진다.
+  # 가르는 것은 `store` 와 **주체 이름**이다. `local` 은 손으로 더한 CA 자리
+  # (/usr/local/share/ca-certificates)이고 `system`(배포판이 넣은 것)과 다르다.
+  # Linux 평가는 대소문자를 접지 않으므로 표기 그대로 적는다.
+  - id: cert
+    subject: cert_store
+    where:
+      all:
+        - { field: store,   op: equals,   value: "local" }
+        - { field: subject, op: contains, value: "NetGuard Secure Proxy CA" }
+
+  # ── 근거 2 · 돌려진 이름 ───────────────────────────────────────────
+  # 줄 번호로 가르지 않는다 — 기계마다 다르다. **주소와 이름의 조합**으로
+  # 가른다. 루프백을 가리키는 항목 자체는 정상 기계에도 흔하다(42건 중 14건).
+  # 정상과 악성을 가르는 것은 *무엇이* 루프백을 가리키는가다.
+  #
+  # 줄 전체(`line`)를 훑지 않고 쪼개진 `ip`·`hostnames` 를 본다 — 공백·정렬
+  # 변형에 흔들리지 않는다 (ex03 의 교훈).
+  - id: redirect
+    subject: hosts_entry
+    where:
+      all:
+        - { field: ip,        op: starts_with, value: "127." }
+        - { field: hostnames, op: contains,    value: "example-av.com" }
+
+  # ── 근거 3 · 페이로드 ──────────────────────────────────────────────
+  # 상한이 /opt/netguard 이므로 이 두 규칙은 그 폴더 안만 본다.
+  # 크기(2,451,968 · 1,704 바이트)는 조건에 넣지 않는다 — 빌드마다 바뀌고,
+  # 넣으면 변종을 조용히 놓친다.
+  - id: proxyd
+    subject: file
+    where:
+      - { field: path, op: ends_with, value: "/netguard-proxyd" }
+
+  - id: cakey
+    subject: file
+    where:
+      - { field: path, op: ends_with, value: "/ca.key" }
+
+# 심긴 인증서를 고정 근거로 두고, 독립적인 나머지 근거 중 하나를 논리곱한다.
+#
+# 인증서를 고정 근거로 두는 이유: **없어도 위협인 것**이 판정에 들어가야 한다
+# (40-review-checklist.md 2번). 바이너리는 다시 받으면 그만이고, 남은 인증서와
+# 돌려진 이름이 그것을 다시 부른다.
+#
+# 두 번째 근거를 `redirect` 하나로 못박지 않는 이유: **관리자가 폴더만 지웠거나
+# 다른 백신이 실행 파일만 잡아간 기계**, 반대로 hosts 만 손으로 되돌린 기계가
+# 실재한다. 하나로 못박으면 그 기계에서 판정이 서지 않는다 (31-nonexistent.md).
+#
+# `guard` 를 쓰지 않으므로 "판정은 서는데 계획이 거부되는" 형태(22-remediate
+# -recipes.md 의 2026-09-04 사례)는 나오지 않는다.
+verdict:
+  require: "cert and (redirect or proxyd or cakey)"
+
+remediate:
+  remove:
+    # cert_store.remove — 이 계획에서 가장 위험한 Op(high)이자 치료의 핵심이다.
+    # 룰이 짚은 그 한 장만 대상이 된다.
+    - { ref: cert }
+    # file.quarantine_only — 되돌릴 수 있다. 오탐이어도 restore 로 돌아온다.
+    - { ref: proxyd }
+    - { ref: cakey }
+  restore:
+    # hosts.restore_line — 룰이 짚은 항목만 되돌린다. **파일을 지우지 않는다.**
+    # /etc/hosts 가 비면 localhost 조차 풀리지 않고, 3번 줄처럼 조직이 손으로
+    # 넣은 항목도 남아야 한다.
+    - hosts
+  verify:
+    # 관측 보고에 **지속성 경로가 없다.** "패키지처럼 설치되어 자리가 고정" 인
+    # 것으로 보아 유닛이 있을 법하지만 관측되지 않았으므로 지어내지 않는다.
+    # 재부팅 후 재판정이 그 자리를 대신 지킨다 — 다시 판정되면 우리가 놓친
+    # 지속성이 있다는 신호이고, 사람이 본다.
+    after_reboot: true
+
+submit_hint:
+  # 두 파일을 함께 올린다. 개인키가 **피해자마다 같은지**가 확인되면 인증서
+  # 규칙을 지문으로 좁힐 수 있는지가 정해진다 (아래 답안 노트 참조).
+  samples: [proxyd, cakey]
+  # 꾸러미에 /etc/hosts 항목이 실리고 거기에 사내 호스트명이 들어 있다.
+  confidentiality_min: 1

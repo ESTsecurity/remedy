@@ -1,0 +1,126 @@
+# 정답 플러그인 — regkey-stager (설정 키 하나에 경로를 감춰 둔 검체)
+#
+# **출제자의 답이지 응시자에게 주는 것이 아니다.** 기대 Op 이 도달 가능한지
+# 확인하는 것이 목적이다.
+#
+# # 이 위협이 묻는 것
+#
+# **증거인 것과 치울 것이 다르다.** 검체가 만든 것은 키 하나이고 그 존재가
+# 판정의 근거인데, **키는 치료 대상이 될 수 없다** — `registry.delete_key` 는
+# G6 가 예외 없이 거부한다(대상이 읽기 상한 자체이면서 capture 로 파생된
+# 경로가 아니다. `remedy-plan` 의 통합 시험이 그것을 고정한다). 그래서 이
+# 답안은 키를 **판정에만** 쓰고, 치우는 것은 그 안의 값 둘과 파일 둘,
+# 자동 실행 하나다. 빈 키가 남지만 그것은 아무것도 하지 않는다.
+#
+# # 감춘 값이 있다는 사실은 악성의 근거가 아니다
+#
+# 옆의 정상 키에도 base64 값(`Token`)과 따옴표로 감싼 경로 값(`InstallDir`)이
+# 있다. 그것만으로 가르면 정상 제품의 설정이 함께 지워진다. 갈라지는 지점은
+# **푼 결과가 실제 파일을 가리키는가**다 — 정상 키의 것은 풀어도 경로가 아니고,
+# 그래서 아래 `payload` 규칙이 서지 않는다.
+#
+# # 자리를 리터럴로 적지 않는다
+#
+# 파일 경로는 값에서 **풀어서** 얻는다(`base64_decode` · `trim_quotes`).
+# 폴더 이름을 매니페스트에 박으면 같은 검체가 다른 폴더를 쓸 때 아무것도
+# 찾지 못한다.
+
+schema_version: 1
+id: regkey-stager
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [windows]
+name:
+  ko: "설정 키 스테이저 제거"
+  en: "Registry-key stager removal"
+
+# 읽기 권한 상한.
+#
+# **레지스트리는 여기 적어야 모인다** — `registry_key` 와 `registry_value` 가
+# 둘 다 이 상한을 받는다(10-manifest.md 의 표). 이름이 닮은 정상 키도 함께
+# 적는다: 적지 않으면 그 키는 평가에 들어오지도 않아, 그것을 함께 지우는
+# 답안과 이 답안이 구별되지 않는다.
+scan_roots:
+  - "C:\\ProgramData\\NetSyncAgent" # 검체의 폴더
+  - "C:\\ProgramData\\NetSync" # 이름이 닮은 정상 제품
+  - "HKCU\\Software\\NetSyncAgent" # 검체가 만든 설정 키
+  - "HKCU\\Software\\NetSync" # 정상 제품의 설정 키
+
+subjects: [file, registry_key, registry_value, autorun]
+
+detect:
+  # ── 판정의 첫 근거 — 키 자체 ──────────────────────────
+  # 청정 기계에 이 키가 없다. **존재가 곧 사실**이라 조건이 자리뿐이다.
+  # 치료에는 쓰지 않는다 (머리말의 G6).
+  - id: stagerkey
+    subject: registry_key
+    where:
+      all:
+        - { field: hive, op: equals, value: "HKCU" }
+        - { field: key, op: equals, value: "Software\\NetSyncAgent" }
+
+  # ── 감춘 경로 ─────────────────────────────────────────
+  # 값이 base64 다. 풀어야 어느 파일인지 알 수 있고, 폴더는 거기서 나온다.
+  - id: payloadval
+    subject: registry_value
+    where:
+      all:
+        - { field: hive, op: equals, value: "HKCU" }
+        - { field: key, op: equals, value: "Software\\NetSyncAgent" }
+        - { field: name, op: equals, value: "Payload" }
+    capture:
+      dll: "data | base64_decode"
+      dir: "${dll} | dirname"
+
+  # ── 판정의 두 번째 근거 ───────────────────────────────
+  # 푼 경로의 파일이 실제로 있어야 한다. **정상 키의 감춘 값은 여기서
+  # 걸러진다** — 그것은 풀어도 경로가 아니라 설정 문자열이다.
+  - id: payload
+    subject: file
+    from: "${payloadval.dir}"
+    where:
+      - { field: path, op: equals, value: "${payloadval.dll}" }
+
+  # ── 따옴표로 감싼 경로 ────────────────────────────────
+  # 로그온마다 실제로 뜨는 것은 이쪽이다. 따옴표를 벗겨야 경로가 된다.
+  - id: stubval
+    subject: registry_value
+    where:
+      all:
+        - { field: hive, op: equals, value: "HKCU" }
+        - { field: key, op: equals, value: "Software\\NetSyncAgent" }
+        - { field: name, op: equals, value: "Stub" }
+    capture:
+      exe: "data | trim_quotes"
+      dir: "${exe} | dirname"
+
+  - id: stub
+    subject: file
+    from: "${stubval.dir}"
+    where:
+      - { field: path, op: equals, value: "${stubval.exe}" }
+
+  # ── 다시 뜨게 하는 자리 ───────────────────────────────
+  # 같은 키에 정상 항목이 열여섯 있으므로 **무엇을 실행하는가**로 가른다.
+  - id: runkey
+    subject: autorun
+    where:
+      - { field: command, op: contains, value: "${payloadval.dir}" }
+
+# 서로 다른 자리에서 온 두 근거의 논리곱 — 키의 존재와 디스크의 파일.
+# 키가 있다는 사실만으로 판정하면 같은 이름을 쓰는 정상 제품이 곧바로
+# 오탐이 된다.
+verdict:
+  require: "stagerkey and payload"
+
+remediate:
+  remove:
+    - { ref: payloadval } # registry.delete_value — 값 하나
+    - { ref: stubval } # registry.delete_value — 값 하나
+    - { ref: payload } # file.quarantine_only
+    - { ref: stub } # file.quarantine_only
+    - { ref: runkey } # autorun.remove
+
+submit_hint:
+  samples: [payload, stub]
+  confidentiality_min: 1

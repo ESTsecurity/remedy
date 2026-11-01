@@ -1,0 +1,30 @@
+# 남아야 하는 자리 — webshell-upload
+#
+# 형식과 판정 방법은 `appinit-implant/must-remain.txt` 의 머리를 볼 것.
+#
+# **여섯이 두 무리로 나뉜다.** 앞의 셋은 검체와 **종류가 같고**, 뒤의 셋은
+# 검체와 **자리가 같다.** 한쪽만 보는 답안은 반드시 한 무리를 건드린다.
+
+# ── 종류가 같은 셋 — 웹 루트의 정상 화면과 설정 ─────────────────────
+#
+# THREAT.md: "웹 루트에도 같은 확장자의 화면이 있다."
+#
+# 이름 끝만 보고 겨누면 이 둘이 함께 걸리고, **그러면 웹사이트가 뜨지
+# 않는다.** `Default.aspx` 는 첫 화면이고 `Upload.aspx` 는 파일을 받는
+# 핸들러다 — 검체가 들어온 통로일 수는 있어도 검체는 아니다.
+C:\inetpub\wwwroot\Default.aspx
+C:\inetpub\wwwroot\App\Handlers\Upload.aspx
+
+# 설정 파일. 사라지면 애플리케이션이 시작하지 않는다.
+C:\inetpub\wwwroot\App\Web.config
+
+# ── 자리가 같은 셋 — 올라온 그림과 문서 ─────────────────────────────
+#
+# THREAT.md: "같은 폴더에 사용자가 올린 파일들이 있다."
+#
+# 자리만 보고 `uploads` 아래를 비우면 이 셋이 사라진다. **사용자의 데이터다**
+# — 백신이 지울 것이 아니다. 하나는 검체와 같은 하위 폴더에 있어서,
+# 그 폴더째 지우는 답안이 여기서 걸린다.
+C:\inetpub\wwwroot\uploads\avatar-8821.png
+C:\inetpub\wwwroot\uploads\quarterly-report.pdf
+C:\inetpub\wwwroot\uploads\2026-09\receipt-441.jpg

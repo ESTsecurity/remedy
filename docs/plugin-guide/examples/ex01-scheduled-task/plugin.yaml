@@ -1,0 +1,60 @@
+# 예제 01 — 예약 작업이 랜덤 폴더의 스크립트를 실행하는 형태
+#
+# 이 파일은 문서가 아니라 **테스트**다. CI 가 artifacts.json 에 대고 돌려
+# expected-plan.json 과 비교하고, corpus/clean/* 전체에서 판정 0건인지 본다.
+# 깨진 예제로 배우는 경로를 없애기 위한 것이다 (설계-06 §5).
+
+schema_version: 1
+id: example-scheduled-task            # 예제 고유 값 — 대상 위협에 맞게 교체
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [windows]
+name:
+  ko: "예제 — 예약 작업 기반 위협"
+  en: "Example - scheduled task threat"
+
+# 권한 상한. 여기 밖은 읽을 수도 지울 수도 없다.
+# 좁을수록 좋다 — 넓히면 린트가 경고한다.
+scan_roots:
+  - "%LOCALAPPDATA%\\Programs"         # 예제 고유 값 — 페이로드 위치에 맞게 교체
+  # **예약 작업 경로를 적지 않는다.** `persistence` 는 이 상한과 무관하게
+  # 수집된다(10-manifest.md 의 표). 적으면 작업 정의 XML 이 `file` 로 딸려
+  # 들어와 지울 수 있는 범위만 넓어진다.
+
+subjects: [persistence, file]
+
+detect:
+  # ── 부모 ──────────────────────────────────────────────
+  # 증거 인스턴스 하나마다 **독립된 그룹**이 생긴다. 감염이 둘이면 그룹도 둘이고,
+  # 한쪽 그룹의 증거가 다른 그룹의 판정에 쓰이지 않는다.
+  - id: task
+    subject: persistence
+    where:
+      # 정규식은 **작은따옴표**로 적는다. YAML 작은따옴표는 역슬래시를 그대로 두므로
+      # 정규식이 보이는 대로 전달된다. 큰따옴표를 쓰면 `\\node` 를 적으려고
+      # `"\\\\node"` 가 되어, 한 겹만 틀려도 조용히 매치되지 않는다.
+      all:
+        - { field: win.task.register_path, op: starts_with, value: '\Microsoft\Windows\' }
+        - { field: command,                op: matches,     value: '(?i)\\node\.exe$' }
+        # `.js` 뒤에 오는 것이 공백만은 아니다. 인자가 따옴표로 묶여 있으면
+        # `"..main.js" --run` 이라 다음 글자가 `"` 다. `(\s|$)` 만 보면 놓친다.
+        - { field: args,                   op: matches,     value: '(?i)\.js("|\s|$)' }
+    capture:
+      # 폴더 이름이 감염마다 바뀌므로 리터럴로 적을 수 없다. **증거에서 뽑는다.**
+      # 선언 순서에 기대지 않는다 — 의존 관계로 풀린다.
+      script: "args | first_path"
+      dir: "${script} | dirname"
+
+  # ── 자식 ──────────────────────────────────────────────
+  # 부모가 가리킨 디렉터리 **안에서만** 찾는다. `from` 이 없으면 스냅샷 전체를
+  # 뒤지게 되고, 그러면 무관한 main.js 하나가 판정을 완성시킨다.
+  - id: payload
+    subject: file
+    from: "${task.dir}"
+    where:
+      - { field: path, op: ends_with, value: "\\main.js" }
+
+# 독립적인 두 근거의 논리곱. 점수 임계값 문법은 없다.
+# 하나뿐이면 그 룰의 오탐이 곧바로 판정이 된다.
+verdict:
+  require: "task and payload"

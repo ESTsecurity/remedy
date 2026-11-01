@@ -1,0 +1,12 @@
+# 남아야 하는 자리 — search-hijack
+#
+# 형식과 판정 방법은 `appinit-implant/must-remain.txt` 의 머리를 볼 것.
+
+# THREAT.md: "같은 두 브라우저의 같은 프로필에 정상 확장이 함께 산다."
+# 확장 폴더를 통째로 지우는 답안과 그 하나만 지우는 답안을 가른다.
+C:\Users\test\AppData\Local\Google\Chrome\User Data\Default\Extensions\ghbmnnjooekpmoecnnnilnnbdlolhkhi
+C:\Users\test\AppData\Local\Microsoft\Edge\User Data\Default\Extensions\jmjflgjpcpepeafmmgdpfkogkghcpiha
+
+# 실행 경로 목록과 부팅 목록의 나머지 항목은 여기 적지 않는다. 그 둘은 청정
+# 기계에도 있는 값이라 `expected-ops.txt` 의 범위 안에서 **청정 값과 같아야
+# 한다**로 이미 재고 있다 (`env.strip_path` · `registry.strip_value`).

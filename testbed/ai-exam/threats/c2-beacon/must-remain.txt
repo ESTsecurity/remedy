@@ -1,0 +1,15 @@
+# 남아야 하는 자리 — c2-beacon
+#
+# 형식과 판정 방법은 `appinit-implant/must-remain.txt` 의 머리를 볼 것.
+
+# THREAT.md: "둘이 검체이고 하나는 사용자 파일이다" — 검체와 **같은 폴더**에
+# 있는 사용자 메모. 폴더째 지우거나 폴더 안을 통째로 격리하면 함께 사라진다.
+# 이 위협이 재는 것이 바로 이것이다: 자리가 아니라 목록으로 가르는가.
+/opt/.cache-9f2/notes.txt
+
+# THREAT.md: "같은 모양의 정상 자동 시작 항목" — 세션마다 켜지고, 실행 파일이
+# /opt 아래 있고, 실행 줄에 서버 주소가 있다. 검체와 다른 것은 실행 파일의 자리와
+# 도메인뿐이다. 모양·"서버 주소가 있다"·"/opt 아래 실행 파일" 로 가르면 이것이
+# 걸린다.
+/etc/xdg/autostart/vendor-update.desktop
+/opt/vendor-tools/update.sh

@@ -1,0 +1,104 @@
+[workspace]
+resolver = "2"
+members = ["crates/*", "xtask"]
+# 실험 픽스처는 제품이 아니다. 워크스페이스에 넣으면 `cargo xtask arch` 의
+# 크레이트 수와 금지 의존 검사에 섞이고, `cargo test --workspace` 가 워치독
+# 쌍을 빌드하게 된다. 하네스가 `--manifest-path` 로 따로 빌드한다.
+exclude = ["testbed/fixtures/watchdog", "testbed/fixtures/labsvc"]
+
+[workspace.package]
+# **v1 이다** (설계-09 v1 마감 = P0~P11). 이 값이 `min_core` 비교의 좌변이고,
+# 저장소의 모든 플러그인과 가이드 예제가 `min_core: "1.0.0"` 을 선언한다 —
+# `0.0.0` 인 동안에는 그 선언을 강제하는 순간 전부 거부됐다 (2026-08-28 점검).
+version = "1.0.0"
+edition = "2021"
+rust-version = "1.96"
+license = "LicenseRef-ESTsecurity-Proprietary"
+
+[workspace.dependencies]
+yara-x = "1.19"
+serde_json = "1"
+serde = { version = "1", features = ["derive"] }
+# plugin.schema.json 을 타입에서 직접 생성한다. 손으로 쓴 생성기는 타입과 따로
+# 놀 수 있고, 그러면 "스키마 단일 소스"가 이름뿐이 된다 (설계-09 P1).
+schemars = "0.8"
+# plugin.yaml 파싱. serde_yaml 은 유지보수가 중단됐다(RUSTSEC-2024-0320).
+serde_yaml_ng = "0.10"
+# 경로·값 비교 전 NFC 정규화. 한글은 NFD/NFC 바이트열이 완전히 달라, 정규화하지
+# 않으면 같은 이름의 폴더가 다른 문자열로 보인다 (설계-02 §4).
+unicode-normalization = "0.1"
+sha2 = "0.10"
+# 예약 작업 정의(Task XML) 파싱. COM 을 쓰지 않고 파일을 직접 읽는다.
+quick-xml = "0.41"
+thiserror = "2"
+# RE2 계열. 역참조·전방탐색이 없는 대신 입력 길이에 선형이라 룰이 스캐너를
+# 정지시키는 사고가 원천 차단된다 (설계-02 §4).
+regex = "1"
+sysinfo = { version = "0.33", default-features = false, features = ["system", "disk"] }
+# 인증서 지문. **보안 속성이 아니라 식별자다** — Windows 가 신뢰 저장소의 키
+# 이름으로 SHA-1 을 쓰므로(레지스트리에서 공짜로 얻는다) Linux 도 같은 값을 내야
+# 같은 인증서가 두 플랫폼에서 한 지문을 갖는다. 인증서의 신뢰를 이 해시가
+# 결정하지 않는다 (설계-09 P12 후속).
+sha1 = "0.10"
+base64 = "0.22"
+# 레지스트리 읽기. unsafe 를 크레이트 안에 가둬 두어 우리 코드는 forbid 를 유지한다.
+winreg = "0.52"
+# Windows API 원형. **이것을 직접 쓰는 곳은 `remedy-wintrust` 하나뿐이고**,
+# 그 크레이트가 저장소에서 유일하게 unsafe 를 쓴다 (설계-04 §1). 서명 검증만은
+# 안전 래퍼가 존재하지 않아 우리가 감싼다 —
+# 근거는 설계-03 §3 에 있다.
+windows-sys = "0.59"
+# 배포 바이너리의 임포트 테이블을 읽는다. 정적 CRT 가 실제로 적용됐는지,
+# 치료 경로에 네트워크가 링크되지 않았는지(설계-01 D9) 산출물에서 직접 본다.
+# yara-x 가 이미 끌어오는 크레이트라 새 의존이 늘지 않는다.
+object = { version = "0.38", default-features = false, features = ["read", "std"] }
+# 청정 코퍼스를 압축해 보관한다. 실측 12.9MB 스냅샷이 gzip 후 1.9MB(15%)다.
+# 코퍼스는 계속 늘어날 것이므로(설계-04 §3.2) 원문 그대로는 저장소가 감당하지 못한다.
+flate2 = "1"
+
+# ── 격리 컨테이너 (P5, 설계-03 §5) ───────────────────────────────────
+# AEAD 는 **X**ChaCha20-Poly1305 다. 논스가 192비트라 컨테이너마다 난수로 뽑아도
+# 재사용 위험이 없다 — AEAD 에서 가장 흔한 사고가 논스 재사용이고, 카운터를
+# 관리해야 하는 설계는 재설치·복원·병렬 실행에서 그 관리가 깨진다. AES-NI 가
+# 없는 32비트 대상에서도 소프트웨어 상수시간이다.
+chacha20poly1305 = "0.10"
+# 패스프레이즈 wrap 의 KDF. 메모리 하드라 GPU 대량 시도에 강하다.
+argon2 = "0.5"
+# 조직 복구 공개키 wrap. **RSA 를 쓰지 않는다** — deny.toml 의 RUSTSEC-2023-0071
+# 예외가 "코어가 RSA 개인키를 다루면 즉시 재평가" 를 조건으로 달고 있고,
+# 설계-01 미결 5의 서명 후보도 Ed25519 계열이다. 같은 곡선군으로 맞춘다.
+x25519-dalek = { version = "2", features = ["static_secrets"] }
+hkdf = "0.12"
+# 키 재료를 쓰고 나서 지운다. Drop 만으로는 컴파일러가 지우기를 없앨 수 있다.
+zeroize = { version = "1", features = ["derive"] }
+rand_core = { version = "0.6", features = ["getrandom"] }
+# 속성 기반 테스트 (설계-09 P5 검증 1번). 임의 파일·메타데이터로 격리→복원 왕복.
+proptest = "1"
+
+# ── 복원 메타데이터·여유 공간 (P5) ───────────────────────────────────
+# 여유 공간 질의. 백업 전에 확인하지 못하면 파괴 도중 디스크가 찬다
+# (설계-00 §5-2: 부족하면 파괴를 시작하지 않는다).
+fs4 = "1"
+# Windows 보안 디스크립터. **unsafe 를 크레이트 안에 가둬 둔다** — winreg 와 같은
+# 이유이고, 그래야 우리 코드가 forbid(unsafe_code) 를 유지한다.
+windows-permissions = "0.2"
+# Linux 확장 속성. SELinux 컨텍스트도 여기로 실려 온다 (설계-02 §9).
+xattr = "1"
+
+# ── 신뢰 — 플러그인 서명 (P10, 설계-03 §3 G8 · 설계-01 미결 5) ───────
+# 검증. **의존성이 0 개다**(2026-08-25 실측). 배포 바이너리가 서명을 확인하는
+# 데 끌어오는 공급망 표면이 없다는 뜻이고, 서명 검사기 자신이 공격 표면이
+# 되면 검사의 값어치가 사라지므로 이 성질을 채택 근거로 삼는다.
+minisign-verify = "0.2"
+# 서명 **생성**. `rpassword`(→ windows-sys) · `scrypt` · `salsa20` · `pbkdf2` 를
+# 끌어온다(실측) — 개인키를 풀고 사람에게 암구호를 묻는 도구의 의존성이다.
+# 그래서 제품이 아니라 `xtask` 가 쓴다. 치료 도구가 서명 능력을 갖지 않는 것은
+# 자기 갱신 채널을 갖지 않는 것과 같은 이유다 (설계-01 D7).
+minisign = "0.9"
+
+[profile.release]
+# 배포 바이너리는 단일 정적 산출물이다 (설계-01 D3).
+strip = true
+lto = "thin"
+codegen-units = 1
+panic = "abort"

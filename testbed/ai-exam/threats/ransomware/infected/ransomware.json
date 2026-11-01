@@ -1,0 +1,636 @@
+{
+  "schema_version": 1,
+  "kind": "remedy.artifacts",
+  "run_id": "run-1789969589-2eb8-7722f98",
+  "created": "2026-09-21T05:46:29Z",
+  "host": {
+    "hostname": "DESKTOP-2GQIRP1",
+    "os": "windows",
+    "version": "",
+    "arch": "x86_64"
+  },
+  "core": {
+    "version": "1.0.0",
+    "build": "x86_64-pc-windows-msvc"
+  },
+  "plugins": [],
+  "collected_at": "2026-09-21T05:46:29Z",
+  "collector": {
+    "version": "1.0.0",
+    "bitness": 64,
+    "os_bitness": 64
+  },
+  "scope": {
+    "scan_roots": [
+      "C:\\ProgramData\\CryptoSvc",
+      "C:\\ProgramData\\VendorTool",
+      "C:\\Users\\test\\Desktop",
+      "C:\\Users\\test\\Documents",
+      "HKCU\\Control Panel\\Desktop",
+      "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System"
+    ],
+    "subjects": [
+      "file",
+      "registry_value",
+      "autorun"
+    ],
+    "truncated": false,
+    "denied_dirs": 0
+  },
+  "security_products": [
+    {
+      "vendor": "Microsoft Defender 바이러스 백신",
+      "realtime": true
+    },
+    {
+      "vendor": "알약"
+    }
+  ],
+  "blobs": {
+    "sha256:2d233bca82cd83699c9b0fc61e62acbfa2c7f9092084b792449993fe0c998d18": "nh4HgBIAAAA=",
+    "sha256:e33fb61997d2db7a376df6d991cc89c92f5410f2620284de510a97b3e04f9f54": "esMBANHoAQCABwAAOAQAAA/vJUC/idsBQwA6AFwAVQBzAGUAcgBzAFwAdABlAHMAdABcAEQAbwB3AG4AbABvAGEAZABzAFwAUgAuAGoAcABnAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+  },
+  "autorun": [
+    {
+      "id": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\CrossEXService",
+      "scope": "user",
+      "name": "CrossEXService",
+      "command": "C:\\Program Files (x86)\\iniLINE\\CrossEX\\crossex\\CrossEXService.exe",
+      "source": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\CryptoSvc",
+      "scope": "user",
+      "name": "CryptoSvc",
+      "command": "\"C:\\ProgramData\\CryptoSvc\\locker.exe\" --resume",
+      "source": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\MicrosoftEdgeAutoLaunch_AF2BBCAD27A22A0C1234356BDE5EE233",
+      "scope": "user",
+      "name": "MicrosoftEdgeAutoLaunch_AF2BBCAD27A22A0C1234356BDE5EE233",
+      "command": "\"C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe\" --no-startup-window --win-session-start",
+      "source": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\Shell",
+      "scope": "system",
+      "name": "Shell",
+      "command": "explorer.exe",
+      "source": "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\Userinit",
+      "scope": "system",
+      "name": "Userinit",
+      "command": "C:\\Windows\\system32\\userinit.exe,",
+      "source": "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\ALNotify",
+      "scope": "system",
+      "name": "ALNotify",
+      "command": "C:\\Program Files (x86)\\ESTsoft\\ALToolsManager\\alnotify.exe",
+      "source": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\ALYac",
+      "scope": "system",
+      "name": "ALYac",
+      "command": "\"C:\\Program Files\\ESTsoft\\ALYac\\AYLaunch.exe\" /run",
+      "source": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\AhnLab Safe Transaction Application",
+      "scope": "system",
+      "name": "AhnLab Safe Transaction Application",
+      "command": "\"C:\\Program Files\\AhnLab\\Safe Transaction\\stsess.exe\" /tray",
+      "source": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\Everything",
+      "scope": "system",
+      "name": "Everything",
+      "command": "\"C:\\Program Files\\Everything\\Everything.exe\" -startup",
+      "source": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\SecurityHealth",
+      "scope": "system",
+      "name": "SecurityHealth",
+      "command": "%windir%\\system32\\SecurityHealthSystray.exe",
+      "source": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\VMware User Process",
+      "scope": "system",
+      "name": "VMware User Process",
+      "command": "\"C:\\Program Files\\VMware\\VMware Tools\\vmtoolsd.exe\" -n vmusr",
+      "source": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\wizvera-veraport-x64",
+      "scope": "system",
+      "name": "wizvera-veraport-x64",
+      "command": "\"C:\\Program Files\\Wizvera\\Veraport20\\veraport-x64.exe\" wizvera-veraport://exec/x86/16105/",
+      "source": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Run\\AnySign4PC",
+      "scope": "system",
+      "name": "AnySign4PC",
+      "command": "\"C:\\Program Files (x86)\\SoftForum\\XecureWeb\\AnySign\\dll\\AnySign4PC.exe\" \"port=10530;port_s=10531;no_shut=1\"",
+      "source": "HKLM\\SOFTWARE\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Run\\ipinside-lws",
+      "scope": "system",
+      "name": "ipinside-lws",
+      "command": "C:\\Program Files (x86)\\IPinside_LWS\\I3GProc.exe",
+      "source": "HKLM\\SOFTWARE\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Run"
+    }
+  ],
+  "file": [
+    {
+      "path": "C:\\ProgramData\\CryptoSvc\\keys.bin",
+      "size": 16384,
+      "mtime": "2026-09-18T22:07:31Z",
+      "ctime": "2026-09-21T05:57:06Z",
+      "sha256": "4ca164b76964f2c4e75fc9672dc8b5e8000afce84d54f33a2759ec9d2484d2b3"
+    },
+    {
+      "path": "C:\\ProgramData\\CryptoSvc\\locker.exe",
+      "size": 421888,
+      "mtime": "2026-09-18T22:07:31Z",
+      "ctime": "2026-09-21T05:57:06Z",
+      "sha256": "b7e41bc98895079cf4de4569a8fc4f750e7f0ae16f90d16139093f20c65cd58c",
+      "signature": {
+        "trusted": false
+      }
+    },
+    {
+      "path": "C:\\ProgramData\\VendorTool\\vendor.exe",
+      "size": 622592,
+      "mtime": "2025-12-03T08:20:41Z",
+      "ctime": "2026-09-21T05:57:06Z",
+      "sha256": "b5b08058ea3983a7322ae3ac855db1fd6f5892e914b315bd84bc62a75aec8e9c",
+      "signature": {
+        "trusted": false
+      }
+    },
+    {
+      "path": "C:\\Users\\test\\Desktop\\HOW-TO-DECRYPT.txt",
+      "size": 248,
+      "mtime": "2026-09-18T22:07:31Z",
+      "ctime": "2026-09-21T05:57:06Z",
+      "sha256": "adde331ee30948a28cddb7030b1b2140dcc0ec3da6dbffccf68e5ee5781507b8"
+    },
+    {
+      "path": "C:\\Users\\test\\Desktop\\Microsoft Edge.lnk",
+      "size": 2332,
+      "mtime": "2025-02-14T06:59:13Z",
+      "ctime": "2025-02-14T06:55:54Z",
+      "sha256": "461b69dea0d06e2875bc44055d12ebe22060173741aa524e9a3a23e0e1929745"
+    },
+    {
+      "path": "C:\\Users\\test\\Desktop\\capa.exe",
+      "size": 35982976,
+      "mtime": "2025-03-04T21:57:11Z",
+      "ctime": "2025-03-06T01:34:07Z",
+      "signature": {
+        "trusted": false
+      }
+    },
+    {
+      "path": "C:\\Users\\test\\Desktop\\desktop.ini",
+      "size": 282,
+      "mtime": "2025-02-14T06:55:54Z",
+      "ctime": "2025-02-14T06:55:54Z",
+      "sha256": "4b9d687ac625690fd026ed4b236dad1cac90ef69e7ad256cc42766a065b50026"
+    },
+    {
+      "path": "C:\\Users\\test\\Desktop\\guest\\Capture-State.ps1",
+      "size": 11424,
+      "mtime": "2026-08-20T07:01:19Z",
+      "ctime": "2026-08-20T07:25:57Z",
+      "sha256": "5a748913f6d552579fb3af3183d93deecfd743b4bcac701d41b221866bce98f2"
+    },
+    {
+      "path": "C:\\Users\\test\\Desktop\\guest\\New-Fixtures.ps1",
+      "size": 11496,
+      "mtime": "2026-08-20T06:39:18Z",
+      "ctime": "2026-08-20T07:25:57Z",
+      "sha256": "ed27f3e943a70c43f3744d567123966a08175143b4ba35d95770408dab056be6"
+    },
+    {
+      "path": "C:\\Users\\test\\Desktop\\guest\\Setup-Guest.ps1",
+      "size": 9675,
+      "mtime": "2026-08-20T07:24:35Z",
+      "ctime": "2026-08-20T07:25:57Z",
+      "sha256": "d5ba5b7e43d7138ff5743ffd915c3b944eebbc21463ffef74a9b61a90cd6cd9f"
+    },
+    {
+      "path": "C:\\Users\\test\\Desktop\\python-3.12.9-amd64.exe",
+      "size": 26923696,
+      "mtime": "2025-02-12T15:52:13Z",
+      "ctime": "2025-03-06T04:34:43Z",
+      "sha256": "2a52993092a19cfdffe126e2eeac46a4265e25705614546604ad44988e040c0f",
+      "signature": {
+        "trusted": true,
+        "subject": "CN=Python Software Foundation, O=Python Software Foundation, L=Beaverton, S=Oregon, C=US",
+        "thumbprint": "E97E25CDAADCA29D69ACA9768B1CF33F66247C70"
+      }
+    },
+    {
+      "path": "C:\\Users\\test\\Documents\\Default.rdp",
+      "size": 2372,
+      "mtime": "2025-03-13T16:41:00Z",
+      "ctime": "2025-02-14T07:21:55Z",
+      "sha256": "79b8bc9d85ce5dd1e74c62505c2735545ad5cf398915815e462b788896f7273d"
+    },
+    {
+      "path": "C:\\Users\\test\\Documents\\HOW-TO-DECRYPT.txt",
+      "size": 248,
+      "mtime": "2026-09-18T22:07:31Z",
+      "ctime": "2026-09-21T05:57:06Z",
+      "sha256": "adde331ee30948a28cddb7030b1b2140dcc0ec3da6dbffccf68e5ee5781507b8"
+    },
+    {
+      "path": "C:\\Users\\test\\Documents\\My Music",
+      "size": 0,
+      "mtime": "2025-02-14T06:55:07Z",
+      "ctime": "2025-02-14T06:55:07Z"
+    },
+    {
+      "path": "C:\\Users\\test\\Documents\\My Pictures",
+      "size": 0,
+      "mtime": "2025-02-14T06:55:07Z",
+      "ctime": "2025-02-14T06:55:07Z"
+    },
+    {
+      "path": "C:\\Users\\test\\Documents\\My Videos",
+      "size": 0,
+      "mtime": "2025-02-14T06:55:07Z",
+      "ctime": "2025-02-14T06:55:07Z"
+    },
+    {
+      "path": "C:\\Users\\test\\Documents\\budget.xlsx.locked",
+      "size": 27648,
+      "mtime": "2026-09-18T22:07:31Z",
+      "ctime": "2026-09-21T05:57:06Z",
+      "sha256": "50a0c08ab7098579d35b1464984ab1175b8c65a2d9feebbad3c0ff48fc3029cb"
+    },
+    {
+      "path": "C:\\Users\\test\\Documents\\desktop.ini",
+      "size": 402,
+      "mtime": "2025-02-14T06:55:54Z",
+      "ctime": "2025-02-14T06:55:54Z",
+      "sha256": "cafec240d998e4b6e92ad1329cd417e8e9cbd73157488889fd93a542de4a4844"
+    },
+    {
+      "path": "C:\\Users\\test\\Documents\\notes.txt",
+      "size": 4096,
+      "mtime": "2025-12-03T08:20:41Z",
+      "ctime": "2026-09-21T05:57:06Z",
+      "sha256": "b0b5e3d9831c068e331397be772b51d4f96165b370a301f5fc2a607713e3140d"
+    },
+    {
+      "path": "C:\\Users\\test\\Documents\\report.docx.locked",
+      "size": 48128,
+      "mtime": "2026-09-18T22:07:31Z",
+      "ctime": "2026-09-21T05:57:06Z",
+      "sha256": "7906d4582503478547337b1b712fd546b7af6cd26cd5c3323627ac60f1fc5d2b"
+    }
+  ],
+  "registry_value": [
+    {
+      "hive": "HKCU",
+      "key": "Control Panel\\Desktop",
+      "name": "ActiveWndTrackTimeout",
+      "type": "REG_DWORD",
+      "data": "0"
+    },
+    {
+      "hive": "HKCU",
+      "key": "Control Panel\\Desktop",
+      "name": "BlockSendInputResets",
+      "type": "REG_SZ",
+      "data": "0"
+    },
+    {
+      "hive": "HKCU",
+      "key": "Control Panel\\Desktop",
+      "name": "CaretTimeout",
+      "type": "REG_DWORD",
+      "data": "5000"
+    },
+    {
+      "hive": "HKCU",
+      "key": "Control Panel\\Desktop",
+      "name": "CaretWidth",
+      "type": "REG_DWORD",
+      "data": "1"
+    },
+    {
+      "hive": "HKCU",
+      "key": "Control Panel\\Desktop",
+      "name": "ClickLockTime",
+      "type": "REG_DWORD",
+      "data": "1200"
+    },
+    {
+      "hive": "HKCU",
+      "key": "Control Panel\\Desktop",
+      "name": "CoolSwitchColumns",
+      "type": "REG_SZ",
+      "data": "7"
+    },
+    {
+      "hive": "HKCU",
+      "key": "Control Panel\\Desktop",
+      "name": "CoolSwitchRows",
+      "type": "REG_SZ",
+      "data": "3"
+    },
+    {
+      "hive": "HKCU",
+      "key": "Control Panel\\Desktop",
+      "name": "CursorBlinkRate",
+      "type": "REG_SZ",
+      "data": "530"
+    },
+    {
+      "hive": "HKCU",
+      "key": "Control Panel\\Desktop",
+      "name": "DockMoving",
+      "type": "REG_SZ",
+      "data": "1"
+    },
+    {
+      "hive": "HKCU",
+      "key": "Control Panel\\Desktop",
+      "name": "DpiScalingVer",
+      "type": "REG_DWORD",
+      "data": "4096"
+    },
+    {
+      "hive": "HKCU",
+      "key": "Control Panel\\Desktop",
+      "name": "DragFromMaximize",
+      "type": "REG_SZ",
+      "data": "1"
+    },
+    {
+      "hive": "HKCU",
+      "key": "Control Panel\\Desktop",
+      "name": "DragFullWindows",
+      "type": "REG_SZ",
+      "data": "1"
+    },
+    {
+      "hive": "HKCU",
+      "key": "Control Panel\\Desktop",
+      "name": "DragHeight",
+      "type": "REG_SZ",
+      "data": "4"
+    },
+    {
+      "hive": "HKCU",
+      "key": "Control Panel\\Desktop",
+      "name": "DragWidth",
+      "type": "REG_SZ",
+      "data": "4"
+    },
+    {
+      "hive": "HKCU",
+      "key": "Control Panel\\Desktop",
+      "name": "FocusBorderHeight",
+      "type": "REG_DWORD",
+      "data": "1"
+    },
+    {
+      "hive": "HKCU",
+      "key": "Control Panel\\Desktop",
+      "name": "FocusBorderWidth",
+      "type": "REG_DWORD",
+      "data": "1"
+    },
+    {
+      "hive": "HKCU",
+      "key": "Control Panel\\Desktop",
+      "name": "FontSmoothing",
+      "type": "REG_SZ",
+      "data": "2"
+    },
+    {
+      "hive": "HKCU",
+      "key": "Control Panel\\Desktop",
+      "name": "FontSmoothingGamma",
+      "type": "REG_DWORD",
+      "data": "0"
+    },
+    {
+      "hive": "HKCU",
+      "key": "Control Panel\\Desktop",
+      "name": "FontSmoothingOrientation",
+      "type": "REG_DWORD",
+      "data": "1"
+    },
+    {
+      "hive": "HKCU",
+      "key": "Control Panel\\Desktop",
+      "name": "FontSmoothingType",
+      "type": "REG_DWORD",
+      "data": "2"
+    },
+    {
+      "hive": "HKCU",
+      "key": "Control Panel\\Desktop",
+      "name": "ForegroundFlashCount",
+      "type": "REG_DWORD",
+      "data": "7"
+    },
+    {
+      "hive": "HKCU",
+      "key": "Control Panel\\Desktop",
+      "name": "ForegroundLockTimeout",
+      "type": "REG_DWORD",
+      "data": "200000"
+    },
+    {
+      "hive": "HKCU",
+      "key": "Control Panel\\Desktop",
+      "name": "LastUpdated",
+      "type": "REG_DWORD",
+      "data": "4294967295"
+    },
+    {
+      "hive": "HKCU",
+      "key": "Control Panel\\Desktop",
+      "name": "LeftOverlapChars",
+      "type": "REG_SZ",
+      "data": "3"
+    },
+    {
+      "hive": "HKCU",
+      "key": "Control Panel\\Desktop",
+      "name": "MaxMonitorDimension",
+      "type": "REG_DWORD",
+      "data": "3838"
+    },
+    {
+      "hive": "HKCU",
+      "key": "Control Panel\\Desktop",
+      "name": "MaxVirtualDesktopDimension",
+      "type": "REG_DWORD",
+      "data": "3838"
+    },
+    {
+      "hive": "HKCU",
+      "key": "Control Panel\\Desktop",
+      "name": "MenuShowDelay",
+      "type": "REG_SZ",
+      "data": "400"
+    },
+    {
+      "hive": "HKCU",
+      "key": "Control Panel\\Desktop",
+      "name": "MouseWheelRouting",
+      "type": "REG_DWORD",
+      "data": "2"
+    },
+    {
+      "hive": "HKCU",
+      "key": "Control Panel\\Desktop",
+      "name": "PaintDesktopVersion",
+      "type": "REG_DWORD",
+      "data": "0"
+    },
+    {
+      "hive": "HKCU",
+      "key": "Control Panel\\Desktop",
+      "name": "Pattern",
+      "type": "REG_DWORD",
+      "data": "0"
+    },
+    {
+      "hive": "HKCU",
+      "key": "Control Panel\\Desktop",
+      "name": "RightOverlapChars",
+      "type": "REG_SZ",
+      "data": "3"
+    },
+    {
+      "hive": "HKCU",
+      "key": "Control Panel\\Desktop",
+      "name": "ScreenSaveActive",
+      "type": "REG_SZ",
+      "data": "1"
+    },
+    {
+      "hive": "HKCU",
+      "key": "Control Panel\\Desktop",
+      "name": "SnapSizing",
+      "type": "REG_SZ",
+      "data": "1"
+    },
+    {
+      "hive": "HKCU",
+      "key": "Control Panel\\Desktop",
+      "name": "TileWallpaper",
+      "type": "REG_SZ",
+      "data": "0"
+    },
+    {
+      "hive": "HKCU",
+      "key": "Control Panel\\Desktop",
+      "name": "TranscodedImageCache",
+      "type": "REG_BINARY",
+      "data": "sha256:e33fb61997d2db7a376df6d991cc89c92f5410f2620284de510a97b3e04f9f54"
+    },
+    {
+      "hive": "HKCU",
+      "key": "Control Panel\\Desktop",
+      "name": "TranscodedImageCount",
+      "type": "REG_DWORD",
+      "data": "1"
+    },
+    {
+      "hive": "HKCU",
+      "key": "Control Panel\\Desktop",
+      "name": "UserPreferencesMask",
+      "type": "REG_BINARY",
+      "data": "sha256:2d233bca82cd83699c9b0fc61e62acbfa2c7f9092084b792449993fe0c998d18"
+    },
+    {
+      "hive": "HKCU",
+      "key": "Control Panel\\Desktop",
+      "name": "WallPaper",
+      "type": "REG_SZ",
+      "data": "C:\\ProgramData\\CryptoSvc\\ransom.bmp"
+    },
+    {
+      "hive": "HKCU",
+      "key": "Control Panel\\Desktop",
+      "name": "WallpaperOriginX",
+      "type": "REG_DWORD",
+      "data": "0"
+    },
+    {
+      "hive": "HKCU",
+      "key": "Control Panel\\Desktop",
+      "name": "WallpaperOriginY",
+      "type": "REG_DWORD",
+      "data": "0"
+    },
+    {
+      "hive": "HKCU",
+      "key": "Control Panel\\Desktop",
+      "name": "WallpaperStyle",
+      "type": "REG_SZ",
+      "data": "10"
+    },
+    {
+      "hive": "HKCU",
+      "key": "Control Panel\\Desktop",
+      "name": "WheelScrollChars",
+      "type": "REG_SZ",
+      "data": "3"
+    },
+    {
+      "hive": "HKCU",
+      "key": "Control Panel\\Desktop",
+      "name": "WheelScrollLines",
+      "type": "REG_SZ",
+      "data": "3"
+    },
+    {
+      "hive": "HKCU",
+      "key": "Control Panel\\Desktop",
+      "name": "Win8DpiScaling",
+      "type": "REG_DWORD",
+      "data": "0"
+    },
+    {
+      "hive": "HKCU",
+      "key": "Control Panel\\Desktop",
+      "name": "WindowArrangementActive",
+      "type": "REG_SZ",
+      "data": "1"
+    },
+    {
+      "hive": "HKCU",
+      "key": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System",
+      "name": "DisableTaskMgr",
+      "type": "REG_DWORD",
+      "data": "1"
+    },
+    {
+      "hive": "HKCU",
+      "key": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System",
+      "name": "HideFastUserSwitching",
+      "type": "REG_DWORD",
+      "data": "1"
+    }
+  ]
+}

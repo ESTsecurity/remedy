@@ -1,0 +1,29 @@
+[package]
+name = "remedy-collect"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+remedy-sdk = { path = "../remedy-sdk" }
+remedy-artifacts = { path = "../remedy-artifacts" }
+remedy-platform = { path = "../remedy-platform" }
+sha2.workspace = true
+# 인증서 지문. **보안 속성이 아니라 식별자다** — 루트 Cargo.toml 의 주석 참조.
+sha1.workspace = true
+quick-xml.workspace = true
+serde_json.workspace = true
+base64.workspace = true
+# 2층 신뢰 서명 검증 (설계-03 §3). 저장소에서 유일하게 unsafe 를 쓰는
+# 크레이트이고, 그 이유는 그쪽 문서에 있다.
+remedy-wintrust = { path = "../remedy-wintrust" }
+# 실행 파일의 버전 리소스를 읽는다 (C-1b). 버전 리소스는 `.rsrc` 안의
+# 자기완결 구조라 OS 에 묻지 않아도 되고, 그래서 이 크레이트는 `forbid(unsafe_code)`
+# 를 유지한다 — 서명과 달리 안전한 코드가 **맞는** 답을 낸다(`peversion` 문서).
+# yara-x 가 이미 끌어오는 크레이트라 새 의존이 늘지 않는다.
+object.workspace = true
+
+[dev-dependencies]
+serde_yaml_ng.workspace = true

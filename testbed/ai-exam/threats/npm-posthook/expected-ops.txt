@@ -1,0 +1,28 @@
+# 감염 스냅샷에서 반드시 나와야 하는 Op (채점 4번).
+#
+# 형식은 `appinit-implant/expected-ops.txt` 의 머리를 볼 것 — (Op, 대상) 이고
+# `::` 뒤는 match 다.
+#
+# **이 목록은 정답 플러그인의 계획을 그대로 옮긴 것**이고(2026-09-22, 컨테이너
+# 스냅샷 위에서 `evaluate` → `plan`), 사람이 한 줄씩 위협 설명과 맞춰 읽었다.
+#
+# # `key_path=` 를 리눅스에서 처음 쓴다
+#
+# 그 매치가 요구하는 것은 **"그 키만 빠지고 나머지 키는 그대로인가"** 다.
+# 2026-09-22 까지 리눅스 채점기는 `line=` 과 `args=` 만 볼 줄 알았고 이 매치를
+# 몰랐다 — Windows 는 반대였다(`proxy-dns-hijack` 이 `line=` 을, `shortcut-hijack`
+# 이 `args=` 를 그쪽에 더했다). 이 회차에 그 마지막 비대칭을 닫았으므로
+# **네 매치 종류를 두 하네스가 모두 본다.**
+#
+# 매치가 없으면 이 자리는 절반만 재어진다: `package.json` 에서 **어느** 키를
+# 지웠는지 구별되지 않아, 벤더의 `scripts.build` 를 지운 답안도 통과한다.
+# 2026-09-04 에 닫은 "절반짜리 치료" 구멍과 같은 모양이다.
+#
+# # 파일을 지우지 않는다
+#
+# `package.json` 은 벤더 제품의 것이다. 통째로 치우는 답안은 그 패키지를
+# 깨뜨리므로 Op 이 `structured_config.remove_key` 여야 한다 — 파일 격리로
+# 바꾼 답안은 이 목록의 첫 줄에 도달하지 못한다.
+
+file.quarantine_only /var/tmp/.npm-cache/telemetry.js
+structured_config.remove_key /usr/local/lib/node_modules/nodewatch-agent/package.json :: key_path=scripts.postinstall

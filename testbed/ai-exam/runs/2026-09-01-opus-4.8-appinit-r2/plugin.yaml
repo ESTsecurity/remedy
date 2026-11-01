@@ -1,0 +1,148 @@
+# AppInit_DLLs 주입형 원격 임플란트 — 탐지와 제거
+#
+# 관측 요약
+#   HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Windows 의
+#   AppInit_DLLs 에 경로가, LoadAppInit_DLLs 에 1 이 채워져 있다. 그 DLL 은
+#   C:\ProgramData\SvcAssist\ 에 실행 파일과 함께 있고, 그 실행 파일 앞으로
+#   인바운드 허용 방화벽 규칙이 서 있으며, 정상 관리 에이전트의 JSON 설정에
+#   같은 DLL 을 가리키는 항목 하나가 덧붙어 있다.
+#
+# 남겨야 하는 것 (관측 보고 §오탐 위험)
+#   같은 키의 Spooler·IconServiceLib · 설정 파일의 나머지 세 항목 ·
+#   정상 방화벽 규칙 · Winlogon(손대지 않았다).
+#   그래서 registry_key / 파일 통째 삭제 / 폴더 재귀 삭제를 쓰지 않는다.
+
+schema_version: 1
+id: svcassist-appinit-implant
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [windows]
+name:
+  ko: "AppInit_DLLs 주입 원격 임플란트 제거"
+  en: "AppInit_DLLs injection remote implant removal"
+
+# 권한 상한 — 성능 설정이 아니다.
+#  1) 레지스트리 루트를 **적어야** registry_value 가 모인다. 적지 않으면 그
+#     subject 는 언제나 0건이고, 그 위에서 도는 룰은 아무것도 못 맞힌 채
+#     초록이 된다 (10-manifest.md §scan_roots — 무엇에 걸리고 무엇에 안 걸리는가).
+#     주입 값이 사는 키 하나만 적어 다른 키는 읽지 않는다.
+#  2) %PROGRAMDATA% — 페이로드 폴더와 하이재킹된 에이전트 설정이 함께 사는
+#     자리다. 폴더 이름(SvcAssist)도 에이전트 제품 경로(Acme\Agent)도 감염·
+#     기계마다 다를 수 있어 상한을 그 위 한 단계에 둔다. 좁히면(예:
+#     %PROGRAMDATA%\SvcAssist) 이름이 다른 변종에서 파생 경로가 상한 밖이 되어
+#     그룹이 조용히 제외된다.
+#     %ALLUSERPROFILES% 가 아니다 — 그 토큰은 사용자 프로필 전부로 퍼진다.
+scan_roots:
+  - "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows"
+  - "%PROGRAMDATA%"
+
+subjects: [registry_value, file, structured_config, firewall_rule]
+
+detect:
+  # ── 부모 ───────────────────────────────────────────────────────────
+  # 주입 값 하나가 이 감염의 기준점이다. 폴더 이름을 리터럴로 적을 수 없으므로
+  # 경로를 **증거에서** 뽑아 나머지 규칙을 그 폴더에만 묶는다.
+  - id: appinit
+    subject: registry_value
+    where:
+      all:
+        - { field: hive, op: equals, value: "HKLM" }
+        - { field: key,  op: equals, value: "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows" }
+        - { field: name, op: equals, value: "AppInit_DLLs" }
+        # 정상 기계에서 이 값은 **비어 있다** — 빈 값은 이 술어로 걸리지 않는다.
+        # ProgramData 아래 **폴더 한 겹 안**의 DLL 만 잡는다. 한 겹을 빼면
+        # dirname 이 상한 자체가 될 수 있고 그 계획은 실행 직전에 멈춘다
+        # (22-remediate-recipes.md §조건 5).
+        - { field: data, op: matches, value: '(?i)\\ProgramData\\.+\\[^\\]+\.dll' }
+    capture:
+      dll: "data | first_path"
+      dir: "${dll} | dirname"
+
+  # 스위치. **판정에는 넣지 않는다** — 스위치만 끄고 경로를 남긴 기계도
+  # 치료해야 하기 때문이다. 제거 대상으로만 쓴다.
+  # 값이 닫힌 자리가 아니라 DWORD 이므로 켜진 것(1)만 짚는다. 정상은 0 이다.
+  - id: loadswitch
+    subject: registry_value
+    where:
+      all:
+        - { field: hive, op: equals, value: "HKLM" }
+        - { field: key,  op: equals, value: "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows" }
+        - { field: name, op: equals, value: "LoadAppInit_DLLs" }
+        - { field: data, op: equals, value: "1" }
+
+  # ── 자식 ───────────────────────────────────────────────────────────
+  # 주입 값이 **가리키는 바로 그 파일**. 경로가 전부 증거에서 나온다.
+  - id: hookdll
+    subject: file
+    from: "${appinit.dir}"
+    where:
+      - { field: path, op: equals, value: "${appinit.dll}" }
+
+  # 같은 폴더의 실행 파일 — 원격 접속을 받는 쪽. `from` 이 부모가 가리킨
+  # 폴더로 범위를 좁히므로 정상 ProgramData 의 다른 .exe 는 걸리지 않는다.
+  - id: payload_exe
+    subject: file
+    from: "${appinit.dir}"
+    where:
+      - { field: path, op: ends_with, value: ".exe" }
+
+  # 그 폴더의 실행 파일 앞으로 서 있는 인바운드 허용 규칙.
+  # **들어오는 규칙이라는 사실만으로 잡지 않는다** — Windows 자신의 규칙과
+  # 에이전트의 나가는 규칙이 함께 있는 기계다. application 이 이 감염의 폴더를
+  # 가리킬 때만 증거가 된다. firewall_rule 은 scan_roots 와 무관하게 수집되고,
+  # direction·action 은 규칙 문자열의 Dir=·Action= 토큰이 그대로 온다.
+  - id: inbound_rule
+    subject: firewall_rule
+    where:
+      all:
+        - { field: direction,   op: equals,   value: "In" }
+        - { field: action,      op: equals,   value: "Allow" }
+        - { field: application, op: contains, value: "${appinit.dir}" }
+      # `enabled` 를 조건에 걸지 않는다 — 꺼진 채 남은 구멍도 되돌려야 한다.
+      # 포트(5988)도 걸지 않는다. 규칙을 정상과 가르는 것은 그 규칙이 어느
+      # 실행 파일을 열어 주는가다.
+
+  # 정상 에이전트 설정에 끼워 넣은 항목. 그 값이 위 DLL 을 가리키는 것만
+  # 짚는다 — 정상 제품의 나머지 항목(inventory·endpoint·intervalSeconds)은
+  # 이 술어에 걸리지 않는다.
+  - id: agent_module
+    subject: structured_config
+    where:
+      - { field: value, op: contains, value: "${appinit.dll}" }
+
+# 주입 값 하나로 판정하지 않는다. 두 번째 근거는 서로 독립인 셋 중 하나면
+# 된다 — **바이너리가 이미 지워진 기계**(관리자가 폴더만 지웠거나 다른 백신이
+# 실행 파일만 잡은 기계)에서도 설정 항목과 방화벽 구멍이 남아 있으면 판정이
+# 서야 하고, 남은 쪽이 검체를 다시 부른다 (40-review-checklist.md 1·2번).
+verdict:
+  require: "appinit and (hookdll or agent_module or inbound_rule)"
+
+remediate:
+  # 순서를 적지 않는다. 계획기가 유발자(레지스트리 값)를 산출물보다 먼저 놓는다.
+  remove:
+    # 값 단위다 — registry.delete_value. 키도 같은 키의 Spooler·IconServiceLib
+    # 도 그대로 남는다. 관측이 "이 값 전체가 검체의 것" 이라고 말하므로
+    # edit(strip) 이 아니라 remove 다 (22-remediate-recipes.md §edit).
+    - { ref: appinit }
+    - { ref: loadswitch }
+    # 항목 단위다 — structured_config.remove_key. 파일과 나머지 세 항목은 남는다.
+    # 설정 항목이 **유발자**다: 파일만 지우면 에이전트가 다음 주기에 그 경로를
+    # 다시 찾고, 같은 자리에 다시 떨어지면 그대로 로드된다.
+    - { ref: agent_module }
+    # 페이로드 — file.quarantine_only(되돌릴 수 있다). 폴더 재귀 삭제는 쓰지
+    # 않는다: 폴더 전체가 검체가 만든 것이라는 관측 근거가 보고에 없다
+    # (22-remediate-recipes.md §재귀 삭제 · ex02·ex03 과 같은 판단).
+    - { ref: hookdll }
+    - { ref: payload_exe }
+  restore:
+    # firewall.restore_rule — inbound_rule 이 짚은 규칙만 되돌린다. 목록을
+    # 통째로 비우지 않으므로 정상 규칙은 그대로다.
+    - firewall
+  verify:
+    # 주입 DLL 은 살아 있는 프로세스가 물고 있어 제거가 재부팅으로 미뤄질 수
+    # 있다. 경로 확인이 아니라 **재판정**이므로 되살아나면 사람이 본다.
+    after_reboot: true
+
+submit_hint:
+  samples: [hookdll, payload_exe]
+  confidentiality_min: 1

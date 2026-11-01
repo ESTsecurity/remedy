@@ -1,0 +1,39 @@
+# 감염 스냅샷에서 반드시 나와야 하는 Op (설계-09 P11 · 채점 4번).
+#
+# 이 위협이 처음 밟는 자리가 넷이다 — browser_ext.remove · env.strip_path ·
+# registry.strip_value · proxy.restore. 앞의 다섯 위협이 밟은 것은 18종이고,
+# 넷 다 **2026-09-02 에 코퍼스를 넓히기 전에는 위협으로 만들 수 없었다**:
+# browser_extension 은 청정 코퍼스에 0건이었고 경로 변수 레코드도 0건이었다.
+# 그 상태의 초록은 "오탐이 없다" 가 아니라 "재지 않았다" 다.
+#
+# **셋이 edit·restore 절에서 나온다.** remove 에 넣으면 값이 통째로 지워지고,
+# 그러면 경로 목록이 비어 실행이 깨지거나 정상 보안 제품의 부팅 항목이
+# 함께 사라진다. 절을 고르는 판단이 이 위협의 핵심이다.
+
+# ── 2026-09-04: Op 이름만 적던 것을 (Op, 대상)으로 조인다 ──────────────
+#
+# 그전까지 이 파일은 `registry.delete_value` 처럼 **종류만** 적었고, 그것은
+# "그 종류가 하나라도 있으면 통과" 를 뜻했다. appinit-r3 회차의 사전 기준에
+# 실측으로 적었듯 — AppInit_DLLs 만 지우고 LoadAppInit_DLLs 를 남긴 변형이
+# 네 판정을 전부 통과하고 경고도 0이었다.
+#
+# 개수를 세는 것으로는 부족하다. 그러면 AppInit_DLLs 와 Spooler 를 지운 답이
+# 2건으로 통과한다 — 절반짜리 치료보다 나쁜 실패다. 그래서 **대상**을 적는다.
+#
+# 대상 문자열은 응시자가 아니라 코어가 증거에서 조립한다(`derive.rs`). 룰을
+# 어떻게 적었든 같은 레코드를 짚으면 같은 문자열이 나오므로, 답안마다 표기가
+# 달라 비교가 무너지지 않는다. `::` 뒤는 `match` 다 — 대상만으로는 구분되지
+# 않는 Op 이 있다(`structured_config.remove_key` 는 어느 항목을 빼는가가
+# 거기에만 있고, `process.kill` 은 대상 자체가 없다).
+#
+# 아래 목록은 **정답 플러그인의 계획을 그대로 옮긴 것**이고, 사람이 한 줄씩
+# 읽어 위협 설명의 요구와 맞는지 확인했다.
+
+browser_ext.remove C:\Users\test\AppData\Local\Google\Chrome\User Data\Default\Extensions\pknbjlbmgcodmfilnjadgpkcnkmlpkkn
+browser_ext.remove C:\Users\test\AppData\Local\Microsoft\Edge\User Data\Default\Extensions\pknbjlbmgcodmfilnjadgpkcnkmlpkkn
+env.strip_path HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment\Path
+file.delete_on_reboot C:\ProgramData\WebBoost\wbsvc.exe
+file.quarantine_only C:\ProgramData\WebBoost\wbboot.exe
+process.kill - :: image_path=C:\ProgramData\WebBoost\wbsvc.exe
+proxy.restore HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings\ProxyServer
+registry.strip_value HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\BootExecute

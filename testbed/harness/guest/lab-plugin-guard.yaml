@@ -1,0 +1,62 @@
+# 보호 경로 가드(G6)를 **일부러 밟는** 실험 플러그인 — 계획 단계에서 선다.
+#
+# # 무엇을 재는가
+#
+# 종료 코드 5(안전 가드에 의한 중단) 중 **보호 경로** 갈래다. 리눅스 캡처는 5 를
+# 갖고 있지만 그쪽은 상한 초과(G5)와 계획 위조이고, 보호 경로는 Windows 라야
+# 볼 수 있다 — 리눅스에는 `dir.delete_recursive` 가 없다.
+#
+# # 어떤 실수를 흉내내는가
+#
+# **capture 가 얕게 풀린 모양**이다. 실제로 있었던 일이다(설계-03 §4 조건 5 의
+# 실측 주석): 첫 플러그인이 `args` 에서 경로를 뽑아 `dirname` 했더니
+# `%LOCALAPPDATA%\Programs` 가 되어 사용자가 설치한 것 전부가 재귀 삭제 대상이
+# 됐다. 여기서는 그것을 두 단계 밀어 **`C:\Windows`** 가 되게 한다.
+#
+# `C:\Windows` 는 보호 목록에 **없다**(설계-03 §3 의 목록은 `System32`·`SysWOW64`
+# ·`WinSxS`·`Boot` 다). 그래서 목록만 보는 가드는 이것을 통과시킨다. 막는 것은
+# **"대상이 보호 디렉터리를 품고 있는가"** 라는 다른 조건이다 — 그 조건이 없으면
+# `dir.delete_recursive C:\Windows` 가 계획에 선다.
+#
+# # 안전
+#
+# 가드는 **계획 단계**에서 선다. 승인도 치료도 시작되지 않으므로 `--yes` 로
+# 불러도 기계는 그대로다. 그것이 이 회차가 재는 것이기도 하다.
+#
+# 픽스처는 `%SystemRoot%\Temp\remedy-lab-guard\` 하나뿐이고, 하네스가 끝에서
+# 지운다. **System32 에는 아무것도 쓰지 않는다.**
+
+schema_version: 1
+id: remedy-lab-guard
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [windows]
+name:
+  ko: "보호 경로 가드 시험"
+  en: "protected path guard probe"
+
+# 상한은 픽스처 폴더다. 재귀 삭제 대상(`C:\Windows`)은 이 상한보다 **위**이고,
+# 그래서 조건 5(대상이 상한 자체면 거부)에는 걸리지 않는다 — 걸려야 하는 것은
+# 보호 경로 쪽이다.
+scan_roots:
+  - "%SystemRoot%\\Temp\\remedy-lab-guard"
+
+subjects: [file]
+
+detect:
+  - id: junk
+    subject: file
+    where:
+      - { field: path, op: ends_with, value: "\\payload.js" }
+    capture:
+      dir: "path | dirname" # C:\Windows\Temp\remedy-lab-guard
+      up1: "${dir} | dirname" # C:\Windows\Temp
+      up2: "${up1} | dirname" # C:\Windows   ← 얕게 풀린 자리
+
+verdict:
+  require: "junk"
+
+remediate:
+  remove:
+    # **이 줄이 계획에 서면 안 된다.** 가드가 그것을 막는지가 이 플러그인의 전부다.
+    - { path: "${junk.up2}", recursive: true, guard: junk }

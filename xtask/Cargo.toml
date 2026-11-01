@@ -1,0 +1,41 @@
+[package]
+name = "xtask"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+remedy-sdk = { path = "../crates/remedy-sdk" }
+remedy-quarantine = { path = "../crates/remedy-quarantine" }
+# 퍼징 대상 파서들. **제품 바이너리가 아니라 검사기가 의존한다** — `arch` 는
+# `crates/` 안쪽 그래프만 보므로 제품의 의존 규칙(설계-04 §1)에 영향이 없다.
+# AI 합격 시험 채점(`exam`). evaluate + plan 을 제품과 **같은 경로로** 돌려야
+# 시험에서 통과한 룰이 현장에서 같은 답을 낸다.
+remedy-core = { path = "../crates/remedy-core" }
+# guard 가 거부한 계획도 채점하려면 그 오류를 **타입으로** 갈라야 한다 — 문구로
+# 가르면 번역 하나에 채점이 바뀐다.
+remedy-plan = { path = "../crates/remedy-plan" }
+remedy-testkit = { path = "../crates/remedy-testkit" }
+remedy-collect = { path = "../crates/remedy-collect" }
+remedy-detect = { path = "../crates/remedy-detect" }
+# 자립률 집계(`metrics`). 렌더링과 분류를 여기 다시 적으면 제품이 내는
+# 문장과 갈라진다.
+remedy-report = { path = "../crates/remedy-report" }
+# 룰 실측(`yara`). 제품이 쓰는 엔진 그대로 컴파일·스캔해야 여기서 통과한
+# 룰이 현장에서 같은 답을 낸다. 다른 YARA 로 시험하면 거짓 통과가 된다.
+remedy-yara = { path = "../crates/remedy-yara" }
+object = { workspace = true }
+# 코퍼스 스냅샷 압축(`corpus`). testkit 이 읽는 것과 같은 판이어야 한다.
+flate2 = { workspace = true }
+# 플러그인 서명 생성 (설계-09 P10). 제품이 아니라 여기에 둔 이유는 루트
+# Cargo.toml 의 `minisign` 주석에 있다.
+minisign = { workspace = true }
+sha2 = { workspace = true }
+remedy-trust = { path = "../crates/remedy-trust" }
+serde_yaml_ng = { workspace = true }
+# 공개 전 누출 검사(`leaks`). 일반 꼴만 여기 적고, 정확한 값은 로컬 전용 목록에 둔다.
+regex = { workspace = true }

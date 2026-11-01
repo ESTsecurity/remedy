@@ -1,0 +1,218 @@
+# EvilAI(Locust) 제거 — 첫 플러그인
+#
+# VT 패밀리명은 `meadowlocust` 다. 이 매니페스트의 값은 설계 초안
+# (claudedocs/예시-EvilAI-플러그인.md)에서 왔고, **실검체로 확인한 것과 확인하지
+# 못한 것을 구분해** 아래 주석에 적어 두었다. 확인하지 못한 것은 넣지 않았다.
+#
+# 도출 근거: claudedocs/P9-EvilAI-YARA-룰-도출과-실측.md
+
+schema_version: 1
+id: evilai-locust
+version: 0.1.0
+min_core: "1.0.0"
+platforms: [windows]
+name:
+  ko: "EvilAI(Locust) 제거"
+  en: "EvilAI (Locust) Removal"
+references:
+  - "https://www.virustotal.com/gui/search/engines%3Ameadowlocust"
+  - "claudedocs/P9-EvilAI-YARA-룰-도출과-실측.md"
+
+# ── 권한 상한 ──────────────────────────────────────────────
+# scan_roots 는 성능 최적화가 아니라 "여기 밖은 읽을 수 없다"는 상한이다.
+# 서명된 플러그인이 임의 경로를 읽을 수 있으면 그 자체가 정보 수집 도구가 된다.
+#
+# 검체에서 관측된 페이로드 경로는 전부 `%LOCALAPPDATA%\Programs\<이름>-<랜덤>`
+# 이었다 (`SystemSoftwareUpdaterV2-q5ty`, `MicrosoftResourcesAgentV12-we9i6`).
+# System32 하위는 관측되지 않아 넣지 않았다 — 넓히려면 검체가 먼저다.
+scan_roots:
+  - "%LOCALAPPDATA%\\Programs"          # 페이로드가 자리잡는 곳
+  # **예약 작업 경로는 여기 없다.** `persistence` 는 `scan_roots` 와 무관하게
+  # 수집된다(설계-09 P12 · guard.rs 의 `collected_from_a_fixed_place`). 적으면
+  # 작업 정의 XML 219건이 `file` 로 딸려 들어오고 파괴 상한만 넓어진다.
+  # 2026-09-01 까지 여기 "예약 작업 정의를 읽기 위해" 라고 적혀 있었다 —
+  # 그 이유는 사실이 아니었다.
+
+# 선언한 대상 타입만 볼 수 있다. 여기 없는 subject 는 detect 에서 쓸 수 없다.
+# **다섯 개 전부 아래에서 실제로 쓴다.** 쓰지 않을 것을 선언해 두면 상한만
+# 넓히고 아무 능력도 얻지 못한다.
+subjects: [persistence, file, autorun, process, av_exclusion]
+
+allow_removable: false                  # 기본값. USB 웜이 아니므로 켜지 않는다
+
+# signed_malware 는 **비워 둔다** (필드 자체를 적지 않는다).
+#
+# 설계 초안은 "EvilAI 는 정상 인증서로 서명된 AI 앱으로 위장" 을 전제로 서명
+# 주체 열거를 요구했으나, 확보한 검체에서 그것을 확인하지 못했다 —
+# `engines:meadowlocust tag:signed` 0건, 구성원 40건 조회에서
+# `signature_info.subject` 보유 0건, 받은 PE 2건은 인증서 테이블 크기 0.
+#
+# 목록이 곧 플래그이므로 비어 있으면 예외가 없다. 서명된 대상을 만나면
+# 설계-03 §3 2층이 삭제를 막고 그 사실을 보고한다 — 본 적 없는 서명 주체를
+# 지어 넣어 예외를 여는 것보다 옳은 실패 방향이다.
+
+# ── 관찰 규칙 ──────────────────────────────────────────────
+detect:
+  # (1) 예약 작업 — 이 위협의 뼈대
+  #
+  # 검체 확인: 샌드박스 행위가
+  #   "C:\Program Files\nodejs\node.exe" "…\preload.js"
+  # 로 아래 두 조건과 그대로 맞는다.
+  - id: task
+    subject: persistence
+    where:
+      all:
+        # 정규식은 **작은따옴표**로 적는다. YAML 작은따옴표는 역슬래시를 그대로
+        # 두므로 정규식이 보이는 대로 전달된다. 큰따옴표를 쓰면 한 겹만 틀려도
+        # 조용히 매치되지 않는다.
+        - { field: command,                op: matches,     value: '(?i)\\node\.exe$' }
+        # `.js` 뒤가 공백만은 아니다. 인자가 따옴표로 묶여 있으면 `"...main.js" --run`
+        # 이라 다음 글자가 `"` 다. `(\s|$)` 만 보면 놓친다.
+        # **Programs 와 .js 사이에 폴더가 최소 하나** 있어야 한다. 없으면
+        # `dirname` 이 scan_roots 상한 자체가 되고, 아래 재귀 삭제가 사용자가
+        # 설치한 프로그램 폴더 전체를 겨눈다 (P11 r2 가 실측으로 드러냈다).
+        - { field: args,                   op: matches,     value: '(?i)\\AppData\\Local\\Programs\\[^"]+\\[^\\"]+\.js("|\s|$)' }
+        - { field: win.task.register_path, op: starts_with, value: "\\Microsoft\\Windows\\" }
+    capture:
+      # 폴더 이름이 감염마다 바뀌므로 리터럴로 적을 수 없다.
+      # 증거에서 뽑아낸다 — 이것이 "랜덤 폴더명" 을 다루는 방법이다.
+      script_path: "args | first_path"
+      payload_dir: "${script_path} | dirname"
+    # **exclude 를 두지 않는다.**
+    #
+    # 초안에는 "정상 Node 개발 환경" 을 겨눈 두 줄이 있었으나, 감염 코퍼스를
+    # 뜨면서 둘 다 발동할 수 없음이 실측으로 드러나 지웠다
+    # (claudedocs/P9-감염-코퍼스-페이로드-바이트.md §6).
+    #
+    #   `file(command).signature.subject == "Microsoft Corporation"`
+    #     실기기의 node.exe 는 `CN=OpenJS Foundation` 서명이다. P10 에서
+    #     `FileRecord.signature` 가 채워져도 이 값과는 맞지 않는다.
+    #
+    #   `source contains "\Microsoft VS Code\"`
+    #     예약 작업 정의 파일은 언제나 `System32\Tasks` 아래에 있어 이 값이
+    #     들어갈 자리가 없다. 애초에 VS Code 는 예약 작업을 만들지 않는다 —
+    #     청정 코퍼스 7종에서 node 를 실행하는 예약 작업 **0 건**이다.
+    #
+    # **그리고 값을 고쳐서 살릴 수 있는 종류의 술어가 아니다.** EvilAI 는 정상
+    # `C:\Program Files\nodejs\node.exe` 를 그대로 실행한다(LOLBin). 서명 주체를
+    # 실측값으로 바꾸면 **위협 자체가 제외되고**, 경로 조건을 `args` 로 옮기면
+    # 페이로드를 VS Code 폴더 안에 두는 것만으로 우회된다 — 그 폴더는 이 룰이
+    # 보는 `%LOCALAPPDATA%\Programs` 바로 아래에 있다. 정상과 악성을 가르는
+    # 것은 실행 파일이 아니라 **무엇을 실행하는가** 이고, 그 몫은 아래 payload
+    # 룰의 YARA 가 맡는다.
+    #
+    # 오탐 방어의 본체는 `verdict: task and payload` 의 논리곱과 `from:` 이 거는
+    # 스캔 범위 제한이다. 청정 환경 0 건은 G1 이 매 커밋 보증한다.
+    score: 90        # 보고·우선순위 표시용일 뿐이다. 판정 게이트가 아니다
+
+  # (2-a) 본문을 담을 대상 — **경로로만** 매치한다
+  #
+  # **이 룰이 없으면 실기기에서 판정이 영원히 서지 않는다** (VM 실증에서 드러났다).
+  #
+  # `collect_extra` 의 `ref` 형은 2패스로 돈다 — 수집 → 1차 평가 → 그 증거로
+  # 본문 담기 → 재평가 (`pipeline::scan_with_rules`). 그래서 `ref` 가 가리키는
+  # 룰은 **본문 없이 매치될 수 있어야 한다.** 아래 (2-b) 처럼 YARA 하나로만 된
+  # 룰을 가리키면 순환이다: 증거가 서려면 본문이 있어야 하고, 본문을 담으려면
+  # 증거가 있어야 한다. 1차 평가에서 아무것도 매치되지 않아 담을 것을 찾지
+  # 못하고, `blobs` 가 빈 채로 재평가가 없다.
+  #
+  # 감염 코퍼스는 이 결함을 가린다 — 거기서는 본문이 이미 주입돼 있기 때문이다.
+  # 실기기에서 `scan` 을 돌려야 드러난다 (설계-09 P9 항목 3).
+  - id: payload-file
+    subject: file
+    from: "${task.payload_dir}"          # 증거에서 파생된 경로만
+    where:
+      - { field: path, op: ends_with, value: ".js" }
+
+  # (2-b) 드롭된 페이로드 — 내용으로 확인한다
+  #
+  # 룰은 검체 16건에서 도출했고 오탐을 실측했다 (탐지 16/16, 정상 .js
+  # 0/25,863 · 0/3,750 · 타 패밀리 0/625). `from:` 이 스캔 범위를 악성 작업이
+  # 가리키는 디렉터리로 좁히는 것이 이 룰의 실질적인 오탐 방어다 —
+  # rc4 하위 룰은 난독화기 골격을 겨누므로 전역 스캔에 쓰면 안 된다.
+  - id: payload
+    subject: file
+    from: "${task.payload_dir}"          # 증거에서 파생된 경로만 스캔한다
+    where:
+      # **본문이 담기는 것과 같은 범위여야 한다.** collect_extra 가 담는 것은
+      # payload-file(`.js`) 뿐이라, 여기서 `.js` 를 빼면 폴더 안의 다른 파일이
+      # 본문 없이 YARA 대상이 되고 그 레코드는 **미평가**로 남는다 — 판정이
+      # 아니라 관측 불완전이 된다 (P11 r2 가 실측으로 드러냈다).
+      - { field: path, op: ends_with, value: ".js" }
+      - { yara: "rules/evilai.yar:evilai_locust_js" }
+
+  # (3) Run 키 이중화
+  - id: runkey
+    subject: autorun
+    where:
+      - { field: command, op: contains, value: "${task.payload_dir}" }
+
+  # (4) 백신 예외 등록 — 증거이자 원복 대상이다
+  - id: av-exclusion
+    subject: av_exclusion
+    where:
+      - { field: value, op: contains, value: "${task.payload_dir}" }
+
+  # (5) 돌고 있는 페이로드 프로세스
+  #
+  # 이것이 없으면 페이로드 파일을 지우려 할 때 잠겨 있고, 지워도 프로세스가
+  # 계속 돈다. `process.kill` 은 2단계라 작업 비활성화(3단계)·산출물 제거
+  # (5단계)보다 먼저 실행된다.
+  #
+  # **필드 이름에 주의.** 프로세스에는 `command` 가 없다 — `image_path` 다
+  # (예약 작업은 `command`). 두 subject 의 필드 목록이 다르다.
+  #
+  # 좁히는 것은 두 번째 조건이다. `payload_dir` 는 악성으로 판정된 작업에서
+  # 나온 경로이므로, 그 경로를 인자로 물고 있는 node 프로세스만 대상이 된다.
+  # 이름이 바뀐 변종은 첫 조건에서 빠지는데, 검체에서 본 것이 node.exe 뿐이라
+  # 그 이상은 적지 않는다 — 넓히려면 검체가 먼저다.
+  - id: payload-process
+    subject: process
+    where:
+      all:
+        - { field: image_path, op: matches,  value: '(?i)\\node\.exe$' }
+        - { field: args,       op: contains, value: "${task.payload_dir}" }
+
+# ── 판정 게이트 ────────────────────────────────────────────
+# 점수 임계값(score >= 80)을 게이트로 쓸 수 없다.
+# 독립적인 두 근거의 논리곱이라야, 룰 하나의 오탐이 곧바로 삭제로 이어지지 않는다.
+#
+# 프로세스는 넣지 않는다. 재부팅 직후처럼 돌고 있지 않은 순간이 있고, 그때
+# 판정이 서지 않으면 치료할 수 없다.
+verdict:
+  require: "task and payload"
+
+# ── 치료 — "무엇이 남아 있으면 안 되는가" ──────────────────
+# 순서·백업·프로세스 종료를 여기 적지 않는다. 계획기가 도출한다.
+remediate:
+  remove:
+    - { ref: payload-process }
+    - { ref: task }
+    - { ref: payload }
+    - { ref: runkey }
+    # recursive 는 guard 가 필수다. guard 는 "그 디렉터리 안에서 악성으로 판정된 파일" 을 가리킨다.
+    # capture 해석이 어긋나 payload_dir 가 %LOCALAPPDATA%\Programs 자체가 되더라도,
+    # 그 안에 악성 판정 파일이 없으므로 이 삭제는 계획에 들어가지 않는다.
+    #
+    # **P10-C 에서 열렸다.** 이전에는 미룸으로 보고되고 빈 디렉터리가 남았다.
+    # 네 번째 조건("하위에 신뢰 서명 파일이 있으면 거부")은 실행 시점에 판정된다
+    # — 계획기는 파일 시스템을 열거할 수 없기 때문이다 (설계-03 §4).
+    - { path: "${task.payload_dir}", recursive: true, guard: payload }
+  restore:
+    - av_exclusions                      # 원복은 파괴가 아니므로 별도 절이다
+  verify:
+    after_reboot: true
+
+# ── 분석에 필요한 것 (치료와 무관) ─────────────────────────
+# 초안에는 `${task.payload_dir}/config.json` 도 있었으나 뺐다. 검체에서 C2
+# 설정 파일의 근거를 찾지 못했고(평문 IOC 0건), 없는 것을 선언해 두면 감염마다
+# "선언한 것을 못 봤다" 가 보고돼 진짜 미해소 항목이 묻힌다. 감염 스냅샷에서
+# 실제 파일 구성을 보고 나서 넣을 것.
+collect_extra:
+  # **`payload` 가 아니라 `payload-file` 을 가리킨다.** 위 (2-a) 주석 참조 —
+  # YARA 로만 정의된 룰을 가리키면 순환이라 본문이 영영 담기지 않는다.
+  - { ref: payload-file, content: true }                               # 페이로드 본문
+
+submit_hint:
+  samples: [payload]
+  confidentiality_min: 1                 # 하한만 올릴 수 있다. 낮출 수는 없다

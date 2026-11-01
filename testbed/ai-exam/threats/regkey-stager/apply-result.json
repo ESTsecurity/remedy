@@ -1,0 +1,65 @@
+{
+    "schema":  "remedy-exam-apply/4",
+    "threat":  "regkey-stager",
+    "platform":  "windows",
+    "mode":  "unattended",
+    "variant":  "default",
+    "verdict":  "pass",
+    "exit_code":  1,
+    "measured":  5,
+    "scope_targets":  5,
+    "changes_in_scope":  5,
+    "trace":  {
+                  "host":  "DESKTOP-2GQIRP1",
+                  "stages":  [
+                                 {
+                                     "stage":  "clean",
+                                     "at":  "2026-10-26T02:19:21Z",
+                                     "sha256":  "eae3b544c3a3f7af4359d59a1aaca3c705b45d4a6c88e3a7d344f467244d4b8a",
+                                     "counts":  {
+                                                    "processes":  172,
+                                                    "services":  281,
+                                                    "tasks":  218,
+                                                    "autoruns":  18,
+                                                    "files":  0
+                                                }
+                                 },
+                                 {
+                                     "stage":  "infected",
+                                     "at":  "2026-10-26T02:19:33Z",
+                                     "sha256":  "f02fef3b5de2f8aefce5a54dc2091f0ac00822a863a0857229f9b3b14113e74c",
+                                     "counts":  {
+                                                    "processes":  172,
+                                                    "services":  281,
+                                                    "tasks":  218,
+                                                    "autoruns":  19,
+                                                    "files":  3
+                                                }
+                                 },
+                                 {
+                                     "stage":  "treated",
+                                     "at":  "2026-10-26T02:19:41Z",
+                                     "sha256":  "494202474df8ec9ed329ad3db0927bec09e62349dd5231f7cf8dd4f3eaa62d21",
+                                     "counts":  {
+                                                    "processes":  171,
+                                                    "services":  281,
+                                                    "tasks":  218,
+                                                    "autoruns":  18,
+                                                    "files":  1
+                                                }
+                                 }
+                             ],
+                  "actions_done":  5
+              },
+    "content_checks":  0,
+    "content_measured":  0,
+    "must_remain":  3,
+    "must_remain_measured":  3,
+    "plugin_files":  {
+                         "plugin.yaml":  "7dee04909756f6f2182faf6da3d5e786610816945955189a2bdaf42196ef4af7"
+                     },
+    "expected_ops_sha256":  "fb7dcaf49af8aa9ae6cc0979f3defeb4117754c5d89f377afdedac6321bf92cd",
+    "must_remain_sha256":  "9339dbfc4b698b61d4524e386d229568e4402bdf018f9bdd16604342b47f67d9",
+    "binary_sha256":  "8c033721ac5e4132d2fe8f054251c7818724ac3a1ae8ad3b44032d92178c6a2b",
+    "ran_at":  "2026-10-26T02:19:42Z"
+}

@@ -1,0 +1,66 @@
+{
+    "schema":  "remedy-exam-apply/4",
+    "threat":  "hook-implant",
+    "platform":  "windows",
+    "mode":  "unattended",
+    "variant":  "default",
+    "verdict":  "pass",
+    "exit_code":  1,
+    "measured":  2,
+    "scope_targets":  2,
+    "changes_in_scope":  2,
+    "trace":  {
+                  "host":  "DESKTOP-2GQIRP1",
+                  "stages":  [
+                                 {
+                                     "stage":  "clean",
+                                     "at":  "2026-10-26T02:23:04Z",
+                                     "sha256":  "62e65e0a9d561c54a8bc46b68e86419a66d24c25b28a9bf19a81fa7b0e44a757",
+                                     "counts":  {
+                                                    "processes":  173,
+                                                    "services":  281,
+                                                    "tasks":  218,
+                                                    "autoruns":  18,
+                                                    "files":  0
+                                                }
+                                 },
+                                 {
+                                     "stage":  "infected",
+                                     "at":  "2026-10-26T02:23:14Z",
+                                     "sha256":  "03375d2c644cbbe2238118b37ee9dd403f0bce1b7110712c3bfadecc0a376fff",
+                                     "counts":  {
+                                                    "processes":  174,
+                                                    "services":  281,
+                                                    "tasks":  218,
+                                                    "autoruns":  20,
+                                                    "files":  5
+                                                }
+                                 },
+                                 {
+                                     "stage":  "treated",
+                                     "at":  "2026-10-26T02:23:22Z",
+                                     "sha256":  "2a3bf160138089a818947a9b64a4bcf27dbf16cee021ea770d61d9d6588c6bea",
+                                     "counts":  {
+                                                    "processes":  171,
+                                                    "services":  281,
+                                                    "tasks":  218,
+                                                    "autoruns":  19,
+                                                    "files":  4
+                                                }
+                                 }
+                             ],
+                  "actions_done":  2
+              },
+    "content_checks":  0,
+    "content_measured":  0,
+    "must_remain":  3,
+    "must_remain_measured":  3,
+    "plugin_files":  {
+                         "plugin.yaml":  "1845fcc71dcace76422899eff43162aa8a4afd8485a6f2fdeff599c4a928547e",
+                         "rules/hook-implant.yar":  "b1809bedf8cdac40486d6bb0af2c40f26993630c372a5b54e3fa84b72b786c47"
+                     },
+    "expected_ops_sha256":  "794ee9a07e7b3a835228ddc96528138c7f4b7cc9f827ec1030d67b5e3715eae3",
+    "must_remain_sha256":  "fb36f15fe19ea3379ed4107b0e9d32fd7a5313b4f413d8e404a50becb95707de",
+    "binary_sha256":  "8c033721ac5e4132d2fe8f054251c7818724ac3a1ae8ad3b44032d92178c6a2b",
+    "ran_at":  "2026-10-26T02:23:25Z"
+}

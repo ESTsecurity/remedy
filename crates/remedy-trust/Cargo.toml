@@ -1,0 +1,23 @@
+[package]
+name = "remedy-trust"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+remedy-sdk = { path = "../remedy-sdk" }
+minisign-verify.workspace = true
+sha2 = { workspace = true }
+thiserror.workspace = true
+# 폐기 목록 본문. **구조가 있는 데이터**라 매니페스트(sha256sum 모양 텍스트)와
+# 달리 JSON 이 맞는다 — 항목마다 대상·범위·사유가 붙는다.
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+# 시험이 스스로 키쌍을 만들고 서명한다. **dev 이므로 배포 바이너리에
+# 링크되지 않는다** — 제품이 서명 능력을 갖지 않는다는 성질(루트 Cargo.toml
+# 의 `minisign` 주석)이 유지된다.
+minisign = { workspace = true }

@@ -1,0 +1,11 @@
+[package]
+name = "remedy-enrich"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+remedy-sdk = { path = "../remedy-sdk" }
+remedy-artifacts = { path = "../remedy-artifacts" }

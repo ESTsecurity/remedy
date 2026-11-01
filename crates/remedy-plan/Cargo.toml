@@ -1,0 +1,15 @@
+[package]
+name = "remedy-plan"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+remedy-sdk = { path = "../remedy-sdk" }
+remedy-artifacts = { path = "../remedy-artifacts" }
+thiserror.workspace = true
+# `Action.match` 는 술어라 자유 형식이다 — 프로세스 대상을 값이 아니라 술어로
+# 고정하기 때문이다 (설계-03 §1). 그것을 읽으려면 여기서도 필요하다.
+serde_json.workspace = true

@@ -1,0 +1,3 @@
+# 파괴 동작을 다루는 코드다. 인지 복잡도를 낮게 유지한다 (순환복잡도 10).
+cognitive-complexity-threshold = 15
+too-many-arguments-threshold = 6

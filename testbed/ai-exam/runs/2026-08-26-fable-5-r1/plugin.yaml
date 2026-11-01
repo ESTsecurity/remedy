@@ -1,0 +1,120 @@
+# EvilAI (Locust) — 정상 node.exe 를 빌려 쓰는 예약 작업 + 랜덤 폴더의 난독화 .js 페이로드
+#
+# 관측 보고 요약
+#   지속성   \Microsoft\Windows\ 아래 예약 작업이 node.exe 로 <프로필>\AppData\Local\Programs\<랜덤>\<랜덤>.js 실행
+#   페이로드 그 폴더 안의 .js — 평문 IOC 0건, 본문 판정은 분석가가 준 rules/evilai.yar 가 한다
+#   자동 실행 HKCU Run 값이 같은 스크립트를 가리킨다 (하나만 지우면 되살린다)
+#   방어 회피 Defender 경로 예외에 그 폴더가 들어 있다
+#   실행 중   그 스크립트를 인자로 받은 node.exe 가 떠 있을 수도, 없을 수도 있다
+#
+# 원칙
+#   - node.exe 는 정상 서명 파일이고 절대 제거 대상이 아니다. 어떤 규칙도 실행 파일을 가리키지 않는다.
+#   - 감염마다 바뀌는 폴더·파일명은 리터럴로 적지 않고 예약 작업 증거에서 뽑는다 (capture).
+#   - YARA 는 분석가 경고대로 전역에 풀지 않는다 — 악성 증거가 가리킨 폴더 안(from)에서만 돈다.
+
+schema_version: 1
+id: evilai-locust
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [windows]
+name:
+  ko: "EvilAI (Locust) — Node.js 예약 작업 기반 JavaScript 페이로드 제거"
+  en: "EvilAI (Locust) - Node.js scheduled-task JavaScript payload removal"
+
+# 권한 상한. 여기 밖은 읽을 수도 지울 수도 없다.
+scan_roots:
+  - "%SystemRoot%\\System32\\Tasks"                    # 예약 작업 정의 파일
+  # 페이로드 자리. 예약 작업은 기계 전역(\Microsoft\Windows\)에 있어 어느 사용자
+  # 프로필이든 가리킬 수 있고, 재부팅 후 verify 가 다른 계정으로 돌 수 있으므로
+  # 현재 사용자(%LOCALAPPDATA%)가 아니라 모든 프로필의 같은 자리를 상한으로 둔다.
+  - "%ALLUSERPROFILES%\\AppData\\Local\\Programs"
+
+subjects: [persistence, autorun, av_exclusion, process, file]
+
+detect:
+  # ── 부모: 예약 작업 ─────────────────────────────────────────────
+  # 정상 개발 도구의 업데이트 작업도 node.exe + .js 다. 그것과 가르는 조건은
+  # 등록 위치 — 정상 제품은 OS 작업 트리(\Microsoft\Windows\) 안에 등록하지 않고,
+  # 그 트리 안의 Microsoft 작업은 node.exe 를 실행하지 않는다.
+  - id: task
+    subject: persistence
+    where:
+      all:
+        - { field: win.task.register_path, op: starts_with, value: '\Microsoft\Windows\' }
+        - { field: command,                op: matches,     value: '(?i)\\node\.exe$' }
+        - { field: args,                   op: matches,     value: '(?i)\.js("|\s|$)' }
+    capture:
+      script: "args | first_path"          # 인자의 첫 경로 = 실행되는 .js
+      dir: "${script} | dirname"           # 검체가 만든 폴더 (감염마다 이름이 다르다)
+
+  # ── 자식: 페이로드 파일 (경로) ──────────────────────────────────
+  # 본문 없이 매치되는 규칙. collect_extra 가 이것을 가리켜 본문을 담는다.
+  # 판정에는 쓰지 않는다 — 폴더 안에 .js 가 있다는 사실만으로는 근거가 아니다.
+  - id: payload-file
+    subject: file
+    from: "${task.dir}"
+    where:
+      - { field: path, op: ends_with, value: ".js" }
+
+  # ── 자식: 페이로드 파일 (본문) ──────────────────────────────────
+  # 분석가가 준 룰. 파일 머리의 경고대로 ${task.dir} 안에서만 돈다.
+  # 공개 룰 evilai_locust_js 하나만 부른다 (나머지 셋은 private).
+  - id: payload
+    subject: file
+    from: "${task.dir}"
+    where:
+      - { yara: "rules/evilai.yar:evilai_locust_js" }
+
+  # ── 자식: Run 값 ─────────────────────────────────────────────────
+  # autorun 에는 path 가 없어 from 을 못 쓴다. value 보간으로 이 감염의 폴더에 묶는다.
+  - id: runkey
+    subject: autorun
+    where:
+      - { field: command, op: contains, value: "${task.dir}" }
+
+  # ── 자식: Defender 경로 예외 ────────────────────────────────────
+  # restore: [av_exclusions] 가 되돌릴 증거. 룰이 짚은 이 폴더 항목만 되돌린다.
+  # 사용자가 넣은 상위 폴더 예외(예: Programs 전체)는 이 조건에 걸리지 않는다.
+  - id: av-exclusion
+    subject: av_exclusion
+    where:
+      - { field: value, op: contains, value: "${task.dir}" }
+
+  # ── 자식: 실행 중인 프로세스 ────────────────────────────────────
+  # 실행 파일이 아니라 무엇을 실행하는가로 가른다. 없으면 증거가 없을 뿐이다.
+  - id: payload-process
+    subject: process
+    where:
+      all:
+        - { field: image_path, op: matches,  value: '(?i)\\node\.exe$' }
+        - { field: args,       op: contains, value: "${task.dir}" }
+
+# 서로 다른 대상에서 온 두 근거의 논리곱 — 예약 작업(스케줄러) × 파일 본문(YARA).
+# 등록 위치가 이상한 node 작업 하나만으로도, 난독화 골격 매치 하나만으로도 판정하지 않는다.
+verdict:
+  require: "task and payload"
+
+# YARA 가 훑을 본문. 부모 증거가 있는 그룹의 폴더 안 .js 만 담긴다 — 정상 PC 에서는 아무것도 담지 않는다.
+collect_extra:
+  - { ref: payload-file, content: true }
+
+remediate:
+  remove:
+    - { ref: task }               # 예약 작업 (비활성화 + 삭제)
+    - { ref: runkey }             # Run 값
+    - { ref: payload-process }    # 파일을 물고 있는 node.exe 프로세스 (있을 때만)
+    - { ref: payload }            # YARA 로 확인된 페이로드 파일
+    # 검체가 만든 폴더 통째로. 보고상 감염 전 사용자 파일이 섞인 경우는 없다.
+    # guard 는 그 폴더 안에서 YARA 로 악성 판정된 파일이다. 하위에 신뢰 서명 파일이
+    # 있으면 실행기가 거부하고 deferred 로 보고한다 — 그 경우에도 위 ref: payload 는 남는다.
+    - { path: "${task.dir}", recursive: true, guard: payload }
+  restore:
+    - av_exclusions               # av-exclusion 규칙이 짚은 항목만 원복
+  verify:
+    after_reboot: true            # 재부팅 뒤 같은 플러그인으로 재판정 — 되살아났는지 본다
+
+# 서명된 것을 지울 일이 없다. node.exe 는 정상이고 대상이 아니다. (비워 둔다)
+
+submit_hint:
+  samples: [payload]
+  confidentiality_min: 1          # 경로에 사용자 계정명이 들어간다

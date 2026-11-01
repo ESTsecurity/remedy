@@ -1,0 +1,1416 @@
+{
+  "artifacts": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "additionalProperties": true,
+    "definitions": {
+      "ArtifactKind": {
+        "description": "봉투의 `kind`. 네 단계와 1:1 이다.",
+        "enum": [
+          "remedy.artifacts",
+          "remedy.scan",
+          "remedy.plan",
+          "remedy.result"
+        ],
+        "type": "string"
+      },
+      "CollectScope": {
+        "properties": {
+          "denied_dirs": {
+            "default": 0,
+            "description": "접근이 거부되어 **열지 못한 횟수**. 서로 다른 디렉터리의 개수가 아니다 — 두 subject 가 같은 디렉터리를 읽으면 둘 다 세어진다 (실측: 비관리자 실행에서 `System32\\Tasks` 하나가 file·persistence 양쪽에서 걸려 2 였다).\n\n정확한 개수를 세지 않는 이유는, 이 값이 답해야 하는 질문이 \"몇 개인가\" 가 아니라 **\"이 스냅샷을 믿어도 되는가\"** 이기 때문이다. 0 이 아니면 완전하지 않다. 못 읽은 자리를 \"그것이 없음\" 으로 보고하면 거짓 음성이 된다.\n\n**관리자로 돌려도 0 이 아닐 수 있다.** 2026-09-01 부터 기계를 만지는 명령은 권한이 없으면 아예 시작하지 않으므로(설계-00 §5), 이 값이 잡는 것은 이제 권한 부족이 아니라 **권한이 있어도 남는 구멍**이다 — 변조 방지가 막는 Defender 예외 키, `TrustedInstaller` 가 소유한 자리, 보호 프로세스(실측 2026-08-31: 관리자 세션에서 프로세스 159개 중 19개의 명령줄을 읽지 못했다). 그래서 이 필드는 권한 검사가 생긴 뒤에도 그대로 필요하다.",
+            "format": "uint",
+            "minimum": 0.0,
+            "type": "integer"
+          },
+          "denied_paths": {
+            "description": "거부된 자리 중 **앞의 몇 개** 경로. 비어 있으면 실리지 않는다.\n\n**`denied_dirs` 를 대신하지 않는다.** 그 값은 \"이 스냅샷을 믿어도 되는가\" 에 답하고, 이 목록은 \"그럼 어디를 봐야 하는가\" 에 답한다.\n\n위와 같은 이유로 **중복이 들어올 수 있다** — 두 subject 가 같은 디렉터리에서 거부되면 두 번 실린다. 표본이므로 길이가 `denied_dirs` 보다 작을 수 있고, 그 차이가 \"전수가 아니다\" 라고 말한다.\n\n# 왜 필요했나 (2026-09-14)\n\n`%ProgramFiles%` 수집이 `denied_dirs=2` 를 내 P2 가 미결로 끝났는데 **어느 폴더인지 아무 데도 없었다.** 회차가 끝난 뒤 그 기계를 뒤졌을 때는 5,713개 폴더가 전부 열렸다 — 수집이 도는 **그때만** 잠기는 자리였고, 그러면 사람은 영영 원인에 닿지 못한다.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "missing_roots": {
+            "description": "선언했으나 **존재하지 않아 한 번도 열리지 않은** 루트.\n\n없는 루트를 조용히 건너뛰면, `scan_roots` 가 통째로 어긋난 실행이 \"파일 0건 · 완전한 관측\" 으로 보고된다. 그 위에서 \"위협 없음\" 이 결론난다.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "removable_roots": {
+            "description": "그중 이동식 매체에서 펼쳐진 것.\n\n**읽기 허가와 파괴 허가는 다르다.** `allow_removable` 선언은 읽는 데까지 동의한 것이고, 그 위의 것을 지우는 판단은 눈앞의 매체를 보는 사람의 몫이다 (설계-03 §4). 계획기가 그 구분을 하려면 어느 루트가 이동식이었는지 여기 남아 있어야 한다 — 계획 시점에 다시 물으면 스냅샷을 뜬 기계와 다른 답이 나온다.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "scan_roots": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "subject_roots": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "description": "subject 하나에만 적용된 **더 좁은** 상한 (매니페스트의 `subject_roots`).\n\n**산출물이 홀로 읽혀야 한다**(설계-03 §1). 이것이 없으면 스냅샷은 `scan_roots` 전부를 훑은 것처럼 보이고, 실제로는 그중 일부만 본 subject 가 있다는 사실이 사라진다 — 그러면 \"여기 없었다\" 를 잘못 읽게 된다.",
+            "type": "object"
+          },
+          "subjects": {
+            "items": {
+              "$ref": "#/definitions/Subject"
+            },
+            "type": "array"
+          },
+          "text_config_dirs": {
+            "description": "확장자 없이도 `text_config` 로 읽은 디렉터리 (매니페스트의 `text_config_dirs` · C-5).\n\n**`subject_roots` 와 같은 이유로 여기 있다** — 산출물이 홀로 읽혀야 한다. 이것이 없으면 `/etc/pam.d/common-auth` 가 `text_config` 로 들어온 스냅샷을 읽는 사람이 *\"이 코어는 확장자 없는 파일을 전부 읽는다\"* 로 오해한다. 무엇을 **선언해서** 읽었는지가 남아야 그 줄의 출처가 설명된다.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "truncated": {
+            "description": "상한에 걸려 수집이 잘렸음을 표시한다.\n\n**잘린 스냅샷으로 \"위협 없음\" 을 결론짓지 않기 위한 필수 필드다.**",
+            "type": "boolean"
+          },
+          "unreadable_roots": {
+            "description": "선언했으나 **있는지조차 묻지 못한** 루트 (B-9 · 2026-10-27).\n\n`Path::exists()` 가 오류 전부를 *\"없다\"* 로 접던 동안, 부모까지 막힌 트리와 도달 불가 UNC 가 `missing_roots` 로 들어갔다. 열린 루트가 하나라도 함께 있으면 `all_roots_missing()` 이 성립하지 않아 **경고 없는 종료 0** 이 나갔다(실측).",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "scan_roots",
+          "subjects",
+          "truncated"
+        ],
+        "type": "object"
+      },
+      "CollectorInfo": {
+        "properties": {
+          "bitness": {
+            "description": "수집기 자신의 비트수. WOW64 해석 오류를 막기 위해 둘 다 기록한다.",
+            "format": "uint8",
+            "minimum": 0.0,
+            "type": "integer"
+          },
+          "os_bitness": {
+            "format": "uint8",
+            "minimum": 0.0,
+            "type": "integer"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "bitness",
+          "os_bitness",
+          "version"
+        ],
+        "type": "object"
+      },
+      "CoreInfo": {
+        "properties": {
+          "build": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "build",
+          "version"
+        ],
+        "type": "object"
+      },
+      "HostInfo": {
+        "properties": {
+          "arch": {
+            "type": "string"
+          },
+          "hostname": {
+            "type": "string"
+          },
+          "os": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "arch",
+          "hostname",
+          "os",
+          "version"
+        ],
+        "type": "object"
+      },
+      "PluginRef": {
+        "properties": {
+          "digest": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "signer": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "digest",
+          "id",
+          "version"
+        ],
+        "type": "object"
+      },
+      "SecurityProduct": {
+        "properties": {
+          "realtime": {
+            "description": "실시간 감시 상태. **`None` 은 \"꺼져 있다\" 가 아니라 \"확인하지 못했다\" 다.**\n\n제품마다 상태를 노출하는 방식이 다르고, 변조 보호가 켜져 있으면 읽을 수 없는 경우도 있다. 모르는 것을 `false` 로 적으면 \"실시간 감시가 꺼져 있었는데도 안 지워졌다\" 는 잘못된 진단으로 이어진다.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "vendor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "vendor"
+        ],
+        "type": "object"
+      },
+      "Subject": {
+        "description": "관찰 대상 타입 18종 (설계-02 §3).\n\n순서는 설계-02 §3 표와 같다. 사람이 두 목록을 대조할 일이 남아 있는 한 순서가 같은 편이 낫다.\n\n카탈로그에서 **뺀** 것은 [`RETIRED_SUBJECTS`] 에 이유와 함께 남는다.",
+        "enum": [
+          "persistence",
+          "autorun",
+          "service",
+          "process",
+          "file",
+          "indicator",
+          "registry_value",
+          "registry_key",
+          "text_config",
+          "structured_config",
+          "shortcut",
+          "boot_config",
+          "hosts_entry",
+          "browser_extension",
+          "av_exclusion",
+          "cert_store",
+          "proxy_config",
+          "firewall_rule",
+          "package"
+        ],
+        "type": "string"
+      }
+    },
+    "description": "네 단계가 공유하는 봉투.\n\n`deny_unknown_fields` 를 걸지 않는다 — `flatten` 과 함께 쓸 수 없고, 이 구조는 사용자 입력이 아니라 우리 산출물이다. 엄격한 거부가 필요한 곳은 `plugin.yaml` 이다.",
+    "properties": {
+      "blobs": {
+        "additionalProperties": {
+          "type": "string"
+        },
+        "description": "스냅샷에 담긴 **본문 바이트**. 키는 `sha256:<16진>`, 값은 base64 다.\n\n# 왜 스냅샷 안에 두는가\n\n평가기는 `remedy-platform` 을 의존할 수 없고(설계-04 §1), 그 금지가 \"플러그인 룰은 시스템에 접근할 수 없다\"를 구조적으로 보장한다. YARA 가 파일을 직접 열면 그 보장이 무너지므로, **훑을 바이트는 미리 여기 담겨 있어야 한다.** 담기지 않은 대상에 걸린 YARA 규칙은 미매치가 아니라 미평가다 (설계-03 §1).\n\n아무 파일이나 담기지 않는다. `collect_extra` 로 **선언한 것만** 들어온다 (설계-02 §6-1) — 본문을 담으면 스냅샷이 커지고 개인정보 위험이 올라간다.\n\n키가 내용 해시라 같은 파일이 여러 자리에 있어도 한 번만 담긴다.",
+        "type": "object"
+      },
+      "collected_at": {
+        "type": "string"
+      },
+      "collector": {
+        "$ref": "#/definitions/CollectorInfo"
+      },
+      "core": {
+        "$ref": "#/definitions/CoreInfo"
+      },
+      "created": {
+        "type": "string"
+      },
+      "host": {
+        "$ref": "#/definitions/HostInfo"
+      },
+      "kind": {
+        "$ref": "#/definitions/ArtifactKind"
+      },
+      "plugins": {
+        "default": [],
+        "items": {
+          "$ref": "#/definitions/PluginRef"
+        },
+        "type": "array"
+      },
+      "run_id": {
+        "description": "ULID. 한 번의 실행을 네 파일에 걸쳐 잇는다.",
+        "type": "string"
+      },
+      "schema_version": {
+        "format": "uint32",
+        "minimum": 0.0,
+        "type": "integer"
+      },
+      "scope": {
+        "$ref": "#/definitions/CollectScope"
+      },
+      "security_products": {
+        "default": [],
+        "description": "실패 원인 진단과 지원 대응에 쓴다 (설계-00 §5-1).",
+        "items": {
+          "$ref": "#/definitions/SecurityProduct"
+        },
+        "type": "array"
+      }
+    },
+    "required": [
+      "collected_at",
+      "collector",
+      "core",
+      "created",
+      "host",
+      "kind",
+      "run_id",
+      "schema_version",
+      "scope"
+    ],
+    "title": "Envelope_for_ArtifactsBody",
+    "type": "object"
+  },
+  "plan": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "definitions": {
+      "Action": {
+        "description": "**참조가 남아 있지 않은 완전 구체화 형태.**\n\n불변식 P: `apply` 는 여기 열거된 Action 만 실행한다. 새 대상을 탐색하지 않고, 경로를 재해석하지 않으며, 조건 분기로 동작을 추가하지 않는다 (설계-03 §1).\n\n예외는 프로세스 대상이다. PID 는 계획 시점과 실행 시점 사이에 바뀌므로 **술어로 고정**하고 `max_targets`/`max_retries` 로 상한을 건다.",
+        "properties": {
+          "backup": {
+            "anyOf": [
+              {
+                "$ref": "#/definitions/BackupRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "because": {
+            "description": "이 Action 의 근거가 된 증거. **비어 있으면 계획 단계에서 거부된다** (G7).",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "include_descendants": {
+            "description": "해소된 대상의 **자손 프로세스까지** 집합에 포함한다 (설계-03 §2).\n\n부모-자식 관계로만 식별되는 감시자를 술어로 잡을 수 없는 경우를 위한 것이다. **계획이 명시적으로 켜야 한다** — 기본은 꺼짐이고, 켜도 `max_targets` 상한은 확장된 집합 전체에 그대로 걸린다.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "match": {
+            "description": "프로세스처럼 실행 시점에 해소해야 하는 대상의 술어."
+          },
+          "max_children": {
+            "description": "재귀 삭제 1건이 지울 수 있는 **하위 항목 수** 상한 (설계-03 §4).\n\n`max_targets` 와 같은 이유로 계획에 각인한다 — 그 수는 실행 시점에야 알 수 있고, **설정을 바꾸면 같은 계획이 다른 상한으로 수행된다.** 계획에 적혀 있어야 감사 로그만 보고도 무엇을 기준으로 막았는지 안다.",
+            "format": "uint32",
+            "minimum": 0.0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "max_depth": {
+            "description": "재귀 삭제 **최대 깊이** 상한 (설계-03 §4). 위와 같은 이유로 각인한다.",
+            "format": "uint32",
+            "minimum": 0.0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "max_retries": {
+            "format": "uint32",
+            "minimum": 0.0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "max_targets": {
+            "format": "uint32",
+            "minimum": 0.0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "op": {
+            "$ref": "#/definitions/Op"
+          },
+          "reversible": {
+            "type": "boolean"
+          },
+          "risk": {
+            "$ref": "#/definitions/Risk"
+          },
+          "seq": {
+            "format": "uint32",
+            "minimum": 0.0,
+            "type": "integer"
+          },
+          "sha256": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "size": {
+            "format": "uint64",
+            "minimum": 0.0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "strip": {
+            "description": "부분 편집이 **무엇을 지우는가** (`registry.strip_value` · `env.strip_path`).\n\n증거에서 파생된 값이다 — 리터럴로 임의 편집을 지시할 수 없다 (설계-02 §6). **백업은 이것이 아니라 편집 전 값 전체**이며, 복원하면 오염된 원본이 그대로 돌아온다. 그것이 옳은 동작이다 — 사용자가 복원을 요청했다는 것은 우리 판정이 틀렸다고 본다는 뜻이므로, 우리가 \"옳다고 생각한 부분\" 만 남겨서는 안 된다 (설계-03 §2).",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "target": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "user_impact": {
+            "anyOf": [
+              {
+                "$ref": "#/definitions/UserImpact"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "because",
+          "op",
+          "reversible",
+          "risk",
+          "seq"
+        ],
+        "type": "object"
+      },
+      "ArtifactKind": {
+        "description": "봉투의 `kind`. 네 단계와 1:1 이다.",
+        "enum": [
+          "remedy.artifacts",
+          "remedy.scan",
+          "remedy.plan",
+          "remedy.result"
+        ],
+        "type": "string"
+      },
+      "BackupRef": {
+        "properties": {
+          "entry": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "entry",
+          "kind"
+        ],
+        "type": "object"
+      },
+      "CoreInfo": {
+        "properties": {
+          "build": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "build",
+          "version"
+        ],
+        "type": "object"
+      },
+      "DeferredItem": {
+        "description": "계획에 넣지 못한 치료 항목과 그 이유.\n\n**조용히 빠지면 계획이 치료의 전부인 것처럼 읽힌다.** 관측이 불완전할 수 있듯 계획도 불완전할 수 있고, 둘 다 말하지 않으면 완전한 것으로 읽힌다 (설계-03 §2).",
+        "properties": {
+          "arrives_in": {
+            "description": "그 Op 이 들어오는 Phase.",
+            "type": "string"
+          },
+          "at": {
+            "description": "매니페스트 안의 자리. `remediate.remove[0]` 형태다.",
+            "type": "string"
+          },
+          "op": {
+            "allOf": [
+              {
+                "$ref": "#/definitions/Op"
+              }
+            ],
+            "description": "이것을 하려면 필요한 Op."
+          },
+          "reason": {
+            "description": "사람에게 보여 줄 이유.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "arrives_in",
+          "at",
+          "op",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "HostInfo": {
+        "properties": {
+          "arch": {
+            "type": "string"
+          },
+          "hostname": {
+            "type": "string"
+          },
+          "os": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "arch",
+          "hostname",
+          "os",
+          "version"
+        ],
+        "type": "object"
+      },
+      "Observation": {
+        "description": "이 산출물이 기대는 **관측이 완전했는가** (설계-02 §8, 설계-03 §1).\n\n각 산출물은 홀로 읽혀야 한다. `plan.json` 만 받아 든 사람이 \"이 계획의 전제가 된 관측이 온전했는가\" 를 물을 수 없으면, 그 물음은 영영 답을 얻지 못한다. 그래서 `artifacts.json` 의 사실이 `scan.json` · `plan.json` 으로 실려 간다. 평가만 아는 사실 둘 — 재지 못한 YARA([`Observation::unevaluated_rules`]) 와 견주지 못한 버전([`Observation::unreadable_versions`]) — 은 `scan.json` 에서 더해진다.",
+        "properties": {
+          "declared_roots": {
+            "default": 0,
+            "description": "선언된 `scan_roots` 의 개수. `missing_roots` 만으로는 \"전부 없었는가\" 를 판단할 수 없어 함께 싣는다 — 이 구조체는 홀로 읽혀야 한다.",
+            "format": "uint",
+            "minimum": 0.0,
+            "type": "integer"
+          },
+          "denied_dirs": {
+            "default": 0,
+            "description": "접근이 거부되어 열지 못한 횟수. **전부 센다.**",
+            "format": "uint",
+            "minimum": 0.0,
+            "type": "integer"
+          },
+          "denied_paths": {
+            "description": "그중 **앞의 몇 개** 경로. 비어 있으면 실리지 않는다.\n\n# 왜 개수만으로는 모자랐나 (2026-09-14)\n\n`%ProgramFiles%` 수집이 `denied_dirs=2` 를 내 P2 가 미결로 끝났는데 **어느 폴더인지 아무 데도 없었다.** 회차가 끝난 뒤 그 기계를 뒤졌을 때는 5,713개 폴더가 전부 열렸다 — 수집이 도는 **그때만** 잠기는 자리였고, 그러면 사람은 영영 원인에 닿지 못한다.\n\n# 전수가 아니다\n\n비관리자로 돌리면 거부가 수백이 될 수 있다. 표본만 담고 `denied_dirs` 는 그대로 전부 센다 — **길이가 그보다 작으면 잘린 것**이고, 그 사실이 두 값의 차이로 드러난다.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "missing_roots": {
+            "description": "선언했으나 **존재하지 않아 한 번도 열리지 않은** scan_root.\n\n일부가 없는 것은 정상일 수 있다 — 플러그인이 여러 벤더 폴더를 나열하면 설치되지 않은 제품의 경로는 당연히 없다. 그래서 이것만으로 불완전하다고 하지 않고 사실만 기록한다. **전부 없으면** 이야기가 다르다(아래).",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "truncated": {
+            "default": false,
+            "description": "상한에 걸려 수집이 잘렸는가.",
+            "type": "boolean"
+          },
+          "uncollected_subjects": {
+            "description": "선언되었지만 수집되지 않은 subject.\n\n수집기가 있으면 결과가 비어 있어도 빈 배열이 들어간다. 따라서 **선언한 subject 의 배열이 본문에 없다는 것이 곧 \"수집하지 못했다\"** 이다. 이것이 없으면 플러그인 작성자는 룰이 왜 안 맞는지 알 수 없다.",
+            "items": {
+              "$ref": "#/definitions/Subject"
+            },
+            "type": "array"
+          },
+          "unevaluated_rules": {
+            "description": "**평가하지 못한** YARA 규칙 — `rules/<파일>.yar:<룰 이름>`. 정렬 · 중복 없음. 룰 참조가 틀린 술어는 그 원문을, 참조가 없는 술어는 `<필드>: <값>` (`data: null`)을 적는다.\n\n**레코드의 매치나 제외를 가른 YARA 만 실린다.** 그 YARA 가 무엇을 냈어도 레코드가 매치되지 않거나(형제 술어가 거짓 · 확정 제외 · capture 실패) 이미 매치되면(`any` 의 다른 갈래) 싣지 않는다 — 그래서 술어 순서와 무관하다. `exclude` 의 YARA 는 그것이 맞았다면 제외됐을 때 실리고, 그 레코드는 전처럼 증거로 남는다 — 그 위에 판정(2)이 설 수 있다.\n\n**판정식은 보지 않는다**(보수 쪽). 다른 필수 규칙이 0 이라 판정이 어차피 서지 않아도 6 이 될 수 있다.\n\n스냅샷이 아니라 **평가**가 아는 사실이라 `artifacts.json` 에는 없고 `scan.json` · `plan.json` 에만 실린다(평가기가 채우고 파이프라인이 스냅샷의 관측과 합친다).\n\n# 왜 관측 불완전인가 (결정 2026-10-26)\n\n훑을 본문이 없으면 그 규칙은 \"안 맞았다\" 가 아니라 \"재지 못했다\" 다 (설계-03 §1). 그 사실이 `issues` 에만 남자 판정이 없을 때 **종료 코드 0 \"위협 없음\"** 이 나갔다 — 무인 배포는 그 주의 줄이 실린 stderr 를 버린다 (2026-10-25 적대 검증 · 본문 누락으로 재현). 본문이 상한(파일 8 MiB · 총 64 MiB)에 걸려도 같은 길이다. 이진 값의 바이트가 레코드에 없으면(레지스트리 256 KiB 초과 · 고정 자리 subject) 주의조차 없이 *\"안 맞았다\"* 였다(2026-10-26).",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "unreadable_roots": {
+            "description": "선언했으나 **있는지조차 묻지 못한** 루트 (B-9 · 2026-10-27).\n\n# 왜 `missing_roots` 와 나누는가\n\n*\"없다\"* 와 *\"못 물었다\"* 는 다른 말이다. `Path::exists()` 가 오류 전부를 `false` 로 접던 동안 둘이 한 칸에 들어갔고, 그래서 부모까지 막힌 트리나 도달 불가 UNC 가 **없는 루트**로 집계됐다. **레지스트리 루트도 같은 칸으로 온다** — 부모 키를 열거할 수 없으면 그 아래를 말할 수 없다. `subject_roots` 로 좁힌 더 깊은 자리도 여기서 센다. 열린 루트가 하나라도 함께 있으면 [`Self::all_roots_missing`] 이 성립하지 않으므로 **경고 한 줄 없이 종료 0 \"위협이 발견되지 않았습니다\"** 가 나갔다(실측 2026-10-27 · 적대 검증이 세 회차 연속 짚었다).\n\n# 왜 `denied_dirs` 와도 나누는가\n\n그쪽 사유 줄은 *\"접근이 거부된 디렉터리 열기 N회 (관리자 권한으로 다시 돌리십시오)\"* 다. 도달 불가 UNC·준비되지 않은 장치에는 **틀린 안내**이고, 선언한 루트는 그 안의 어느 폴더가 아니라 **범위 그 자체**라 읽는 사람이 할 일이 다르다.\n\n# 하나라도 있으면 불완전하다\n\n`missing_roots` 는 **전부**일 때만 불완전으로 센다(설치되지 않은 제품이 정상이므로). 이쪽은 하나로 족하다 — 못 본 자리가 하나라도 있으면 *\"없다\"* 를 말할 수 없다. **점검 플러그인도 면제가 아니다**: 면제는 [`Self::all_roots_missing`] 하나뿐이고, 범위가 이 기계에 없는 것과 범위를 못 들여다본 것은 다르다.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "unreadable_versions": {
+            "description": "버전으로 읽지 못해 **견주지 못한** 값. `unevaluated_rules` 와 같은 뜻이고 낱말만 다르다 — 읽는 사람이 할 일이 다르기 때문이다.\n\n# 왜 따로 세는가 (2026-10-27 · C-1)\n\n`version_lt` · `version_gt` 는 점으로 나눈 숫자만 견준다. 꼬리가 붙은 값 (`8.2.29-1ubuntu1` · `8.4.0RC1`)은 **사전 배포와 패키지 개정이 모양은 같고 순서가 반대**라 추측할 수 없다. 그 값을 *\"안 맞았다\"* 로 세면 **취약한 기계가 종료 0 \"취약한 곳을 찾지 못했습니다\" 로 나간다** — 실측으로 확인했다(2026-10-27). 배포판이 패치한 PHP 가 바로 그 모양이라 **가장 흔한 경우**다.\n\n`unevaluated_rules` 에 함께 담지 않는 이유는 사유 줄이 *\"YARA 규칙 N개를 평가하지 못했습니다\"* 라고 말하기 때문이다. 버전을 그 줄에 넣으면 화면이 재지 못한 것을 **잘못 지목한다**.\n\n**점검 플러그인도 면제가 아니다** — [`Self::is_complete_for_check`] 의 면제는 [`Self::all_roots_missing`] 하나뿐이다. 범위가 이 기계에 없는 것과 값을 읽지 못한 것은 다르다.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "Op": {
+        "description": "파괴·변경 동작 29종 (설계-03 §2). **이 집합 밖의 동작은 존재하지 않는다.**\n\n플러그인이 직접 적는 것이 아니라 계획기가 도출한다. SDK 에 두는 이유는 `plan.json` 의 `op` 필드가 이 집합으로 닫혀 있어야 하기 때문이다.",
+        "enum": [
+          "file.quarantine_only",
+          "shortcut.strip_args",
+          "av.restore_exclusions",
+          "hosts.restore_line",
+          "proxy.restore",
+          "firewall.restore_rule",
+          "file.delete",
+          "file.delete_on_reboot",
+          "file.delete_stream",
+          "registry.delete_value",
+          "registry.strip_value",
+          "registry.restore_default",
+          "persistence.disable",
+          "persistence.delete",
+          "autorun.remove",
+          "text_config.remove_line",
+          "structured_config.remove_key",
+          "structured_config.restore_default",
+          "env.strip_path",
+          "browser_ext.remove",
+          "process.kill",
+          "service.clear_recovery",
+          "service.stop",
+          "service.disable",
+          "service.delete",
+          "dir.delete_recursive",
+          "registry.delete_key",
+          "cert_store.remove",
+          "boot.restore_default"
+        ],
+        "type": "string"
+      },
+      "PluginRef": {
+        "properties": {
+          "digest": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "signer": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "digest",
+          "id",
+          "version"
+        ],
+        "type": "object"
+      },
+      "Risk": {
+        "description": "파괴 동작의 위험 등급 (설계-09 §3.2).",
+        "enum": [
+          "low",
+          "medium",
+          "high"
+        ],
+        "type": "string"
+      },
+      "Subject": {
+        "description": "관찰 대상 타입 18종 (설계-02 §3).\n\n순서는 설계-02 §3 표와 같다. 사람이 두 목록을 대조할 일이 남아 있는 한 순서가 같은 편이 낫다.\n\n카탈로그에서 **뺀** 것은 [`RETIRED_SUBJECTS`] 에 이유와 함께 남는다.",
+        "enum": [
+          "persistence",
+          "autorun",
+          "service",
+          "process",
+          "file",
+          "indicator",
+          "registry_value",
+          "registry_key",
+          "text_config",
+          "structured_config",
+          "shortcut",
+          "boot_config",
+          "hosts_entry",
+          "browser_extension",
+          "av_exclusion",
+          "cert_store",
+          "proxy_config",
+          "firewall_rule",
+          "package"
+        ],
+        "type": "string"
+      },
+      "SubmitHint": {
+        "additionalProperties": false,
+        "description": "제출 시 무엇이 유용한지에 대한 **제안이지 명령이 아니다.** 실제 제출은 사용자 동의·미리보기·마스킹을 거친다 (설계-00 §7). 분석가가 **손으로 올릴 때** 볼 판단 근거.\n\n# 자동 제출기가 볼 값이 아니다\n\n제출 기능은 제품 범위 밖이다 (2026-08-28 P13 결정, 설계-09 \"제출을 제품 밖으로\"). 되돌릴 수 없는 유일한 동작이 되고, 선행 조건(법무 검토)이 설계 밖에 있으며, 손으로 올리는 경로가 이미 있기 때문이다.\n\n**그래도 이 필드는 남는다.** 플러그인 작성자의 판단 — *\"무엇을 함께 올리면 유용한가\"* 와 *\"이것을 어느 등급으로 다뤄야 하는가\"* — 는 제출을 자동화하든 안 하든 유효하다. 계획이 그것을 나르고 `support-bundle` 이 보여 준다.",
+        "properties": {
+          "confidentiality_min": {
+            "description": "기밀 등급 **하한**. 0 공개 · 1 대외비 · 2 기밀 · 3 극비.\n\n**하한만 올릴 수 있다.** 플러그인이 기밀 등급을 낮추는 방향으로 영향을 줄 수 없다 (설계-05 §4-2) — 낮출 수 있으면 서명된 룰 하나가 고객 데이터의 등급을 내릴 수 있고, 그것 자체가 유출 경로다.\n\n자동 제출기가 없는 지금은 **손으로 올리는 사람에게 주는 경고**다.",
+            "format": "uint8",
+            "minimum": 0.0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "samples": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "UserImpact": {
+        "properties": {
+          "app": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "kind": {
+            "$ref": "#/definitions/UserImpactKind"
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object"
+      },
+      "UserImpactKind": {
+        "description": "사용자가 체감할 부작용. `kind` 는 닫힌 집합이다 (설계-02 §8).",
+        "oneOf": [
+          {
+            "enum": [
+              "reboot_required",
+              "removable_media"
+            ],
+            "type": "string"
+          },
+          {
+            "description": "실행 중인 프로그램을 종료해야 할 때.",
+            "enum": [
+              "app_terminate"
+            ],
+            "type": "string"
+          },
+          {
+            "description": "정상 프로그램이 의존하던 파일을 제거할 때.\n\nDLL 사이드로딩 때문에 필요하다. 정상 서명된 프로그램 옆의 악성 DLL 만 제거하면 **정상 프로그램을 지키는 옳은 처리이지만 그 프로그램은 더 이상 실행되지 않는다.** 지우지 않았다는 사실만 보고하면 사용자는 무슨 일이 일어났는지 모른다.",
+            "enum": [
+              "app_broken"
+            ],
+            "type": "string"
+          }
+        ]
+      }
+    },
+    "description": "네 단계가 공유하는 봉투.\n\n`deny_unknown_fields` 를 걸지 않는다 — `flatten` 과 함께 쓸 수 없고, 이 구조는 사용자 입력이 아니라 우리 산출물이다. 엄격한 거부가 필요한 곳은 `plugin.yaml` 이다.",
+    "properties": {
+      "actions": {
+        "default": [],
+        "items": {
+          "$ref": "#/definitions/Action"
+        },
+        "type": "array"
+      },
+      "core": {
+        "$ref": "#/definitions/CoreInfo"
+      },
+      "created": {
+        "type": "string"
+      },
+      "deferred": {
+        "description": "계획에 넣지 못한 치료 항목. **비어 있지 않으면 이 계획은 치료의 전부가 아니다** (설계-03 §2).",
+        "items": {
+          "$ref": "#/definitions/DeferredItem"
+        },
+        "type": "array"
+      },
+      "host": {
+        "$ref": "#/definitions/HostInfo"
+      },
+      "kind": {
+        "$ref": "#/definitions/ArtifactKind"
+      },
+      "observation": {
+        "allOf": [
+          {
+            "$ref": "#/definitions/Observation"
+          }
+        ],
+        "default": {
+          "declared_roots": 0,
+          "denied_dirs": 0,
+          "truncated": false
+        },
+        "description": "이 계획의 전제가 된 관측이 완전했는가. `scan.json` 에서 실려 온다.\n\n계획서만 받아 든 사람이 이것을 물을 수 없으면 그 물음은 답을 얻지 못한다."
+      },
+      "plugins": {
+        "default": [],
+        "items": {
+          "$ref": "#/definitions/PluginRef"
+        },
+        "type": "array"
+      },
+      "run_id": {
+        "description": "ULID. 한 번의 실행을 네 파일에 걸쳐 잇는다.",
+        "type": "string"
+      },
+      "schema_version": {
+        "format": "uint32",
+        "minimum": 0.0,
+        "type": "integer"
+      },
+      "submit_hint": {
+        "anyOf": [
+          {
+            "$ref": "#/definitions/SubmitHint"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "분석가가 **손으로 올릴 때** 볼 판단 근거 (설계-09 \"제출을 제품 밖으로\").\n\n제출 기능은 제품에 없다. 그래서 이 값은 자동 제출기가 볼 것이 아니라 **사람이 볼 것**이고, `support-bundle` 이 그것을 보여 준다.\n\n**매니페스트가 아니라 계획이 나르는 이유**는 위 `verify_after_reboot` 와 같다 — `support-bundle` 은 `--run` 만 받는다. 매니페스트를 다시 찾게 만들면 그 경로는 있는데 쓰이지 않는 경로가 된다."
+      },
+      "verdicts": {
+        "default": [],
+        "description": "치료 대상으로 판정된 증거 그룹.",
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "verify_after_reboot": {
+        "description": "재부팅 뒤 재평가를 예약할 것인가 (설계-03 §8).\n\n**매니페스트가 아니라 계획이 이것을 나른다.** `apply` 는 계획 파일만 받고 매니페스트를 보지 않으며, `resume` 은 *\"이미 승인된 계획을 이어 실행하며 절대 재스캔하지 않는다\"*. 계획이 자족적이지 않으면 그 두 경로에서 예약이 조용히 빠진다.",
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "core",
+      "created",
+      "host",
+      "kind",
+      "run_id",
+      "schema_version"
+    ],
+    "title": "Envelope_for_PlanBody",
+    "type": "object"
+  },
+  "result": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "definitions": {
+      "ActionOutcome": {
+        "enum": [
+          "done",
+          "failed",
+          "skipped"
+        ],
+        "type": "string"
+      },
+      "ActionResult": {
+        "properties": {
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "op": {
+            "$ref": "#/definitions/Op"
+          },
+          "outcome": {
+            "$ref": "#/definitions/ActionOutcome"
+          },
+          "seq": {
+            "format": "uint32",
+            "minimum": 0.0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "op",
+          "outcome",
+          "seq"
+        ],
+        "type": "object"
+      },
+      "ArtifactKind": {
+        "description": "봉투의 `kind`. 네 단계와 1:1 이다.",
+        "enum": [
+          "remedy.artifacts",
+          "remedy.scan",
+          "remedy.plan",
+          "remedy.result"
+        ],
+        "type": "string"
+      },
+      "CoreInfo": {
+        "properties": {
+          "build": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "build",
+          "version"
+        ],
+        "type": "object"
+      },
+      "HostInfo": {
+        "properties": {
+          "arch": {
+            "type": "string"
+          },
+          "hostname": {
+            "type": "string"
+          },
+          "os": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "arch",
+          "hostname",
+          "os",
+          "version"
+        ],
+        "type": "object"
+      },
+      "Op": {
+        "description": "파괴·변경 동작 29종 (설계-03 §2). **이 집합 밖의 동작은 존재하지 않는다.**\n\n플러그인이 직접 적는 것이 아니라 계획기가 도출한다. SDK 에 두는 이유는 `plan.json` 의 `op` 필드가 이 집합으로 닫혀 있어야 하기 때문이다.",
+        "enum": [
+          "file.quarantine_only",
+          "shortcut.strip_args",
+          "av.restore_exclusions",
+          "hosts.restore_line",
+          "proxy.restore",
+          "firewall.restore_rule",
+          "file.delete",
+          "file.delete_on_reboot",
+          "file.delete_stream",
+          "registry.delete_value",
+          "registry.strip_value",
+          "registry.restore_default",
+          "persistence.disable",
+          "persistence.delete",
+          "autorun.remove",
+          "text_config.remove_line",
+          "structured_config.remove_key",
+          "structured_config.restore_default",
+          "env.strip_path",
+          "browser_ext.remove",
+          "process.kill",
+          "service.clear_recovery",
+          "service.stop",
+          "service.disable",
+          "service.delete",
+          "dir.delete_recursive",
+          "registry.delete_key",
+          "cert_store.remove",
+          "boot.restore_default"
+        ],
+        "type": "string"
+      },
+      "PluginRef": {
+        "properties": {
+          "digest": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "signer": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "digest",
+          "id",
+          "version"
+        ],
+        "type": "object"
+      }
+    },
+    "description": "네 단계가 공유하는 봉투.\n\n`deny_unknown_fields` 를 걸지 않는다 — `flatten` 과 함께 쓸 수 없고, 이 구조는 사용자 입력이 아니라 우리 산출물이다. 엄격한 거부가 필요한 곳은 `plugin.yaml` 이다.",
+    "properties": {
+      "core": {
+        "$ref": "#/definitions/CoreInfo"
+      },
+      "created": {
+        "type": "string"
+      },
+      "host": {
+        "$ref": "#/definitions/HostInfo"
+      },
+      "kind": {
+        "$ref": "#/definitions/ArtifactKind"
+      },
+      "plugins": {
+        "default": [],
+        "items": {
+          "$ref": "#/definitions/PluginRef"
+        },
+        "type": "array"
+      },
+      "quarantine": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "reboot_required": {
+        "default": false,
+        "type": "boolean"
+      },
+      "results": {
+        "default": [],
+        "items": {
+          "$ref": "#/definitions/ActionResult"
+        },
+        "type": "array"
+      },
+      "run_id": {
+        "description": "ULID. 한 번의 실행을 네 파일에 걸쳐 잇는다.",
+        "type": "string"
+      },
+      "schema_version": {
+        "format": "uint32",
+        "minimum": 0.0,
+        "type": "integer"
+      }
+    },
+    "required": [
+      "core",
+      "created",
+      "host",
+      "kind",
+      "run_id",
+      "schema_version"
+    ],
+    "title": "Envelope_for_ResultBody",
+    "type": "object"
+  },
+  "scan": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "definitions": {
+      "ArtifactKind": {
+        "description": "봉투의 `kind`. 네 단계와 1:1 이다.",
+        "enum": [
+          "remedy.artifacts",
+          "remedy.scan",
+          "remedy.plan",
+          "remedy.result"
+        ],
+        "type": "string"
+      },
+      "CoreInfo": {
+        "properties": {
+          "build": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "build",
+          "version"
+        ],
+        "type": "object"
+      },
+      "Evidence": {
+        "description": "룰 평가 결과 하나.\n\n`id` 는 `<rule-id>#<그룹 번호>` 형태다. 부모 증거가 2건 매치되면 독립적인 증거 그룹 2개가 생기고, 자식 룰은 각 그룹 안에서만 평가된다 (설계-02 §4).",
+        "properties": {
+          "captures": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "default": {},
+            "type": "object"
+          },
+          "id": {
+            "type": "string"
+          },
+          "matched": {
+            "default": [],
+            "items": {
+              "$ref": "#/definitions/MatchedPredicate"
+            },
+            "type": "array"
+          },
+          "rule": {
+            "type": "string"
+          },
+          "score": {
+            "format": "uint8",
+            "minimum": 0.0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "subject": {
+            "$ref": "#/definitions/Subject"
+          },
+          "target": true
+        },
+        "required": [
+          "id",
+          "rule",
+          "subject",
+          "target"
+        ],
+        "type": "object"
+      },
+      "EvidenceGroup": {
+        "description": "증거 그룹 — 부모 증거 인스턴스마다 생기는 독립 스코프 (설계-02 §4).\n\n**그룹 간 증거가 섞여 판정을 성립시키는 일은 없다.** 서로 무관한 두 정상 소프트웨어의 조각이 합쳐져 감염 판정을 만드는 사고를 막는다.",
+        "properties": {
+          "captures": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "default": {},
+            "description": "이 그룹에서 해소된 capture. `rule.name` 형태의 키다.",
+            "type": "object"
+          },
+          "evidence": {
+            "default": [],
+            "description": "이 그룹에 속한 증거 id.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "excluded_reason": {
+            "description": "판정에서 제외된 사유. 파생 경로가 `scan_roots` 를 벗어난 경우 등.\n\n**경고가 아니라 제외다** — 파생 경로는 공격자가 영향을 줄 수 있는 값이므로, 그것이 상한을 넘게 만들 수 있다면 상한이 아니다 (설계-02 §4).",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "description": "`g0`, `g1` …",
+            "type": "string"
+          },
+          "verdict": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "verdict"
+        ],
+        "type": "object"
+      },
+      "HostInfo": {
+        "properties": {
+          "arch": {
+            "type": "string"
+          },
+          "hostname": {
+            "type": "string"
+          },
+          "os": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "arch",
+          "hostname",
+          "os",
+          "version"
+        ],
+        "type": "object"
+      },
+      "MatchedPredicate": {
+        "properties": {
+          "field": {
+            "type": "string"
+          },
+          "op": {
+            "type": "string"
+          },
+          "value": true
+        },
+        "required": [
+          "field",
+          "op"
+        ],
+        "type": "object"
+      },
+      "Observation": {
+        "description": "이 산출물이 기대는 **관측이 완전했는가** (설계-02 §8, 설계-03 §1).\n\n각 산출물은 홀로 읽혀야 한다. `plan.json` 만 받아 든 사람이 \"이 계획의 전제가 된 관측이 온전했는가\" 를 물을 수 없으면, 그 물음은 영영 답을 얻지 못한다. 그래서 `artifacts.json` 의 사실이 `scan.json` · `plan.json` 으로 실려 간다. 평가만 아는 사실 둘 — 재지 못한 YARA([`Observation::unevaluated_rules`]) 와 견주지 못한 버전([`Observation::unreadable_versions`]) — 은 `scan.json` 에서 더해진다.",
+        "properties": {
+          "declared_roots": {
+            "default": 0,
+            "description": "선언된 `scan_roots` 의 개수. `missing_roots` 만으로는 \"전부 없었는가\" 를 판단할 수 없어 함께 싣는다 — 이 구조체는 홀로 읽혀야 한다.",
+            "format": "uint",
+            "minimum": 0.0,
+            "type": "integer"
+          },
+          "denied_dirs": {
+            "default": 0,
+            "description": "접근이 거부되어 열지 못한 횟수. **전부 센다.**",
+            "format": "uint",
+            "minimum": 0.0,
+            "type": "integer"
+          },
+          "denied_paths": {
+            "description": "그중 **앞의 몇 개** 경로. 비어 있으면 실리지 않는다.\n\n# 왜 개수만으로는 모자랐나 (2026-09-14)\n\n`%ProgramFiles%` 수집이 `denied_dirs=2` 를 내 P2 가 미결로 끝났는데 **어느 폴더인지 아무 데도 없었다.** 회차가 끝난 뒤 그 기계를 뒤졌을 때는 5,713개 폴더가 전부 열렸다 — 수집이 도는 **그때만** 잠기는 자리였고, 그러면 사람은 영영 원인에 닿지 못한다.\n\n# 전수가 아니다\n\n비관리자로 돌리면 거부가 수백이 될 수 있다. 표본만 담고 `denied_dirs` 는 그대로 전부 센다 — **길이가 그보다 작으면 잘린 것**이고, 그 사실이 두 값의 차이로 드러난다.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "missing_roots": {
+            "description": "선언했으나 **존재하지 않아 한 번도 열리지 않은** scan_root.\n\n일부가 없는 것은 정상일 수 있다 — 플러그인이 여러 벤더 폴더를 나열하면 설치되지 않은 제품의 경로는 당연히 없다. 그래서 이것만으로 불완전하다고 하지 않고 사실만 기록한다. **전부 없으면** 이야기가 다르다(아래).",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "truncated": {
+            "default": false,
+            "description": "상한에 걸려 수집이 잘렸는가.",
+            "type": "boolean"
+          },
+          "uncollected_subjects": {
+            "description": "선언되었지만 수집되지 않은 subject.\n\n수집기가 있으면 결과가 비어 있어도 빈 배열이 들어간다. 따라서 **선언한 subject 의 배열이 본문에 없다는 것이 곧 \"수집하지 못했다\"** 이다. 이것이 없으면 플러그인 작성자는 룰이 왜 안 맞는지 알 수 없다.",
+            "items": {
+              "$ref": "#/definitions/Subject"
+            },
+            "type": "array"
+          },
+          "unevaluated_rules": {
+            "description": "**평가하지 못한** YARA 규칙 — `rules/<파일>.yar:<룰 이름>`. 정렬 · 중복 없음. 룰 참조가 틀린 술어는 그 원문을, 참조가 없는 술어는 `<필드>: <값>` (`data: null`)을 적는다.\n\n**레코드의 매치나 제외를 가른 YARA 만 실린다.** 그 YARA 가 무엇을 냈어도 레코드가 매치되지 않거나(형제 술어가 거짓 · 확정 제외 · capture 실패) 이미 매치되면(`any` 의 다른 갈래) 싣지 않는다 — 그래서 술어 순서와 무관하다. `exclude` 의 YARA 는 그것이 맞았다면 제외됐을 때 실리고, 그 레코드는 전처럼 증거로 남는다 — 그 위에 판정(2)이 설 수 있다.\n\n**판정식은 보지 않는다**(보수 쪽). 다른 필수 규칙이 0 이라 판정이 어차피 서지 않아도 6 이 될 수 있다.\n\n스냅샷이 아니라 **평가**가 아는 사실이라 `artifacts.json` 에는 없고 `scan.json` · `plan.json` 에만 실린다(평가기가 채우고 파이프라인이 스냅샷의 관측과 합친다).\n\n# 왜 관측 불완전인가 (결정 2026-10-26)\n\n훑을 본문이 없으면 그 규칙은 \"안 맞았다\" 가 아니라 \"재지 못했다\" 다 (설계-03 §1). 그 사실이 `issues` 에만 남자 판정이 없을 때 **종료 코드 0 \"위협 없음\"** 이 나갔다 — 무인 배포는 그 주의 줄이 실린 stderr 를 버린다 (2026-10-25 적대 검증 · 본문 누락으로 재현). 본문이 상한(파일 8 MiB · 총 64 MiB)에 걸려도 같은 길이다. 이진 값의 바이트가 레코드에 없으면(레지스트리 256 KiB 초과 · 고정 자리 subject) 주의조차 없이 *\"안 맞았다\"* 였다(2026-10-26).",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "unreadable_roots": {
+            "description": "선언했으나 **있는지조차 묻지 못한** 루트 (B-9 · 2026-10-27).\n\n# 왜 `missing_roots` 와 나누는가\n\n*\"없다\"* 와 *\"못 물었다\"* 는 다른 말이다. `Path::exists()` 가 오류 전부를 `false` 로 접던 동안 둘이 한 칸에 들어갔고, 그래서 부모까지 막힌 트리나 도달 불가 UNC 가 **없는 루트**로 집계됐다. **레지스트리 루트도 같은 칸으로 온다** — 부모 키를 열거할 수 없으면 그 아래를 말할 수 없다. `subject_roots` 로 좁힌 더 깊은 자리도 여기서 센다. 열린 루트가 하나라도 함께 있으면 [`Self::all_roots_missing`] 이 성립하지 않으므로 **경고 한 줄 없이 종료 0 \"위협이 발견되지 않았습니다\"** 가 나갔다(실측 2026-10-27 · 적대 검증이 세 회차 연속 짚었다).\n\n# 왜 `denied_dirs` 와도 나누는가\n\n그쪽 사유 줄은 *\"접근이 거부된 디렉터리 열기 N회 (관리자 권한으로 다시 돌리십시오)\"* 다. 도달 불가 UNC·준비되지 않은 장치에는 **틀린 안내**이고, 선언한 루트는 그 안의 어느 폴더가 아니라 **범위 그 자체**라 읽는 사람이 할 일이 다르다.\n\n# 하나라도 있으면 불완전하다\n\n`missing_roots` 는 **전부**일 때만 불완전으로 센다(설치되지 않은 제품이 정상이므로). 이쪽은 하나로 족하다 — 못 본 자리가 하나라도 있으면 *\"없다\"* 를 말할 수 없다. **점검 플러그인도 면제가 아니다**: 면제는 [`Self::all_roots_missing`] 하나뿐이고, 범위가 이 기계에 없는 것과 범위를 못 들여다본 것은 다르다.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "unreadable_versions": {
+            "description": "버전으로 읽지 못해 **견주지 못한** 값. `unevaluated_rules` 와 같은 뜻이고 낱말만 다르다 — 읽는 사람이 할 일이 다르기 때문이다.\n\n# 왜 따로 세는가 (2026-10-27 · C-1)\n\n`version_lt` · `version_gt` 는 점으로 나눈 숫자만 견준다. 꼬리가 붙은 값 (`8.2.29-1ubuntu1` · `8.4.0RC1`)은 **사전 배포와 패키지 개정이 모양은 같고 순서가 반대**라 추측할 수 없다. 그 값을 *\"안 맞았다\"* 로 세면 **취약한 기계가 종료 0 \"취약한 곳을 찾지 못했습니다\" 로 나간다** — 실측으로 확인했다(2026-10-27). 배포판이 패치한 PHP 가 바로 그 모양이라 **가장 흔한 경우**다.\n\n`unevaluated_rules` 에 함께 담지 않는 이유는 사유 줄이 *\"YARA 규칙 N개를 평가하지 못했습니다\"* 라고 말하기 때문이다. 버전을 그 줄에 넣으면 화면이 재지 못한 것을 **잘못 지목한다**.\n\n**점검 플러그인도 면제가 아니다** — [`Self::is_complete_for_check`] 의 면제는 [`Self::all_roots_missing`] 하나뿐이다. 범위가 이 기계에 없는 것과 값을 읽지 못한 것은 다르다.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "PluginRef": {
+        "properties": {
+          "digest": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "signer": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "digest",
+          "id",
+          "version"
+        ],
+        "type": "object"
+      },
+      "Subject": {
+        "description": "관찰 대상 타입 18종 (설계-02 §3).\n\n순서는 설계-02 §3 표와 같다. 사람이 두 목록을 대조할 일이 남아 있는 한 순서가 같은 편이 낫다.\n\n카탈로그에서 **뺀** 것은 [`RETIRED_SUBJECTS`] 에 이유와 함께 남는다.",
+        "enum": [
+          "persistence",
+          "autorun",
+          "service",
+          "process",
+          "file",
+          "indicator",
+          "registry_value",
+          "registry_key",
+          "text_config",
+          "structured_config",
+          "shortcut",
+          "boot_config",
+          "hosts_entry",
+          "browser_extension",
+          "av_exclusion",
+          "cert_store",
+          "proxy_config",
+          "firewall_rule",
+          "package"
+        ],
+        "type": "string"
+      }
+    },
+    "description": "네 단계가 공유하는 봉투.\n\n`deny_unknown_fields` 를 걸지 않는다 — `flatten` 과 함께 쓸 수 없고, 이 구조는 사용자 입력이 아니라 우리 산출물이다. 엄격한 거부가 필요한 곳은 `plugin.yaml` 이다.",
+    "properties": {
+      "core": {
+        "$ref": "#/definitions/CoreInfo"
+      },
+      "created": {
+        "type": "string"
+      },
+      "evidence": {
+        "default": [],
+        "items": {
+          "$ref": "#/definitions/Evidence"
+        },
+        "type": "array"
+      },
+      "groups": {
+        "default": [],
+        "items": {
+          "$ref": "#/definitions/EvidenceGroup"
+        },
+        "type": "array"
+      },
+      "host": {
+        "$ref": "#/definitions/HostInfo"
+      },
+      "issues": {
+        "description": "평가 중 발생한 문제. 룰이 아직 구현되지 않은 기능을 쓴 경우 등.",
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "kind": {
+        "$ref": "#/definitions/ArtifactKind"
+      },
+      "observation": {
+        "allOf": [
+          {
+            "$ref": "#/definitions/Observation"
+          }
+        ],
+        "default": {
+          "declared_roots": 0,
+          "denied_dirs": 0,
+          "truncated": false
+        },
+        "description": "이 평가가 기대는 관측의 완전성. 스냅샷의 사실은 `artifacts.json` 에서 실려 오고, 재지 못한 YARA(`unevaluated_rules`)와 견주지 못한 버전 (`unreadable_versions`)은 이 평가가 더한다."
+      },
+      "plugins": {
+        "default": [],
+        "items": {
+          "$ref": "#/definitions/PluginRef"
+        },
+        "type": "array"
+      },
+      "removable_roots": {
+        "description": "그중 이동식 매체. `artifacts.json` 에서 실려 온다.",
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "run_id": {
+        "description": "ULID. 한 번의 실행을 네 파일에 걸쳐 잇는다.",
+        "type": "string"
+      },
+      "scan_roots": {
+        "default": [],
+        "description": "이 평가가 볼 수 있었던 **읽기 권한 상한** (설계-02 §2).\n\n계획기가 \"이 대상이 상한 안이었는가\" 를 물으려면 여기 있어야 한다. 밖에서 따로 받아 오면 `scan.json` 하나만으로는 답할 수 없는 질문이 생기고, 그것은 파일 경계로 단계를 나눈 이유를 무너뜨린다 (설계-03 §1).\n\n비어 있으면 **아무것도 허용되지 않는다.** 상한이 없는 것이 아니라 알 수 없는 것이고, 알 수 없으면 막는 편이 옳다.",
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "schema_version": {
+        "format": "uint32",
+        "minimum": 0.0,
+        "type": "integer"
+      },
+      "verdicts": {
+        "default": [],
+        "description": "판정을 통과한 증거 그룹 식별자.",
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      }
+    },
+    "required": [
+      "core",
+      "created",
+      "host",
+      "kind",
+      "run_id",
+      "schema_version"
+    ],
+    "title": "Envelope_for_ScanBody",
+    "type": "object"
+  }
+}

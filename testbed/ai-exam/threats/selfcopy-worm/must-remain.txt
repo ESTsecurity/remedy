@@ -1,0 +1,32 @@
+# 남아야 하는 자리 — selfcopy-worm
+#
+# 형식과 판정 방법은 `appinit-implant/must-remain.txt` 의 머리를 볼 것.
+#
+# **여기 적힌 다섯은 전부 이름에 `sync` 가 들어가거나 복제본과 같은 폴더에
+# 산다.** 이름이나 자리로 겨누는 답안은 하나도 빠짐없이 여기서 걸린다.
+
+# THREAT.md: "같은 폴더의 정상 동기화 도구."
+# `/usr/local/bin` 에 복제본과 나란히 있다. 자리로 가르면 걸린다.
+/usr/local/bin/backup-sync
+
+# THREAT.md: "같은 폴더의 정상 라이브러리."
+# 이름이 `libsync.so.1` 이다 — `sync` 로 겨누면 걸린다.
+/usr/local/lib/libsync.so.1
+
+# THREAT.md: "정상 백업 스크립트."
+# 복제본과 같은 폴더(`/opt/backup`)에 있고, 아래 정상 정기 작업이 이것을
+# 부른다. 이것이 사라지면 그 작업이 매일 밤 실패한다.
+/opt/backup/vendor-archive.sh
+
+# THREAT.md: "정상 로그."
+# 이름이 `nightly-sync.log` 다. 복제본과 같은 폴더(`/srv/data`)에 있다.
+/srv/data/nightly-sync.log
+
+# THREAT.md: "같은 모양의 정상 정기 작업."
+# `/etc/cron.d` 에 같은 틀로 있고 `root` 로 돈다. 이름에도 `sync` 가 있다.
+# 다른 것은 무엇을 실행하는가뿐이다.
+/etc/cron.d/logrotate-sync
+
+# 배포판이 심어 둔 정기 작업. **`/etc/cron.d` 를 통째로 비우는 답안**이
+# 여기서 걸린다.
+/etc/cron.d/e2scrub_all

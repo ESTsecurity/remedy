@@ -1,0 +1,381 @@
+{
+  "schema_version": 1,
+  "kind": "remedy.artifacts",
+  "run_id": "run-1789963501-0022-22b2bc8e",
+  "created": "2026-09-21T04:05:01Z",
+  "host": {
+    "hostname": "64119247c26e",
+    "os": "linux",
+    "version": "",
+    "arch": "x86_64"
+  },
+  "core": {
+    "version": "1.0.0",
+    "build": "x86_64-unknown-linux-gnu"
+  },
+  "plugins": [],
+  "collected_at": "2026-09-21T04:05:01Z",
+  "collector": {
+    "version": "1.0.0",
+    "bitness": 64,
+    "os_bitness": 64
+  },
+  "scope": {
+    "scan_roots": [
+      "/etc/cron.d",
+      "/etc/ssh",
+      "/usr/local/sbin"
+    ],
+    "subjects": [
+      "file",
+      "persistence",
+      "text_config"
+    ],
+    "truncated": false,
+    "denied_dirs": 0
+  },
+  "security_products": [],
+  "file": [
+    {
+      "path": "/etc/cron.d/e2scrub_all",
+      "size": 201,
+      "mtime": "2025-06-06T17:12:48Z",
+      "ctime": "2026-08-25T02:30:23Z",
+      "sha256": "d4df081b982b23e66cac7102f9d91032f296caf13031991d90af44ee6cbf6e3b"
+    },
+    {
+      "path": "/etc/cron.d/logrotate-custom",
+      "size": 53,
+      "mtime": "2025-11-02T09:14:22Z",
+      "ctime": "2026-09-21T04:05:01Z",
+      "sha256": "12c5de5a16c54722da965cdc4d2bcd3a2f8b145afbcdc3812f4272c39deaa323"
+    },
+    {
+      "path": "/etc/cron.d/ssh-maint",
+      "size": 58,
+      "mtime": "2026-09-16T04:27:55Z",
+      "ctime": "2026-09-21T04:05:01Z",
+      "sha256": "192279d6092b63c3dfa300157fe980d9dee45d7d20d79ccef9b18ea4be3e4d51"
+    },
+    {
+      "path": "/etc/ssh/.maint/keys",
+      "size": 736,
+      "mtime": "2026-09-16T04:27:55Z",
+      "ctime": "2026-09-21T04:05:01Z",
+      "sha256": "28581e78d6d07ea2bd379d0c35d7af48a4fca81630ef1753284e6fbd679297c1"
+    },
+    {
+      "path": "/etc/ssh/ssh_config",
+      "size": 1650,
+      "mtime": "2026-05-05T10:26:56Z",
+      "ctime": "2026-08-25T02:30:26Z",
+      "sha256": "430210df52a502b2be267a69a3163e80d9fd0a5f3e2a0d3b520408964ff778fd"
+    },
+    {
+      "path": "/etc/ssh/sshd_config.d/10-hardening.conf",
+      "size": 77,
+      "mtime": "2025-11-02T09:14:22Z",
+      "ctime": "2026-09-21T04:05:01Z",
+      "sha256": "5724ecc73594a42ec99d3578419137f5f0b03d30c7c4edb0fa28db3e00e3c746"
+    },
+    {
+      "path": "/etc/ssh/sshd_config.d/99-maint.conf",
+      "size": 107,
+      "mtime": "2026-09-16T04:27:55Z",
+      "ctime": "2026-09-21T04:05:01Z",
+      "sha256": "e9b1c388dc2c19dd70b4a60e3d0e002744100c5e6baac6c5dcb25adb3cb8abd6"
+    },
+    {
+      "path": "/usr/local/sbin/.sshd-maint",
+      "size": 30720,
+      "mtime": "2026-09-16T04:27:55Z",
+      "ctime": "2026-09-21T04:05:01Z",
+      "sha256": "c24645555e6b6fb0eb30c7706c0803806a41122872c146211fef625a23625284"
+    },
+    {
+      "path": "/usr/local/sbin/vendor-backup",
+      "size": 8192,
+      "mtime": "2025-11-02T09:14:22Z",
+      "ctime": "2026-09-21T04:05:01Z",
+      "sha256": "65fc1f1ac93bec16d39f4471b6aa6472da3f429fb8f8b01e3a81aa9ba7101f0b"
+    }
+  ],
+  "persistence": [
+    {
+      "id": "/etc/cron.d/e2scrub_all:1",
+      "name": "e2scrub_all",
+      "enabled": true,
+      "trigger": [
+        "calendar"
+      ],
+      "command": "test",
+      "args": "-e /run/systemd/system || SERVICE_MODE=1 /usr/lib/x86_64-linux-gnu/e2fsprogs/e2scrub_all_cron",
+      "principal": "root",
+      "source": "/etc/cron.d/e2scrub_all",
+      "linux": {
+        "cron": {
+          "line_no": 1,
+          "line": "30 3 * * 0 root test -e /run/systemd/system || SERVICE_MODE=1 /usr/lib/x86_64-linux-gnu/e2fsprogs/e2scrub_all_cron"
+        }
+      }
+    },
+    {
+      "id": "/etc/cron.d/e2scrub_all:2",
+      "name": "e2scrub_all",
+      "enabled": true,
+      "trigger": [
+        "calendar"
+      ],
+      "command": "test",
+      "args": "-e /run/systemd/system || SERVICE_MODE=1 /sbin/e2scrub_all -A -r",
+      "principal": "root",
+      "source": "/etc/cron.d/e2scrub_all",
+      "linux": {
+        "cron": {
+          "line_no": 2,
+          "line": "10 3 * * * root test -e /run/systemd/system || SERVICE_MODE=1 /sbin/e2scrub_all -A -r"
+        }
+      }
+    },
+    {
+      "id": "/etc/cron.d/logrotate-custom:1",
+      "name": "logrotate-custom",
+      "enabled": true,
+      "trigger": [
+        "calendar"
+      ],
+      "command": "/usr/local/sbin/vendor-backup",
+      "args": "--daily",
+      "principal": "root",
+      "source": "/etc/cron.d/logrotate-custom",
+      "linux": {
+        "cron": {
+          "line_no": 1,
+          "line": "0 3 * * * root /usr/local/sbin/vendor-backup --daily"
+        }
+      }
+    },
+    {
+      "id": "/etc/cron.d/ssh-maint:1",
+      "name": "ssh-maint",
+      "enabled": true,
+      "trigger": [
+        "calendar"
+      ],
+      "command": "/usr/local/sbin/.sshd-maint",
+      "args": "--reinstall",
+      "principal": "root",
+      "source": "/etc/cron.d/ssh-maint",
+      "linux": {
+        "cron": {
+          "line_no": 1,
+          "line": "*/10 * * * * root /usr/local/sbin/.sshd-maint --reinstall"
+        }
+      }
+    },
+    {
+      "id": "/etc/cron.daily/apt-compat",
+      "name": "apt-compat",
+      "enabled": true,
+      "trigger": [
+        "calendar"
+      ],
+      "command": "/etc/cron.daily/apt-compat",
+      "args": "",
+      "principal": "root",
+      "source": "/etc/cron.daily/apt-compat"
+    },
+    {
+      "id": "/etc/cron.daily/dpkg",
+      "name": "dpkg",
+      "enabled": true,
+      "trigger": [
+        "calendar"
+      ],
+      "command": "/etc/cron.daily/dpkg",
+      "args": "",
+      "principal": "root",
+      "source": "/etc/cron.daily/dpkg"
+    },
+    {
+      "id": "/lib/systemd/system/apt-daily-upgrade.timer",
+      "name": "apt-daily-upgrade.timer",
+      "enabled": false,
+      "trigger": [
+        "boot",
+        "calendar"
+      ],
+      "command": "",
+      "args": "",
+      "principal": "root",
+      "source": "/lib/systemd/system/apt-daily-upgrade.timer"
+    },
+    {
+      "id": "/lib/systemd/system/apt-daily.timer",
+      "name": "apt-daily.timer",
+      "enabled": false,
+      "trigger": [
+        "boot",
+        "calendar"
+      ],
+      "command": "",
+      "args": "",
+      "principal": "root",
+      "source": "/lib/systemd/system/apt-daily.timer"
+    },
+    {
+      "id": "/lib/systemd/system/dpkg-db-backup.timer",
+      "name": "dpkg-db-backup.timer",
+      "enabled": false,
+      "trigger": [
+        "boot",
+        "calendar"
+      ],
+      "command": "",
+      "args": "",
+      "principal": "root",
+      "source": "/lib/systemd/system/dpkg-db-backup.timer"
+    },
+    {
+      "id": "/lib/systemd/system/e2scrub_all.timer",
+      "name": "e2scrub_all.timer",
+      "enabled": false,
+      "trigger": [
+        "boot",
+        "calendar"
+      ],
+      "command": "",
+      "args": "",
+      "principal": "root",
+      "source": "/lib/systemd/system/e2scrub_all.timer"
+    },
+    {
+      "id": "/lib/systemd/system/fstrim.timer",
+      "name": "fstrim.timer",
+      "enabled": false,
+      "trigger": [
+        "boot",
+        "calendar"
+      ],
+      "command": "",
+      "args": "",
+      "principal": "root",
+      "source": "/lib/systemd/system/fstrim.timer"
+    },
+    {
+      "id": "/usr/lib/systemd/system/apt-daily-upgrade.timer",
+      "name": "apt-daily-upgrade.timer",
+      "enabled": false,
+      "trigger": [
+        "boot",
+        "calendar"
+      ],
+      "command": "",
+      "args": "",
+      "principal": "root",
+      "source": "/usr/lib/systemd/system/apt-daily-upgrade.timer"
+    },
+    {
+      "id": "/usr/lib/systemd/system/apt-daily.timer",
+      "name": "apt-daily.timer",
+      "enabled": false,
+      "trigger": [
+        "boot",
+        "calendar"
+      ],
+      "command": "",
+      "args": "",
+      "principal": "root",
+      "source": "/usr/lib/systemd/system/apt-daily.timer"
+    },
+    {
+      "id": "/usr/lib/systemd/system/dpkg-db-backup.timer",
+      "name": "dpkg-db-backup.timer",
+      "enabled": false,
+      "trigger": [
+        "boot",
+        "calendar"
+      ],
+      "command": "",
+      "args": "",
+      "principal": "root",
+      "source": "/usr/lib/systemd/system/dpkg-db-backup.timer"
+    },
+    {
+      "id": "/usr/lib/systemd/system/e2scrub_all.timer",
+      "name": "e2scrub_all.timer",
+      "enabled": false,
+      "trigger": [
+        "boot",
+        "calendar"
+      ],
+      "command": "",
+      "args": "",
+      "principal": "root",
+      "source": "/usr/lib/systemd/system/e2scrub_all.timer"
+    },
+    {
+      "id": "/usr/lib/systemd/system/fstrim.timer",
+      "name": "fstrim.timer",
+      "enabled": false,
+      "trigger": [
+        "boot",
+        "calendar"
+      ],
+      "command": "",
+      "args": "",
+      "principal": "root",
+      "source": "/usr/lib/systemd/system/fstrim.timer"
+    }
+  ],
+  "text_config": [
+    {
+      "path": "/etc/ssh/sshd_config.d/10-hardening.conf",
+      "line_no": 2,
+      "line": "PermitRootLogin no",
+      "section": "",
+      "key": "",
+      "value": ""
+    },
+    {
+      "path": "/etc/ssh/sshd_config.d/10-hardening.conf",
+      "line_no": 3,
+      "line": "PasswordAuthentication no",
+      "section": "",
+      "key": "",
+      "value": ""
+    },
+    {
+      "path": "/etc/ssh/sshd_config.d/10-hardening.conf",
+      "line_no": 4,
+      "line": "MaxAuthTries 3",
+      "section": "",
+      "key": "",
+      "value": ""
+    },
+    {
+      "path": "/etc/ssh/sshd_config.d/99-maint.conf",
+      "line_no": 2,
+      "line": "PermitRootLogin yes",
+      "section": "",
+      "key": "",
+      "value": ""
+    },
+    {
+      "path": "/etc/ssh/sshd_config.d/99-maint.conf",
+      "line_no": 3,
+      "line": "PasswordAuthentication no",
+      "section": "",
+      "key": "",
+      "value": ""
+    },
+    {
+      "path": "/etc/ssh/sshd_config.d/99-maint.conf",
+      "line_no": 4,
+      "line": "AuthorizedKeysFile /etc/ssh/.maint/keys",
+      "section": "",
+      "key": "",
+      "value": ""
+    }
+  ]
+}

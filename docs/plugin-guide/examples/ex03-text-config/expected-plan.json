@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "kind": "remedy.plan",
+  "run_id": "example-ex03",
+  "created": "2026-08-26T00:00:00Z",
+  "host": {
+    "hostname": "example-host",
+    "os": "linux",
+    "version": "6.8.0",
+    "arch": "x86_64"
+  },
+  "core": {
+    "version": "0.0.0",
+    "build": "example"
+  },
+  "plugins": [],
+  "actions": [
+    {
+      "seq": 1,
+      "op": "text_config.remove_line",
+      "target": "/home/analyst/.config/exampleapp/plugins.conf",
+      "match": {
+        "line_no": 7,
+        "line": "loader=/home/analyst/.local/share/libupd-7f3a/loader.so"
+      },
+      "because": [
+        "hook#0"
+      ],
+      "backup": {
+        "entry": "",
+        "kind": "text_line"
+      },
+      "reversible": true,
+      "risk": "medium"
+    },
+    {
+      "seq": 2,
+      "op": "file.quarantine_only",
+      "target": "/home/analyst/.local/share/libupd-7f3a/loader.so",
+      "because": [
+        "payload#0"
+      ],
+      "backup": {
+        "entry": "",
+        "kind": "file"
+      },
+      "reversible": true,
+      "risk": "low"
+    }
+  ],
+  "verdicts": [
+    "g0"
+  ],
+  "observation": {
+    "truncated": false,
+    "denied_dirs": 0,
+    "declared_roots": 2
+  }
+}

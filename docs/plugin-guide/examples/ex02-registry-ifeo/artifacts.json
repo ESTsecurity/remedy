@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "kind": "remedy.artifacts",
+  "run_id": "example-ex02",
+  "created": "2026-08-26T00:00:00Z",
+  "host": {
+    "hostname": "EXAMPLE-PC",
+    "os": "windows",
+    "version": "10.0.19045",
+    "arch": "x86_64"
+  },
+  "core": {
+    "version": "0.0.0",
+    "build": "example"
+  },
+  "plugins": [],
+  "collected_at": "2026-08-26T00:00:00Z",
+  "collector": {
+    "version": "0.0.0",
+    "bitness": 64,
+    "os_bitness": 64
+  },
+  "scope": {
+    "scan_roots": [
+      "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\*",
+      "C:\\Users\\analyst\\AppData\\Local\\Programs"
+    ],
+    "subjects": [
+      "registry_value",
+      "file"
+    ],
+    "truncated": false,
+    "denied_dirs": 0
+  },
+  "registry_value": [
+    {
+      "hive": "HKLM",
+      "key": "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\taskmgr.exe",
+      "name": "Debugger",
+      "type": "REG_SZ",
+      "data": "C:\\Users\\analyst\\AppData\\Local\\Programs\\svc-9f2c\\hook.exe"
+    },
+    {
+      "hive": "HKLM",
+      "key": "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\chrome.exe",
+      "name": "DisableExceptionChainValidation",
+      "type": "REG_DWORD",
+      "data": "0"
+    },
+    {
+      "hive": "HKLM",
+      "key": "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\myapp.exe",
+      "name": "Debugger",
+      "type": "REG_SZ",
+      "data": "\"C:\\Program Files\\Debugging Tools\\windbg.exe\" -server"
+    }
+  ],
+  "file": [
+    {
+      "path": "C:\\Users\\analyst\\AppData\\Local\\Programs\\svc-9f2c\\hook.exe",
+      "size": 71680,
+      "mtime": "2026-08-25T18:41:07Z",
+      "sha256": "9c2f14a7b3e08d5164f2a9c7e05b3d81f6a40e29c8b7513d0e2f4a681c93b7d5"
+    },
+    {
+      "path": "C:\\Users\\analyst\\AppData\\Local\\Programs\\svc-9f2c\\config.dat",
+      "size": 512,
+      "mtime": "2026-08-25T18:41:07Z",
+      "sha256": "1a4d7f2b9e63c085a7d1f4e08b2c6539d70a4e18f3b52c9d6084a7f1e2c5b930"
+    },
+    {
+      "path": "C:\\Users\\analyst\\AppData\\Local\\Programs\\editor\\editor.exe",
+      "size": 8241664,
+      "mtime": "2026-07-02T09:15:00Z",
+      "sha256": "5e91c3a7d20b48f615c9e37a4d8b0621f5a3c74e91d0b8f2a63c5d74e08b19a2"
+    }
+  ]
+}

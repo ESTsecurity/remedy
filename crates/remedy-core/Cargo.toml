@@ -1,0 +1,33 @@
+[package]
+name = "remedy-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+remedy-sdk = { path = "../remedy-sdk" }
+remedy-artifacts = { path = "../remedy-artifacts" }
+remedy-collect = { path = "../remedy-collect" }
+remedy-detect = { path = "../remedy-detect" }
+remedy-plan = { path = "../remedy-plan" }
+remedy-apply = { path = "../remedy-apply" }
+remedy-quarantine = { path = "../remedy-quarantine" }
+remedy-journal = { path = "../remedy-journal" }
+remedy-platform = { path = "../remedy-platform" }
+remedy-trust = { path = "../remedy-trust" }
+# 코어 자기무결성 (설계-01 D7). 자기 서명을 검증할 수단이 P10-B 에서 왔다.
+remedy-wintrust = { path = "../remedy-wintrust" }
+remedy-report = { path = "../remedy-report" }
+serde.workspace = true
+serde_json.workspace = true
+serde_yaml_ng.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+remedy-testkit = { path = "../remedy-testkit" }
+serde_yaml_ng.workspace = true
+# 감염 픽스처의 파일 내용. 스냅샷은 바이트를 base64 로 싣는다 — YARA 가 훑는
+# 것이 그 바이트이므로, 그것 없이는 룰이 도는지 시험할 수 없다.
+base64.workspace = true

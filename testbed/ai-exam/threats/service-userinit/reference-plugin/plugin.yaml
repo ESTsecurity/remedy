@@ -1,0 +1,73 @@
+schema_version: 1
+id: service-userinit
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [windows]
+name:
+  ko: "서비스 + Winlogon Userinit 하이재킹 제거"
+  en: "Service + Winlogon Userinit hijack removal"
+
+# service·registry_value 에는 path 가 없어 이 상한을 거치지 않는다.
+# 여기 적는 것은 파일 규칙의 상한이다.
+scan_roots:
+  # 리터럴이 아니라 토큰이다 — 시스템 드라이브가 C: 가 아닌 기계가 있다
+  # (10-manifest §scan_roots). r3 응시자가 이쪽을 썼고 그것이 옳다.
+  - "%ProgramData%"
+  # **레지스트리 값은 이 상한을 받는다.** 적지 않으면 registry_value 는
+  # 언제나 0건이고, Userinit 복원 규칙이 실기기에서 아무것도 못 맞힌다.
+  # 2026-09-02 에 도달 가능성 린트가 이 정답의 결함을 잡았다.
+  - "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon"
+
+subjects: [service, registry_value, file]
+
+detect:
+  # 부모 — 자동 시작 서비스. image_path 가 경로 하나라 그대로 뽑힌다.
+  - id: svc
+    subject: service
+    where:
+      all:
+        - { field: start_type, op: equals,  value: "auto" }
+        - { field: image_path, op: matches, value: '(?i)\\ProgramData\\[^\\]+\\[^\\]+\.exe$' }
+    capture:
+      exe: "image_path | first_path"
+      dir: "${exe} | dirname"
+
+  # 자식 — 그 폴더의 실행 파일.
+  - id: payload
+    subject: file
+    from: "${svc.dir}"
+    where:
+      - { field: path, op: ends_with, value: ".exe" }
+
+  # 자식 — 같은 폴더의 나머지 파일. **재귀 삭제가 조건 3·4·5 로 보류돼도
+  # 남지 않게** 개별 격리를 겹쳐 둔다. 판정에는 쓰지 않는다.
+  # (svc-r2 응시자가 우리보다 먼저 봤다.)
+  - id: companion
+    subject: file
+    from: "${svc.dir}"
+    where:
+      - { field: path, op: not_equals, value: "${svc.exe}" }
+
+  # 자식 — Userinit 값이 그 실행 파일을 덧붙이고 있다.
+  # hive·key·name 을 equals 로 못박아야 to: default 의 대상이 확인된다.
+  - id: userinit
+    subject: registry_value
+    where:
+      all:
+        - { field: hive, op: equals, value: "HKLM" }
+        - { field: key,  op: equals, value: "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon" }
+        - { field: name, op: equals, value: "Userinit" }
+        - { field: data, op: contains, value: "${svc.dir}" }
+
+verdict:
+  require: "svc and payload"
+
+remediate:
+  remove:
+    - { ref: svc }
+    - { ref: payload }
+    - { ref: companion }
+    - { path: "${svc.dir}", recursive: true, guard: payload }
+  restore:
+    # **삭제가 아니라 원복이다.** 이 값을 지우면 로그온 셸이 뜨지 않는다.
+    - { ref: userinit, to: default }

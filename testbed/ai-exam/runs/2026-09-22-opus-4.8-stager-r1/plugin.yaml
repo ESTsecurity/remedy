@@ -1,0 +1,109 @@
+schema_version: 1
+id: netsyncagent-regkey-stager
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [windows]
+name:
+  ko: "NetSyncAgent 레지스트리 스테이저 제거"
+  en: "NetSyncAgent registry stager removal"
+
+# ── 읽기 권한 상한 ──────────────────────────────────────────────
+# 여기 밖은 읽을 수도 지울 수도 없다. 성능 설정이 아니라 권한 상한이다.
+scan_roots:
+  # 검체가 만든 레지스트리 자리. 값 수집은 재귀하지 않으므로 이 키의
+  # 직속 값(Payload·Stub)만 모인다 — 형제 키 HKCU\Software\NetSync 는
+  # 애초에 수집되지 않아 정상 제품 값을 건드릴 길이 없다.
+  #
+  # 이 자리를 읽기 상한으로 선언했으므로 키(자리) 자체는 지울 수 없다
+  # (상한을 지우는 셈이라 안전 장치가 거부한다). 그래서 값만 지운다.
+  - "HKCU\\Software\\NetSyncAgent"
+  # 페이로드 파일이 사는 곳. 하위 폴더 이름은 검체마다 달라질 수 있어
+  # 리터럴로 적지 않고 값에서 풀어 얻는다. 부모인 %PROGRAMDATA% 를 상한으로
+  # 두고, 자식 규칙이 푼 경로 안에서만 찾는다.
+  - "%PROGRAMDATA%"
+
+subjects: [registry_value, file, autorun]
+
+detect:
+  # ── 앵커: base64 로 감춘 DLL 경로를 담은 값 ────────────────────
+  # 감염 인스턴스 하나마다 그룹 하나가 생기고, 아래 규칙들이 전부 이 그룹에
+  # 묶인다. 감춤의 "모양"(base64 냐 따옴표냐)으로 가르지 않는다 — 정상 제품도
+  # base64 를 쓴다. 푼 결과가 실제 파일을 가리키는지로 가른다.
+  - id: reg_payload
+    subject: registry_value
+    where:
+      - { field: name, op: equals, value: "Payload" }
+    capture:
+      # 경로는 매니페스트에 적을 수 없다. 값을 풀어야 나온다.
+      dll_path: "data | base64_decode"        # -> C:\ProgramData\NetSyncAgent\netsync.dll
+      payload_dir: "${dll_path} | dirname"     # -> C:\ProgramData\NetSyncAgent
+
+  # ── DLL 파일: 푼 경로가 실제로 가리키는 파일 ──────────────────
+  # 정상/악성을 가르는 지점. 푼 값이 실재 파일이 아니면 여기서 매치가 멈춘다.
+  - id: payload_dll
+    subject: file
+    from: "${reg_payload.payload_dir}"
+    where:
+      - { field: path, op: equals, value: "${reg_payload.dll_path}" }
+
+  # ── 스텁 값: 따옴표로 감춘 경로. 같은 폴더를 가리키는 것만 ─────
+  # data 에 앵커의 폴더가 들어 있어야 하므로 같은 감염의 Stub 값에만 걸리고,
+  # 이 규칙이 앵커 그룹에 묶인다.
+  - id: reg_stub
+    subject: registry_value
+    where:
+      all:
+        - { field: name, op: equals,   value: "Stub" }
+        - { field: data, op: contains, value: "${reg_payload.payload_dir}" }
+    capture:
+      stub_path: "data | trim_quotes"          # -> C:\ProgramData\NetSyncAgent\stub.exe
+
+  # ── 스텁 파일: 따옴표를 벗겨 얻은 바로 그 파일 ────────────────
+  - id: payload_stub
+    subject: file
+    from: "${reg_payload.payload_dir}"
+    where:
+      - { field: path, op: equals, value: "${reg_stub.stub_path}" }
+
+  # ── 되살리는 자리: 로그온마다 스텁을 띄우는 자동실행 항목 ─────
+  # autorun 은 scan_roots 와 무관하게 수집된다. 열일곱 중 이 폴더를 가리키는
+  # 하나만 걸리고, 정상 열여섯은 다른 경로라 걸리지 않는다.
+  - id: autostart
+    subject: autorun
+    where:
+      - { field: command, op: contains, value: "${reg_payload.payload_dir}" }
+
+# ── 판정 ────────────────────────────────────────────────────────
+# 독립적인 두 근거의 논리곱: 레지스트리 값(reg_payload)과, 그것이 가리키는
+# 실재 파일(payload_dll) 또는 되살리는 자동실행(autostart).
+#
+# 파일을 근거로 세우되 하나로 못박지 않는다. 다른 백신이 바이너리만 잡아간
+# 기계에서도 지속성(감춘 경로 값·자동실행)이 남아 있으면 판정이 서서 그 자리를
+# 치운다 — 안 그러면 다음 검체가 파일만 다시 놓고 그대로 쓴다.
+verdict:
+  require: "reg_payload and (payload_dll or autostart)"
+
+# ── 제거 ────────────────────────────────────────────────────────
+# 순서는 코어가 정한다(유발자 먼저). 전부 증거에서 파생된 대상이고 되돌릴 수
+# 있다(격리·값 삭제).
+remediate:
+  remove:
+    # 검체가 만든 값 둘 — 값 단위 삭제(registry.delete_value).
+    # 자리(키) 자체는 지우지 않는다: 빈 키가 남지만 아무 일도 하지 않고,
+    # 지우려 하면 상한을 지우는 셈이라 안전 장치가 거부한다.
+    - { ref: reg_payload }
+    - { ref: reg_stub }
+    # 페이로드 파일 둘 — 격리(file.quarantine_only, 되돌릴 수 있음).
+    # 이미 지워진 기계에서는 걸릴 것이 없어 아무 일도 하지 않는다.
+    - { ref: payload_dll }
+    - { ref: payload_stub }
+    # 되살리는 자동실행 항목(autorun.remove).
+    - { ref: autostart }
+  # 재부팅 뒤 같은 플러그인으로 다시 판정해 재발을 확인한다.
+  verify:
+    after_reboot: true
+
+# 손으로 분석에 올릴 때 볼 힌트(자동 제출은 없다).
+submit_hint:
+  samples: [payload_dll, payload_stub]
+  confidentiality_min: 1

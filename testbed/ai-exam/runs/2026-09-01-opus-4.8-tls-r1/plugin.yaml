@@ -1,0 +1,74 @@
+schema_version: 1
+id: netguard-tls-intercept
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [linux]
+name:
+  ko: "NetGuard TLS 가로채기 키트 제거"
+  en: "NetGuard TLS interception kit removal"
+
+# 읽기 권한 상한 — 파일 규칙에만 걸린다.
+# cert_store 와 hosts_entry 는 path 필드가 없어 이 상한과 무관하게 수집된다
+# (10-manifest.md 의 표). 그래서 인증서 경로(/usr/local/share/ca-certificates)
+# 와 /etc/hosts 는 여기 적지 않는다 — 적어도 효과가 없고 상한만 넓어진다.
+scan_roots:
+  - "/opt/netguard"          # 페이로드가 패키지처럼 설치되는 고정 폴더
+
+subjects: [file, cert_store, hosts_entry]
+
+detect:
+  # ── 페이로드 — 판정의 두 근거(같은 그룹) ─────────────────────
+  # 부모: 가로채는 프록시 바이너리. 자리가 고정이므로 그대로 짚고, 폴더를 뽑는다.
+  - id: proxy
+    subject: file
+    where:
+      - { field: path, op: ends_with, value: "/netguard-proxyd" }
+    capture:
+      dir: "path | dirname"            # → /opt/netguard
+
+  # 자식: 같은 폴더의 CA 개인키. 부모가 가리킨 폴더 안에서만 찾는다.
+  # 가로채는 바이너리와 그 인증서의 개인키가 한 폴더에 함께 있다는 것이
+  # 이 키트의 표식이다 — 정상 /opt 소프트웨어(예: /opt/goodware)에는 없는 조합.
+  - id: cakey
+    subject: file
+    from: "${proxy.dir}"
+    where:
+      - { field: path, op: ends_with, value: "/ca.key" }
+
+  # ── 심어진 최상위 인증서 — 신뢰 저장소에서 뺀다 ───────────────
+  # "스스로 발급했다"는 사실로 가르지 않는다: 청정 기계의 루트 263개가
+  # 전부 자가서명이다. 이 검체 고유의 주체 이름 + 지문으로만 짚는다.
+  - id: cert
+    subject: cert_store
+    where:
+      all:
+        - { field: subject,    op: contains, value: "NetGuard Secure Proxy CA" }
+        - { field: thumbprint, op: equals,   value: "7C41A93E0D5B8266F1A0C3947E5D2B08F6431AC9" }
+
+  # ── 돌려진 이름 — 덧붙은 줄만 원래대로 되돌린다 ───────────────
+  # localhost·사내 서버 고정(3번 줄, ip 가 127.0.0.1 이 아님)은 건드리지 않는다.
+  # 보안 제품 도메인이 루프백으로 돌려진 줄(7·8번)만 짚는다.
+  - id: sinkhole
+    subject: hosts_entry
+    where:
+      all:
+        - { field: ip,        op: equals,   value: "127.0.0.1" }
+        - { field: hostnames, op: contains, value: "example-av.com" }
+
+# 두 페이로드 파일의 논리곱 — 둘 다 이 키트가 심은 것이고 한 폴더에 함께 있다.
+# 이 판정이 서야 아래 제거·복원이 실행된다(고위험 cert_store.remove 포함).
+# 인증서·hosts 는 판정 근거가 아니라, 판정이 선 뒤 각자 짚은 증거만 처리한다.
+verdict:
+  require: "proxy and cakey"
+
+remediate:
+  remove:
+    - { ref: proxy }     # file.quarantine_only — 프록시 바이너리
+    - { ref: cakey }     # file.quarantine_only — 개인키
+    - { ref: cert }      # cert_store.remove   — 신뢰 저장소에서 제거(가역, 격리 백업)
+  restore:
+    - hosts              # hosts.restore_line  — 짚은 줄(7·8)만 되돌린다. 파일은 지우지 않는다
+  # 관측에 지속성·실행 프로세스가 없었다. 가로채기 프록시가 부팅마다 뜨는 방식이
+  # 있다면 이 스냅샷에 보이지 않은 것이므로, 재부팅 후 다시 판정해 재발을 사람이 본다.
+  verify:
+    after_reboot: true

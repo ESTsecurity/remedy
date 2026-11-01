@@ -1,0 +1,127 @@
+# 정답 플러그인 — ransomware (Windows 파일 암호화 검체)
+#
+# # 이 위협이 묻는 것
+#
+# **"지우면 안 되는 것" 을 아는가.** 앞의 아홉은 전부 *"무엇을 지울 것인가"*
+# 를 물었다. 여기서는 검체가 만든 것과 **검체가 망가뜨린 사용자 데이터**가
+# 같은 폴더에 섞여 있다.
+#
+#   C:\Users\test\Documents\HOW-TO-DECRYPT.txt    검체의 것    → 치운다
+#   C:\Users\test\Documents\report.docx.locked    사용자의 것  → 남긴다
+#   C:\Users\test\Documents\budget.xlsx.locked    사용자의 것  → 남긴다
+#   C:\Users\test\Documents\notes.txt             사용자의 것  → 남긴다
+#
+# `*.locked` 는 **사용자의 문서**다. 키가 없어 지금은 못 풀지만 나중에
+# 복호화기가 나올 수 있고, 치료 도구가 그것을 지우면 그 가능성까지 사라진다.
+# 폴더로 가르거나 "검체가 놓은 시각" 으로 가르는 답안은 여기서 무너진다 —
+# `.locked` 도 검체가 만든 시각을 갖고 있다.
+#
+# # 바탕화면은 **일부러 계획하지 않는다**
+#
+# 검체가 바탕화면 값을 몸값 그림으로 바꿔 놓았다. 그런데 이 자리는 **청정
+# 기계에 이미 값이 있었고**(랩 VM 은 `C:\Users\test\Downloads\R.jpg`) 검체가
+# 그것을 덮어썼다. 지우면 OS 가 기본 배경을 쓰지만 **사용자가 쓰던 배경은
+# 돌아오지 않는다** — 원래 값이 어디에도 없다.
+#
+# 2026-09-21 에 그 값을 지우는 계획으로 채점 5 를 돌려 보고 배웠다:
+#
+#   범위 안 불일치 1건 — HKCU:\Control Panel\Desktop\WallPaper
+#     청정: [String] C:\Users\test\Downloads\R.jpg
+#     치료: (값 없음)
+#
+# `registry.delete_value` 는 **검체가 새로 만든 값**에 쓰는 Op 이지 덮어쓴
+# 값에 쓰는 것이 아니다. 덮어쓴 값을 되돌리려면 원본이 있어야 하는데,
+# 기본값 카탈로그가 아는 자리는 `AppInit_DLLs` 와 `LoadAppInit_DLLs` 둘뿐이다.
+#
+# 그래서 바탕화면은 THREAT.md 의 '치료 범위 밖' 셋째로 적고 계획하지 않는다.
+# 되돌릴 수 없는 것을 되돌리겠다고 계획하는 것도 틀린 답이다.
+#
+# # 지우는 것이 원상복구인 자리는 따로 있다
+#
+# 작업 관리자 잠금(`DisableTaskMgr`)은 **청정 기계에 없던 값**이다. 검체가
+# 만들었으므로 지우면 그 자리가 청정 기준과 같아진다. 이것이
+# `registry.delete_value` 의 자리다.
+#
+# 같은 정책 키에 조직이 설정해 둔 정상 값이 하나 더 있다
+# (`HideFastUserSwitching`). 키를 통째로 겨누는 답안은 그것까지 지운다.
+
+schema_version: 1
+id: ransomware
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [windows]
+name:
+  ko: "파일 암호화 검체 제거"
+  en: "File-encrypting sample removal"
+
+scan_roots:
+  - "C:\\ProgramData\\CryptoSvc"
+  - "C:\\ProgramData\\VendorTool"
+  - "%USERPROFILE%\\Documents"
+  - "%USERPROFILE%\\Desktop"
+  - "HKCU\\Control Panel\\Desktop"
+  - "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System"
+
+subjects: [file, registry_value, autorun]
+
+detect:
+  # 몸값 노트. 사용자에게 보이는 협박문이고 통째로 검체의 것이다.
+  #
+  # 이름으로 겨눈다 — 내용으로 겨눌 수도 있지만, 검체마다 문구가 달라지는
+  # 자리라 파일 이름이 더 단단하다. 폴더 둘에 같은 이름으로 뿌려져 있다.
+  - id: note
+    subject: file
+    where:
+      - { field: path, op: ends_with, value: "HOW-TO-DECRYPT.txt" }
+
+  # 페이로드와 그 열쇠 파일. 자리로 겨눈다 — 이 폴더는 통째로 검체의 것이고,
+  # 옆의 `C:\ProgramData\VendorTool` 은 정상 벤더의 것이다.
+  - id: payload
+    subject: file
+    where:
+      - field: path
+        op: in
+        value:
+          - "C:\\ProgramData\\CryptoSvc\\locker.exe"
+          - "C:\\ProgramData\\CryptoSvc\\keys.bin"
+
+  # 작업 관리자 잠금. **넷을 모두 맞혀야 이 하나만 걸린다.**
+  #
+  # 같은 키의 `HideFastUserSwitching` 은 조직이 설정한 정상 값이라 이름까지
+  # 맞혀야 하고, 값의 내용을 함께 보는 까닭은 **정책이 0 으로 꺼져 있는
+  # 기계에서 아무것도 맞히지 않기 위해서**다. 잠기지 않은 자리를 치료가
+  # 건드릴 이유가 없다.
+  - id: taskmgr_lock
+    subject: registry_value
+    where:
+      - { field: hive, op: equals, value: "HKCU" }
+      - {
+          field: key,
+          op: equals,
+          value: "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System",
+        }
+      - { field: name, op: equals, value: "DisableTaskMgr" }
+      - { field: data, op: equals, value: "1" }
+
+  # 재부팅하면 다시 돌게 하는 자리. 정상 항목 열여섯이 같은 키에 있으므로
+  # **무엇을 실행하는가**로 가른다.
+  - id: runkey
+    subject: autorun
+    where:
+      - { field: command, op: contains, value: "C:\\ProgramData\\CryptoSvc\\locker.exe" }
+
+# 몸값 노트만으로는 부족하다 — 파일 하나를 흉내 내기는 쉽다. 페이로드가
+# 실제로 있을 때만 위협으로 선언한다.
+verdict:
+  require: "note and payload"
+
+remediate:
+  remove:
+    - { ref: note } # file.quarantine_only     — 폴더 둘에 각각
+    - { ref: payload } # file.quarantine_only  — 페이로드와 열쇠
+    - { ref: taskmgr_lock } # registry.delete_value
+    - { ref: runkey } # autorun.remove
+
+submit_hint:
+  samples: [payload]
+  confidentiality_min: 1

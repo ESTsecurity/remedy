@@ -1,0 +1,30 @@
+# 감염 스냅샷에서 반드시 나와야 하는 Op (채점 4번).
+#
+# 형식은 `appinit-implant/expected-ops.txt` 의 머리를 볼 것 — (Op, 대상) 이고
+# `::` 뒤는 match 다.
+#
+# **이 목록은 정답 플러그인의 계획을 그대로 옮긴 것**이고(2026-09-21, 랩 VM
+# 스냅샷 위에서 `evaluate` → `plan`), 사람이 한 줄씩 위협 설명과 맞춰 읽었다.
+#
+# # `.lnk` 를 Windows 에서 처음 밟는다
+#
+# `shortcut.strip_args` 는 리눅스 쪽 `ldso-preload` 가 `.desktop` 의 `Exec=`
+# 로만 밟고 있었다. 그래서 **Windows 채점기도 `args=` 매치를 볼 줄 몰랐고**,
+# `.lnk` 를 쓰는 위협은 미결로 끝났을 것이다 — `line=` 과 같은 부류의
+# 비대칭이고, 2026-09-21 에 `Invoke-ExamApply.ps1` 에 그 검사를 더했다.
+#
+# 채점기는 리눅스 쪽과 **같은 규칙**으로 잰다(`minus_tokens`): 감염 상태의
+# 인자에서 아래 토큰을 앞에서부터 하나씩 빼고, 남은 것이 치료 뒤 인자와
+# 같아야 한다. 그리고 **가리키는 곳은 그대로여야 한다** — 인자만 떼랬는데
+# 바로가기를 새로 만든 답안이 거기서 갈린다.
+#
+# # 인자 둘이 함께 온다
+#
+# 리눅스 쪽은 `args` 가 실행 파일과 필드 코드를 뺀 나머지라 매치가 인자 하나로
+# 좁혀졌다(`--module …`). Windows 는 `.lnk` 의 인자 문자열을 통째로 담으므로
+# **덧붙은 둘이 함께** 매치되고, 치료 뒤 이 바로가기의 인자는 비워진다.
+# 원래 인자가 없던 바로가기였기 때문이다.
+
+file.quarantine_only C:\ProgramData\WebHelper\ext\bg.js
+file.quarantine_only C:\ProgramData\WebHelper\ext\manifest.json
+shortcut.strip_args C:\Users\test\Desktop\Chrome.lnk :: args=--load-extension=C:\ProgramData\WebHelper\ext --disable-features=RendererCodeIntegrity

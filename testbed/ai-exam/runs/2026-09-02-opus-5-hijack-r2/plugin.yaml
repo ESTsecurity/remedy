@@ -1,0 +1,169 @@
+# WebBoost — 검색을 가로채는 광고 임플란트
+#
+# 관측된 자리 다섯: 페이로드 폴더 · 두 브라우저의 확장 하나 · 실행 경로
+# 앞자리 · 부팅 목록의 덧붙은 항목 · 사용자 프록시.
+# 셋(경로·부팅·프록시)은 **정상 항목이 같은 값 안에 함께 사는 자리**라
+# 통째로 지우지 않고 검체가 덧붙인 부분만 뺀다.
+
+schema_version: 1
+id: webboost-search-hijack
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [windows]
+name:
+  ko: "WebBoost 검색 가로채기 광고 임플란트 제거"
+  en: "WebBoost search-hijacking ad implant removal"
+
+# ── 권한 상한 ────────────────────────────────────────────────────────────
+# 여기 밖은 읽을 수도 지울 수도 없다.
+scan_roots:
+  # 페이로드. 폴더 이름이 감염마다 바뀌지 않으므로 상한이 곧 범위다
+  # ("안 바뀌는 것은 scan_roots 가 이미 정한다").
+  - "%PROGRAMDATA%\\WebBoost"
+
+  # browser_extension 은 이 상한을 받는다(10-manifest.md §scan_roots 의 표).
+  # 적지 않으면 이 subject 는 언제나 0건이고 룰이 아무것도 못 맞힌 채 초록이 된다.
+  # 프로필 이름을 미리 알 수 없고 **파일 경로에는 `\*` 를 쓸 수 없으므로**
+  # `User Data` 까지만 적어 그 아래를 훑게 한다.
+  # 확장은 사용자마다 설치되므로 %ALLUSERPROFILES% 로 편다 — %LOCALAPPDATA% 로
+  # 적으면 다중 사용자 기계에서 로그온한 사용자만 치료되고 나머지는 남는다.
+  - "%ALLUSERPROFILES%\\AppData\\Local\\Google\\Chrome\\User Data"
+  - "%ALLUSERPROFILES%\\AppData\\Local\\Microsoft\\Edge\\User Data"
+
+  # registry_value 도 이 상한을 받는다. **값 수집은 재귀하지 않으므로** 두 키를
+  # 따로 적는다 — BootExecute 는 Session Manager 의 직속 값이고, Path 는 그 아래
+  # Environment 의 직속 값이다. 하위 키 이름을 아는 자리라 끝의 `\*` 는 쓰지 않는다.
+  - "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager"
+  - "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment"
+
+subjects: [file, process, browser_extension, registry_value, proxy_config]
+
+detect:
+  # ── 페이로드 두 파일 ──────────────────────────────────────────────────
+  # 파일 이름은 관측된 것 그대로 쓴다. 크기(1,245,184 / 172,032)는 조건에 넣지
+  # 않는다 — 빌드마다 바뀌므로 넣으면 변종을 조용히 놓친다.
+  - id: svc
+    subject: file
+    where:
+      - { field: path, op: ends_with, value: "\\wbsvc.exe" }
+    capture:
+      dir: "path | dirname"          # 프로세스 규칙을 이 감염에 묶는 값
+
+  - id: booter
+    subject: file
+    where:
+      - { field: path, op: ends_with, value: "\\wbboot.exe" }
+    capture:
+      # 부팅 목록에서 뺄 **항목의 값**. 리터럴이 아니라 증거에서 파생된다.
+      name: "path | basename"
+
+  # 그 폴더에서 도는 프로세스. 이름이 아니라 **어디서 도는가**로 가른다 —
+  # 상주 프로세스가 파일을 물고 있으면 격리가 실패한다.
+  - id: proc
+    subject: process
+    where:
+      - { field: image_path, op: contains, value: "${svc.dir}" }
+
+  # ── 브라우저 확장 ─────────────────────────────────────────────────────
+  # 브라우저·프로필 이름으로 고르면 같은 자리에 사는 정상 확장이 함께 없어진다.
+  # **식별자 하나만** 짚는다. 판(3.2.0)·이름은 조건에 넣지 않는다 — 변종에서
+  # 바뀌고, 좁힌 만큼 미탐이 된다.
+  # 조건에 browser 가 없으므로 chrome·edge 양쪽 레코드가 각각 증거가 되고,
+  # 브라우저마다 하나씩 browser_ext.remove 가 선다.
+  - id: ext
+    subject: browser_extension
+    where:
+      - { field: ext_id, op: equals, value: "pknbjlbmgcodmfilnjadgpkcnkmlpkkn" }
+
+  # ── 실행 경로 앞자리 ──────────────────────────────────────────────────
+  - id: pathhijack
+    subject: registry_value
+    where:
+      all:
+        - { field: hive, op: equals, value: "HKLM" }
+        - { field: key,  op: equals, value: "SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment" }
+        - { field: name, op: equals, value: "Path" }
+        # **맨 앞**에 끼어든 것이 검체의 폴더일 때만 짚는다. `^` 가 없으면
+        # 아래 first_path 가 목록의 정상 항목을 집어 그것을 지우게 된다.
+        - { field: data, op: matches, value: '(?i)^[a-z]:\\ProgramData\\WebBoost\\?(;|$)' }
+    capture:
+      # 목록에서 뺄 항목 **하나**. 뒤의 다섯 항목은 이 값에 들어오지 않는다.
+      entry: "data | first_path"
+
+  # ── 부팅 목록 ─────────────────────────────────────────────────────────
+  - id: bootexec
+    subject: registry_value
+    where:
+      all:
+        - { field: hive, op: equals,  value: "HKLM" }
+        - { field: key,  op: equals,  value: "SYSTEM\\CurrentControlSet\\Control\\Session Manager" }
+        - { field: name, op: equals,  value: "BootExecute" }
+        # 앞 두 줄(`autocheck autochk *` · 정상 보안 제품의 `bootalyac.exe`)은
+        # 이 조건에 걸리지 않는다. 이 값을 **짚기만** 하고, 무엇을 뺄지는
+        # remediate.edit 이 정한다.
+        # REG_MULTI_SZ 가 어떤 구분자로 실려 오는지에 기대지 않으려고 구분자를
+        # 조건에 넣지 않았다 — 넣고 틀리면 오류 없이 조용히 안 맞는다.
+        - { field: data, op: matches, value: '(?i)wbboot\.exe' }
+
+  # ── 프록시 ────────────────────────────────────────────────────────────
+  # restore: [proxy] 가 되돌릴 **증거**다. 이 규칙이 없으면 되돌릴 것이 잡히지
+  # 않아 Action 이 아예 만들어지지 않고, 계획은 초록인데 프록시는 그대로 남는다.
+  # 자리가 아니라 **무엇을 가리키는지**로 가른다 — 프록시 설정 자체는 정상
+  # 기계에도 있다.
+  - id: proxycfg
+    subject: proxy_config
+    where:
+      - { field: server, op: equals, value: "127.0.0.1:8899" }
+
+# ── 판정 ─────────────────────────────────────────────────────────────────
+# 다섯 근거 중 **둘 이상**의 논리곱. 하나뿐이면 그 룰의 오탐이 곧바로 삭제가 된다.
+#
+#   ext        확장 식별자 — 전역 고유
+#   pathhijack 실행 경로 맨 앞의 검체 폴더
+#   bootexec   부팅 목록에 덧붙은 항목
+#   svc·booter 페이로드 두 파일 — **같은 폴더의 두 표현이므로 한 근거로 센다**
+#   proxycfg   프록시 — 혼자서는 판정을 세우지 못한다(로컬 프록시를 쓰는
+#              개발 도구가 있다). 다른 근거 하나와 함께여야 선다
+#
+# 파일을 판정의 필수 항목으로 두지 않은 이유: 다른 백신이 실행 파일만 잡아간
+# 기계에서도 확장·경로·부팅 항목이 남아 검체를 되살린다. 실행 파일은 다시 받으면
+# 그만이고, **남은 쪽이 그것을 다시 부른다**(40-review-checklist.md 2번).
+verdict:
+  require: >-
+    (ext and (pathhijack or bootexec or svc or booter or proxycfg))
+    or (pathhijack and (bootexec or svc or booter or proxycfg))
+    or (bootexec and (svc or booter or proxycfg))
+    or ((svc or booter) and proxycfg)
+
+# ── 제거 ─────────────────────────────────────────────────────────────────
+# 차례는 적지 않는다. 유발자(경로·부팅 항목)를 산출물보다 먼저 놓는 것은 계획기가 한다.
+remediate:
+  remove:
+    - { ref: proc }      # process.kill — 물고 있는 파일이 있으면 격리가 실패한다
+    - { ref: svc }       # file.quarantine_only — 되돌릴 수 있다
+    - { ref: booter }
+    - { ref: ext }       # browser_ext.remove — ext 증거마다 하나씩(chrome·edge)
+
+  edit:
+    # 목록을 통째로 지우면 그 기계는 명령 하나도 찾지 못한다. **끼어든 항목
+    # 하나만** 뺀다 — 계획기가 검색 경로 계열임을 보고 env.strip_path 로 만든다.
+    - { ref: pathhijack, op: strip, value: "${pathhijack.entry}" }
+    # 앞 두 줄은 Windows 와 설치된 정상 보안 제품의 것이다. **덧붙은 한 줄만**
+    # 뺀다 — registry.strip_value. 뺄 값은 페이로드 폴더에서 실제로 찾은
+    # 파일의 이름이다. 리터럴로 적지 않는다.
+    - { ref: bootexec,   op: strip, value: "${booter.name}" }
+
+  restore:
+    # 값 전체가 검체의 것이고 정상 기계에서는 이 자리가 비어 있다 — proxy.restore.
+    # 룰이 짚은 항목만 되돌린다. 예외 목록(bypass)은 건드리지 않는다.
+    - proxy
+
+  verify:
+    # 부팅 때 나머지를 되살리는 항목이 있는 검체다. 재부팅 뒤 같은 플러그인이
+    # 다시 판정하는지 본다 — 경로 확인이 아니라 재판정이다.
+    after_reboot: true
+
+submit_hint:
+  samples: [svc, booter]
+  # 확장 증거의 path 에 사용자 계정명이 실린다. 기본값 0(공개)보다 올려 둔다.
+  confidentiality_min: 1

@@ -1,0 +1,124 @@
+{
+  "appinit-implant": {
+    "version": "1.0.0",
+    "files": {
+      "plugin.yaml": "9375ffb3127c896e7a466847b6e40ec358ca8898463e1d86b15a7b890032886e"
+    }
+  },
+  "c2-beacon": {
+    "version": "1.0.1",
+    "files": {
+      "plugin.yaml": "92e6df1f13f86c21b43c0b01d3cb7a83c2d74e4487a193c653f42b76b95c0a38"
+    }
+  },
+  "cred-dump": {
+    "version": "1.0.0",
+    "files": {
+      "plugin.yaml": "5dd8875389d8d95d81b2cbe940d86264a08e20daef064823e102d7a5391401e0"
+    }
+  },
+  "evilai-locust": {
+    "version": "0.1.0",
+    "files": {
+      "plugin.yaml": "c63ea9cc04900cb5692f4b4cdf536c0b39f3f69fd0401d5c1e1dcb767f438f9b",
+      "rules/evilai.yar": "0e51ab4f33e9136f77c3ad4390e62409606df2b6a729593acc3c090c2bc346b2"
+    }
+  },
+  "hexcfg-loader": {
+    "version": "1.0.0",
+    "files": {
+      "plugin.yaml": "6094dea56d8a023a979617c8c28845aad765d795a5e2f16a86aa893d8f1c6438"
+    }
+  },
+  "hook-implant": {
+    "version": "1.0.0",
+    "files": {
+      "plugin.yaml": "1845fcc71dcace76422899eff43162aa8a4afd8485a6f2fdeff599c4a928547e",
+      "rules/hook-implant.yar": "b1809bedf8cdac40486d6bb0af2c40f26993630c372a5b54e3fa84b72b786c47"
+    }
+  },
+  "ldso-preload": {
+    "version": "1.0.0",
+    "files": {
+      "plugin.yaml": "fead3c31459d4c0c082c2ae447b448e1d586d508a530eebdd911a2351599c2bc"
+    }
+  },
+  "npm-posthook": {
+    "version": "1.0.0",
+    "files": {
+      "plugin.yaml": "f58813ecdd998f33d5b319cf1fee1a96b8414b139a7682d2e0804796368e06d5"
+    }
+  },
+  "proxy-dns-hijack": {
+    "version": "1.0.0",
+    "files": {
+      "plugin.yaml": "3db37c651b24aeff45144c83febe979aa1d5e68c997f17968dad04901e785597"
+    }
+  },
+  "ransomware": {
+    "version": "1.0.0",
+    "files": {
+      "plugin.yaml": "f49b34f725dbcc41d330adbfa3ad94e4f3bf28942055c4e919d828b1819d8131"
+    }
+  },
+  "regkey-stager": {
+    "version": "1.0.0",
+    "files": {
+      "plugin.yaml": "7dee04909756f6f2182faf6da3d5e786610816945955189a2bdaf42196ef4af7"
+    }
+  },
+  "search-hijack": {
+    "version": "1.0.0",
+    "files": {
+      "plugin.yaml": "5ac3458bad872a133cd04bf3551da9a28f64dff47aa17bbc6c333990ccee8718"
+    }
+  },
+  "selfcopy-worm": {
+    "version": "1.0.1",
+    "files": {
+      "plugin.yaml": "bc3b1493adfbafcda4a246fcde35122b84b439365fcec66daf0c85a07bc1ee11"
+    }
+  },
+  "service-userinit": {
+    "version": "1.0.0",
+    "files": {
+      "plugin.yaml": "bd5a515e782a67656bc95a23688d19491f04a681a2b286566d47b31d9e5a0aec"
+    }
+  },
+  "shortcut-hijack": {
+    "version": "1.0.0",
+    "files": {
+      "plugin.yaml": "cbf0f0115bc45ed000d164171f382f0519504df3260facd085d6098547e72fb6"
+    }
+  },
+  "sideload-drop": {
+    "version": "1.0.0",
+    "files": {
+      "plugin.yaml": "68e5ce178d84f667f91275fced194334f8bfa14539495dff1b640b7429206fde"
+    }
+  },
+  "ssh-backdoor": {
+    "version": "1.0.0",
+    "files": {
+      "plugin.yaml": "ba5d7ec9d19f1eee15858687169b1399cec123fc6fdaed737662580b266498ae"
+    }
+  },
+  "tls-intercept": {
+    "version": "1.0.0",
+    "files": {
+      "plugin.yaml": "fd410ec946e67bf127b018a9a261d336229a20bf7994dfa651d84ed7b13671a2"
+    }
+  },
+  "webshell-upload": {
+    "version": "1.0.0",
+    "files": {
+      "plugin.yaml": "303958e74baf9653ed598c91e6a9df39df5dd5625e04b82ac123d2da01107394"
+    }
+  },
+  "xmr-miner": {
+    "version": "1.0.0",
+    "files": {
+      "plugin.yaml": "f6d9f7668f476e5f3b821d0da9a163f69772c2e1d4bcfff84af32e6eeafe7d50"
+    }
+  }
+}

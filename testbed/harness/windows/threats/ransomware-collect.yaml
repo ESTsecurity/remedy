@@ -1,0 +1,55 @@
+# 감염 스냅샷을 뜨기 위한 수집 매니페스트 — ransomware.
+#
+# # 이것은 탐지 룰이 아니다
+#
+# `detect` 는 **아무것도 맞히지 않도록** 일부러 짰다 (`search-hijack-collect.yaml`
+# 과 같다). 매니페스트가 있어야 선언 모드로 수집되고, 선언 모드여야 subject 를
+# 고를 수 있을 뿐이다. 여기에 진짜 조건을 적으면 그 순간 스냅샷이 오염된다.
+#
+# # Run 키를 범위에 넣지 않는다
+#
+# 자동 실행 등록은 `autorun` subject 가 **고정 경로에서** 거둬 오고 범위
+# 필터에도 걸리지 않는다. `c2-beacon` 이 그 증거다 — 범위가 `/opt` 뿐인데
+# `/etc/xdg/autostart/` 의 항목을 밟았다.
+#
+# 여기에 `HKCU\SOFTWARE\...\Run` 을 더하면 같은 값이 `autorun` 으로도
+# `registry_value` 로도 거둬져 **한 자리에 치료가 둘 계획된다.** 그래서 뺐다.
+#
+# 반대로 `HKCU\Control Panel\Desktop` 과 정책 키는 넣어야 한다. 그 값들은
+# 고정 경로 수집기가 보지 않으므로 범위로 지목하지 않으면 거둬지지 않는다.
+#
+# 바탕화면은 **치료 대상이 아닌데도** 범위에 둔다 — 응시자가 그 자리를 보고
+# "덮어쓴 값은 되돌릴 수 없다" 를 판단할 수 있어야 하기 때문이다. 보이지
+# 않으면 판단할 기회도 없다.
+#
+# # 사용자 폴더를 범위에 넣는 까닭
+#
+# 이 위협의 핵심은 **지우면 안 되는 것**이 거기 있다는 것이다(`*.locked`).
+# 범위 밖에 두면 오답이 그것을 지워도 채점이 보지 못한다.
+
+schema_version: 1
+id: ransomware-collect
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [windows]
+name:
+  ko: "감염 스냅샷 수집용 — ransomware"
+  en: "infected snapshot collection - ransomware"
+
+scan_roots:
+  - "C:\\ProgramData\\CryptoSvc"
+  - "C:\\ProgramData\\VendorTool"
+  - "%USERPROFILE%\\Documents"
+  - "%USERPROFILE%\\Desktop"
+  - "HKCU\\Control Panel\\Desktop"
+  - "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System"
+
+subjects: [file, registry_value, autorun]
+
+detect:
+  - id: never
+    subject: file
+    where:
+      - { field: path, op: equals, value: "C:\nonexistent\remedy-exam-never-matches" }
+
+verdict: { require: "never" }

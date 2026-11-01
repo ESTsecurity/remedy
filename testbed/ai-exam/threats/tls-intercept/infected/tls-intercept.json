@@ -1,0 +1,1578 @@
+{
+  "schema_version": 1,
+  "kind": "remedy.artifacts",
+  "run_id": "exam-tls-intercept",
+  "created": "2026-09-01T00:00:00Z",
+  "host": {
+    "hostname": "example-host",
+    "os": "linux",
+    "version": "",
+    "arch": "x86_64"
+  },
+  "core": {
+    "version": "0.0.0",
+    "build": "x86_64-unknown-linux-gnu"
+  },
+  "plugins": [],
+  "collected_at": "2026-09-01T00:00:00Z",
+  "collector": {
+    "version": "0.0.0",
+    "bitness": 64,
+    "os_bitness": 64
+  },
+  "scope": {
+    "scan_roots": [
+      "/opt"
+    ],
+    "subjects": [
+      "cert_store",
+      "hosts_entry",
+      "file"
+    ],
+    "truncated": false,
+    "denied_dirs": 0
+  },
+  "security_products": [],
+  "cert_store": [
+    {
+      "store": "local",
+      "subject": "O=NetGuard, CN=NetGuard Secure Proxy CA",
+      "issuer": "O=NetGuard, CN=NetGuard Secure Proxy CA",
+      "thumbprint": "F64CBE1E43E1D29E0D5BE22819317C0766E6AB73",
+      "not_after": "2036-08-14T00:06:35Z",
+      "linux": {
+        "path": "/usr/local/share/ca-certificates/netguard-proxy.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=GR, L=Athens, O=Hellenic Academic and Research Institutions Cert. Authority, CN=Hellenic Academic and Research Institutions RootCA 2015",
+      "issuer": "C=GR, L=Athens, O=Hellenic Academic and Research Institutions Cert. Authority, CN=Hellenic Academic and Research Institutions RootCA 2015",
+      "thumbprint": "010C0695A6981914FFBF5FC6B0B695EA29E912A6",
+      "not_after": "2040-06-30T10:11:21Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/Hellenic_Academic_and_Research_Institutions_RootCA_2015.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=GR, O=Hellenic Academic and Research Institutions CA, CN=HARICA TLS RSA Root CA 2021",
+      "issuer": "C=GR, O=Hellenic Academic and Research Institutions CA, CN=HARICA TLS RSA Root CA 2021",
+      "thumbprint": "022D0582FA88CE140C0679DE7F1410E945D7A56D",
+      "not_after": "2045-02-13T10:55:37Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/HARICA_TLS_RSA_Root_CA_2021.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Assured ID Root CA",
+      "issuer": "C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Assured ID Root CA",
+      "thumbprint": "0563B8630D62D75ABBC8AB1E4BDFB5A899B24D43",
+      "not_after": "2031-11-10T00:00:00Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/DigiCert_Assured_ID_Root_CA.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=HU, L=Budapest, O=NetLock Kft., OU=Tanúsítványkiadók (Certification Services), CN=NetLock Arany (Class Gold) Főtanúsítvány",
+      "issuer": "C=HU, L=Budapest, O=NetLock Kft., OU=Tanúsítványkiadók (Certification Services), CN=NetLock Arany (Class Gold) Főtanúsítvány",
+      "thumbprint": "06083F593F15A104A069A46BA903D006B7970991",
+      "not_after": "2028-12-06T15:08:21Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/NetLock_Arany_=Class_Gold=_Főtanúsítvány.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=PL, O=Unizeto Technologies S.A., OU=Certum Certification Authority, CN=Certum Trusted Network CA",
+      "issuer": "C=PL, O=Unizeto Technologies S.A., OU=Certum Certification Authority, CN=Certum Trusted Network CA",
+      "thumbprint": "07E032E020B72C3F192F0628A2593A19A70F069E",
+      "not_after": "2029-12-31T12:07:37Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/Certum_Trusted_Network_CA.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=BM, O=QuoVadis Limited, CN=QuoVadis Root CA 2 G3",
+      "issuer": "C=BM, O=QuoVadis Limited, CN=QuoVadis Root CA 2 G3",
+      "thumbprint": "093C61F38B8BDC7D55DF7538020500E125F5C836",
+      "not_after": "2042-01-12T18:59:32Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/QuoVadis_Root_CA_2_G3.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=ES, CN=Autoridad de Certificacion Firmaprofesional CIF A62634068",
+      "issuer": "C=ES, CN=Autoridad de Certificacion Firmaprofesional CIF A62634068",
+      "thumbprint": "0BBEC2272249CB39AADB355C53E38CAE78FFB6FE",
+      "not_after": "2036-05-05T15:22:07Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/Autoridad_de_Certificacion_Firmaprofesional_CIF_A62634068_2.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, O=Amazon, CN=Amazon Root CA 3",
+      "issuer": "C=US, O=Amazon, CN=Amazon Root CA 3",
+      "thumbprint": "0D44DD8C3C8C1A1A58756481E90F2E2AFFB3D26E",
+      "not_after": "2040-05-26T00:00:00Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/Amazon_Root_CA_3.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=CN, O=GUANG DONG CERTIFICATE AUTHORITY CO.,LTD., CN=GDCA TrustAUTH R5 ROOT",
+      "issuer": "C=CN, O=GUANG DONG CERTIFICATE AUTHORITY CO.,LTD., CN=GDCA TrustAUTH R5 ROOT",
+      "thumbprint": "0F36385B811A25C39B314E83CAE9346670CC74B4",
+      "not_after": "2040-12-31T15:59:59Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/GDCA_TrustAUTH_R5_ROOT.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=CH, O=WISeKey, OU=OISTE Foundation Endorsed, CN=OISTE WISeKey Global Root GB CA",
+      "issuer": "C=CH, O=WISeKey, OU=OISTE Foundation Endorsed, CN=OISTE WISeKey Global Root GB CA",
+      "thumbprint": "0FF9407618D3D76A4B98F0A8359E0CFD27ACCCED",
+      "not_after": "2039-12-01T15:10:31Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/OISTE_WISeKey_Global_Root_GB_CA.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, O=Entrust, Inc., OU=See www.entrust.net/legal-terms, OU=(c) 2015 Entrust, Inc. - for authorized use only, CN=Entrust Root Certification Authority - G4",
+      "issuer": "C=US, O=Entrust, Inc., OU=See www.entrust.net/legal-terms, OU=(c) 2015 Entrust, Inc. - for authorized use only, CN=Entrust Root Certification Authority - G4",
+      "thumbprint": "14884E862637B026AF59625C4077EC3529BA9601",
+      "not_after": "2037-12-27T11:41:16Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/Entrust_Root_Certification_Authority_-_G4.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, O=DigiCert, Inc., CN=DigiCert TLS ECC P384 Root G5",
+      "issuer": "C=US, O=DigiCert, Inc., CN=DigiCert TLS ECC P384 Root G5",
+      "thumbprint": "17F3DE5E9F0F19E98EF61F32266E20C407AE30EE",
+      "not_after": "2046-01-14T23:59:59Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/DigiCert_TLS_ECC_P384_Root_G5.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=BM, O=QuoVadis Limited, CN=QuoVadis Root CA 1 G3",
+      "issuer": "C=BM, O=QuoVadis Limited, CN=QuoVadis Root CA 1 G3",
+      "thumbprint": "1B8EEA5796291AC939EAB80A811A7373C0937967",
+      "not_after": "2042-01-12T17:27:44Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/QuoVadis_Root_CA_1_G3.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "OU=GlobalSign ECC Root CA - R5, O=GlobalSign, CN=GlobalSign",
+      "issuer": "OU=GlobalSign ECC Root CA - R5, O=GlobalSign, CN=GlobalSign",
+      "thumbprint": "1F24C630CDA418EF2069FFAD4FDD5F463A1B69AA",
+      "not_after": "2038-01-19T03:14:07Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/GlobalSign_ECC_Root_CA_-_R5.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=BM, O=QuoVadis Limited, CN=QuoVadis Root CA 3",
+      "issuer": "C=BM, O=QuoVadis Limited, CN=QuoVadis Root CA 3",
+      "thumbprint": "1F4914F7D874951DDDAE02C0BEFD3A2D82755185",
+      "not_after": "2031-11-24T19:06:44Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/QuoVadis_Root_CA_3.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=DE, O=D-Trust GmbH, CN=D-TRUST BR Root CA 1 2020",
+      "issuer": "C=DE, O=D-Trust GmbH, CN=D-TRUST BR Root CA 1 2020",
+      "thumbprint": "1F5B98F0E3B5F7743CEDE6B0367D32CDF4094167",
+      "not_after": "2035-02-11T09:44:59Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/D-TRUST_BR_Root_CA_1_2020.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, O=Entrust, Inc., OU=See www.entrust.net/legal-terms, OU=(c) 2012 Entrust, Inc. - for authorized use only, CN=Entrust Root Certification Authority - EC1",
+      "issuer": "C=US, O=Entrust, Inc., OU=See www.entrust.net/legal-terms, OU=(c) 2012 Entrust, Inc. - for authorized use only, CN=Entrust Root Certification Authority - EC1",
+      "thumbprint": "20D80640DF9B25F512253A11EAF7598AEB14B547",
+      "not_after": "2037-12-18T15:55:36Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/Entrust_Root_Certification_Authority_-_EC1.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=RO, O=CERTSIGN SA, OU=certSIGN ROOT CA G2",
+      "issuer": "C=RO, O=CERTSIGN SA, OU=certSIGN ROOT CA G2",
+      "thumbprint": "26F993B4ED3D2827B0B94BA7E9151DA38D92E532",
+      "not_after": "2042-02-06T09:27:35Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/certSIGN_Root_CA_G2.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, O=The Go Daddy Group, Inc., OU=Go Daddy Class 2 Certification Authority",
+      "issuer": "C=US, O=The Go Daddy Group, Inc., OU=Go Daddy Class 2 Certification Authority",
+      "thumbprint": "2796BAE63F1801E277261BA0D77770028F20EEE4",
+      "not_after": "2034-06-29T17:06:20Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/Go_Daddy_Class_2_CA.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=CN, O=UniTrust, CN=UCA Global G2 Root",
+      "issuer": "C=CN, O=UniTrust, CN=UCA Global G2 Root",
+      "thumbprint": "28F97816197AFF182518AA44FEC1A0CE5CB64C8A",
+      "not_after": "2040-12-31T00:00:00Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/UCA_Global_G2_Root.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, O=AffirmTrust, CN=AffirmTrust Networking",
+      "issuer": "C=US, O=AffirmTrust, CN=AffirmTrust Networking",
+      "thumbprint": "293621028B20ED02F566C532D1D6ED909F45002F",
+      "not_after": "2030-12-31T14:08:24Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/AffirmTrust_Networking.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, ST=New Jersey, L=Jersey City, O=The USERTRUST Network, CN=USERTrust RSA Certification Authority",
+      "issuer": "C=US, ST=New Jersey, L=Jersey City, O=The USERTRUST Network, CN=USERTrust RSA Certification Authority",
+      "thumbprint": "2B8F1B57330DBBA2D07A6C51F70EE90DDAB9AD8E",
+      "not_after": "2038-01-18T23:59:59Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/USERTrust_RSA_Certification_Authority.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "CN=Atos TrustedRoot 2011, O=Atos, C=DE",
+      "issuer": "CN=Atos TrustedRoot 2011, O=Atos, C=DE",
+      "thumbprint": "2BB1F53E550C1DC5F1D4E6B76A464B550602AC21",
+      "not_after": "2030-12-31T23:59:59Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/Atos_TrustedRoot_2011.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=FR, O=Dhimyotis, OU=0002 48146308100036, CN=Certigna Root CA",
+      "issuer": "C=FR, O=Dhimyotis, OU=0002 48146308100036, CN=Certigna Root CA",
+      "thumbprint": "2D0D5214FF9EAD9924017420476E6C852727F543",
+      "not_after": "2033-10-01T08:32:27Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/Certigna_Root_CA.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=ES, O=IZENPE S.A., CN=Izenpe.com",
+      "issuer": "C=ES, O=IZENPE S.A., CN=Izenpe.com",
+      "thumbprint": "2F783D255218A74A653971B52CA29C45156FE919",
+      "not_after": "2037-12-13T08:27:25Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/Izenpe.com.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, ST=Illinois, L=Chicago, O=Trustwave Holdings, Inc., CN=Trustwave Global Certification Authority",
+      "issuer": "C=US, ST=Illinois, L=Chicago, O=Trustwave Holdings, Inc., CN=Trustwave Global Certification Authority",
+      "thumbprint": "2F8F364FE1589744215987A52A9AD06995267FB5",
+      "not_after": "2042-08-23T19:34:12Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/Trustwave_Global_Certification_Authority.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=IN, OU=emSign PKI, O=eMudhra Technologies Limited, CN=emSign ECC Root CA - G3",
+      "issuer": "C=IN, OU=emSign PKI, O=eMudhra Technologies Limited, CN=emSign ECC Root CA - G3",
+      "thumbprint": "3043FA4FF257DCA0C380EE2E58EA78B23FE6BBC1",
+      "not_after": "2043-02-18T18:30:00Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/emSign_ECC_Root_CA_-_G3.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=TR, L=Gebze - Kocaeli, O=Turkiye Bilimsel ve Teknolojik Arastirma Kurumu - TUBITAK, OU=Kamu Sertifikasyon Merkezi - Kamu SM, CN=TUBITAK Kamu SM SSL Kok Sertifikasi - Surum 1",
+      "issuer": "C=TR, L=Gebze - Kocaeli, O=Turkiye Bilimsel ve Teknolojik Arastirma Kurumu - TUBITAK, OU=Kamu Sertifikasyon Merkezi - Kamu SM, CN=TUBITAK Kamu SM SSL Kok Sertifikasi - Surum 1",
+      "thumbprint": "3143649BECCE27ECED3A3F0B8F0DE4E891DDEECA",
+      "not_after": "2043-10-25T08:25:55Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/TUBITAK_Kamu_SM_SSL_Kok_Sertifikasi_-_Surum_1.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=JP, O=SECOM Trust.net, OU=Security Communication RootCA1",
+      "issuer": "C=JP, O=SECOM Trust.net, OU=Security Communication RootCA1",
+      "thumbprint": "36B12B49F9819ED74C9EBC380FC6568F5DACB2F7",
+      "not_after": "2023-09-30T04:20:49Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/Security_Communication_Root_CA.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=BE, O=GlobalSign nv-sa, CN=GlobalSign Root E46",
+      "issuer": "C=BE, O=GlobalSign nv-sa, CN=GlobalSign Root E46",
+      "thumbprint": "39B46CD5FE8006EBE22F4ABB0833A0AFDBB9DD84",
+      "not_after": "2046-03-20T00:00:00Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/GlobalSign_Root_E46.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, O=SecureTrust Corporation, CN=Secure Global CA",
+      "issuer": "C=US, O=SecureTrust Corporation, CN=Secure Global CA",
+      "thumbprint": "3A44735AE581901F248661461E3B9CC45FF53A1B",
+      "not_after": "2029-12-31T19:52:06Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/Secure_Global_CA.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=JP, O=Japan Certification Services, Inc., CN=SecureSign RootCA11",
+      "issuer": "C=JP, O=Japan Certification Services, Inc., CN=SecureSign RootCA11",
+      "thumbprint": "3BC49F48F8F373A09C1EBDF85BB1C365C7D811B3",
+      "not_after": "2029-04-08T04:56:47Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/SecureSign_RootCA11.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "O=TeliaSonera, CN=TeliaSonera Root CA v1",
+      "issuer": "O=TeliaSonera, CN=TeliaSonera Root CA v1",
+      "thumbprint": "4313BB96F1D5869BC14E6A92F6CFF63469878237",
+      "not_after": "2032-10-18T12:00:50Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/TeliaSonera_Root_CA_v1.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, ST=Arizona, L=Scottsdale, O=GoDaddy.com, Inc., CN=Go Daddy Root Certificate Authority - G2",
+      "issuer": "C=US, ST=Arizona, L=Scottsdale, O=GoDaddy.com, Inc., CN=Go Daddy Root Certificate Authority - G2",
+      "thumbprint": "47BEABC922EAE80E78783462A79F45C254FDE68B",
+      "not_after": "2037-12-31T23:59:59Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/Go_Daddy_Root_Certificate_Authority_-_G2.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=BM, O=QuoVadis Limited, CN=QuoVadis Root CA 3 G3",
+      "issuer": "C=BM, O=QuoVadis Limited, CN=QuoVadis Root CA 3 G3",
+      "thumbprint": "4812BD923CA8C43906E7306D2796E6A4CF222E7D",
+      "not_after": "2042-01-12T20:26:32Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/QuoVadis_Root_CA_3_G3.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=NO, O=Buypass AS-983163327, CN=Buypass Class 2 Root CA",
+      "issuer": "C=NO, O=Buypass AS-983163327, CN=Buypass Class 2 Root CA",
+      "thumbprint": "490A7574DE870A47FE58EEF6C76BEBC60B124099",
+      "not_after": "2040-10-26T08:38:03Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/Buypass_Class_2_Root_CA.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, ST=Texas, L=Houston, O=SSL Corporation, CN=SSL.com EV Root Certification Authority ECC",
+      "issuer": "C=US, ST=Texas, L=Houston, O=SSL Corporation, CN=SSL.com EV Root Certification Authority ECC",
+      "thumbprint": "4CDD51A3D1F5203214B0C6C532230391C746426D",
+      "not_after": "2041-02-12T18:15:23Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/SSL.com_EV_Root_Certification_Authority_ECC.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "O=Entrust.net, OU=www.entrust.net/CPS_2048 incorp. by ref. (limits liab.), OU=(c) 1999 Entrust.net Limited, CN=Entrust.net Certification Authority (2048)",
+      "issuer": "O=Entrust.net, OU=www.entrust.net/CPS_2048 incorp. by ref. (limits liab.), OU=(c) 1999 Entrust.net Limited, CN=Entrust.net Certification Authority (2048)",
+      "thumbprint": "503006091D97D4F5AE39F7CBE7927D7D652D3431",
+      "not_after": "2029-07-24T14:15:12Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/Entrust.net_Premium_2048_Secure_Server_CA.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=TR, L=Ankara, O=E-Tuğra EBG Bilişim Teknolojileri ve Hizmetleri A.Ş., OU=E-Tugra Sertifikasyon Merkezi, CN=E-Tugra Certification Authority",
+      "issuer": "C=TR, L=Ankara, O=E-Tuğra EBG Bilişim Teknolojileri ve Hizmetleri A.Ş., OU=E-Tugra Sertifikasyon Merkezi, CN=E-Tugra Certification Authority",
+      "thumbprint": "51C6E70849066EF392D45CA00D6DA3628FC35239",
+      "not_after": "2023-03-03T12:09:48Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/E-Tugra_Certification_Authority.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=BE, O=GlobalSign nv-sa, CN=GlobalSign Root R46",
+      "issuer": "C=BE, O=GlobalSign nv-sa, CN=GlobalSign Root R46",
+      "thumbprint": "53A2B04BCA6BD645E6398A8EC40DD2BF77C3A290",
+      "not_after": "2046-03-20T00:00:00Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/GlobalSign_Root_R46.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=DE, O=T-Systems Enterprise Services GmbH, OU=T-Systems Trust Center, CN=T-TeleSec GlobalRoot Class 3",
+      "issuer": "C=DE, O=T-Systems Enterprise Services GmbH, OU=T-Systems Trust Center, CN=T-TeleSec GlobalRoot Class 3",
+      "thumbprint": "55A6723ECBF2ECCDC3237470199D2ABE11E381D1",
+      "not_after": "2033-10-01T23:59:59Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/T-TeleSec_GlobalRoot_Class_3.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=HK, ST=Hong Kong, L=Hong Kong, O=Hongkong Post, CN=Hongkong Post Root CA 3",
+      "issuer": "C=HK, ST=Hong Kong, L=Hong Kong, O=Hongkong Post, CN=Hongkong Post Root CA 3",
+      "thumbprint": "58A2D0EC2052815BC1F3F86402244EC28E024B02",
+      "not_after": "2042-06-03T02:29:46Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/Hongkong_Post_Root_CA_3.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=PA, ST=Panama, L=Panama City, O=TrustCor Systems S. de R.L., OU=TrustCor Certificate Authority, CN=TrustCor ECA-1",
+      "issuer": "C=PA, ST=Panama, L=Panama City, O=TrustCor Systems S. de R.L., OU=TrustCor Certificate Authority, CN=TrustCor ECA-1",
+      "thumbprint": "58D1DF9595676B63C0F05B1C174D8B840BC878BD",
+      "not_after": "2029-12-31T17:28:07Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/TrustCor_ECA-1.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=DE, O=D-Trust GmbH, CN=D-TRUST Root Class 3 CA 2 2009",
+      "issuer": "C=DE, O=D-Trust GmbH, CN=D-TRUST Root Class 3 CA 2 2009",
+      "thumbprint": "58E8ABB0361533FB80F79B1B6D29D3FF8D5F00F0",
+      "not_after": "2029-11-05T08:35:58Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/D-TRUST_Root_Class_3_CA_2_2009.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=DE, O=T-Systems Enterprise Services GmbH, OU=T-Systems Trust Center, CN=T-TeleSec GlobalRoot Class 2",
+      "issuer": "C=DE, O=T-Systems Enterprise Services GmbH, OU=T-Systems Trust Center, CN=T-TeleSec GlobalRoot Class 2",
+      "thumbprint": "590D2D7D884F402E617EA562321765CF17D894E9",
+      "not_after": "2033-10-01T23:59:59Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/T-TeleSec_GlobalRoot_Class_2.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, O=Amazon, CN=Amazon Root CA 2",
+      "issuer": "C=US, O=Amazon, CN=Amazon Root CA 2",
+      "thumbprint": "5A8CEF45D7A69859767A8C8B4496B578CF474B1A",
+      "not_after": "2040-05-26T00:00:00Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/Amazon_Root_CA_2.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=ES, O=ANF Autoridad de Certificacion, OU=ANF CA Raiz, CN=ANF Secure Server Root CA",
+      "issuer": "C=ES, O=ANF Autoridad de Certificacion, OU=ANF CA Raiz, CN=ANF Secure Server Root CA",
+      "thumbprint": "5B6E68D0CC15B6A05F1EC15FAE02FC6B2F5D6F74",
+      "not_after": "2039-08-30T10:00:38Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/ANF_Secure_Server_Root_CA.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=JP, O=SECOM Trust Systems CO.,LTD., OU=Security Communication RootCA2",
+      "issuer": "C=JP, O=SECOM Trust Systems CO.,LTD., OU=Security Communication RootCA2",
+      "thumbprint": "5F3B8CF2F810B37D78B4CEEC1919C37334B9C774",
+      "not_after": "2029-05-29T05:00:39Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/Security_Communication_RootCA2.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert High Assurance EV Root CA",
+      "issuer": "C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert High Assurance EV Root CA",
+      "thumbprint": "5FB7EE0633E259DBAD0C4C9AE6D38F1A61C7DC25",
+      "not_after": "2031-11-10T00:00:00Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/DigiCert_High_Assurance_EV_Root_CA.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=DE, O=D-Trust GmbH, CN=D-TRUST EV Root CA 1 2020",
+      "issuer": "C=DE, O=D-Trust GmbH, CN=D-TRUST EV Root CA 1 2020",
+      "thumbprint": "61DB8C2159690390D87C9C128654CF9D3DF4DD07",
+      "not_after": "2035-02-11T09:59:59Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/D-TRUST_EV_Root_CA_1_2020.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=ES, O=FNMT-RCM, OU=Ceres, CN=AC RAIZ FNMT-RCM SERVIDORES SEGUROS",
+      "issuer": "C=ES, O=FNMT-RCM, OU=Ceres, CN=AC RAIZ FNMT-RCM SERVIDORES SEGUROS",
+      "thumbprint": "62FFD99EC0650D03CE7593D2ED3F2D32C9E3E54A",
+      "not_after": "2043-12-20T09:37:33Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/AC_RAIZ_FNMT-RCM_SERVIDORES_SEGUROS.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=GB, ST=Greater Manchester, L=Salford, O=COMODO CA Limited, CN=COMODO Certification Authority",
+      "issuer": "C=GB, ST=Greater Manchester, L=Salford, O=COMODO CA Limited, CN=COMODO Certification Authority",
+      "thumbprint": "6631BF9EF74F9EB6C9D5A60CBA6ABED1F7BDEF7B",
+      "not_after": "2029-12-31T23:59:59Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/COMODO_Certification_Authority.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=TW, O=Chunghwa Telecom Co., Ltd., OU=ePKI Root Certification Authority",
+      "issuer": "C=TW, O=Chunghwa Telecom Co., Ltd., OU=ePKI Root Certification Authority",
+      "thumbprint": "67650DF17E8E7E5B8240A4F4564BCFE23D69C6F0",
+      "not_after": "2034-12-20T02:31:27Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/ePKI_Root_Certification_Authority.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=TW, O=Chunghwa Telecom Co., Ltd., CN=HiPKI Root CA - G1",
+      "issuer": "C=TW, O=Chunghwa Telecom Co., Ltd., CN=HiPKI Root CA - G1",
+      "thumbprint": "6A92E4A8EE1BEC964537E3295749CD96E3E5D260",
+      "not_after": "2037-12-31T15:59:59Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/HiPKI_Root_CA_-_G1.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "OU=GlobalSign ECC Root CA - R4, O=GlobalSign, CN=GlobalSign",
+      "issuer": "OU=GlobalSign ECC Root CA - R4, O=GlobalSign, CN=GlobalSign",
+      "thumbprint": "6BA0B098E171EF5AADFE4815807710F4BD6F0B28",
+      "not_after": "2038-01-19T03:14:07Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/GlobalSign_ECC_Root_CA_-_R4.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, O=Microsoft Corporation, CN=Microsoft RSA Root Certificate Authority 2017",
+      "issuer": "C=US, O=Microsoft Corporation, CN=Microsoft RSA Root Certificate Authority 2017",
+      "thumbprint": "73A5E64A3BFF8316FF0EDCCC618A906E4EAE4D74",
+      "not_after": "2042-07-18T23:00:23Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/Microsoft_RSA_Root_Certificate_Authority_2017.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, ST=Texas, L=Houston, O=SSL Corporation, CN=SSL.com EV Root Certification Authority RSA R2",
+      "issuer": "C=US, ST=Texas, L=Houston, O=SSL Corporation, CN=SSL.com EV Root Certification Authority RSA R2",
+      "thumbprint": "743AF0529BD032A0F44A83CDD4BAA97B7C2EC49A",
+      "not_after": "2042-05-30T18:14:37Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/SSL.com_EV_Root_Certification_Authority_RSA_R2.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, O=Google Trust Services LLC, CN=GTS Root R4",
+      "issuer": "C=US, O=Google Trust Services LLC, CN=GTS Root R4",
+      "thumbprint": "77D30367B5E00C15F60C3861DF7CE13B92464D47",
+      "not_after": "2036-06-22T00:00:00Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/GTS_Root_R4.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Global Root G3",
+      "issuer": "C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Global Root G3",
+      "thumbprint": "7E04DE896A3E666D00E687D33FFAD93BE83D349E",
+      "not_after": "2038-01-15T12:00:00Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/DigiCert_Global_Root_G3.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "OU=GlobalSign Root CA - R6, O=GlobalSign, CN=GlobalSign",
+      "issuer": "OU=GlobalSign Root CA - R6, O=GlobalSign, CN=GlobalSign",
+      "thumbprint": "8094640EB5A7A1CA119C1FDDD59F810263A7FBD1",
+      "not_after": "2034-12-10T00:00:00Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/GlobalSign_Root_CA_-_R6.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=CN, O=iTrusChina Co.,Ltd., CN=vTrus Root CA",
+      "issuer": "C=CN, O=iTrusChina Co.,Ltd., CN=vTrus Root CA",
+      "thumbprint": "841A69FBF5CD1A2534133DE3F8FCB899D0C914B7",
+      "not_after": "2043-07-31T07:24:05Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/vTrus_Root_CA.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, O=SecureTrust Corporation, CN=SecureTrust CA",
+      "issuer": "C=US, O=SecureTrust Corporation, CN=SecureTrust CA",
+      "thumbprint": "8782C6C304353BCFD29692D2593E7D44D934FF11",
+      "not_after": "2029-12-31T19:40:55Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/SecureTrust_CA.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=HU, L=Budapest, O=Microsec Ltd., CN=e-Szigno Root CA 2017",
+      "issuer": "C=HU, L=Budapest, O=Microsec Ltd., CN=e-Szigno Root CA 2017",
+      "thumbprint": "89D483034F9E9A48805F7237D4A9A6EFCB7C1FD1",
+      "not_after": "2042-08-22T12:07:06Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/e-Szigno_Root_CA_2017.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=HU, L=Budapest, O=Microsec Ltd., CN=Microsec e-Szigno Root CA 2009",
+      "issuer": "C=HU, L=Budapest, O=Microsec Ltd., CN=Microsec e-Szigno Root CA 2009",
+      "thumbprint": "89DF74FE5CF40F4A80F9E3377D54DA91E101318E",
+      "not_after": "2029-12-30T11:30:18Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/Microsec_e-Szigno_Root_CA_2009.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=TR, L=Ankara, O=E-Tugra EBG A.S., OU=E-Tugra Trust Center, CN=E-Tugra Global Root CA ECC v3",
+      "issuer": "C=TR, L=Ankara, O=E-Tugra EBG A.S., OU=E-Tugra Trust Center, CN=E-Tugra Global Root CA ECC v3",
+      "thumbprint": "8A2FAF5753B1B0E6A104EC5B6A69716DF61CE284",
+      "not_after": "2045-03-12T09:46:58Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/E-Tugra_Global_Root_CA_ECC_v3.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=IN, OU=emSign PKI, O=eMudhra Technologies Limited, CN=emSign Root CA - G1",
+      "issuer": "C=IN, OU=emSign PKI, O=eMudhra Technologies Limited, CN=emSign Root CA - G1",
+      "thumbprint": "8AC7AD8F73AC4EC1B5754DA540F4FCCF7CB58E8C",
+      "not_after": "2043-02-18T18:30:00Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/emSign_Root_CA_-_G1.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, O=Entrust, Inc., OU=See www.entrust.net/legal-terms, OU=(c) 2009 Entrust, Inc. - for authorized use only, CN=Entrust Root Certification Authority - G2",
+      "issuer": "C=US, O=Entrust, Inc., OU=See www.entrust.net/legal-terms, OU=(c) 2009 Entrust, Inc. - for authorized use only, CN=Entrust Root Certification Authority - G2",
+      "thumbprint": "8CF427FD790C3AD166068DE81E57EFBB932272D4",
+      "not_after": "2030-12-07T17:55:54Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/Entrust_Root_Certification_Authority_-_G2.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, O=Amazon, CN=Amazon Root CA 1",
+      "issuer": "C=US, O=Amazon, CN=Amazon Root CA 1",
+      "thumbprint": "8DA7F965EC5EFC37910F1C6E59FDC1CC6A6EDE16",
+      "not_after": "2038-01-17T00:00:00Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/Amazon_Root_CA_1.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=KR, O=NAVER BUSINESS PLATFORM Corp., CN=NAVER Global Root Certification Authority",
+      "issuer": "C=KR, O=NAVER BUSINESS PLATFORM Corp., CN=NAVER Global Root Certification Authority",
+      "thumbprint": "8F6BF2A9274ADA14A0C4F48E6127F9C01E785DD1",
+      "not_after": "2037-08-18T23:59:59Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/NAVER_Global_Root_Certification_Authority.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, ST=Arizona, L=Scottsdale, O=Starfield Technologies, Inc., CN=Starfield Services Root Certificate Authority - G2",
+      "issuer": "C=US, ST=Arizona, L=Scottsdale, O=Starfield Technologies, Inc., CN=Starfield Services Root Certificate Authority - G2",
+      "thumbprint": "925A8F8D2C6D04E0665F596AFF22D863E8256F3F",
+      "not_after": "2037-12-31T23:59:59Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/Starfield_Services_Root_Certificate_Authority_-_G2.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "CN=ACCVRAIZ1, OU=PKIACCV, O=ACCV, C=ES",
+      "issuer": "CN=ACCVRAIZ1, OU=PKIACCV, O=ACCV, C=ES",
+      "thumbprint": "93057A8815C64FCE882FFA9116522878BC536417",
+      "not_after": "2030-12-31T09:37:37Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/ACCVRAIZ1.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=DE, O=D-Trust GmbH, CN=D-TRUST Root Class 3 CA 2 EV 2009",
+      "issuer": "C=DE, O=D-Trust GmbH, CN=D-TRUST Root Class 3 CA 2 EV 2009",
+      "thumbprint": "96C91B0B95B4109842FAD0D82279FE60FAB91683",
+      "not_after": "2029-11-05T08:50:46Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/D-TRUST_Root_Class_3_CA_2_EV_2009.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, O=Microsoft Corporation, CN=Microsoft ECC Root Certificate Authority 2017",
+      "issuer": "C=US, O=Microsoft Corporation, CN=Microsoft ECC Root Certificate Authority 2017",
+      "thumbprint": "999A64C37FF47D9FAB95F14769891460EEC4C3C5",
+      "not_after": "2042-07-18T23:16:04Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/Microsoft_ECC_Root_Certificate_Authority_2017.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, O=Google Trust Services LLC, CN=GTS Root R2",
+      "issuer": "C=US, O=Google Trust Services LLC, CN=GTS Root R2",
+      "thumbprint": "9A44497632DBDEFAD0BCFB5A7B17BD9E56092494",
+      "not_after": "2036-06-22T00:00:00Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/GTS_Root_R2.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=CH, O=SwissSign AG, CN=SwissSign Silver CA - G2",
+      "issuer": "C=CH, O=SwissSign AG, CN=SwissSign Silver CA - G2",
+      "thumbprint": "9BAAE59F56EE21CB435ABE2593DFA7F040D11DCB",
+      "not_after": "2036-10-25T08:32:46Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/SwissSign_Silver_CA_-_G2.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=TW, O=TAIWAN-CA, OU=Root CA, CN=TWCA Global Root CA",
+      "issuer": "C=TW, O=TAIWAN-CA, OU=Root CA, CN=TWCA Global Root CA",
+      "thumbprint": "9CBB4853F6A4F6D352A4E83252556013F5ADAF65",
+      "not_after": "2030-12-31T15:59:59Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/TWCA_Global_Root_CA.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=GB, ST=Greater Manchester, L=Salford, O=COMODO CA Limited, CN=COMODO ECC Certification Authority",
+      "issuer": "C=GB, ST=Greater Manchester, L=Salford, O=COMODO CA Limited, CN=COMODO ECC Certification Authority",
+      "thumbprint": "9F744E9F2B4DBAEC0F312C50B6563B8E2D93C311",
+      "not_after": "2038-01-18T23:59:59Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/COMODO_ECC_Certification_Authority.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=GR, L=Athens, O=Hellenic Academic and Research Institutions Cert. Authority, CN=Hellenic Academic and Research Institutions ECC RootCA 2015",
+      "issuer": "C=GR, L=Athens, O=Hellenic Academic and Research Institutions Cert. Authority, CN=Hellenic Academic and Research Institutions ECC RootCA 2015",
+      "thumbprint": "9FF1718D92D59AF37D7497B4BC6F84680BBAB666",
+      "not_after": "2040-06-30T10:37:12Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/Hellenic_Academic_and_Research_Institutions_ECC_RootCA_2015.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, O=Certainly, CN=Certainly Root R1",
+      "issuer": "C=US, O=Certainly, CN=Certainly Root R1",
+      "thumbprint": "A050EE0F2871F427B2126D6F509625BACC8642AF",
+      "not_after": "2046-04-01T00:00:00Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/Certainly_Root_R1.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Assured ID Root G2",
+      "issuer": "C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Assured ID Root G2",
+      "thumbprint": "A14B48D943EE0A0E40904F3CE0A4C09193515D3F",
+      "not_after": "2038-01-15T12:00:00Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/DigiCert_Assured_ID_Root_G2.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=CN, O=UniTrust, CN=UCA Extended Validation Root",
+      "issuer": "C=CN, O=UniTrust, CN=UCA Extended Validation Root",
+      "thumbprint": "A3A1B06F2461234AE336A5C237FCA6FFDDF0D73A",
+      "not_after": "2038-12-31T00:00:00Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/UCA_Extended_Validation_Root.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, O=DigiCert, Inc., CN=DigiCert TLS RSA4096 Root G5",
+      "issuer": "C=US, O=DigiCert, Inc., CN=DigiCert TLS RSA4096 Root G5",
+      "thumbprint": "A78849DC5D7C758C8CDE399856B3AAD0B2A57135",
+      "not_after": "2046-01-14T23:59:59Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/DigiCert_TLS_RSA4096_Root_G5.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Global Root CA",
+      "issuer": "C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Global Root CA",
+      "thumbprint": "A8985D3A65E5E5C4B2D7D66D40C6DD2FB19C5436",
+      "not_after": "2031-11-10T00:00:00Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/DigiCert_Global_Root_CA.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, O=Starfield Technologies, Inc., OU=Starfield Class 2 Certification Authority",
+      "issuer": "C=US, O=Starfield Technologies, Inc., OU=Starfield Class 2 Certification Authority",
+      "thumbprint": "AD7E1C28B064EF8F6003402014C3D0E3370EB58A",
+      "not_after": "2034-06-29T17:39:16Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/Starfield_Class_2_CA.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=GB, O=Sectigo Limited, CN=Sectigo Public Server Authentication Root R46",
+      "issuer": "C=GB, O=Sectigo Limited, CN=Sectigo Public Server Authentication Root R46",
+      "thumbprint": "AD98F9F3E47D753B65D482B3A45217BB6EF5E438",
+      "not_after": "2046-03-21T23:59:59Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/Sectigo_Public_Server_Authentication_Root_R46.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=ES, CN=Autoridad de Certificacion Firmaprofesional CIF A62634068",
+      "issuer": "C=ES, CN=Autoridad de Certificacion Firmaprofesional CIF A62634068",
+      "thumbprint": "AEC5FB3FC8E1BFC4E54F03075A9AE800B7F7B6FA",
+      "not_after": "2030-12-31T08:38:15Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/Autoridad_de_Certificacion_Firmaprofesional_CIF_A62634068.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=GB, ST=Greater Manchester, L=Salford, O=COMODO CA Limited, CN=COMODO RSA Certification Authority",
+      "issuer": "C=GB, ST=Greater Manchester, L=Salford, O=COMODO CA Limited, CN=COMODO RSA Certification Authority",
+      "thumbprint": "AFE5D244A8D1194230FF479FE2F897BBCD7A8CB4",
+      "not_after": "2038-01-18T23:59:59Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/COMODO_RSA_Certification_Authority.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=FR, O=Dhimyotis, CN=Certigna",
+      "issuer": "C=FR, O=Dhimyotis, CN=Certigna",
+      "thumbprint": "B12E13634586A46F1AB2606837582DC4ACFD9497",
+      "not_after": "2027-06-29T15:13:05Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/Certigna.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=BE, O=GlobalSign nv-sa, OU=Root CA, CN=GlobalSign Root CA",
+      "issuer": "C=BE, O=GlobalSign nv-sa, OU=Root CA, CN=GlobalSign Root CA",
+      "thumbprint": "B1BC968BD4F49D622AA89A81F2150152A41D829C",
+      "not_after": "2028-01-28T12:00:00Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/GlobalSign_Root_CA.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, O=Entrust, Inc., OU=www.entrust.net/CPS is incorporated by reference, OU=(c) 2006 Entrust, Inc., CN=Entrust Root Certification Authority",
+      "issuer": "C=US, O=Entrust, Inc., OU=www.entrust.net/CPS is incorporated by reference, OU=(c) 2006 Entrust, Inc., CN=Entrust Root Certification Authority",
+      "thumbprint": "B31EB1B740E36C8402DADC37D44DF5D4674952F9",
+      "not_after": "2026-11-27T20:53:42Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/Entrust_Root_Certification_Authority.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, ST=Illinois, L=Chicago, O=Trustwave Holdings, Inc., CN=Trustwave Global ECC P256 Certification Authority",
+      "issuer": "C=US, ST=Illinois, L=Chicago, O=Trustwave Holdings, Inc., CN=Trustwave Global ECC P256 Certification Authority",
+      "thumbprint": "B49082DD450CBE8B5BB166D3E2A40826CDED42CF",
+      "not_after": "2042-08-23T19:35:10Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/Trustwave_Global_ECC_P256_Certification_Authority.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, ST=Arizona, L=Scottsdale, O=Starfield Technologies, Inc., CN=Starfield Root Certificate Authority - G2",
+      "issuer": "C=US, ST=Arizona, L=Scottsdale, O=Starfield Technologies, Inc., CN=Starfield Root Certificate Authority - G2",
+      "thumbprint": "B51C067CEE2B0C3DF855AB2D92F4FE39D4E70F0E",
+      "not_after": "2037-12-31T23:59:59Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/Starfield_Root_Certificate_Authority_-_G2.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=SK, L=Bratislava, O=Disig a.s., CN=CA Disig Root R2",
+      "issuer": "C=SK, L=Bratislava, O=Disig a.s., CN=CA Disig Root R2",
+      "thumbprint": "B561EBEAA4DEE4254B691A98A55747C234C7D971",
+      "not_after": "2042-07-19T09:15:30Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/CA_Disig_Root_R2.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, OU=emSign PKI, O=eMudhra Inc, CN=emSign ECC Root CA - C3",
+      "issuer": "C=US, OU=emSign PKI, O=eMudhra Inc, CN=emSign ECC Root CA - C3",
+      "thumbprint": "B6AF43C29B81537DF6EF6BC31F1F60150CEE4866",
+      "not_after": "2043-02-18T18:30:00Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/emSign_ECC_Root_CA_-_C3.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, ST=Texas, L=Houston, O=SSL Corporation, CN=SSL.com Root Certification Authority RSA",
+      "issuer": "C=US, ST=Texas, L=Houston, O=SSL Corporation, CN=SSL.com Root Certification Authority RSA",
+      "thumbprint": "B7AB3308D1EA4477BA1480125A6FBDA936490CBB",
+      "not_after": "2041-02-12T17:39:39Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/SSL.com_Root_Certification_Authority_RSA.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, OU=www.xrampsecurity.com, O=XRamp Security Services Inc, CN=XRamp Global Certification Authority",
+      "issuer": "C=US, OU=www.xrampsecurity.com, O=XRamp Security Services Inc, CN=XRamp Global Certification Authority",
+      "thumbprint": "B80186D1EB9C86A54104CF3054F34C52B7E558C6",
+      "not_after": "2035-01-01T05:37:19Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/XRamp_Global_CA_Root.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=JP, O=SECOM Trust Systems CO.,LTD., CN=Security Communication ECC RootCA1",
+      "issuer": "C=JP, O=SECOM Trust Systems CO.,LTD., CN=Security Communication ECC RootCA1",
+      "thumbprint": "B80E26A9BFD2B23BC0EF46C9BAC7BBF61D0D4141",
+      "not_after": "2038-01-18T05:15:28Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/Security_Communication_ECC_RootCA1.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, O=AffirmTrust, CN=AffirmTrust Premium ECC",
+      "issuer": "C=US, O=AffirmTrust, CN=AffirmTrust Premium ECC",
+      "thumbprint": "B8236B002F1D16865301556C11A437CAEBFFC3BB",
+      "not_after": "2040-12-31T14:20:24Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/AffirmTrust_Premium_ECC.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=PA, ST=Panama, L=Panama City, O=TrustCor Systems S. de R.L., OU=TrustCor Certificate Authority, CN=TrustCor RootCert CA-2",
+      "issuer": "C=PA, ST=Panama, L=Panama City, O=TrustCor Systems S. de R.L., OU=TrustCor Certificate Authority, CN=TrustCor RootCert CA-2",
+      "thumbprint": "B8BE6DCB56F155B963D412CA4E0634C794B21CC0",
+      "not_after": "2034-12-31T17:26:39Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/TrustCor_RootCert_CA-2.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=FI, O=Telia Finland Oyj, CN=Telia Root CA v2",
+      "issuer": "C=FI, O=Telia Finland Oyj, CN=Telia Root CA v2",
+      "thumbprint": "B999CDD173508AC44705089C8C88FBBEA02B40CD",
+      "not_after": "2043-11-29T11:55:54Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/Telia_Root_CA_v2.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, O=IdenTrust, CN=IdenTrust Public Sector Root CA 1",
+      "issuer": "C=US, O=IdenTrust, CN=IdenTrust Public Sector Root CA 1",
+      "thumbprint": "BA29416077983FF4F3EFF231053B2EEA6D4D45FD",
+      "not_after": "2034-01-16T17:53:32Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/IdenTrust_Public_Sector_Root_CA_1.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=GR, O=Hellenic Academic and Research Institutions CA, CN=HARICA TLS ECC Root CA 2021",
+      "issuer": "C=GR, O=Hellenic Academic and Research Institutions CA, CN=HARICA TLS ECC Root CA 2021",
+      "thumbprint": "BCB0C19DE9989270193857E98DA7B45D6EEE0148",
+      "not_after": "2045-02-13T11:01:09Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/HARICA_TLS_ECC_Root_CA_2021.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, O=Internet Security Research Group, CN=ISRG Root X2",
+      "issuer": "C=US, O=Internet Security Research Group, CN=ISRG Root X2",
+      "thumbprint": "BDB1B93CD5978D45C6261455F8DB95C75AD153AF",
+      "not_after": "2040-09-17T16:00:00Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/ISRG_Root_X2.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=JP, O=SECOM Trust Systems CO.,LTD., CN=Security Communication RootCA3",
+      "issuer": "C=JP, O=SECOM Trust Systems CO.,LTD., CN=Security Communication RootCA3",
+      "thumbprint": "C303C8227492E561A29C5F79912B1E441391303A",
+      "not_after": "2038-01-18T06:17:16Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/Security_Communication_RootCA3.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, ST=Texas, L=Houston, O=SSL Corporation, CN=SSL.com Root Certification Authority ECC",
+      "issuer": "C=US, ST=Texas, L=Houston, O=SSL Corporation, CN=SSL.com Root Certification Authority ECC",
+      "thumbprint": "C3197C3924E654AF1BC4AB20957AE2C30E13026A",
+      "not_after": "2041-02-12T18:14:03Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/SSL.com_Root_Certification_Authority_ECC.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=PL, O=Asseco Data Systems S.A., OU=Certum Certification Authority, CN=Certum Trusted Root CA",
+      "issuer": "C=PL, O=Asseco Data Systems S.A., OU=Certum Certification Authority, CN=Certum Trusted Root CA",
+      "thumbprint": "C88344C018AE9FCCF187B78F22D1C5D74584BAE5",
+      "not_after": "2043-03-16T12:10:13Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/Certum_Trusted_Root_CA.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=BM, O=QuoVadis Limited, CN=QuoVadis Root CA 2",
+      "issuer": "C=BM, O=QuoVadis Limited, CN=QuoVadis Root CA 2",
+      "thumbprint": "CA3AFBCF1240364B44B216208880483919937CF7",
+      "not_after": "2031-11-24T18:23:33Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/QuoVadis_Root_CA_2.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, O=Internet Security Research Group, CN=ISRG Root X1",
+      "issuer": "C=US, O=Internet Security Research Group, CN=ISRG Root X1",
+      "thumbprint": "CABD2A79A1076A31F21D253635CB039D4329A5E8",
+      "not_after": "2035-06-04T11:04:38Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/ISRG_Root_X1.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=TW, O=TAIWAN-CA, OU=Root CA, CN=TWCA Root Certification Authority",
+      "issuer": "C=TW, O=TAIWAN-CA, OU=Root CA, CN=TWCA Root Certification Authority",
+      "thumbprint": "CF9E876DD3EBFC422697A3B5A37AA076A9062348",
+      "not_after": "2030-12-31T15:59:59Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/TWCA_Root_Certification_Authority.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=TN, O=Agence Nationale de Certification Electronique, CN=TunTrust Root CA",
+      "issuer": "C=TN, O=Agence Nationale de Certification Electronique, CN=TunTrust Root CA",
+      "thumbprint": "CFE970840FE0730F9DF60C7F2C4BEE2046349CBB",
+      "not_after": "2044-04-26T08:57:56Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/TunTrust_Root_CA.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=AT, O=e-commerce monitoring GmbH, CN=GLOBALTRUST 2020",
+      "issuer": "C=AT, O=e-commerce monitoring GmbH, CN=GLOBALTRUST 2020",
+      "thumbprint": "D067C11351010CAAD0C76A65373116264F5371A2",
+      "not_after": "2040-06-10T00:00:00Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/GLOBALTRUST_2020.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, ST=New Jersey, L=Jersey City, O=The USERTRUST Network, CN=USERTrust ECC Certification Authority",
+      "issuer": "C=US, ST=New Jersey, L=Jersey City, O=The USERTRUST Network, CN=USERTrust ECC Certification Authority",
+      "thumbprint": "D1CBCA5DB2D52A7F693B674DE5F05A1D0C957DF0",
+      "not_after": "2038-01-18T23:59:59Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/USERTrust_ECC_Certification_Authority.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=GB, ST=Greater Manchester, L=Salford, O=Comodo CA Limited, CN=AAA Certificate Services",
+      "issuer": "C=GB, ST=Greater Manchester, L=Salford, O=Comodo CA Limited, CN=AAA Certificate Services",
+      "thumbprint": "D1EB23A46D17D68FD92564C2F1F1601764D8E349",
+      "not_after": "2028-12-31T23:59:59Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/Comodo_AAA_Services_root.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=PL, O=Unizeto Technologies S.A., OU=Certum Certification Authority, CN=Certum Trusted Network CA 2",
+      "issuer": "C=PL, O=Unizeto Technologies S.A., OU=Certum Certification Authority, CN=Certum Trusted Network CA 2",
+      "thumbprint": "D3DD483E2BBF4C05E8AF10F5FA7626CFD3DC3092",
+      "not_after": "2046-10-06T08:39:56Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/Certum_Trusted_Network_CA_2.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=IE, O=Baltimore, OU=CyberTrust, CN=Baltimore CyberTrust Root",
+      "issuer": "C=IE, O=Baltimore, OU=CyberTrust, CN=Baltimore CyberTrust Root",
+      "thumbprint": "D4DE20D05E66FC53FE1A50882C78DB2852CAE474",
+      "not_after": "2025-05-12T23:59:00Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/Baltimore_CyberTrust_Root.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "OU=GlobalSign Root CA - R3, O=GlobalSign, CN=GlobalSign",
+      "issuer": "OU=GlobalSign Root CA - R3, O=GlobalSign, CN=GlobalSign",
+      "thumbprint": "D69B561148F01C77C54578C10926DF5B856976AD",
+      "not_after": "2029-03-18T10:00:00Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/GlobalSign_Root_CA_-_R3.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=HK, O=Hongkong Post, CN=Hongkong Post Root CA 1",
+      "issuer": "C=HK, O=Hongkong Post, CN=Hongkong Post Root CA 1",
+      "thumbprint": "D6DAA8208D09D2154D24B52FCB346EB258B28A58",
+      "not_after": "2023-05-15T04:52:29Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/Hongkong_Post_Root_CA_1.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, O=AffirmTrust, CN=AffirmTrust Premium",
+      "issuer": "C=US, O=AffirmTrust, CN=AffirmTrust Premium",
+      "thumbprint": "D8A6332CE0036FB185F6634F7D6A066526322827",
+      "not_after": "2040-12-31T14:10:36Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/AffirmTrust_Premium.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=CH, O=SwissSign AG, CN=SwissSign Gold CA - G2",
+      "issuer": "C=CH, O=SwissSign AG, CN=SwissSign Gold CA - G2",
+      "thumbprint": "D8C5388AB7301B1B6ED47AE645253A6F9F1A2761",
+      "not_after": "2036-10-25T08:30:35Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/SwissSign_Gold_CA_-_G2.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=NO, O=Buypass AS-983163327, CN=Buypass Class 3 Root CA",
+      "issuer": "C=NO, O=Buypass AS-983163327, CN=Buypass Class 3 Root CA",
+      "thumbprint": "DAFAF7FA6684EC068F1450BDC7C281A5BCA96457",
+      "not_after": "2040-10-26T08:28:58Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/Buypass_Class_3_Root_CA.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Trusted Root G4",
+      "issuer": "C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Trusted Root G4",
+      "thumbprint": "DDFB16CD4931C973A2037D3FC83A4D7D775D05E4",
+      "not_after": "2038-01-15T12:00:00Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/DigiCert_Trusted_Root_G4.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Global Root G2",
+      "issuer": "C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Global Root G2",
+      "thumbprint": "DF3C24F9BFD666761B268073FE06D1CC8D4F82A4",
+      "not_after": "2038-01-15T12:00:00Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/DigiCert_Global_Root_G2.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, O=IdenTrust, CN=IdenTrust Commercial Root CA 1",
+      "issuer": "C=US, O=IdenTrust, CN=IdenTrust Commercial Root CA 1",
+      "thumbprint": "DF717EAA4AD94EC9558499602D48DE5FBCF03A25",
+      "not_after": "2034-01-16T18:12:23Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/IdenTrust_Commercial_Root_CA_1.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=CH, O=WISeKey, OU=OISTE Foundation Endorsed, CN=OISTE WISeKey Global Root GC CA",
+      "issuer": "C=CH, O=WISeKey, OU=OISTE Foundation Endorsed, CN=OISTE WISeKey Global Root GC CA",
+      "thumbprint": "E011845E34DEBE8881B99CF61626D1961FC3B931",
+      "not_after": "2042-05-09T09:58:33Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/OISTE_WISeKey_Global_Root_GC_CA.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=PL, O=Krajowa Izba Rozliczeniowa S.A., CN=SZAFIR ROOT CA2",
+      "issuer": "C=PL, O=Krajowa Izba Rozliczeniowa S.A., CN=SZAFIR ROOT CA2",
+      "thumbprint": "E252FA953FEDDB2460BD6E28F39CCCCF5EB33FDE",
+      "not_after": "2035-10-19T07:43:30Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/SZAFIR_ROOT_CA2.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=CN, O=China Financial Certification Authority, CN=CFCA EV ROOT",
+      "issuer": "C=CN, O=China Financial Certification Authority, CN=CFCA EV ROOT",
+      "thumbprint": "E2B8294B5584AB6B58C290466CAC3FB8398F8483",
+      "not_after": "2029-12-31T03:07:01Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/CFCA_EV_ROOT.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, O=Google Trust Services LLC, CN=GTS Root R1",
+      "issuer": "C=US, O=Google Trust Services LLC, CN=GTS Root R1",
+      "thumbprint": "E58C1CC4913B38634BE9106EE3AD8E6B9DD9814A",
+      "not_after": "2036-06-22T00:00:00Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/GTS_Root_R1.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, OU=emSign PKI, O=eMudhra Inc, CN=emSign Root CA - C1",
+      "issuer": "C=US, OU=emSign PKI, O=eMudhra Inc, CN=emSign Root CA - C1",
+      "thumbprint": "E72EF1DFFCB20928CF5DD4D56737B151CB864F01",
+      "not_after": "2043-02-18T18:30:00Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/emSign_Root_CA_-_C1.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, ST=Illinois, L=Chicago, O=Trustwave Holdings, Inc., CN=Trustwave Global ECC P384 Certification Authority",
+      "issuer": "C=US, ST=Illinois, L=Chicago, O=Trustwave Holdings, Inc., CN=Trustwave Global ECC P384 Certification Authority",
+      "thumbprint": "E7F3A3C8CF6FC3042E6D0E6732C59E68950D5ED2",
+      "not_after": "2042-08-23T19:36:43Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/Trustwave_Global_ECC_P384_Certification_Authority.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=TR, L=Ankara, O=E-Tugra EBG A.S., OU=E-Tugra Trust Center, CN=E-Tugra Global Root CA RSA v3",
+      "issuer": "C=TR, L=Ankara, O=E-Tugra EBG A.S., OU=E-Tugra Trust Center, CN=E-Tugra Global Root CA RSA v3",
+      "thumbprint": "E9A85D2214521C5BAA0AB4BE246A238AC9BAE2A9",
+      "not_after": "2045-03-12T09:07:17Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/E-Tugra_Global_Root_CA_RSA_v3.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=ES, O=FNMT-RCM, OU=AC RAIZ FNMT-RCM",
+      "issuer": "C=ES, O=FNMT-RCM, OU=AC RAIZ FNMT-RCM",
+      "thumbprint": "EC503507B215C4956219E2A89A5B42992C4C2C20",
+      "not_after": "2030-01-01T00:00:00Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/AC_RAIZ_FNMT-RCM.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=GB, O=Sectigo Limited, CN=Sectigo Public Server Authentication Root E46",
+      "issuer": "C=GB, O=Sectigo Limited, CN=Sectigo Public Server Authentication Root E46",
+      "thumbprint": "EC8A396C40F02EBC4275D49FAB1C1A5B67BED29A",
+      "not_after": "2046-03-21T23:59:59Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/Sectigo_Public_Server_Authentication_Root_E46.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, O=Google Trust Services LLC, CN=GTS Root R3",
+      "issuer": "C=US, O=Google Trust Services LLC, CN=GTS Root R3",
+      "thumbprint": "EDE571802BC892B95B833CD232683F09CDA01E46",
+      "not_after": "2036-06-22T00:00:00Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/GTS_Root_R3.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=PL, O=Asseco Data Systems S.A., OU=Certum Certification Authority, CN=Certum EC-384 CA",
+      "issuer": "C=PL, O=Asseco Data Systems S.A., OU=Certum Certification Authority, CN=Certum EC-384 CA",
+      "thumbprint": "F33E783CACDFF4A2CCAC67556956D7E5163CE1ED",
+      "not_after": "2043-03-26T07:24:54Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/Certum_EC-384_CA.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=IT, L=Milan, O=Actalis S.p.A./03358520967, CN=Actalis Authentication Root CA",
+      "issuer": "C=IT, L=Milan, O=Actalis S.p.A./03358520967, CN=Actalis Authentication Root CA",
+      "thumbprint": "F373B387065A28848AF2F34ACE192BDDC78E9CAC",
+      "not_after": "2030-09-22T11:22:02Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/Actalis_Authentication_Root_CA.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Assured ID Root G3",
+      "issuer": "C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Assured ID Root G3",
+      "thumbprint": "F517A24F9A48C6C9F8A200269FDC0F482CAB3089",
+      "not_after": "2038-01-15T12:00:00Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/DigiCert_Assured_ID_Root_G3.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, O=Amazon, CN=Amazon Root CA 4",
+      "issuer": "C=US, O=Amazon, CN=Amazon Root CA 4",
+      "thumbprint": "F6108407D6F8BB67980CC2E244C2EBAE1CEF63BE",
+      "not_after": "2040-05-26T00:00:00Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/Amazon_Root_CA_4.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=CN, O=iTrusChina Co.,Ltd., CN=vTrus ECC Root CA",
+      "issuer": "C=CN, O=iTrusChina Co.,Ltd., CN=vTrus ECC Root CA",
+      "thumbprint": "F69CDBB0FCF60213B65232A6A3913F1670DAC3E1",
+      "not_after": "2043-07-31T07:26:44Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/vTrus_ECC_Root_CA.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, O=AffirmTrust, CN=AffirmTrust Commercial",
+      "issuer": "C=US, O=AffirmTrust, CN=AffirmTrust Commercial",
+      "thumbprint": "F9B5B632455F9CBEEC575F80DCE96E2CC7B278B7",
+      "not_after": "2030-12-31T14:06:06Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/AffirmTrust_Commercial.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=US, O=Certainly, CN=Certainly Root E1",
+      "issuer": "C=US, O=Certainly, CN=Certainly Root E1",
+      "thumbprint": "F9E16DDC0189CFD58245633EC5377DC2EB936F2B",
+      "not_after": "2046-04-01T00:00:00Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/Certainly_Root_E1.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=RO, O=certSIGN, OU=certSIGN ROOT CA",
+      "issuer": "C=RO, O=certSIGN, OU=certSIGN ROOT CA",
+      "thumbprint": "FAB7EE36972662FB2DB02AF6BF03FDE87C4B2F9B",
+      "not_after": "2031-07-04T17:20:04Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/certSIGN_ROOT_CA.crt"
+      }
+    },
+    {
+      "store": "system",
+      "subject": "C=PA, ST=Panama, L=Panama City, O=TrustCor Systems S. de R.L., OU=TrustCor Certificate Authority, CN=TrustCor RootCert CA-1",
+      "issuer": "C=PA, ST=Panama, L=Panama City, O=TrustCor Systems S. de R.L., OU=TrustCor Certificate Authority, CN=TrustCor RootCert CA-1",
+      "thumbprint": "FFBDCDE782C8435E3C6F26865CCAA83A455BC30A",
+      "not_after": "2029-12-31T17:23:16Z",
+      "linux": {
+        "path": "/usr/share/ca-certificates/mozilla/TrustCor_RootCert_CA-1.crt"
+      }
+    }
+  ],
+  "file": [
+    {
+      "path": "/opt/goodware/scripts/backup.sh",
+      "size": 412,
+      "mtime": "2025-09-14T11:02:07Z",
+      "ctime": "2026-09-04T00:11:05Z",
+      "sha256": "7d81665a44f4a8db41c14131ec440a4a9d734c2d9e276eaf843948fea933aea7"
+    },
+    {
+      "path": "/opt/netguard/ca.key",
+      "size": 1704,
+      "mtime": "2026-08-27T05:18:44Z",
+      "ctime": "2026-09-04T00:11:05Z",
+      "sha256": "0e078683c817838e325e19303a83ce24f235ddd4da25d82af68086e0a42d4ae0"
+    },
+    {
+      "path": "/opt/netguard/netguard-proxyd",
+      "size": 2451968,
+      "mtime": "2026-08-27T05:18:44Z",
+      "ctime": "2026-09-04T00:11:05Z",
+      "sha256": "90ef7996d8b7f445bf74b19a04ea97fbdccd854251dc193342abb06ad5744ebf"
+    }
+  ],
+  "hosts_entry": [
+    {
+      "ip": "127.0.0.1",
+      "hostnames": [
+        "localhost"
+      ],
+      "line_no": 1,
+      "source": "/etc/hosts",
+      "line": "127.0.0.1\tlocalhost"
+    },
+    {
+      "ip": "::1",
+      "hostnames": [
+        "localhost",
+        "ip6-localhost",
+        "ip6-loopback"
+      ],
+      "line_no": 2,
+      "source": "/etc/hosts",
+      "line": "::1\tlocalhost ip6-localhost ip6-loopback"
+    },
+    {
+      "ip": "192.168.10.14",
+      "hostnames": [
+        "buildserver",
+        "buildserver.corp.example"
+      ],
+      "line_no": 3,
+      "source": "/etc/hosts",
+      "line": "192.168.10.14\tbuildserver buildserver.corp.example"
+    },
+    {
+      "ip": "fe00::",
+      "hostnames": [
+        "ip6-localnet"
+      ],
+      "line_no": 4,
+      "source": "/etc/hosts",
+      "line": "fe00::\tip6-localnet"
+    },
+    {
+      "ip": "ff00::",
+      "hostnames": [
+        "ip6-mcastprefix"
+      ],
+      "line_no": 5,
+      "source": "/etc/hosts",
+      "line": "ff00::\tip6-mcastprefix"
+    },
+    {
+      "ip": "ff02::1",
+      "hostnames": [
+        "ip6-allnodes"
+      ],
+      "line_no": 6,
+      "source": "/etc/hosts",
+      "line": "ff02::1\tip6-allnodes"
+    },
+    {
+      "ip": "ff02::2",
+      "hostnames": [
+        "ip6-allrouters"
+      ],
+      "line_no": 7,
+      "source": "/etc/hosts",
+      "line": "ff02::2\tip6-allrouters"
+    },
+    {
+      "ip": "127.0.0.1",
+      "hostnames": [
+        "updates.example-av.com",
+        "sig.example-av.com"
+      ],
+      "line_no": 8,
+      "source": "/etc/hosts",
+      "line": "127.0.0.1\tupdates.example-av.com sig.example-av.com"
+    },
+    {
+      "ip": "127.0.0.1",
+      "hostnames": [
+        "telemetry.example-av.com"
+      ],
+      "line_no": 9,
+      "source": "/etc/hosts",
+      "line": "127.0.0.1\ttelemetry.example-av.com"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+# `cargo xtask <작업>` 로 저장소 검사를 실행한다.
+[alias]
+xtask = "run --package xtask --"
+
+# Windows 배포 바이너리는 **정적 CRT** 로 링크한다 (설계-01 D3).
+#
+# 이 플래그가 CI 의 RUSTFLAGS 변수에만 있던 동안, 로컬 빌드는 전부
+# VCRUNTIME140.dll 과 api-ms-win-crt-* 6종을 임포트했다. 그 바이너리로
+# VM 검증을 12/12 통과했고, 검증은 통과하는데 배포될 물건은 다른 것이었다.
+# 빌드 방식이 CI 스크립트에만 적혀 있으면 CI 밖에서는 아무도 모른다.
+#
+# musl(Linux)은 기본이 정적이므로 건드리지 않는다 — ci/linux-static.sh 의
+# 판정이 "A. musl 기본 정적" 이다.
+#
+# 주의: RUSTFLAGS 환경변수가 설정되면 이 설정을 **통째로 덮는다**(병합이 아니다).
+# 그래서 CI 에서 RUSTFLAGS 를 없앴고, 대신 산출물을 직접 본다:
+#   cargo xtask static target/<triple>/release/remedy.exe
+[target.'cfg(target_env = "msvc")']
+rustflags = ["-C", "target-feature=+crt-static"]

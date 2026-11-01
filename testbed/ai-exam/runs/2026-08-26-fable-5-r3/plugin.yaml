@@ -1,0 +1,85 @@
+schema_version: 1
+id: svchostcache-userinit-loader
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [windows]
+name:
+  ko: "SvcHostCache 위장 서비스 + Winlogon Userinit 로더 제거"
+  en: "SvcHostCache look-alike service + Winlogon Userinit loader removal"
+
+# 읽기·삭제 권한 상한. 페이로드 폴더 이름은 감염마다 바뀌고 고정된 것은
+# "ProgramData 아래 폴더 하나" 뿐이므로 그 상위를 상한으로 둔다.
+# service / registry_value / process 는 path 가 없어 이 상한과 무관하게 수집된다.
+scan_roots:
+  - "%ProgramData%"
+
+subjects: [service, registry_value, file, process]
+
+detect:
+  # ── 부모: 자동 시작 서비스가 ProgramData 아래 폴더 안의 실행 파일을 가리킨다 ──
+  - id: svc
+    subject: service
+    where:
+      all:
+        # 관측: 자동 시작. Acme Update Service 는 수동이라 여기서 갈린다.
+        - { field: start_type, op: matches, value: '(?i)auto' }
+        # 관측: \ProgramData\<폴더>\<파일>.exe — 폴더 한 겹을 강제해야 dirname 이
+        # 상한(ProgramData) 자체가 되지 않는다. Windows 자신의 서비스는 system32 다.
+        - { field: image_path, op: matches, value: '(?i)\\ProgramData\\[^"]+\\[^\\"]+\.exe("|\s|$)' }
+    capture:
+      exe: "image_path | first_path"
+      dir: "${exe} | dirname"
+
+  # ── 자식 1: Winlogon\Userinit 끝에 그 실행 파일이 덧붙어 있다 ──
+  # registry_value 는 path 가 없어 from 이 안 통한다 → where 값 보간으로 부모에 묶는다.
+  - id: userinit
+    subject: registry_value
+    where:
+      all:
+        - { field: hive, op: equals,   value: "HKLM" }
+        - { field: key,  op: equals,   value: "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon" }
+        - { field: name, op: equals,   value: "Userinit" }
+        - { field: data, op: contains, value: "${svc.exe}" }
+
+  # ── 자식 2: 서비스가 가리킨 폴더 안의 실행 파일 ──
+  - id: payload
+    subject: file
+    from: "${svc.dir}"
+    where:
+      - { field: path, op: ends_with, value: ".exe" }
+
+  # ── 자식 3: 그 실행 파일로 떠 있는 프로세스 — 판정 근거가 아니라 종료 대상 ──
+  # 서비스 인스턴스 외에 로그온 때 Userinit 이 띄운 인스턴스가 따로 있을 수 있다.
+  - id: proc
+    subject: process
+    where:
+      - { field: image_path, op: equals, value: "${svc.exe}" }
+
+# 서로 다른 세 관찰(서비스 DB · 레지스트리 · 파일 시스템)의 논리곱.
+# "ProgramData 를 가리키는 서비스" 하나로는 판정하지 않는다.
+verdict:
+  require: "svc and userinit and payload"
+
+remediate:
+  remove:
+    # 유발자 1 — 서비스. Op 은 subject 가 정한 차례로 코어가 고른다
+    # (카탈로그: service.clear_recovery · stop · disable · delete).
+    # "중지만 하면 다시 뜬다" 는 그 차례가 다룬다 — 플러그인이 Op 을 고르는 문법은 없다.
+    - { ref: svc }
+    # 유발자 2 — Userinit. 지우면 셸이 안 떠 로그인이 안 된다.
+    # 기본값(C:\Windows\system32\userinit.exe,)으로 되돌린다 → registry.restore_default.
+    - { ref: userinit, to: default }
+    # 실행 중인 인스턴스 종료.
+    - { ref: proc }
+    # 페이로드 격리. 재귀 삭제가 deferred 되어도 이것은 남는다 — 겹침이지 대체가 아니다.
+    - { ref: payload }
+    # 관측: 폴더 전체가 검체가 만든 것(cache.db 포함). 증거 파생 경로 + guard.
+    - { path: "${svc.dir}", recursive: true, guard: payload }
+  # 지속성이 둘이라 재부팅 뒤 같은 룰로 다시 판정한다.
+  verify:
+    after_reboot: true
+
+# 지금은 소비하는 코드가 없다(P14). 의도만 남긴다.
+submit_hint:
+  samples: [payload]
+  confidentiality_min: 1

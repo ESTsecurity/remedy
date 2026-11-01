@@ -1,0 +1,50 @@
+schema_version: 1
+id: example-text-config               # 예제 고유 값 — 대상 위협에 맞게 교체
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [linux]
+name:
+  ko: "예제 — 설정 파일에 심어진 플러그인 로더"
+  en: "Example - plugin loader planted in a config file"
+
+# Linux 경로는 구분자가 하나라 이스케이프가 없다.
+scan_roots:
+  - "%HOME%/.config"                  # 예제 고유 값 — 대상 앱의 설정 위치
+  - "%HOME%/.local/share"             # 예제 고유 값 — 페이로드 위치
+
+subjects: [text_config, file]
+
+detect:
+  # 부모 — 설정 파일의 한 줄. 줄 단위 설정은 `key`·`value` 로 쪼개져 온다.
+  # 줄 전체(`line`)를 정규식으로 훑는 것보다 `value` 를 보는 편이 정확하다.
+  - id: hook
+    subject: text_config
+    where:
+      all:
+        - { field: path,    op: ends_with, value: "/exampleapp/plugins.conf" }
+        - { field: section, op: equals,    value: "plugins" }
+        - { field: key,     op: equals,    value: "loader" }
+        # 정식 플러그인은 패키지 경로에 있다. 사용자 데이터 아래를 가리키는
+        # 로더는 앱이 설치한 것이 아니다.
+        - { field: value,   op: contains,  value: "/.local/share/" }
+    capture:
+      # 값이 경로 하나이므로 first_path 가 필요 없다.
+      dir: "value | dirname"
+
+  # 자식 — 그 폴더 안의 공유 라이브러리.
+  - id: payload
+    subject: file
+    from: "${hook.dir}"
+    where:
+      - { field: path, op: ends_with, value: ".so" }
+
+# 설정 줄 하나만으로 판정하지 않는다. 가리키는 파일이 실재해야 한다.
+verdict:
+  require: "hook and payload"
+
+remediate:
+  remove:
+    # 설정 줄이 **유발자**다 — 파일만 지우면 앱이 다음 실행에서 그 경로를
+    # 다시 찾고, 공격자가 같은 자리에 다시 떨어뜨리면 그대로 로드된다.
+    - { ref: hook }
+    - { ref: payload }

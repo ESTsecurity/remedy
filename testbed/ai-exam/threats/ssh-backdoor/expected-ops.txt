@@ -1,0 +1,35 @@
+# 감염 스냅샷에서 반드시 나와야 하는 Op (채점 4번).
+#
+# 형식은 `ldso-preload/expected-ops.txt` 의 머리를 볼 것 — (Op, 대상) 이고
+# `::` 뒤는 match 다. 넷 다 match 가 없다: 전부 파일이 통째로 치워진다.
+#
+# **이 목록은 정답 플러그인의 계획을 그대로 옮긴 것**이고(2026-09-21, 컨테이너
+# 에서 `evaluate` → `plan`), 사람이 한 줄씩 위협 설명과 맞춰 읽었다.
+#
+# # 리눅스 cron 은 여기서 **탐지 쪽만** 밟는다
+#
+# 이 위협의 판정 근거 하나가 cron 줄이다(`reinstall`). cron 은 `persistence`
+# 로 거둬지고, 그것을 밟는 위협은 이것이 처음이다 — 앞의 여덟은 지속성을
+# Windows 예약 작업으로만 다뤘다.
+#
+# **다만 치료는 줄이 아니라 파일이다.** `/etc/cron.d/ssh-maint` 는 통째로
+# 검체의 것이라(정상 정기 작업은 `logrotate-custom` 이라는 다른 파일이다)
+# 줄만 빼면 빈 파일이 남는다.
+#
+# 처음에는 `persistence` 를 치료 대상으로도 두어 계획이 다섯이었다
+# (`persistence.disable` · `persistence.delete` · 격리 셋). 채점 5 가 미결로
+# 냈다:
+#
+#   못 잰 곳 1건 — /etc/cron.d/ssh-maint:1 — 감염 상태에 파일이 없다
+#
+# `persistence.delete` 는 `edits_in_place` 가 거짓이라 채점기가 **대상 경로의
+# 파일이 사라졌는가**로 본다. 그런데 cron 대상은 `<파일>:<줄번호>` 라 그런
+# 파일이 없다. Windows 예약 작업은 대상이 작업 이름이고 저쪽 채점기가 그것을
+# 알지만, **리눅스 채점기는 cron 대상 모양을 모른다** — 하네스의 공백이고
+# 위협 설계로 덮을 자리가 아니다. 파일로 치우는 쪽이 치료로도 더 맞아서
+# 그렇게 바꿨다.
+
+file.quarantine_only /etc/cron.d/ssh-maint
+file.quarantine_only /etc/ssh/.maint/keys
+file.quarantine_only /etc/ssh/sshd_config.d/99-maint.conf
+file.quarantine_only /usr/local/sbin/.sshd-maint

@@ -1,0 +1,34 @@
+[package]
+name = "remedy-platform"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+remedy-sdk = { path = "../remedy-sdk" }
+thiserror.workspace = true
+serde = { workspace = true }
+# 구조적 설정(JSON)을 고치는 데 쓴다. **포맷을 아는 곳이 고치는 곳**이어야
+# 하고, 그 자리는 쓰기 경계다 — `.lnk` 변환을 여기 둔 것과 같은 이유다.
+serde_json = { workspace = true }
+fs4 = { workspace = true }
+# 프로세스 열거와 이동식 매체 조회. **양쪽 백엔드가 함께 쓴다** — 직접 부르려면
+# unsafe 가 필요하고(`CreateToolhelp32Snapshot`), 이 크레이트는 forbid 를 지킨다.
+# `default-features = false` 로 네트워크·컴포넌트를 뺐다 (설계-09 P6 검증 항목).
+sysinfo.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+# `-EncodedCommand` 인자. Defender 예외를 바꾸는 PowerShell 을 부를 때
+# 명령줄에 셸 메타문자가 한 글자도 실리지 않게 한다 (windows.rs 참조).
+base64 = { workspace = true }
+# 재귀 삭제 가드의 세 번째 조건 — "하위에 신뢰 서명 파일이 존재하면 거부"
+# (설계-03 §4). 저장소에서 유일하게 unsafe 를 쓰는 크레이트이고, 그 근거는
+# 설계-04 §2 에 있다.
+remedy-wintrust = { path = "../remedy-wintrust" }
+winreg.workspace = true
+windows-permissions = { workspace = true }
+
+[target.'cfg(unix)'.dependencies]
+xattr = { workspace = true }

@@ -1,0 +1,94 @@
+# PHP2Shell 점검 — Windows (CVE-2026-109618 · CVE-2026-109619)
+#
+# **고치지 않는다.** 리눅스 쪽 파일의 머리와 같은 이유다 — 원인이 기능이 아니라
+# 메모리 미초기화이므로 끌 스위치가 없고, 판을 올리는 것은 공급사의 일이다.
+#
+# # 왜 리눅스와 다른 파일인가
+#
+# 보는 자리가 아예 다르다. Windows PHP 는 패키지 매니저가 깔지 않으므로
+# `package` subject 가 **이 플랫폼에 없다**(카탈로그의 `windows: false`). 대신
+# 실행 파일에 박힌 판을 읽는다 — `file.version` 이다. 한 파일에 묶으면 Windows
+# 회차의 화면에 *"windows 에서는 'package' 를 수집하지 못합니다 — 그 subject 에
+# 걸린 규칙은 전부 미평가입니다"* 가 뜨고, 시연에서 그 줄을 설명해야 한다.
+#
+# # 수정 판 번호는 자리 표시다
+#
+# 공급사 공지 값이 아직 오지 않았다. `name` 이 화면 첫 줄에 그렇다고 적는다.
+#
+# # 눈금을 쟀다 — **문자열 쪽이다** (2026-10-28 · 랩 VM 실측)
+#
+# `file.version` 은 PE 의 2진 고정값(`VS_FIXEDFILEINFO`)이 아니라
+# `StringFileInfo` 의 **문자열 `FileVersion`** 이다 (`peversion.rs` 머리 —
+# 2026-10-27 적대 검증이 2진 값을 담던 첫 판을 뒤집었다). 공급사는 문자열
+# 눈금으로 공지하므로 그쪽이 맞다.
+#
+# PHP 의 Windows 빌드에서 둘은 이렇게 갈린다 —
+#
+# | 받은 것 | 문자열 `FileVersion` | 2진 고정값 | 이 룰의 답 |
+# |---|---|---|---|
+# | `php-8.2.35-1-nts-Win32-vs16-x64` | `8.2.35` | `8.2.35.0` | **취약** (종료 2) |
+# | `php-8.2.27RC1-nts-Win32-vs16-x64` | **`8.2.27RC1`** | `8.2.27.0` | **확인 필요** (종료 6) |
+#
+# 두 번째 줄이 눈금을 왜 짚는지다. **2진 값을 담았다면** `8.2.27.0` 이 아래
+# `8.2.99` 보다 낮아 RC 판을 조용히 *취약*(2)으로 단정했을 것이다. 문자열을
+# 담으므로 `version_lt` 가 사전 배포 꼬리를 거부하고 *"견주지 못했습니다"* 로
+# 6 을 낸다 — 그 판정은 사람이 한다. 파일 바이트가 유일한 오라클이다.
+schema_version: 1
+id: demo-php2shell-check-windows
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [windows]
+
+kind: check
+
+name:
+  ko: "PHP2Shell 점검 — 설치된 PHP 가 고친 판보다 낮다 (수정 판 번호는 시연용 자리 표시)"
+  en: "PHP2Shell check - installed PHP is below the fixed build (fixed version is a demo placeholder)"
+
+references:
+  - "CVE-2026-109618"
+  - "CVE-2026-109619"
+
+# Windows PHP 는 자리가 정해져 있지 않다. **흔한 자리를 적는다** — 여기 없는
+# 설치본은 보이지 않고, 그 사실은 `scan_roots` 가 곧 읽기 권한의 상한이라는
+# 설계에서 온다. 전부 없으면 `kind: check` 라서 **해당 없음**(종료 0)이다.
+#
+# # 경고 하나를 남긴다 — 그 이유를 여기 적는다
+#
+# 린트가 `C:\php` 를 *"사실상 전체를 훑는다(깊이 2)"* 로 경고한다. **맞는
+# 지적이다.** 그런데 PHP 의 수동 설치본은 그 디렉터리 **바로 아래**에
+# `php.exe` 를 두므로 더 좁힐 자리가 없다 — 한 칸 더 들어간 루트를 적으면
+# 가장 흔한 설치본이 보이지 않는다. 좁히는 대신 **읽는 것을 좁혔다**:
+# `subjects` 가 `file` 하나이고 판정이 두 파일 이름에만 걸린다.
+#
+# 그 좁힘을 쟀다 (2026-10-28 · 랩 VM 에 zip 을 통째로 푼 상태). `C:\php` 가
+# 파일 **82개**(89.8 MB)인데 스냅샷은 **25,875 바이트**이고 `truncated: false` ·
+# `denied_dirs: 0` 이다. 흔적은 **2건** — `ext\php_*.dll` 82개가 전부 같은
+# `8.2.35` 를 선언하므로, 이름을 걸지 않았다면 흔적이 82건이 됐다.
+#
+# 서명 단계에서 이 경고를 설명해야 한다면 위 문단이 그 설명이다
+# (`40-review-checklist.md` — 경고를 남기려면 이유를 적는다).
+scan_roots:
+  - 'C:\php'
+  - 'C:\Program Files\PHP'
+  - 'C:\xampp\php'
+
+subjects: [file]
+
+detect:
+  # CLI 와 FastCGI 둘 다 본다. **한 기계에 여럿 깔린다** — 버전마다, CLI 와
+  # 서버마다다. 그래서 파일 하나가 증거 하나이고, 판정은 **그 파일 안에서**
+  # 선다(계열과 판을 한 룰에 함께 적는 것과 같은 이유).
+  - id: php_binary_below_fix
+    subject: file
+    where:
+      all:
+        - any:
+            - { field: path, op: ends_with, value: '\php.exe' }
+            - { field: path, op: ends_with, value: '\php-cgi.exe' }
+        # 자리 표시 — 공지 값이 오면 이 한 줄을 고친다. 따옴표는 **필수다**:
+        # 없으면 YAML 이 `8.2` 를 수로 읽어 뒤의 0 이 돌아오지 않는다.
+        - { field: version, op: version_lt, value: "8.2.99" }
+
+verdict:
+  require: "php_binary_below_fix"

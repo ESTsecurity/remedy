@@ -1,0 +1,139 @@
+schema_version: 1
+id: svchostcache-service-userinit
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [windows]
+name:
+  ko: "SvcHostCache 로더 제거 — 서비스 + Userinit 이중 지속성"
+  en: "SvcHostCache loader removal - service + Userinit dual persistence"
+
+# 권한 상한. 여기 밖은 읽을 수도 지울 수도 없다.
+scan_roots:
+  # 1) Winlogon — **registry_value 도 이 상한을 받는다.** 적지 않으면 이 subject 는
+  #    언제나 0건이고, userinit 규칙이 아무것도 못 맞힌 채 초록이 된다
+  #    (10-manifest.md §scan_roots).
+  #    **끝에 `\*` 를 붙이지 않는다.** Userinit 은 이 키의 직속 값이라 값 수집이
+  #    그대로 닿는다. 별표는 좁히는 것이 아니라 넓히는 것이므로, 붙이면 읽기
+  #    권한만 커진다 (ex02 의 IFEO 와 다른 자리다).
+  - "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon"
+
+  # 2) 페이로드 자리. 폴더 이름의 꼬리가 감염마다 바뀌므로 상한은 여기까지이고
+  #    그 아래 한 겹은 증거에서 뽑는다. 파일 경로에는 `\*` 를 쓸 수 없다.
+  #    리터럴 `C:\ProgramData` 를 적지 않는다 — 시스템 드라이브가 C: 가 아닌
+  #    기계에서 그 룰은 조용히 0건이 된다.
+  - "%PROGRAMDATA%"
+
+  # **서비스 경로는 적지 않는다.** `service` 는 이 상한과 무관하게 수집된다
+  # (10-manifest.md 의 표). 적어도 더 읽히지 않고, 지울 수 있는 범위만 넓어진다.
+  # `%ALLUSERPROFILES%` 도 쓰지 않는다 — 이 위협은 사용자마다가 아니라
+  # 기계마다 한 벌 자리잡는다.
+
+subjects: [service, registry_value, file]
+
+detect:
+  # ── 부모 · 지속성 1 — 서비스 ───────────────────────────
+  # 증거 하나마다 독립된 그룹이 생기고, 아래 세 규칙이 그 그룹 안에서만 붙는다.
+  - id: svc
+    subject: service
+    where:
+      all:
+        # 관측: 자동 시작. 정상 벤더 서비스(Acme Update Service)는 **수동**이다.
+        - { field: start_type, op: equals, value: auto }
+
+        # 자리로 가른다. Windows 자신의 서비스는 전부 system32\svchost.exe 다.
+        # **폴더 한 겹을 조건에 넣는다.** 넣지 않으면 dirname 이 상한
+        # (%PROGRAMDATA%) 자체가 되어 재귀 삭제가 조건 5 에 걸린다
+        # (22-remediate-recipes.md §조건 5).
+        # 끝을 `("|\s|$)` 로 여는 이유: image_path 가 따옴표로 묶이거나 뒤에
+        # 인자가 붙을 수 있어 `$` 만 보면 놓친다.
+        - { field: image_path, op: matches,
+            value: '(?i)\\ProgramData\\[^"]+\\[^\\"]+\.exe("|\s|$)' }
+
+        # `state` 를 조건에 넣지 않는다. 관측 보고는 "실행 중" 이라고 적었지만
+        # 수집기는 레지스트리만 읽어 어느 기계에서도 `unknown` 만 적는다 —
+        # `running` 으로 비교하면 술어가 언제나 거짓이 되어 규칙이 조용히
+        # 0건을 보고한다 (subjects.json §service.state).
+    capture:
+      # 폴더 이름이 감염마다 바뀌므로 리터럴로 적을 수 없다. 증거에서 뽑는다.
+      # image_path 가 따옴표로 묶여 오는 경우가 있어 trim_quotes 를 건다.
+      exe: "image_path | first_path | trim_quotes"
+      dir: "${exe} | dirname"
+
+  # ── 지속성 2 — 로그온 경로 ─────────────────────────────
+  # registry_value 에는 path 가 없어 `from` 이 통하지 않는다. where 값에
+  # ${svc.exe} 를 넣어 이 감염 그룹에 묶는다 (20-detect-recipes.md).
+  # hive·key·name 을 전부 equals 로 못박아야 `to: default` 가 코어 카탈로그와
+  # 대조된다 (22-remediate-recipes.md §to: default).
+  - id: userinit
+    subject: registry_value
+    where:
+      all:
+        - { field: hive, op: equals,   value: "HKLM" }
+        - { field: key,  op: equals,
+            value: "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon" }
+        - { field: name, op: equals,   value: "Userinit" }
+        # 이 감염에 묶는다. 값에 우리 서비스의 실행 파일이 이어 붙어 있는
+        # 것만 짚는다 — 정상 기계의 Userinit 은 여기서 걸러진다.
+        - { field: data, op: contains, value: "${svc.exe}" }
+
+  # ── 페이로드 ───────────────────────────────────────────
+  # 서비스가 가리키는 실행 파일 그 자체. 부모가 가리킨 폴더 안에서만 찾는다.
+  - id: payload
+    subject: file
+    from: "${svc.dir}"
+    where:
+      - { field: path, op: equals, value: "${svc.exe}" }
+
+  # 같은 폴더의 나머지(cache.db 등). **폴더 전체가 검체가 만든 것**이라는 관측이
+  # 있으므로 함께 격리한다. 검체가 모아 둔 것일 수 있어 분석에도 쓸모가 있고,
+  # 재귀 삭제가 보류돼도 남지 않는다. **판정에는 쓰지 않는다.**
+  - id: companion
+    subject: file
+    from: "${svc.dir}"
+    where:
+      - { field: path, op: not_equals, value: "${svc.exe}" }
+
+verdict:
+  # 두 지속성의 논리곱. 서로 다른 대상(서비스 등록 · Winlogon 값)에서 오므로
+  # 독립적이고, **둘 다 바이너리가 지워져도 남는다** — 다른 백신이 svc.exe 만
+  # 잡아간 기계에서도 판정이 서고 두 지속성이 치료된다
+  # (40-review-checklist.md 1·2번).
+  #
+  # payload 를 판정에 넣지 않은 이유가 그것이다. "서비스가 가리키는 파일이
+  # 그 자리에 있다" 는 서비스 레코드의 다른 표현이라 독립적인 근거가 아니고,
+  # 넣으면 바이너리가 이미 없는 기계에서 판정이 서지 않는다.
+  require: "svc and userinit"
+
+remediate:
+  # **순서를 적지 않는다.** 프로세스 종료·비활성화·백업·삭제의 차례는 코어가 정한다.
+  remove:
+    # 서비스 — 코어가 subject 에 정해진 차례로 편다. 실패 시 재시작 설정 때문에
+    # 중지만으로 끝나지 않는다는 관측은 그 차례에 `service.clear_recovery` 가
+    # 있는 것으로 충족된다. **플러그인이 Op 을 직접 고르지 않는다.**
+    - { ref: svc }
+
+    # 파일은 개별로도 지운다. 재귀 삭제는 조건 3·4·6 에 걸려 deferred 가 될 수
+    # 있고, 그러면 페이로드가 그대로 남는다. file.quarantine_only(low)는
+    # dir.delete_recursive(high)의 대체가 아니라 겹침이다.
+    - { ref: payload }
+    - { ref: companion }
+
+    # 폴더 전체가 검체가 만든 것이고 사용자 파일이 섞인 경우가 관측되지 않았다.
+    # 대상은 증거에서 파생됐고, guard 는 그 폴더 **안**의 악성 판정 파일이다.
+    - { path: "${svc.dir}", recursive: true, guard: payload }
+
+  restore:
+    # **remove 가 아니다.** 값이 비면 사용자 셸이 뜨지 않아 로그인이 완료되지
+    # 않는다. 관측이 말한 원래 값 `C:\Windows\system32\userinit.exe,` 가
+    # 코어 카탈로그의 기본값과 같으므로 그것으로 되돌린다.
+    - { ref: userinit, to: default }
+
+  verify:
+    # 지속성이 둘이라 한쪽을 놓치면 다른 쪽이 되살린다. 재부팅 뒤 수집·평가를
+    # 다시 돌려 **같은 플러그인이 다시 판정하는지** 본다.
+    after_reboot: true
+
+submit_hint:
+  samples: [payload, companion]
+  # cache.db 가 검체가 고객 기계에서 모아 둔 것일 수 있어 하한을 올린다.
+  confidentiality_min: 1

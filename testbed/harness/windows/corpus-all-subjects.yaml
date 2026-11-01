@@ -1,0 +1,156 @@
+# 코퍼스용 — Windows 에서 수집되는 subject 전부.
+#
+# # 왜 이 파일이 있는가
+#
+# 리눅스 쪽 같은 이름의 파일이 그 머리에 이렇게 적어 두었다.
+#
+# > Windows 쪽이 같은 이유로 `autorun`·`av_exclusion` 을 재지 못하고 있고,
+# > 이 파일은 Linux 가 그 자리를 물려받지 않게 한다.
+#
+# 그 뒤로도 Windows 코퍼스는 **첫 플러그인의 매니페스트**로 떠 왔다. 그래서
+# `win10x64-dev-declared` 가 선언하는 subject 가 다섯뿐이고, 나머지 열셋은
+# 청정 코퍼스에 **레코드가 한 건도 없다.** 그 상태의 초록은 *"오탐이 없다"* 가
+# 아니라 **"재지 않았다"** 다.
+#
+# # 이것은 탐지 룰이 아니다
+#
+# `detect` 는 **아무것도 맞히지 않도록** 일부러 짰다. 매니페스트가 있어야 선언
+# 모드로 수집되고, 선언 모드여야 subject 를 고를 수 있을 뿐이다. 여기에 진짜
+# 조건을 적으면 그 순간 이 파일이 코퍼스를 오염시킨다.
+#
+# # 쓰는 법
+#
+#     .\testbed\harness\host\New-CorpusSnapshot.ps1 `
+#         -Label win10x64 -Plugin .\testbed\harness\windows\corpus-all-subjects.yaml
+#
+# 스크립트가 이것을 집어 `<label>-declared` 스냅샷을 만든다.
+
+schema_version: 1
+id: windows-corpus-all-subjects
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [windows]
+name:
+  ko: "코퍼스용 — Windows 에서 수집되는 subject 전부"
+  en: "corpus fixture - every Windows-collectable subject"
+
+# 자리가 정해진 subject(`persistence`·`autorun`·`service`·`process`·
+# `av_exclusion`·`firewall_rule`·`hosts_entry`·`cert_store`·`proxy_config`·
+# `boot_config`)는 이 목록과 무관하게 모인다. 여기 적는 것은 **수집기가
+# `scan_roots` 를 보는 것**의 상한이다 (10-manifest.md 의 표).
+#
+# 실측(2026-09-01, Win10x64-Test)으로 골랐다. 재귀하는 것은 파일 쪽뿐이고
+# 셋을 합쳐 약 8,100건이라 상한 50,000 에 닿지 않는다.
+#
+# **`%SystemRoot%\\INF` 는 뺐다.** text_config 747건을 주는 유일한
+# Windows 자리였지만, 드라이버 `.inf` 중 2,000줄을 넘는 것이 있어 `truncated`
+# 가 선다(`MAX_LINES_PER_FILE`). **잘린 스냅샷은 코퍼스가 될 수 없다** —
+# `clean_snapshots_are_complete` 가 막는다. Windows 의 text_config 압력은
+# 포기하고 리눅스 쪽 4,217건에 맡긴다.
+scan_roots:
+  # ── 파일 계열 ──────────────────────────────────────────────
+  #
+  # **넓은 자리를 그대로 쓸 수 없다.** 두 번 걸렸고 둘 다 `structured_config`
+  # 였다 — `.json` 하나가 키 경로 수만 개로 펴지기 때문이다.
+  #
+  #   `%LOCALAPPDATA%\\Programs`  json 450 (node_modules) -> 정확히 50,000건
+  #   `%ProgramData%`            utc.privacy.json 4.2 MB 하나로 -> 50,000건
+  #
+  # 그래서 **경계가 분명한 하위**를 짚는다. 바로 아래 둘은 합쳐 파일 1,150 ·
+  # json 23(최대 89 KB) · text 23 · lnk 137 이다.
+  #
+  # 2026-09-02 실측 합계(브라우저 확장 둘까지 넣은 뒤): 파일 1,455 ·
+  # structured_config 15,072 · truncated=false · denied_dirs=0. 상한 50,000 에
+  # 닿지 않는다.
+  - "%ProgramData%\\Microsoft\\Windows" # 파일 1,030 · json 23 · lnk 79
+  - "%APPDATA%\\Microsoft\\Windows" # 파일 117 · text 13 · lnk 58
+
+  # ── 브라우저 확장 ─────────────────────────────────────────
+  #
+  # **`browser_extension` 은 2026-09-02 까지 코퍼스 전체에서 0건이었다.**
+  # 어느 스냅샷도 브라우저 프로필을 상한에 넣은 적이 없어서다. 그 상태의
+  # 초록은 "오탐이 없다" 가 아니라 **"재지 않았다"** 다.
+  #
+  # **`User Data` 를 통째로 넣지 않는다.** 실측(2026-09-02, Win10x64-Test):
+  # Edge 쪽만 json 510개 · 합계 4.8 MB · 최대 509 KB 다. 그런 json 하나가
+  # 키 경로 수천 개로 펴져 상한 50,000 을 위협한다 — %LOCALAPPDATA%\Programs
+  # 와 %ProgramData% 에서 두 번 겪은 그것이다.
+  #
+  # `Extensions` 만 짚으면 둘을 합쳐 파일 320 · json 290(최대 12 KB)이고
+  # 확장 5개가 잡힌다. `scan_roots` 가 권한 상한이라는 점에서도 좁은 쪽이 맞다.
+  - "%LOCALAPPDATA%\\Microsoft\\Edge\\User Data\\Default\\Extensions" # 파일 89 · 확장 2
+  - "%LOCALAPPDATA%\\Google\\Chrome\\User Data\\Default\\Extensions" # 파일 231 · 확장 3
+
+  # ── 레지스트리 ─────────────────────────────────────────────
+  #
+  # **`registry_values` 는 재귀하지 않는다** — 선언한 키의 직속 값만 읽는다.
+  # 그래서 키를 하나하나 지목해야 하고, 절단 위험은 없다.
+  #
+  # 고른 기준 둘. 하나는 **오탐이 나면 기계가 깨지는 자리** —
+  # `restore_defaults` 카탈로그가 지목하는 곳이 그것이다. 다른 하나는
+  # **지속성이 실제로 사는 자리**다. 값 개수는 실측이다.
+  - "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon" # 35값 — Shell·Userinit·Taskman
+  # **IFEO 는 `\*` 로 펼쳐야 한다.** 값 수집이 재귀하지 않아, 별표 없이 적으면
+  # 이 키의 직속 값(없다)만 읽고 하위의 `Debugger` 는 영영 0건이다.
+  #
+  # 2026-09-04 압력 게이트가 이 자리를 꺼냈다 — 가이드 예제 `ex02-registry-ifeo`
+  # 의 주 술어(`key contains \Image File Execution Options\`)가 청정 레코드를
+  # **한 건도** 마주하지 않고 있었다. 작성자들이 베끼는 예제인데 그 안전은
+  # 규칙이 좁아서가 아니라 코퍼스에 잴 것이 없어서였다.
+  - "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\*"
+  - "HKLM\\SOFTWARE\\Classes\\exefile\\shell\\open\\command" # 2값 — exe 연결
+  - "HKLM\\SOFTWARE\\Classes\\batfile\\shell\\open\\command" # 1값
+  - "HKLM\\SOFTWARE\\Classes\\cmdfile\\shell\\open\\command" # 1값
+  - "HKLM\\SYSTEM\\CurrentControlSet\\Control\\SafeBoot" # 1값 — AlternateShell
+  - "HKLM\\SYSTEM\\CurrentControlSet\\Control\\SafeBoot\\Minimal" # 하위 89 (registry_key 가 이름을 담는다)
+  - "HKLM\\SYSTEM\\CurrentControlSet\\Control\\SafeBoot\\Network" # 하위 147
+  - "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run" # 9값
+  - "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce" # 2값
+  - "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run" # 2값
+  - "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows" # 19값 — AppInit_DLLs
+  - "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager" # 22값 — BootExecute
+  - "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System" # 22값
+  - "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options" # 하위 31
+  - "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings" # 16값
+
+  # **`env.strip_path` 를 재려면 이 둘이 있어야 한다.** 그 Op 은 증거 레코드의
+  # `name` 이 `Path`/`PATHEXT` 일 때 골라지는데(derive.rs 의 `is_path_variable`),
+  # 그 값이 사는 키가 상한에 없어 청정 코퍼스에 PATH 레코드가 한 건도
+  # 없었다. 값 개수는 실측이고 둘 다 `Path` 를 갖고 있다.
+  - "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment" # 14값 — 시스템 PATH
+  - "HKCU\\Environment" # 4값 — 사용자 PATH
+
+subjects:
+  [
+    file,
+    persistence,
+    autorun,
+    service,
+    process,
+    indicator,
+    registry_value,
+    registry_key,
+    text_config,
+    structured_config,
+    shortcut,
+    boot_config,
+    hosts_entry,
+    browser_extension,
+    av_exclusion,
+    cert_store,
+    proxy_config,
+    firewall_rule,
+  ]
+
+detect:
+  # **아무것도 맞히지 않는다.** 존재할 수 없는 경로를 겨눈다.
+  - id: never
+    subject: file
+    where:
+      - {
+          field: path,
+          op: equals,
+          value: "C:\\nonexistent\\remedy-corpus-never-matches",
+        }
+
+verdict: { require: "never" }

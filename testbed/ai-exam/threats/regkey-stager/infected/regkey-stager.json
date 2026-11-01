@@ -1,0 +1,230 @@
+{
+  "schema_version": 1,
+  "kind": "remedy.artifacts",
+  "run_id": "run-1790006569-0230-3acb5c0c",
+  "created": "2026-09-21T16:02:49Z",
+  "host": {
+    "hostname": "DESKTOP-2GQIRP1",
+    "os": "windows",
+    "version": "",
+    "arch": "x86_64"
+  },
+  "core": {
+    "version": "1.0.0",
+    "build": "x86_64-pc-windows-msvc"
+  },
+  "plugins": [],
+  "collected_at": "2026-09-21T16:02:49Z",
+  "collector": {
+    "version": "1.0.0",
+    "bitness": 64,
+    "os_bitness": 64
+  },
+  "scope": {
+    "scan_roots": [
+      "C:\\ProgramData\\NetSync",
+      "C:\\ProgramData\\NetSyncAgent",
+      "HKCU\\Software\\NetSync",
+      "HKCU\\Software\\NetSyncAgent"
+    ],
+    "subjects": [
+      "file",
+      "registry_key",
+      "registry_value",
+      "autorun"
+    ],
+    "truncated": false,
+    "denied_dirs": 0
+  },
+  "security_products": [
+    {
+      "vendor": "Microsoft Defender 바이러스 백신",
+      "realtime": true
+    },
+    {
+      "vendor": "알약"
+    }
+  ],
+  "autorun": [
+    {
+      "id": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\CrossEXService",
+      "scope": "user",
+      "name": "CrossEXService",
+      "command": "C:\\Program Files (x86)\\iniLINE\\CrossEX\\crossex\\CrossEXService.exe",
+      "source": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\MicrosoftEdgeAutoLaunch_AF2BBCAD27A22A0C1234356BDE5EE233",
+      "scope": "user",
+      "name": "MicrosoftEdgeAutoLaunch_AF2BBCAD27A22A0C1234356BDE5EE233",
+      "command": "\"C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe\" --no-startup-window --win-session-start",
+      "source": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\NetSyncAgent",
+      "scope": "user",
+      "name": "NetSyncAgent",
+      "command": "\"C:\\ProgramData\\NetSyncAgent\\stub.exe\" -k netsvc",
+      "source": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\Shell",
+      "scope": "system",
+      "name": "Shell",
+      "command": "explorer.exe",
+      "source": "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\Userinit",
+      "scope": "system",
+      "name": "Userinit",
+      "command": "C:\\Windows\\system32\\userinit.exe,",
+      "source": "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\ALNotify",
+      "scope": "system",
+      "name": "ALNotify",
+      "command": "C:\\Program Files (x86)\\ESTsoft\\ALToolsManager\\alnotify.exe",
+      "source": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\ALYac",
+      "scope": "system",
+      "name": "ALYac",
+      "command": "\"C:\\Program Files\\ESTsoft\\ALYac\\AYLaunch.exe\" /run",
+      "source": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\AhnLab Safe Transaction Application",
+      "scope": "system",
+      "name": "AhnLab Safe Transaction Application",
+      "command": "\"C:\\Program Files\\AhnLab\\Safe Transaction\\stsess.exe\" /tray",
+      "source": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\Everything",
+      "scope": "system",
+      "name": "Everything",
+      "command": "\"C:\\Program Files\\Everything\\Everything.exe\" -startup",
+      "source": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\SecurityHealth",
+      "scope": "system",
+      "name": "SecurityHealth",
+      "command": "%windir%\\system32\\SecurityHealthSystray.exe",
+      "source": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\VMware User Process",
+      "scope": "system",
+      "name": "VMware User Process",
+      "command": "\"C:\\Program Files\\VMware\\VMware Tools\\vmtoolsd.exe\" -n vmusr",
+      "source": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\wizvera-veraport-x64",
+      "scope": "system",
+      "name": "wizvera-veraport-x64",
+      "command": "\"C:\\Program Files\\Wizvera\\Veraport20\\veraport-x64.exe\" wizvera-veraport://exec/x86/16105/",
+      "source": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Run\\AnySign4PC",
+      "scope": "system",
+      "name": "AnySign4PC",
+      "command": "\"C:\\Program Files (x86)\\SoftForum\\XecureWeb\\AnySign\\dll\\AnySign4PC.exe\" \"port=10530;port_s=10531;no_shut=1\"",
+      "source": "HKLM\\SOFTWARE\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "id": "HKLM\\SOFTWARE\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Run\\ipinside-lws",
+      "scope": "system",
+      "name": "ipinside-lws",
+      "command": "C:\\Program Files (x86)\\IPinside_LWS\\I3GProc.exe",
+      "source": "HKLM\\SOFTWARE\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Run"
+    }
+  ],
+  "file": [
+    {
+      "path": "C:\\ProgramData\\NetSyncAgent\\netsync.dll",
+      "size": 188416,
+      "mtime": "2026-09-11T20:14:06Z",
+      "ctime": "2026-09-21T16:02:47Z",
+      "sha256": "3768a043d00863998ef2253f08cf2e2844d7be7f7c500bb726a28c14bf789209",
+      "signature": {
+        "trusted": false
+      }
+    },
+    {
+      "path": "C:\\ProgramData\\NetSyncAgent\\stub.exe",
+      "size": 271360,
+      "mtime": "2026-09-11T20:14:06Z",
+      "ctime": "2026-09-21T16:02:47Z",
+      "sha256": "a688e778be8c93989910c3acfbff4bafe5bd2fd90c5cc3455f77cbc6376b7b2b",
+      "signature": {
+        "trusted": false
+      }
+    },
+    {
+      "path": "C:\\ProgramData\\NetSync\\netsync.exe",
+      "size": 412672,
+      "mtime": "2025-12-03T08:20:41Z",
+      "ctime": "2026-09-21T16:02:47Z",
+      "sha256": "a4b0195a2f1d8862e9acc81112da9ac928ed1efe8b6f9de2fa8d7e5cf0dc3ef4",
+      "signature": {
+        "trusted": false
+      }
+    }
+  ],
+  "registry_key": [
+    {
+      "hive": "HKCU",
+      "key": "Software\\NetSync",
+      "subkeys": [],
+      "values": [
+        "InstallDir",
+        "Token"
+      ]
+    },
+    {
+      "hive": "HKCU",
+      "key": "Software\\NetSyncAgent",
+      "subkeys": [],
+      "values": [
+        "Payload",
+        "Stub"
+      ]
+    }
+  ],
+  "registry_value": [
+    {
+      "hive": "HKCU",
+      "key": "Software\\NetSync",
+      "name": "InstallDir",
+      "type": "REG_SZ",
+      "data": "\"C:\\ProgramData\\NetSync\""
+    },
+    {
+      "hive": "HKCU",
+      "key": "Software\\NetSync",
+      "name": "Token",
+      "type": "REG_SZ",
+      "data": "Y2hhbm5lbD1zdGFibGU7YnVpbGQ9MjAyNi45"
+    },
+    {
+      "hive": "HKCU",
+      "key": "Software\\NetSyncAgent",
+      "name": "Payload",
+      "type": "REG_SZ",
+      "data": "QzpcUHJvZ3JhbURhdGFcTmV0U3luY0FnZW50XG5ldHN5bmMuZGxs"
+    },
+    {
+      "hive": "HKCU",
+      "key": "Software\\NetSyncAgent",
+      "name": "Stub",
+      "type": "REG_SZ",
+      "data": "\"C:\\ProgramData\\NetSyncAgent\\stub.exe\""
+    }
+  ]
+}

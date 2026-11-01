@@ -1,0 +1,31 @@
+[package]
+name = "remedy-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+# 제품 바이너리는 `remedy` 다. 크레이트 이름(remedy-cli)을 그대로 쓰면
+# `remedy-cli.exe` 가 나오고, 하네스·문서·사용자가 부르는 이름과 어긋난다.
+# 그 어긋남은 **낡은 remedy.exe 가 남아 있으면 조용히 가려진다** — 실제로
+# P2 작업 중에 그렇게 P0 바이너리를 시험할 뻔했다. xtask arch 가 이것을 지킨다.
+[[bin]]
+name = "remedy"
+path = "src/main.rs"
+
+[dependencies]
+remedy-core = { path = "../remedy-core" }
+# 플러그인 서명 확인(`plugin verify`). 검증만 하는 크레이트이고 의존성이
+# 없어(루트 Cargo.toml 의 `minisign-verify` 주석) 배포 표면이 늘지 않는다.
+remedy-trust = { path = "../remedy-trust" }
+remedy-sdk = { path = "../remedy-sdk" }
+serde.workspace = true
+serde_json.workspace = true
+serde_yaml_ng.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+# 통합 시험이 컨테이너를 **만들어야** 한다. 격리물 생성은 P6 의 몫이라 제품
+# CLI 에는 없고, 그래서 시험 쪽에서만 라이브러리를 직접 쓴다.
+remedy-quarantine = { path = "../remedy-quarantine" }

@@ -1,0 +1,44 @@
+# 감염 스냅샷을 뜨기 위한 수집 매니페스트 — regkey-stager.
+#
+# # 이것은 탐지 룰이 아니다
+#
+# `detect` 는 **아무것도 맞히지 않도록** 일부러 짰다 (`search-hijack-collect.yaml`
+# 과 같다). 매니페스트가 있어야 선언 모드로 수집되고, 선언 모드여야 subject 를
+# 고를 수 있을 뿐이다. 여기에 진짜 조건을 적으면 그 순간 스냅샷이 오염된다.
+#
+# # `registry_key` 를 처음 담는 수집이다
+#
+# 수집기는 **선언된 레지스트리 루트 자체**를 키 레코드 하나로 만든다(하위로
+# 재귀하지 않는다). 그래서 검체의 키와 이름이 닮은 정상 키를 **둘 다 적는다** —
+# 정상 키를 빼면 *"새 키가 있으면 검체"* 로 가르는 답안이 아무 데도 걸리지
+# 않는다.
+#
+# 같은 두 루트가 `registry_value` 의 상한이기도 하다. 값은 그 키 아래에서
+# 거둬진다.
+#
+# 자동 실행 등록은 `autorun` 이 고정 경로에서 거둬 오므로 범위에 넣지 않는다.
+
+schema_version: 1
+id: regkey-stager-collect
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [windows]
+name:
+  ko: "감염 스냅샷 수집용 — regkey-stager"
+  en: "infected snapshot collection - regkey-stager"
+
+scan_roots:
+  - "C:\\ProgramData\\NetSyncAgent"
+  - "C:\\ProgramData\\NetSync"
+  - "HKCU\\Software\\NetSyncAgent"
+  - "HKCU\\Software\\NetSync"
+
+subjects: [file, registry_key, registry_value, autorun]
+
+detect:
+  - id: never
+    subject: file
+    where:
+      - { field: path, op: equals, value: "C:\nonexistent\remedy-exam-never-matches" }
+
+verdict: { require: "never" }

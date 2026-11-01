@@ -1,0 +1,47 @@
+# 감염 스냅샷에서 반드시 나와야 하는 Op (채점 4번).
+#
+# 이 위협은 지속성이 둘이다 — 서비스와 Winlogon Userinit. 하나만 지우면
+# 나머지가 남는다.
+#
+# **Userinit 은 삭제가 아니라 원복이다.** 그 값을 지우면 로그온 셸이 뜨지
+# 않는다. registry.delete_value 가 여기 없는 이유가 그것이다.
+
+# ── 2026-09-04: Op 이름만 적던 것을 (Op, 대상)으로 조인다 ──────────────
+#
+# 그전까지 이 파일은 `registry.delete_value` 처럼 **종류만** 적었고, 그것은
+# "그 종류가 하나라도 있으면 통과" 를 뜻했다. appinit-r3 회차의 사전 기준에
+# 실측으로 적었듯 — AppInit_DLLs 만 지우고 LoadAppInit_DLLs 를 남긴 변형이
+# 네 판정을 전부 통과하고 경고도 0이었다.
+#
+# 개수를 세는 것으로는 부족하다. 그러면 AppInit_DLLs 와 Spooler 를 지운 답이
+# 2건으로 통과한다 — 절반짜리 치료보다 나쁜 실패다. 그래서 **대상**을 적는다.
+#
+# 대상 문자열은 응시자가 아니라 코어가 증거에서 조립한다(`derive.rs`). 룰을
+# 어떻게 적었든 같은 레코드를 짚으면 같은 문자열이 나오므로, 답안마다 표기가
+# 달라 비교가 무너지지 않는다. `::` 뒤는 `match` 다 — 대상만으로는 구분되지
+# 않는 Op 이 있다(`structured_config.remove_key` 는 어느 항목을 빼는가가
+# 거기에만 있고, `process.kill` 은 대상 자체가 없다).
+#
+# 아래 목록은 **정답 플러그인의 계획을 그대로 옮긴 것**이고, 사람이 한 줄씩
+# 읽어 위협 설명의 요구와 맞는지 확인했다.
+
+dir.delete_recursive C:\ProgramData\SvcHostCache-3f8a
+file.quarantine_only C:\ProgramData\SvcHostCache-3f8a\cache.db
+file.quarantine_only C:\ProgramData\SvcHostCache-3f8a\svc.exe
+registry.restore_default HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\Userinit
+service.clear_recovery HKLM\SYSTEM\CurrentControlSet\Services\SvcHostCache
+service.delete HKLM\SYSTEM\CurrentControlSet\Services\SvcHostCache
+service.disable HKLM\SYSTEM\CurrentControlSet\Services\SvcHostCache
+service.stop HKLM\SYSTEM\CurrentControlSet\Services\SvcHostCache
+
+# ── 2026-09-05: 표시 이름 -> 정의 키 이름 ────────────────────────────────
+#
+# 이 네 줄은 `Host Cache Service` 였다. 그것은 **표시 이름**이고 레지스트리
+# 정의 키는 `SvcHostCache` 다 — 검체가 둘을 일부러 다르게 둔다.
+#
+# 이 파일은 정답 플러그인의 계획에서 뽑혔고, 계획기가 `name` 으로 자리를
+# 조립하고 있었다. 그래서 **양쪽이 똑같이 틀린 문자열에 합의**했고 네 판정이
+# 전부 초록이었다. 실기기에서는 백업이 없는 키를 열지 못해 `apply` 가
+# 종료 코드 5 로 멈췄다 — 계획 여덟 건이 통째로 수행되지 않았다.
+#
+# 채점 5(`Invoke-ExamApply.ps1`)의 첫 회차가 이것을 냈다.

@@ -1,0 +1,495 @@
+{
+  "count": 19,
+  "subjects": [
+    {
+      "enumerated": {},
+      "fields": [
+        "id",
+        "name",
+        "enabled",
+        "trigger",
+        "command",
+        "args",
+        "principal",
+        "source",
+        "win.task.register_path",
+        "win.task.actions",
+        "win.task.run_level",
+        "win.task.working_directory",
+        "linux.cron.line_no",
+        "linux.cron.line"
+      ],
+      "id": "persistence",
+      "implemented_in": "P2",
+      "linux": true,
+      "linux_from": "P12",
+      "scoping": "fixed",
+      "summary": "예약 작업 · cron · systemd timer",
+      "windows": true
+    },
+    {
+      "enumerated": {
+        "scope": {
+          "defined": true,
+          "values": [
+            "system",
+            "user"
+          ],
+          "why": "기계 전체의 자리에서 왔는지 한 사용자의 자리에서 왔는지 둘뿐이다"
+        }
+      },
+      "fields": [
+        "id",
+        "scope",
+        "name",
+        "command",
+        "source"
+      ],
+      "id": "autorun",
+      "implemented_in": "P4",
+      "linux": true,
+      "linux_from": "P12",
+      "scoping": "fixed",
+      "summary": "Run/RunOnce · 시작 폴더 · 셸 프로필 · XDG autostart",
+      "windows": true
+    },
+    {
+      "enumerated": {
+        "start_type": {
+          "defined": true,
+          "values": [
+            "boot",
+            "system",
+            "auto",
+            "manual",
+            "disabled",
+            "unknown",
+            "enabled",
+            "static"
+          ],
+          "why": "앞의 여섯은 Windows 의 `Start` REG_DWORD 를 옮긴 것이고, `enabled`·`static` 은 systemd 쪽이다(`[Install]` 이 없는 유닛을 systemd 가 `static` 이라 부른다). 두 플랫폼의 낱말이 겹치지 않으므로 한쪽 이름을 다른 쪽에 쓰면 언제나 거짓이다"
+        },
+        "state": {
+          "defined": true,
+          "values": [
+            "unknown"
+          ],
+          "why": "**실행 여부는 어느 쪽에도 없다.** Windows 수집기는 레지스트리를, Linux 수집기는 유닛 파일을 읽는다 — 둘 다 살아 있는 서비스 관리자에게 묻지 않는다. 없는 것을 '정지' 로 적으면 돌고 있는 악성 서비스가 멈춘 것으로 보고되므로 양쪽 다 `unknown` 만 적는다. `running`·`stopped` 로 비교하는 술어는 어느 기계에서도 참이 되지 않는다"
+        }
+      },
+      "fields": [
+        "id",
+        "name",
+        "state",
+        "start_type",
+        "image_path"
+      ],
+      "id": "service",
+      "implemented_in": "P4",
+      "linux": true,
+      "linux_from": "P12",
+      "scoping": "fixed",
+      "summary": "Windows 서비스 · systemd service · SysV init",
+      "windows": true
+    },
+    {
+      "enumerated": {},
+      "fields": [
+        "pid",
+        "ppid",
+        "image_path",
+        "cmdline",
+        "cmdline_decoded",
+        "args",
+        "user",
+        "start_time",
+        "modules"
+      ],
+      "id": "process",
+      "implemented_in": "P4",
+      "linux": true,
+      "linux_from": "P12",
+      "scoping": "fixed",
+      "summary": "실행 중인 프로세스와 로드된 모듈",
+      "windows": true
+    },
+    {
+      "enumerated": {},
+      "fields": [
+        "path",
+        "size",
+        "mtime",
+        "ctime",
+        "sha256",
+        "streams",
+        "content_ref",
+        "version",
+        "signature.trusted",
+        "signature.subject",
+        "signature.thumbprint",
+        "zone.zone_id",
+        "zone.referrer_url",
+        "zone.host_url"
+      ],
+      "id": "file",
+      "implemented_in": "P2",
+      "linux": true,
+      "linux_from": "P12",
+      "scoping": "path",
+      "summary": "파일 메타데이터 · 해시 · 서명 · 영역 · 대체 스트림",
+      "windows": true
+    },
+    {
+      "enumerated": {},
+      "fields": [
+        "kind",
+        "value",
+        "source_ref"
+      ],
+      "id": "indicator",
+      "implemented_in": "P4",
+      "linux": true,
+      "linux_from": "P12",
+      "scoping": "fixed",
+      "summary": "다른 관찰에서 파생된 지표 (url · domain · ip · hash)",
+      "windows": true
+    },
+    {
+      "enumerated": {
+        "type": {
+          "defined": true,
+          "values": [
+            "REG_SZ",
+            "REG_DWORD",
+            "REG_QWORD",
+            "REG_MULTI_SZ",
+            "REG_BINARY",
+            "REG_UNKNOWN"
+          ],
+          "why": "`RegValue::type_name()` 의 전수다. 레지스트리 자신은 더 많은 형을 갖지만 수집기가 이 여섯으로 접는다 — 예컨대 `REG_EXPAND_SZ` 는 `REG_SZ` 로 온다. **`REG_MULTI_SZ` 의 여러 값은 `data` 에 줄바꿈으로 이어 붙는다** — 구분자를 다르게 짐작한 조건은 오류 없이 조용히 안 맞는다. 그 목록에는 **빈 항목이 섞여 있을 수 있고 빈 줄로 나타난다** (`BootExecute` 가 실기기에서 그렇다) — 그래서 `ends_with`·`starts_with` 를 이 필드에 걸면 부서지기 쉽다. `contains` 를 쓸 것"
+        }
+      },
+      "fields": [
+        "hive",
+        "key",
+        "name",
+        "type",
+        "data"
+      ],
+      "id": "registry_value",
+      "implemented_in": "P4",
+      "linux": false,
+      "linux_from": null,
+      "scoping": "registry",
+      "summary": "레지스트리 값. 키 경로에 와일드카드 열거 허용",
+      "windows": true
+    },
+    {
+      "enumerated": {},
+      "fields": [
+        "hive",
+        "key",
+        "subkeys",
+        "values"
+      ],
+      "id": "registry_key",
+      "implemented_in": "P4",
+      "linux": false,
+      "linux_from": null,
+      "scoping": "registry",
+      "summary": "레지스트리 키 단위 관찰",
+      "windows": true
+    },
+    {
+      "enumerated": {},
+      "fields": [
+        "path",
+        "line_no",
+        "line",
+        "section",
+        "key",
+        "value"
+      ],
+      "id": "text_config",
+      "implemented_in": "P4",
+      "linux": true,
+      "linux_from": "P12",
+      "scoping": "path",
+      "summary": "ini · conf · 셸 프로필 등 줄 단위 설정",
+      "windows": true
+    },
+    {
+      "enumerated": {
+        "format": {
+          "defined": true,
+          "values": [
+            "json"
+          ],
+          "why": "지금 구조적 설정으로 펴는 형식은 JSON 뿐이다. `yaml`·`xml`·`toml` 로 비교하는 술어는 언제나 거짓이다 — 그 형식의 파일은 이 subject 로 오지 않는다"
+        }
+      },
+      "fields": [
+        "path",
+        "format",
+        "key_path",
+        "value"
+      ],
+      "id": "structured_config",
+      "implemented_in": "P4",
+      "linux": true,
+      "linux_from": "P12",
+      "scoping": "path",
+      "summary": "JSON · XML 등 구조적 설정",
+      "windows": true
+    },
+    {
+      "enumerated": {},
+      "fields": [
+        "path",
+        "target",
+        "args",
+        "working_dir",
+        "icon"
+      ],
+      "id": "shortcut",
+      "implemented_in": "P4",
+      "linux": true,
+      "linux_from": "P12",
+      "scoping": "path",
+      "summary": ".lnk 바로가기 · .desktop 항목",
+      "windows": true
+    },
+    {
+      "enumerated": {
+        "entry": {
+          "defined": true,
+          "values": [
+            "{current}"
+          ],
+          "why": "수집기가 부팅 항목을 **열거하지 않는다** — 지금 도는 항목 하나를                 건강 요약으로 적을 뿐이라 이 이름이 못박혀 있다"
+        },
+        "recoveryenabled": {
+          "defined": true,
+          "values": [
+            "unknown"
+          ],
+          "why": "**BCD 는 레지스트리 하이브지만 마운트되어 있지 않다.** 읽지 못한 것을                 '꺼져 있다' 로 적으면 복구가 살아 있는 기계를 껐다고 보고하므로                 `boot_health` 가 언제나 모른다고 적는다. `yes`·`no` 로 비교하는 술어는                 어느 기계에서도 참이 되지 않는다"
+        },
+        "safeboot_available": {
+          "defined": true,
+          "values": [
+            "yes",
+            "partial",
+            "no",
+            "unreadable",
+            "unknown"
+          ],
+          "why": "`SafeBoot` 키와 그 아래 `Minimal`·`Network` 를 보고 정한다. **없는 것과                 못 읽는 것을 가른다** — 잠긴 키를 `no` 로 적으면 안전 모드가 멀쩡한                 기계를 깨졌다고 보고한다(`unreadable`). 하나라도 못 읽었으면 나머지가                 무엇이든 `unknown` 이다"
+        }
+      },
+      "fields": [
+        "entry",
+        "recoveryenabled",
+        "safeboot_available"
+      ],
+      "id": "boot_config",
+      "implemented_in": "P4",
+      "linux": true,
+      "linux_from": null,
+      "scoping": "fixed",
+      "summary": "부팅 구성 · GRUB 항목",
+      "windows": true
+    },
+    {
+      "enumerated": {},
+      "fields": [
+        "ip",
+        "hostnames",
+        "line_no",
+        "source",
+        "line"
+      ],
+      "id": "hosts_entry",
+      "implemented_in": "P4",
+      "linux": true,
+      "linux_from": "P12",
+      "scoping": "fixed",
+      "summary": "hosts 파일 항목",
+      "windows": true
+    },
+    {
+      "enumerated": {
+        "browser": {
+          "defined": true,
+          "values": [
+            "chrome",
+            "edge",
+            "brave",
+            "whale",
+            "opera",
+            "vivaldi",
+            "chromium",
+            "unknown"
+          ],
+          "why": "설치 경로에서 알아본 이름이다. 앞의 일곱 중 어느 것도 경로에 없으면                 `unknown` 이 적히므로 그것도 전수에 든다 — 이름을 못 알아본 확장을                 거르려면 그 값으로 비교해야 한다"
+        }
+      },
+      "fields": [
+        "browser",
+        "profile",
+        "ext_id",
+        "name",
+        "version",
+        "path"
+      ],
+      "id": "browser_extension",
+      "implemented_in": "P4",
+      "linux": true,
+      "linux_from": "P12",
+      "scoping": "path",
+      "summary": "브라우저 확장 프로그램",
+      "windows": true
+    },
+    {
+      "enumerated": {},
+      "fields": [
+        "kind",
+        "value",
+        "source"
+      ],
+      "id": "av_exclusion",
+      "implemented_in": "P4",
+      "linux": true,
+      "linux_from": null,
+      "scoping": "fixed",
+      "summary": "보안 제품 예외 목록. 탐지 근거이자 복원 대상",
+      "windows": true
+    },
+    {
+      "enumerated": {
+        "store": {
+          "defined": true,
+          "values": [
+            "ROOT",
+            "CA",
+            "TrustedPublisher",
+            "TrustedPeople",
+            "local",
+            "system"
+          ],
+          "why": "Windows 는 네 저장소를 훑는다(`certstore::STORES`). Linux 는 **자리가 둘**이다(`certstore::CERT_DIRS`) — `local` 은 `/usr/local/share/ca-certificates`(손으로 더한 CA), `system` 은 `/usr/share/ca-certificates`(배포판이 넣은 것)다. **악성 루트 CA 는 거의 `local` 로 들어온다.** **대소문자가 플랫폼마다 다르다** — Linux 평가는 접지 않으므로 표기 그대로 써야 한다"
+        }
+      },
+      "fields": [
+        "store",
+        "subject",
+        "issuer",
+        "thumbprint",
+        "not_after",
+        "linux.path"
+      ],
+      "id": "cert_store",
+      "implemented_in": "P4",
+      "linux": true,
+      "linux_from": "P12",
+      "scoping": "fixed",
+      "summary": "신뢰할 수 있는 루트/게시자 저장소",
+      "windows": true
+    },
+    {
+      "enumerated": {
+        "scope": {
+          "defined": true,
+          "values": [
+            "user",
+            "system"
+          ],
+          "why": "설정이 어느 하이브에서 왔는지다 — `PROXY_KEYS` 가 HKCU 를 `user`, HKLM 을                 `system` 으로 적는다. 그 둘뿐이다"
+        }
+      },
+      "fields": [
+        "scope",
+        "server",
+        "pac_url",
+        "bypass"
+      ],
+      "id": "proxy_config",
+      "implemented_in": "P4",
+      "linux": true,
+      "linux_from": null,
+      "scoping": "fixed",
+      "summary": "프록시 설정 · PAC",
+      "windows": true
+    },
+    {
+      "enumerated": {
+        "action": {
+          "defined": false,
+          "values": [
+            "Allow",
+            "Block"
+          ],
+          "why": "규칙 문자열의 `Action=` 토큰을 그대로 옮긴다. 청정 코퍼스에는 `Allow` 509건만 있고 `Block` 은 아직 관측되지 않았다 — 그래서 이 전수는 우리가 보증하는 것이 아니라 **아는 만큼**이다"
+        },
+        "direction": {
+          "defined": false,
+          "values": [
+            "In",
+            "Out"
+          ],
+          "why": "방화벽 규칙 문자열의 `Dir=` 토큰을 **그대로** 옮긴다 — 수집기가 고쳐 적지 않는다. 청정 코퍼스 509건이 전부 이 둘이다(In 286 · Out 223)"
+        }
+      },
+      "fields": [
+        "id",
+        "name",
+        "direction",
+        "action",
+        "enabled",
+        "protocol",
+        "local_port",
+        "remote_port",
+        "remote_address",
+        "application",
+        "service",
+        "profile",
+        "source"
+      ],
+      "id": "firewall_rule",
+      "implemented_in": "P4",
+      "linux": true,
+      "linux_from": null,
+      "scoping": "fixed",
+      "summary": "방화벽 규칙. 자기 허용·보안 제품 차단이 여기 남는다",
+      "windows": true
+    },
+    {
+      "enumerated": {
+        "manager": {
+          "defined": true,
+          "values": [
+            "dpkg",
+            "apk"
+          ],
+          "why": "**어느 DB 에서 읽었는가**다. 이 코어는 둘을 파일로 직접 읽는다 — `/var/lib/dpkg/status` 와 `/lib/apk/db/installed` 가 텍스트이기 때문이다(수집은 자식 프로세스를 띄우지 않으므로 `dpkg-query` 를 부를 수 없다). **`rpm` 은 여기 없다** — 그쪽 DB 는 sqlite/BDB 라 파서가 따로 필요하고, 값을 미리 적어 두면 RHEL 계열에서 `manager equals 'rpm'` 이 조용히 0건이 된다"
+        }
+      },
+      "fields": [
+        "name",
+        "version",
+        "upstream_version",
+        "revision",
+        "arch",
+        "source",
+        "manager"
+      ],
+      "id": "package",
+      "implemented_in": "P4",
+      "linux": true,
+      "linux_from": "P12",
+      "scoping": "fixed",
+      "summary": "설치된 패키지. 배포판이 백포트한 판을 가리는 유일한 길",
+      "windows": false
+    }
+  ]
+}

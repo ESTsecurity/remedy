@@ -1,0 +1,3825 @@
+{
+  "schema_version": 1,
+  "kind": "remedy.artifacts",
+  "run_id": "exam-search-hijack",
+  "created": "2026-09-02T00:00:00Z",
+  "host": {
+    "hostname": "EXAMPLE-PC",
+    "os": "windows",
+    "version": "10.0.19045",
+    "arch": "x86_64"
+  },
+  "core": {
+    "version": "0.0.0",
+    "build": "x86_64-pc-windows-msvc"
+  },
+  "plugins": [],
+  "collected_at": "2026-09-02T00:00:00Z",
+  "collector": {
+    "version": "0.0.0",
+    "bitness": 64,
+    "os_bitness": 64
+  },
+  "scope": {
+    "scan_roots": [
+      "C:\\ProgramData\\WebBoost",
+      "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions",
+      "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions",
+      "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager",
+      "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment"
+    ],
+    "subjects": [
+      "file",
+      "registry_value",
+      "browser_extension",
+      "proxy_config",
+      "process"
+    ],
+    "truncated": false,
+    "denied_dirs": 0
+  },
+  "security_products": [
+    {
+      "vendor": "Microsoft Defender 바이러스 백신",
+      "realtime": true
+    },
+    {
+      "vendor": "알약"
+    }
+  ],
+  "browser_extension": [
+    {
+      "browser": "chrome",
+      "profile": "Default",
+      "ext_id": "ghbmnnjooekpmoecnnnilnnbdlolhkhi",
+      "name": "__MSG_extName__",
+      "version": "1.109.1",
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.109.1_0"
+    },
+    {
+      "browser": "chrome",
+      "profile": "Default",
+      "ext_id": "nmmhkkegccagdldgiimedpiccmgmieda",
+      "name": "__MSG_APP_NAME__",
+      "version": "1.0.0.6",
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0"
+    },
+    {
+      "browser": "chrome",
+      "profile": "Default",
+      "ext_id": "pknbjlbmgcodmfilnjadgpkcnkmlpkkn",
+      "name": "WebBoost Search",
+      "version": "3.2.0",
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\pknbjlbmgcodmfilnjadgpkcnkmlpkkn\\3.2.0_0"
+    },
+    {
+      "browser": "edge",
+      "profile": "Default",
+      "ext_id": "ghbmnnjooekpmoecnnnilnnbdlolhkhi",
+      "name": "__MSG_extName__",
+      "version": "1.94.1",
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0"
+    },
+    {
+      "browser": "edge",
+      "profile": "Default",
+      "ext_id": "jmjflgjpcpepeafmmgdpfkogkghcpiha",
+      "name": "Edge relevant text changes",
+      "version": "1.2.1",
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\jmjflgjpcpepeafmmgdpfkogkghcpiha\\1.2.1_0"
+    },
+    {
+      "browser": "edge",
+      "profile": "Default",
+      "ext_id": "pknbjlbmgcodmfilnjadgpkcnkmlpkkn",
+      "name": "WebBoost Search",
+      "version": "3.2.0",
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\pknbjlbmgcodmfilnjadgpkcnkmlpkkn\\3.2.0_0"
+    }
+  ],
+  "file": [
+    {
+      "path": "C:\\ProgramData\\WebBoost\\wbboot.exe",
+      "size": 172032,
+      "mtime": "2026-08-30T11:02:44Z",
+      "ctime": "2026-09-05T04:48:21Z",
+      "sha256": "765a428a9e7d7b7ed5d70bc86e2847ee8a93a7a04c46100dcd7c3a4d8f4c2e97",
+      "signature": {
+        "trusted": false
+      }
+    },
+    {
+      "path": "C:\\ProgramData\\WebBoost\\wbsvc.exe",
+      "size": 1245184,
+      "mtime": "2026-08-30T11:02:44Z",
+      "ctime": "2026-09-05T04:48:21Z",
+      "sha256": "9850b72dac22aa4e76bdda89b65051b189e48ce7e77ae3ddded38465ab5dc9f2",
+      "signature": {
+        "trusted": false
+      }
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.109.1_0\\manifest.json",
+      "size": 74,
+      "mtime": "2025-12-03T08:20:41Z",
+      "ctime": "2026-09-05T04:48:21Z",
+      "sha256": "21906299f5e36b7545911421e9ad9538b300ab467e7df74b70ff94a38c6dfe36"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\_locales\\bg\\messages.json",
+      "size": 796,
+      "mtime": "2025-03-12T16:01:12Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "a114e2783d0e9b12155017323ba70838f0f82a71c7ee8dc1f115ae36991241f8"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\_locales\\ca\\messages.json",
+      "size": 675,
+      "mtime": "2025-03-12T16:01:12Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "c67898b67f9c9209eafda6532b62d5789863cfb855998dd6a70e7775316cec20"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\_locales\\cs\\messages.json",
+      "size": 641,
+      "mtime": "2025-03-12T16:01:12Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "32290d69a90e6baac428b10382c99221b12773bb9a184f3b93dfb48a4f6d7a40"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\_locales\\da\\messages.json",
+      "size": 624,
+      "mtime": "2025-03-12T16:01:12Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "4977d4a053542ff66967faed6b06585dd70e68e20bfeb533b66fe3287f9655d9"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\_locales\\de\\messages.json",
+      "size": 651,
+      "mtime": "2025-03-12T16:01:12Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "a62ffab910e31531758eee48b2cc71a8857bec3021dead50b668cba3c8667053"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\_locales\\el\\messages.json",
+      "size": 787,
+      "mtime": "2025-03-12T16:01:12Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "a052c32b4fcac61152eb0adb2c260fb6a8256ad104aa0013db93e9798d41a070"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\_locales\\en\\messages.json",
+      "size": 593,
+      "mtime": "2025-03-12T16:01:12Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "92f1246c21dd5fd7266ebfd65798c61e403d01a816cc3cf780db5c8aa2e3d9c9"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\_locales\\en_GB\\messages.json",
+      "size": 593,
+      "mtime": "2025-03-12T16:01:12Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "92f1246c21dd5fd7266ebfd65798c61e403d01a816cc3cf780db5c8aa2e3d9c9"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\_locales\\es\\messages.json",
+      "size": 661,
+      "mtime": "2025-03-12T16:01:12Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "4db9b2721e625c18b9e05c04b31af5d9694712f1caaf6219abe34bb08e5db1c7"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\_locales\\es_419\\messages.json",
+      "size": 637,
+      "mtime": "2025-03-12T16:01:12Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "6659bc3705311d7641a73995dcfea80c7734f2f4ebbc3787b3892a240348324f"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\_locales\\et\\messages.json",
+      "size": 595,
+      "mtime": "2025-03-12T16:01:12Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "c85800bf45942fcc7fd6b1df929c25f9cc2a977a6678966bd03d4b6b69889afd"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\_locales\\fi\\messages.json",
+      "size": 647,
+      "mtime": "2025-03-12T16:01:12Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "0bde54b20845124113383b6eb81e43a0f05e4eb0c44bee3c1dfac4cc5fec2836"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\_locales\\fil\\messages.json",
+      "size": 658,
+      "mtime": "2025-03-12T16:01:12Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "ec002ed92359f67818b49455dfc579e140368e6a004080af022fd4f57f6b03f2"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\_locales\\fr\\messages.json",
+      "size": 677,
+      "mtime": "2025-03-12T16:01:12Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "599491f8c52b945c16c441adf45bfd45afae046da07757d97c56af4de75ed3b5"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\_locales\\hi\\messages.json",
+      "size": 835,
+      "mtime": "2025-03-12T16:01:12Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "8106d98c4f8da16db698444409558e29cc96735e188bfa303c333a5d99231c1d"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\_locales\\hr\\messages.json",
+      "size": 618,
+      "mtime": "2025-03-12T16:01:12Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "a2b2ec359a9dd9dccce02859ce1e738bd30faa4a05f1dc522893ffdf722bbc15"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\_locales\\hu\\messages.json",
+      "size": 683,
+      "mtime": "2025-03-12T16:01:12Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "32a249749f12adb6a220bf9adc272c7e5d9ad5497a38b0086d961e3aba17fbc6"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\_locales\\id\\messages.json",
+      "size": 604,
+      "mtime": "2025-03-12T16:01:12Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "c6e8800450602de0f39fe9f6854472383813fb454b08abae7e25a9167ce004c3"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\_locales\\it\\messages.json",
+      "size": 603,
+      "mtime": "2025-03-12T16:01:12Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "cd891c45f7586fb4a2514205a11f260e4a6d4482fa03d901909dd9f57be0536d"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\_locales\\ja\\messages.json",
+      "size": 697,
+      "mtime": "2025-03-12T16:01:12Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "706312a4a2aef3317223f141eb2b82685345b7eed444f16bb4df3a272716da1f"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\_locales\\ko\\messages.json",
+      "size": 631,
+      "mtime": "2025-03-12T16:01:12Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "d1467b8d037114403e8f4efc52e88c4a7feb96126be4cff883feff1084ef7e68"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\_locales\\lt\\messages.json",
+      "size": 665,
+      "mtime": "2025-03-12T16:01:12Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "7c311ab751d840d750c11553c083785813e079c1d464fe568a98c9e3ef3db96c"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\_locales\\lv\\messages.json",
+      "size": 671,
+      "mtime": "2025-03-12T16:01:12Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "1fa1df2ca8516def490fb8484e9aa498acff80eef5c9258ffe42d3678e6c7ded"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\_locales\\nb\\messages.json",
+      "size": 624,
+      "mtime": "2025-03-12T16:01:12Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "2cd700aeb57d89c2e73333d0702556ee3ff3863516170f85669bc680fcbdc4e0"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\_locales\\nl\\messages.json",
+      "size": 615,
+      "mtime": "2025-03-12T16:01:12Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "92be7c2dc9cfbe5a65e9ce6488d364c8d7ec19e7b67a31e4d43c1cb2b169671c"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\_locales\\pl\\messages.json",
+      "size": 636,
+      "mtime": "2025-03-12T16:01:12Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "e2699f98c511b18a2afb82eae9a4804b646c4ff1077d80e77c17a3943a6373c2"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\_locales\\pt_BR\\messages.json",
+      "size": 636,
+      "mtime": "2025-03-12T16:01:12Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "6374880fdd1f8af1ee8aea6a06b73be0ab265afceb4fe6f08bde3b3989264b21"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\_locales\\pt_PT\\messages.json",
+      "size": 622,
+      "mtime": "2025-03-12T16:01:12Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "c1c94f65fabaf17def98a8587711a56d61b1e5607500e9b01f2824db109f9e83"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\_locales\\ro\\messages.json",
+      "size": 641,
+      "mtime": "2025-03-12T16:01:12Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "113a13900cba62fe8aed06751971c23a80a99b47f9be219cf884d57db19611d9"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\_locales\\ru\\messages.json",
+      "size": 744,
+      "mtime": "2025-03-12T16:01:12Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "fbaf22ce6e16de174ced8cb5ea3098cca1c3426a2111ff33bd3e64da64ed67ab"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\_locales\\sk\\messages.json",
+      "size": 647,
+      "mtime": "2025-03-12T16:01:12Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "7fa16af97e6cfc52ec6008eb679d3f30e7e0c24f9ef2d18a9228eaf4ded9d63b"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\_locales\\sl\\messages.json",
+      "size": 617,
+      "mtime": "2025-03-12T16:01:12Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "18aff072ee0df7c3495045435c752a805606e6d5d462ef2321c443f1773f4b3a"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\_locales\\sr\\messages.json",
+      "size": 743,
+      "mtime": "2025-03-12T16:01:12Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "7ffde34c58e7c376c042de64def6481dae32be8b70f0b18edf536290cbe0c818"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\_locales\\sv\\messages.json",
+      "size": 630,
+      "mtime": "2025-03-12T16:01:12Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "b8ba77e0089b0676545ec16d32468b727812b444f90b33a7a5b748e6c36c4388"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\_locales\\th\\messages.json",
+      "size": 945,
+      "mtime": "2025-03-12T16:01:12Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "2feca577f43d97baeea464741d585892103585208fd0a935b810a03bdce83c88"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\_locales\\tr\\messages.json",
+      "size": 631,
+      "mtime": "2025-03-12T16:01:12Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "a7cb86f30c9c31fe5540282c308ba96adb4ec16ef98c87129eb88105e5bef5fc"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\_locales\\uk\\messages.json",
+      "size": 720,
+      "mtime": "2025-03-12T16:01:12Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "68aba284751eb9c856032062ef9b1651e2a1e5ce5fda0977ffc97d63ba7bed9e"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\_locales\\vi\\messages.json",
+      "size": 695,
+      "mtime": "2025-03-12T16:01:12Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "051f96ed874c11c4a13589b5f68964e4f5b03b52dda223d56524f2ca23760c04"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\_locales\\zh_CN\\messages.json",
+      "size": 595,
+      "mtime": "2025-03-12T16:01:12Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "d804f2a040d21d7511efd5213d8e1721d64964a1a0dbb48e21622ceedc9d967e"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\_locales\\zh_TW\\messages.json",
+      "size": 634,
+      "mtime": "2025-03-12T16:01:12Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "c6f8c640f3353a7b9b1432a0c139c1aeec40133800e6c9b467b63991ad660308"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\_metadata\\computed_hashes.json",
+      "size": 11217,
+      "mtime": "2025-03-12T16:01:13Z",
+      "ctime": "2025-03-12T16:01:13Z",
+      "sha256": "965203d541e442c107dbc6d5b395168123d0397559774beae4e5b9abc44ef268"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\_metadata\\verified_contents.json",
+      "size": 7780,
+      "mtime": "2021-01-28T15:51:02Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "52a24fa2fb3bcb18d9d8571ae385c4a830ff98ce4c18384d40a84ea7f6ba7f69"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\craw_background.js",
+      "size": 544643,
+      "mtime": "2021-01-28T15:20:58Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "04cd9494b0ed83924dad12202630b20d053d9e2819c8e826a386c814cc0a1697"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\craw_window.js",
+      "size": 261316,
+      "mtime": "2021-01-28T15:20:56Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "5721a4b3f8e09c869a629effd350b51c9d46f0ac136717d4db6265c0ee6f9ac8"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\css\\craw_window.css",
+      "size": 1741,
+      "mtime": "2013-10-07T12:22:20Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "10dfbd2d98950b79ee12f6b8e3885aabe31543048de56ad4fc0a5e34d0d9d4ec"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\html\\craw_window.html",
+      "size": 810,
+      "mtime": "2013-08-07T13:33:38Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "bb8742615e4cd996ae5d0200e443ae6a6f0b473255f03affdb8fb4660de4554d"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\images\\flapper.gif",
+      "size": 70364,
+      "mtime": "2013-08-07T13:33:38Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "2b73533f47a99ffea9cc405ffafa9c4c53623f62487aebfba415945120b22040"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\images\\icon_128.png",
+      "size": 4343,
+      "mtime": "2025-03-12T16:01:12Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "51cbc777e2000209fc82053f59ed4c2350ac8f5403fc1327e4b8c72033f1c5d1"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\images\\icon_16.png",
+      "size": 558,
+      "mtime": "2025-03-12T16:01:12Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "016ca659ba080e194fbfc0929602b16506ed60aa6019faa51410c4fd93b583e8"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\images\\topbar_floating_button.png",
+      "size": 160,
+      "mtime": "2013-08-07T13:33:38Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "d5f9234dc36e7ffa85f35b2359a4f82276f8395efa76e4553507ea990b27fc6c"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\images\\topbar_floating_button_close.png",
+      "size": 252,
+      "mtime": "2013-08-07T13:33:38Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "131817cd9311c03df22d769dd2ad7fa2e6e9558863a89f7e5e1657424031a937"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\images\\topbar_floating_button_hover.png",
+      "size": 160,
+      "mtime": "2013-08-07T13:33:38Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "721b7aaa9a42a54a349881615a12e3a26983aca48e173fd2f66e66aa0d725735"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\images\\topbar_floating_button_maximize.png",
+      "size": 166,
+      "mtime": "2013-08-07T13:33:38Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "afa4ea944cbdec8543242e627ef46d5bfd3766dcac664e7e50cdeef2b352740c"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\images\\topbar_floating_button_pressed.png",
+      "size": 160,
+      "mtime": "2013-08-07T13:33:38Z",
+      "ctime": "2025-03-12T16:01:12Z",
+      "sha256": "5c10ce0589eb115600f77381130b70ae0b7b3752614d86d4c89e857658aa222b"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\nmmhkkegccagdldgiimedpiccmgmieda\\1.0.0.6_0\\manifest.json",
+      "size": 1322,
+      "mtime": "2025-03-12T16:01:12Z",
+      "ctime": "2025-03-12T16:01:11Z",
+      "sha256": "f52714812d68c577a445169d11e84df6751c2d6886bc429643072bb5d61c6c27"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\pknbjlbmgcodmfilnjadgpkcnkmlpkkn\\3.2.0_0\\manifest.json",
+      "size": 72,
+      "mtime": "2026-08-30T11:02:44Z",
+      "ctime": "2026-09-05T04:48:21Z",
+      "sha256": "02fa5bf9e62e0999d856649a49f2d2548009dd8ca1d8ea0276b134919b95dc0d"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\128.png",
+      "size": 4942,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "75da533888189d13fc340d40637b9fc07a3f732e3fcf33ec300f4c7268790a62"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\af\\messages.json",
+      "size": 908,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "b40bde5b612cfff936370b32fb0c58cc205fc89937729504c6c0b527b60e2cba"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\am\\messages.json",
+      "size": 1285,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "3d0361a85adfcd35d0de74135723a75b646965e775188f7dcdd35e3e42db788e"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\ar\\messages.json",
+      "size": 1244,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "abd0919121956ab535e6a235de67764f46cfc944071fcf2302148f5fb0e8c65a"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\az\\messages.json",
+      "size": 977,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "628145f4281fa825d75f1e332998904466abd050e8b0dc8bb9b6a20488d78a66"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\be\\messages.json",
+      "size": 3107,
+      "mtime": "1980-01-01T00:00:00Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "ddf16859a15f3eb3334d6241975ca3988ac3eafc3d96452ac3a4afd3644c8550"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\bg\\messages.json",
+      "size": 1389,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "ac4a8b5b7c0b0dd1c07910f30dcfbdf1bcb701cfcfd182b6153fd3911d566c0e"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\bn\\messages.json",
+      "size": 1763,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "1dbf38e425c5c7fc39e8077a837df0443692463ba1fbe94e288ab5a93242c46e"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\ca\\messages.json",
+      "size": 930,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "d6e65238187a430ff29d4c10cf1c46b3f0fa4b91a5900a17c5dfd16e67ffc9bd"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\cs\\messages.json",
+      "size": 913,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "21ae66ce537095408d21670585ad12599b0f575ff2cb3ee34e3a48f8cc71cfab"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\cy\\messages.json",
+      "size": 806,
+      "mtime": "1980-01-01T00:00:00Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "a482663292a913b02a9cde4635c7c92270bf3c8726fd274475dc2c490019a7c9"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\da\\messages.json",
+      "size": 883,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "48847d57c75af51a44cbf8f7ef1a4496c2007e58ed56d340724fda1604ff9195"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\de\\messages.json",
+      "size": 1031,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "36ac525fa6e28f18572d71d75293970e0e1ead68f358c20da4fdc643eea2c1c5"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\el\\messages.json",
+      "size": 1613,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "37ca6ab271d6e7c9b00b846fdb969811c9ce7864a85b5714027050795ea24f00"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\en\\messages.json",
+      "size": 851,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "6895648577286002f1dc9c3366f558484eb7020d52bbf64a296406e61d09599c"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\en_CA\\messages.json",
+      "size": 851,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "6895648577286002f1dc9c3366f558484eb7020d52bbf64a296406e61d09599c"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\en_GB\\messages.json",
+      "size": 848,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "ab5cda04013dce0195e80af714fbf3a67675283768ffd062cf3cf16edb49f5d4"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\en_US\\messages.json",
+      "size": 1425,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "102b586b197ea7d6edfeb874b97f95b05d229ea6a92780ea8544c4ff1e6bc5b1"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\es\\messages.json",
+      "size": 961,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "2008f4faab71ab8c76a5d8811ad40102c380b6b929ce0bce9c378a7cadfc05eb"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\es_419\\messages.json",
+      "size": 959,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "90a560ff82605db7eda26c90331650ff9e42c0b596cedb79b23598dec1b4988f"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\et\\messages.json",
+      "size": 968,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "cc31b877238da6c1d51d9a6155fde565727a1956572f466c387b7e41c4923a29"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\eu\\messages.json",
+      "size": 838,
+      "mtime": "1980-01-01T00:00:00Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "a41670d52423ba69c7a65e7e153e7b9994e8dd0370c584bda0714bd61c49c578"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\fa\\messages.json",
+      "size": 1305,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "7c4c09d19ac4da30cc0f7f521825f44c4dfbc19482a127fbfb2b74b3468f48f1"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\fi\\messages.json",
+      "size": 911,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "2d752a5dbe80e34ea9a18c958b4c754f3bc10d63279484e4df5880b8fd1894d2"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\fil\\messages.json",
+      "size": 939,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "f51eeb7aaf5f2103c1043d520e5a4de0fa75e4dc375e23a2c2c4afd4d9293a72"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\fr\\messages.json",
+      "size": 977,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "0518287950a8b010ffc8d52554eb82e5d93b6c3571823b7ceca898906c11abcc"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\fr_CA\\messages.json",
+      "size": 972,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "4caa46656ecc46a420aa98d3307731e84f5ac1a89111d2e808a228c436d83834"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\gl\\messages.json",
+      "size": 990,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "0cf098dfe5bbb46fc0132b3cf0c54b06b4d2c8390d847ee2a65d20f9b7480f4c"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\gu\\messages.json",
+      "size": 1658,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "fe8218df25db54e633927c4a1640b1a41b8e6cb3360fa386b5382f833b0b237c"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\hi\\messages.json",
+      "size": 1672,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "d2d1afa224cda388ff1dc8fac24cda228d7ce09de5d375947d7207fa4a6c4f8d"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\hr\\messages.json",
+      "size": 935,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "73e6e246ceeab9875625cd4889fbf931f93b7b9deaa11288ae1a0f8a6e311e76"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\hu\\messages.json",
+      "size": 1065,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "958c0f664fca20855fa84293566b2ddb7f297185619143457d6479e6ac81d240"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\hy\\messages.json",
+      "size": 2771,
+      "mtime": "1980-01-01T00:00:00Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "0b16e3f8bd904a767284345ae86a0a9927c47afe89e05ea2b13ad80009bdf9e4"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\id\\messages.json",
+      "size": 858,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "e3c86ddd2efebe88eed8484765a9868202546149753e03a61eb7c28fd62cfca1"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\is\\messages.json",
+      "size": 954,
+      "mtime": "1980-01-01T00:00:00Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "943e61988c859bb088f548889f0449885525dd660626a89ba67b2c94cfbfbb1b"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\it\\messages.json",
+      "size": 899,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "f41862665b13c0b4c4f562ef1743684cce29d4bcf7fe3ea494208df253e33885"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\iw\\messages.json",
+      "size": 2230,
+      "mtime": "1980-01-01T00:00:00Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "bbb81c32f482ba3216c9b1189c70cef39ca8c2181af3538ffa07b4c6ad52f06a"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\ja\\messages.json",
+      "size": 1160,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "34ac08f3c4f2d42962a3395508818b48ca323d22f498738cc9f09e78cb197d73"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\ka\\messages.json",
+      "size": 3264,
+      "mtime": "1980-01-01T00:00:00Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "30898bbf51bdd58db397ff780f061e33431a38ef5cfc288b5177ecf76b399f26"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\kk\\messages.json",
+      "size": 3235,
+      "mtime": "1980-01-01T00:00:00Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "548dc6c96e31a16ce355dc55c64833b08ef3fba8bf33149031b4a685959e3af4"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\km\\messages.json",
+      "size": 3122,
+      "mtime": "1980-01-01T00:00:00Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "a6118f0a0de329e07c01f53cd6fb4fed43e54c5f53db4cd1c7f5b2b4d9fb10e6"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\kn\\messages.json",
+      "size": 1895,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "30078ef35a76e02a400f03b3698708a0145d9b57241cc4009e010696895cf3a1"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\ko\\messages.json",
+      "size": 1042,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "c52d9b955d229373725a6e713334bbb31ea72efa9b5cf4fbd76a566417b12cac"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\lo\\messages.json",
+      "size": 2535,
+      "mtime": "1980-01-01T00:00:00Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "89082fb05229826bc222f5d22c158235f025f0e6df67ff135a18bd899e13bb8f"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\lt\\messages.json",
+      "size": 1028,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "5dfcbd4dfeaec3abe973a78277d3bd02cd77ae635d5c8cd1f816446c61808f59"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\lv\\messages.json",
+      "size": 994,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "0621de9161748f45d53052ed8a430962139d7f19074c7ffe7223ecb06b0b87db"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\ml\\messages.json",
+      "size": 2091,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "22ca9415e294d9c3ec3384b9d08cdaf5164af73b4e4c251559e09e529c843ea6"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\mn\\messages.json",
+      "size": 2778,
+      "mtime": "1980-01-01T00:00:00Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "613d8751f6cc9d3fa319f4b7ea8b2bd3bed37fd077482ca825929dd7c12a69a8"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\mr\\messages.json",
+      "size": 1719,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "adeb082a9c754dfd5a9d47340a3ddcc19bf9c7efa6e629a2f1796305f1c9a66f"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\ms\\messages.json",
+      "size": 936,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "2824cf97513dc3ecc261f378bfd595ae95a5997e9d1c63f5731a58b1f8cd54f9"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\my\\messages.json",
+      "size": 3830,
+      "mtime": "1980-01-01T00:00:00Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "243befbd6b67a21433dcc97dc1a728896d3a070dc20055eb04d644e1bb955fe7"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\ne\\messages.json",
+      "size": 1898,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "e6ed0a023ef31705cccbaf1e07f2b4b2279059296b5ca973d2070417ba16f790"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\nl\\messages.json",
+      "size": 914,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "f3fe1ffcb182183b76e1b46c4463168c746a38e461fd25ca91ff2a40846f1d61"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\no\\messages.json",
+      "size": 878,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "21ceff02b45a4bfd60d144879dfa9f427949a027dd49a3eb0e9e345bd0b7c9a8"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\pa\\messages.json",
+      "size": 2766,
+      "mtime": "1980-01-01T00:00:00Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "bbd37d41b7de6f93948fa2437a7699d4c30a3c39e736179702f212cb36a3133c"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\pl\\messages.json",
+      "size": 978,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "e00ff20437599a5c184ca0c79546cb6500171a95e5f24b9b5535e89a89d3ec3d"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\pt_BR\\messages.json",
+      "size": 907,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "a73eea087164620fa2260d3910d3fbe302ed85f454edb1493a4f287d42fc882f"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\pt_PT\\messages.json",
+      "size": 914,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "e93b8e7fb86d2f7dfae57416bb1fb6ee0eea25629b972a5922940f0023c85f90"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\ro\\messages.json",
+      "size": 937,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "085787999d78fadff9600c9dc5e3ff4fb4eb9be06d6bb19df2eef8c284be7b20"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\ru\\messages.json",
+      "size": 1341,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "c0a776448a258efd47065bf3f4b45260d1b4cb431d57ecc97995e122249081f6"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\si\\messages.json",
+      "size": 2846,
+      "mtime": "1980-01-01T00:00:00Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "54241ebe651a8344235cc47afd274c080abaebc8c3a25afb95d8373b6a5670a2"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\sk\\messages.json",
+      "size": 934,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "903060ec9e76040b46deb47bbb041d0b28a6816cb9b892d7342fc7dc6782f87c"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\sl\\messages.json",
+      "size": 963,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "aab9cf9098294a46dc0f2fa468afff7ca7c323a1a0efa70c9db1e3a4da05d1d4"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\sr\\messages.json",
+      "size": 1320,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "4e8b69e864f57cddd4dc4e4faf2c28d496874d06016bc22e8d39e0cb69552769"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\sv\\messages.json",
+      "size": 884,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "64b1e422b346ab77c5d1c77142685b3ff7661d498767d104b0c24cb36d0eb859"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\sw\\messages.json",
+      "size": 980,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "0d20680b74af10ef8c754fcde259124a438dce3848305b0caf994d98e787d263"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\ta\\messages.json",
+      "size": 1941,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "6282bf9df12ad453858b0b531c8999d5fd6251eb855234546a1b30858462231a"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\te\\messages.json",
+      "size": 1969,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "026c164bae27dbb36a564888a796aa3f188aad9e0c37176d48910395cf772cea"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\th\\messages.json",
+      "size": 1674,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "d147631b2334a25b8aa4519e4a30fb3a1a85b6a0396bc688c68dc124ec387d58"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\tr\\messages.json",
+      "size": 1063,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "b9066a162bee00fd50dc48c71b32b69dffa362a01f84b45698b017a624f46824"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\uk\\messages.json",
+      "size": 1333,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "9fa26ff09f6acde2457ed366c0c4124b6cac1435d0c4fd8a870a0c090417da19"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\ur\\messages.json",
+      "size": 1263,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "5da836224d0f3a96f1c5eb5063061aad837ca9fc6fed15d19c66da25cf56f8ac"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\vi\\messages.json",
+      "size": 1074,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "597c5f32bc999746bc5c2ed1e5115c523b7eb1d33f81b042203e1c1df4bbcafe"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\zh_CN\\messages.json",
+      "size": 873,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "c047235c983d3dcf835d4ecc1c9270c6262a09a5acadf093d87e709c0a23cae7"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\zh_HK\\messages.json",
+      "size": 1205,
+      "mtime": "1980-01-01T00:00:00Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "30f44cfad052d73d86d12fa20cfc111563a3b2e4523b43f7d66d934ba8dace91"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\zh_TW\\messages.json",
+      "size": 843,
+      "mtime": "2025-07-28T17:12:42Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "f94c6ddedf067642a1af18d629778ec65e02b6097a8532b7e794502747aeb008"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_locales\\zu\\messages.json",
+      "size": 912,
+      "mtime": "1980-01-01T00:00:00Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "ec78ddd4ccf32b5d76ec701a20167c3fbd146d79a505e4fb0421fc1e5cf4aa63"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\_metadata\\verified_contents.json",
+      "size": 11280,
+      "mtime": "2025-07-28T17:12:41Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "273a6afda4cb7816988d4aeca713bf4b5619b9d92ab15884c9bfb63b12a143d0"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\dasherSettingSchema.json",
+      "size": 854,
+      "mtime": "1980-01-01T00:00:00Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "6c69ce0fe6fab14f1990a320d704fee362c175c00eb6c9224aa6f41108918ca6"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\manifest.json",
+      "size": 2525,
+      "mtime": "2025-07-28T17:12:41Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "43aaa9e825ff1b97d03d052e311f18dee8802063dac511e8cedba0ae4344463a"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\offscreendocument.html",
+      "size": 97,
+      "mtime": "1980-01-01T00:00:00Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "b9fa2d52a4ffabb438b56184131b893b04655b01f336066415d4fe839efe64e7"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\offscreendocument_main.js",
+      "size": 131464,
+      "mtime": "1980-01-01T00:00:00Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "8000ba1c3e8a760839707872c5efd133077ab39ef1ff53b818a3ffacea5021d4"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\page_embed_script.js",
+      "size": 338,
+      "mtime": "1980-01-01T00:00:00Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "8ba9b01fe8eb16e6673b7e5341697ec449026ca902d3f16305924d853a339ad8"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\ghbmnnjooekpmoecnnnilnnbdlolhkhi\\1.94.1_0\\service_worker_bin_prod.js",
+      "size": 140354,
+      "mtime": "1980-01-01T00:00:00Z",
+      "ctime": "2025-07-28T17:12:41Z",
+      "sha256": "58bf445f708c392ab82e2cdd45e3633bb5e83252f5eeac897d90eb65b0d16151"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\jmjflgjpcpepeafmmgdpfkogkghcpiha\\1.2.1_0\\manifest.json",
+      "size": 83,
+      "mtime": "2025-12-03T08:20:41Z",
+      "ctime": "2026-09-05T04:48:21Z",
+      "sha256": "7d0f799c0e35895e9b782c6a4dddc03db1e4f5ca96daa6e40c69d4a053e0ed68"
+    },
+    {
+      "path": "C:\\Users\\test\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions\\pknbjlbmgcodmfilnjadgpkcnkmlpkkn\\3.2.0_0\\manifest.json",
+      "size": 72,
+      "mtime": "2026-08-30T11:02:44Z",
+      "ctime": "2026-09-05T04:48:21Z",
+      "sha256": "02fa5bf9e62e0999d856649a49f2d2548009dd8ca1d8ea0276b134919b95dc0d"
+    }
+  ],
+  "process": [
+    {
+      "pid": 0,
+      "ppid": 0,
+      "image_path": "",
+      "cmdline": "",
+      "cmdline_decoded": "",
+      "args": "",
+      "user": "unknown",
+      "start_time": "1970-01-01T00:00:00Z",
+      "modules": []
+    },
+    {
+      "pid": 4,
+      "ppid": 0,
+      "image_path": "\\",
+      "cmdline": "",
+      "cmdline_decoded": "",
+      "args": "",
+      "user": "unknown",
+      "start_time": "2026-08-20T05:37:12Z",
+      "modules": []
+    },
+    {
+      "pid": 92,
+      "ppid": 4,
+      "image_path": "\\",
+      "cmdline": "",
+      "cmdline_decoded": "",
+      "args": "",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:06Z",
+      "modules": []
+    },
+    {
+      "pid": 212,
+      "ppid": 11832,
+      "image_path": "C:\\Windows\\System32\\conhost.exe",
+      "cmdline": "\\??\\C:\\Windows\\system32\\conhost.exe 0x4",
+      "cmdline_decoded": "\\??\\C:\\Windows\\system32\\conhost.exe 0x4",
+      "args": "0x4",
+      "user": "S-1-5-18",
+      "start_time": "2026-09-05T04:48:08Z",
+      "modules": []
+    },
+    {
+      "pid": 328,
+      "ppid": 4,
+      "image_path": "C:\\Windows\\System32\\smss.exe",
+      "cmdline": "",
+      "cmdline_decoded": "",
+      "args": "",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:12Z",
+      "modules": []
+    },
+    {
+      "pid": 364,
+      "ppid": 644,
+      "image_path": "C:\\Windows\\System32\\dwm.exe",
+      "cmdline": "dwm.exe",
+      "cmdline_decoded": "dwm.exe",
+      "args": "",
+      "user": "S-1-5-90-0-1",
+      "start_time": "2026-08-20T05:37:18Z",
+      "modules": []
+    },
+    {
+      "pid": 372,
+      "ppid": 824,
+      "image_path": "C:\\Program Files\\WindowsApps\\Microsoft.WindowsStore_22607.1401.5.0_x64__8wekyb3d8bbwe\\StoreDesktopExtension.exe",
+      "cmdline": "C:\\Program Files\\WindowsApps\\Microsoft.WindowsStore_22607.1401.5.0_x64__8wekyb3d8bbwe\\StoreDesktopExtension.exe -Embedding",
+      "cmdline_decoded": "C:\\Program Files\\WindowsApps\\Microsoft.WindowsStore_22607.1401.5.0_x64__8wekyb3d8bbwe\\StoreDesktopExtension.exe -Embedding",
+      "args": "-Embedding",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-09-05T04:47:59Z",
+      "modules": []
+    },
+    {
+      "pid": 456,
+      "ppid": 444,
+      "image_path": "C:\\Windows\\System32\\csrss.exe",
+      "cmdline": "",
+      "cmdline_decoded": "",
+      "args": "",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:17Z",
+      "modules": []
+    },
+    {
+      "pid": 460,
+      "ppid": 1084,
+      "image_path": "C:\\Program Files\\RUXIM\\PLUGScheduler.exe",
+      "cmdline": "C:\\Program Files\\RUXIM\\PLUGscheduler.exe",
+      "cmdline_decoded": "C:\\Program Files\\RUXIM\\PLUGscheduler.exe",
+      "args": "",
+      "user": "S-1-5-18",
+      "start_time": "2026-09-05T04:47:58Z",
+      "modules": []
+    },
+    {
+      "pid": 540,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\SecurityHealthService.exe",
+      "cmdline": "",
+      "cmdline_decoded": "",
+      "args": "",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:38:36Z",
+      "modules": []
+    },
+    {
+      "pid": 548,
+      "ppid": 444,
+      "image_path": "C:\\Windows\\System32\\wininit.exe",
+      "cmdline": "",
+      "cmdline_decoded": "",
+      "args": "",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:17Z",
+      "modules": []
+    },
+    {
+      "pid": 556,
+      "ppid": 540,
+      "image_path": "C:\\Windows\\System32\\csrss.exe",
+      "cmdline": "",
+      "cmdline_decoded": "",
+      "args": "",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:17Z",
+      "modules": []
+    },
+    {
+      "pid": 644,
+      "ppid": 540,
+      "image_path": "C:\\Windows\\System32\\winlogon.exe",
+      "cmdline": "winlogon.exe",
+      "cmdline_decoded": "winlogon.exe",
+      "args": "",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:17Z",
+      "modules": []
+    },
+    {
+      "pid": 688,
+      "ppid": 548,
+      "image_path": "C:\\Windows\\System32\\services.exe",
+      "cmdline": "",
+      "cmdline_decoded": "",
+      "args": "",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:17Z",
+      "modules": []
+    },
+    {
+      "pid": 696,
+      "ppid": 548,
+      "image_path": "C:\\Windows\\System32\\lsass.exe",
+      "cmdline": "C:\\Windows\\system32\\lsass.exe",
+      "cmdline_decoded": "C:\\Windows\\system32\\lsass.exe",
+      "args": "",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:17Z",
+      "modules": []
+    },
+    {
+      "pid": 824,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\system32\\svchost.exe -k DcomLaunch -p",
+      "cmdline_decoded": "C:\\Windows\\system32\\svchost.exe -k DcomLaunch -p",
+      "args": "-k DcomLaunch -p",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:17Z",
+      "modules": []
+    },
+    {
+      "pid": 844,
+      "ppid": 644,
+      "image_path": "C:\\Windows\\System32\\fontdrvhost.exe",
+      "cmdline": "fontdrvhost.exe",
+      "cmdline_decoded": "fontdrvhost.exe",
+      "args": "",
+      "user": "S-1-5-96-0-1",
+      "start_time": "2026-08-20T05:37:17Z",
+      "modules": []
+    },
+    {
+      "pid": 848,
+      "ppid": 548,
+      "image_path": "C:\\Windows\\System32\\fontdrvhost.exe",
+      "cmdline": "fontdrvhost.exe",
+      "cmdline_decoded": "fontdrvhost.exe",
+      "args": "",
+      "user": "S-1-5-96-0-0",
+      "start_time": "2026-08-20T05:37:17Z",
+      "modules": []
+    },
+    {
+      "pid": 936,
+      "ppid": 824,
+      "image_path": "C:\\Windows\\System32\\RuntimeBroker.exe",
+      "cmdline": "C:\\Windows\\System32\\RuntimeBroker.exe -Embedding",
+      "cmdline_decoded": "C:\\Windows\\System32\\RuntimeBroker.exe -Embedding",
+      "args": "-Embedding",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-09-05T04:48:15Z",
+      "modules": []
+    },
+    {
+      "pid": 944,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\system32\\svchost.exe -k RPCSS -p",
+      "cmdline_decoded": "C:\\Windows\\system32\\svchost.exe -k RPCSS -p",
+      "args": "-k RPCSS -p",
+      "user": "S-1-5-20",
+      "start_time": "2026-08-20T05:37:18Z",
+      "modules": []
+    },
+    {
+      "pid": 980,
+      "ppid": 824,
+      "image_path": "C:\\Windows\\System32\\backgroundTaskHost.exe",
+      "cmdline": "C:\\Windows\\system32\\backgroundTaskHost.exe -ServerName:CortanaUI.AppX3bn25b6f886wmg6twh46972vprk9tnbf.mca",
+      "cmdline_decoded": "C:\\Windows\\system32\\backgroundTaskHost.exe -ServerName:CortanaUI.AppX3bn25b6f886wmg6twh46972vprk9tnbf.mca",
+      "args": "-ServerName:CortanaUI.AppX3bn25b6f886wmg6twh46972vprk9tnbf.mca",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-09-05T04:48:15Z",
+      "modules": []
+    },
+    {
+      "pid": 992,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\system32\\svchost.exe -k DcomLaunch -p -s LSM",
+      "cmdline_decoded": "C:\\Windows\\system32\\svchost.exe -k DcomLaunch -p -s LSM",
+      "args": "-k DcomLaunch -p -s LSM",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:18Z",
+      "modules": []
+    },
+    {
+      "pid": 1032,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\System32\\svchost.exe -k LocalSystemNetworkRestricted -p -s NcbService",
+      "cmdline_decoded": "C:\\Windows\\System32\\svchost.exe -k LocalSystemNetworkRestricted -p -s NcbService",
+      "args": "-k LocalSystemNetworkRestricted -p -s NcbService",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:18Z",
+      "modules": []
+    },
+    {
+      "pid": 1056,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\system32\\svchost.exe -k netsvcs -p -s ProfSvc",
+      "cmdline_decoded": "C:\\Windows\\system32\\svchost.exe -k netsvcs -p -s ProfSvc",
+      "args": "-k netsvcs -p -s ProfSvc",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:18Z",
+      "modules": []
+    },
+    {
+      "pid": 1064,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\system32\\svchost.exe -k LocalServiceNetworkRestricted -p -s TimeBrokerSvc",
+      "cmdline_decoded": "C:\\Windows\\system32\\svchost.exe -k LocalServiceNetworkRestricted -p -s TimeBrokerSvc",
+      "args": "-k LocalServiceNetworkRestricted -p -s TimeBrokerSvc",
+      "user": "S-1-5-19",
+      "start_time": "2026-08-20T05:37:18Z",
+      "modules": []
+    },
+    {
+      "pid": 1084,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\system32\\svchost.exe -k netsvcs -p -s Schedule",
+      "cmdline_decoded": "C:\\Windows\\system32\\svchost.exe -k netsvcs -p -s Schedule",
+      "args": "-k netsvcs -p -s Schedule",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:18Z",
+      "modules": []
+    },
+    {
+      "pid": 1144,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\system32\\svchost.exe -k LocalServiceNoNetwork -p",
+      "cmdline_decoded": "C:\\Windows\\system32\\svchost.exe -k LocalServiceNoNetwork -p",
+      "args": "-k LocalServiceNoNetwork -p",
+      "user": "S-1-5-19",
+      "start_time": "2026-08-20T05:37:18Z",
+      "modules": []
+    },
+    {
+      "pid": 1184,
+      "ppid": 824,
+      "image_path": "C:\\Windows\\System32\\backgroundTaskHost.exe",
+      "cmdline": "C:\\Windows\\system32\\backgroundTaskHost.exe -ServerName:ShellFeedsUI.AppXnj65k2d1a1rnztt2t2nng5ctmk3e76pn.mca",
+      "cmdline_decoded": "C:\\Windows\\system32\\backgroundTaskHost.exe -ServerName:ShellFeedsUI.AppXnj65k2d1a1rnztt2t2nng5ctmk3e76pn.mca",
+      "args": "-ServerName:ShellFeedsUI.AppXnj65k2d1a1rnztt2t2nng5ctmk3e76pn.mca",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-09-05T04:48:05Z",
+      "modules": []
+    },
+    {
+      "pid": 1224,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\System32\\svchost.exe -k LocalServiceNetworkRestricted -p -s EventLog",
+      "cmdline_decoded": "C:\\Windows\\System32\\svchost.exe -k LocalServiceNetworkRestricted -p -s EventLog",
+      "args": "-k LocalServiceNetworkRestricted -p -s EventLog",
+      "user": "S-1-5-19",
+      "start_time": "2026-08-20T05:37:18Z",
+      "modules": []
+    },
+    {
+      "pid": 1236,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\system32\\svchost.exe -k netsvcs -p -s UserManager",
+      "cmdline_decoded": "C:\\Windows\\system32\\svchost.exe -k netsvcs -p -s UserManager",
+      "args": "-k netsvcs -p -s UserManager",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:18Z",
+      "modules": []
+    },
+    {
+      "pid": 1340,
+      "ppid": 824,
+      "image_path": "C:\\Windows\\SystemApps\\Microsoft.Windows.StartMenuExperienceHost_cw5n1h2txyewy\\StartMenuExperienceHost.exe",
+      "cmdline": "C:\\Windows\\SystemApps\\Microsoft.Windows.StartMenuExperienceHost_cw5n1h2txyewy\\StartMenuExperienceHost.exe -ServerName:App.AppXywbrabmsek0gm3tkwpr5kwzbs55tkqay.mca",
+      "cmdline_decoded": "C:\\Windows\\SystemApps\\Microsoft.Windows.StartMenuExperienceHost_cw5n1h2txyewy\\StartMenuExperienceHost.exe -ServerName:App.AppXywbrabmsek0gm3tkwpr5kwzbs55tkqay.mca",
+      "args": "-ServerName:App.AppXywbrabmsek0gm3tkwpr5kwzbs55tkqay.mca",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-20T05:37:57Z",
+      "modules": []
+    },
+    {
+      "pid": 1344,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\system32\\svchost.exe -k LocalService -p -s nsi",
+      "cmdline_decoded": "C:\\Windows\\system32\\svchost.exe -k LocalService -p -s nsi",
+      "args": "-k LocalService -p -s nsi",
+      "user": "S-1-5-19",
+      "start_time": "2026-08-20T05:37:18Z",
+      "modules": []
+    },
+    {
+      "pid": 1400,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\system32\\svchost.exe -k LocalService -p -s DispBrokerDesktopSvc",
+      "cmdline_decoded": "C:\\Windows\\system32\\svchost.exe -k LocalService -p -s DispBrokerDesktopSvc",
+      "args": "-k LocalService -p -s DispBrokerDesktopSvc",
+      "user": "S-1-5-19",
+      "start_time": "2026-08-20T05:37:18Z",
+      "modules": []
+    },
+    {
+      "pid": 1456,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\system32\\svchost.exe -k LocalServiceNetworkRestricted -p -s Dhcp",
+      "cmdline_decoded": "C:\\Windows\\system32\\svchost.exe -k LocalServiceNetworkRestricted -p -s Dhcp",
+      "args": "-k LocalServiceNetworkRestricted -p -s Dhcp",
+      "user": "S-1-5-19",
+      "start_time": "2026-08-20T05:37:18Z",
+      "modules": []
+    },
+    {
+      "pid": 1464,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\system32\\svchost.exe -k LocalSystemNetworkRestricted -p -s DevQueryBroker",
+      "cmdline_decoded": "C:\\Windows\\system32\\svchost.exe -k LocalSystemNetworkRestricted -p -s DevQueryBroker",
+      "args": "-k LocalSystemNetworkRestricted -p -s DevQueryBroker",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:18Z",
+      "modules": []
+    },
+    {
+      "pid": 1480,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\System32\\svchost.exe -k LocalServiceNetworkRestricted -p",
+      "cmdline_decoded": "C:\\Windows\\System32\\svchost.exe -k LocalServiceNetworkRestricted -p",
+      "args": "-k LocalServiceNetworkRestricted -p",
+      "user": "S-1-5-19",
+      "start_time": "2026-08-20T05:37:20Z",
+      "modules": []
+    },
+    {
+      "pid": 1484,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\system32\\svchost.exe -k LocalService -p -s EventSystem",
+      "cmdline_decoded": "C:\\Windows\\system32\\svchost.exe -k LocalService -p -s EventSystem",
+      "args": "-k LocalService -p -s EventSystem",
+      "user": "S-1-5-19",
+      "start_time": "2026-08-20T05:37:18Z",
+      "modules": []
+    },
+    {
+      "pid": 1500,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\system32\\svchost.exe -k LocalSystemNetworkRestricted -p -s SysMain",
+      "cmdline_decoded": "C:\\Windows\\system32\\svchost.exe -k LocalSystemNetworkRestricted -p -s SysMain",
+      "args": "-k LocalSystemNetworkRestricted -p -s SysMain",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:18Z",
+      "modules": []
+    },
+    {
+      "pid": 1532,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\System32\\svchost.exe -k netsvcs -p -s Themes",
+      "cmdline_decoded": "C:\\Windows\\System32\\svchost.exe -k netsvcs -p -s Themes",
+      "args": "-k netsvcs -p -s Themes",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:18Z",
+      "modules": []
+    },
+    {
+      "pid": 1656,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\System32\\svchost.exe -k NetworkService -p -s WinRM",
+      "cmdline_decoded": "C:\\Windows\\System32\\svchost.exe -k NetworkService -p -s WinRM",
+      "args": "-k NetworkService -p -s WinRM",
+      "user": "S-1-5-20",
+      "start_time": "2026-08-20T07:26:28Z",
+      "modules": []
+    },
+    {
+      "pid": 1664,
+      "ppid": 824,
+      "image_path": "C:\\Windows\\SystemApps\\MicrosoftWindows.Client.CBS_cw5n1h2txyewy\\TextInputHost.exe",
+      "cmdline": "C:\\Windows\\SystemApps\\MicrosoftWindows.Client.CBS_cw5n1h2txyewy\\TextInputHost.exe -ServerName:InputApp.AppXk0k6mrh4r2q0ct33a9wgbez0x7v9cz5y.mca",
+      "cmdline_decoded": "C:\\Windows\\SystemApps\\MicrosoftWindows.Client.CBS_cw5n1h2txyewy\\TextInputHost.exe -ServerName:InputApp.AppXk0k6mrh4r2q0ct33a9wgbez0x7v9cz5y.mca",
+      "args": "-ServerName:InputApp.AppXk0k6mrh4r2q0ct33a9wgbez0x7v9cz5y.mca",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-20T06:15:32Z",
+      "modules": []
+    },
+    {
+      "pid": 1688,
+      "ppid": 4,
+      "image_path": "\\",
+      "cmdline": "",
+      "cmdline_decoded": "",
+      "args": "",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:18Z",
+      "modules": []
+    },
+    {
+      "pid": 1712,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\system32\\svchost.exe -k netsvcs -p -s SENS",
+      "cmdline_decoded": "C:\\Windows\\system32\\svchost.exe -k netsvcs -p -s SENS",
+      "args": "-k netsvcs -p -s SENS",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:18Z",
+      "modules": []
+    },
+    {
+      "pid": 1800,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\System32\\svchost.exe -k NetworkService -p -s NlaSvc",
+      "cmdline_decoded": "C:\\Windows\\System32\\svchost.exe -k NetworkService -p -s NlaSvc",
+      "args": "-k NetworkService -p -s NlaSvc",
+      "user": "S-1-5-20",
+      "start_time": "2026-08-20T05:37:19Z",
+      "modules": []
+    },
+    {
+      "pid": 1812,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\system32\\svchost.exe -k netsvcs -p -s wuauserv",
+      "cmdline_decoded": "C:\\Windows\\system32\\svchost.exe -k netsvcs -p -s wuauserv",
+      "args": "-k netsvcs -p -s wuauserv",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-24T04:25:14Z",
+      "modules": []
+    },
+    {
+      "pid": 1840,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\System32\\svchost.exe -k LocalSystemNetworkRestricted -p -s AudioEndpointBuilder",
+      "cmdline_decoded": "C:\\Windows\\System32\\svchost.exe -k LocalSystemNetworkRestricted -p -s AudioEndpointBuilder",
+      "args": "-k LocalSystemNetworkRestricted -p -s AudioEndpointBuilder",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:19Z",
+      "modules": []
+    },
+    {
+      "pid": 1852,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\system32\\svchost.exe -k LocalService -p -s FontCache",
+      "cmdline_decoded": "C:\\Windows\\system32\\svchost.exe -k LocalService -p -s FontCache",
+      "args": "-k LocalService -p -s FontCache",
+      "user": "S-1-5-19",
+      "start_time": "2026-08-20T05:37:19Z",
+      "modules": []
+    },
+    {
+      "pid": 1864,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\System32\\svchost.exe -k LocalService -p -s LicenseManager",
+      "cmdline_decoded": "C:\\Windows\\System32\\svchost.exe -k LocalService -p -s LicenseManager",
+      "args": "-k LocalService -p -s LicenseManager",
+      "user": "S-1-5-19",
+      "start_time": "2026-08-20T05:38:30Z",
+      "modules": []
+    },
+    {
+      "pid": 2012,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\System32\\svchost.exe -k LocalService -p -s netprofm",
+      "cmdline_decoded": "C:\\Windows\\System32\\svchost.exe -k LocalService -p -s netprofm",
+      "args": "-k LocalService -p -s netprofm",
+      "user": "S-1-5-19",
+      "start_time": "2026-08-20T05:37:19Z",
+      "modules": []
+    },
+    {
+      "pid": 2060,
+      "ppid": 5716,
+      "image_path": "C:\\Program Files (x86)\\Google\\GoogleUpdater\\152.0.7933.0\\updater.exe",
+      "cmdline": "C:\\Program Files (x86)\\Google\\GoogleUpdater\\152.0.7933.0\\updater.exe --crash-handler --system --database=C:\\Program Files (x86)\\Google\\GoogleUpdater\\152.0.7933.0\\Crashpad --url=https://clients2.google.com/cr/report --annotation=prod=Update4 --annotation=ver=152.0.7933.0 --attachment=C:\\Program Files (x86)\\Google\\GoogleUpdater\\updater.log --attachment=C:\\Program Files (x86)\\Google\\GoogleUpdater\\updater_history.jsonl --initial-client-data=0x26c,0x270,0x274,0x268,0x278,0x7ff627ffcd68,0x7ff627ffcd78,0x7ff627ffcd88",
+      "cmdline_decoded": "C:\\Program Files (x86)\\Google\\GoogleUpdater\\152.0.7933.0\\updater.exe --crash-handler --system --database=C:\\Program Files (x86)\\Google\\GoogleUpdater\\152.0.7933.0\\Crashpad --url=https://clients2.google.com/cr/report --annotation=prod=Update4 --annotation=ver=152.0.7933.0 --attachment=C:\\Program Files (x86)\\Google\\GoogleUpdater\\updater.log --attachment=C:\\Program Files (x86)\\Google\\GoogleUpdater\\updater_history.jsonl --initial-client-data=0x26c,0x270,0x274,0x268,0x278,0x7ff627ffcd68,0x7ff627ffcd78,0x7ff627ffcd88",
+      "args": "--crash-handler --system --database=C:\\Program Files (x86)\\Google\\GoogleUpdater\\152.0.7933.0\\Crashpad --url=https://clients2.google.com/cr/report --annotation=prod=Update4 --annotation=ver=152.0.7933.0 --attachment=C:\\Program Files (x86)\\Google\\GoogleUpdater\\updater.log --attachment=C:\\Program Files (x86)\\Google\\GoogleUpdater\\updater_history.jsonl --initial-client-data=0x26c,0x270,0x274,0x268,0x278,0x7ff627ffcd68,0x7ff627ffcd78,0x7ff627ffcd88",
+      "user": "S-1-5-18",
+      "start_time": "2026-09-05T04:48:08Z",
+      "modules": []
+    },
+    {
+      "pid": 2148,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\system32\\svchost.exe -k NetworkService -p -s Dnscache",
+      "cmdline_decoded": "C:\\Windows\\system32\\svchost.exe -k NetworkService -p -s Dnscache",
+      "args": "-k NetworkService -p -s Dnscache",
+      "user": "S-1-5-20",
+      "start_time": "2026-08-20T05:37:20Z",
+      "modules": []
+    },
+    {
+      "pid": 2156,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\system32\\svchost.exe -k LocalServiceNetworkRestricted -p",
+      "cmdline_decoded": "C:\\Windows\\system32\\svchost.exe -k LocalServiceNetworkRestricted -p",
+      "args": "-k LocalServiceNetworkRestricted -p",
+      "user": "S-1-5-19",
+      "start_time": "2026-08-20T05:37:20Z",
+      "modules": []
+    },
+    {
+      "pid": 2164,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\System32\\svchost.exe -k LocalServiceNetworkRestricted -p",
+      "cmdline_decoded": "C:\\Windows\\System32\\svchost.exe -k LocalServiceNetworkRestricted -p",
+      "args": "-k LocalServiceNetworkRestricted -p",
+      "user": "S-1-5-19",
+      "start_time": "2026-08-20T05:37:20Z",
+      "modules": []
+    },
+    {
+      "pid": 2188,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\system32\\svchost.exe -k appmodel -p -s StateRepository",
+      "cmdline_decoded": "C:\\Windows\\system32\\svchost.exe -k appmodel -p -s StateRepository",
+      "args": "-k appmodel -p -s StateRepository",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:20Z",
+      "modules": []
+    },
+    {
+      "pid": 2196,
+      "ppid": 7636,
+      "image_path": "C:\\Program Files (x86)\\Google\\GoogleUpdater\\152.0.7933.0\\updater.exe",
+      "cmdline": "C:\\Program Files (x86)\\Google\\GoogleUpdater\\152.0.7933.0\\updater.exe --crash-handler --system --database=C:\\Program Files (x86)\\Google\\GoogleUpdater\\152.0.7933.0\\Crashpad --url=https://clients2.google.com/cr/report --annotation=prod=Update4 --annotation=ver=152.0.7933.0 --attachment=C:\\Program Files (x86)\\Google\\GoogleUpdater\\updater.log --attachment=C:\\Program Files (x86)\\Google\\GoogleUpdater\\updater_history.jsonl --initial-client-data=0x26c,0x270,0x274,0x268,0x278,0x7ff627ffcd68,0x7ff627ffcd78,0x7ff627ffcd88",
+      "cmdline_decoded": "C:\\Program Files (x86)\\Google\\GoogleUpdater\\152.0.7933.0\\updater.exe --crash-handler --system --database=C:\\Program Files (x86)\\Google\\GoogleUpdater\\152.0.7933.0\\Crashpad --url=https://clients2.google.com/cr/report --annotation=prod=Update4 --annotation=ver=152.0.7933.0 --attachment=C:\\Program Files (x86)\\Google\\GoogleUpdater\\updater.log --attachment=C:\\Program Files (x86)\\Google\\GoogleUpdater\\updater_history.jsonl --initial-client-data=0x26c,0x270,0x274,0x268,0x278,0x7ff627ffcd68,0x7ff627ffcd78,0x7ff627ffcd88",
+      "args": "--crash-handler --system --database=C:\\Program Files (x86)\\Google\\GoogleUpdater\\152.0.7933.0\\Crashpad --url=https://clients2.google.com/cr/report --annotation=prod=Update4 --annotation=ver=152.0.7933.0 --attachment=C:\\Program Files (x86)\\Google\\GoogleUpdater\\updater.log --attachment=C:\\Program Files (x86)\\Google\\GoogleUpdater\\updater_history.jsonl --initial-client-data=0x26c,0x270,0x274,0x268,0x278,0x7ff627ffcd68,0x7ff627ffcd78,0x7ff627ffcd88",
+      "user": "S-1-5-18",
+      "start_time": "2026-09-05T04:48:12Z",
+      "modules": []
+    },
+    {
+      "pid": 2208,
+      "ppid": 824,
+      "image_path": "C:\\Windows\\System32\\backgroundTaskHost.exe",
+      "cmdline": "C:\\Windows\\system32\\backgroundTaskHost.exe -ServerName:App.AppXpybpk6fj2fe0gb0jan49e6dncngk3pa1.mca",
+      "cmdline_decoded": "C:\\Windows\\system32\\backgroundTaskHost.exe -ServerName:App.AppXpybpk6fj2fe0gb0jan49e6dncngk3pa1.mca",
+      "args": "-ServerName:App.AppXpybpk6fj2fe0gb0jan49e6dncngk3pa1.mca",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-09-05T04:48:05Z",
+      "modules": []
+    },
+    {
+      "pid": 2236,
+      "ppid": 688,
+      "image_path": "C:\\Program Files (x86)\\Canon\\IJPLM\\ijplmsvc.exe",
+      "cmdline": "C:\\Program Files (x86)\\Canon\\IJPLM\\IJPLMSVC.EXE",
+      "cmdline_decoded": "C:\\Program Files (x86)\\Canon\\IJPLM\\IJPLMSVC.EXE",
+      "args": "",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:22Z",
+      "modules": []
+    },
+    {
+      "pid": 2252,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\System32\\svchost.exe -k netsvcs -p -s ShellHWDetection",
+      "cmdline_decoded": "C:\\Windows\\System32\\svchost.exe -k netsvcs -p -s ShellHWDetection",
+      "args": "-k netsvcs -p -s ShellHWDetection",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:20Z",
+      "modules": []
+    },
+    {
+      "pid": 2280,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\system32\\svchost.exe -k UnistackSvcGroup",
+      "cmdline_decoded": "C:\\Windows\\system32\\svchost.exe -k UnistackSvcGroup",
+      "args": "-k UnistackSvcGroup",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-20T05:39:30Z",
+      "modules": []
+    },
+    {
+      "pid": 2348,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\spoolsv.exe",
+      "cmdline": "C:\\Windows\\System32\\spoolsv.exe",
+      "cmdline_decoded": "C:\\Windows\\System32\\spoolsv.exe",
+      "args": "",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:20Z",
+      "modules": []
+    },
+    {
+      "pid": 2404,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\system32\\svchost.exe -k LocalServiceNoNetworkFirewall -p",
+      "cmdline_decoded": "C:\\Windows\\system32\\svchost.exe -k LocalServiceNoNetworkFirewall -p",
+      "args": "-k LocalServiceNoNetworkFirewall -p",
+      "user": "S-1-5-19",
+      "start_time": "2026-08-20T05:37:20Z",
+      "modules": []
+    },
+    {
+      "pid": 2412,
+      "ppid": 11832,
+      "image_path": "C:\\Windows\\System32\\CompatTelRunner.exe",
+      "cmdline": "C:\\Windows\\system32\\CompatTelRunner.exe -m:appraiser.dll -f:DoScheduledTelemetryRun -cv:j92JBM4ST0eVh4ae.1",
+      "cmdline_decoded": "C:\\Windows\\system32\\CompatTelRunner.exe -m:appraiser.dll -f:DoScheduledTelemetryRun -cv:j92JBM4ST0eVh4ae.1",
+      "args": "-m:appraiser.dll -f:DoScheduledTelemetryRun -cv:j92JBM4ST0eVh4ae.1",
+      "user": "S-1-5-18",
+      "start_time": "2026-09-05T04:48:14Z",
+      "modules": []
+    },
+    {
+      "pid": 2416,
+      "ppid": 824,
+      "image_path": "C:\\Windows\\System32\\RuntimeBroker.exe",
+      "cmdline": "C:\\Windows\\System32\\RuntimeBroker.exe -Embedding",
+      "cmdline_decoded": "C:\\Windows\\System32\\RuntimeBroker.exe -Embedding",
+      "args": "-Embedding",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-09-05T04:48:20Z",
+      "modules": []
+    },
+    {
+      "pid": 2444,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\System32\\svchost.exe -k NetworkService -p -s LanmanWorkstation",
+      "cmdline_decoded": "C:\\Windows\\System32\\svchost.exe -k NetworkService -p -s LanmanWorkstation",
+      "args": "-k NetworkService -p -s LanmanWorkstation",
+      "user": "S-1-5-20",
+      "start_time": "2026-08-20T05:37:20Z",
+      "modules": []
+    },
+    {
+      "pid": 2552,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "",
+      "cmdline_decoded": "",
+      "args": "",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-24T04:25:14Z",
+      "modules": []
+    },
+    {
+      "pid": 2556,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\System32\\svchost.exe -k LocalServiceNetworkRestricted -s RmSvc",
+      "cmdline_decoded": "C:\\Windows\\System32\\svchost.exe -k LocalServiceNetworkRestricted -s RmSvc",
+      "args": "-k LocalServiceNetworkRestricted -s RmSvc",
+      "user": "S-1-5-19",
+      "start_time": "2026-08-20T05:37:20Z",
+      "modules": []
+    },
+    {
+      "pid": 2644,
+      "ppid": 11756,
+      "image_path": "C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\151.0.4129.101\\msedgewebview2.exe",
+      "cmdline": "C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\151.0.4129.101\\msedgewebview2.exe --embedded-browser-webview=1 --webview-exe-name=AYMain.exe --webview-exe-version=3.0.2.1178 --user-data-dir=C:\\Users\\test\\AppData\\Local\\ESTsoft\\ALAd2\\EBWebView --noerrdialogs --embedded-browser-webview-dpi-awareness=2 --disable-features=msEnhancedTrackingPreventionEnabled --mojo-named-platform-channel-pipe=11756.2368.12915568635427677573",
+      "cmdline_decoded": "C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\151.0.4129.101\\msedgewebview2.exe --embedded-browser-webview=1 --webview-exe-name=AYMain.exe --webview-exe-version=3.0.2.1178 --user-data-dir=C:\\Users\\test\\AppData\\Local\\ESTsoft\\ALAd2\\EBWebView --noerrdialogs --embedded-browser-webview-dpi-awareness=2 --disable-features=msEnhancedTrackingPreventionEnabled --mojo-named-platform-channel-pipe=11756.2368.12915568635427677573",
+      "args": "--embedded-browser-webview=1 --webview-exe-name=AYMain.exe --webview-exe-version=3.0.2.1178 --user-data-dir=C:\\Users\\test\\AppData\\Local\\ESTsoft\\ALAd2\\EBWebView --noerrdialogs --embedded-browser-webview-dpi-awareness=2 --disable-features=msEnhancedTrackingPreventionEnabled --mojo-named-platform-channel-pipe=11756.2368.12915568635427677573",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-24T04:25:35Z",
+      "modules": []
+    },
+    {
+      "pid": 2684,
+      "ppid": 2644,
+      "image_path": "C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\151.0.4129.101\\msedgewebview2.exe",
+      "cmdline": "C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\151.0.4129.101\\msedgewebview2.exe --type=renderer --noerrdialogs --user-data-dir=C:\\Users\\test\\AppData\\Local\\ESTsoft\\ALAd2\\EBWebView --webview-exe-name=AYMain.exe --webview-exe-version=3.0.2.1178 --embedded-browser-webview=1 --embedded-browser-webview-dpi-awareness=2 --disable-gpu-compositing --video-capture-use-gpu-memory-buffer --lang=ko --device-scale-factor=1 --num-raster-threads=1 --renderer-client-id=7 --js-flags=--expose-gc --ms-user-locale=ko_KR --time-ticks-at-unix-epoch=-1787393823324292 --launch-time-ticks=151717056086 --skip-read-main-dll --metrics-shmem-handle=4936,i,5047502447623032487,12488228136063358419,2097152 --field-trial-handle=1908,i,12252528891620121895,1569902432656063802,262144 --disable-features=msEnhancedTrackingPreventionEnabled --variations-seed-version --pseudonymization-salt-handle=1912,i,8725345035652514876,14251310747762345321,4 --trace-process-track-uuid=3190708992871164437 --mojo-platform-channel-handle=4960 /prefetch:1",
+      "cmdline_decoded": "C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\151.0.4129.101\\msedgewebview2.exe --type=renderer --noerrdialogs --user-data-dir=C:\\Users\\test\\AppData\\Local\\ESTsoft\\ALAd2\\EBWebView --webview-exe-name=AYMain.exe --webview-exe-version=3.0.2.1178 --embedded-browser-webview=1 --embedded-browser-webview-dpi-awareness=2 --disable-gpu-compositing --video-capture-use-gpu-memory-buffer --lang=ko --device-scale-factor=1 --num-raster-threads=1 --renderer-client-id=7 --js-flags=--expose-gc --ms-user-locale=ko_KR --time-ticks-at-unix-epoch=-1787393823324292 --launch-time-ticks=151717056086 --skip-read-main-dll --metrics-shmem-handle=4936,i,5047502447623032487,12488228136063358419,2097152 --field-trial-handle=1908,i,12252528891620121895,1569902432656063802,262144 --disable-features=msEnhancedTrackingPreventionEnabled --variations-seed-version --pseudonymization-salt-handle=1912,i,8725345035652514876,14251310747762345321,4 --trace-process-track-uuid=3190708992871164437 --mojo-platform-channel-handle=4960 /prefetch:1",
+      "args": "--type=renderer --noerrdialogs --user-data-dir=C:\\Users\\test\\AppData\\Local\\ESTsoft\\ALAd2\\EBWebView --webview-exe-name=AYMain.exe --webview-exe-version=3.0.2.1178 --embedded-browser-webview=1 --embedded-browser-webview-dpi-awareness=2 --disable-gpu-compositing --video-capture-use-gpu-memory-buffer --lang=ko --device-scale-factor=1 --num-raster-threads=1 --renderer-client-id=7 --js-flags=--expose-gc --ms-user-locale=ko_KR --time-ticks-at-unix-epoch=-1787393823324292 --launch-time-ticks=151717056086 --skip-read-main-dll --metrics-shmem-handle=4936,i,5047502447623032487,12488228136063358419,2097152 --field-trial-handle=1908,i,12252528891620121895,1569902432656063802,262144 --disable-features=msEnhancedTrackingPreventionEnabled --variations-seed-version --pseudonymization-salt-handle=1912,i,8725345035652514876,14251310747762345321,4 --trace-process-track-uuid=3190708992871164437 --mojo-platform-channel-handle=4960 /prefetch:1",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-24T04:25:40Z",
+      "modules": []
+    },
+    {
+      "pid": 2688,
+      "ppid": 824,
+      "image_path": "C:\\Windows\\System32\\RuntimeBroker.exe",
+      "cmdline": "C:\\Windows\\System32\\RuntimeBroker.exe -Embedding",
+      "cmdline_decoded": "C:\\Windows\\System32\\RuntimeBroker.exe -Embedding",
+      "args": "-Embedding",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-09-05T04:48:19Z",
+      "modules": []
+    },
+    {
+      "pid": 2792,
+      "ppid": 688,
+      "image_path": "C:\\Program Files (x86)\\IPinside_LWS\\I3GMainSvc.exe",
+      "cmdline": "C:\\Program Files (x86)\\IPinside_LWS\\I3GMainSvc.exe",
+      "cmdline_decoded": "C:\\Program Files (x86)\\IPinside_LWS\\I3GMainSvc.exe",
+      "args": "",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:22Z",
+      "modules": []
+    },
+    {
+      "pid": 2848,
+      "ppid": 5384,
+      "image_path": "C:\\Program Files (x86)\\Coocon\\NXiSAS\\iSASNXHTTPS.exe",
+      "cmdline": "C:\\Program Files (x86)\\Coocon\\NXiSAS\\iSASNXHTTPS.exe AppParameters",
+      "cmdline_decoded": "C:\\Program Files (x86)\\Coocon\\NXiSAS\\iSASNXHTTPS.exe AppParameters",
+      "args": "AppParameters",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:39:29Z",
+      "modules": []
+    },
+    {
+      "pid": 2948,
+      "ppid": 688,
+      "image_path": "C:\\Program Files\\ESTsoft\\ALYac\\AYRTSrv.exe",
+      "cmdline": "C:\\Program Files\\ESTsoft\\ALYac\\AYRTSrv.exe",
+      "cmdline_decoded": "C:\\Program Files\\ESTsoft\\ALYac\\AYRTSrv.exe",
+      "args": "",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:22Z",
+      "modules": []
+    },
+    {
+      "pid": 2960,
+      "ppid": 688,
+      "image_path": "C:\\Program Files\\ESTsoft\\ALYac\\AYUpdSrv.exe",
+      "cmdline": "C:\\Program Files\\ESTsoft\\ALYac\\AYUpdSrv.exe",
+      "cmdline_decoded": "C:\\Program Files\\ESTsoft\\ALYac\\AYUpdSrv.exe",
+      "args": "",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:22Z",
+      "modules": []
+    },
+    {
+      "pid": 2968,
+      "ppid": 688,
+      "image_path": "C:\\Program Files\\ESTsoft\\ALYac\\AYWSSrv.exe",
+      "cmdline": "",
+      "cmdline_decoded": "",
+      "args": "",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:22Z",
+      "modules": []
+    },
+    {
+      "pid": 2984,
+      "ppid": 688,
+      "image_path": "C:\\Program Files (x86)\\iniLINE\\CrossEX\\crossex\\ObCrossEXService.exe",
+      "cmdline": "C:\\Program Files (x86)\\iniLINE\\CrossEX\\crossex\\ObCrossEXService.exe",
+      "cmdline_decoded": "C:\\Program Files (x86)\\iniLINE\\CrossEX\\crossex\\ObCrossEXService.exe",
+      "args": "",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:22Z",
+      "modules": []
+    },
+    {
+      "pid": 2992,
+      "ppid": 688,
+      "image_path": "C:\\Program Files (x86)\\SoftForum\\XecureWeb\\AnySign\\dll\\AnySign4PCLauncher.exe",
+      "cmdline": "C:\\Program Files (x86)\\SoftForum\\XecureWeb\\AnySign\\dll\\AnySign4PCLauncher.exe",
+      "cmdline_decoded": "C:\\Program Files (x86)\\SoftForum\\XecureWeb\\AnySign\\dll\\AnySign4PCLauncher.exe",
+      "args": "",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:22Z",
+      "modules": []
+    },
+    {
+      "pid": 3000,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\system32\\svchost.exe -k NetworkService -p -s CryptSvc",
+      "cmdline_decoded": "C:\\Windows\\system32\\svchost.exe -k NetworkService -p -s CryptSvc",
+      "args": "-k NetworkService -p -s CryptSvc",
+      "user": "S-1-5-20",
+      "start_time": "2026-08-20T05:37:22Z",
+      "modules": []
+    },
+    {
+      "pid": 3020,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\System32\\svchost.exe -k utcsvc -p",
+      "cmdline_decoded": "C:\\Windows\\System32\\svchost.exe -k utcsvc -p",
+      "args": "-k utcsvc -p",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:22Z",
+      "modules": []
+    },
+    {
+      "pid": 3052,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\System32\\svchost.exe -k LocalServiceNoNetwork -p -s DPS",
+      "cmdline_decoded": "C:\\Windows\\System32\\svchost.exe -k LocalServiceNoNetwork -p -s DPS",
+      "args": "-k LocalServiceNoNetwork -p -s DPS",
+      "user": "S-1-5-19",
+      "start_time": "2026-08-20T05:37:22Z",
+      "modules": []
+    },
+    {
+      "pid": 3064,
+      "ppid": 688,
+      "image_path": "C:\\Program Files\\Everything\\Everything.exe",
+      "cmdline": "C:\\Program Files\\Everything\\Everything.exe -svc",
+      "cmdline_decoded": "C:\\Program Files\\Everything\\Everything.exe -svc",
+      "args": "-svc",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:22Z",
+      "modules": []
+    },
+    {
+      "pid": 3092,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\system32\\svchost.exe -k netsvcs -p -s Winmgmt",
+      "cmdline_decoded": "C:\\Windows\\system32\\svchost.exe -k netsvcs -p -s Winmgmt",
+      "args": "-k netsvcs -p -s Winmgmt",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:22Z",
+      "modules": []
+    },
+    {
+      "pid": 3144,
+      "ppid": 688,
+      "image_path": "C:\\Program Files (x86)\\MarkAny\\EPSBrokerIros\\MaEPSBrokerIrosSvc.exe",
+      "cmdline": "C:\\Program Files (x86)\\MarkAny\\EPSBrokerIros\\MaEPSBrokerIrosSvc.exe",
+      "cmdline_decoded": "C:\\Program Files (x86)\\MarkAny\\EPSBrokerIros\\MaEPSBrokerIrosSvc.exe",
+      "args": "",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:23Z",
+      "modules": []
+    },
+    {
+      "pid": 3180,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\msdtc.exe",
+      "cmdline": "C:\\Windows\\System32\\msdtc.exe",
+      "cmdline_decoded": "C:\\Windows\\System32\\msdtc.exe",
+      "args": "",
+      "user": "S-1-5-20",
+      "start_time": "2026-08-20T05:37:33Z",
+      "modules": []
+    },
+    {
+      "pid": 3252,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\system32\\svchost.exe -k LocalService -p -s SstpSvc",
+      "cmdline_decoded": "C:\\Windows\\system32\\svchost.exe -k LocalService -p -s SstpSvc",
+      "args": "-k LocalService -p -s SstpSvc",
+      "user": "S-1-5-19",
+      "start_time": "2026-08-20T05:37:23Z",
+      "modules": []
+    },
+    {
+      "pid": 3260,
+      "ppid": 688,
+      "image_path": "C:\\Program Files (x86)\\INCAInternet\\nProtect Online Security\\nossvc.exe",
+      "cmdline": "",
+      "cmdline_decoded": "",
+      "args": "",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:23Z",
+      "modules": []
+    },
+    {
+      "pid": 3268,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\System32\\svchost.exe -k LocalSystemNetworkRestricted -p -s TrkWks",
+      "cmdline_decoded": "C:\\Windows\\System32\\svchost.exe -k LocalSystemNetworkRestricted -p -s TrkWks",
+      "args": "-k LocalSystemNetworkRestricted -p -s TrkWks",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:23Z",
+      "modules": []
+    },
+    {
+      "pid": 3276,
+      "ppid": 688,
+      "image_path": "C:\\Program Files\\VMware\\VMware Tools\\VMware VGAuth\\VGAuthService.exe",
+      "cmdline": "C:\\Program Files\\VMware\\VMware Tools\\VMware VGAuth\\VGAuthService.exe",
+      "cmdline_decoded": "C:\\Program Files\\VMware\\VMware Tools\\VMware VGAuth\\VGAuthService.exe",
+      "args": "",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:23Z",
+      "modules": []
+    },
+    {
+      "pid": 3284,
+      "ppid": 688,
+      "image_path": "C:\\Program Files\\VMware\\VMware Tools\\vm3dservice.exe",
+      "cmdline": "C:\\Program Files\\VMware\\VMware Tools\\vm3dservice.exe",
+      "cmdline_decoded": "C:\\Program Files\\VMware\\VMware Tools\\vm3dservice.exe",
+      "args": "",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:23Z",
+      "modules": []
+    },
+    {
+      "pid": 3296,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\system32\\svchost.exe -k netsvcs -p -s LanmanServer",
+      "cmdline_decoded": "C:\\Windows\\system32\\svchost.exe -k netsvcs -p -s LanmanServer",
+      "args": "-k netsvcs -p -s LanmanServer",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:23Z",
+      "modules": []
+    },
+    {
+      "pid": 3304,
+      "ppid": 688,
+      "image_path": "C:\\Program Files\\VMware\\VMware Tools\\vmtoolsd.exe",
+      "cmdline": "C:\\Program Files\\VMware\\VMware Tools\\vmtoolsd.exe",
+      "cmdline_decoded": "C:\\Program Files\\VMware\\VMware Tools\\vmtoolsd.exe",
+      "args": "",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:23Z",
+      "modules": []
+    },
+    {
+      "pid": 3352,
+      "ppid": 688,
+      "image_path": "C:\\Program Files\\AhnLab\\Safe Transaction\\ASDSvc.exe",
+      "cmdline": "C:\\Program Files\\AhnLab\\Safe Transaction\\ASDSvc.exe",
+      "cmdline_decoded": "C:\\Program Files\\AhnLab\\Safe Transaction\\ASDSvc.exe",
+      "args": "",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:23Z",
+      "modules": []
+    },
+    {
+      "pid": 3376,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\System32\\svchost.exe -k LocalService -p -s WdiServiceHost",
+      "cmdline_decoded": "C:\\Windows\\System32\\svchost.exe -k LocalService -p -s WdiServiceHost",
+      "args": "-k LocalService -p -s WdiServiceHost",
+      "user": "S-1-5-19",
+      "start_time": "2026-08-20T05:37:23Z",
+      "modules": []
+    },
+    {
+      "pid": 3400,
+      "ppid": 824,
+      "image_path": "C:\\Windows\\System32\\RuntimeBroker.exe",
+      "cmdline": "C:\\Windows\\System32\\RuntimeBroker.exe -Embedding",
+      "cmdline_decoded": "C:\\Windows\\System32\\RuntimeBroker.exe -Embedding",
+      "args": "-Embedding",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-09-05T04:48:16Z",
+      "modules": []
+    },
+    {
+      "pid": 3432,
+      "ppid": 688,
+      "image_path": "C:\\Program Files (x86)\\Wizvera\\Common\\wpmsvc\\wpmsvc.exe",
+      "cmdline": "C:\\Program Files (x86)\\Wizvera\\Common\\wpmsvc\\wpmsvc.exe",
+      "cmdline_decoded": "C:\\Program Files (x86)\\Wizvera\\Common\\wpmsvc\\wpmsvc.exe",
+      "args": "",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:23Z",
+      "modules": []
+    },
+    {
+      "pid": 3500,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\system32\\svchost.exe -k netsvcs -p -s WpnService",
+      "cmdline_decoded": "C:\\Windows\\system32\\svchost.exe -k netsvcs -p -s WpnService",
+      "args": "-k netsvcs -p -s WpnService",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:23Z",
+      "modules": []
+    },
+    {
+      "pid": 3524,
+      "ppid": 824,
+      "image_path": "C:\\Windows\\System32\\RuntimeBroker.exe",
+      "cmdline": "C:\\Windows\\System32\\RuntimeBroker.exe -Embedding",
+      "cmdline_decoded": "C:\\Windows\\System32\\RuntimeBroker.exe -Embedding",
+      "args": "-Embedding",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-20T05:38:33Z",
+      "modules": []
+    },
+    {
+      "pid": 3532,
+      "ppid": 11776,
+      "image_path": "C:\\Windows\\System32\\MusNotificationUx.exe",
+      "cmdline": "%systemroot%\\system32\\MusNotificationUx.exe ClearActiveNotifications",
+      "cmdline_decoded": "%systemroot%\\system32\\MusNotificationUx.exe ClearActiveNotifications",
+      "args": "ClearActiveNotifications",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-09-05T04:48:20Z",
+      "modules": []
+    },
+    {
+      "pid": 3644,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\System32\\svchost.exe -k NetSvcs -p -s iphlpsvc",
+      "cmdline_decoded": "C:\\Windows\\System32\\svchost.exe -k NetSvcs -p -s iphlpsvc",
+      "args": "-k NetSvcs -p -s iphlpsvc",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:23Z",
+      "modules": []
+    },
+    {
+      "pid": 3668,
+      "ppid": 824,
+      "image_path": "C:\\Windows\\System32\\backgroundTaskHost.exe",
+      "cmdline": "C:\\Windows\\system32\\backgroundTaskHost.exe -ServerName:Global.DesktopSpotlight.AppXz2j21w56bgxkgsjhtn7zkjsepq96erz2.mca",
+      "cmdline_decoded": "C:\\Windows\\system32\\backgroundTaskHost.exe -ServerName:Global.DesktopSpotlight.AppXz2j21w56bgxkgsjhtn7zkjsepq96erz2.mca",
+      "args": "-ServerName:Global.DesktopSpotlight.AppXz2j21w56bgxkgsjhtn7zkjsepq96erz2.mca",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-09-05T04:48:05Z",
+      "modules": []
+    },
+    {
+      "pid": 3692,
+      "ppid": 3284,
+      "image_path": "C:\\Program Files\\VMware\\VMware Tools\\vm3dservice.exe",
+      "cmdline": "C:\\Program Files\\VMware\\VMware Tools\\vm3dservice.exe -n",
+      "cmdline_decoded": "C:\\Program Files\\VMware\\VMware Tools\\vm3dservice.exe -n",
+      "args": "-n",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:23Z",
+      "modules": []
+    },
+    {
+      "pid": 4060,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\System32\\svchost.exe -k netsvcs -p -s BITS",
+      "cmdline_decoded": "C:\\Windows\\System32\\svchost.exe -k netsvcs -p -s BITS",
+      "args": "-k netsvcs -p -s BITS",
+      "user": "S-1-5-18",
+      "start_time": "2026-09-05T04:48:00Z",
+      "modules": []
+    },
+    {
+      "pid": 4104,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\System32\\svchost.exe -k netsvcs",
+      "cmdline_decoded": "C:\\Windows\\System32\\svchost.exe -k netsvcs",
+      "args": "-k netsvcs",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:24Z",
+      "modules": []
+    },
+    {
+      "pid": 4144,
+      "ppid": 824,
+      "image_path": "C:\\Windows\\System32\\backgroundTaskHost.exe",
+      "cmdline": "C:\\Windows\\system32\\backgroundTaskHost.exe -ServerName:WindowsBackup.AppXnn6fnh4raxtmg45ba8k2f4ykb7n0k3y4.mca",
+      "cmdline_decoded": "C:\\Windows\\system32\\backgroundTaskHost.exe -ServerName:WindowsBackup.AppXnn6fnh4raxtmg45ba8k2f4ykb7n0k3y4.mca",
+      "args": "-ServerName:WindowsBackup.AppXnn6fnh4raxtmg45ba8k2f4ykb7n0k3y4.mca",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-09-05T04:48:18Z",
+      "modules": []
+    },
+    {
+      "pid": 4256,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "",
+      "cmdline_decoded": "",
+      "args": "",
+      "user": "S-1-5-20",
+      "start_time": "2026-08-20T05:39:03Z",
+      "modules": []
+    },
+    {
+      "pid": 4436,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\SearchIndexer.exe",
+      "cmdline": "C:\\Windows\\system32\\SearchIndexer.exe /Embedding",
+      "cmdline_decoded": "C:\\Windows\\system32\\SearchIndexer.exe /Embedding",
+      "args": "/Embedding",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:25Z",
+      "modules": []
+    },
+    {
+      "pid": 4520,
+      "ppid": 824,
+      "image_path": "C:\\Windows\\System32\\RuntimeBroker.exe",
+      "cmdline": "C:\\Windows\\System32\\RuntimeBroker.exe -Embedding",
+      "cmdline_decoded": "C:\\Windows\\System32\\RuntimeBroker.exe -Embedding",
+      "args": "-Embedding",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-20T05:38:41Z",
+      "modules": []
+    },
+    {
+      "pid": 4736,
+      "ppid": 1084,
+      "image_path": "C:\\Windows\\System32\\DeviceCensus.exe",
+      "cmdline": "C:\\Windows\\system32\\devicecensus.exe SystemCxt",
+      "cmdline_decoded": "C:\\Windows\\system32\\devicecensus.exe SystemCxt",
+      "args": "SystemCxt",
+      "user": "S-1-5-18",
+      "start_time": "2026-09-05T04:47:59Z",
+      "modules": []
+    },
+    {
+      "pid": 4804,
+      "ppid": 824,
+      "image_path": "C:\\Windows\\System32\\smartscreen.exe",
+      "cmdline": "C:\\Windows\\System32\\smartscreen.exe -Embedding",
+      "cmdline_decoded": "C:\\Windows\\System32\\smartscreen.exe -Embedding",
+      "args": "-Embedding",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-24T04:26:11Z",
+      "modules": []
+    },
+    {
+      "pid": 4892,
+      "ppid": 824,
+      "image_path": "C:\\Windows\\System32\\wsmprovhost.exe",
+      "cmdline": "C:\\Windows\\system32\\wsmprovhost.exe -Embedding",
+      "cmdline_decoded": "C:\\Windows\\system32\\wsmprovhost.exe -Embedding",
+      "args": "-Embedding",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-09-05T04:48:08Z",
+      "modules": []
+    },
+    {
+      "pid": 4964,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\dllhost.exe",
+      "cmdline": "C:\\Windows\\system32\\dllhost.exe /Processid:{02D4B3F1-FD88-11D1-960D-00805FC79235}",
+      "cmdline_decoded": "C:\\Windows\\system32\\dllhost.exe /Processid:{02D4B3F1-FD88-11D1-960D-00805FC79235}",
+      "args": "/Processid:{02D4B3F1-FD88-11D1-960D-00805FC79235}",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:27Z",
+      "modules": []
+    },
+    {
+      "pid": 4996,
+      "ppid": 2644,
+      "image_path": "C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\151.0.4129.101\\msedgewebview2.exe",
+      "cmdline": "C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\151.0.4129.101\\msedgewebview2.exe --type=crashpad-handler --user-data-dir=C:\\Users\\test\\AppData\\Local\\ESTsoft\\ALAd2\\EBWebView /prefetch:4 --monitor-self-annotation=ptype=crashpad-handler --database=C:\\Users\\test\\AppData\\Local\\ESTsoft\\ALAd2\\EBWebView\\Crashpad --annotation=IsOfficialBuild=1 --annotation=channel= --annotation=chromium-version=151.0.7922.170 --annotation=exe=C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\151.0.4129.101\\msedgewebview2.exe --annotation=plat=Win64 --annotation=prod=Edge WebView2 --annotation=ver=151.0.4129.101 --initial-client-data=0x178,0x17c,0x180,0x154,0x188,0x7fffa4b465f0,0x7fffa4b46600,0x7fffa4b46610",
+      "cmdline_decoded": "C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\151.0.4129.101\\msedgewebview2.exe --type=crashpad-handler --user-data-dir=C:\\Users\\test\\AppData\\Local\\ESTsoft\\ALAd2\\EBWebView /prefetch:4 --monitor-self-annotation=ptype=crashpad-handler --database=C:\\Users\\test\\AppData\\Local\\ESTsoft\\ALAd2\\EBWebView\\Crashpad --annotation=IsOfficialBuild=1 --annotation=channel= --annotation=chromium-version=151.0.7922.170 --annotation=exe=C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\151.0.4129.101\\msedgewebview2.exe --annotation=plat=Win64 --annotation=prod=Edge WebView2 --annotation=ver=151.0.4129.101 --initial-client-data=0x178,0x17c,0x180,0x154,0x188,0x7fffa4b465f0,0x7fffa4b46600,0x7fffa4b46610",
+      "args": "--type=crashpad-handler --user-data-dir=C:\\Users\\test\\AppData\\Local\\ESTsoft\\ALAd2\\EBWebView /prefetch:4 --monitor-self-annotation=ptype=crashpad-handler --database=C:\\Users\\test\\AppData\\Local\\ESTsoft\\ALAd2\\EBWebView\\Crashpad --annotation=IsOfficialBuild=1 --annotation=channel= --annotation=chromium-version=151.0.7922.170 --annotation=exe=C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\151.0.4129.101\\msedgewebview2.exe --annotation=plat=Win64 --annotation=prod=Edge WebView2 --annotation=ver=151.0.4129.101 --initial-client-data=0x178,0x17c,0x180,0x154,0x188,0x7fffa4b465f0,0x7fffa4b46600,0x7fffa4b46610",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-24T04:25:35Z",
+      "modules": []
+    },
+    {
+      "pid": 5048,
+      "ppid": 824,
+      "image_path": "C:\\Windows\\System32\\dllhost.exe",
+      "cmdline": "C:\\Windows\\system32\\DllHost.exe /Processid:{3EB3C877-1F16-487C-9050-104DBCD66683}",
+      "cmdline_decoded": "C:\\Windows\\system32\\DllHost.exe /Processid:{3EB3C877-1F16-487C-9050-104DBCD66683}",
+      "args": "/Processid:{3EB3C877-1F16-487C-9050-104DBCD66683}",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:27Z",
+      "modules": []
+    },
+    {
+      "pid": 5224,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\System32\\svchost.exe -k netsvcs -p -s PushToInstall",
+      "cmdline_decoded": "C:\\Windows\\System32\\svchost.exe -k netsvcs -p -s PushToInstall",
+      "args": "-k netsvcs -p -s PushToInstall",
+      "user": "S-1-5-18",
+      "start_time": "2026-09-05T04:48:12Z",
+      "modules": []
+    },
+    {
+      "pid": 5352,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\system32\\svchost.exe -k LocalService -p -s CDPSvc",
+      "cmdline_decoded": "C:\\Windows\\system32\\svchost.exe -k LocalService -p -s CDPSvc",
+      "args": "-k LocalService -p -s CDPSvc",
+      "user": "S-1-5-19",
+      "start_time": "2026-08-20T05:37:34Z",
+      "modules": []
+    },
+    {
+      "pid": 5384,
+      "ppid": 688,
+      "image_path": "C:\\Program Files (x86)\\Coocon\\NXiSAS\\iSASWebLauncher.exe",
+      "cmdline": "C:\\Program Files (x86)\\Coocon\\NXiSAS\\iSASWebLauncher.exe",
+      "cmdline_decoded": "C:\\Program Files (x86)\\Coocon\\NXiSAS\\iSASWebLauncher.exe",
+      "args": "",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:39:26Z",
+      "modules": []
+    },
+    {
+      "pid": 5404,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\System32\\svchost.exe -k netsvcs -p",
+      "cmdline_decoded": "C:\\Windows\\System32\\svchost.exe -k netsvcs -p",
+      "args": "-k netsvcs -p",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:40:23Z",
+      "modules": []
+    },
+    {
+      "pid": 5408,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\servicing\\TrustedInstaller.exe",
+      "cmdline": "C:\\Windows\\servicing\\TrustedInstaller.exe",
+      "cmdline_decoded": "C:\\Windows\\servicing\\TrustedInstaller.exe",
+      "args": "",
+      "user": "S-1-5-18",
+      "start_time": "2026-09-05T04:48:00Z",
+      "modules": []
+    },
+    {
+      "pid": 5456,
+      "ppid": 824,
+      "image_path": "C:\\Windows\\System32\\wbem\\WmiPrvSE.exe",
+      "cmdline": "C:\\Windows\\system32\\wbem\\wmiprvse.exe",
+      "cmdline_decoded": "C:\\Windows\\system32\\wbem\\wmiprvse.exe",
+      "args": "",
+      "user": "S-1-5-20",
+      "start_time": "2026-08-20T05:37:29Z",
+      "modules": []
+    },
+    {
+      "pid": 5548,
+      "ppid": 1236,
+      "image_path": "C:\\Windows\\System32\\sihost.exe",
+      "cmdline": "sihost.exe",
+      "cmdline_decoded": "sihost.exe",
+      "args": "",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-20T05:37:30Z",
+      "modules": []
+    },
+    {
+      "pid": 5608,
+      "ppid": 824,
+      "image_path": "C:\\Windows\\System32\\backgroundTaskHost.exe",
+      "cmdline": "C:\\Windows\\system32\\backgroundTaskHost.exe -ServerName:App.AppXggkaqzf6p31g37n0m8phzeswb0rt9m7e.mca",
+      "cmdline_decoded": "C:\\Windows\\system32\\backgroundTaskHost.exe -ServerName:App.AppXggkaqzf6p31g37n0m8phzeswb0rt9m7e.mca",
+      "args": "-ServerName:App.AppXggkaqzf6p31g37n0m8phzeswb0rt9m7e.mca",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-09-05T04:48:16Z",
+      "modules": []
+    },
+    {
+      "pid": 5612,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\system32\\svchost.exe -k UnistackSvcGroup -s CDPUserSvc",
+      "cmdline_decoded": "C:\\Windows\\system32\\svchost.exe -k UnistackSvcGroup -s CDPUserSvc",
+      "args": "-k UnistackSvcGroup -s CDPUserSvc",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-20T05:37:30Z",
+      "modules": []
+    },
+    {
+      "pid": 5676,
+      "ppid": 3020,
+      "image_path": "C:\\Windows\\System32\\AggregatorHost.exe",
+      "cmdline": "AggregatorHost.exe",
+      "cmdline_decoded": "AggregatorHost.exe",
+      "args": "",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:30Z",
+      "modules": []
+    },
+    {
+      "pid": 5696,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\system32\\svchost.exe -k UnistackSvcGroup -s WpnUserService",
+      "cmdline_decoded": "C:\\Windows\\system32\\svchost.exe -k UnistackSvcGroup -s WpnUserService",
+      "args": "-k UnistackSvcGroup -s WpnUserService",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-20T05:37:30Z",
+      "modules": []
+    },
+    {
+      "pid": 5716,
+      "ppid": 1084,
+      "image_path": "C:\\Program Files (x86)\\Google\\GoogleUpdater\\152.0.7933.0\\updater.exe",
+      "cmdline": "C:\\Program Files (x86)\\Google\\GoogleUpdater\\152.0.7933.0\\updater.exe --wake --system",
+      "cmdline_decoded": "C:\\Program Files (x86)\\Google\\GoogleUpdater\\152.0.7933.0\\updater.exe --wake --system",
+      "args": "--wake --system",
+      "user": "S-1-5-18",
+      "start_time": "2026-09-05T04:47:58Z",
+      "modules": []
+    },
+    {
+      "pid": 5780,
+      "ppid": 824,
+      "image_path": "C:\\Windows\\System32\\oobe\\UserOOBEBroker.exe",
+      "cmdline": "C:\\Windows\\System32\\oobe\\UserOOBEBroker.exe -Embedding",
+      "cmdline_decoded": "C:\\Windows\\System32\\oobe\\UserOOBEBroker.exe -Embedding",
+      "args": "-Embedding",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-20T05:42:08Z",
+      "modules": []
+    },
+    {
+      "pid": 5784,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\system32\\svchost.exe -k netsvcs -p -s TokenBroker",
+      "cmdline_decoded": "C:\\Windows\\system32\\svchost.exe -k netsvcs -p -s TokenBroker",
+      "args": "-k netsvcs -p -s TokenBroker",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:31Z",
+      "modules": []
+    },
+    {
+      "pid": 5816,
+      "ppid": 1084,
+      "image_path": "C:\\Windows\\System32\\taskhostw.exe",
+      "cmdline": "taskhostw.exe {222A245B-E637-4AE9-A93F-A59CA119A75E}",
+      "cmdline_decoded": "taskhostw.exe {222A245B-E637-4AE9-A93F-A59CA119A75E}",
+      "args": "{222A245B-E637-4AE9-A93F-A59CA119A75E}",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-20T05:37:31Z",
+      "modules": []
+    },
+    {
+      "pid": 5828,
+      "ppid": 824,
+      "image_path": "C:\\Windows\\System32\\ApplicationFrameHost.exe",
+      "cmdline": "C:\\Windows\\system32\\ApplicationFrameHost.exe -Embedding",
+      "cmdline_decoded": "C:\\Windows\\system32\\ApplicationFrameHost.exe -Embedding",
+      "args": "-Embedding",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-20T05:42:08Z",
+      "modules": []
+    },
+    {
+      "pid": 5848,
+      "ppid": 824,
+      "image_path": "C:\\Windows\\SystemApps\\ShellExperienceHost_cw5n1h2txyewy\\ShellExperienceHost.exe",
+      "cmdline": "C:\\Windows\\SystemApps\\ShellExperienceHost_cw5n1h2txyewy\\ShellExperienceHost.exe -ServerName:App.AppXtk181tbxbce2qsex02s8tw7hfxa9xb3t.mca",
+      "cmdline_decoded": "C:\\Windows\\SystemApps\\ShellExperienceHost_cw5n1h2txyewy\\ShellExperienceHost.exe -ServerName:App.AppXtk181tbxbce2qsex02s8tw7hfxa9xb3t.mca",
+      "args": "-ServerName:App.AppXtk181tbxbce2qsex02s8tw7hfxa9xb3t.mca",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-20T05:38:40Z",
+      "modules": []
+    },
+    {
+      "pid": 6004,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\System32\\svchost.exe -k LocalSystemNetworkRestricted -p -s TabletInputService",
+      "cmdline_decoded": "C:\\Windows\\System32\\svchost.exe -k LocalSystemNetworkRestricted -p -s TabletInputService",
+      "args": "-k LocalSystemNetworkRestricted -p -s TabletInputService",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:31Z",
+      "modules": []
+    },
+    {
+      "pid": 6112,
+      "ppid": 6004,
+      "image_path": "C:\\Windows\\System32\\ctfmon.exe",
+      "cmdline": "ctfmon.exe",
+      "cmdline_decoded": "ctfmon.exe",
+      "args": "",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-20T05:37:32Z",
+      "modules": []
+    },
+    {
+      "pid": 6136,
+      "ppid": 688,
+      "image_path": "C:\\Program Files (x86)\\Google\\GoogleUpdater\\152.0.7933.0\\updater.exe",
+      "cmdline": "C:\\Program Files (x86)\\Google\\GoogleUpdater\\152.0.7933.0\\updater.exe --system --windows-service --service=update",
+      "cmdline_decoded": "C:\\Program Files (x86)\\Google\\GoogleUpdater\\152.0.7933.0\\updater.exe --system --windows-service --service=update",
+      "args": "--system --windows-service --service=update",
+      "user": "S-1-5-18",
+      "start_time": "2026-09-05T04:48:12Z",
+      "modules": []
+    },
+    {
+      "pid": 6224,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\System32\\svchost.exe -k LocalSystemNetworkRestricted -p",
+      "cmdline_decoded": "C:\\Windows\\System32\\svchost.exe -k LocalSystemNetworkRestricted -p",
+      "args": "-k LocalSystemNetworkRestricted -p",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:39:03Z",
+      "modules": []
+    },
+    {
+      "pid": 6316,
+      "ppid": 6252,
+      "image_path": "C:\\Windows\\explorer.exe",
+      "cmdline": "C:\\Windows\\Explorer.EXE",
+      "cmdline_decoded": "C:\\Windows\\Explorer.EXE",
+      "args": "",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-20T05:37:35Z",
+      "modules": []
+    },
+    {
+      "pid": 6372,
+      "ppid": 2984,
+      "image_path": "C:\\Program Files (x86)\\iniLINE\\CrossEX\\crossex\\CrossEXService.exe",
+      "cmdline": "C:\\Program Files (x86)\\iniLINE\\CrossEX\\crossex\\CrossEXService.exe",
+      "cmdline_decoded": "C:\\Program Files (x86)\\iniLINE\\CrossEX\\crossex\\CrossEXService.exe",
+      "args": "",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-20T05:37:36Z",
+      "modules": []
+    },
+    {
+      "pid": 6388,
+      "ppid": 3144,
+      "image_path": "C:\\Program Files (x86)\\MarkAny\\EPSBrokerIros\\MaEPSBrokerIros.exe",
+      "cmdline": "C:\\Program Files (x86)\\MarkAny\\EPSBrokerIros\\MaEPSBrokerIros.exe",
+      "cmdline_decoded": "C:\\Program Files (x86)\\MarkAny\\EPSBrokerIros\\MaEPSBrokerIros.exe",
+      "args": "",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-20T05:37:36Z",
+      "modules": []
+    },
+    {
+      "pid": 6424,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\system32\\svchost.exe -k LocalService -p -s BthAvctpSvc",
+      "cmdline_decoded": "C:\\Windows\\system32\\svchost.exe -k LocalService -p -s BthAvctpSvc",
+      "args": "-k LocalService -p -s BthAvctpSvc",
+      "user": "S-1-5-19",
+      "start_time": "2026-08-24T04:26:10Z",
+      "modules": []
+    },
+    {
+      "pid": 6448,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\system32\\svchost.exe -k appmodel -p -s camsvc",
+      "cmdline_decoded": "C:\\Windows\\system32\\svchost.exe -k appmodel -p -s camsvc",
+      "args": "-k appmodel -p -s camsvc",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-24T04:25:14Z",
+      "modules": []
+    },
+    {
+      "pid": 6584,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\system32\\svchost.exe -k netsvcs -p -s Appinfo",
+      "cmdline_decoded": "C:\\Windows\\system32\\svchost.exe -k netsvcs -p -s Appinfo",
+      "args": "-k netsvcs -p -s Appinfo",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:37Z",
+      "modules": []
+    },
+    {
+      "pid": 6768,
+      "ppid": 2644,
+      "image_path": "C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\151.0.4129.101\\msedgewebview2.exe",
+      "cmdline": "C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\151.0.4129.101\\msedgewebview2.exe --type=renderer --noerrdialogs --user-data-dir=C:\\Users\\test\\AppData\\Local\\ESTsoft\\ALAd2\\EBWebView --webview-exe-name=AYMain.exe --webview-exe-version=3.0.2.1178 --embedded-browser-webview=1 --embedded-browser-webview-dpi-awareness=2 --video-capture-use-gpu-memory-buffer --lang=ko --device-scale-factor=1 --num-raster-threads=1 --renderer-client-id=6 --js-flags=--expose-gc --ms-user-locale=ko_KR --time-ticks-at-unix-epoch=-1787393823324292 --launch-time-ticks=151713636817 --skip-read-main-dll --metrics-shmem-handle=4184,i,9981567054887173624,5630376615099597127,2097152 --field-trial-handle=1908,i,12252528891620121895,1569902432656063802,262144 --disable-features=msEnhancedTrackingPreventionEnabled --variations-seed-version --pseudonymization-salt-handle=1912,i,8725345035652514876,14251310747762345321,4 --trace-process-track-uuid=3190708991934122588 --mojo-platform-channel-handle=4188 /prefetch:1",
+      "cmdline_decoded": "C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\151.0.4129.101\\msedgewebview2.exe --type=renderer --noerrdialogs --user-data-dir=C:\\Users\\test\\AppData\\Local\\ESTsoft\\ALAd2\\EBWebView --webview-exe-name=AYMain.exe --webview-exe-version=3.0.2.1178 --embedded-browser-webview=1 --embedded-browser-webview-dpi-awareness=2 --video-capture-use-gpu-memory-buffer --lang=ko --device-scale-factor=1 --num-raster-threads=1 --renderer-client-id=6 --js-flags=--expose-gc --ms-user-locale=ko_KR --time-ticks-at-unix-epoch=-1787393823324292 --launch-time-ticks=151713636817 --skip-read-main-dll --metrics-shmem-handle=4184,i,9981567054887173624,5630376615099597127,2097152 --field-trial-handle=1908,i,12252528891620121895,1569902432656063802,262144 --disable-features=msEnhancedTrackingPreventionEnabled --variations-seed-version --pseudonymization-salt-handle=1912,i,8725345035652514876,14251310747762345321,4 --trace-process-track-uuid=3190708991934122588 --mojo-platform-channel-handle=4188 /prefetch:1",
+      "args": "--type=renderer --noerrdialogs --user-data-dir=C:\\Users\\test\\AppData\\Local\\ESTsoft\\ALAd2\\EBWebView --webview-exe-name=AYMain.exe --webview-exe-version=3.0.2.1178 --embedded-browser-webview=1 --embedded-browser-webview-dpi-awareness=2 --video-capture-use-gpu-memory-buffer --lang=ko --device-scale-factor=1 --num-raster-threads=1 --renderer-client-id=6 --js-flags=--expose-gc --ms-user-locale=ko_KR --time-ticks-at-unix-epoch=-1787393823324292 --launch-time-ticks=151713636817 --skip-read-main-dll --metrics-shmem-handle=4184,i,9981567054887173624,5630376615099597127,2097152 --field-trial-handle=1908,i,12252528891620121895,1569902432656063802,262144 --disable-features=msEnhancedTrackingPreventionEnabled --variations-seed-version --pseudonymization-salt-handle=1912,i,8725345035652514876,14251310747762345321,4 --trace-process-track-uuid=3190708991934122588 --mojo-platform-channel-handle=4188 /prefetch:1",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-24T04:25:36Z",
+      "modules": []
+    },
+    {
+      "pid": 6808,
+      "ppid": 5268,
+      "image_path": "C:\\Program Files\\Wizvera\\Veraport20\\veraport-x64.exe",
+      "cmdline": "C:\\program files\\wizvera\\veraport20\\veraport-x64.exe",
+      "cmdline_decoded": "C:\\program files\\wizvera\\veraport20\\veraport-x64.exe",
+      "args": "",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-20T05:37:39Z",
+      "modules": []
+    },
+    {
+      "pid": 6836,
+      "ppid": 3260,
+      "image_path": "C:\\Program Files (x86)\\INCAInternet\\nProtect Online Security\\nosstarter.npe",
+      "cmdline": "",
+      "cmdline_decoded": "",
+      "args": "",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:37:44Z",
+      "modules": []
+    },
+    {
+      "pid": 6936,
+      "ppid": 2792,
+      "image_path": "C:\\Program Files (x86)\\IPinside_LWS\\I3GProc.exe",
+      "cmdline": "C:\\Program Files (x86)\\IPinside_LWS\\I3GProc.exe",
+      "cmdline_decoded": "C:\\Program Files (x86)\\IPinside_LWS\\I3GProc.exe",
+      "args": "",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-20T05:37:44Z",
+      "modules": []
+    },
+    {
+      "pid": 7036,
+      "ppid": 3352,
+      "image_path": "C:\\Program Files\\AhnLab\\Safe Transaction\\StSess.exe",
+      "cmdline": "C:\\Program Files\\AhnLab\\Safe Transaction\\stsess.exe /EAA",
+      "cmdline_decoded": "C:\\Program Files\\AhnLab\\Safe Transaction\\stsess.exe /EAA",
+      "args": "/EAA",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-20T05:37:40Z",
+      "modules": []
+    },
+    {
+      "pid": 7324,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\system32\\svchost.exe -k LocalServiceAndNoImpersonation -p -s SSDPSRV",
+      "cmdline_decoded": "C:\\Windows\\system32\\svchost.exe -k LocalServiceAndNoImpersonation -p -s SSDPSRV",
+      "args": "-k LocalServiceAndNoImpersonation -p -s SSDPSRV",
+      "user": "S-1-5-19",
+      "start_time": "2026-08-20T05:37:49Z",
+      "modules": []
+    },
+    {
+      "pid": 7372,
+      "ppid": 2644,
+      "image_path": "C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\151.0.4129.101\\msedgewebview2.exe",
+      "cmdline": "C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\151.0.4129.101\\msedgewebview2.exe --type=utility --utility-sub-type=storage.mojom.StorageService --lang=ko --service-sandbox-type=service --noerrdialogs --user-data-dir=C:\\Users\\test\\AppData\\Local\\ESTsoft\\ALAd2\\EBWebView --webview-exe-name=AYMain.exe --webview-exe-version=3.0.2.1178 --embedded-browser-webview=1 --embedded-browser-webview-dpi-awareness=2 --startup-read-main-dll --metrics-shmem-handle=2432,i,2249103999441050086,14777441742907799923,524288 --field-trial-handle=1908,i,12252528891620121895,1569902432656063802,262144 --disable-features=msEnhancedTrackingPreventionEnabled --variations-seed-version --pseudonymization-salt-handle=1912,i,8725345035652514876,14251310747762345321,4 --trace-process-track-uuid=3190708990060038890 --mojo-platform-channel-handle=2440 /prefetch:8",
+      "cmdline_decoded": "C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\151.0.4129.101\\msedgewebview2.exe --type=utility --utility-sub-type=storage.mojom.StorageService --lang=ko --service-sandbox-type=service --noerrdialogs --user-data-dir=C:\\Users\\test\\AppData\\Local\\ESTsoft\\ALAd2\\EBWebView --webview-exe-name=AYMain.exe --webview-exe-version=3.0.2.1178 --embedded-browser-webview=1 --embedded-browser-webview-dpi-awareness=2 --startup-read-main-dll --metrics-shmem-handle=2432,i,2249103999441050086,14777441742907799923,524288 --field-trial-handle=1908,i,12252528891620121895,1569902432656063802,262144 --disable-features=msEnhancedTrackingPreventionEnabled --variations-seed-version --pseudonymization-salt-handle=1912,i,8725345035652514876,14251310747762345321,4 --trace-process-track-uuid=3190708990060038890 --mojo-platform-channel-handle=2440 /prefetch:8",
+      "args": "--type=utility --utility-sub-type=storage.mojom.StorageService --lang=ko --service-sandbox-type=service --noerrdialogs --user-data-dir=C:\\Users\\test\\AppData\\Local\\ESTsoft\\ALAd2\\EBWebView --webview-exe-name=AYMain.exe --webview-exe-version=3.0.2.1178 --embedded-browser-webview=1 --embedded-browser-webview-dpi-awareness=2 --startup-read-main-dll --metrics-shmem-handle=2432,i,2249103999441050086,14777441742907799923,524288 --field-trial-handle=1908,i,12252528891620121895,1569902432656063802,262144 --disable-features=msEnhancedTrackingPreventionEnabled --variations-seed-version --pseudonymization-salt-handle=1912,i,8725345035652514876,14251310747762345321,4 --trace-process-track-uuid=3190708990060038890 --mojo-platform-channel-handle=2440 /prefetch:8",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-24T04:25:36Z",
+      "modules": []
+    },
+    {
+      "pid": 7412,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\system32\\svchost.exe -k LocalSystemNetworkRestricted -p -s PcaSvc",
+      "cmdline_decoded": "C:\\Windows\\system32\\svchost.exe -k LocalSystemNetworkRestricted -p -s PcaSvc",
+      "args": "-k LocalSystemNetworkRestricted -p -s PcaSvc",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:40:43Z",
+      "modules": []
+    },
+    {
+      "pid": 7460,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\system32\\svchost.exe -k ClipboardSvcGroup -p -s cbdhsvc",
+      "cmdline_decoded": "C:\\Windows\\system32\\svchost.exe -k ClipboardSvcGroup -p -s cbdhsvc",
+      "args": "-k ClipboardSvcGroup -p -s cbdhsvc",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-20T05:37:50Z",
+      "modules": []
+    },
+    {
+      "pid": 7540,
+      "ppid": 824,
+      "image_path": "C:\\Windows\\System32\\backgroundTaskHost.exe",
+      "cmdline": "C:\\Windows\\system32\\backgroundTaskHost.exe -ServerName:SettingsUXHostApp.AppXbcemfss8fnwzwnsjec8qzh0c3jnkn6x0.mca",
+      "cmdline_decoded": "C:\\Windows\\system32\\backgroundTaskHost.exe -ServerName:SettingsUXHostApp.AppXbcemfss8fnwzwnsjec8qzh0c3jnkn6x0.mca",
+      "args": "-ServerName:SettingsUXHostApp.AppXbcemfss8fnwzwnsjec8qzh0c3jnkn6x0.mca",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-09-05T04:48:17Z",
+      "modules": []
+    },
+    {
+      "pid": 7564,
+      "ppid": 7036,
+      "image_path": "C:\\Program Files\\AhnLab\\Safe Transaction\\Nz32\\stsess32.exe",
+      "cmdline": "C:\\Program Files\\AhnLab\\Safe Transaction\\Nz32\\StSess32.exe",
+      "cmdline_decoded": "C:\\Program Files\\AhnLab\\Safe Transaction\\Nz32\\StSess32.exe",
+      "args": "",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-20T05:37:51Z",
+      "modules": []
+    },
+    {
+      "pid": 7636,
+      "ppid": 688,
+      "image_path": "C:\\Program Files (x86)\\Google\\GoogleUpdater\\152.0.7933.0\\updater.exe",
+      "cmdline": "C:\\Program Files (x86)\\Google\\GoogleUpdater\\152.0.7933.0\\updater.exe --system --windows-service --service=update-internal",
+      "cmdline_decoded": "C:\\Program Files (x86)\\Google\\GoogleUpdater\\152.0.7933.0\\updater.exe --system --windows-service --service=update-internal",
+      "args": "--system --windows-service --service=update-internal",
+      "user": "S-1-5-18",
+      "start_time": "2026-09-05T04:48:12Z",
+      "modules": []
+    },
+    {
+      "pid": 7684,
+      "ppid": 2644,
+      "image_path": "C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\151.0.4129.101\\msedgewebview2.exe",
+      "cmdline": "C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\151.0.4129.101\\msedgewebview2.exe --type=gpu-process --noerrdialogs --user-data-dir=C:\\Users\\test\\AppData\\Local\\ESTsoft\\ALAd2\\EBWebView --webview-exe-name=AYMain.exe --webview-exe-version=3.0.2.1178 --embedded-browser-webview=1 --embedded-browser-webview-dpi-awareness=2 --gpu-preferences=WAAAAAAAAADgAAAEAAAAAAAAAAAAAGAAQAAAAAAAAAADAAAAAAAAADgAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAAAAAAAAAAAKAAAAAAAAAAoAAAAAAAAAAgAAAAAAAAAEAAAAAIAAAABAAAAAAAAAAgAAAAAAAAACAAAAAAAAAA= --startup-read-main-dll --metrics-shmem-handle=1684,i,13551762917834320410,1782915320442544927,262144 --field-trial-handle=1908,i,12252528891620121895,1569902432656063802,262144 --disable-features=msEnhancedTrackingPreventionEnabled --variations-seed-version --pseudonymization-salt-handle=1912,i,8725345035652514876,14251310747762345321,4 --trace-process-track-uuid=3190708988185955192 --mojo-platform-channel-handle=1904 /prefetch:2",
+      "cmdline_decoded": "C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\151.0.4129.101\\msedgewebview2.exe --type=gpu-process --noerrdialogs --user-data-dir=C:\\Users\\test\\AppData\\Local\\ESTsoft\\ALAd2\\EBWebView --webview-exe-name=AYMain.exe --webview-exe-version=3.0.2.1178 --embedded-browser-webview=1 --embedded-browser-webview-dpi-awareness=2 --gpu-preferences=WAAAAAAAAADgAAAEAAAAAAAAAAAAAGAAQAAAAAAAAAADAAAAAAAAADgAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAAAAAAAAAAAKAAAAAAAAAAoAAAAAAAAAAgAAAAAAAAAEAAAAAIAAAABAAAAAAAAAAgAAAAAAAAACAAAAAAAAAA= --startup-read-main-dll --metrics-shmem-handle=1684,i,13551762917834320410,1782915320442544927,262144 --field-trial-handle=1908,i,12252528891620121895,1569902432656063802,262144 --disable-features=msEnhancedTrackingPreventionEnabled --variations-seed-version --pseudonymization-salt-handle=1912,i,8725345035652514876,14251310747762345321,4 --trace-process-track-uuid=3190708988185955192 --mojo-platform-channel-handle=1904 /prefetch:2",
+      "args": "--type=gpu-process --noerrdialogs --user-data-dir=C:\\Users\\test\\AppData\\Local\\ESTsoft\\ALAd2\\EBWebView --webview-exe-name=AYMain.exe --webview-exe-version=3.0.2.1178 --embedded-browser-webview=1 --embedded-browser-webview-dpi-awareness=2 --gpu-preferences=WAAAAAAAAADgAAAEAAAAAAAAAAAAAGAAQAAAAAAAAAADAAAAAAAAADgAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAAAAAAAAAAAKAAAAAAAAAAoAAAAAAAAAAgAAAAAAAAAEAAAAAIAAAABAAAAAAAAAAgAAAAAAAAACAAAAAAAAAA= --startup-read-main-dll --metrics-shmem-handle=1684,i,13551762917834320410,1782915320442544927,262144 --field-trial-handle=1908,i,12252528891620121895,1569902432656063802,262144 --disable-features=msEnhancedTrackingPreventionEnabled --variations-seed-version --pseudonymization-salt-handle=1912,i,8725345035652514876,14251310747762345321,4 --trace-process-track-uuid=3190708988185955192 --mojo-platform-channel-handle=1904 /prefetch:2",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-24T04:25:36Z",
+      "modules": []
+    },
+    {
+      "pid": 7708,
+      "ppid": 2644,
+      "image_path": "C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\151.0.4129.101\\msedgewebview2.exe",
+      "cmdline": "C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\151.0.4129.101\\msedgewebview2.exe --type=renderer --noerrdialogs --user-data-dir=C:\\Users\\test\\AppData\\Local\\ESTsoft\\ALAd2\\EBWebView --webview-exe-name=AYMain.exe --webview-exe-version=3.0.2.1178 --embedded-browser-webview=1 --embedded-browser-webview-dpi-awareness=2 --video-capture-use-gpu-memory-buffer --lang=ko --device-scale-factor=1 --num-raster-threads=1 --renderer-client-id=5 --js-flags=--expose-gc --ms-user-locale=ko_KR --time-ticks-at-unix-epoch=-1787393823324292 --launch-time-ticks=151713571992 --ssd-no-pressure-read-main-dll --metrics-shmem-handle=3836,i,11992242388763016742,1373512158258408819,2097152 --field-trial-handle=1908,i,12252528891620121895,1569902432656063802,262144 --disable-features=msEnhancedTrackingPreventionEnabled --variations-seed-version --pseudonymization-salt-handle=1912,i,8725345035652514876,14251310747762345321,4 --trace-process-track-uuid=3190708990997080739 --mojo-platform-channel-handle=3848 /prefetch:1",
+      "cmdline_decoded": "C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\151.0.4129.101\\msedgewebview2.exe --type=renderer --noerrdialogs --user-data-dir=C:\\Users\\test\\AppData\\Local\\ESTsoft\\ALAd2\\EBWebView --webview-exe-name=AYMain.exe --webview-exe-version=3.0.2.1178 --embedded-browser-webview=1 --embedded-browser-webview-dpi-awareness=2 --video-capture-use-gpu-memory-buffer --lang=ko --device-scale-factor=1 --num-raster-threads=1 --renderer-client-id=5 --js-flags=--expose-gc --ms-user-locale=ko_KR --time-ticks-at-unix-epoch=-1787393823324292 --launch-time-ticks=151713571992 --ssd-no-pressure-read-main-dll --metrics-shmem-handle=3836,i,11992242388763016742,1373512158258408819,2097152 --field-trial-handle=1908,i,12252528891620121895,1569902432656063802,262144 --disable-features=msEnhancedTrackingPreventionEnabled --variations-seed-version --pseudonymization-salt-handle=1912,i,8725345035652514876,14251310747762345321,4 --trace-process-track-uuid=3190708990997080739 --mojo-platform-channel-handle=3848 /prefetch:1",
+      "args": "--type=renderer --noerrdialogs --user-data-dir=C:\\Users\\test\\AppData\\Local\\ESTsoft\\ALAd2\\EBWebView --webview-exe-name=AYMain.exe --webview-exe-version=3.0.2.1178 --embedded-browser-webview=1 --embedded-browser-webview-dpi-awareness=2 --video-capture-use-gpu-memory-buffer --lang=ko --device-scale-factor=1 --num-raster-threads=1 --renderer-client-id=5 --js-flags=--expose-gc --ms-user-locale=ko_KR --time-ticks-at-unix-epoch=-1787393823324292 --launch-time-ticks=151713571992 --ssd-no-pressure-read-main-dll --metrics-shmem-handle=3836,i,11992242388763016742,1373512158258408819,2097152 --field-trial-handle=1908,i,12252528891620121895,1569902432656063802,262144 --disable-features=msEnhancedTrackingPreventionEnabled --variations-seed-version --pseudonymization-salt-handle=1912,i,8725345035652514876,14251310747762345321,4 --trace-process-track-uuid=3190708990997080739 --mojo-platform-channel-handle=3848 /prefetch:1",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-24T04:25:36Z",
+      "modules": []
+    },
+    {
+      "pid": 7752,
+      "ppid": 824,
+      "image_path": "C:\\Windows\\System32\\RuntimeBroker.exe",
+      "cmdline": "C:\\Windows\\System32\\RuntimeBroker.exe -Embedding",
+      "cmdline_decoded": "C:\\Windows\\System32\\RuntimeBroker.exe -Embedding",
+      "args": "-Embedding",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-09-05T04:48:17Z",
+      "modules": []
+    },
+    {
+      "pid": 7800,
+      "ppid": 824,
+      "image_path": "C:\\Program Files\\WindowsApps\\Microsoft.YourPhone_1.25072.79.0_x64__8wekyb3d8bbwe\\PhoneExperienceHost.exe",
+      "cmdline": "C:\\Program Files\\WindowsApps\\Microsoft.YourPhone_1.25072.79.0_x64__8wekyb3d8bbwe\\PhoneExperienceHost.exe -ComServer:Background -Embedding",
+      "cmdline_decoded": "C:\\Program Files\\WindowsApps\\Microsoft.YourPhone_1.25072.79.0_x64__8wekyb3d8bbwe\\PhoneExperienceHost.exe -ComServer:Background -Embedding",
+      "args": "-ComServer:Background -Embedding",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-24T04:25:15Z",
+      "modules": []
+    },
+    {
+      "pid": 7880,
+      "ppid": 2644,
+      "image_path": "C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\151.0.4129.101\\msedgewebview2.exe",
+      "cmdline": "C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\151.0.4129.101\\msedgewebview2.exe --type=renderer --noerrdialogs --user-data-dir=C:\\Users\\test\\AppData\\Local\\ESTsoft\\ALAd2\\EBWebView --webview-exe-name=AYMain.exe --webview-exe-version=3.0.2.1178 --embedded-browser-webview=1 --embedded-browser-webview-dpi-awareness=2 --disable-gpu-compositing --video-capture-use-gpu-memory-buffer --lang=ko --device-scale-factor=1 --num-raster-threads=1 --renderer-client-id=8 --js-flags=--expose-gc --ms-user-locale=ko_KR --time-ticks-at-unix-epoch=-1787393823324292 --launch-time-ticks=151717818569 --skip-read-main-dll --metrics-shmem-handle=5300,i,14080730404068635493,9468090926121449380,2097152 --field-trial-handle=1908,i,12252528891620121895,1569902432656063802,262144 --disable-features=msEnhancedTrackingPreventionEnabled --variations-seed-version --pseudonymization-salt-handle=1912,i,8725345035652514876,14251310747762345321,4 --trace-process-track-uuid=3190708993808206286 --mojo-platform-channel-handle=5320 /prefetch:1",
+      "cmdline_decoded": "C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\151.0.4129.101\\msedgewebview2.exe --type=renderer --noerrdialogs --user-data-dir=C:\\Users\\test\\AppData\\Local\\ESTsoft\\ALAd2\\EBWebView --webview-exe-name=AYMain.exe --webview-exe-version=3.0.2.1178 --embedded-browser-webview=1 --embedded-browser-webview-dpi-awareness=2 --disable-gpu-compositing --video-capture-use-gpu-memory-buffer --lang=ko --device-scale-factor=1 --num-raster-threads=1 --renderer-client-id=8 --js-flags=--expose-gc --ms-user-locale=ko_KR --time-ticks-at-unix-epoch=-1787393823324292 --launch-time-ticks=151717818569 --skip-read-main-dll --metrics-shmem-handle=5300,i,14080730404068635493,9468090926121449380,2097152 --field-trial-handle=1908,i,12252528891620121895,1569902432656063802,262144 --disable-features=msEnhancedTrackingPreventionEnabled --variations-seed-version --pseudonymization-salt-handle=1912,i,8725345035652514876,14251310747762345321,4 --trace-process-track-uuid=3190708993808206286 --mojo-platform-channel-handle=5320 /prefetch:1",
+      "args": "--type=renderer --noerrdialogs --user-data-dir=C:\\Users\\test\\AppData\\Local\\ESTsoft\\ALAd2\\EBWebView --webview-exe-name=AYMain.exe --webview-exe-version=3.0.2.1178 --embedded-browser-webview=1 --embedded-browser-webview-dpi-awareness=2 --disable-gpu-compositing --video-capture-use-gpu-memory-buffer --lang=ko --device-scale-factor=1 --num-raster-threads=1 --renderer-client-id=8 --js-flags=--expose-gc --ms-user-locale=ko_KR --time-ticks-at-unix-epoch=-1787393823324292 --launch-time-ticks=151717818569 --skip-read-main-dll --metrics-shmem-handle=5300,i,14080730404068635493,9468090926121449380,2097152 --field-trial-handle=1908,i,12252528891620121895,1569902432656063802,262144 --disable-features=msEnhancedTrackingPreventionEnabled --variations-seed-version --pseudonymization-salt-handle=1912,i,8725345035652514876,14251310747762345321,4 --trace-process-track-uuid=3190708993808206286 --mojo-platform-channel-handle=5320 /prefetch:1",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-24T04:25:41Z",
+      "modules": []
+    },
+    {
+      "pid": 7964,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\System32\\svchost.exe -k LocalSystemNetworkRestricted -p -s DsSvc",
+      "cmdline_decoded": "C:\\Windows\\System32\\svchost.exe -k LocalSystemNetworkRestricted -p -s DsSvc",
+      "args": "-k LocalSystemNetworkRestricted -p -s DsSvc",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:49:38Z",
+      "modules": []
+    },
+    {
+      "pid": 7976,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\System32\\svchost.exe -k LocalSystemNetworkRestricted -p -s WdiSystemHost",
+      "cmdline_decoded": "C:\\Windows\\System32\\svchost.exe -k LocalSystemNetworkRestricted -p -s WdiSystemHost",
+      "args": "-k LocalSystemNetworkRestricted -p -s WdiSystemHost",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-24T04:25:43Z",
+      "modules": []
+    },
+    {
+      "pid": 8120,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "",
+      "cmdline_decoded": "",
+      "args": "",
+      "user": "S-1-5-19",
+      "start_time": "2026-08-20T05:39:36Z",
+      "modules": []
+    },
+    {
+      "pid": 8308,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "",
+      "cmdline_decoded": "",
+      "args": "",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-24T04:25:14Z",
+      "modules": []
+    },
+    {
+      "pid": 8832,
+      "ppid": 824,
+      "image_path": "C:\\Windows\\System32\\RuntimeBroker.exe",
+      "cmdline": "C:\\Windows\\System32\\RuntimeBroker.exe -Embedding",
+      "cmdline_decoded": "C:\\Windows\\System32\\RuntimeBroker.exe -Embedding",
+      "args": "-Embedding",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-20T05:37:59Z",
+      "modules": []
+    },
+    {
+      "pid": 8968,
+      "ppid": 824,
+      "image_path": "C:\\Windows\\SystemApps\\Microsoft.Windows.Search_cw5n1h2txyewy\\SearchApp.exe",
+      "cmdline": "C:\\Windows\\SystemApps\\Microsoft.Windows.Search_cw5n1h2txyewy\\SearchApp.exe -ServerName:CortanaUI.AppX8z9r6jm96hw4bsbneegw0kyxx296wr9t.mca",
+      "cmdline_decoded": "C:\\Windows\\SystemApps\\Microsoft.Windows.Search_cw5n1h2txyewy\\SearchApp.exe -ServerName:CortanaUI.AppX8z9r6jm96hw4bsbneegw0kyxx296wr9t.mca",
+      "args": "-ServerName:CortanaUI.AppX8z9r6jm96hw4bsbneegw0kyxx296wr9t.mca",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-20T05:41:27Z",
+      "modules": []
+    },
+    {
+      "pid": 8980,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\system32\\svchost.exe -k WbioSvcGroup -s WbioSrvc",
+      "cmdline_decoded": "C:\\Windows\\system32\\svchost.exe -k WbioSvcGroup -s WbioSrvc",
+      "args": "-k WbioSvcGroup -s WbioSrvc",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-22T02:33:36Z",
+      "modules": []
+    },
+    {
+      "pid": 8996,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\system32\\svchost.exe -k netsvcs -p -s UsoSvc",
+      "cmdline_decoded": "C:\\Windows\\system32\\svchost.exe -k netsvcs -p -s UsoSvc",
+      "args": "-k netsvcs -p -s UsoSvc",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:38:02Z",
+      "modules": []
+    },
+    {
+      "pid": 9108,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\system32\\svchost.exe -k netsvcs -p -s lfsvc",
+      "cmdline_decoded": "C:\\Windows\\system32\\svchost.exe -k netsvcs -p -s lfsvc",
+      "args": "-k netsvcs -p -s lfsvc",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:42:53Z",
+      "modules": []
+    },
+    {
+      "pid": 9112,
+      "ppid": 824,
+      "image_path": "C:\\Windows\\System32\\backgroundTaskHost.exe",
+      "cmdline": "C:\\Windows\\system32\\backgroundTaskHost.exe -ServerName:App.AppXmtcan0h2tfbfy7k9kn8hbxb6dmzz1zh0.mca",
+      "cmdline_decoded": "C:\\Windows\\system32\\backgroundTaskHost.exe -ServerName:App.AppXmtcan0h2tfbfy7k9kn8hbxb6dmzz1zh0.mca",
+      "args": "-ServerName:App.AppXmtcan0h2tfbfy7k9kn8hbxb6dmzz1zh0.mca",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-09-05T04:48:17Z",
+      "modules": []
+    },
+    {
+      "pid": 9176,
+      "ppid": 824,
+      "image_path": "C:\\Windows\\System32\\MoUsoCoreWorker.exe",
+      "cmdline": "C:\\Windows\\System32\\mousocoreworker.exe -Embedding",
+      "cmdline_decoded": "C:\\Windows\\System32\\mousocoreworker.exe -Embedding",
+      "args": "-Embedding",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:38:04Z",
+      "modules": []
+    },
+    {
+      "pid": 9188,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\system32\\svchost.exe -k NetworkServiceNetworkRestricted -p -s PolicyAgent",
+      "cmdline_decoded": "C:\\Windows\\system32\\svchost.exe -k NetworkServiceNetworkRestricted -p -s PolicyAgent",
+      "args": "-k NetworkServiceNetworkRestricted -p -s PolicyAgent",
+      "user": "S-1-5-20",
+      "start_time": "2026-08-20T07:26:37Z",
+      "modules": []
+    },
+    {
+      "pid": 9272,
+      "ppid": 824,
+      "image_path": "C:\\Windows\\System32\\RuntimeBroker.exe",
+      "cmdline": "C:\\Windows\\System32\\RuntimeBroker.exe -Embedding",
+      "cmdline_decoded": "C:\\Windows\\System32\\RuntimeBroker.exe -Embedding",
+      "args": "-Embedding",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-20T05:38:11Z",
+      "modules": []
+    },
+    {
+      "pid": 9304,
+      "ppid": 824,
+      "image_path": "C:\\Windows\\System32\\dllhost.exe",
+      "cmdline": "C:\\Windows\\system32\\DllHost.exe /Processid:{973D20D7-562D-44B9-B70B-5A0F49CCDF3F}",
+      "cmdline_decoded": "C:\\Windows\\system32\\DllHost.exe /Processid:{973D20D7-562D-44B9-B70B-5A0F49CCDF3F}",
+      "args": "/Processid:{973D20D7-562D-44B9-B70B-5A0F49CCDF3F}",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-20T06:15:32Z",
+      "modules": []
+    },
+    {
+      "pid": 9500,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\System32\\svchost.exe -k LocalServiceNetworkRestricted -p -s lmhosts",
+      "cmdline_decoded": "C:\\Windows\\System32\\svchost.exe -k LocalServiceNetworkRestricted -p -s lmhosts",
+      "args": "-k LocalServiceNetworkRestricted -p -s lmhosts",
+      "user": "S-1-5-19",
+      "start_time": "2026-08-22T02:29:39Z",
+      "modules": []
+    },
+    {
+      "pid": 9544,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "",
+      "cmdline_decoded": "",
+      "args": "",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-24T02:30:00Z",
+      "modules": []
+    },
+    {
+      "pid": 9604,
+      "ppid": 824,
+      "image_path": "C:\\Program Files\\WindowsApps\\microsoft.windowscommunicationsapps_16005.14326.22342.0_x64__8wekyb3d8bbwe\\HxTsr.exe",
+      "cmdline": "C:\\Program Files\\WindowsApps\\microsoft.windowscommunicationsapps_16005.14326.22342.0_x64__8wekyb3d8bbwe\\HxTsr.exe -ServerName:Hx.IPC.Server",
+      "cmdline_decoded": "C:\\Program Files\\WindowsApps\\microsoft.windowscommunicationsapps_16005.14326.22342.0_x64__8wekyb3d8bbwe\\HxTsr.exe -ServerName:Hx.IPC.Server",
+      "args": "-ServerName:Hx.IPC.Server",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-09-05T04:48:05Z",
+      "modules": []
+    },
+    {
+      "pid": 9648,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\system32\\svchost.exe -k netsvcs -p -s gpsvc",
+      "cmdline_decoded": "C:\\Windows\\system32\\svchost.exe -k netsvcs -p -s gpsvc",
+      "args": "-k netsvcs -p -s gpsvc",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-24T04:26:11Z",
+      "modules": []
+    },
+    {
+      "pid": 9760,
+      "ppid": 688,
+      "image_path": "C:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\4.18.26070.9-0\\NisSrv.exe",
+      "cmdline": "",
+      "cmdline_decoded": "",
+      "args": "",
+      "user": "S-1-5-19",
+      "start_time": "2026-08-20T05:56:35Z",
+      "modules": []
+    },
+    {
+      "pid": 9920,
+      "ppid": 688,
+      "image_path": "C:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\4.18.26070.9-0\\MsMpEng.exe",
+      "cmdline": "",
+      "cmdline_decoded": "",
+      "args": "",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:56:10Z",
+      "modules": []
+    },
+    {
+      "pid": 10008,
+      "ppid": 10976,
+      "image_path": "C:\\Program Files (x86)\\Microsoft\\EdgeUpdate\\MicrosoftEdgeUpdate.exe",
+      "cmdline": "C:\\Program Files (x86)\\Microsoft\\EdgeUpdate\\MicrosoftEdgeUpdate.exe /ua /installsource core",
+      "cmdline_decoded": "C:\\Program Files (x86)\\Microsoft\\EdgeUpdate\\MicrosoftEdgeUpdate.exe /ua /installsource core",
+      "args": "/ua /installsource core",
+      "user": "S-1-5-18",
+      "start_time": "2026-09-05T04:48:00Z",
+      "modules": []
+    },
+    {
+      "pid": 10076,
+      "ppid": 460,
+      "image_path": "C:\\Program Files\\RUXIM\\RUXIMICS.exe",
+      "cmdline": "%ProgramFiles%\\RUXIM\\RUXIMICS.EXE /onlyloadcampaigns",
+      "cmdline_decoded": "%ProgramFiles%\\RUXIM\\RUXIMICS.EXE /onlyloadcampaigns",
+      "args": "/onlyloadcampaigns",
+      "user": "S-1-5-18",
+      "start_time": "2026-09-05T04:48:08Z",
+      "modules": []
+    },
+    {
+      "pid": 10140,
+      "ppid": 1084,
+      "image_path": "C:\\Program Files (x86)\\Microsoft\\EdgeUpdate\\MicrosoftEdgeUpdate.exe",
+      "cmdline": "C:\\Program Files (x86)\\Microsoft\\EdgeUpdate\\MicrosoftEdgeUpdate.exe /ua /installsource scheduler",
+      "cmdline_decoded": "C:\\Program Files (x86)\\Microsoft\\EdgeUpdate\\MicrosoftEdgeUpdate.exe /ua /installsource scheduler",
+      "args": "/ua /installsource scheduler",
+      "user": "S-1-5-18",
+      "start_time": "2026-09-05T04:47:58Z",
+      "modules": []
+    },
+    {
+      "pid": 10248,
+      "ppid": 6316,
+      "image_path": "C:\\Windows\\System32\\SecurityHealthSystray.exe",
+      "cmdline": "C:\\Windows\\System32\\SecurityHealthSystray.exe",
+      "cmdline_decoded": "C:\\Windows\\System32\\SecurityHealthSystray.exe",
+      "args": "",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-20T05:38:44Z",
+      "modules": []
+    },
+    {
+      "pid": 10268,
+      "ppid": 824,
+      "image_path": "C:\\Windows\\System32\\backgroundTaskHost.exe",
+      "cmdline": "C:\\Windows\\system32\\backgroundTaskHost.exe -ServerName:Global.Accounts.AppXqe94epy97qwa6w3j6w132e8zvcs117nd.mca",
+      "cmdline_decoded": "C:\\Windows\\system32\\backgroundTaskHost.exe -ServerName:Global.Accounts.AppXqe94epy97qwa6w3j6w132e8zvcs117nd.mca",
+      "args": "-ServerName:Global.Accounts.AppXqe94epy97qwa6w3j6w132e8zvcs117nd.mca",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-09-05T04:48:15Z",
+      "modules": []
+    },
+    {
+      "pid": 10448,
+      "ppid": 10440,
+      "image_path": "C:\\Windows\\System32\\conhost.exe",
+      "cmdline": "\\??\\C:\\Windows\\system32\\conhost.exe 0x4",
+      "cmdline_decoded": "\\??\\C:\\Windows\\system32\\conhost.exe 0x4",
+      "args": "0x4",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-20T05:38:45Z",
+      "modules": []
+    },
+    {
+      "pid": 10524,
+      "ppid": 6316,
+      "image_path": "C:\\Program Files\\Everything\\Everything.exe",
+      "cmdline": "C:\\Program Files\\Everything\\Everything.exe -startup",
+      "cmdline_decoded": "C:\\Program Files\\Everything\\Everything.exe -startup",
+      "args": "-startup",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-20T05:38:46Z",
+      "modules": []
+    },
+    {
+      "pid": 10580,
+      "ppid": 824,
+      "image_path": "C:\\Windows\\System32\\backgroundTaskHost.exe",
+      "cmdline": "C:\\Windows\\system32\\backgroundTaskHost.exe -ServerName:Global.RulesEngine.AppXgphnekvm0vv49drvfehh4b6kyf6ckafp.mca",
+      "cmdline_decoded": "C:\\Windows\\system32\\backgroundTaskHost.exe -ServerName:Global.RulesEngine.AppXgphnekvm0vv49drvfehh4b6kyf6ckafp.mca",
+      "args": "-ServerName:Global.RulesEngine.AppXgphnekvm0vv49drvfehh4b6kyf6ckafp.mca",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-09-05T04:48:16Z",
+      "modules": []
+    },
+    {
+      "pid": 10596,
+      "ppid": 824,
+      "image_path": "C:\\Windows\\WinSxS\\amd64_microsoft-windows-servicingstack_31bf3856ad364e35_10.0.19041.6449_none_7e0d59887c8e1467\\TiWorker.exe",
+      "cmdline": "C:\\Windows\\winsxs\\amd64_microsoft-windows-servicingstack_31bf3856ad364e35_10.0.19041.6449_none_7e0d59887c8e1467\\TiWorker.exe -Embedding",
+      "cmdline_decoded": "C:\\Windows\\winsxs\\amd64_microsoft-windows-servicingstack_31bf3856ad364e35_10.0.19041.6449_none_7e0d59887c8e1467\\TiWorker.exe -Embedding",
+      "args": "-Embedding",
+      "user": "S-1-5-18",
+      "start_time": "2026-09-05T04:48:01Z",
+      "modules": []
+    },
+    {
+      "pid": 10600,
+      "ppid": 6316,
+      "image_path": "C:\\Program Files\\VMware\\VMware Tools\\vmtoolsd.exe",
+      "cmdline": "C:\\Program Files\\VMware\\VMware Tools\\vmtoolsd.exe -n vmusr",
+      "cmdline_decoded": "C:\\Program Files\\VMware\\VMware Tools\\vmtoolsd.exe -n vmusr",
+      "args": "-n vmusr",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-20T05:38:48Z",
+      "modules": []
+    },
+    {
+      "pid": 10608,
+      "ppid": 824,
+      "image_path": "C:\\Windows\\System32\\backgroundTaskHost.exe",
+      "cmdline": "C:\\Windows\\system32\\backgroundTaskHost.exe -ServerName:App.AppXe9cvj1thv1hmcw0cs98xm3r97tyzy2xs.mca",
+      "cmdline_decoded": "C:\\Windows\\system32\\backgroundTaskHost.exe -ServerName:App.AppXe9cvj1thv1hmcw0cs98xm3r97tyzy2xs.mca",
+      "args": "-ServerName:App.AppXe9cvj1thv1hmcw0cs98xm3r97tyzy2xs.mca",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-09-05T04:48:05Z",
+      "modules": []
+    },
+    {
+      "pid": 10632,
+      "ppid": 824,
+      "image_path": "C:\\Windows\\ImmersiveControlPanel\\SystemSettings.exe",
+      "cmdline": "C:\\Windows\\ImmersiveControlPanel\\SystemSettings.exe -ServerName:microsoft.windows.immersivecontrolpanel",
+      "cmdline_decoded": "C:\\Windows\\ImmersiveControlPanel\\SystemSettings.exe -ServerName:microsoft.windows.immersivecontrolpanel",
+      "args": "-ServerName:microsoft.windows.immersivecontrolpanel",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-20T05:42:08Z",
+      "modules": []
+    },
+    {
+      "pid": 10660,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\sppsvc.exe",
+      "cmdline": "",
+      "cmdline_decoded": "",
+      "args": "",
+      "user": "S-1-5-20",
+      "start_time": "2026-09-05T04:48:09Z",
+      "modules": []
+    },
+    {
+      "pid": 10700,
+      "ppid": 688,
+      "image_path": "C:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\4.18.26070.9-0\\MpDefenderCoreService.exe",
+      "cmdline": "",
+      "cmdline_decoded": "",
+      "args": "",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-20T05:56:10Z",
+      "modules": []
+    },
+    {
+      "pid": 10712,
+      "ppid": 6316,
+      "image_path": "C:\\Program Files (x86)\\ESTsoft\\ALToolsManager\\alnotify.exe",
+      "cmdline": "C:\\Program Files (x86)\\ESTsoft\\ALToolsManager\\alnotify.exe",
+      "cmdline_decoded": "C:\\Program Files (x86)\\ESTsoft\\ALToolsManager\\alnotify.exe",
+      "args": "",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-20T05:38:52Z",
+      "modules": []
+    },
+    {
+      "pid": 10848,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\system32\\svchost.exe -k LocalServiceNetworkRestricted -p -s NgcCtnrSvc",
+      "cmdline_decoded": "C:\\Windows\\system32\\svchost.exe -k LocalServiceNetworkRestricted -p -s NgcCtnrSvc",
+      "args": "-k LocalServiceNetworkRestricted -p -s NgcCtnrSvc",
+      "user": "S-1-5-19",
+      "start_time": "2026-08-24T04:26:11Z",
+      "modules": []
+    },
+    {
+      "pid": 10884,
+      "ppid": 10796,
+      "image_path": "C:\\Program Files\\ESTsoft\\ALYac\\AYAgent.exe",
+      "cmdline": "C:\\Program Files\\ESTsoft\\ALYac\\AYAgent.exe /run",
+      "cmdline_decoded": "C:\\Program Files\\ESTsoft\\ALYac\\AYAgent.exe /run",
+      "args": "/run",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-20T05:38:54Z",
+      "modules": []
+    },
+    {
+      "pid": 10976,
+      "ppid": 1084,
+      "image_path": "C:\\Program Files (x86)\\Microsoft\\EdgeUpdate\\MicrosoftEdgeUpdate.exe",
+      "cmdline": "C:\\Program Files (x86)\\Microsoft\\EdgeUpdate\\MicrosoftEdgeUpdate.exe /c",
+      "cmdline_decoded": "C:\\Program Files (x86)\\Microsoft\\EdgeUpdate\\MicrosoftEdgeUpdate.exe /c",
+      "args": "/c",
+      "user": "S-1-5-18",
+      "start_time": "2026-09-05T04:47:59Z",
+      "modules": []
+    },
+    {
+      "pid": 11096,
+      "ppid": 10996,
+      "image_path": "C:\\Program Files (x86)\\SoftForum\\XecureWeb\\AnySign\\dll\\AnySign4PC.exe",
+      "cmdline": "C:\\Program Files (x86)\\SoftForum\\XecureWeb\\AnySign\\dll\\AnySign4PC.exe port=10530;port_s=10531;no_shut=1",
+      "cmdline_decoded": "C:\\Program Files (x86)\\SoftForum\\XecureWeb\\AnySign\\dll\\AnySign4PC.exe port=10530;port_s=10531;no_shut=1",
+      "args": "port=10530;port_s=10531;no_shut=1",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-20T05:38:57Z",
+      "modules": []
+    },
+    {
+      "pid": 11112,
+      "ppid": 1480,
+      "image_path": "C:\\Windows\\System32\\audiodg.exe",
+      "cmdline": "C:\\Windows\\system32\\AUDIODG.EXE 0x4f8",
+      "cmdline_decoded": "C:\\Windows\\system32\\AUDIODG.EXE 0x4f8",
+      "args": "0x4f8",
+      "user": "S-1-5-19",
+      "start_time": "2026-08-24T04:26:23Z",
+      "modules": []
+    },
+    {
+      "pid": 11248,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\system32\\svchost.exe -k LocalSystemNetworkRestricted -p -s NgcSvc",
+      "cmdline_decoded": "C:\\Windows\\system32\\svchost.exe -k LocalSystemNetworkRestricted -p -s NgcSvc",
+      "args": "-k LocalSystemNetworkRestricted -p -s NgcSvc",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-24T04:26:11Z",
+      "modules": []
+    },
+    {
+      "pid": 11316,
+      "ppid": 824,
+      "image_path": "C:\\Windows\\System32\\backgroundTaskHost.exe",
+      "cmdline": "C:\\Windows\\system32\\backgroundTaskHost.exe -ServerName:App.AppXxw3e32mpkfkfbh0tznpwwqfw96t0tfx6.mca",
+      "cmdline_decoded": "C:\\Windows\\system32\\backgroundTaskHost.exe -ServerName:App.AppXxw3e32mpkfkfbh0tznpwwqfw96t0tfx6.mca",
+      "args": "-ServerName:App.AppXxw3e32mpkfkfbh0tznpwwqfw96t0tfx6.mca",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-09-05T04:48:16Z",
+      "modules": []
+    },
+    {
+      "pid": 11380,
+      "ppid": 824,
+      "image_path": "C:\\Windows\\System32\\wbem\\WmiPrvSE.exe",
+      "cmdline": "C:\\Windows\\system32\\wbem\\wmiprvse.exe",
+      "cmdline_decoded": "C:\\Windows\\system32\\wbem\\wmiprvse.exe",
+      "args": "",
+      "user": "S-1-5-18",
+      "start_time": "2026-09-05T04:48:13Z",
+      "modules": []
+    },
+    {
+      "pid": 11444,
+      "ppid": 1084,
+      "image_path": "C:\\Windows\\System32\\taskhostw.exe",
+      "cmdline": "taskhostw.exe Install $(Arg0)",
+      "cmdline_decoded": "taskhostw.exe Install $(Arg0)",
+      "args": "Install $(Arg0)",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-24T01:52:34Z",
+      "modules": []
+    },
+    {
+      "pid": 11512,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\system32\\svchost.exe -k LocalServiceNetworkRestricted -p -s WinHttpAutoProxySvc",
+      "cmdline_decoded": "C:\\Windows\\system32\\svchost.exe -k LocalServiceNetworkRestricted -p -s WinHttpAutoProxySvc",
+      "args": "-k LocalServiceNetworkRestricted -p -s WinHttpAutoProxySvc",
+      "user": "S-1-5-19",
+      "start_time": "2026-08-23T12:15:32Z",
+      "modules": []
+    },
+    {
+      "pid": 11592,
+      "ppid": 688,
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "cmdline": "C:\\Windows\\system32\\svchost.exe -k netsvcs -p -s wlidsvc",
+      "cmdline_decoded": "C:\\Windows\\system32\\svchost.exe -k netsvcs -p -s wlidsvc",
+      "args": "-k netsvcs -p -s wlidsvc",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-24T04:25:18Z",
+      "modules": []
+    },
+    {
+      "pid": 11652,
+      "ppid": 824,
+      "image_path": "C:\\Program Files\\WindowsApps\\Microsoft.WindowsStore_22607.1401.5.0_x64__8wekyb3d8bbwe\\StoreDesktopExtension.exe",
+      "cmdline": "C:\\Program Files\\WindowsApps\\Microsoft.WindowsStore_22607.1401.5.0_x64__8wekyb3d8bbwe\\StoreDesktopExtension.exe -Embedding",
+      "cmdline_decoded": "C:\\Program Files\\WindowsApps\\Microsoft.WindowsStore_22607.1401.5.0_x64__8wekyb3d8bbwe\\StoreDesktopExtension.exe -Embedding",
+      "args": "-Embedding",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-24T03:43:56Z",
+      "modules": []
+    },
+    {
+      "pid": 11708,
+      "ppid": 2644,
+      "image_path": "C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\151.0.4129.101\\msedgewebview2.exe",
+      "cmdline": "C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\151.0.4129.101\\msedgewebview2.exe --type=utility --utility-sub-type=network.mojom.NetworkService --lang=ko --service-sandbox-type=none --noerrdialogs --user-data-dir=C:\\Users\\test\\AppData\\Local\\ESTsoft\\ALAd2\\EBWebView --webview-exe-name=AYMain.exe --webview-exe-version=3.0.2.1178 --embedded-browser-webview=1 --embedded-browser-webview-dpi-awareness=2 --startup-read-main-dll --metrics-shmem-handle=2000,i,8959485352691749451,6334300793580718372,524288 --field-trial-handle=1908,i,12252528891620121895,1569902432656063802,262144 --disable-features=msEnhancedTrackingPreventionEnabled --variations-seed-version --pseudonymization-salt-handle=1912,i,8725345035652514876,14251310747762345321,4 --trace-process-track-uuid=3190708989122997041 --mojo-platform-channel-handle=2208 /prefetch:3",
+      "cmdline_decoded": "C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\151.0.4129.101\\msedgewebview2.exe --type=utility --utility-sub-type=network.mojom.NetworkService --lang=ko --service-sandbox-type=none --noerrdialogs --user-data-dir=C:\\Users\\test\\AppData\\Local\\ESTsoft\\ALAd2\\EBWebView --webview-exe-name=AYMain.exe --webview-exe-version=3.0.2.1178 --embedded-browser-webview=1 --embedded-browser-webview-dpi-awareness=2 --startup-read-main-dll --metrics-shmem-handle=2000,i,8959485352691749451,6334300793580718372,524288 --field-trial-handle=1908,i,12252528891620121895,1569902432656063802,262144 --disable-features=msEnhancedTrackingPreventionEnabled --variations-seed-version --pseudonymization-salt-handle=1912,i,8725345035652514876,14251310747762345321,4 --trace-process-track-uuid=3190708989122997041 --mojo-platform-channel-handle=2208 /prefetch:3",
+      "args": "--type=utility --utility-sub-type=network.mojom.NetworkService --lang=ko --service-sandbox-type=none --noerrdialogs --user-data-dir=C:\\Users\\test\\AppData\\Local\\ESTsoft\\ALAd2\\EBWebView --webview-exe-name=AYMain.exe --webview-exe-version=3.0.2.1178 --embedded-browser-webview=1 --embedded-browser-webview-dpi-awareness=2 --startup-read-main-dll --metrics-shmem-handle=2000,i,8959485352691749451,6334300793580718372,524288 --field-trial-handle=1908,i,12252528891620121895,1569902432656063802,262144 --disable-features=msEnhancedTrackingPreventionEnabled --variations-seed-version --pseudonymization-salt-handle=1912,i,8725345035652514876,14251310747762345321,4 --trace-process-track-uuid=3190708989122997041 --mojo-platform-channel-handle=2208 /prefetch:3",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-24T04:25:36Z",
+      "modules": []
+    },
+    {
+      "pid": 11736,
+      "ppid": 824,
+      "image_path": "C:\\Windows\\System32\\backgroundTaskHost.exe",
+      "cmdline": "C:\\Windows\\system32\\backgroundTaskHost.exe -ServerName:App.AppXapskvk16gk8da8kch5g4qxh42vxccved.mca",
+      "cmdline_decoded": "C:\\Windows\\system32\\backgroundTaskHost.exe -ServerName:App.AppXapskvk16gk8da8kch5g4qxh42vxccved.mca",
+      "args": "-ServerName:App.AppXapskvk16gk8da8kch5g4qxh42vxccved.mca",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-09-05T04:48:19Z",
+      "modules": []
+    },
+    {
+      "pid": 11756,
+      "ppid": 9472,
+      "image_path": "C:\\Program Files\\ESTsoft\\ALYac\\AYMain.exe",
+      "cmdline": "C:\\Program Files\\ESTsoft\\ALYac\\AYMain.exe",
+      "cmdline_decoded": "C:\\Program Files\\ESTsoft\\ALYac\\AYMain.exe",
+      "args": "",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-24T04:25:33Z",
+      "modules": []
+    },
+    {
+      "pid": 11776,
+      "ppid": 1084,
+      "image_path": "C:\\Windows\\System32\\MusNotification.exe",
+      "cmdline": "C:\\Windows\\system32\\MusNotification.exe",
+      "cmdline_decoded": "C:\\Windows\\system32\\MusNotification.exe",
+      "args": "",
+      "user": "S-1-5-18",
+      "start_time": "2026-09-05T04:47:59Z",
+      "modules": []
+    },
+    {
+      "pid": 11832,
+      "ppid": 1084,
+      "image_path": "C:\\Windows\\System32\\CompatTelRunner.exe",
+      "cmdline": "C:\\Windows\\system32\\compattelrunner.exe",
+      "cmdline_decoded": "C:\\Windows\\system32\\compattelrunner.exe",
+      "args": "",
+      "user": "S-1-5-18",
+      "start_time": "2026-09-05T04:47:59Z",
+      "modules": []
+    },
+    {
+      "pid": 11916,
+      "ppid": 824,
+      "image_path": "C:\\Windows\\System32\\backgroundTaskHost.exe",
+      "cmdline": "C:\\Windows\\system32\\backgroundTaskHost.exe -ServerName:Global.IrisService.AppXwt29n3t7x7q6fgyrrbbqxwzkqjfjaw4y.mca",
+      "cmdline_decoded": "C:\\Windows\\system32\\backgroundTaskHost.exe -ServerName:Global.IrisService.AppXwt29n3t7x7q6fgyrrbbqxwzkqjfjaw4y.mca",
+      "args": "-ServerName:Global.IrisService.AppXwt29n3t7x7q6fgyrrbbqxwzkqjfjaw4y.mca",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-09-05T04:48:18Z",
+      "modules": []
+    },
+    {
+      "pid": 12044,
+      "ppid": 6136,
+      "image_path": "C:\\Program Files (x86)\\Google\\GoogleUpdater\\152.0.7933.0\\updater.exe",
+      "cmdline": "C:\\Program Files (x86)\\Google\\GoogleUpdater\\152.0.7933.0\\updater.exe --crash-handler --system --database=C:\\Program Files (x86)\\Google\\GoogleUpdater\\152.0.7933.0\\Crashpad --url=https://clients2.google.com/cr/report --annotation=prod=Update4 --annotation=ver=152.0.7933.0 --attachment=C:\\Program Files (x86)\\Google\\GoogleUpdater\\updater.log --attachment=C:\\Program Files (x86)\\Google\\GoogleUpdater\\updater_history.jsonl --initial-client-data=0x26c,0x270,0x274,0x268,0x278,0x7ff627ffcd68,0x7ff627ffcd78,0x7ff627ffcd88",
+      "cmdline_decoded": "C:\\Program Files (x86)\\Google\\GoogleUpdater\\152.0.7933.0\\updater.exe --crash-handler --system --database=C:\\Program Files (x86)\\Google\\GoogleUpdater\\152.0.7933.0\\Crashpad --url=https://clients2.google.com/cr/report --annotation=prod=Update4 --annotation=ver=152.0.7933.0 --attachment=C:\\Program Files (x86)\\Google\\GoogleUpdater\\updater.log --attachment=C:\\Program Files (x86)\\Google\\GoogleUpdater\\updater_history.jsonl --initial-client-data=0x26c,0x270,0x274,0x268,0x278,0x7ff627ffcd68,0x7ff627ffcd78,0x7ff627ffcd88",
+      "args": "--crash-handler --system --database=C:\\Program Files (x86)\\Google\\GoogleUpdater\\152.0.7933.0\\Crashpad --url=https://clients2.google.com/cr/report --annotation=prod=Update4 --annotation=ver=152.0.7933.0 --attachment=C:\\Program Files (x86)\\Google\\GoogleUpdater\\updater.log --attachment=C:\\Program Files (x86)\\Google\\GoogleUpdater\\updater_history.jsonl --initial-client-data=0x26c,0x270,0x274,0x268,0x278,0x7ff627ffcd68,0x7ff627ffcd78,0x7ff627ffcd88",
+      "user": "S-1-5-18",
+      "start_time": "2026-09-05T04:48:12Z",
+      "modules": []
+    },
+    {
+      "pid": 12212,
+      "ppid": 2644,
+      "image_path": "C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\151.0.4129.101\\msedgewebview2.exe",
+      "cmdline": "C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\151.0.4129.101\\msedgewebview2.exe --type=renderer --noerrdialogs --user-data-dir=C:\\Users\\test\\AppData\\Local\\ESTsoft\\ALAd2\\EBWebView --webview-exe-name=AYMain.exe --webview-exe-version=3.0.2.1178 --embedded-browser-webview=1 --embedded-browser-webview-dpi-awareness=2 --disable-gpu-compositing --video-capture-use-gpu-memory-buffer --lang=ko --device-scale-factor=1 --num-raster-threads=1 --renderer-client-id=11 --js-flags=--expose-gc --ms-user-locale=ko_KR --time-ticks-at-unix-epoch=-1787393823324292 --launch-time-ticks=151718966225 --skip-read-main-dll --metrics-shmem-handle=5528,i,295636318590287598,14703214244912652253,2097152 --field-trial-handle=1908,i,12252528891620121895,1569902432656063802,262144 --disable-features=msEnhancedTrackingPreventionEnabled --variations-seed-version --pseudonymization-salt-handle=1912,i,8725345035652514876,14251310747762345321,4 --trace-process-track-uuid=3190708996619331833 --mojo-platform-channel-handle=5492 /prefetch:1",
+      "cmdline_decoded": "C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\151.0.4129.101\\msedgewebview2.exe --type=renderer --noerrdialogs --user-data-dir=C:\\Users\\test\\AppData\\Local\\ESTsoft\\ALAd2\\EBWebView --webview-exe-name=AYMain.exe --webview-exe-version=3.0.2.1178 --embedded-browser-webview=1 --embedded-browser-webview-dpi-awareness=2 --disable-gpu-compositing --video-capture-use-gpu-memory-buffer --lang=ko --device-scale-factor=1 --num-raster-threads=1 --renderer-client-id=11 --js-flags=--expose-gc --ms-user-locale=ko_KR --time-ticks-at-unix-epoch=-1787393823324292 --launch-time-ticks=151718966225 --skip-read-main-dll --metrics-shmem-handle=5528,i,295636318590287598,14703214244912652253,2097152 --field-trial-handle=1908,i,12252528891620121895,1569902432656063802,262144 --disable-features=msEnhancedTrackingPreventionEnabled --variations-seed-version --pseudonymization-salt-handle=1912,i,8725345035652514876,14251310747762345321,4 --trace-process-track-uuid=3190708996619331833 --mojo-platform-channel-handle=5492 /prefetch:1",
+      "args": "--type=renderer --noerrdialogs --user-data-dir=C:\\Users\\test\\AppData\\Local\\ESTsoft\\ALAd2\\EBWebView --webview-exe-name=AYMain.exe --webview-exe-version=3.0.2.1178 --embedded-browser-webview=1 --embedded-browser-webview-dpi-awareness=2 --disable-gpu-compositing --video-capture-use-gpu-memory-buffer --lang=ko --device-scale-factor=1 --num-raster-threads=1 --renderer-client-id=11 --js-flags=--expose-gc --ms-user-locale=ko_KR --time-ticks-at-unix-epoch=-1787393823324292 --launch-time-ticks=151718966225 --skip-read-main-dll --metrics-shmem-handle=5528,i,295636318590287598,14703214244912652253,2097152 --field-trial-handle=1908,i,12252528891620121895,1569902432656063802,262144 --disable-features=msEnhancedTrackingPreventionEnabled --variations-seed-version --pseudonymization-salt-handle=1912,i,8725345035652514876,14251310747762345321,4 --trace-process-track-uuid=3190708996619331833 --mojo-platform-channel-handle=5492 /prefetch:1",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-24T04:25:42Z",
+      "modules": []
+    },
+    {
+      "pid": 12248,
+      "ppid": 1084,
+      "image_path": "C:\\Windows\\System32\\taskhostw.exe",
+      "cmdline": "taskhostw.exe SYSTEM",
+      "cmdline_decoded": "taskhostw.exe SYSTEM",
+      "args": "SYSTEM",
+      "user": "S-1-5-18",
+      "start_time": "2026-09-05T04:47:58Z",
+      "modules": []
+    },
+    {
+      "pid": 12292,
+      "ppid": 9544,
+      "image_path": "C:\\Windows\\System32\\WaaSMedicAgent.exe",
+      "cmdline": "C:\\Windows\\System32\\WaaSMedicAgent.exe a3b1cb211e16ad813fd9caf6c62d3fa9 T+3mDgXFk06KmlvjSVlypQ.0.1.0.0.0",
+      "cmdline_decoded": "C:\\Windows\\System32\\WaaSMedicAgent.exe a3b1cb211e16ad813fd9caf6c62d3fa9 T+3mDgXFk06KmlvjSVlypQ.0.1.0.0.0",
+      "args": "a3b1cb211e16ad813fd9caf6c62d3fa9 T+3mDgXFk06KmlvjSVlypQ.0.1.0.0.0",
+      "user": "S-1-5-18",
+      "start_time": "2026-09-05T04:48:21Z",
+      "modules": []
+    },
+    {
+      "pid": 12300,
+      "ppid": 12292,
+      "image_path": "C:\\Windows\\System32\\conhost.exe",
+      "cmdline": "\\??\\C:\\Windows\\system32\\conhost.exe 0x4",
+      "cmdline_decoded": "\\??\\C:\\Windows\\system32\\conhost.exe 0x4",
+      "args": "0x4",
+      "user": "S-1-5-18",
+      "start_time": "2026-09-05T04:48:21Z",
+      "modules": []
+    },
+    {
+      "pid": 12452,
+      "ppid": 5456,
+      "image_path": "C:\\ProgramData\\WebBoost\\wbsvc.exe",
+      "cmdline": "C:\\ProgramData\\WebBoost\\wbsvc.exe -t 127.0.0.1",
+      "cmdline_decoded": "C:\\ProgramData\\WebBoost\\wbsvc.exe -t 127.0.0.1",
+      "args": "-t 127.0.0.1",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-09-05T04:48:22Z",
+      "modules": []
+    },
+    {
+      "pid": 12460,
+      "ppid": 12452,
+      "image_path": "C:\\Windows\\System32\\conhost.exe",
+      "cmdline": "\\??\\C:\\Windows\\system32\\conhost.exe 0x4",
+      "cmdline_decoded": "\\??\\C:\\Windows\\system32\\conhost.exe 0x4",
+      "args": "0x4",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-09-05T04:48:22Z",
+      "modules": []
+    },
+    {
+      "pid": 12892,
+      "ppid": 3612,
+      "image_path": "C:\\Windows\\System32\\SIHClient.exe",
+      "cmdline": "",
+      "cmdline_decoded": "",
+      "args": "",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-24T04:27:28Z",
+      "modules": []
+    },
+    {
+      "pid": 12916,
+      "ppid": 6136,
+      "image_path": "C:\\Program Files (x86)\\Google\\GoogleUpdater\\152.0.7933.0\\updater.exe",
+      "cmdline": "C:\\Program Files (x86)\\Google\\GoogleUpdater\\152.0.7933.0\\updater.exe --patch-worker --system --mojo-platform-channel-handle=1652",
+      "cmdline_decoded": "C:\\Program Files (x86)\\Google\\GoogleUpdater\\152.0.7933.0\\updater.exe --patch-worker --system --mojo-platform-channel-handle=1652",
+      "args": "--patch-worker --system --mojo-platform-channel-handle=1652",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-24T04:27:28Z",
+      "modules": []
+    },
+    {
+      "pid": 12932,
+      "ppid": 12916,
+      "image_path": "C:\\Program Files (x86)\\Google\\GoogleUpdater\\152.0.7933.0\\updater.exe",
+      "cmdline": "C:\\Program Files (x86)\\Google\\GoogleUpdater\\152.0.7933.0\\updater.exe --crash-handler --system --database=C:\\Program Files (x86)\\Google\\GoogleUpdater\\152.0.7933.0\\Crashpad --url=https://clients2.google.com/cr/report --annotation=prod=Update4 --annotation=ver=152.0.7933.0 --attachment=C:\\Program Files (x86)\\Google\\GoogleUpdater\\updater.log --attachment=C:\\Program Files (x86)\\Google\\GoogleUpdater\\updater_history.jsonl --initial-client-data=0x26c,0x270,0x274,0x268,0x278,0x7ff627ffcd68,0x7ff627ffcd78,0x7ff627ffcd88",
+      "cmdline_decoded": "C:\\Program Files (x86)\\Google\\GoogleUpdater\\152.0.7933.0\\updater.exe --crash-handler --system --database=C:\\Program Files (x86)\\Google\\GoogleUpdater\\152.0.7933.0\\Crashpad --url=https://clients2.google.com/cr/report --annotation=prod=Update4 --annotation=ver=152.0.7933.0 --attachment=C:\\Program Files (x86)\\Google\\GoogleUpdater\\updater.log --attachment=C:\\Program Files (x86)\\Google\\GoogleUpdater\\updater_history.jsonl --initial-client-data=0x26c,0x270,0x274,0x268,0x278,0x7ff627ffcd68,0x7ff627ffcd78,0x7ff627ffcd88",
+      "args": "--crash-handler --system --database=C:\\Program Files (x86)\\Google\\GoogleUpdater\\152.0.7933.0\\Crashpad --url=https://clients2.google.com/cr/report --annotation=prod=Update4 --annotation=ver=152.0.7933.0 --attachment=C:\\Program Files (x86)\\Google\\GoogleUpdater\\updater.log --attachment=C:\\Program Files (x86)\\Google\\GoogleUpdater\\updater_history.jsonl --initial-client-data=0x26c,0x270,0x274,0x268,0x278,0x7ff627ffcd68,0x7ff627ffcd78,0x7ff627ffcd88",
+      "user": "S-1-5-18",
+      "start_time": "2026-08-24T04:27:28Z",
+      "modules": []
+    },
+    {
+      "pid": 12996,
+      "ppid": 4892,
+      "image_path": "C:\\remedy-lab\\bin\\remedy.exe",
+      "cmdline": "C:\\remedy-lab\\bin\\remedy.exe collect --plugin C:\\remedy-lab\\scripts\\search-hijack-collect.yaml --out C:\\remedy-lab\\threat-search-hijack.json",
+      "cmdline_decoded": "C:\\remedy-lab\\bin\\remedy.exe collect --plugin C:\\remedy-lab\\scripts\\search-hijack-collect.yaml --out C:\\remedy-lab\\threat-search-hijack.json",
+      "args": "collect --plugin C:\\remedy-lab\\scripts\\search-hijack-collect.yaml --out C:\\remedy-lab\\threat-search-hijack.json",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-24T04:27:28Z",
+      "modules": []
+    },
+    {
+      "pid": 13024,
+      "ppid": 12996,
+      "image_path": "C:\\Windows\\System32\\conhost.exe",
+      "cmdline": "\\??\\C:\\Windows\\system32\\conhost.exe 0x4",
+      "cmdline_decoded": "\\??\\C:\\Windows\\system32\\conhost.exe 0x4",
+      "args": "0x4",
+      "user": "S-1-5-21-615086843-1621857975-3375801757-1001",
+      "start_time": "2026-08-24T04:27:29Z",
+      "modules": []
+    }
+  ],
+  "proxy_config": [
+    {
+      "scope": "user",
+      "server": "127.0.0.1:8899",
+      "pac_url": "",
+      "bypass": "127.0.0.1:16105;127.0.0.1:16106;;127.0.0.1:21300;"
+    }
+  ],
+  "registry_value": [
+    {
+      "hive": "HKLM",
+      "key": "SYSTEM\\CurrentControlSet\\Control\\Session Manager",
+      "name": "AutoChkSkipSystemPartition",
+      "type": "REG_DWORD",
+      "data": "0"
+    },
+    {
+      "hive": "HKLM",
+      "key": "SYSTEM\\CurrentControlSet\\Control\\Session Manager",
+      "name": "AutoChkTimeout",
+      "type": "REG_DWORD",
+      "data": "8"
+    },
+    {
+      "hive": "HKLM",
+      "key": "SYSTEM\\CurrentControlSet\\Control\\Session Manager",
+      "name": "BootExecute",
+      "type": "REG_MULTI_SZ",
+      "data": "autocheck autochk *\n\nbootalyac.exe\n\nwbboot.exe"
+    },
+    {
+      "hive": "HKLM",
+      "key": "SYSTEM\\CurrentControlSet\\Control\\Session Manager",
+      "name": "BootShell",
+      "type": "REG_SZ",
+      "data": "%SystemRoot%\\system32\\bootim.exe"
+    },
+    {
+      "hive": "HKLM",
+      "key": "SYSTEM\\CurrentControlSet\\Control\\Session Manager",
+      "name": "CriticalSectionTimeout",
+      "type": "REG_DWORD",
+      "data": "2592000"
+    },
+    {
+      "hive": "HKLM",
+      "key": "SYSTEM\\CurrentControlSet\\Control\\Session Manager",
+      "name": "ExcludeFromKnownDlls",
+      "type": "REG_MULTI_SZ",
+      "data": ""
+    },
+    {
+      "hive": "HKLM",
+      "key": "SYSTEM\\CurrentControlSet\\Control\\Session Manager",
+      "name": "GlobalFlag",
+      "type": "REG_DWORD",
+      "data": "0"
+    },
+    {
+      "hive": "HKLM",
+      "key": "SYSTEM\\CurrentControlSet\\Control\\Session Manager",
+      "name": "GlobalFlag2",
+      "type": "REG_DWORD",
+      "data": "0"
+    },
+    {
+      "hive": "HKLM",
+      "key": "SYSTEM\\CurrentControlSet\\Control\\Session Manager",
+      "name": "HeapDeCommitFreeBlockThreshold",
+      "type": "REG_DWORD",
+      "data": "0"
+    },
+    {
+      "hive": "HKLM",
+      "key": "SYSTEM\\CurrentControlSet\\Control\\Session Manager",
+      "name": "HeapDeCommitTotalFreeThreshold",
+      "type": "REG_DWORD",
+      "data": "0"
+    },
+    {
+      "hive": "HKLM",
+      "key": "SYSTEM\\CurrentControlSet\\Control\\Session Manager",
+      "name": "HeapSegmentCommit",
+      "type": "REG_DWORD",
+      "data": "0"
+    },
+    {
+      "hive": "HKLM",
+      "key": "SYSTEM\\CurrentControlSet\\Control\\Session Manager",
+      "name": "HeapSegmentReserve",
+      "type": "REG_DWORD",
+      "data": "0"
+    },
+    {
+      "hive": "HKLM",
+      "key": "SYSTEM\\CurrentControlSet\\Control\\Session Manager",
+      "name": "InitConsoleFlags",
+      "type": "REG_DWORD",
+      "data": "0"
+    },
+    {
+      "hive": "HKLM",
+      "key": "SYSTEM\\CurrentControlSet\\Control\\Session Manager",
+      "name": "NumberOfInitialSessions",
+      "type": "REG_DWORD",
+      "data": "2"
+    },
+    {
+      "hive": "HKLM",
+      "key": "SYSTEM\\CurrentControlSet\\Control\\Session Manager",
+      "name": "ObjectDirectories",
+      "type": "REG_MULTI_SZ",
+      "data": "\\Windows\n\\RPC Control"
+    },
+    {
+      "hive": "HKLM",
+      "key": "SYSTEM\\CurrentControlSet\\Control\\Session Manager",
+      "name": "PendingFileRenameOperations",
+      "type": "REG_MULTI_SZ",
+      "data": "*1\\??\\C:\\$Recycle.Bin\\dg]GnKw.jpg\n\n*1\\??\\C:\\Program Files (x86)\\Microsoft\\EdgeUpdate\\1.3.251.21\n\n*1\\??\\C:\\Program Files (x86)\\Microsoft\\EdgeUpdate\\1.3.257.13\n\n*1\\??\\C:\\Program Files (x86)\\Microsoft\\EdgeUpdate\\1.3.259.11\n\n*1\\??\\C:\\ProgramData\\ESTsoft\\ALYac\\update\\inspectVersion.xml\n"
+    },
+    {
+      "hive": "HKLM",
+      "key": "SYSTEM\\CurrentControlSet\\Control\\Session Manager",
+      "name": "ProcessorControl",
+      "type": "REG_DWORD",
+      "data": "2"
+    },
+    {
+      "hive": "HKLM",
+      "key": "SYSTEM\\CurrentControlSet\\Control\\Session Manager",
+      "name": "ProtectionMode",
+      "type": "REG_DWORD",
+      "data": "1"
+    },
+    {
+      "hive": "HKLM",
+      "key": "SYSTEM\\CurrentControlSet\\Control\\Session Manager",
+      "name": "ResourceTimeoutCount",
+      "type": "REG_DWORD",
+      "data": "150"
+    },
+    {
+      "hive": "HKLM",
+      "key": "SYSTEM\\CurrentControlSet\\Control\\Session Manager",
+      "name": "RunLevelExecute",
+      "type": "REG_MULTI_SZ",
+      "data": "WinInit\nServiceControlManager"
+    },
+    {
+      "hive": "HKLM",
+      "key": "SYSTEM\\CurrentControlSet\\Control\\Session Manager",
+      "name": "RunLevelValidate",
+      "type": "REG_MULTI_SZ",
+      "data": "ServiceControlManager"
+    },
+    {
+      "hive": "HKLM",
+      "key": "SYSTEM\\CurrentControlSet\\Control\\Session Manager",
+      "name": "SetupExecute",
+      "type": "REG_MULTI_SZ",
+      "data": ""
+    },
+    {
+      "hive": "HKLM",
+      "key": "SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment",
+      "name": "ComSpec",
+      "type": "REG_SZ",
+      "data": "%SystemRoot%\\system32\\cmd.exe"
+    },
+    {
+      "hive": "HKLM",
+      "key": "SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment",
+      "name": "DriverData",
+      "type": "REG_SZ",
+      "data": "C:\\Windows\\System32\\Drivers\\DriverData"
+    },
+    {
+      "hive": "HKLM",
+      "key": "SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment",
+      "name": "NUMBER_OF_PROCESSORS",
+      "type": "REG_SZ",
+      "data": "2"
+    },
+    {
+      "hive": "HKLM",
+      "key": "SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment",
+      "name": "OS",
+      "type": "REG_SZ",
+      "data": "Windows_NT"
+    },
+    {
+      "hive": "HKLM",
+      "key": "SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment",
+      "name": "PATHEXT",
+      "type": "REG_SZ",
+      "data": ".COM;.EXE;.BAT;.CMD;.VBS;.VBE;.JS;.JSE;.WSF;.WSH;.MSC"
+    },
+    {
+      "hive": "HKLM",
+      "key": "SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment",
+      "name": "PROCESSOR_ARCHITECTURE",
+      "type": "REG_SZ",
+      "data": "AMD64"
+    },
+    {
+      "hive": "HKLM",
+      "key": "SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment",
+      "name": "PROCESSOR_IDENTIFIER",
+      "type": "REG_SZ",
+      "data": "Intel64 Family 6 Model 170 Stepping 4, GenuineIntel"
+    },
+    {
+      "hive": "HKLM",
+      "key": "SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment",
+      "name": "PROCESSOR_LEVEL",
+      "type": "REG_SZ",
+      "data": "6"
+    },
+    {
+      "hive": "HKLM",
+      "key": "SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment",
+      "name": "PROCESSOR_REVISION",
+      "type": "REG_SZ",
+      "data": "aa04"
+    },
+    {
+      "hive": "HKLM",
+      "key": "SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment",
+      "name": "PSModulePath",
+      "type": "REG_SZ",
+      "data": "%ProgramFiles%\\WindowsPowerShell\\Modules;%SystemRoot%\\system32\\WindowsPowerShell\\v1.0\\Modules"
+    },
+    {
+      "hive": "HKLM",
+      "key": "SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment",
+      "name": "Path",
+      "type": "REG_SZ",
+      "data": "C:\\ProgramData\\WebBoost;%SystemRoot%\\system32;%SystemRoot%;%SystemRoot%\\System32\\Wbem;%SYSTEMROOT%\\System32\\WindowsPowerShell\\v1.0\\;%SYSTEMROOT%\\System32\\OpenSSH\\;C:\\Program Files\\nodejs\\"
+    },
+    {
+      "hive": "HKLM",
+      "key": "SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment",
+      "name": "TEMP",
+      "type": "REG_SZ",
+      "data": "%SystemRoot%\\TEMP"
+    },
+    {
+      "hive": "HKLM",
+      "key": "SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment",
+      "name": "TMP",
+      "type": "REG_SZ",
+      "data": "%SystemRoot%\\TEMP"
+    },
+    {
+      "hive": "HKLM",
+      "key": "SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment",
+      "name": "USERNAME",
+      "type": "REG_SZ",
+      "data": "SYSTEM"
+    },
+    {
+      "hive": "HKLM",
+      "key": "SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment",
+      "name": "windir",
+      "type": "REG_SZ",
+      "data": "%SystemRoot%"
+    }
+  ]
+}

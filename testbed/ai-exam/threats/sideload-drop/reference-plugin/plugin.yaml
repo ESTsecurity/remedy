@@ -1,0 +1,96 @@
+# 정답 플러그인 — sideload-drop (정상 제품 폴더에 끼어든 파일 둘)
+#
+# **출제자의 답이지 응시자에게 주는 것이 아니다.** 기대 Op 이 도달 가능한지
+# 확인하는 것이 목적이다.
+#
+# # 이 위협이 묻는 것
+#
+# **시각과 크기를 함께 보는가.** 한 폴더 안에 파일 다섯이 있고 둘만 검체다.
+# 자리로도 이름꼴로도 갈리지 않으므로 가르는 것은 **기준 파일에 대한 상대
+# 비교**뿐이다 — 기준보다 새롭고(`gt`), 기준보다 작다(`lt`).
+#
+# 한 조건만 쓰면 반드시 정상 파일이 걸린다:
+#
+#   core.dll  기준보다 새롭지만 **크다**        <- 시각만 본 답안이 걸린다
+#   ui.dll    기준보다 작지만 **같은 시각**이다  <- 크기만 본 답안이 걸린다
+#
+# # 상수를 적지 않는다
+#
+# 비교의 오른쪽은 **기준 파일에서 뽑은 값**이다(`${baseline.when}` ·
+# `${baseline.bulk}`). 절대 시각이나 바이트 수를 매니페스트에 박으면 같은
+# 검체가 다른 기계에 놓일 때 아무것도 찾지 못한다 — 제품의 설치 시각과
+# 모듈 크기는 기계마다 다르다.
+#
+# # 기준 파일은 치료 대상이 아니다
+#
+# `baseline` 은 정상 제품의 주 실행 파일이다. 판정의 자(尺)로만 쓰고
+# `remediate` 에 넣지 않는다. 그것을 치우면 제품이 깨진다.
+
+schema_version: 1
+id: sideload-drop
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [windows]
+name:
+  ko: "정상 제품 폴더 끼어들기 제거"
+  en: "Sideloaded drop removal"
+
+# 읽기 권한 상한. 이 위협은 한 폴더 안에서 갈리므로 그 폴더 하나다.
+# 자동 실행은 자리가 정해져 있어 적지 않는다(10-manifest.md 의 표).
+scan_roots:
+  - "C:\\ProgramData\\AcmeSync"
+
+subjects: [file, autorun]
+
+detect:
+  # ── 자(尺) ────────────────────────────────────────────
+  # 정상 제품의 주 실행 파일. 설치 시각과 모듈 크기의 기준이 된다.
+  # **치료 대상이 아니다.**
+  - id: baseline
+    subject: file
+    where:
+      - {
+          field: path,
+          op: equals,
+          value: "C:\\ProgramData\\AcmeSync\\AcmeSync.exe",
+        }
+    capture:
+      when: "mtime"
+      bulk: "size"
+
+  # ── 끼어든 것 ─────────────────────────────────────────
+  # 같은 폴더에서 **기준보다 뒤에 생겼고 기준보다 작은** 파일.
+  #
+  # 조건 순서가 뜻을 갖는다 — 자리로 먼저 좁힌다. `all` 은 첫 거짓에서
+  # 멈추므로, 폴더 밖 레코드에서 시각·크기 비교가 아예 일어나지 않는다.
+  #
+  # 기준 파일 자신은 시각이 같아 `gt` 가 거짓이라 걸리지 않는다.
+  - id: dropped
+    subject: file
+    where:
+      all:
+        - { field: path, op: starts_with, value: "C:\\ProgramData\\AcmeSync\\" }
+        - { field: mtime, op: gt, value: "${baseline.when}" }
+        - { field: size, op: lt, value: "${baseline.bulk}" }
+
+  # ── 다시 뜨게 하는 자리 ───────────────────────────────
+  # 같은 키에 정상 항목이 열여섯 있으므로 **무엇을 실행하는가**로 가른다.
+  - id: runkey
+    subject: autorun
+    where:
+      - { field: command, op: contains, value: "C:\\ProgramData\\AcmeSync\\" }
+
+# 서로 다른 자리에서 온 두 근거의 논리곱 — 디스크의 파일과 로그온 항목.
+# 상대 비교만으로 판정하면 제품이 자기 파일을 새로 놓는 정상 갱신이 곧바로
+# 오탐이 된다.
+verdict:
+  require: "dropped and runkey"
+
+remediate:
+  remove:
+    - { ref: dropped } # file.quarantine_only — 파일 둘
+    - { ref: runkey } # autorun.remove
+
+submit_hint:
+  samples: [dropped]
+  confidentiality_min: 1

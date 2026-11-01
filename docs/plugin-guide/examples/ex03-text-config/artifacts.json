@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "kind": "remedy.artifacts",
+  "run_id": "example-ex03",
+  "created": "2026-08-26T00:00:00Z",
+  "host": {
+    "hostname": "example-host",
+    "os": "linux",
+    "version": "6.8.0",
+    "arch": "x86_64"
+  },
+  "core": {
+    "version": "0.0.0",
+    "build": "example"
+  },
+  "plugins": [],
+  "collected_at": "2026-08-26T00:00:00Z",
+  "collector": {
+    "version": "0.0.0",
+    "bitness": 64,
+    "os_bitness": 64
+  },
+  "scope": {
+    "scan_roots": [
+      "/home/analyst/.config",
+      "/home/analyst/.local/share"
+    ],
+    "subjects": [
+      "text_config",
+      "file"
+    ],
+    "truncated": false,
+    "denied_dirs": 0
+  },
+  "text_config": [
+    {
+      "path": "/home/analyst/.config/exampleapp/plugins.conf",
+      "line_no": 7,
+      "line": "loader=/home/analyst/.local/share/libupd-7f3a/loader.so",
+      "section": "plugins",
+      "key": "loader",
+      "value": "/home/analyst/.local/share/libupd-7f3a/loader.so"
+    },
+    {
+      "path": "/home/analyst/.config/exampleapp/plugins.conf",
+      "line_no": 4,
+      "line": "loader=/usr/lib/exampleapp/official.so",
+      "section": "plugins",
+      "key": "loader",
+      "value": "/usr/lib/exampleapp/official.so"
+    },
+    {
+      "path": "/home/analyst/.config/exampleapp/plugins.conf",
+      "line_no": 2,
+      "line": "theme=dark",
+      "section": "ui",
+      "key": "theme",
+      "value": "dark"
+    },
+    {
+      "path": "/home/analyst/.config/othertool/plugins.conf",
+      "line_no": 3,
+      "line": "loader=/home/analyst/.local/share/othertool/plug.so",
+      "section": "plugins",
+      "key": "loader",
+      "value": "/home/analyst/.local/share/othertool/plug.so"
+    }
+  ],
+  "file": [
+    {
+      "path": "/home/analyst/.local/share/libupd-7f3a/loader.so",
+      "size": 148312,
+      "mtime": "2026-08-25T22:10:44Z",
+      "sha256": "7d3b1f95c0a2e648b7f1049d2c86a35e0fb47d19c2a5638e04f7b1d9a3c60e28"
+    },
+    {
+      "path": "/home/analyst/.local/share/libupd-7f3a/manifest.json",
+      "size": 214,
+      "mtime": "2026-08-25T22:10:44Z",
+      "sha256": "b18e4d70c9a3f2561d804b7e3a5c9021f64d8b37e0a95c2d1f486073ba9e5c14"
+    },
+    {
+      "path": "/home/analyst/.local/share/othertool/plug.so",
+      "size": 91240,
+      "mtime": "2026-06-11T08:03:12Z",
+      "sha256": "3c07a95e1b8d426f0a73c5e29d148b60f7a35d81c9e0426b5f8a1d37c09e6b42"
+    }
+  ]
+}

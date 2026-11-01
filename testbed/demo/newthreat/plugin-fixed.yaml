@@ -1,0 +1,54 @@
+# 시연 9단계 — 옆의 `plugin.yaml` 을 린트가 시킨 대로 고친 판.
+#
+# 두 곳이 다르다.
+#
+#   1. `dropper-file` — **경로로만** 매치하는 규칙을 하나 두고
+#      `collect_extra` 가 그것을 가리켜 본문을 담는다. YARA 로 정의된 규칙을
+#      가리키면 순환이라 본문이 영영 담기지 않는다.
+#   2. `verdict.require` 가 **두 근거의 논리곱**이 됐다. 룰 하나의 오탐이
+#      곧바로 삭제로 이어지지 않게 한다.
+#
+# `plugin lint` 가 오류 0 · 경고 0 으로 통과한다(종료 코드 0).
+schema_version: 1
+id: demo-newthreat
+version: 1.0.1
+min_core: "1.0.0"
+platforms: [windows]
+name:
+  ko: "새 위협 대응 (시연)"
+  en: "New threat response (demo)"
+
+scan_roots:
+  - "%LOCALAPPDATA%\\Programs"
+
+subjects: [file, autorun]
+
+detect:
+  - id: runkey
+    subject: autorun
+    where:
+      - { field: command, op: contains, value: "DemoNewThreat" }
+
+  # 본문을 담을 대상 — 경로로만 매치한다. YARA 로만 정의된 룰을 가리키면
+  # 순환이라 본문이 영영 담기지 않는다.
+  - id: dropper-file
+    subject: file
+    where:
+      - { field: path, op: ends_with, value: "\\helper.dat" }
+
+  - id: dropper
+    subject: file
+    where:
+      - { field: path, op: ends_with, value: "\\helper.dat" }
+      - { yara: "rules/newthreat.yar:demo_newthreat" }
+
+verdict:
+  require: "runkey and dropper"
+
+remediate:
+  remove:
+    - { ref: runkey }
+    - { ref: dropper }
+
+collect_extra:
+  - { ref: dropper-file, content: true }

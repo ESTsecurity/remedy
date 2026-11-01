@@ -1,0 +1,178 @@
+{
+  "schema_version": 1,
+  "kind": "remedy.artifacts",
+  "run_id": "run-1789995617-0ab4-1eac55a8",
+  "created": "2026-09-21T13:00:17Z",
+  "host": {
+    "hostname": "DESKTOP-2GQIRP1",
+    "os": "windows",
+    "version": "",
+    "arch": "x86_64"
+  },
+  "core": {
+    "version": "1.0.0",
+    "build": "x86_64-pc-windows-msvc"
+  },
+  "plugins": [],
+  "collected_at": "2026-09-21T13:00:17Z",
+  "collector": {
+    "version": "1.0.0",
+    "bitness": 64,
+    "os_bitness": 64
+  },
+  "scope": {
+    "scan_roots": [
+      "C:\\ProgramData\\WebHelper",
+      "C:\\ProgramData\\WebTools",
+      "C:\\Users\\test\\Desktop"
+    ],
+    "subjects": [
+      "file",
+      "shortcut"
+    ],
+    "truncated": false,
+    "denied_dirs": 0
+  },
+  "security_products": [
+    {
+      "vendor": "Microsoft Defender 바이러스 백신",
+      "realtime": true
+    },
+    {
+      "vendor": "알약"
+    }
+  ],
+  "file": [
+    {
+      "path": "C:\\ProgramData\\WebHelper\\ext\\bg.js",
+      "size": 16384,
+      "mtime": "2026-09-16T13:48:52Z",
+      "ctime": "2026-09-21T13:00:16Z",
+      "sha256": "32aca66210ac357fbb1d63301789aade3bbe026f5d70f96ff2fbe1267bfa68d7"
+    },
+    {
+      "path": "C:\\ProgramData\\WebHelper\\ext\\manifest.json",
+      "size": 2048,
+      "mtime": "2026-09-16T13:48:52Z",
+      "ctime": "2026-09-21T13:00:16Z",
+      "sha256": "1cfbb6d5579a4c763dc9d5fdfbfb58748ec6789c55f9d051885aeb33c87e425a"
+    },
+    {
+      "path": "C:\\ProgramData\\WebTools\\netcheck.exe",
+      "size": 204800,
+      "mtime": "2025-12-03T08:20:41Z",
+      "ctime": "2026-09-21T13:00:16Z",
+      "sha256": "143a8ce195c5b2a9e159783fdc74ca3dc37dccc843c80e726a88e62cbee1ed60",
+      "signature": {
+        "trusted": false
+      }
+    },
+    {
+      "path": "C:\\Users\\test\\Desktop\\Chrome.lnk",
+      "size": 1369,
+      "mtime": "2026-09-16T13:48:52Z",
+      "ctime": "2026-09-21T13:00:16Z",
+      "sha256": "368ace358195a4f46b5875d1dc8b11e15735238e6aa2a5a0d939246676511d4e"
+    },
+    {
+      "path": "C:\\Users\\test\\Desktop\\Edge.lnk",
+      "size": 1230,
+      "mtime": "2025-12-03T08:20:41Z",
+      "ctime": "2026-09-21T13:00:16Z",
+      "sha256": "d6d3f4feb40f87a48dbafdb42c326d8504b6f5af74dc9387a1f029c82dbdd0fe"
+    },
+    {
+      "path": "C:\\Users\\test\\Desktop\\Microsoft Edge.lnk",
+      "size": 2332,
+      "mtime": "2025-02-14T06:59:13Z",
+      "ctime": "2025-02-14T06:55:54Z",
+      "sha256": "461b69dea0d06e2875bc44055d12ebe22060173741aa524e9a3a23e0e1929745"
+    },
+    {
+      "path": "C:\\Users\\test\\Desktop\\Notepad.lnk",
+      "size": 969,
+      "mtime": "2025-12-03T08:20:41Z",
+      "ctime": "2026-09-21T13:00:16Z",
+      "sha256": "7208b9d0d7ad880a416d2c84d42fb9ee20c75f1fec80897a64be48c239f17d14"
+    },
+    {
+      "path": "C:\\Users\\test\\Desktop\\capa.exe",
+      "size": 35982976,
+      "mtime": "2025-03-04T21:57:11Z",
+      "ctime": "2025-03-06T01:34:07Z",
+      "signature": {
+        "trusted": false
+      }
+    },
+    {
+      "path": "C:\\Users\\test\\Desktop\\desktop.ini",
+      "size": 282,
+      "mtime": "2025-02-14T06:55:54Z",
+      "ctime": "2025-02-14T06:55:54Z",
+      "sha256": "4b9d687ac625690fd026ed4b236dad1cac90ef69e7ad256cc42766a065b50026"
+    },
+    {
+      "path": "C:\\Users\\test\\Desktop\\guest\\Capture-State.ps1",
+      "size": 11424,
+      "mtime": "2026-08-20T07:01:19Z",
+      "ctime": "2026-08-20T07:25:57Z",
+      "sha256": "5a748913f6d552579fb3af3183d93deecfd743b4bcac701d41b221866bce98f2"
+    },
+    {
+      "path": "C:\\Users\\test\\Desktop\\guest\\New-Fixtures.ps1",
+      "size": 11496,
+      "mtime": "2026-08-20T06:39:18Z",
+      "ctime": "2026-08-20T07:25:57Z",
+      "sha256": "ed27f3e943a70c43f3744d567123966a08175143b4ba35d95770408dab056be6"
+    },
+    {
+      "path": "C:\\Users\\test\\Desktop\\guest\\Setup-Guest.ps1",
+      "size": 9675,
+      "mtime": "2026-08-20T07:24:35Z",
+      "ctime": "2026-08-20T07:25:57Z",
+      "sha256": "d5ba5b7e43d7138ff5743ffd915c3b944eebbc21463ffef74a9b61a90cd6cd9f"
+    },
+    {
+      "path": "C:\\Users\\test\\Desktop\\python-3.12.9-amd64.exe",
+      "size": 26923696,
+      "mtime": "2025-02-12T15:52:13Z",
+      "ctime": "2025-03-06T04:34:43Z",
+      "sha256": "2a52993092a19cfdffe126e2eeac46a4265e25705614546604ad44988e040c0f",
+      "signature": {
+        "trusted": true,
+        "subject": "CN=Python Software Foundation, O=Python Software Foundation, L=Beaverton, S=Oregon, C=US",
+        "thumbprint": "E97E25CDAADCA29D69ACA9768B1CF33F66247C70"
+      }
+    }
+  ],
+  "shortcut": [
+    {
+      "path": "C:\\Users\\test\\Desktop\\Chrome.lnk",
+      "target": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+      "args": "--load-extension=C:\\ProgramData\\WebHelper\\ext --disable-features=RendererCodeIntegrity",
+      "working_dir": "",
+      "icon": ""
+    },
+    {
+      "path": "C:\\Users\\test\\Desktop\\Edge.lnk",
+      "target": "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+      "args": "",
+      "working_dir": "",
+      "icon": ""
+    },
+    {
+      "path": "C:\\Users\\test\\Desktop\\Microsoft Edge.lnk",
+      "target": "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+      "args": "",
+      "working_dir": "C:\\Program Files (x86)\\Microsoft\\Edge\\Application",
+      "icon": "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"
+    },
+    {
+      "path": "C:\\Users\\test\\Desktop\\Notepad.lnk",
+      "target": "C:\\Windows\\System32\\notepad.exe",
+      "args": "C:\\Users\\test\\Documents\\memo.txt",
+      "working_dir": "",
+      "icon": ""
+    }
+  ]
+}

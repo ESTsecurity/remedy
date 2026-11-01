@@ -1,0 +1,41 @@
+schema_version: 1
+id: webshell-upload-aspx
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [windows]
+name:
+  ko: "업로드 폴더에 놓인 실행형 웹 셸(.aspx) 격리"
+  en: "Quarantine of an executable web shell (.aspx) planted in the upload folder"
+
+# scan_roots 는 실기기 scan 의 권한 상한이다 — 여기 밖은 읽지도 지우지도 못한다.
+# 업로드 폴더 하나로 좁혀, 웹사이트 자신의 .aspx(상위 폴더의 Default.aspx 와
+# App\Handlers\Upload.aspx)와 Web.config 는 실기기에서 애초에 손이 닿지 않게 한다.
+# 파일 수집은 이 아래를 재귀로 훑으므로 uploads\2026-09\ 같은 하위 폴더와
+# 그보다 더 깊이 들어간 것까지 닿는다.
+scan_roots:
+  - "C:\\inetpub\\wwwroot\\uploads"
+
+subjects: [file]
+
+detect:
+  # 자리와 종류를 함께 본다. 이 논리곱 하나가 검체 둘만 가른다.
+  #   자리: 업로드 폴더(하위 폴더 전부) 안일 것 → 웹사이트 자신의 .aspx 는 자리가 다르다.
+  #   종류: 실행되는 .aspx 일 것             → 올라온 png·pdf·jpg 는 종류가 다르다.
+  # 파일 이름(sess_7f3a9c, .thumb)은 검체마다 바뀌므로 조건에 넣지 않는다.
+  # 크기도 넣지 않는다 — 관측된 사실일 뿐 근거가 아니다(크기로 가르면 큰 변종을 놓친다).
+  - id: webshell
+    subject: file
+    where:
+      - { field: path, op: starts_with, value: "C:\\inetpub\\wwwroot\\uploads\\" }
+      - { field: path, op: ends_with,   value: ".aspx" }
+
+verdict:
+  require: "webshell"
+
+remediate:
+  # 파일 ref → file.quarantine_only (위험 low · 되돌릴 수 있음).
+  # 매치된 .aspx 마다 격리 컨테이너로 옮긴다 — 오탐이어도 remedy restore --run <id> 로 복구.
+  # 폴더째(dir.delete_recursive) 지우지 않는다: uploads 에는 사용자 데이터가 함께
+  # 살고, 그 폴더 전체가 검체의 것이라는 관측 근거가 없다(ex03 와 같은 판단).
+  remove:
+    - { ref: webshell }

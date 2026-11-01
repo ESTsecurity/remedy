@@ -1,0 +1,56 @@
+# 시연 9단계 — **일부러 틀린 룰이다. 고치지 말 것.**
+#
+# 시연 대본(내부 문서)의 마지막 장면이 이 파일로 `plugin lint` 를 돌려
+# 오류 하나와 경고 하나를 받는다(종료 코드 4). 통과하게 고치면 그 장면이
+# 사라진다 — 옆의 `plugin-fixed.yaml` 이 고친 판이다.
+#
+# # 무엇이 틀렸나
+#
+# `detect[dropper]` 가 YARA 를 쓰는데 `collect_extra` 가 본문을 담지 않는다.
+# 실기기에서 그 규칙은 **미평가**가 되고 판정이 서지 않는다 — 감염된
+# 기계에서도 판정 대신 종료 6 이 나온다(2026-10-25 까지는 조용히 "위협 없음").
+# 룰 작성자가 가장 자주 밟는 자리이고, **기계에 올려 보기 전에는 드러나지
+# 않는다.** 린트가 그것을 먼저 잡는 장면이다.
+#
+# 경고 쪽은 정책이다: 판정이 규칙 하나에만 걸려 있으면 그 룰의 오탐이 곧바로
+# 삭제가 된다.
+#
+# # 왜 저장소에 있나 (2026-09-13)
+#
+# 09-10 리허설에서는 이 두 파일을 그 자리에서 만들어 썼고, **저장소에 남기지
+# 않았다.** 대본은 알맹이만 싣고 있어(헤더가 없다) 그대로는 만들 수 없다 —
+# 즉 **대본을 따라 하면 마지막 장면에서 막힌다.** 09-13 리허설이 그것을
+# 찾았다.
+schema_version: 1
+id: demo-newthreat
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [windows]
+name:
+  ko: "새 위협 대응 (시연)"
+  en: "New threat response (demo)"
+
+scan_roots:
+  - "%LOCALAPPDATA%\\Programs"
+
+subjects: [file, autorun]
+
+detect:
+  - id: runkey
+    subject: autorun
+    where:
+      - { field: command, op: contains, value: "DemoNewThreat" }
+
+  - id: dropper
+    subject: file
+    where:
+      - { field: path, op: ends_with, value: "\\helper.dat" }
+      - { yara: "rules/newthreat.yar:demo_newthreat" }
+
+verdict:
+  require: "dropper"
+
+remediate:
+  remove:
+    - { ref: runkey }
+    - { ref: dropper }

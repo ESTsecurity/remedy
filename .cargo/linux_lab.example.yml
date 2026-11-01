@@ -1,0 +1,60 @@
+# Linux 랩 VM 의 사실 — **견본**
+#
+# 쓰는 법: 이 파일을 `linux_lab.yml` 로 복사해 자기 값을 채운다. 그 파일은
+# 커밋되지 않는다. 랩을 처음 세우는 절차는
+# `docs/P12-P7-리눅스-랩-VM-준비.md` 에 있다.
+#
+# **비밀번호와 개인키는 여기 적지 않는다.** 어디에 있는지만 가리킨다.
+#
+# 값은 따옴표로 감싼다 — 따옴표 없는 YAML 값은 `: ` 와 꼬리 0 에서 뜻이 바뀐다.
+
+updated: 'YYYY-MM-DD'
+
+linux_lab:
+  identity:
+    vm_name: '<VMware 에서 보이는 이름>'
+    vmx: '<vmx 파일의 전체 경로>'
+    hardware: '<vCPU · 메모리 · 디스크>'
+    guest_os: '<게스트 배포판과 판>'
+    guest_hostname: '<게스트의 기계 이름>'
+
+  install:
+    iso: '<설치 이미지 파일 이름>'
+    size: '<바이트>'
+    sha256: '<64 자리 — 공식 체크섬과 대조한 값>'
+    guide: 'docs/P12-P7-리눅스-랩-VM-준비.md'
+
+  snapshots:
+    current: '<하네스가 되돌릴 스냅샷 이름 — 하나만>'
+    note: '<끈 채 찍었는지 — 켠 채면 시계도 되돌아간다>'
+
+  network:
+    ip: '<게스트 주소 — DHCP 면 하네스가 VMware 에 묻는다>'
+    ssh: '<SSH 포트 — 기본 22>'
+
+  accounts:
+    root: '<root 를 쓰는가 · 키로만 들어오는가>'
+    remedy: '<일반 계정 이름>'
+    passwords: '<여기에 적지 않는다 — 어디에 있는지만>'
+
+  ssh:
+    identity: '<랩 전용 개인키의 자리 — 키 자체는 적지 않는다>'
+    identity_fingerprint: '<접속할 때 대조할 지문>'
+    known_hosts: '<랩 전용 known_hosts 의 자리>'
+    host_key_ed25519: '<게스트 호스트 키 지문>'
+    options: '<ssh 에 늘 주는 옵션>'
+
+  guest:
+    tuning: '<회차 잡음을 줄이려 끈 것들>'
+    work_dir: '<게스트의 작업 폴더>'
+
+  harness:
+    reboot_verify: '<재부팅 검증 명령>'
+    check_only: '<준비 점검 명령>'
+    restart_verify: '<재시작 검증 명령>'
+    binary: '<게스트에 보내는 바이너리의 자리>'
+
+  lessons: []
+
+  # 잰 값은 여기 쌓는다 — 언제 무엇을 쟀는지 모르면 증거가 아니다.
+  results: {}

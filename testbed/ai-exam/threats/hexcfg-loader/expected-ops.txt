@@ -1,0 +1,36 @@
+# 감염 스냅샷에서 반드시 나와야 하는 Op (채점 4번).
+#
+# 형식은 `appinit-implant/expected-ops.txt` 의 머리를 볼 것 — (Op, 대상) 이고
+# `::` 뒤는 match 다.
+#
+# **이 목록은 정답 플러그인의 계획을 그대로 옮긴 것**이고(2026-09-22, 컨테이너
+# 스냅샷 위에서 `evaluate` → `plan`), 사람이 한 줄씩 위협 설명과 맞춰 읽었다.
+#
+# # 셋이 한 사슬이다
+#
+# 설정에는 경로가 평문으로 없다. 감춘 값을 풀어야 폴더와 이름이 나오고, 그
+# 이름을 접어야 목록의 줄과 디스크의 파일에 닿는다. 그래서 이 셋은 따로
+# 찾아지는 것이 아니라 **하나에서 둘이 나온다.**
+#
+# 셋을 다 하지 않으면 치료가 아니다 — 설정만 고치면 에이전트가 파일을 계속
+# 싣고(목록이 남았다), 파일만 치우면 없는 것을 부르며 오류를 낸다.
+#
+# # 매치 둘이 재는 것
+#
+# `key_path=` 는 **그 항목만** 빠지고 같은 파일의 벤더 항목 셋(`endpoint` ·
+# `intervalSeconds` · `plugins.dir`)이 그대로인가를 잰다.
+# `line=` 은 **그 줄만** 빠지고 벤더 줄 둘(`inventory.so` · `metrics.so`)이
+# 그대로인가를 잰다.
+#
+# 매치가 없으면 둘 다 절반만 재어진다 — 파일은 남았는데 안이 비어 버린 답안이
+# 통과한다. 2026-09-04 에 닫은 "절반짜리 치료" 구멍과 같은 모양이다.
+#
+# # 파일 이름이 목록의 이름과 같다
+#
+# 셋째 줄의 자리는 리터럴로 맞힐 수 없다. 정답은 감춘 값에서 폴더와 이름을
+# 얻고, 이름을 **접어서** 이 파일에 닿는다 — 리눅스는 비교가 대소문자를
+# 구분하므로 접지 않으면 `libNetCache.so` 로 남아 아무것도 찾지 못한다.
+
+file.quarantine_only /usr/lib/nodewatch/plugins/libnetcache.so
+structured_config.remove_key /etc/nodewatch/agent.json :: key_path=relay.module
+text_config.remove_line /etc/nodewatch/plugins.conf :: line_no=4, line=plugin = libnetcache.so

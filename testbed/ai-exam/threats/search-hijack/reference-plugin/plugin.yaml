@@ -1,0 +1,129 @@
+# 정답 플러그인 — search-hijack
+#
+# **출제자의 답이지 응시자에게 주는 것이 아니다.** 기대 Op 이 도달 가능한지
+# 확인하는 것이 목적이다.
+
+schema_version: 1
+id: search-hijack
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [windows]
+name:
+  ko: "검색 가로채기 광고 임플란트 제거"
+  en: "search-hijacking adware implant removal"
+
+# 읽기 권한 상한.
+#
+# **셋 다 없으면 안 된다.** `browser_extension` 과 `file` 은 경로 루트를,
+# `registry_value` 는 레지스트리 루트를 받아야 모인다 (10-manifest.md 의 표).
+# `proxy_config` 는 자리가 정해져 있어 적지 않는다.
+#
+# 부팅 목록과 경로 목록은 **서로 다른 키**에 산다. 값 수집은 재귀하지 않으므로
+# 둘을 따로 적는다 — 앞의 것만 적으면 경로 값이 영영 0건이다.
+scan_roots:
+  - "C:\\ProgramData\\WebBoost" # 페이로드
+  # **모든 사용자로 편다.** 확장은 사용자마다 설치되므로 %LOCALAPPDATA% 를
+  # 쓰면 현재 로그온 사용자만 치료되고 나머지는 감염된 채 남는다.
+  # 2026-09-02 hijack-r1 응시자가 이쪽을 썼고 그것이 옳다.
+  - "%ALLUSERPROFILES%\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions"
+  - "%ALLUSERPROFILES%\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Extensions"
+  - "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager" # BootExecute
+  - "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment" # Path
+
+subjects: [file, registry_value, browser_extension, proxy_config, process]
+
+detect:
+  # ── 부모 ──────────────────────────────────────────────
+  # 확장 식별자로 짚는다. **브라우저나 프로필로 고르면 안 된다** — 청정
+  # 기계의 같은 자리에 정상 확장 넷이 있고 그중 하나는 두 브라우저에 함께
+  # 설치돼 있다. 식별자는 확장마다 하나뿐이라 그것만 걸린다.
+  #
+  # 이 규칙 하나가 레코드 둘(chrome·edge)을 맞히므로 browser_ext.remove 도
+  # 둘이 나온다.
+  - id: ext
+    subject: browser_extension
+    where:
+      - { field: ext_id, op: equals, value: "pknbjlbmgcodmfilnjadgpkcnkmlpkkn" }
+
+  # ── 판정의 두 번째 근거 ───────────────────────────────
+  # 확장만으로 판정하지 않는다. 디스크에 실행 파일이 있어야 한다.
+  - id: payload
+    subject: file
+    from: "C:\\ProgramData\\WebBoost"
+    where:
+      - { field: path, op: ends_with, value: ".exe" }
+
+  # ── 값의 일부만 빼는 대상 둘 ──────────────────────────
+  # 경로 목록. **통째로 지우면 그 기계는 명령 하나도 못 찾는다.**
+  # 끼어든 항목 하나만 뺀다 — 그래서 remove 가 아니라 edit 이다.
+  - id: pathvar
+    subject: registry_value
+    where:
+      all:
+        - { field: hive, op: equals, value: "HKLM" }
+        - {
+            field: key,
+            op: equals,
+            value: "SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment",
+          }
+        - { field: name, op: equals, value: "Path" }
+        - { field: data, op: contains, value: "\\ProgramData\\WebBoost" }
+
+  # 부팅 목록. **가운데 줄은 정상 보안 제품의 것이다** — 청정 기계에도 있다.
+  # 검체가 넣은 줄만 뺀다.
+  - id: bootexec
+    subject: registry_value
+    where:
+      all:
+        - { field: hive, op: equals, value: "HKLM" }
+        - {
+            field: key,
+            op: equals,
+            value: "SYSTEM\\CurrentControlSet\\Control\\Session Manager",
+          }
+        - { field: name, op: equals, value: "BootExecute" }
+        - { field: data, op: contains, value: "wbboot.exe" }
+
+  # ── 되돌릴 대상 ───────────────────────────────────────
+  # 프록시 설정 자체는 정상 기계에도 있다. **무엇을 가리키는지**로 갈린다 —
+  # 청정 기계의 그 레코드는 서버가 비어 있다.
+  - id: proxy
+    subject: proxy_config
+    where:
+      - { field: server, op: equals, value: "127.0.0.1:8899" }
+
+  # ── 상주 프로세스 ────────────────────────────────────
+  # 보고가 `wbsvc.exe` 를 "상주하며 광고를 받아 온다" 고 적었다. **이름이
+  # 아니라 어디서 도는가로 가른다** — 같은 이름의 정상 프로그램이 다른
+  # 자리에서 돌 수 있다. 판정에는 넣지 않는다(프로세스는 표본이다).
+  - id: proc
+    subject: process
+    where:
+      - { field: image_path, op: starts_with, value: "C:\\ProgramData\\WebBoost" }
+
+# 서로 다른 자리에서 온 두 근거의 논리곱 — 브라우저 확장과 디스크의 파일.
+verdict:
+  require: "ext and payload"
+
+remediate:
+  remove:
+    - { ref: ext } # browser_ext.remove   — 두 브라우저에서 각각
+    - { ref: payload } # file.quarantine_only — 확인된 둘만
+    - { ref: proc } # process.kill — 되돌릴 수 없으므로 관측이 있을 때만
+  # **여기가 이 위협의 핵심이다.** 둘 다 한 값 안에 정상 항목과 섞여 있어
+  # 통째로 지울 수 없다.
+  edit:
+    # **구분자를 붙이지 않는다.** `env.strip_path` 는 `;` 로 가른 항목을 통째로
+    # 견주므로 `...WebBoost;` 는 어느 항목과도 같지 않다. 2026-09-05 실기기
+    # 실측 전까지 이 줄은 세미콜론을 달고 있었고, 아무것도 지우지 않은 채
+    # **성공으로 보고되고 있었다.** 지금은 코어가 구분자를 떼어 내 견디지만
+    # (`registry_ops.rs` 의 `..._tolerates_a_needle_that_carries_the_separator`)
+    # 정답이 틀린 모양을 가르칠 수는 없다.
+    - { ref: pathvar, op: strip, value: "C:\\ProgramData\\WebBoost" } # env.strip_path
+    - { ref: bootexec, op: strip, value: "wbboot.exe" } # registry.strip_value
+  restore:
+    - proxy # proxy.restore
+
+submit_hint:
+  samples: [payload]
+  confidentiality_min: 1

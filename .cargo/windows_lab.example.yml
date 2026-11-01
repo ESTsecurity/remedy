@@ -1,0 +1,49 @@
+# Windows 랩 VM 의 사실 — **견본**
+#
+# 쓰는 법: 이 파일을 `windows_lab.yml` 로 복사해 자기 값을 채운다. 그 파일은
+# 커밋되지 않는다. 랩을 처음 세우는 절차는
+# `docs/윈도우-VM-배포-시험-절차-전달.md` 에 있다.
+#
+# **비밀번호는 여기 적지 않는다.** 자격 증명은 따로 두고(아래 account 절),
+# 그 파일도 커밋하지 않는다.
+#
+# 값은 따옴표로 감싼다 — 따옴표 없는 YAML 값은 `: ` 에서 뜻이 바뀐다.
+
+updated: 'YYYY-MM-DD'
+
+windows_lab:
+  identity:
+    vm_name: '<VMware 에서 보이는 이름>'
+    vmx: '<vmx 파일의 전체 경로>'
+    hardware: '<vCPU · 메모리 · 디스크>'
+    guest_os: '<게스트 운영체제와 판>'
+    guest_hostname: '<게스트의 기계 이름>'
+
+  snapshots:
+    current: '<하네스가 되돌릴 스냅샷 이름 — 하나만 있어야 한다>'
+    all: '<스냅샷 관리자에 보이는 이름 전부>'
+    note: '<켠 채 찍었는지 — 켠 채면 시계도 되돌아간다>'
+
+  network:
+    ip: '<게스트 주소 — DHCP 면 바뀔 수 있다>'
+    winrm: '<WinRM 포트 — 기본 5985>'
+
+  guest:
+    lab_root: '<게스트의 작업 폴더>'
+
+  account:
+    user: '<게스트의 로컬 관리자 계정>'
+    # 비밀번호는 이 파일이 아니라 아래 자리에 둔다. 둘 다 커밋되지 않는다.
+    credential_store: '<저장한 자격 증명 파일의 자리>'
+    credential_renew: '<다시 저장하는 명령>'
+    password: '<여기에 적지 않는다 — 어디에 있는지만 가리킨다>'
+
+  # 하네스를 어떤 명령으로 부르는가.
+  harness:
+    exam_apply: '<실기기 채점>'
+    reboot_verify: '<재부팅 검증>'
+    reset: '<스냅샷 복원>'
+    session: '<세션만 열어 보는 명령>'
+
+  # 이 랩에서 배운 것 — 다음 사람이 같은 자리에서 헤매지 않게.
+  lessons: []

@@ -1,0 +1,454 @@
+//! 가이드 크기 예산과 헤더 검사 (설계-06 §9).
+//!
+//! # 왜 재는가
+//!
+//! 이 문서들은 **문맥에 들어가는 것이 전제**다. 상한을 정해 놓고 아무도 재지
+//! 않으면 넘고, 넘은 파일은 절반만 읽히거나 아예 빠진다. 그러면 AI 가 규칙의
+//! 절반만 보고 룰을 쓴다.
+//!
+//! 그리고 **모든 파일은 자기 버전을 말해야 한다** — 낡은 가이드를 읽고 낡은
+//! 스키마용 룰을 쓰는 것을 막으려면 문서가 자기가 몇 판인지 말할 수 있어야 한다.
+
+use std::path::Path;
+
+/// 상한 (설계-06 §9). 바이트다 — 문자 수가 아니다. 한글은 3 바이트이고, 문맥에
+/// 들어가는 것은 바이트다.
+const LIMITS: &[(&str, usize)] = &[
+    ("00-invariants.md", 2 * 1024),
+    ("machine/AI-CONTEXT.md", 8 * 1024),
+    // **처음으로 기본값보다 높인 자리다.**
+    //
+    // 이 파일 하나가 `remediate` 의 세 절(`remove`·`edit`·`restore`)을 전부
+    // 맡는다. 아래 오류 메시지가 적은 그대로 **쪼개는 기준은 분량이 아니라
+    // 과업**이고, 제거 선언은 한 과업이다 — 나누면 AI 가 절반만 읽는다.
+    //
+    // 2026-09-01 에 `edit` 절을 적으며 12 KB 를 넘었다. 트림할 자리를 두 번
+    // 찾아봤지만 겹치는 것은 180 바이트뿐이었고, 그것을 잘라 봐야 다시 찬다.
+    // 늘리는 대신 **왜 늘렸는지를 여기 적는다** — 다음에 또 넘으면 그때는
+    // 내용이 아니라 이 판단을 다시 봐야 한다.
+    //
+    // 2026-09-05 에 다시 넘었다. 위의 지시대로 **내용이 아니라 판단을 먼저
+    // 봤다** — "쪼개는 기준은 분량이 아니라 과업" 이 아직 맞는가. 맞다.
+    // 플러그인 작성자에게 `remove`·`edit`·`restore` 는 한 번에 고르는 하나의
+    // 결정이고, 나누면 `edit` 을 안 읽은 채 `remove` 를 골라 값을 통째로
+    // 지운다 — 이 파일이 막으려는 바로 그것이다.
+    //
+    // 더한 것은 `strip` 의 `value` 가 **무엇과 견주어지는가** 하는 표다.
+    // 그것이 없어서 두 자리가 조용히 아무것도 지우지 않았다: 정답 플러그인의
+    // 경로 값이 구분자를 달고 있어 어느 항목과도 같지 않았고,
+    // `REG_MULTI_SZ` 는 어느 Op 으로도 고칠 수 없었다. 둘 다 실기기에서
+    // 재고 나서야 보였다.
+    //
+    // 2026-09-23 에 세 번째로 넘었다. 지시대로 **내용이 아니라 판단을 먼저
+    // 봤다** — "쪼개는 기준은 분량이 아니라 과업" 이 아직 맞는가. 맞다. 더한
+    // 것이 `remove` 의 `ref` 가 무엇을 없애는가이고, 그것은 이 파일의 과업
+    // 한복판이다.
+    //
+    // **회차 둘이 같은 오해를 했다.** `worm-r1`(Opus 5)은 *"persistence 제거는
+    // 줄이 아니라 항목 전체를 치운다"*, `worm-r2`(Opus 4.8)는 *"유닛째
+    // 없앤다"* 고 적었다. 둘 다 틀렸고 실기기가 그것을 보여 줬다 — 치료 뒤
+    // cron 파일이 개행 한 바이트(`01ba4719…`)로 남았다.
+    //
+    // 이 파일에 `persistence` 언급이 **0회**였다. `20-detect-recipes.md` 의
+    // §persistence 는 탐지만 다루고, `ops.json` 의 `edits_in_place: false` 는
+    // *"제자리 편집이 아니다"* 를 *"통째로 지운다"* 로 읽히게 한다.
+    //
+    // 줄일 자리를 봤다. 이 파일의 문단은 앞선 세 번의 기록대로 **저마다 실기기
+    // 사고 하나씩을 업고 있어** 문장을 빼면 그 사고를 다시 겪는다. 더한 것은
+    // 377 바이트이고 트림으로 닿지 않는다.
+    //
+    // 다른 집도 봤다. `20-detect-recipes.md` 는 여유 164 바이트라 핵심 문장
+    // (*"파일째 치우려면 `file` 규칙을 따로 둔다"*)이 잘리고, 거기는 탐지
+    // 문서라 제거의 단위가 놓일 자리가 아니다.
+    ("22-remediate-recipes.md", 16 * 1024),
+    // **네 번째로 높인 자리다** (2026-09-09).
+    //
+    // `in` 연산자와 `indicator` 대상의 레시피를 더하며 넘었다. 둘은 엔진에
+    // 있었지만 가이드에 없었고, 그래서 아무도 쓰지 않았다 — 주입 꾸러미 전체에
+    // 사용례가 0건이었고, 첫 사용례(`c2-beacon`)를 만들며 `.service` 가 지표
+    // 원천이 아니라는 것도 그때야 알았다. **문서에 없는 연산자는 없는 것과
+    // 같다.** 쪼개는 기준은 분량이 아니라 과업이고 이것은 탐지 레시피다 —
+    // 새 파일로 내면 주입 목록이 바뀌어 시험이 달라진다.
+    //
+    // 줄일 자리를 봤다. `from` 과 YARA 절은 각각 실기기 사고 하나씩을 업고
+    // 있어 문장을 빼면 그 사고를 다시 겪는다. 133 바이트 남은 파일에 3 KB
+    // 남짓을 넣는 것이라 트림으로는 닿지 않는다 — 조인 것은 새 절의 내 문장뿐이다.
+    //
+    // **다섯 번째로 높인 자리다** (2026-09-28). `gt` · `lt` 가 카탈로그에만 있고
+    // 무엇을 견주는지(수 · RFC3339 시각)가 꾸러미에 0회였다 — sideload-r1
+    // 응시자가 상대 비교를 "확인된 문법이 아니다" 라며 쓰지 않았다. 위와 같은
+    // 까닭이다: **문서에 없는 연산자는 없는 것과 같다.** 남은 여유가 164 바이트라
+    // 예시 한 벌(817 바이트)이 들어가지 않았다.
+    //
+    // **여섯 번째로 높인 자리다** (2026-10-02). 값을 모르는 지문을 **아는 자리에서
+    // capture 해** `equals` 로 모으는 레시피 — `selfcopy-worm` 세 회차(r1 · r2 ·
+    // r3)가 전부 그 길을 못 찾았다. r3 는 `sha256 in` 에 자리 표시를 두었고,
+    // 정답마저 응시자가 가질 수 없는 리터럴 해시였다. 엔진은 지원하고 재료
+    // (`persistence.command` · 필드 capture · `${규칙.capture}`)는 전부 꾸러미에
+    // 있었지만 **그것을 잇는 문장이 없었다.** 남은 여유 119 바이트에 예시 한 벌이
+    // 들어가지 않는다 — 앞선 다섯 번과 같은 까닭이다.
+    ("20-detect-recipes.md", 17 * 1024),
+    // **두 번째로 높인 자리다** (2026-09-04).
+    //
+    // `subject_roots` 를 더하며 넘었다. 그것을 적지 않는 선택지가 있었지만,
+    // **문서에 없는 매니페스트 필드는 없는 것과 같다** — 이 저장소가
+    // 계속 잡아 온 "닫힌 집합이 소스에만 있다" 가 정확히 그 모양이다.
+    //
+    // 줄일 자리를 찾아봤다. `scan_roots` 절의 문단은 전부 실측 하나씩을
+    // 업고 있고, 잘라 낼 수 있는 것은 출처를 적은 두 문장(약 170 바이트)
+    // 뿐이었다. 새 절은 그보다 넉넉히 크고, 그 둘을 지우면 **왜 그 규칙을
+    // 아는가**가 사라진다.
+    //
+    // 2026-09-06 에 14 KB 로 올렸다. `name` 이 고객 화면의 첫 줄이 되고
+    // `version` 에 "룰을 고치면 올린다" 규칙이 붙었다 — 둘 다 표의 그 행에
+    // 적어야 하는 사실이고(문서에 없는 규칙은 없는 것과 같다), 남은 여유가
+    // 82 바이트였다. 다른 행을 줄여 만들 수 있는 자리가 아니었다.
+    // 2026-10-27 에 16 KB 로 올렸다 (C-5 · `text_config_dirs`).
+    //
+    // **위의 지시대로 내용이 아니라 판단을 먼저 봤다** — "쪼개는 기준은 분량이
+    // 아니라 과업" 이 이 파일에도 맞는가. 맞다. 매니페스트를 쓰는 사람에게
+    // `scan_roots` · `subject_roots` · `text_config_dirs` 는 **한 번에 고르는
+    // 하나의 결정**이다. 떼어 내면 `/etc` 를 상한으로 적은 작성자가 드롭인
+    // 디렉터리에 선언이 따로 필요하다는 것을 못 읽고, 그 플러그인은
+    // `/etc/pam.d` 에 떨어진 파일을 **영영 0건으로** 본다 — 이 절이 막으려는
+    // 바로 그것이다.
+    //
+    // 줄일 자리를 찾아봤다. 남은 여유가 **19 바이트**였고, 가장 탐났던 것은
+    // `subject_roots` 절의 실측 문장(상한 5만에서 잘려 종료 6)인데 그것이
+    // **왜 좁히는 기능이 있는가**의 유일한 근거다. 지우면 기능이 규율로만
+    // 남는다.
+    ("10-manifest.md", 16 * 1024),
+    // **기본 상한을 쓰던 자리다** (2026-10-27 · C-1 버전 비교 연산자).
+    //
+    // §버전 이 *"버전 비교 연산자는 **없다**"* 였다. `version_lt`·`version_gt` 가
+    // 생기면서 그 절이 *"이렇게 쓴다"* 로 바뀌어 셋이 들어왔다 — 계열을 좁히고
+    // 미만을 보는 **예시 한 벌**, 받지 않는 **꼬리의 이유**(`8.4.0RC1` 은 낮고
+    // `8.2.29-1ubuntu1` 은 높다 — 모양이 같고 순서가 반대다), 그리고 **지금
+    // 버전을 담는 필드**가 무엇인지. 남은 여유가 **8 바이트**였고, 적대 검증이
+    // 찾은 것(따옴표 규칙 · 레지스트리 `\*` 전개 · `not` 아래의 예외)까지 더해
+    // 12,280 → 14,3xx 바이트가 됐고, C-1b(2026-10-27)가 §버전의 *"필드가 없다"*
+    // 를 *"`file.version` 이 있다"* 로 바꾸면서 YARA 표를 한 문장으로 줄여
+    // 그 안에 들어갔다. **남은 여유가 수십 바이트다** — 한 문장을 더하려면
+    // 다른 한 문장을 줄여야 한다.
+    //
+    // 줄일 자리를 찾아봤다. 가장 탐났던 것은 *"두 자리로 줄여 적는 우회는 순서를
+    // 뒤집는다"* 한 문장(약 110 바이트)인데, **그것이 린트가 잡지 못하는 유일한
+    // 경우**다 — `8.2` 는 수로도 읽혀 `lt` 가 조용히 지나간다
+    // (`a_number_or_an_instant_under_lt_stays_quiet`). 지우면 도구가 침묵하는
+    // 자리에서 문서도 침묵한다.
+    //
+    // 쪼개지 않은 이유는 과업이 하나이기 때문이다 — *"점검 전용 플러그인을
+    // 쓴다"*. 취약 버전 점검은 그 과업의 본보기이고, 버전 비교를 다른 파일로
+    // 옮기면 AI 가 절반만 읽는다.
+    //
+    // 2026-10-27 에 16 KB 로 올렸다 (C-2 · `package` subject).
+    //
+    // **위의 지시대로 내용이 아니라 판단을 먼저 봤다** — 과업이 *"점검 전용
+    // 플러그인을 쓴다"* 이고 취약 버전 점검이 그 본보기라는 것이 아직 맞는가.
+    // 맞다. 그리고 **리눅스의 취약 버전 점검은 이제 `package` 로 한다** —
+    // §버전 이 *"ELF 에는 그 구조가 없다"* 로 끝나던 자리가 그것이다. 떼어
+    // 내면 리눅스 점검을 쓰는 작성자가 **상류 판만 보고 백포트를 놓치는**
+    // 룰을 쓰게 되는데, 그 함정을 말하는 문단이 바로 새 절에 있다.
+    //
+    // 더한 것은 넷이다 — 판을 셋으로 가른 **필드 표**, 실측으로 맞춘 **레시피
+    // 한 벌**(`source equals "php8.1"` 이 계열을 겨눈다 · ubuntu 22.04 에서
+    // 확인), **백포트를 못 가린다는 한계**(상류 판만 보면 고친 기계도 걸린다),
+    // 그리고 `rpm` 이 없다 · 치료 Op 이 없다 · 못 읽은 상류 판은 빈다는 세 줄.
+    // 줄일 자리를 찾아봤지만 한계 문단을 지우면 **오탐을 내는 룰이 가장
+    // 자연스러운 모양**이 된다.
+    ("24-check-plugins.md", 16 * 1024),
+    // **이 파일만은 예산의 뜻이 다르다** (2026-09-05).
+    //
+    // `32-lint-errors.md` 는 **생성물**이고, 크기가 산문이 아니라 **진단 수**로
+    // 정해진다. 그리고 2026-09-05 부터 시험이 그 수를 강제한다 —
+    // `every_check_has_a_case_in_the_generated_document` 가 검사 열아홉마다
+    // 사례를 요구한다. 그날 여섯이 빠져 있던 것이 드러나 채웠고, 그러면서
+    // 12 KB 를 넘었다.
+    //
+    // **여기서 예산을 조이면 완결성을 조이게 된다.** 줄이는 방법이 사례를
+    // 지우는 것뿐이고, 그것이 정확히 그 시험이 막는 일이다. 다음에 또 넘으면
+    // 자를 자리를 찾을 것이 아니라 **진단이 그만큼 늘었다는 사실**을 보라.
+    //
+    // 2026-09-25 에 18 KB 로 올렸다. 조건 하나짜리 넓은 비교 경고가 다른
+    // 사례(대체 스트림)의 둘째 줄로만 나와 **자기 절이 없었고**, xmr-r1 응시자가
+    // 그 경고를 예상하지 못했다. 그 절(906 바이트)을 더하자 남은 여유
+    // 231 바이트를 넘었다 — 위 문단대로 진단이 늘어난 것이다.
+    //
+    // 2026-10-02 에 20 KB 로 올렸다. `sha256` 리터럴 형식 검사(오류 · 경고)가
+    // 생겼다 — worm-r3 의 자리 표시와 worm-r1 의 0 64개가 린트를 조용히
+    // 지난 자리다. 사례 둘(약 1.5 KB — 메시지가 고치는 길까지 말한다)이 남은
+    // 여유 255 바이트를 넘었다 — 위 문단대로 진단이 늘어난 것이다.
+    //
+    // 2026-10-27 에 22 KB 로 올렸다. 버전 리터럴 검사(오류 · 경고)가 생겼다 —
+    // `lt` 가 `8.2.29` 를 견주지 못해 조용히 거짓이 되던 자리(PHP 대응 자료
+    // §8 ④)다. 사례 둘이 남은 여유 575 바이트를 넘었다 — 위 문단대로 진단이
+    // 늘어난 것이다.
+    //
+    // 2026-10-27 에 24 KB 로 올렸다. `text_config_dirs` 검사(오류 둘 · 경고 하나)가
+    // 생겼다 — 확장자 밖의 드롭인 디렉터리를 읽는 선언이고(C-5), 상한 밖을 적는
+    // 것이 **읽기 권한의 상한을 두 곳으로 만드는** 자리다. 사례 하나가 남은 여유
+    // 219 바이트를 넘었다. 문구를 집 문체(한 줄씩)로 줄여 870 → 406 바이트까지
+    // 좁혔지만 **린트 메시지 자체는 줄이지 않았다** — 같은 자리의
+    // `subject_roots` 메시지와 같은 길이이고, 문서 예산 때문에 작성자에게 할
+    // 말을 줄이는 것은 꼬리가 몸통을 흔드는 쪽이다. 위 문단대로 진단이 늘어난 것이다.
+    ("32-lint-errors.md", 24 * 1024),
+];
+
+/// 그 밖의 `.md` 전부에 걸리는 상한.
+const DEFAULT_LIMIT: usize = 12 * 1024;
+
+/// 모든 가이드 문서가 달아야 하는 머리.
+const HEADER_PREFIX: &str = "<!-- schema_version:";
+
+pub fn run(root: &Path) -> Result<(), String> {
+    let dir = root.join("docs").join("plugin-guide");
+    if !dir.exists() {
+        return Err(format!("{} 가 없다", dir.display()));
+    }
+
+    let mut over = Vec::new();
+    let mut headless = Vec::new();
+    let mut checked = 0usize;
+
+    for path in markdown_files(&dir)? {
+        let rel = path
+            .strip_prefix(&dir)
+            .unwrap_or(&path)
+            .to_string_lossy()
+            .replace('\\', "/");
+        let bytes = std::fs::metadata(&path)
+            .map_err(|e| format!("{} 를 읽지 못했다: {e}", path.display()))?
+            .len() as usize;
+        checked += 1;
+
+        let limit = LIMITS
+            .iter()
+            .find(|(n, _)| *n == rel)
+            .map(|(_, l)| *l)
+            .unwrap_or(DEFAULT_LIMIT);
+        if bytes > limit {
+            over.push(format!("{rel} — {bytes} 바이트 (상한 {limit})"));
+        }
+
+        // 예제 안의 README 는 그 예제가 가르치는 것을 적는 자리라 헤더를 달지
+        // 않는다. 가이드 본문과 생성물만 자기 버전을 말한다.
+        if rel.starts_with("examples/") {
+            continue;
+        }
+        let head = std::fs::read_to_string(&path)
+            .map_err(|e| format!("{} 를 읽지 못했다: {e}", path.display()))?;
+        if !head.trim_start().starts_with(HEADER_PREFIX) {
+            headless.push(rel);
+        }
+    }
+
+    if checked == 0 {
+        return Err("가이드 문서를 하나도 보지 못했다".into());
+    }
+    if !over.is_empty() {
+        return Err(format!(
+            "크기 예산 초과 {}건 (설계-06 §9):\n  {}\n  \
+             쪼개는 기준은 분량이 아니라 **과업**이다 — 한 과업을 두 파일로 \
+             나누면 AI 가 절반만 읽는다",
+            over.len(),
+            over.join("\n  ")
+        ));
+    }
+    if !headless.is_empty() {
+        return Err(format!(
+            "버전 헤더가 없다 {}건: {}\n  \
+             모든 파일 머리에 `{HEADER_PREFIX} 1 | min_core: … | generated: … -->` 를 둔다",
+            headless.len(),
+            headless.join(", ")
+        ));
+    }
+
+    check_inject(root)?;
+    check_exit_codes(root)?;
+
+    println!("가이드 OK — 문서 {checked}개가 크기 예산과 헤더를 지킨다");
+    Ok(())
+}
+
+/// 운영 문서의 **종료 코드 표**를 코드에 묶는다.
+///
+/// # 왜 필요한가
+///
+/// 종료 코드는 무인 배포가 읽는 **계약**이다(설계-02 §8). 그 계약을 사람이 읽는
+/// 자리는 `docs/operator.md` §3 인데, 그 표는 손으로 적혀 있고 아무것도 코드와
+/// 대조하지 않았다. `check_inject` 와 같은 모양의 위험이다 — 목록이 두 군데
+/// 있고 둘이 갈라지면 문서가 조용히 거짓말을 한다.
+///
+/// 실제로 갈라졌다. 2026-09-07 에 코드 `7`(내부 오류)을 더하면서 표에 손으로
+/// 끼워 넣었는데 **6 앞에** 들어갔고, 아무도 그것을 잡지 않았다. 같은 날 다른
+/// 자리에서는 표가 약속한 *"상한 초과"* 가 코드에서 도달할 수 없는 상태였다.
+///
+/// 여기서 보는 것은 셋이다 — 빠진 코드, 없는 코드, 그리고 **순서**.
+fn check_exit_codes(root: &Path) -> Result<(), String> {
+    use remedy_sdk::artifact::ExitCode;
+
+    let path = root.join("docs").join("operator.md");
+    let text = std::fs::read_to_string(&path)
+        .map_err(|e| format!("{} 를 읽지 못했다: {e}", path.display()))?;
+
+    // 표의 줄은 `| **0** | 위협 없음 | … |` 다. 숫자가 아닌 굵은 첫 칸(`| **권한** |`)은
+    // 다른 표라 그대로 걸러진다.
+    let listed: Vec<u8> = text
+        .lines()
+        .filter_map(|l| {
+            let rest = l.trim_start().strip_prefix("| **")?;
+            let (head, _) = rest.split_once("**")?;
+            head.trim().parse::<u8>().ok()
+        })
+        .collect();
+
+    let expected: Vec<u8> = ExitCode::ALL.iter().map(|e| e.code()).collect();
+    if listed == expected {
+        return Ok(());
+    }
+
+    let mut problems = Vec::new();
+    for e in ExitCode::ALL {
+        if !listed.contains(&e.code()) {
+            problems.push(format!("{} 가 표에 없다 ({})", e.code(), e.meaning()));
+        }
+    }
+    for c in &listed {
+        if !expected.contains(c) {
+            problems.push(format!("{c} 는 코드에 없는 종료 코드다"));
+        }
+    }
+    if problems.is_empty() {
+        problems.push(format!(
+            "순서가 다르다 — 문서 {listed:?}, 코드 {expected:?}"
+        ));
+    }
+    Err(format!(
+        "docs/operator.md 의 종료 코드 표가 ExitCode 와 다르다:\n  {}",
+        problems.join("\n  ")
+    ))
+}
+
+/// AI 합격 시험이 주입한다고 적어 둔 파일 목록을 검사한다 (설계-09 P11).
+///
+/// **"고정" 이 말뿐이 되지 않게 하는 자리다.** 목록은 두 군데에 있다 —
+/// `exam::INJECT`(코드)와 `testbed/ai-exam/inject.txt`(사람이 보고 붙이는 것).
+/// 둘이 갈라지면 회차마다 다른 것을 넣게 되고, 그러면 재현 가능한 시험이
+/// 아니다. 그리고 목록에 적힌 파일이 실제로 있어야 한다 — 문서를 지우거나
+/// 이름을 바꿨는데 목록이 남으면 그 회차는 조용히 그것 없이 돌아간다.
+fn check_inject(root: &Path) -> Result<(), String> {
+    let list_path = root.join("testbed/ai-exam/inject.txt");
+    let text = std::fs::read_to_string(&list_path)
+        .map_err(|e| format!("{} 를 읽지 못했다: {e}", list_path.display()))?;
+    let listed: Vec<&str> = text
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty())
+        .collect();
+
+    if listed != crate::exam::INJECT {
+        return Err(format!(
+            "주입 목록이 갈라졌다 — {} {}줄 vs exam::INJECT {}개\n  \
+             둘 중 하나를 고친 뒤 `cargo xtask exam --list-inject > {}` 로 맞춘다",
+            list_path.display(),
+            listed.len(),
+            crate::exam::INJECT.len(),
+            list_path.display()
+        ));
+    }
+
+    let missing: Vec<&str> = crate::exam::INJECT
+        .iter()
+        .copied()
+        .filter(|p| !root.join(p).exists())
+        .collect();
+    if !missing.is_empty() {
+        return Err(format!(
+            "주입 목록이 없는 파일을 가리킨다 {}건: {}",
+            missing.len(),
+            missing.join(", ")
+        ));
+    }
+
+    check_bundle(root)
+}
+
+/// 응시 꾸러미가 조립되고, **출제 메모가 새지 않는가.**
+///
+/// 꾸러미는 사람이 새 대화에 통째로 붙이는 것이라 아무도 내용을 다시 읽지
+/// 않는다. 그래서 두 가지가 조용히 깨질 수 있다.
+///
+/// - 파일이 빠진다 — 그 회차는 다른 시험이 되는데 응시자도 채점자도 모른다
+/// - **출제 메모가 섞여 들어간다** — `THREAT.md` 구분선 위쪽에는 "1 회차가
+///   이렇게 무너졌다" 가 있고, 그것을 응시자가 보면 힌트다
+///
+/// 조립 자체도 여기서 검사된다 — `PROMPT.md` 에 구분선이 하나 늘면
+/// `bundle()` 이 오류를 내고 그것이 빌드로 나온다.
+fn check_bundle(root: &Path) -> Result<(), String> {
+    // **모든 위협을 검사한다.** 하나만 보면 다른 위협의 꾸러미가 깨져도
+    // 아무도 모른다.
+    for name in crate::exam::threat_names(root) {
+        let t = crate::exam::threat(root, &name)?;
+        check_one_bundle(root, &t)?;
+    }
+    Ok(())
+}
+
+fn check_one_bundle(root: &Path, t: &crate::exam::Threat) -> Result<(), String> {
+    let text = crate::exam::bundle(root, t)?;
+
+    // 주입 파일 + **그 위협의 분석가 룰 수.** 룰을 주지 않는 위협도 있다 —
+    // 본문 판정이 필요 없는 검체가 그렇다.
+    let rules = std::fs::read_dir(t.dir.join("rules"))
+        .map(|rd| {
+            rd.flatten()
+                .filter(|e| e.path().extension().is_some_and(|x| x == "yar"))
+                .count()
+        })
+        .unwrap_or(0);
+    let want = crate::exam::INJECT.len() + rules;
+    let blocks = text.lines().filter(|l| l.starts_with("파일: ")).count();
+    if blocks != want {
+        return Err(format!(
+            "[{}] 응시 꾸러미의 파일 블록이 {blocks}개다 — {want}개여야 한다",
+            t.name
+        ));
+    }
+
+    // 새면 안 되는 것. `{{THREAT}}` 가 남아 있으면 치환이 실패한 것이다.
+    for leak in [
+        "출제자 주의",
+        "{{THREAT}}",
+        "{{IF_RULES}}",
+        "{{END_RULES}}",
+        "testbed/ai-exam",
+    ] {
+        if text.contains(leak) {
+            return Err(format!(
+                "[{}] 응시 꾸러미에 '{leak}' 가 들어 있다 — 출제 쪽 정보는 응시자에게 가지 않는다",
+                t.name
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn markdown_files(dir: &Path) -> Result<Vec<std::path::PathBuf>, String> {
+    let mut out = Vec::new();
+    let mut stack = vec![dir.to_path_buf()];
+    while let Some(d) = stack.pop() {
+        let rd =
+            std::fs::read_dir(&d).map_err(|e| format!("{} 를 읽지 못했다: {e}", d.display()))?;
+        for e in rd {
+            let e = e.map_err(|e| format!("{e}"))?;
+            let p = e.path();
+            if p.is_dir() {
+                stack.push(p);
+            } else if p.extension().is_some_and(|x| x == "md") {
+                out.push(p);
+            }
+        }
+    }
+    out.sort();
+    Ok(out)
+}

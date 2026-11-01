@@ -1,0 +1,266 @@
+{
+  "count": 29,
+  "ops": [
+    {
+      "edits_in_place": false,
+      "id": "file.quarantine_only",
+      "implemented_in": "P6",
+      "linux_from": "P12",
+      "regenerator": false,
+      "reversible": true,
+      "risk": "low"
+    },
+    {
+      "edits_in_place": true,
+      "id": "shortcut.strip_args",
+      "implemented_in": "P7",
+      "linux_from": "P12",
+      "regenerator": false,
+      "reversible": true,
+      "risk": "low"
+    },
+    {
+      "edits_in_place": false,
+      "id": "av.restore_exclusions",
+      "implemented_in": "P7",
+      "linux_from": null,
+      "regenerator": false,
+      "reversible": true,
+      "risk": "low"
+    },
+    {
+      "edits_in_place": true,
+      "id": "hosts.restore_line",
+      "implemented_in": "P7",
+      "linux_from": "P12",
+      "regenerator": false,
+      "reversible": true,
+      "risk": "low"
+    },
+    {
+      "edits_in_place": true,
+      "id": "proxy.restore",
+      "implemented_in": "P7",
+      "linux_from": null,
+      "regenerator": false,
+      "reversible": true,
+      "risk": "low"
+    },
+    {
+      "edits_in_place": false,
+      "id": "firewall.restore_rule",
+      "implemented_in": "P7",
+      "linux_from": null,
+      "regenerator": false,
+      "reversible": true,
+      "risk": "low"
+    },
+    {
+      "edits_in_place": false,
+      "id": "file.delete",
+      "implemented_in": "P7",
+      "linux_from": "P12",
+      "regenerator": false,
+      "reversible": true,
+      "risk": "medium"
+    },
+    {
+      "edits_in_place": false,
+      "id": "file.delete_on_reboot",
+      "implemented_in": "P7",
+      "linux_from": null,
+      "regenerator": false,
+      "reversible": true,
+      "risk": "medium"
+    },
+    {
+      "edits_in_place": true,
+      "id": "file.delete_stream",
+      "implemented_in": "P7",
+      "linux_from": null,
+      "regenerator": false,
+      "reversible": true,
+      "risk": "medium"
+    },
+    {
+      "edits_in_place": false,
+      "id": "registry.delete_value",
+      "implemented_in": "P7",
+      "linux_from": null,
+      "regenerator": true,
+      "reversible": true,
+      "risk": "medium"
+    },
+    {
+      "edits_in_place": true,
+      "id": "registry.strip_value",
+      "implemented_in": "P7",
+      "linux_from": null,
+      "regenerator": true,
+      "reversible": true,
+      "risk": "medium"
+    },
+    {
+      "edits_in_place": true,
+      "id": "registry.restore_default",
+      "implemented_in": "P7",
+      "linux_from": null,
+      "regenerator": false,
+      "reversible": true,
+      "risk": "medium"
+    },
+    {
+      "edits_in_place": true,
+      "id": "persistence.disable",
+      "implemented_in": "P7",
+      "linux_from": "P12",
+      "regenerator": false,
+      "reversible": true,
+      "risk": "medium"
+    },
+    {
+      "edits_in_place": false,
+      "id": "persistence.delete",
+      "implemented_in": "P7",
+      "linux_from": "P12",
+      "regenerator": true,
+      "reversible": true,
+      "risk": "medium"
+    },
+    {
+      "edits_in_place": false,
+      "id": "autorun.remove",
+      "implemented_in": "P7",
+      "linux_from": "P12",
+      "regenerator": true,
+      "reversible": true,
+      "risk": "medium"
+    },
+    {
+      "edits_in_place": true,
+      "id": "text_config.remove_line",
+      "implemented_in": "P7",
+      "linux_from": "P12",
+      "regenerator": false,
+      "reversible": true,
+      "risk": "medium"
+    },
+    {
+      "edits_in_place": true,
+      "id": "structured_config.remove_key",
+      "implemented_in": "P7",
+      "linux_from": "P12",
+      "regenerator": false,
+      "reversible": true,
+      "risk": "medium"
+    },
+    {
+      "edits_in_place": true,
+      "id": "structured_config.restore_default",
+      "implemented_in": "P7",
+      "linux_from": "P12",
+      "regenerator": false,
+      "reversible": true,
+      "risk": "medium"
+    },
+    {
+      "edits_in_place": true,
+      "id": "env.strip_path",
+      "implemented_in": "P7",
+      "linux_from": null,
+      "regenerator": true,
+      "reversible": true,
+      "risk": "medium"
+    },
+    {
+      "edits_in_place": false,
+      "id": "browser_ext.remove",
+      "implemented_in": "P7",
+      "linux_from": "P12",
+      "regenerator": false,
+      "reversible": true,
+      "risk": "medium"
+    },
+    {
+      "edits_in_place": false,
+      "id": "process.kill",
+      "implemented_in": "P8",
+      "linux_from": "P12",
+      "regenerator": false,
+      "reversible": false,
+      "risk": "medium"
+    },
+    {
+      "edits_in_place": true,
+      "id": "service.clear_recovery",
+      "implemented_in": "P8",
+      "linux_from": null,
+      "regenerator": false,
+      "reversible": true,
+      "risk": "medium"
+    },
+    {
+      "edits_in_place": true,
+      "id": "service.stop",
+      "implemented_in": "P8",
+      "linux_from": "P12",
+      "regenerator": false,
+      "reversible": false,
+      "risk": "medium"
+    },
+    {
+      "edits_in_place": true,
+      "id": "service.disable",
+      "implemented_in": "P8",
+      "linux_from": "P12",
+      "regenerator": false,
+      "reversible": true,
+      "risk": "medium"
+    },
+    {
+      "edits_in_place": false,
+      "id": "service.delete",
+      "implemented_in": "P8",
+      "linux_from": "P12",
+      "regenerator": true,
+      "reversible": true,
+      "risk": "medium"
+    },
+    {
+      "edits_in_place": false,
+      "id": "dir.delete_recursive",
+      "implemented_in": "P10",
+      "linux_from": null,
+      "regenerator": false,
+      "reversible": true,
+      "risk": "high"
+    },
+    {
+      "edits_in_place": false,
+      "id": "registry.delete_key",
+      "implemented_in": "P8",
+      "linux_from": null,
+      "regenerator": true,
+      "reversible": true,
+      "risk": "high"
+    },
+    {
+      "edits_in_place": false,
+      "id": "cert_store.remove",
+      "implemented_in": "P8",
+      "linux_from": "P12",
+      "regenerator": false,
+      "reversible": true,
+      "risk": "high"
+    },
+    {
+      "edits_in_place": true,
+      "id": "boot.restore_default",
+      "implemented_in": "P8",
+      "linux_from": null,
+      "regenerator": false,
+      "reversible": true,
+      "risk": "high"
+    }
+  ]
+}

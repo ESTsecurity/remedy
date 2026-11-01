@@ -1,0 +1,31 @@
+# 남아야 하는 자리 — appinit-implant
+#
+# THREAT.md 가 "원래 있던 것은 전부 남아 있어야 한다" 고 적는 자리들이다.
+# `expected-ops.txt` 가 **치료가 해야 할 일**을 적는다면 이 파일은 **치료가
+# 건드리면 안 되는 것**을 적는다.
+#
+# 채점 5 가 이 자리들을 **감염 상태와 치료 상태 사이**에서 견준다. 청정
+# 기준이 아니다 — 이것들은 픽스처가 감염과 함께 세운 "그 기계에 원래 있던
+# 정상 소프트웨어" 라서 청정 기계에는 없다. 그래서 청정과 견주면 영영
+# `판정 불가` 로 남는다 (2026-09-06 감사가 찾은 것이 그것이다).
+#
+# 파일 경로와 레지스트리 **값** 경로만 적는다. 서비스·예약 작업은 관측기가
+# 전수를 담으므로 여기 적지 않아도 이미 재고 있다.
+
+# 정상 벤더의 실행 파일. 검체와 같은 `C:\ProgramData` 아래 산다.
+C:\ProgramData\Acme\Agent\agent.exe
+
+# 정상 방화벽 규칙. **관측기에는 방화벽 섹션이 없다** — 규칙이 레지스트리에
+# 사는 덕분에 값으로 잰다. 이것이 없으면 "규칙을 통째로 지우는" 답안이
+# 심어진 규칙 하나만 지운 답안과 구별되지 않는다.
+HKLM\SYSTEM\CurrentControlSet\Services\SharedAccess\Parameters\FirewallPolicy\FirewallRules\AcmeAgent-Out-TCP
+
+# THREAT.md: "Winlogon 의 Userinit·Shell 은 손대지 않았다." 검체가 안 건드린
+# 자리를 치료가 건드리면 그것은 부수 피해다.
+HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\Userinit
+HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\Shell
+
+# 여기 적지 못한 것 — `agent-config.json` 의 나머지 세 항목.
+# 그 파일은 치료가 **고치는** 대상이라(`structured_config.remove_key`) 감염
+# 상태와 같을 수 없다. "그 키 하나만 빠졌는가" 는 리눅스 하네스의 `line=`
+# 검사에 해당하는 자리인데 Windows 하네스에는 아직 그것이 없다.

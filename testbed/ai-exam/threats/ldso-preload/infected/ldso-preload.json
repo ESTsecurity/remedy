@@ -1,0 +1,175 @@
+{
+  "schema_version": 1,
+  "kind": "remedy.artifacts",
+  "run_id": "exam-ldso-preload",
+  "created": "2026-09-01T00:00:00Z",
+  "host": {
+    "hostname": "example-host",
+    "os": "linux",
+    "version": "",
+    "arch": "x86_64"
+  },
+  "core": {
+    "version": "0.0.0",
+    "build": "x86_64-unknown-linux-gnu"
+  },
+  "plugins": [],
+  "collected_at": "2026-09-01T00:00:00Z",
+  "collector": {
+    "version": "0.0.0",
+    "bitness": 64,
+    "os_bitness": 64
+  },
+  "scope": {
+    "scan_roots": [
+      "/etc/ld.so.conf.d",
+      "/usr/local/lib",
+      "/usr/share/applications"
+    ],
+    "subjects": [
+      "text_config",
+      "file",
+      "shortcut"
+    ],
+    "truncated": false,
+    "denied_dirs": 0
+  },
+  "security_products": [],
+  "file": [
+    {
+      "path": "/etc/ld.so.conf.d/libc.conf",
+      "size": 71,
+      "mtime": "2026-08-28T21:41:07Z",
+      "ctime": "2026-09-04T00:11:04Z",
+      "sha256": "66cfc7c3a258043c238cb408d32fa6ac16ad1847ec5b6779cca73eef66502c1f"
+    },
+    {
+      "path": "/etc/ld.so.conf.d/x86_64-linux-gnu.conf",
+      "size": 100,
+      "mtime": "2026-04-27T20:14:33Z",
+      "ctime": "2026-08-25T02:30:23Z",
+      "sha256": "f03e4740e6922b4f4a1181cd696b52f62f9f10d003740a8940f7121795c59c98"
+    },
+    {
+      "path": "/usr/local/lib/.crypt-9d41/.seed",
+      "size": 8192,
+      "mtime": "2026-08-28T21:41:07Z",
+      "ctime": "2026-09-04T00:11:04Z",
+      "sha256": "ef9158713057a3128decaf272aa625564b0a5c0b2810e5ed50f4cf679b4ff80c"
+    },
+    {
+      "path": "/usr/local/lib/.crypt-9d41/libnsl_compat.so.2",
+      "size": 87432,
+      "mtime": "2026-08-28T21:41:07Z",
+      "ctime": "2026-09-04T00:11:04Z",
+      "sha256": "a5d23a47ea5104c64c2f8a7ad6f9fda0869af0cea95945f0f45cd7f9affda784"
+    },
+    {
+      "path": "/usr/local/lib/libfoo.so.1",
+      "size": 33120,
+      "mtime": "2025-11-02T09:14:22Z",
+      "ctime": "2026-09-04T00:11:04Z",
+      "sha256": "9eeb2c99841efee12bc1da0ae7e5d2a81910da43f6c76e500cd7a8ba81fdfa24"
+    },
+    {
+      "path": "/usr/share/applications/display-im6.q16.desktop",
+      "size": 1001,
+      "mtime": "2026-06-21T13:40:05Z",
+      "ctime": "2026-08-25T02:30:34Z",
+      "sha256": "fcd94a9d00195779d18dcafb5edb7c307cbf4c809d733fe4e1a338473180bc5c"
+    },
+    {
+      "path": "/usr/share/applications/org.example.Editor.desktop",
+      "size": 179,
+      "mtime": "2026-08-28T21:41:07Z",
+      "ctime": "2026-09-04T00:11:04Z",
+      "sha256": "f5ed94c12e50ad2037811b6f6489a1b0f1be331c50cee9a284dbbb22d9534236"
+    },
+    {
+      "path": "/usr/share/applications/org.example.Viewer.desktop",
+      "size": 124,
+      "mtime": "2025-11-02T09:14:22Z",
+      "ctime": "2026-09-04T00:11:04Z",
+      "sha256": "f68c8d7ff582dc13c80efc589fbd0dac2fdcfd138ad571483619ef4beb23353e"
+    },
+    {
+      "path": "/usr/share/applications/python3.11.desktop",
+      "size": 224,
+      "mtime": "2026-04-08T01:58:00Z",
+      "ctime": "2026-08-25T02:30:27Z",
+      "sha256": "abd92fdf530b57206593fd0cf8149be999b88c043d64fa1259c8987b9511962f"
+    }
+  ],
+  "shortcut": [
+    {
+      "path": "/usr/share/applications/display-im6.q16.desktop",
+      "target": "/usr/bin/display-im6.q16",
+      "args": "-nostdin",
+      "working_dir": "",
+      "icon": "display-im6.q16"
+    },
+    {
+      "path": "/usr/share/applications/org.example.Editor.desktop",
+      "target": "/usr/bin/example-editor",
+      "args": "--module /usr/local/lib/.crypt-9d41/libnsl_compat.so.2",
+      "working_dir": "",
+      "icon": "org.example.Editor"
+    },
+    {
+      "path": "/usr/share/applications/org.example.Viewer.desktop",
+      "target": "/usr/bin/example-viewer",
+      "args": "",
+      "working_dir": "",
+      "icon": "org.example.Viewer"
+    },
+    {
+      "path": "/usr/share/applications/python3.11.desktop",
+      "target": "/usr/bin/python3.11",
+      "args": "",
+      "working_dir": "",
+      "icon": "/usr/share/pixmaps/python3.11.xpm"
+    }
+  ],
+  "text_config": [
+    {
+      "path": "/etc/ld.so.conf.d/libc.conf",
+      "line_no": 2,
+      "line": "/usr/local/lib",
+      "section": "",
+      "key": "",
+      "value": ""
+    },
+    {
+      "path": "/etc/ld.so.conf.d/libc.conf",
+      "line_no": 3,
+      "line": "/usr/local/lib/.crypt-9d41",
+      "section": "",
+      "key": "",
+      "value": ""
+    },
+    {
+      "path": "/etc/ld.so.conf.d/x86_64-linux-gnu.conf",
+      "line_no": 2,
+      "line": "/usr/local/lib/x86_64-linux-gnu",
+      "section": "",
+      "key": "",
+      "value": ""
+    },
+    {
+      "path": "/etc/ld.so.conf.d/x86_64-linux-gnu.conf",
+      "line_no": 3,
+      "line": "/lib/x86_64-linux-gnu",
+      "section": "",
+      "key": "",
+      "value": ""
+    },
+    {
+      "path": "/etc/ld.so.conf.d/x86_64-linux-gnu.conf",
+      "line_no": 4,
+      "line": "/usr/lib/x86_64-linux-gnu",
+      "section": "",
+      "key": "",
+      "value": ""
+    }
+  ]
+}

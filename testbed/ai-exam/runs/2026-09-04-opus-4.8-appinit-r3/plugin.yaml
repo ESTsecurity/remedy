@@ -1,0 +1,121 @@
+# ============================================================================
+# remedy 플러그인 — 모든 프로세스에 붙는 AppInit 원격 임플란트 (SvcAssist)
+#
+# 관측: HKLM\...\Windows 의 AppInit_DLLs / LoadAppInit_DLLs 로 sahook.dll 을
+#       거의 모든 프로세스에 주입 · C:\ProgramData\SvcAssist\ 에 페이로드(exe·dll)
+#       · 그 exe 앞으로 인바운드 허용 규칙 · 정상 에이전트 설정
+#       (Acme\Agent\agent-config.json)의 modules.remote 에 로딩 항목 삽입.
+#
+# 치료: 주입 값 둘만 삭제(키·나머지 값 보존) · 페이로드 격리 · 인바운드 규칙 원복
+#       · 설정 항목 하나만 제거. **원래 있던 것은 전부 보존한다.**
+# ============================================================================
+
+schema_version: 1
+id: appinit-svcassist-implant
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [windows]
+name:
+  ko: "AppInit 원격 임플란트(SvcAssist) 제거"
+  en: "AppInit remote implant (SvcAssist) removal"
+
+# 권한 상한(읽기·삭제). 좁을수록 좋다.
+#  · %PROGRAMDATA% : 페이로드와 에이전트 설정이 모두 이 아래에 있다. 하위 폴더
+#                    이름은 레지스트리 증거에서 파생하므로 여기서 못박지 않는다.
+#  · 레지스트리 키 : registry_value 는 scan_roots 에 레지스트리 루트가 있어야만
+#                    수집된다(직속 값만, 재귀 없음). 이 키의 값 19개가 모인다.
+#  · firewall_rule 은 scan_roots 와 무관하게 수집되므로 여기 적지 않는다.
+scan_roots:
+  - "%PROGRAMDATA%"
+  - "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows"
+
+subjects: [registry_value, file, firewall_rule, structured_config]
+
+detect:
+  # ── 부모: 주입 값 ────────────────────────────────────────────────────────
+  # AppInit_DLLs 가 '디렉터리를 가진 .dll 경로'를 가리킬 때만 매치한다. 정상
+  # 기계에서는 이 값이 비어 있어 걸리지 않는다. 경로는 리터럴이 아니라 증거에서
+  # 뽑는다(감염마다 폴더 이름이 다를 수 있다).
+  - id: appinit
+    subject: registry_value
+    where:
+      all:
+        - { field: hive, op: equals,  value: "HKLM" }
+        - { field: key,  op: equals,  value: "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows" }
+        - { field: name, op: equals,  value: "AppInit_DLLs" }
+        - { field: data, op: matches, value: '(?i)\\[^\\]+\.dll' }
+    capture:
+      dll:      "data | first_path"      # 예: C:\ProgramData\SvcAssist\sahook.dll
+      dir:      "${dll} | dirname"       # 예: C:\ProgramData\SvcAssist
+      dll_name: "${dll} | basename"      # 예: sahook.dll
+
+  # 스위치 값. 이 감염의 로딩을 켜는 값이며 제거 대상이다. 판정에는 넣지 않는다
+  # — 넣으면 경로만 남고 스위치가 꺼진 '휴면' 상태를 놓친다.
+  - id: loadflag
+    subject: registry_value
+    where:
+      all:
+        - { field: hive, op: equals,     value: "HKLM" }
+        - { field: key,  op: equals,     value: "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows" }
+        - { field: name, op: equals,     value: "LoadAppInit_DLLs" }
+        - { field: data, op: not_equals, value: "0" }
+
+  # ── 페이로드(제거 대상) ─────────────────────────────────────────────────
+  # 주입 값이 가리킨 그 파일. from 으로 그 폴더 안에서만 찾는다.
+  - id: payload_dll
+    subject: file
+    from: "${appinit.dir}"
+    where:
+      - { field: path, op: ends_with, value: "${appinit.dll_name}" }
+
+  # 같은 폴더의 실행 파일(원격 접속을 받는 바이너리).
+  - id: payload_exe
+    subject: file
+    from: "${appinit.dir}"
+    where:
+      - { field: path, op: ends_with, value: ".exe" }
+
+  # ── 독립 근거 ① : 그 폴더의 실행 파일을 향한 인바운드 허용 규칙 ──────────
+  # 레지스트리와 다른 subject 이므로 판정의 두 번째(독립) 근거가 된다.
+  # direction·action 값은 수집기가 규칙 문자열의 Dir=/Action= 토큰을 그대로
+  # 옮긴 것이라 대문자 In·Allow 다.
+  - id: inbound
+    subject: firewall_rule
+    where:
+      all:
+        - { field: direction,   op: equals,   value: "In" }
+        - { field: action,      op: equals,   value: "Allow" }
+        - { field: application, op: contains, value: "${appinit.dir}" }
+
+  # ── 독립 근거 ② : 정상 에이전트 설정에 끼워 넣은 로딩 항목 ───────────────
+  # 값이 이 감염의 페이로드 폴더를 가리키는 항목만 짚는다(다른 항목은 정상).
+  - id: agent_hook
+    subject: structured_config
+    where:
+      all:
+        - { field: path,     op: ends_with, value: "\\Acme\\Agent\\agent-config.json" }
+        - { field: key_path, op: equals,    value: "modules.remote" }
+        - { field: value,    op: contains,  value: "${appinit.dir}" }
+
+# 주입(레지스트리) ∧ (다른 subject 의 독립 근거 하나 이상).
+# 근거 하나가 이미 사라진 기계(방화벽 규칙 또는 설정 항목 중 한쪽만 남은 경우)
+# 에도 나머지 하나로 판정이 선다. 근거 하나뿐인 판정이 아니다.
+verdict:
+  require: "appinit and (inbound or agent_hook)"
+
+remediate:
+  remove:
+    - { ref: appinit }        # registry.delete_value — 값만 삭제(키·나머지 18개 값 보존)
+    - { ref: loadflag }       # registry.delete_value — 스위치 값 삭제
+    - { ref: payload_dll }    # file.quarantine_only — sahook.dll 격리(되돌릴 수 있음)
+    - { ref: payload_exe }    # file.quarantine_only — svcassist.exe 격리
+    - { ref: agent_hook }     # structured_config.remove_key — modules.remote 항목만 제거
+  restore:
+    - firewall                # firewall.restore_rule — 검체가 만든 인바운드 규칙만 원복
+  verify:
+    after_reboot: true        # 재부팅 후 재판정 — 되살아나면 자동 치료하지 않고 사람이 본다
+
+# 손으로 support-bundle 을 올리는 사람에게 남기는 메모(자동 전송은 없다).
+submit_hint:
+  samples: [payload_dll, payload_exe]
+  confidentiality_min: 1

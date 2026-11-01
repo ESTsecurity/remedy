@@ -1,0 +1,43 @@
+# 감염 스냅샷을 뜨기 위한 수집 매니페스트 — shortcut-hijack.
+#
+# # 이것은 탐지 룰이 아니다
+#
+# `detect` 는 **아무것도 맞히지 않도록** 일부러 짰다 (`search-hijack-collect.yaml`
+# 과 같다). 매니페스트가 있어야 선언 모드로 수집되고, 선언 모드여야 subject 를
+# 고를 수 있을 뿐이다. 여기에 진짜 조건을 적으면 그 순간 스냅샷이 오염된다.
+#
+# # `structured_config` 를 넣지 않는다
+#
+# 페이로드 하나가 `manifest.json` 이다. `structured_config` 를 켜면 같은
+# 파일이 **두 subject 로 거둬지고** 답안에 따라 한 자리에 치료가 둘 계획될 수
+# 있다. 이 위협이 묻는 것은 그쪽이 아니다.
+#
+# # 바탕화면의 `.lnk` 는 `shortcut` 이다
+#
+# 시작 폴더의 `.lnk` 는 `autorun` 이고 바탕화면의 것은 `shortcut` 이다 —
+# **파일 형식이 아니라 자리가 정한다**(`desktop.rs`). 여기서는 바탕화면만
+# 본다.
+
+schema_version: 1
+id: shortcut-hijack-collect
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [windows]
+name:
+  ko: "감염 스냅샷 수집용 — shortcut-hijack"
+  en: "infected snapshot collection - shortcut-hijack"
+
+scan_roots:
+  - "C:\\ProgramData\\WebHelper"
+  - "C:\\ProgramData\\WebTools"
+  - "%USERPROFILE%\\Desktop"
+
+subjects: [file, shortcut]
+
+detect:
+  - id: never
+    subject: file
+    where:
+      - { field: path, op: equals, value: "C:\nonexistent\remedy-exam-never-matches" }
+
+verdict: { require: "never" }

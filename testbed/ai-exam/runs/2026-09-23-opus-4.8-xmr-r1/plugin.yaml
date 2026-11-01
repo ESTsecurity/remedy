@@ -1,0 +1,76 @@
+schema_version: 1
+id: linux-hidden-miner-service
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [linux]
+name:
+  ko: "숨김 폴더 암호화폐 채굴기(systemd 서비스) 제거"
+  en: "Remove hidden-folder cryptominer (systemd service)"
+
+# ── 권한 상한(읽기·삭제) ─────────────────────────────────────────────
+# service 는 이 상한과 무관하게 수집된다(10-manifest.md 표) — 유닛 파일 자리
+# (/etc/systemd/system)를 여기 적을 필요가 없다. 상한이 정하는 것은 file(페이로드)
+# 을 어디서 모으고 어디까지 지울 수 있는가다. 페이로드가 사는 /usr/local/lib 를
+# 상한으로 둔다. 숨김 폴더 이름(.metrics)은 증거에서 파생하므로 부모만 적는다
+# (ex03 와 같은 형태 — 리터럴 폴더명을 박으면 변종을 놓친다).
+scan_roots:
+  - "/usr/local/lib"
+
+subjects: [service, file]
+
+detect:
+  # ── 부모 : 악성 systemd 서비스 ────────────────────────────────────
+  # 자리(/etc/systemd/system)로도 이름으로도 정상과 못 가른다 — 정상 정의가
+  # 같은 폴더에 같은 틀로, 그럴듯한 이름으로 들어 있다. 갈리는 곳은 하나,
+  # "무엇을 실행하는가"다. 이 검체는 실행 파일이 숨김(점) 폴더 안에 있다.
+  # (`state`·`running` 은 쓰지 않는다 — 수집기가 유닛 파일만 읽어 state 는 늘
+  #  unknown 이다. `enabled` 도 걸지 않는다 — 이 검체는 부팅 등록이 안 돼 있다.)
+  - id: svc
+    subject: service
+    where:
+      - { field: image_path, op: contains, value: "/." }
+    capture:
+      # ExecStart 에 인자(--config …)가 붙어 있어도 first_path 가 실행 파일
+      # 하나만 뽑는다. 그 부모 디렉터리가 페이로드 폴더다.
+      bin: "image_path | first_path"
+      dir: "${bin} | dirname"
+
+  # ── 자식(판정의 둘째 근거) : 그 실행 파일이 실제로 있는가 ──────────
+  # 서비스 정의가 가리키는 바이너리가 디스크에 실재하는지 확인한다. 정의만으로
+  # 지우지 않기 위한, 서비스와 독립된 근거다(ex03 의 hook↔payload 와 같은 짜임).
+  - id: payload
+    subject: file
+    from: "${svc.dir}"
+    where:
+      - { field: path, op: equals, value: "${svc.bin}" }
+
+  # ── 같은 숨김 폴더의 나머지(config.json 등) ──────────────────────
+  # 판정에는 쓰지 않고 함께 격리만 한다. 숨김 폴더 전체가 검체가 만든 것이라
+  # from 에 범위를 맡긴다 — 린트가 "from 은 몇 개를 좁히지 않는다" 고 경고하며,
+  # 서명 때 "숨김 폴더 전체가 검체의 것" 이라는 관측을 그 사유로 적는다.
+  - id: companion
+    subject: file
+    from: "${svc.dir}"
+    where:
+      - { field: path, op: not_equals, value: "${svc.bin}" }
+
+# 독립적인 두 근거의 논리곱. 서비스 정의 하나만으로는 아무것도 지우지 않는다.
+verdict:
+  require: "svc and payload"
+
+remediate:
+  remove:
+    # 서비스 = 부팅마다 살아나는 자리. ref 하나면 코어가 정해진 차례를 돈다.
+    # 리눅스에서는 service.disable + service.delete(유닛·.wants 링크 제거)가
+    # 수행되고, service.stop 과 service.clear_recovery 는 리눅스에 개념이 없어
+    # (수집·치료가 유닛 파일 기반이고 살아 있는 서비스 관리자에게 묻지 않는다)
+    # 계획에 deferred 로 남는다. 그 두 건은 "이 계획은 치료의 전부가 아니다"
+    # 로 보고된다 — 조용히 빠지지 않는다.
+    - { ref: svc }
+    # 페이로드 둘을 격리(되돌릴 수 있음). dir.delete_recursive 가 리눅스에
+    # 없어 폴더째가 아니라 파일 단위로 치운다.
+    - { ref: payload }
+    - { ref: companion }
+  # 부팅 뒤 같은 룰로 재판정 — 지속성이 정말 사라졌는지 확인한다.
+  verify:
+    after_reboot: true

@@ -1,0 +1,361 @@
+{
+  "schema_version": 1,
+  "kind": "remedy.artifacts",
+  "run_id": "run-1789974378-0028-2ba61753",
+  "created": "2026-09-21T07:06:18Z",
+  "host": {
+    "hostname": "d8c66c5048bd",
+    "os": "linux",
+    "version": "",
+    "arch": "x86_64"
+  },
+  "core": {
+    "version": "1.0.0",
+    "build": "x86_64-unknown-linux-gnu"
+  },
+  "plugins": [],
+  "collected_at": "2026-09-21T07:06:18Z",
+  "collector": {
+    "version": "1.0.0",
+    "bitness": 64,
+    "os_bitness": 64
+  },
+  "scope": {
+    "scan_roots": [
+      "/etc/cron.d",
+      "/opt/backup",
+      "/srv/data",
+      "/usr/local/bin",
+      "/usr/local/lib",
+      "/var/tmp"
+    ],
+    "subjects": [
+      "file",
+      "persistence"
+    ],
+    "truncated": false,
+    "denied_dirs": 0
+  },
+  "security_products": [],
+  "file": [
+    {
+      "path": "/etc/cron.d/e2scrub_all",
+      "size": 201,
+      "mtime": "2025-06-06T17:12:48Z",
+      "ctime": "2026-08-25T02:30:23Z",
+      "sha256": "d4df081b982b23e66cac7102f9d91032f296caf13031991d90af44ee6cbf6e3b"
+    },
+    {
+      "path": "/etc/cron.d/logrotate-sync",
+      "size": 55,
+      "mtime": "2025-11-02T09:14:22Z",
+      "ctime": "2026-09-22T14:08:51Z",
+      "sha256": "9e8e19d1a55d857e8ef3ab42b74ce0d8730cc781964f0ccd0703c9a809657cc7"
+    },
+    {
+      "path": "/etc/cron.d/sync-agent",
+      "size": 49,
+      "mtime": "2026-09-19T03:51:08Z",
+      "ctime": "2026-09-22T14:08:51Z",
+      "sha256": "e88b0ef3efaa7cf40f1fca666bdd001f98ba2223e562f01377c8c611756c1bd3"
+    },
+    {
+      "path": "/opt/backup/.syncd",
+      "size": 38912,
+      "mtime": "2026-09-19T03:51:08Z",
+      "ctime": "2026-09-22T14:08:51Z",
+      "sha256": "311778aeaef745dbff90e62bc6b368eb209f87e83132328e54ad565dc2ff9411"
+    },
+    {
+      "path": "/opt/backup/vendor-archive.sh",
+      "size": 4096,
+      "mtime": "2025-11-02T09:14:22Z",
+      "ctime": "2026-09-22T14:08:51Z",
+      "sha256": "ec561a5468013aa16c12fc5b2b084d938e8e8c837962257086b5e1694a6123d8"
+    },
+    {
+      "path": "/srv/data/.syncd",
+      "size": 38912,
+      "mtime": "2026-09-19T03:51:08Z",
+      "ctime": "2026-09-22T14:08:51Z",
+      "sha256": "311778aeaef745dbff90e62bc6b368eb209f87e83132328e54ad565dc2ff9411"
+    },
+    {
+      "path": "/srv/data/nightly-sync.log",
+      "size": 12288,
+      "mtime": "2025-11-02T09:14:22Z",
+      "ctime": "2026-09-22T14:08:51Z",
+      "sha256": "f6c7ed58ae676b78c49c48cbed6aa5bf66bc0146e7496082bac4ba0d3f3f72e5"
+    },
+    {
+      "path": "/usr/local/bin/.syncd",
+      "size": 38912,
+      "mtime": "2026-09-19T03:51:08Z",
+      "ctime": "2026-09-22T14:08:51Z",
+      "sha256": "311778aeaef745dbff90e62bc6b368eb209f87e83132328e54ad565dc2ff9411"
+    },
+    {
+      "path": "/usr/local/bin/backup-sync",
+      "size": 20480,
+      "mtime": "2025-11-02T09:14:22Z",
+      "ctime": "2026-09-22T14:08:51Z",
+      "sha256": "fe872e93e1b667563bf04e116ccbac176436e47059230a34a9258274aa7190b5"
+    },
+    {
+      "path": "/usr/local/bin/remedy",
+      "size": 21988520,
+      "mtime": "2026-09-21T04:15:30Z",
+      "ctime": "2026-09-21T04:15:30Z",
+      "sha256": "0f08b87ce4bf2f4dab272f259ff07ac2f7f5b10675546cdceb6734a4c0a0e39e"
+    },
+    {
+      "path": "/usr/local/lib/.syncd",
+      "size": 38912,
+      "mtime": "2026-09-19T03:51:08Z",
+      "ctime": "2026-09-22T14:08:51Z",
+      "sha256": "311778aeaef745dbff90e62bc6b368eb209f87e83132328e54ad565dc2ff9411"
+    },
+    {
+      "path": "/usr/local/lib/libsync.so.1",
+      "size": 65536,
+      "mtime": "2025-11-02T09:14:22Z",
+      "ctime": "2026-09-22T14:08:51Z",
+      "sha256": "09239997549426a5d5b932d493324bed7326c9276a0cd0a96d4d1c81a8eb901a"
+    },
+    {
+      "path": "/var/tmp/.syncd",
+      "size": 38912,
+      "mtime": "2026-09-19T03:51:08Z",
+      "ctime": "2026-09-22T14:08:51Z",
+      "sha256": "311778aeaef745dbff90e62bc6b368eb209f87e83132328e54ad565dc2ff9411"
+    }
+  ],
+  "persistence": [
+    {
+      "id": "/etc/cron.d/e2scrub_all:1",
+      "name": "e2scrub_all",
+      "enabled": true,
+      "trigger": [
+        "calendar"
+      ],
+      "command": "test",
+      "args": "-e /run/systemd/system || SERVICE_MODE=1 /usr/lib/x86_64-linux-gnu/e2fsprogs/e2scrub_all_cron",
+      "principal": "root",
+      "source": "/etc/cron.d/e2scrub_all",
+      "linux": {
+        "cron": {
+          "line_no": 1,
+          "line": "30 3 * * 0 root test -e /run/systemd/system || SERVICE_MODE=1 /usr/lib/x86_64-linux-gnu/e2fsprogs/e2scrub_all_cron"
+        }
+      }
+    },
+    {
+      "id": "/etc/cron.d/e2scrub_all:2",
+      "name": "e2scrub_all",
+      "enabled": true,
+      "trigger": [
+        "calendar"
+      ],
+      "command": "test",
+      "args": "-e /run/systemd/system || SERVICE_MODE=1 /sbin/e2scrub_all -A -r",
+      "principal": "root",
+      "source": "/etc/cron.d/e2scrub_all",
+      "linux": {
+        "cron": {
+          "line_no": 2,
+          "line": "10 3 * * * root test -e /run/systemd/system || SERVICE_MODE=1 /sbin/e2scrub_all -A -r"
+        }
+      }
+    },
+    {
+      "id": "/etc/cron.d/logrotate-sync:1",
+      "name": "logrotate-sync",
+      "enabled": true,
+      "trigger": [
+        "calendar"
+      ],
+      "command": "/opt/backup/vendor-archive.sh",
+      "args": "--nightly",
+      "principal": "root",
+      "source": "/etc/cron.d/logrotate-sync",
+      "linux": {
+        "cron": {
+          "line_no": 1,
+          "line": "0 4 * * * root /opt/backup/vendor-archive.sh --nightly"
+        }
+      }
+    },
+    {
+      "id": "/etc/cron.d/sync-agent:1",
+      "name": "sync-agent",
+      "enabled": true,
+      "trigger": [
+        "calendar"
+      ],
+      "command": "/usr/local/bin/.syncd",
+      "args": "--spread",
+      "principal": "root",
+      "source": "/etc/cron.d/sync-agent",
+      "linux": {
+        "cron": {
+          "line_no": 1,
+          "line": "*/10 * * * * root /usr/local/bin/.syncd --spread"
+        }
+      }
+    },
+    {
+      "id": "/etc/cron.daily/apt-compat",
+      "name": "apt-compat",
+      "enabled": true,
+      "trigger": [
+        "calendar"
+      ],
+      "command": "/etc/cron.daily/apt-compat",
+      "args": "",
+      "principal": "root",
+      "source": "/etc/cron.daily/apt-compat"
+    },
+    {
+      "id": "/etc/cron.daily/dpkg",
+      "name": "dpkg",
+      "enabled": true,
+      "trigger": [
+        "calendar"
+      ],
+      "command": "/etc/cron.daily/dpkg",
+      "args": "",
+      "principal": "root",
+      "source": "/etc/cron.daily/dpkg"
+    },
+    {
+      "id": "/lib/systemd/system/apt-daily-upgrade.timer",
+      "name": "apt-daily-upgrade.timer",
+      "enabled": false,
+      "trigger": [
+        "boot",
+        "calendar"
+      ],
+      "command": "",
+      "args": "",
+      "principal": "root",
+      "source": "/lib/systemd/system/apt-daily-upgrade.timer"
+    },
+    {
+      "id": "/lib/systemd/system/apt-daily.timer",
+      "name": "apt-daily.timer",
+      "enabled": false,
+      "trigger": [
+        "boot",
+        "calendar"
+      ],
+      "command": "",
+      "args": "",
+      "principal": "root",
+      "source": "/lib/systemd/system/apt-daily.timer"
+    },
+    {
+      "id": "/lib/systemd/system/dpkg-db-backup.timer",
+      "name": "dpkg-db-backup.timer",
+      "enabled": false,
+      "trigger": [
+        "boot",
+        "calendar"
+      ],
+      "command": "",
+      "args": "",
+      "principal": "root",
+      "source": "/lib/systemd/system/dpkg-db-backup.timer"
+    },
+    {
+      "id": "/lib/systemd/system/e2scrub_all.timer",
+      "name": "e2scrub_all.timer",
+      "enabled": false,
+      "trigger": [
+        "boot",
+        "calendar"
+      ],
+      "command": "",
+      "args": "",
+      "principal": "root",
+      "source": "/lib/systemd/system/e2scrub_all.timer"
+    },
+    {
+      "id": "/lib/systemd/system/fstrim.timer",
+      "name": "fstrim.timer",
+      "enabled": false,
+      "trigger": [
+        "boot",
+        "calendar"
+      ],
+      "command": "",
+      "args": "",
+      "principal": "root",
+      "source": "/lib/systemd/system/fstrim.timer"
+    },
+    {
+      "id": "/usr/lib/systemd/system/apt-daily-upgrade.timer",
+      "name": "apt-daily-upgrade.timer",
+      "enabled": false,
+      "trigger": [
+        "boot",
+        "calendar"
+      ],
+      "command": "",
+      "args": "",
+      "principal": "root",
+      "source": "/usr/lib/systemd/system/apt-daily-upgrade.timer"
+    },
+    {
+      "id": "/usr/lib/systemd/system/apt-daily.timer",
+      "name": "apt-daily.timer",
+      "enabled": false,
+      "trigger": [
+        "boot",
+        "calendar"
+      ],
+      "command": "",
+      "args": "",
+      "principal": "root",
+      "source": "/usr/lib/systemd/system/apt-daily.timer"
+    },
+    {
+      "id": "/usr/lib/systemd/system/dpkg-db-backup.timer",
+      "name": "dpkg-db-backup.timer",
+      "enabled": false,
+      "trigger": [
+        "boot",
+        "calendar"
+      ],
+      "command": "",
+      "args": "",
+      "principal": "root",
+      "source": "/usr/lib/systemd/system/dpkg-db-backup.timer"
+    },
+    {
+      "id": "/usr/lib/systemd/system/e2scrub_all.timer",
+      "name": "e2scrub_all.timer",
+      "enabled": false,
+      "trigger": [
+        "boot",
+        "calendar"
+      ],
+      "command": "",
+      "args": "",
+      "principal": "root",
+      "source": "/usr/lib/systemd/system/e2scrub_all.timer"
+    },
+    {
+      "id": "/usr/lib/systemd/system/fstrim.timer",
+      "name": "fstrim.timer",
+      "enabled": false,
+      "trigger": [
+        "boot",
+        "calendar"
+      ],
+      "command": "",
+      "args": "",
+      "principal": "root",
+      "source": "/usr/lib/systemd/system/fstrim.timer"
+    }
+  ]
+}

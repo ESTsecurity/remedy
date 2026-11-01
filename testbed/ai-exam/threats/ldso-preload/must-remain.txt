@@ -1,0 +1,16 @@
+# 남아야 하는 자리 — ldso-preload
+#
+# 형식과 판정 방법은 `appinit-implant/must-remain.txt` 의 머리를 볼 것.
+
+# THREAT.md: "`/usr/local/lib` 아래에는 정상 라이브러리도 있다 — 같은 기계에
+# `libfoo.so.1` 이 그 자리에 있었고 이것은 검체와 무관하다."
+#
+# 하네스는 없애는 Op 의 **부모**만 훑는다. 이 위협의 페이로드는
+# `/usr/local/lib/.crypt-9d41/` 안에 있으므로 훑는 자리는 그 하위 폴더이고,
+# `/usr/local/lib` 자신은 아무도 보지 않았다.
+/usr/local/lib/libfoo.so.1
+
+# THREAT.md 가 "손대지 않은 짝" 으로 적는 실행 항목. 고치는 Op 의 대상
+# (`org.example.Editor.desktop`)은 파일 자신만 보고 부모를 훑지 않으므로
+# `/usr/share/applications` 의 옆엣것은 관측 밖이었다.
+/usr/share/applications/org.example.Viewer.desktop

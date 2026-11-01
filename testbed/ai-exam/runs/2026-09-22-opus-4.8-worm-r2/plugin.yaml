@@ -1,0 +1,74 @@
+schema_version: 1
+id: worm-selfcopy-syncd
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [linux]
+name:
+  ko: "자기복제 웜(.syncd) 탐지·제거"
+  en: "Self-replicating worm (.syncd) removal"
+
+# 읽기·삭제 권한 상한. 관측된 복제본 다섯이 놓인 자리만 담는다.
+# - persistence(cron)는 이 상한과 무관하게 수집되므로 /etc/cron.d 는 적지 않는다.
+# - 탐지는 이 목록의 전체 경로가 아니라 아래 시그니처가 한다. scan_roots 는
+#   "어디를 볼 수 있는가"(권한 상한)일 뿐, "무엇이 악성인가"가 아니다.
+# - 좁게 유지한다: 넓히면 이 룰이 읽고 지울 수 있는 범위가 함께 커진다.
+scan_roots:
+  - "/usr/local/bin"
+  - "/usr/local/lib"
+  - "/opt/backup"
+  - "/var/tmp"
+  - "/srv/data"
+
+subjects: [persistence, file]
+
+detect:
+  # ── 근거 1: 다시 뿌리는 자리 (cron) ─────────────────────────────────
+  # /etc/cron.d 의 드롭인이 숨김 바이너리 .syncd 를 --spread 로 10분마다 돌린다.
+  # 정상 cron 은 --spread 가 없다(logrotate-sync=--nightly, e2scrub_all=배포판).
+  # 즉 이 근거는 파일이 아니라 "지속성"에서 온다 — 복제본 근거와 독립이다.
+  - id: spreader
+    subject: persistence
+    where:
+      all:
+        - { field: source,          op: starts_with, value: "/etc/cron.d/" }  # 시스템 cron 드롭인
+        - { field: linux.cron.line, op: contains,     value: "/.syncd" }       # 숨김 웜 바이너리를 실행
+        - { field: linux.cron.line, op: contains,     value: "--spread" }      # 자기 전파 플래그
+
+  # ── 근거 2: 복제본 ─────────────────────────────────────────────────
+  # 자리로도(다섯이 다른 폴더) 이름의 낱말('sync')로도 못 가른다 — 정상 파일
+  # backup-sync·libsync.so.1·vendor-archive.sh·nightly-sync.log 가 'sync' 를
+  # 이름에 갖는다. 갈리는 지점은 "여럿이 똑같다"는 것뿐이다.
+  # 그래서 정상 파일이 갖지 않는 숨김 basename '.syncd' 로 복제본을 모으고,
+  # 판정에서 count 로 "여럿"을 요구한다. (전체 경로를 리터럴로 적지 않으므로
+  # 여섯 번째 복제본도 상한 안에 있으면 함께 걸린다.)
+  - id: copy
+    subject: file
+    where:
+      - { field: path, op: ends_with, value: "/.syncd" }
+
+# 두 독립 근거의 논리곱.
+# - spreader: 지속성(cron) — 되살리는 자리
+# - copy: 파일 — 복제본. count(...)>=2 로 "자기복제(여럿이 똑같다)"를 요구해,
+#   우연한 동명 파일 하나로는 판정이 서지 않게 한다.
+verdict:
+  require: "spreader and count(copy) >= 2"
+
+remediate:
+  remove:
+    # cron 은 유발자다 — 코어가 산출물보다 먼저 처리한다. 정의 파일이 통째로
+    # 검체의 것이므로 persistence 제거로 유닛째 없앤다. (text_config.remove_line
+    # 처럼 줄만 빼면 빈 파일이 남으므로 그 방식을 쓰지 않는다.)
+    - { ref: spreader }
+    # 복제본 전부를 격리한다 — 되돌릴 수 있고(quarantine), 하나라도 남으면
+    # cron 이 그것을 다시 불러 재확산한다.
+    - { ref: copy }
+  # 웜이므로 재부팅 후 재판정으로 재발(놓친 복제본·지속성)을 확인한다.
+  # 경로가 아니라 같은 플러그인이 다시 판정하는지를 본다.
+  verify:
+    after_reboot: true
+
+# 손으로 올릴 때 볼 힌트(자동 전송은 없다). 복제본이 제출하면 유용한 검체다.
+# 고객 기기에서 나온 것이므로 기밀 하한을 대외비로 올려 둔다.
+submit_hint:
+  samples: [copy]
+  confidentiality_min: 1

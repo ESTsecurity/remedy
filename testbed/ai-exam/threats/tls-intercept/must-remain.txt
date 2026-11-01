@@ -1,0 +1,14 @@
+# 남아야 하는 자리 — tls-intercept
+#
+# 형식과 판정 방법은 `appinit-implant/must-remain.txt` 의 머리를 볼 것.
+
+# THREAT.md: "`/opt` 에는 정상 소프트웨어가 산다. 조사한 기계에
+# `/opt/goodware/` 아래 실행 파일과 스크립트가 있었고 이것은 검체와 무관하다."
+#
+# 훑는 자리는 `/opt/netguard` 뿐이라 `/opt` 를 통째로 지우는 답안이 잡히지
+# 않았다.
+/opt/goodware/scripts/backup.sh
+
+# 정상 최상위 인증서는 여기 적지 않는다. 심어진 인증서가 없애는 Op 의
+# 대상이라 그 부모(`/usr/local/share/ca-certificates`)를 훑고 있고, 옆엣
+# 인증서가 함께 지워지면 거기서 보인다.

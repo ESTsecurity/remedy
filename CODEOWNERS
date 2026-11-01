@@ -1,0 +1,24 @@
+# 파괴 동작 추가가 플러그인 작성자 재량으로 들어오지 않게 하는 조직적 장치다
+# (설계-03 §2 · 설계-04 §1).
+#
+# **팀 이름은 조직에서 만든 뒤에 산다.** 아래 이름이 조직에 없으면 GitHub 은
+# 그 줄을 조용히 무시한다 — 승인 게이트가 있는 것처럼 보이면서 없다. 저장소
+# 설정의 Code owners 경고로 확인하고, 없는 팀은 만들거나 줄을 고친다.
+
+# 코어 전체 — 코어팀 승인 필수
+/crates/                @ESTsecurity/remedy-core
+/xtask/                 @ESTsecurity/remedy-core
+/Cargo.toml             @ESTsecurity/remedy-core
+/deny.toml              @ESTsecurity/remedy-core
+/.github/workflows/     @ESTsecurity/remedy-core
+
+# 안전 규칙을 담은 설계 문서 — 코어팀 승인 필수
+/docs/design/           @ESTsecurity/remedy-core
+
+# 공개 범위를 정하는 자리 — 넣을 경로 목록과 검사 예외
+/xtask/public-paths.txt @ESTsecurity/remedy-core
+/xtask/leaks-except.txt @ESTsecurity/remedy-core
+
+# 플러그인 — 분석팀
+/plugins/               @ESTsecurity/remedy-analysts
+/corpus/                @ESTsecurity/remedy-analysts

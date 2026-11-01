@@ -1,0 +1,71 @@
+# 감염 스냅샷에서 반드시 나와야 하는 Op (채점 4번).
+#
+# 처음 밟는 자리가 셋이다 — registry.delete_value · firewall.restore_rule ·
+# structured_config.remove_key. 셋 다 2026-09-01 에 Windows 코퍼스를 넓히기
+# 전에는 위협으로 만들 수 없었다: 그 subject 의 레코드가 청정 코퍼스에 한
+# 건도 없어 오탐 게이트가 아무것도 재지 못했다.
+#
+# 핵심 판단은 **Windows 자신의 키에서 값만 빼는 것**이다. AppInit 값 둘이
+# 사는 키에는 원래 있던 값(Spooler·IconServiceLib)이 함께 있어서, 키를
+# 기준으로 처리하면 그것들이 함께 없어진다. 그리고 값 하나만 빼도 부족하다 —
+# 경로와 스위치가 서로를 되살린다.
+#
+# ── 여기 없는 것 셋과 그 이유 ─────────────────────────────────
+#
+# registry.delete_key : **매니페스트로 도달할 수 없다.** G6 가 이 Op 을
+#   재귀 삭제로 다루어 대상이 capture 값이기를 요구하는데(derived_paths),
+#   레지스트리 키의 자리는 hive+key 로 조립되는 것이라 어떤 capture 도 그
+#   문자열을 내지 못한다. 우회하려고 키를 scan_roots 에 적으면 이번엔 조건 5
+#   (대상이 상한 자체면 거부)에 걸린다. 적지 않으면 그 키가 수집되지 않는다.
+#   실측으로 확인했다 — 이 위협을 그 Op 으로 지으려다 G6 3건에 걸렸다.
+#   2026-09-01 에 derive.rs 의 PLANNED_BUT_GUARDED 에 이유와 함께 적었고,
+#   remedy-plan 의 통합 시험이 그 거부를 고정한다. 가드에 길이 생기면 그
+#   시험이 먼저 깨진다.
+#
+# registry.strip_value : **2026-09-01 에 문서가 생겼다**(22-remediate-recipes.md
+#   의 "값의 일부만 지운다 — edit"). 그 문법으로 실제 계획이 나오는 것도
+#   확인했다. 다만 이 검체에는 값 전체가 검체의 것이라 edit 이 아니라 remove 가
+#   맞다 — 다음 위협에서 쓸 자리다.
+#
+# structured_config.restore_default : NOT_PLANNABLE_YET 에 있다. OS 기본값
+#   카탈로그에 구조적 설정 항목이 하나도 없어 되돌릴 값이 없다.
+
+# ── 2026-09-04: Op 이름만 적던 것을 (Op, 대상)으로 조인다 ──────────────
+#
+# 그전까지 이 파일은 `registry.delete_value` 처럼 **종류만** 적었고, 그것은
+# "그 종류가 하나라도 있으면 통과" 를 뜻했다. appinit-r3 회차의 사전 기준에
+# 실측으로 적었듯 — AppInit_DLLs 만 지우고 LoadAppInit_DLLs 를 남긴 변형이
+# 네 판정을 전부 통과하고 경고도 0이었다.
+#
+# 개수를 세는 것으로는 부족하다. 그러면 AppInit_DLLs 와 Spooler 를 지운 답이
+# 2건으로 통과한다 — 절반짜리 치료보다 나쁜 실패다. 그래서 **대상**을 적는다.
+#
+# 대상 문자열은 응시자가 아니라 코어가 증거에서 조립한다(`derive.rs`). 룰을
+# 어떻게 적었든 같은 레코드를 짚으면 같은 문자열이 나오므로, 답안마다 표기가
+# 달라 비교가 무너지지 않는다. `::` 뒤는 `match` 다 — 대상만으로는 구분되지
+# 않는 Op 이 있다(`structured_config.remove_key` 는 어느 항목을 빼는가가
+# 거기에만 있고, `process.kill` 은 대상 자체가 없다).
+#
+# 아래 목록은 **정답 플러그인의 계획을 그대로 옮긴 것**이고, 사람이 한 줄씩
+# 읽어 위협 설명의 요구와 맞는지 확인했다.
+
+file.quarantine_only C:\ProgramData\SvcAssist\sahook.dll
+file.quarantine_only C:\ProgramData\SvcAssist\svcassist.exe
+firewall.restore_rule HKLM\SYSTEM\CurrentControlSet\Services\SharedAccess\Parameters\FirewallPolicy\FirewallRules\SvcAssist-In-TCP
+registry.restore_default HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Windows\AppInit_DLLs
+registry.restore_default HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Windows\LoadAppInit_DLLs
+structured_config.remove_key C:\ProgramData\Acme\Agent\agent-config.json :: key_path=modules.remote
+
+# ── 2026-09-05: 두 값을 지우던 것을 되돌리는 것으로 ──────────────────────
+#
+# `AppInit_DLLs` 와 `LoadAppInit_DLLs` 는 **청정 Windows 에 이미 있는 값이다**
+# (실측: 각각 `REG_SZ` 빈 문자열, `REG_DWORD` 0). 검체가 만든 것이 아니라
+# 덮어쓴 것이므로 지우는 것이 아니라 되돌리는 것이 맞다 —
+# `22-remediate-recipes.md` 가 적은 그대로다.
+#
+# 지워도 기능은 같아서(값이 없으면 Windows 는 AppInit 을 쓰지 않는다) 네 판정이
+# 전부 초록이었고 `apply` 도 완전 치료(1)로 끝났다. 채점 5 가 **기계가 청정
+# 기준과 다르다**는 것을 냈다.
+#
+# 그때까지 카탈로그에 이 두 자리가 없었고, `LoadAppInit_DLLs` 를 넣으려면
+# 기본값이 **수**여야 해서 카탈로그가 타입을 담게 고쳐야 했다.

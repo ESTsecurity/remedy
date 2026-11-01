@@ -1,0 +1,47 @@
+# P12 — systemd `Restart=` 데몬 실증 플러그인 (리눅스 랩 VM).
+#
+# 실제 위협을 다루지 않는다. `restart-verify.sh` 가 세우는 **무해한 데몬** — `sleep`
+# 의 사본을 `Restart=` 유닛으로 띄운 것 — 을 가이드의 모양대로 치료한다: 실행 파일 ·
+# 그것을 띄우는 유닛 · 돌고 있는 프로세스. 판정은 실행 파일과 유닛의 논리곱이고,
+# 프로세스는 판정에서 빼고 치료에만 넣는다(가이드 README).
+#
+# 경로와 이름은 `restart-verify.sh` 의 FIX_DIR · UNIT_NAME 과 함께 바뀌어야 한다.
+
+schema_version: 1
+id: remedy-lab-restart
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [linux]
+name:
+  ko: "systemd 자동 재시작 실증 플러그인"
+  en: "systemd auto-restart lab plugin"
+
+scan_roots:
+  - "/opt/remedy-lab/restart"
+
+subjects: [file, service, process]
+
+detect:
+  - id: daemon-bin
+    subject: file
+    where:
+      - { field: path, op: equals, value: "/opt/remedy-lab/restart/fixtured" }
+
+  - id: unit
+    subject: service
+    where:
+      - { field: name, op: equals, value: "remedy-lab-restart.service" }
+
+  - id: daemon-proc
+    subject: process
+    where:
+      - { field: image_path, op: equals, value: "/opt/remedy-lab/restart/fixtured" }
+
+verdict:
+  require: "daemon-bin and unit"
+
+remediate:
+  remove:
+    - { ref: daemon-bin }
+    - { ref: unit }
+    - { ref: daemon-proc }

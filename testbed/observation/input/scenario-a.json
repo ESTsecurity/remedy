@@ -1,0 +1,140 @@
+{
+  "schema_version": 1,
+  "kind": "remedy.artifacts",
+  "run_id": "observation-scenario-a",
+  "created": "2026-08-21T00:00:00Z",
+  "host": {
+    "hostname": "OBS-PC",
+    "os": "windows",
+    "version": "10.0.19045",
+    "arch": "x86_64"
+  },
+  "core": { "version": "0.0.0", "build": "observation" },
+  "plugins": [],
+  "collected_at": "2026-08-21T00:00:00Z",
+  "collector": { "version": "0.0.0", "bitness": 64, "os_bitness": 64 },
+  "scope": {
+    "scan_roots": [
+      "C:\\Windows\\System32\\Tasks",
+      "C:\\Users\\analyst\\AppData\\Local\\Programs",
+      "C:\\Program Files"
+    ],
+    "subjects": ["file", "persistence"],
+    "truncated": false,
+    "denied_dirs": 0
+  },
+  "security_products": [{ "vendor": "Microsoft Defender", "realtime": true }],
+  "persistence": [
+    {
+      "id": "\\Microsoft\\Windows\\WindowsUpdateHelper",
+      "name": "WindowsUpdateHelper",
+      "enabled": true,
+      "trigger": ["boot", "logon"],
+      "command": "C:\\Users\\analyst\\AppData\\Local\\Programs\\k2m9x1q4\\updater.exe",
+      "args": "",
+      "principal": "S-1-5-18",
+      "source": "C:\\Windows\\System32\\Tasks\\Microsoft\\Windows\\WindowsUpdateHelper",
+      "win": {
+        "task": {
+          "register_path": "\\Microsoft\\Windows\\",
+          "actions": ["exec"],
+          "run_level": "HighestAvailable"
+        }
+      }
+    },
+    {
+      "id": "\\Slack\\SlackUpdate",
+      "name": "SlackUpdate",
+      "enabled": true,
+      "trigger": ["logon"],
+      "command": "C:\\Users\\analyst\\AppData\\Local\\Programs\\Slack\\updater.exe",
+      "args": "--check",
+      "principal": "OBS-PC\\analyst",
+      "source": "C:\\Windows\\System32\\Tasks\\Slack\\SlackUpdate",
+      "win": {
+        "task": { "register_path": "\\Slack\\", "actions": ["exec"] }
+      }
+    },
+    {
+      "id": "\\Microsoft\\Windows\\UpdateOrchestrator\\Reboot",
+      "name": "Reboot",
+      "enabled": true,
+      "trigger": ["calendar"],
+      "command": "C:\\Windows\\System32\\MusNotification.exe",
+      "args": "Reboot",
+      "principal": "S-1-5-18",
+      "source": "C:\\Windows\\System32\\Tasks\\Microsoft\\Windows\\UpdateOrchestrator\\Reboot",
+      "win": {
+        "task": {
+          "register_path": "\\Microsoft\\Windows\\UpdateOrchestrator\\",
+          "actions": ["exec"]
+        }
+      }
+    },
+    {
+      "id": "\\Microsoft\\Windows\\VendorToolMaintenance",
+      "name": "VendorToolMaintenance",
+      "enabled": true,
+      "trigger": ["calendar"],
+      "command": "C:\\Program Files\\VendorTool\\updater.exe",
+      "args": "/silent",
+      "principal": "S-1-5-18",
+      "source": "C:\\Windows\\System32\\Tasks\\Microsoft\\Windows\\VendorToolMaintenance",
+      "win": {
+        "task": {
+          "register_path": "\\Microsoft\\Windows\\",
+          "actions": ["exec"],
+          "run_level": "HighestAvailable"
+        }
+      }
+    },
+    {
+      "id": "\\Microsoft\\Windows\\.NET Framework\\NGEN v4.0.30319",
+      "name": "NGEN v4.0.30319",
+      "enabled": true,
+      "trigger": [],
+      "command": "",
+      "args": "",
+      "principal": "SYSTEM",
+      "source": "C:\\Windows\\System32\\Tasks\\Microsoft\\Windows\\.NET Framework\\NGEN v4.0.30319",
+      "win": {
+        "task": {
+          "register_path": "\\Microsoft\\Windows\\.NET Framework\\",
+          "actions": ["com_handler"]
+        }
+      }
+    }
+  ],
+  "file": [
+    {
+      "path": "C:\\Users\\analyst\\AppData\\Local\\Programs\\k2m9x1q4\\updater.exe",
+      "size": 284160,
+      "mtime": "2026-08-19T22:14:07Z",
+      "sha256": "5c3e8a1f7b2d940658ac1e3f7b9d024568ac1e3f7b9d0245685c3e8a1f7b2d94"
+    },
+    {
+      "path": "C:\\Users\\analyst\\AppData\\Local\\Programs\\k2m9x1q4\\config.dat",
+      "size": 512,
+      "mtime": "2026-08-19T22:14:07Z",
+      "sha256": "a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90"
+    },
+    {
+      "path": "C:\\Users\\analyst\\AppData\\Local\\Programs\\Slack\\updater.exe",
+      "size": 1902592,
+      "mtime": "2026-05-11T09:33:20Z",
+      "sha256": "b7d4a1f6c9e3205b8f0a4c7e9d21b5f63b1f0c9a5d2e47b8c6a10f93e847d25b"
+    },
+    {
+      "path": "C:\\Users\\analyst\\AppData\\Local\\Programs\\Slack\\slack.exe",
+      "size": 8421376,
+      "mtime": "2026-05-11T09:33:20Z",
+      "sha256": "c9e3205b8f0a4c7e9d21b5f6b7d4a1f63b1f0c9a5d2e47b8c6a10f93e847d25b"
+    },
+    {
+      "path": "C:\\Program Files\\VendorTool\\updater.exe",
+      "size": 640512,
+      "mtime": "2026-04-02T14:07:41Z",
+      "sha256": "d21b5f6b7d4a1f6c9e3205b8f0a4c7e93b1f0c9a5d2e47b8c6a10f93e847d25b"
+    }
+  ]
+}

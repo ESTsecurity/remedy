@@ -1,0 +1,25 @@
+# 남아야 하는 자리 — npm-posthook
+#
+# 형식과 판정 방법은 `appinit-implant/must-remain.txt` 의 머리를 볼 것.
+
+# ── 같은 키를 가진 정상 패키지 ──────────────────────────────────────
+#
+# THREAT.md: "옆 패키지도 같은 이름의 설치 훅을 갖고 있다."
+#
+# **키 이름으로 가른 답안이 여기서 걸린다.** 설치 훅은 정상 패키지가 흔히 쓰는
+# 자리이고, 이 패키지의 훅은 제 폴더 안의 스크립트를 부른다. 설정 파일을 고치면
+# 이 패키지의 빌드가 깨지고, 스크립트를 치우면 설치가 실패한다.
+/usr/local/lib/node_modules/imgtools/package.json
+/usr/local/lib/node_modules/imgtools/scripts/build-native.js
+
+# ── 검체가 끼어든 패키지의 본체 ─────────────────────────────────────
+#
+# THREAT.md: "그 패키지 자체는 정상 제품이다."
+#
+# **패키지째 치운 답안이 여기서 걸린다.** 검체가 더한 것은 설정의 키 하나뿐이고
+# 이 파일은 벤더의 것이다.
+/usr/local/lib/node_modules/nodewatch-agent/dist/index.js
+
+# 여기 적지 않은 것 — 같은 설정 파일의 다른 키 다섯
+# (`name` · `version` · `main` · `scripts.build` · `scripts.test`).
+# `expected-ops.txt` 의 `key_path=` 매치가 "그 키만 빠졌는가" 로 그것을 잰다.

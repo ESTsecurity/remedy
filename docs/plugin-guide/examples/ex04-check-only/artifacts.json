@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "kind": "remedy.artifacts",
+  "run_id": "example-ex04",
+  "created": "2026-10-25T00:00:00Z",
+  "host": {
+    "hostname": "example-host",
+    "os": "linux",
+    "version": "6.1.0",
+    "arch": "x86_64"
+  },
+  "core": {
+    "version": "0.0.0",
+    "build": "example"
+  },
+  "plugins": [],
+  "collected_at": "2026-10-25T00:00:00Z",
+  "collector": {
+    "version": "0.0.0",
+    "bitness": 64,
+    "os_bitness": 64
+  },
+  "scope": {
+    "scan_roots": [
+      "/etc/php"
+    ],
+    "subjects": [
+      "text_config"
+    ],
+    "truncated": false,
+    "denied_dirs": 0
+  },
+  "text_config": [
+    {
+      "path": "/etc/php/8.2/cli/php.ini",
+      "line_no": 409,
+      "line": "memory_limit = -1",
+      "section": "PHP",
+      "key": "memory_limit",
+      "value": "-1"
+    },
+    {
+      "path": "/etc/php/8.2/cli/php.ini",
+      "line_no": 1588,
+      "line": "session.upload_progress.enabled = Off",
+      "section": "Session",
+      "key": "session.upload_progress.enabled",
+      "value": "Off"
+    },
+    {
+      "path": "/etc/php/8.2/fpm/php.ini",
+      "line_no": 409,
+      "line": "memory_limit = 128M",
+      "section": "PHP",
+      "key": "memory_limit",
+      "value": "128M"
+    },
+    {
+      "path": "/etc/php/8.2/fpm/php.ini",
+      "line_no": 1991,
+      "line": "session.upload_progress.enabled = Off",
+      "section": "PATH=/var/www/admin",
+      "key": "session.upload_progress.enabled",
+      "value": "Off"
+    },
+    {
+      "path": "/etc/php/8.2/fpm/pool.d/www.conf",
+      "line_no": 23,
+      "line": "user = www-data",
+      "section": "www",
+      "key": "user",
+      "value": "www-data"
+    },
+    {
+      "path": "/etc/php/8.2/fpm/pool.d/www.conf",
+      "line_no": 41,
+      "line": "listen = /run/php/php8.2-fpm.sock",
+      "section": "www",
+      "key": "listen",
+      "value": "/run/php/php8.2-fpm.sock"
+    },
+    {
+      "path": "/etc/php/8.2/fpm/pool.d/www.conf",
+      "line_no": 53,
+      "line": "listen.owner = www-data",
+      "section": "www",
+      "key": "listen.owner",
+      "value": "www-data"
+    },
+    {
+      "path": "/etc/php/8.3/fpm/php.ini",
+      "line_no": 409,
+      "line": "memory_limit = 128M",
+      "section": "PHP",
+      "key": "memory_limit",
+      "value": "128M"
+    },
+    {
+      "path": "/etc/php/8.3/fpm/php.ini",
+      "line_no": 1588,
+      "line": "session.upload_progress.enabled = Off ; mitigation for CVE-2026-109619",
+      "section": "Session",
+      "key": "session.upload_progress.enabled",
+      "value": "Off ; mitigation for CVE-2026-109619"
+    },
+    {
+      "path": "/etc/php/8.3/fpm/pool.d/www.conf",
+      "line_no": 41,
+      "line": "listen = /run/php/php8.3-fpm.sock",
+      "section": "www",
+      "key": "listen",
+      "value": "/run/php/php8.3-fpm.sock"
+    }
+  ]
+}

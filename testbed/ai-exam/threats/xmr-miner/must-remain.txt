@@ -1,0 +1,20 @@
+# 남아야 하는 자리 — xmr-miner
+#
+# 형식과 판정 방법은 `appinit-implant/must-remain.txt` 의 머리를 볼 것.
+
+# THREAT.md: "같은 폴더의 정상 유닛" — `/etc/systemd/system` 에 나란히 있고,
+# `[Install] WantedBy=multi-user.target` 까지 같은 모양이다. 검체와 다른 것은
+# `ExecStart` 가 가리키는 자리뿐이다. **유닛의 자리로 가르면 이것이 걸린다** —
+# 그 디렉터리에 있다는 사실은 악성의 근거가 아니다.
+/etc/systemd/system/vendor-agent.service
+
+# 그 유닛이 실행하는 정상 페이로드. `/usr/local/lib` 아래에 있다는 것만으로
+# 가르면 함께 격리된다 — 검체 폴더는 `.metrics` 이고 이것은 `vendor` 다.
+/usr/local/lib/vendor/agent
+
+# 배포가 심어 둔 기본 유닛 열둘도 스냅샷에 들어 있다(apt-daily · e2scrub ·
+# fstrim · gpg-agent 등). 목록에 적지 않는 까닭은 **자리가 다르기 때문이다** —
+# `/lib/systemd/system` 과 `/usr/lib/systemd/user` 는 이 위협의 치료 대상
+# 경로가 아니다. 그래도 오탐 압력으로는 센다: `service` 레코드 열넷 중 열둘이
+# 그것들이고, `image_path` 가 아니라 subject 만 보고 지우는 답안은 거기서
+# 무너진다.

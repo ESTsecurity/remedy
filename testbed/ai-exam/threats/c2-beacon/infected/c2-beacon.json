@@ -1,0 +1,104 @@
+{
+  "schema_version": 1,
+  "kind": "remedy.artifacts",
+  "run_id": "run-1788924213-001f-31dc7ab3",
+  "created": "2026-09-09T03:23:33Z",
+  "host": {
+    "hostname": "a05bdb473ef4",
+    "os": "linux",
+    "version": "",
+    "arch": "x86_64"
+  },
+  "core": {
+    "version": "1.0.0",
+    "build": "x86_64-unknown-linux-gnu"
+  },
+  "plugins": [],
+  "collected_at": "2026-09-09T03:23:33Z",
+  "collector": {
+    "version": "1.0.0",
+    "bitness": 64,
+    "os_bitness": 64
+  },
+  "scope": {
+    "scan_roots": [
+      "/opt"
+    ],
+    "subjects": [
+      "autorun",
+      "file",
+      "indicator"
+    ],
+    "truncated": false,
+    "denied_dirs": 0
+  },
+  "security_products": [],
+  "autorun": [
+    {
+      "id": "/etc/xdg/autostart/cache-sync.desktop",
+      "scope": "system",
+      "name": "Cache synchronisation",
+      "command": "/opt/.cache-9f2/agent.bin --beacon https://cdn.evil-metrics.example/v2/ping --key 9f2",
+      "source": "/etc/xdg/autostart"
+    },
+    {
+      "id": "/etc/xdg/autostart/vendor-update.desktop",
+      "scope": "system",
+      "name": "Vendor tools update",
+      "command": "/opt/vendor-tools/update.sh --server https://updates.vendor.example/api",
+      "source": "/etc/xdg/autostart"
+    }
+  ],
+  "file": [
+    {
+      "path": "/opt/.cache-9f2/agent.bin",
+      "size": 51200,
+      "mtime": "2026-09-01T03:12:40Z",
+      "ctime": "2026-09-09T03:23:33Z",
+      "sha256": "fec8aa606ec99721bd2a5153d2973816484c18b755e23fd508b1146d954195c7"
+    },
+    {
+      "path": "/opt/.cache-9f2/helper.so",
+      "size": 24576,
+      "mtime": "2026-09-01T03:12:40Z",
+      "ctime": "2026-09-09T03:23:33Z",
+      "sha256": "384670229c221ff5384c8b7691d711efe8763a41c48490f184727d334e95f5fe"
+    },
+    {
+      "path": "/opt/.cache-9f2/notes.txt",
+      "size": 640,
+      "mtime": "2025-11-02T09:14:22Z",
+      "ctime": "2026-09-09T03:23:33Z",
+      "sha256": "fa49634eea3b61d96dce5054349029dc1fba4aebad4c3f42e5e05dbafc64a6c2"
+    },
+    {
+      "path": "/opt/vendor-tools/update.sh",
+      "size": 412,
+      "mtime": "2025-11-02T09:14:22Z",
+      "ctime": "2026-09-09T03:23:33Z",
+      "sha256": "95e2f217f223350893c0632a44f8ca3ced5c41d38380b9a495edfd50ad9d064d"
+    }
+  ],
+  "indicator": [
+    {
+      "kind": "domain",
+      "value": "cdn.evil-metrics.example",
+      "source_ref": "autorun[0].command"
+    },
+    {
+      "kind": "domain",
+      "value": "updates.vendor.example",
+      "source_ref": "autorun[1].command"
+    },
+    {
+      "kind": "url",
+      "value": "https://cdn.evil-metrics.example/v2/ping",
+      "source_ref": "autorun[0].command"
+    },
+    {
+      "kind": "url",
+      "value": "https://updates.vendor.example/api",
+      "source_ref": "autorun[1].command"
+    }
+  ]
+}

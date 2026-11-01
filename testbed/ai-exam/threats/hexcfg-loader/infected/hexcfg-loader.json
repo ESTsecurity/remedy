@@ -1,0 +1,126 @@
+{
+  "schema_version": 1,
+  "kind": "remedy.artifacts",
+  "run_id": "run-1790044226-0001-325a5ac0",
+  "created": "2026-09-22T02:30:26Z",
+  "host": {
+    "hostname": "47f66d525c97",
+    "os": "linux",
+    "version": "",
+    "arch": "x86_64"
+  },
+  "core": {
+    "version": "1.0.0",
+    "build": "x86_64-unknown-linux-gnu"
+  },
+  "plugins": [],
+  "collected_at": "2026-09-22T02:30:26Z",
+  "collector": {
+    "version": "1.0.0",
+    "bitness": 64,
+    "os_bitness": 64
+  },
+  "scope": {
+    "scan_roots": [
+      "/etc/nodewatch",
+      "/usr/lib/nodewatch/plugins"
+    ],
+    "subjects": [
+      "file",
+      "text_config",
+      "structured_config"
+    ],
+    "truncated": false,
+    "denied_dirs": 0
+  },
+  "security_products": [],
+  "file": [
+    {
+      "path": "/etc/nodewatch/agent.json",
+      "size": 261,
+      "mtime": "2026-09-17T11:48:06Z",
+      "ctime": "2026-09-22T02:33:52Z",
+      "sha256": "8d79b14526f949f4409405d81f97494a9f24efd099176aa4d3f8e3a558e22583"
+    },
+    {
+      "path": "/etc/nodewatch/plugins.conf",
+      "size": 118,
+      "mtime": "2026-09-17T11:48:06Z",
+      "ctime": "2026-09-22T02:33:52Z",
+      "sha256": "17c3664d261686acf0ed75ff45056a4ee881dca458a98b5319fbb6e7371a3706"
+    },
+    {
+      "path": "/usr/lib/nodewatch/plugins/inventory.so",
+      "size": 45056,
+      "mtime": "2025-11-02T09:14:22Z",
+      "ctime": "2026-09-22T02:33:52Z",
+      "sha256": "2ebc12c0435975d33858e424ef72ccf3313bd90782e9edc0cbd86a95d5d6a754"
+    },
+    {
+      "path": "/usr/lib/nodewatch/plugins/libnetcache.so",
+      "size": 28672,
+      "mtime": "2026-09-17T11:48:06Z",
+      "ctime": "2026-09-22T02:33:52Z",
+      "sha256": "f618fe5e6a650bb821a12922d3b1020a2303a28e8d7bce147a03d37c48658645"
+    },
+    {
+      "path": "/usr/lib/nodewatch/plugins/metrics.so",
+      "size": 61440,
+      "mtime": "2025-11-02T09:14:22Z",
+      "ctime": "2026-09-22T02:33:52Z",
+      "sha256": "7f88a2537016051f5cd8094854e6db89c886dd3f0e683fc159f2a62f728d947f"
+    }
+  ],
+  "structured_config": [
+    {
+      "path": "/etc/nodewatch/agent.json",
+      "format": "json",
+      "key_path": "endpoint",
+      "value": "https://nodewatch.example.local/ingest"
+    },
+    {
+      "path": "/etc/nodewatch/agent.json",
+      "format": "json",
+      "key_path": "intervalSeconds",
+      "value": "60"
+    },
+    {
+      "path": "/etc/nodewatch/agent.json",
+      "format": "json",
+      "key_path": "plugins.dir",
+      "value": "/usr/lib/nodewatch/plugins"
+    },
+    {
+      "path": "/etc/nodewatch/agent.json",
+      "format": "json",
+      "key_path": "relay.module",
+      "value": "2f7573722f6c69622f6e6f646577617463682f706c7567696e732f6c69624e657443616368652e736f"
+    }
+  ],
+  "text_config": [
+    {
+      "path": "/etc/nodewatch/plugins.conf",
+      "line_no": 2,
+      "line": "plugin = inventory.so",
+      "section": "",
+      "key": "plugin",
+      "value": "inventory.so"
+    },
+    {
+      "path": "/etc/nodewatch/plugins.conf",
+      "line_no": 3,
+      "line": "plugin = metrics.so",
+      "section": "",
+      "key": "plugin",
+      "value": "metrics.so"
+    },
+    {
+      "path": "/etc/nodewatch/plugins.conf",
+      "line_no": 4,
+      "line": "plugin = libnetcache.so",
+      "section": "",
+      "key": "plugin",
+      "value": "libnetcache.so"
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+# 감염 스냅샷을 뜨기 위한 수집 매니페스트 — hexcfg-loader.
+#
+# # 이것은 탐지 룰이 아니다
+#
+# `detect` 는 **아무것도 맞히지 않도록** 일부러 짰다 (`xmr-miner-collect.yaml`
+# 과 같다). 매니페스트가 있어야 선언 모드로 수집되고, 선언 모드여야 subject 를
+# 고를 수 있을 뿐이다. 여기에 진짜 조건을 적으면 그 순간 스냅샷이 오염된다.
+#
+# # 세 subject 를 함께 담는다
+#
+# 이 위협은 **한 사슬**이다 — 구조적 설정(감춘 값) · 텍스트 설정(이름만 적은
+# 목록) · 파일(실제 플러그인). 하나라도 빠지면 잇는 것을 잴 수 없다.
+#
+# 수집기는 확장자로 거른다: 구조적 설정은 `.json`, 텍스트 설정은 `.conf` 를
+# 포함한 여섯이다(`remedy-collect::config`). 그래서 `agent.json` 은 구조적으로,
+# `plugins.conf` 는 텍스트로 담긴다.
+#
+# # 정상 플러그인 둘도 담는다
+#
+# 폴더째 치우거나 목록을 비운 답안이 걸려야 한다. 검체만 담으면 그 함정이
+# 스냅샷에 없다.
+
+schema_version: 1
+id: hexcfg-loader-collect
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [linux]
+name:
+  ko: "감염 스냅샷 수집용 — hexcfg-loader"
+  en: "infected snapshot collection - hexcfg-loader"
+
+scan_roots:
+  - "/etc/nodewatch"
+  - "/usr/lib/nodewatch/plugins"
+
+subjects: [file, text_config, structured_config]
+
+detect:
+  - id: never
+    subject: file
+    where:
+      - { field: path, op: equals, value: "/nonexistent/remedy-exam-never-matches" }
+
+verdict: { require: "never" }

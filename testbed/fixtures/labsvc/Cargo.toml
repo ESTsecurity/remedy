@@ -1,0 +1,26 @@
+# SCM 복구 동작 픽스처. **워크스페이스 밖이다.**
+#
+# 제품 크레이트가 아니라 실험 대상이므로 `cargo xtask arch` 의 크레이트 수와
+# 금지 의존 검사, `cargo deny` 의 그래프에 섞이면 안 된다. 루트 `Cargo.toml` 의
+# `exclude` 가 그것을 보장하고, 하네스가 `--manifest-path` 로 따로 빌드한다.
+#
+# **여기에만 `windows-service` 를 둔다.** 제품은 이 크레이트를 의존하지 않는다 —
+# remedy 는 서비스를 *만드는* 쪽이 아니라 *고치는* 쪽이고, 고치는 데에는
+# `sc.exe`(설계-01 D12)면 된다.
+[package]
+name = "remedy-lab-service"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "lab-service"
+path = "src/main.rs"
+
+[target.'cfg(windows)'.dependencies]
+# SCM 핸드셰이크(`StartServiceCtrlDispatcher`·`SetServiceStatus`)를 안전하게
+# 감싼다. 이것 없이 서비스를 쓰려면 unsafe FFI 를 손으로 써야 한다.
+windows-service = "0.8"
+
+[profile.release]
+opt-level = 1
