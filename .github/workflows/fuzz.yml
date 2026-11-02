@@ -1,0 +1,35 @@
+# 파서 퍼징 — **손으로만 돈다** (workflow_dispatch).
+#
+# 매 커밋마다 돌리지 않는 이유는 두 가지다. 퍼징은 시간을 쓸수록 값이 나오는
+# 검사라 파이프라인 시간에 묶으면 얕아지고, 실패가 **간헐적**이라 커밋을 막는
+# 게이트로 쓰면 관계없는 PR 이 빨갛게 된다. 옛 GitLab 에서는 야간 정기였다 —
+# private 동안은 조직 전체가 Actions 시간 한도를 나눠 쓰므로 정기 실행을 두지 않는다.
+#
+# 시드를 실행 번호로 준다. 돌릴 때마다 다른 입력을 훑되, 실패 보고에 시드가
+# 남아 그대로 재현할 수 있다 — `cargo xtask fuzz --seed <번호> --millis 60000`.
+
+name: fuzz
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-24.04
+    # 캐시 없이 짓는 시간을 넣었다 — 퍼징 자체는 대상 7개 × 60초다.
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: toolchain
+        run: rustc --version && cargo --version
+      - name: fuzz
+        run: cargo xtask fuzz --seed "${{ github.run_number }}" --millis 60000

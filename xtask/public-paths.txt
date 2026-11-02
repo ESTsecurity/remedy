@@ -36,6 +36,9 @@ testbed/harness/linux/
 testbed/harness/windows/
 testbed/observation/
 
+# ── GitHub — Actions 워크플로 · 이슈와 PR 템플릿
+.github/
+
 # ── 뿌리
 .cargo/config.toml
 .cargo/host.example.yml       # 견본 — 하네스가 값을 못 찾으면 이 파일을 가리킨다
