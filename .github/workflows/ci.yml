@@ -33,6 +33,12 @@ concurrency:
 env:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: "0"
+  # 디버그 정보를 담지 않는다. 담으면 시험 바이너리가 러너 디스크를 채운다 — 첫
+  # 실행이 test 단계에서 No space left on device 로 죽었다(리눅스에서 잰 시험
+  # 바이너리 64 개가 7.8 GiB · 가장 큰 것 352 MiB 중 254 MiB 가 디버그 정보). 패닉
+  # 위치(파일:줄)는 디버그 정보와 상관없이 찍히고, 백트레이스에는 함수 이름이 남는다.
+  # RUSTFLAGS 가 아니라서 `.cargo/config.toml` 의 정적 CRT 설정을 덮지 않는다.
+  CARGO_PROFILE_DEV_DEBUG: "0"
 
 jobs:
   linux:
@@ -81,6 +87,13 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: test
         run: cargo test --workspace
+      # 디스크가 찬 일이 있다 — 끝에 남은 자리와 크기를 적어 둔다.
+      - name: disk
+        if: ${{ !cancelled() }}
+        run: |
+          nproc
+          df -h .
+          du -sh target ~/.cargo/registry 2>/dev/null || true
 
   windows:
     if: github.event_name != 'pull_request'
@@ -109,3 +122,10 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: test
         run: cargo test --workspace
+      - name: disk
+        if: ${{ !cancelled() }}
+        run: |
+          $env:NUMBER_OF_PROCESSORS
+          Get-PSDrive -PSProvider FileSystem | Format-Table Name, @{ n = 'UsedGB'; e = { [math]::Round($_.Used / 1GB, 1) } }, @{ n = 'FreeGB'; e = { [math]::Round($_.Free / 1GB, 1) } }
+          $bytes = (Get-ChildItem target -Recurse -File -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum
+          'target: {0:N1} GiB' -f ($bytes / 1GB)
