@@ -44,9 +44,10 @@ jobs:
   linux:
     if: github.event_name != 'push'
     runs-on: ubuntu-24.04
-    # 걸린 잡이 분을 먹지 않게 하는 상한 — 빈 캐시의 첫 실행이 14분 29초였다
-    # (2026-11-02). 두 배쯤을 둔다.
-    timeout-minutes: 30
+    # 걸린 잡이 분을 먹지 않게 하는 상한. 빈 캐시의 실행이 14분 29초(PR #1)와
+    # 24분 52초(PR #2)였다 — 단계마다 고르게 느려, 러너 속도가 실행마다 달랐다.
+    # 느린 쪽의 두 배쯤을 둔다.
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
