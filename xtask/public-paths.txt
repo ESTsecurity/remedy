@@ -52,6 +52,7 @@ CLAUDE.md
 CODEOWNERS                    # 공개 저장소에서는 공개용 판이 이 자리에 들어간다
 Cargo.lock
 Cargo.toml
+LICENSE                       # 회사 전용 고지 — Cargo.toml 의 LicenseRef-ESTsecurity-Proprietary 와 같은 뜻
 README.md
 SECURITY.md
 clippy.toml
