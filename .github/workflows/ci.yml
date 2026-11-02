@@ -44,7 +44,9 @@ jobs:
   linux:
     if: github.event_name != 'push'
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    # 걸린 잡이 분을 먹지 않게 하는 상한 — 빈 캐시의 첫 실행이 14분 29초였다
+    # (2026-11-02). 두 배쯤을 둔다.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -65,11 +67,11 @@ jobs:
       # 가벼운 것부터 — 앞에서 걸리면 무거운 단계에 분을 쓰지 않는다.
       - name: fmt
         run: cargo fmt --all -- --check
-      - name: deny (bans · licenses · sources)
-        # 권고(advisories)는 빼고 돈다 — 새 공지가 나오면 코드와 상관없이 빨개지는
-        # 검사이고, 걸려 있는 권고를 평가한 뒤에 더한다. 바이너리는 판과 해시를
-        # 고정해 받는다 — 소스로 지으면 PR 마다 컴파일하는데, 리눅스는 PR 에서만
-        # 돌아 캐시를 PR 끼리 나누지 못한다.
+      - name: deny
+        # 권고(advisories)는 새 공지가 나오면 코드와 상관없이 빨개진다 — 그때는 해당
+        # 여부를 평가해 판을 올리거나, `deny.toml` 에 근거와 재검토 조건을 단다.
+        # 바이너리는 판과 해시를 고정해 받는다 — 소스로 지으면 PR 마다 컴파일하는데,
+        # 리눅스는 PR 에서만 돌아 캐시를 PR 끼리 나누지 못한다.
         env:
           DENY: cargo-deny-0.20.2-x86_64-unknown-linux-musl
           DENY_SHA256: 9f12ed4c49936e09b48bf862b595cde2fe64fcbd9d74dfacac6131ca824c8d5f
@@ -78,7 +80,7 @@ jobs:
             "https://github.com/EmbarkStudios/cargo-deny/releases/download/0.20.2/$DENY.tar.gz"
           echo "$DENY_SHA256  $RUNNER_TEMP/deny.tar.gz" | sha256sum -c -
           tar -xzf "$RUNNER_TEMP/deny.tar.gz" -C ~/.cargo/bin --strip-components=1 "$DENY/cargo-deny"
-          cargo deny check bans licenses sources
+          cargo deny check
       - name: leaks
         run: cargo xtask leaks
       - name: xtask all
@@ -98,7 +100,8 @@ jobs:
   windows:
     if: github.event_name != 'pull_request'
     runs-on: windows-2025
-    timeout-minutes: 150
+    # 빈 캐시의 첫 실행이 26분 54초였다(2026-11-02). 두 배쯤을 둔다.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
