@@ -1,5 +1,5 @@
 //! 공개 전 누출 검사 — GitHub 공개 저장소에 **넣기로 한 것만** 들어갔는가, 그 안에
-//! 내부 값이 없는가.
+//! 내부 값과 비밀이 없는가.
 //!
 //! # 장치 둘
 //!
@@ -128,6 +128,24 @@ fn rules() -> Vec<Rule> {
             re: Regex::new(r"/home/([a-z_][a-z0-9_.-]*)").expect("규칙 정규식"),
             placeholders: Some(TEST_NAMES.to_vec()),
         },
+        // 비밀은 꼴이 곧 값이다 — 걸리면 가리는 것으로 끝나지 않고, 이미 샌 것으로
+        // 보아 폐기한다. 시험 값을 조각으로 잇는 까닭은 위 문서 주석.
+        plain(
+            "GitHub 토큰",
+            r"gh[pousr]_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{82}",
+        ),
+        // PEM 과 OpenSSH 의 개인키, PGP 의 개인키 묶음 — 머리 한 줄로 잡는다.
+        plain(
+            "개인키 머리",
+            r"-----BEGIN (?:[A-Z0-9]+ )*PRIVATE KEY(?: BLOCK)?-----",
+        ),
+        // `xtask sign keygen` 이 쓰는 비밀키 상자의 base64 줄. 앞 여섯 바이트(서명
+        // 방식 `Ed` · KDF `Sc` 또는 없음 · 검사합 `B2`)가 첫 여덟 글자로 굳는다.
+        // 공개키(56 글자)와 서명(100 글자)은 길이에서 떨어진다.
+        plain(
+            "minisign 비밀키",
+            r"\bRW(?:RTY0Iy|QAAEIy)[A-Za-z0-9+/]{100,}",
+        ),
     ]
 }
 
@@ -894,6 +912,54 @@ mod tests {
             );
             assert!(root.join(&e.prefix).exists(), "없는 경로: {}", e.prefix);
         }
+    }
+
+    #[test]
+    fn a_github_token_is_found_by_its_prefix_and_length() {
+        let body = "Ab1".repeat(12);
+        for kind in ["p", "o", "u", "s", "r"] {
+            let line = format!("token = '{}{kind}_{body}'", "gh");
+            assert_eq!(names(&line), vec!["GitHub 토큰"], "{kind}");
+        }
+        let fine = format!("{}_{}_{}", "github_pat", "A".repeat(22), "b".repeat(59));
+        assert_eq!(names(&fine), vec!["GitHub 토큰"]);
+        // 접두사만 적은 안내문과 짧은 꼬리는 걸리지 않는다.
+        assert!(names(&format!("{}p_ 로 시작하는 토큰", "gh")).is_empty());
+        assert!(names(&format!("{}p_{}", "gh", "Ab1".repeat(6))).is_empty());
+    }
+
+    #[test]
+    fn a_private_key_header_is_found_but_a_public_one_is_not() {
+        let d = "-".repeat(5);
+        for kind in ["", "RSA ", "EC ", "OPENSSH ", "ENCRYPTED "] {
+            let line = format!("{d}BEGIN {kind}PRIVATE KEY{d}");
+            assert_eq!(names(&line), vec!["개인키 머리"], "{line}");
+        }
+        let pgp = format!("{d}BEGIN PGP PRIVATE KEY BLOCK{d}");
+        assert_eq!(names(&pgp), vec!["개인키 머리"]);
+        for other in ["PUBLIC KEY", "CERTIFICATE", "PGP SIGNATURE"] {
+            assert!(names(&format!("{d}BEGIN {other}{d}")).is_empty(), "{other}");
+        }
+    }
+
+    #[test]
+    fn a_minisign_secret_key_is_found_and_its_public_half_is_not() {
+        // 크레이트가 만든 진짜 상자로 잰다. 암호를 건 비밀키(`sign keygen` 이 쓰는
+        // 꼴)는 KDF 칸 두 바이트만 다르고, 그 칸은 첫 여덟 글자 안에 있다 — 암호를
+        // 걸면 시험이 KDF 를 돌아 느려지므로 머리만 바꿔 같은 꼴을 만든다.
+        let kp = minisign::KeyPair::generate_unencrypted_keypair().expect("키쌍");
+        let sk = kp.sk.to_box(None).expect("비밀키 상자").into_string();
+        assert_eq!(names(&sk), vec!["minisign 비밀키"]);
+        let line = sk.lines().nth(1).expect("base64 줄");
+        let sealed = format!("{}{}", ["RW", "RTY0Iy"].concat(), &line[8..]);
+        assert_eq!(names(&sealed), vec!["minisign 비밀키"]);
+
+        let pk = kp.pk.to_box().expect("공개키 상자").into_string();
+        assert!(names(&pk).is_empty(), "{pk}");
+        let sig = minisign::sign(Some(&kp.pk), &kp.sk, &b"x"[..], None, None)
+            .expect("서명")
+            .into_string();
+        assert!(names(&sig).is_empty(), "{sig}");
     }
 
     #[test]
