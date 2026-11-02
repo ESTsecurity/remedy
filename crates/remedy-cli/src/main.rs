@@ -633,8 +633,8 @@ impl From<remedy_core::PipelineError> for Failure {
 /// `resume` 은 파괴를 이어 하는 것이므로 걸린다.
 /// 시험용 되돌림 — **배포되는 바이너리에는 없다.**
 ///
-/// 배포물은 `cargo build --release` 로 만들어지고(`.gitlab-ci.yml` 의
-/// `build:windows`·`build:linux`), 거기서 `debug_assertions` 는 꺼진다.
+/// 배포물은 `cargo build --release` 로 만들어지고(`docs/operator.md` §9 의
+/// 조립 차례), 거기서 `debug_assertions` 는 꺼진다.
 /// 그러므로 이 문은 고객에게 가는 물건에 **존재하지 않는다** — 런타임 검사가
 /// 아니라 컴파일 시점에 사라진다.
 ///
