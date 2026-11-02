@@ -16,13 +16,17 @@ rust-version = "1.96"
 license = "LicenseRef-ESTsecurity-Proprietary"
 
 [workspace.dependencies]
-yara-x = "1.19"
+# 1.22.1 아래로 내리지 않는다 — 1.19 는 wasmtime 43 · zip 8 · p256 0.13 에 묶여 권고
+# 12건(wasmtime 8 · zip 3 · crypto-bigint 1)이 걸렸다(`cargo deny check`, 2026-11-02).
+yara-x = "1.22.1"
 serde_json = "1"
 serde = { version = "1", features = ["derive"] }
 # plugin.schema.json 을 타입에서 직접 생성한다. 손으로 쓴 생성기는 타입과 따로
 # 놀 수 있고, 그러면 "스키마 단일 소스"가 이름뿐이 된다 (설계-09 P1).
 schemars = "0.8"
 # plugin.yaml 파싱. serde_yaml 은 유지보수가 중단됐다(RUSTSEC-2024-0320).
+# 이 크레이트가 쓰는 파서 unsafe-libyaml 도 유지보수가 끝났다(RUSTSEC-2024-0449) —
+# 근거와 재검토 조건은 `deny.toml`.
 serde_yaml_ng = "0.10"
 # 경로·값 비교 전 NFC 정규화. 한글은 NFD/NFC 바이트열이 완전히 달라, 정규화하지
 # 않으면 같은 이름의 폴더가 다른 문자열로 보인다 (설계-02 §4).
@@ -51,7 +55,7 @@ windows-sys = "0.59"
 # 배포 바이너리의 임포트 테이블을 읽는다. 정적 CRT 가 실제로 적용됐는지,
 # 치료 경로에 네트워크가 링크되지 않았는지(설계-01 D9) 산출물에서 직접 본다.
 # yara-x 가 이미 끌어오는 크레이트라 새 의존이 늘지 않는다.
-object = { version = "0.38", default-features = false, features = ["read", "std"] }
+object = { version = "0.39", default-features = false, features = ["read", "std"] }
 # 청정 코퍼스를 압축해 보관한다. 실측 12.9MB 스냅샷이 gzip 후 1.9MB(15%)다.
 # 코퍼스는 계속 늘어날 것이므로(설계-04 §3.2) 원문 그대로는 저장소가 감당하지 못한다.
 flate2 = "1"
