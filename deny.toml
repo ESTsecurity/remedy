@@ -16,21 +16,8 @@ all-features = false
 version = 2
 yanked = "deny"
 ignore = [
-    # wasmtime 43.0.2 — yara-x 1.19.0 이 이 계열에 묶여 있고 43.x 에는 수정본이 없다
-    # (수정: >=24.0.12 · >=36.0.13 · >=46.0.2 · >=47.0.3).
-    #
-    # 우리 사용 형태에 적용되지 않는다. 상위 권고 원문:
-    #   "It requires the embedder to create two `Engine`s and mix objects between them."
-    #   "This bug is *not triggerable by guest WebAssembly programs*."
-    # remedy 는 wasmtime 을 직접 쓰지 않고 yara-x 를 통해서만 닿으며, Engine 을
-    # 여러 개 만들지 않는다. 악성 YARA 룰이나 스캔 대상 데이터로는 촉발할 수 없다.
-    # CVSS 3.8 LOW · Local · 높은 권한 필요.
-    #
-    # 재검토 조건: yara-x 가 wasmtime 을 46+ 로 올리는 즉시 이 항목을 지운다.
-    # P4(remedy-yara 실제 구현) 착수 시 반드시 다시 확인한다.
-    { id = "RUSTSEC-2026-0222", reason = "yara-x 1.19 가 wasmtime 43 에 고정. 임베더가 Engine 을 섞을 때만 발생하므로 우리 사용 형태에 해당 없음. yara-x 갱신 시 제거" },
-
-    # rsa 0.9.10 — Marvin 공격(타이밍 사이드채널로 개인키 복구).
+    # rsa 0.10.0-rc.19 — Marvin 공격(타이밍 사이드채널로 개인키 복구). yara-x 1.22 가
+    # 이 출시 후보 판을 끌어온다(1.19 에서는 0.9.10).
     #
     # 권고 원문: "information about the private key is leaked through timing
     # information which is observable over the network."
@@ -54,6 +41,22 @@ ignore = [
     # 상위에 대체가 없고 우리가 직접 호출하지 않는다.
     # 재검토 조건: yara-x 가 대체하거나, bincode 에 실제 취약점이 공지되면 즉시.
     { id = "RUSTSEC-2025-0141", reason = "yara-x 내부 의존. 미유지보수 공지이며 취약점 아님. 대체 없음" },
+
+    # unsafe-libyaml 0.2.11 — 미유지보수(취약점 아님). 저장소가 2024-03-25 에 보관됐다.
+    # serde_yaml_ng 가 YAML 파서로 쓰고, serde_yaml_ng 는 0.10.0(2024-05)이 마지막 판이라
+    # 판을 올려 풀 수 없다.
+    #
+    # 이 파서에 공격자가 만든 바이트가 닿는 경로가 없다. 읽는 것은 넷이다 — 서명과
+    # 파일 트리를 먼저 검증한 꾸러미의 매니페스트(`discover::usable` 뒤), 운영자가
+    # 고른 플러그인(`--plugin`), 운영자 설정 파일, 분석가의 초안(`plugin lint`).
+    # 감염 기계에서 모은 자료는 YAML 로 읽지 않는다.
+    #
+    # 권고가 권하는 대체(serde-saphyr 등)는 다른 파서라, 같은 매니페스트를 같게
+    # 읽는지(값의 해석 · 오류의 자리)를 따로 재야 한다.
+    #
+    # 재검토 조건: unsafe-libyaml 에 취약점이 공지되거나, 공격자가 쥔 입력을 YAML 로
+    # 읽게 되거나, serde_yaml_ng 가 다른 파서로 옮기면 즉시.
+    { id = "RUSTSEC-2024-0449", reason = "미유지보수 공지이며 취약점 아님. 파서가 읽는 YAML 은 서명 검증 뒤의 매니페스트 · 운영자 입력 · 분석가 초안뿐이라 공격자 입력이 닿지 않는다. 대체는 해석 호환을 따로 재야 한다" },
 ]
 
 [licenses]
