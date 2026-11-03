@@ -28,6 +28,11 @@
     준비가 끝나면 **기계는 감염된 상태로 남는다.** 시연 대본은
     시연 대본(내부 문서).
 
+.PARAMETER Bin
+    배포할 `remedy.exe` 의 **호스트 경로**. 주면 그 파일을 그대로 올리고
+    **짓지 않는다** — Release 에서 내려받은 그 바이트로 재는 자리(기준 5(c))가
+    여기다. 주지 않으면 지금까지처럼 `target\<triple>\release\remedy.exe` 다.
+
 .PARAMETER ReinfectOnly
     도구·예외는 그대로 두고 **감염만 다시 세운다.** 시연을 두 번 돌릴 때
     쓴다 — 전체 준비는 3분 넘게 걸리고 감염만 다시 세우는 것은 몇 초다.
@@ -51,6 +56,7 @@
     .\New-DemoMachine.ps1 -Build          # 처음 한 번
     .\New-DemoMachine.ps1 -ReinfectOnly   # 시연 사이 재설정
     .\New-DemoMachine.ps1 -Build -PhpZip D:\dl\php-8.2.35-1-nts-Win32-vs16-x64.zip
+    .\New-DemoMachine.ps1 -Bin <내려받아 푼 꾸러미>\remedy.exe   # 기준 5(c)
 #>
 [CmdletBinding()]
 param(
@@ -59,6 +65,7 @@ param(
     [switch] $SaveCredential,
     [string] $LabRoot = "C:\remedy-lab",
     [switch] $Build,
+    [string] $Bin,
     [switch] $NoRevert,
     [switch] $ReinfectOnly,
     [string] $PhpZip,
@@ -77,7 +84,14 @@ $Snapshot  = Resolve-LabValue $Snapshot 'windows_lab' 'windows_lab.snapshots.cur
 . (Join-Path $PSScriptRoot "InfectedState.ps1")
 
 $triple  = "x86_64-pc-windows-msvc"
-$binPath = Join-Path $repoRoot "target\$triple\release\remedy.exe"
+# **`-Bin` 은 짓지 않는다.** 주어진 파일을 그대로 올린다 — 저장소 산출물
+# (`target\...`)은 건드리지 않으므로 채점 증거의 해시가 흔들리지 않는다.
+if ($Bin) {
+    if ($Build) { throw "-Bin 과 -Build 는 함께 줄 수 없다 — 주어진 파일을 재는 자리다." }
+    $binPath = (Resolve-Path $Bin).Path
+} else {
+    $binPath = Join-Path $repoRoot "target\$triple\release\remedy.exe"
+}
 
 # 시연에서 사람이 치는 경로. **짧아야 한다** — 화면에 길게 나오면 읽는 사람이
 # 명령이 아니라 경로를 본다.

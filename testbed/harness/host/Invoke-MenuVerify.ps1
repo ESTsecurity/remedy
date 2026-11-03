@@ -38,6 +38,13 @@
     인자 없는 화면이 진짜 콘솔에서도 사용법인지** 다시 잰다. 그것이 §3-00 의
     불변식을 라이브 시연 조건에서 재는 유일한 자리다.
 
+.PARAMETER Package
+    **이미 서명된 꾸러미 폴더**(`remedy.exe` 와 `plugins\<이름>\plugin.yaml`)의
+    호스트 경로. 주면 임시 키쌍 · 앵커 박은 빌드 · 서명 · `package` 를 **하나도
+    하지 않고** 그 폴더를 그대로 배포한다 — 배포 잡이 지어 Release 에 올린 것을
+    내려받아 재는 자리(기준 5(c))가 여기다. `-Prepare` 와 함께 주면 시연 폴더의
+    `remedy.exe` 도 그 꾸러미의 것으로 세운다.
+
 .PARAMETER Prepare
     `New-DemoMachine.ps1` 을 먼저 돌려 기계를 감염 상태로 세운다. 주지 않으면
     **지금 상태 그대로** 잰다 (감염이 없으면 탐지가 0 을 내고 판정이 빨개진다).
@@ -52,6 +59,7 @@
 .EXAMPLE
     .\Invoke-MenuVerify.ps1 -Prepare -ReinfectOnly
     .\Invoke-MenuVerify.ps1 -Build -Prepare -PhpZip D:\dl\php-8.2.35-1-nts-Win32-vs16-x64.zip
+    .\Invoke-MenuVerify.ps1 -Package <내려받아 푼 꾸러미> -Prepare -ReinfectOnly   # 기준 5(c)
 #>
 [CmdletBinding()]
 param(
@@ -59,6 +67,7 @@ param(
     [pscredential] $Credential,
     [string] $LabRoot = "C:\remedy-lab",
     [switch] $Build,
+    [string] $Package,
     [switch] $Prepare,
     [switch] $ReinfectOnly,
     [string] $PhpZip,
@@ -91,6 +100,10 @@ function Add-Check {
     else { Write-Host ("    실패 " + $line) -ForegroundColor Red }
 }
 
+# **빌드보다 먼저 거른다.** 뒤에 두면 쓸모없는 release 빌드가 한 번 돌고 나서야
+# 멈춘다 — 그 빌드는 공유 산출물을 다시 쓴다.
+if ($Package -and $Build) { throw "-Package 와 -Build 는 함께 줄 수 없다 — 주어진 꾸러미를 재는 자리다." }
+
 # ── 1. 기계 준비 ────────────────────────────────────────────────────
 if ($Prepare) {
     Write-Step "시연 기계 준비 (New-DemoMachine)"
@@ -101,6 +114,10 @@ if ($Prepare) {
     # 모양이 이것이다.
     $prep = @{ VmAddress = $VmAddress; LabRoot = $LabRoot; Snapshot = $Snapshot; Vmx = $Vmx }
     if ($Build) { $prep.Build = $true }
+    # **같은 바이너리를 두 폴더에 둔다.** 시연 1단계(4번 판정)는 데모 폴더의
+    # `remedy.exe` 를 인자 없이 부르므로, 꾸러미만 바꾸면 그 자리는 여전히
+    # 저장소 산출물을 재게 된다.
+    if ($Package) { $prep.Bin = (Join-Path (Resolve-Path $Package).Path "remedy.exe") }
     if ($Credential) { $prep.Credential = $Credential }
     if ($PhpZip) { $prep.PhpZip = $PhpZip }
     if ($ReinfectOnly) { $prep.ReinfectOnly = $true; $prep.NoRevert = $true }
@@ -116,56 +133,70 @@ if ($Prepare) {
         Invoke-CargoBuild "remedy.exe" @("build", "--release", "--target", $triple, "-p", "remedy-cli")
     } finally { Pop-Location }
 }
-if (-not (Test-Path $binPath)) { throw "산출물이 없다: $binPath`n -Build 를 줄 것." }
+if (-not $Package) {
+    if (-not (Test-Path $binPath)) { throw "산출물이 없다: $binPath`n -Build 를 줄 것." }
+    $unanchoredHash = (Get-FileHash $binPath -Algorithm SHA256).Hash
+}
 
-$unanchoredHash = (Get-FileHash $binPath -Algorithm SHA256).Hash
-
-# ── 2. 서명된 꾸러미 조립 (앵커 박은 빌드) ──────────────────────────
+# ── 2. 꾸러미 — 주어진 것을 쓰거나, 임시 키로 조립한다 ──────────────
 #
 # **개인키는 회차마다 새로 만들고 끝나면 버린다** (P10 과 같은 방식). 저장소에도
-# 랩에도 남기지 않는다.
-Write-Step "서명된 꾸러미 조립 — 임시 키 · 앵커 박은 빌드"
+# 랩에도 남기지 않는다. `-Package` 는 그 일을 **아예 하지 않는다** — 배포 잡이
+# 지어 올린 꾸러미를 내려받아 그대로 재는 자리라, 여기서 짓는 순간 재는 대상이
+# 그 파일이 아니게 된다.
 $gStage  = Join-Path $env:TEMP ("remedy-menu-" + (Get-Date -Format "yyyyMMddHHmmss"))
 $relBak  = "$gStage\remedy-unanchored.exe"
 $savedPw = $env:REMEDY_SIGN_PASSWORD
 $session = $null
+$pkgSource = $null
 try {
     New-Item -ItemType Directory -Force $gStage | Out-Null
-    # `sign keygen` 은 암호가 없으면 TTY 를 기다린다 — 0바이트 파일만 남아
-    # 빌드 지연처럼 보인다. 그래서 반드시 준다.
-    $env:REMEDY_SIGN_PASSWORD = "menu-verify-ephemeral"
-    Push-Location $repoRoot
-    try {
-        & cargo run -q -p xtask -- sign keygen `
-            --public-key "$gStage\pub.key" --secret-key "$gStage\sec.key" | Out-Null
-        if ($LASTEXITCODE -ne 0) { throw "키 생성 실패" }
-        # 앵커는 공개키 파일의 base64 줄이다. 첫 줄은 주석이다.
-        $anchor = (Get-Content "$gStage\pub.key")[1].Trim()
-        Write-Ok "임시 키쌍"
-
-        Copy-Item $binPath $relBak -Force
-        $env:REMEDY_TRUST_ANCHOR = $anchor
+    if ($Package) {
+        Write-Step "주어진 꾸러미를 그대로 쓴다 — 짓지도 서명하지도 않는다"
+        $pkgSource = (Resolve-Path $Package).Path
+        $pkgExe = Join-Path $pkgSource "remedy.exe"
+        if (-not (Test-Path $pkgExe)) { throw "꾸러미에 remedy.exe 가 없다: $pkgSource" }
+        Add-Check "0" "주어진 꾸러미를 그대로 배포한다 (짓지 않았다)" $true `
+                  ((Get-FileHash $pkgExe -Algorithm SHA256).Hash.Substring(0, 12))
+    } else {
+        Write-Step "서명된 꾸러미 조립 — 임시 키 · 앵커 박은 빌드"
+        $pkgSource = "$gStage\pkg"
+        # `sign keygen` 은 암호가 없으면 TTY 를 기다린다 — 0바이트 파일만 남아
+        # 빌드 지연처럼 보인다. 그래서 반드시 준다.
+        $env:REMEDY_SIGN_PASSWORD = "menu-verify-ephemeral"
+        Push-Location $repoRoot
         try {
-            Invoke-CargoBuild "앵커 박은 remedy.exe" @("build", "-q", "--release",
-                "--target", $triple, "-p", "remedy-cli")
-        } finally { $env:REMEDY_TRUST_ANCHOR = $null }
-        Copy-Item $binPath "$gStage\remedy.exe" -Force
-        # **곧바로 되돌린다.** 이 한 줄이 시연 1단계를 지킨다.
-        Copy-Item $relBak $binPath -Force
-        Write-Ok "앵커 박은 바이너리 (공유 산출물은 되돌렸다)"
+            & cargo run -q -p xtask -- sign keygen `
+                --public-key "$gStage\pub.key" --secret-key "$gStage\sec.key" | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw "키 생성 실패" }
+            # 앵커는 공개키 파일의 base64 줄이다. 첫 줄은 주석이다.
+            $anchor = (Get-Content "$gStage\pub.key")[1].Trim()
+            Write-Ok "임시 키쌍"
 
-        Copy-Item (Join-Path $repoRoot "plugins\evilai-locust") "$gStage\evilai-locust" -Recurse -Force
-        & cargo run -q -p xtask -- sign plugin --dir "$gStage\evilai-locust" `
-            --secret-key "$gStage\sec.key" --signed-at "2026-10-29T00:00:00Z" | Out-Null
-        if ($LASTEXITCODE -ne 0) { throw "플러그인 서명 실패" }
-        & cargo run -q -p xtask -- package --plugin "$gStage\evilai-locust" `
-            --bin "$gStage\remedy.exe" --out "$gStage\pkg" --public-key "$gStage\pub.key" | Out-Null
-        if ($LASTEXITCODE -ne 0) { throw "꾸러미 만들기 실패" }
-        Write-Ok "서명 · package"
-    } finally { Pop-Location }
+            Copy-Item $binPath $relBak -Force
+            $env:REMEDY_TRUST_ANCHOR = $anchor
+            try {
+                Invoke-CargoBuild "앵커 박은 remedy.exe" @("build", "-q", "--release",
+                    "--target", $triple, "-p", "remedy-cli")
+            } finally { $env:REMEDY_TRUST_ANCHOR = $null }
+            Copy-Item $binPath "$gStage\remedy.exe" -Force
+            # **곧바로 되돌린다.** 이 한 줄이 시연 1단계를 지킨다.
+            Copy-Item $relBak $binPath -Force
+            Write-Ok "앵커 박은 바이너리 (공유 산출물은 되돌렸다)"
 
-    $nowHash = (Get-FileHash $binPath -Algorithm SHA256).Hash
-    Add-Check "0" "공유 릴리스 산출물이 앵커 전과 같다" ($nowHash -eq $unanchoredHash) $nowHash.Substring(0, 12)
+            Copy-Item (Join-Path $repoRoot "plugins\evilai-locust") "$gStage\evilai-locust" -Recurse -Force
+            & cargo run -q -p xtask -- sign plugin --dir "$gStage\evilai-locust" `
+                --secret-key "$gStage\sec.key" --signed-at "2026-10-29T00:00:00Z" | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw "플러그인 서명 실패" }
+            & cargo run -q -p xtask -- package --plugin "$gStage\evilai-locust" `
+                --bin "$gStage\remedy.exe" --out "$pkgSource" --public-key "$gStage\pub.key" | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw "꾸러미 만들기 실패" }
+            Write-Ok "서명 · package"
+        } finally { Pop-Location }
+
+        $nowHash = (Get-FileHash $binPath -Algorithm SHA256).Hash
+        Add-Check "0" "공유 릴리스 산출물이 앵커 전과 같다" ($nowHash -eq $unanchoredHash) $nowHash.Substring(0, 12)
+    }
 
     # ── 3. 배포 ─────────────────────────────────────────────────────
     $session = Connect-LabVm -VmAddress $VmAddress -Credential $Credential
@@ -191,7 +222,7 @@ try {
     }
     if (-not $wipe.Gone) { throw "앞 회차의 꾸러미를 치우지 못했다: $LabRoot\menu (남은 remedy $($wipe.Killed)개를 끊었다)" }
     if ($wipe.Killed -gt 0) { Write-Warn "앞 회차가 띄운 remedy.exe $($wipe.Killed)개를 끊었다" }
-    Copy-Item "$gStage\pkg" -Destination "$LabRoot\menu" -ToSession $session -Recurse -Force
+    Copy-Item $pkgSource -Destination "$LabRoot\menu" -ToSession $session -Recurse -Force
     $guestDir = Join-Path (Split-Path -Parent $PSScriptRoot) "guest"
     foreach ($s in @("Verify-Menu.ps1", "Verify-DoubleClick.ps1")) {
         Copy-GuestFile -Session $session -Source (Join-Path $guestDir $s) `

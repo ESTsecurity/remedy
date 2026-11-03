@@ -42,6 +42,7 @@
 .EXAMPLE
     .\Invoke-DemoVerify.ps1 -Build
     .\Invoke-DemoVerify.ps1 -NoPrepare    # 이미 New-DemoMachine 을 돌렸다면
+    .\Invoke-DemoVerify.ps1 -Bin <내려받아 푼 꾸러미>\remedy.exe   # 기준 5(c)
 #>
 [CmdletBinding()]
 param(
@@ -50,6 +51,9 @@ param(
     [switch] $SaveCredential,
     [string] $LabRoot = "C:\remedy-lab",
     [switch] $Build,
+    # 배포할 `remedy.exe` 의 호스트 경로 — `New-DemoMachine` 에 그대로 넘긴다.
+    # 주면 짓지 않고 그 파일을 올린다 (기준 5(c) — 내려받은 그 바이트).
+    [string] $Bin,
     # 준비를 건너뛴다. **감염이 서 있어야 한다** — 아니면 3단계가 위협 0으로 끝나고
     # 그 뒤가 전부 공허해진다.
     [switch] $NoPrepare,
@@ -88,6 +92,7 @@ if (-not $NoPrepare) {
     Write-Step "시연 기계 준비 (New-DemoMachine)"
     $prep = @{ VmAddress = $VmAddress; LabRoot = $LabRoot }
     if ($Build) { $prep.Build = $true }
+    if ($Bin) { $prep.Bin = $Bin }
     if ($Credential) { $prep.Credential = $Credential }
     if ($PhpZip) { $prep.PhpZip = $PhpZip }
     & (Join-Path $PSScriptRoot "New-DemoMachine.ps1") @prep | Out-Null
