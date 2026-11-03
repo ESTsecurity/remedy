@@ -43,7 +43,10 @@
     호스트 경로. 주면 임시 키쌍 · 앵커 박은 빌드 · 서명 · `package` 를 **하나도
     하지 않고** 그 폴더를 그대로 배포한다 — 배포 잡이 지어 Release 에 올린 것을
     내려받아 재는 자리(기준 5(c))가 여기다. `-Prepare` 와 함께 주면 시연 폴더의
-    `remedy.exe` 도 그 꾸러미의 것으로 세운다.
+    `remedy.exe` 도 그 꾸러미의 것으로 세운다 — **`-ReinfectOnly` 는 예외다**:
+    그쪽은 배포를 건너뛰므로 시연 폴더는 앞 회차의 것이 그대로 남고, 4번 판정은
+    그 파일을 잰다. 그 폴더까지 이 꾸러미로 재려면 시연 게이트를
+    `-Bin <그 꾸러미>\remedy.exe` 로 먼저 돌려 둔다.
 
 .PARAMETER Prepare
     `New-DemoMachine.ps1` 을 먼저 돌려 기계를 감염 상태로 세운다. 주지 않으면
@@ -116,7 +119,8 @@ if ($Prepare) {
     if ($Build) { $prep.Build = $true }
     # **같은 바이너리를 두 폴더에 둔다.** 시연 1단계(4번 판정)는 데모 폴더의
     # `remedy.exe` 를 인자 없이 부르므로, 꾸러미만 바꾸면 그 자리는 여전히
-    # 저장소 산출물을 재게 된다.
+    # 저장소 산출물을 재게 된다. `-ReinfectOnly` 는 배포 단계를 지나지 않으므로
+    # 이 값이 쓰이지 않는다 — 그때 그 폴더는 앞 회차의 것이다.
     if ($Package) { $prep.Bin = (Join-Path (Resolve-Path $Package).Path "remedy.exe") }
     if ($Credential) { $prep.Credential = $Credential }
     if ($PhpZip) { $prep.PhpZip = $PhpZip }
