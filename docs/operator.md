@@ -348,7 +348,9 @@ remedy plugin lint .\새룰\plugin.yaml
 
 **태그로 내면 Actions 가 같은 차례를 돈다.** `v<코어 버전>` 태그를 밀면
 `.github/workflows/release.yml` 이 아래 1) ~ 3) 을 돌고 받는 쪽의 확인(`plugin
-verify`)까지 해서 **초안** Release 에 올린다. 아래는 손으로 할 때의 차례다.
+verify`)까지 해서 **초안** Release 에 올린다. 시험판은 `v<코어 버전>-rc.<N>`
+태그로 내고, 그 초안은 시험판(pre-release)으로 표시된다. 아래는 손으로 할 때의
+차례다.
 
 **한 사고에 역할이 둘이면 `--plugin` 을 여러 번 준다** — 점검만 하는 룰과 치료까지
 하는 룰처럼. **두 번 불러 같은 폴더에 담을 수는 없다**: 출력 경로에 무엇이든 있으면
