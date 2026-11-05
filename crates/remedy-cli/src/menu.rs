@@ -69,8 +69,10 @@ pub enum Pick {
     /// 파일을 골라 그 명령을 돈다 (묶음 D·E). 플러그인이 드는 셋은 **그 경로를
     /// 함께** 들고 간다 — 메뉴가 고른 것을 `main` 이 따로 알 길이 없다.
     WithFile(WithFile, Option<std::path::PathBuf>),
-    /// 입력이 없는 수집 — 결과 파일은 부르는 쪽이 정한다 (묶음 A 성격).
-    Collect,
+    /// 입력이 없는 수집 — 결과 파일은 부르는 쪽이 정한다 (묶음 A 성격). 고른 플러그인을
+    /// 함께 들고 간다 — `collect` 는 그 플러그인이 정한 자리를 본다(`--plugin` 이 없으면
+    /// 입력 오류다).
+    Collect(std::path::PathBuf),
 }
 
 /// 플러그인 하나가 드는 명령 — 묶음 B. 고른 플러그인 경로를 함께 들고 간다.
@@ -563,7 +565,7 @@ pub fn run(offer: &Offer) -> Pick {
             Sub::Stop => quit(),
             Sub::End => Pick::End,
         },
-        Tag::Collect => Pick::Collect,
+        Tag::Collect => offer.plugin.clone().map_or(Pick::ShowUsage, Pick::Collect),
         Tag::NeedsFile(cand, mk) => match choose_file(offer.files_of(*cand)) {
             Sub::Got(path) => Pick::WithFile(mk(path), offer.plugin.clone()),
             Sub::Back => Pick::Back,

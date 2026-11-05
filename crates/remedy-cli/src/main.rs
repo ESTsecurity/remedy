@@ -426,17 +426,20 @@ fn main() -> ExitCode {
                         }
                     },
                     // **수집만** — 입력이 없고 결과 파일은 여기서 정한다.
-                    // `collect` 는 `--out <파일>` 이 필수다(폴더가 아니다).
-                    guided::Outcome::Collect => {
+                    // `collect` 는 `--out <파일>` 이 필수다(폴더가 아니다). 무엇을 볼지는
+                    // 플러그인이 정하므로 `--plugin` 도 넘긴다 — 빠졌던 동안 이 줄은 늘
+                    // 입력 오류(4)로 끝났다(랩 메뉴 하네스 · 2026-11-06).
+                    guided::Outcome::Collect(p) => {
                         let out = menu_out();
                         let args = vec![
+                            "--plugin".to_string(),
+                            p.to_string_lossy().to_string(),
                             "--out".to_string(),
                             out.join("artifacts.json").to_string_lossy().to_string(),
                             "--state-dir".to_string(),
                             menu_state().to_string_lossy().to_string(),
                         ];
-                        std::fs::create_dir_all(&out)
-                            .map_err(|e| Failure::from(format!("{}: {e}", out.display())))
+                        make_out(&out)
                             .and_then(|()| admin_gate())
                             .and_then(|()| cmd_collect(&args))
                     }
@@ -485,7 +488,9 @@ fn main() -> ExitCode {
                                     "--state-dir".to_string(),
                                     menu_state().to_string_lossy().to_string(),
                                 ];
-                                cmd_evaluate(&args)
+                                // 결과 폴더를 먼저 짓는다 — 없으면 쓰기가 실패해
+                                // 입력 오류(4)로 끝났다(랩 메뉴 하네스 · 2026-11-06).
+                                make_out(&out).and_then(|()| cmd_evaluate(&args))
                             }),
                             menu::WithFile::Plan(f) => plugin().and_then(|p| {
                                 let args = vec![
@@ -498,7 +503,7 @@ fn main() -> ExitCode {
                                     "--state-dir".to_string(),
                                     menu_state().to_string_lossy().to_string(),
                                 ];
-                                cmd_plan(&args)
+                                make_out(&out).and_then(|()| cmd_plan(&args))
                             }),
                             // 목록 넷은 플러그인이 들지 않는다. `verify` 는 읽기만
                             // 하고 `import` 는 복원 정보 폴더에 쓴다 — 그래서
@@ -2897,19 +2902,47 @@ pub(crate) fn menu_state_dirs() -> Vec<std::path::PathBuf> {
 ///
 /// # 한 작업에 한 폴더
 ///
-/// `OnceLock` 이라 한 프로세스 안에서 여러 명령이 불려도(검사 → 평가 → 계획)
-/// **같은 폴더**에 모인다. 메뉴 한 번이 작업 하나이므로 그것이 곧 회차다.
+/// 작업 차례(`term::task_seq`)가 같은 동안은 **같은 폴더**다 — 검사가 낸 셋(artifacts ·
+/// scan · plan)이 한자리에 모인다. 처음에는 프로세스 하나에 폴더 하나였다(메뉴 한 번이
+/// 작업 하나였다). 메뉴가 작업 뒤에 다시 뜨게 된 뒤로(목표 remedy_제품화 기준 4) 한
+/// 세션에 작업이 여럿이라 **작업이 바뀌면 새 폴더를 짓는다** — 하나로 두면 뒤 작업이
+/// 앞 작업의 `scan.json` · `plan.json` 을 덮어쓴다.
 fn menu_out() -> std::path::PathBuf {
-    static DIR: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
-    DIR.get_or_init(|| {
-        // `created` 는 RFC3339(`2026-10-30T11:31:00Z`)다. `:` 는 Windows 경로에
-        // 쓸 수 없고 `-` 는 빼면 읽기 쉬워진다 — `20261030T113100Z` 가 된다.
-        let stamp = remedy_core::pipeline::RunMeta::now()
-            .created
-            .replace([':', '-'], "");
-        beside_exe("out").join(stamp)
-    })
-    .clone()
+    static DIR: std::sync::Mutex<Option<(u64, std::path::PathBuf)>> = std::sync::Mutex::new(None);
+    let task = term::task_seq();
+    let mut dir = DIR
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    if let Some((t, p)) = dir.as_ref() {
+        if *t == task {
+            return p.clone();
+        }
+    }
+    // `created` 는 RFC3339(`2026-10-30T11:31:00Z`)다. `:` 는 Windows 경로에
+    // 쓸 수 없고 `-` 는 빼면 읽기 쉬워진다 — `20261030T113100Z` 가 된다.
+    let stamp = remedy_core::pipeline::RunMeta::now()
+        .created
+        .replace([':', '-'], "");
+    let p = fresh_dir(&beside_exe("out"), &stamp);
+    *dir = Some((task, p.clone()));
+    p
+}
+
+/// `base` 아래 `stamp` 폴더 — 같은 초에 앞 작업이 이미 지었으면 `stamp-2` · `stamp-3` …
+/// 이름순이 곧 시간순이라는 규칙(`guided::candidate_files`)은 그대로 선다.
+fn fresh_dir(base: &std::path::Path, stamp: &str) -> std::path::PathBuf {
+    let mut p = base.join(stamp);
+    let mut n = 2;
+    while p.exists() {
+        p = base.join(format!("{stamp}-{n}"));
+        n += 1;
+    }
+    p
+}
+
+/// 메뉴 작업의 결과 폴더를 짓는다.
+fn make_out(out: &std::path::Path) -> Result<(), Failure> {
+    std::fs::create_dir_all(out).map_err(|e| Failure::from(format!("{}: {e}", out.display())))
 }
 
 fn cmd_plugin_lint(raw: &[String]) -> Result<Code, Failure> {
@@ -4288,14 +4321,14 @@ mod tests {
         assert_ne!(dirs[0], dirs[1], "{dirs:?}");
     }
 
-    /// 결정 4(2026-10-30) — 결과는 `<exe>\out\<스탬프>\` 로 간다. 한 프로세스(= 메뉴 한 번
-    /// 의 작업)에서는 **같은 폴더**여야 한다: 검사 → 평가 → 계획이 흩어지면
-    /// 사람이 자기 결과를 모은 자리를 잃는다.
+    /// 결정 4(2026-10-30) — 결과는 `<exe>\out\<스탬프>\` 로 간다. 한 작업 안에서는
+    /// **같은 폴더**여야 한다: 검사가 낸 셋(artifacts · scan · plan)이 흩어지면 사람이
+    /// 자기 결과를 모은 자리를 잃는다.
     #[test]
     fn the_menu_output_is_one_folder_per_run_under_out() {
         let a = menu_out();
         let b = menu_out();
-        assert_eq!(a, b, "한 회차에 두 폴더가 생겼다");
+        assert_eq!(a, b, "한 작업에 두 폴더가 생겼다");
         assert_eq!(a.parent(), Some(beside_exe("out").as_path()), "{a:?}");
         let stamp = a
             .file_name()
@@ -4309,6 +4342,22 @@ mod tests {
         // `20261030T113100Z` 꼴 — 이름순이 곧 시간순이라야 후보 차례가 뜻을 갖는다.
         assert!(stamp.len() >= 16, "{stamp}");
         assert!(stamp.ends_with('Z'), "{stamp}");
+    }
+
+    /// 같은 초에 앞 작업의 폴더가 이미 있으면 번호를 붙인다 — 덮어쓰지 않는다. 붙인
+    /// 이름도 이름순이 곧 시간순이다(`…Z` < `…Z-2` < 다음 초).
+    #[test]
+    fn a_second_task_in_the_same_second_gets_its_own_folder() {
+        let base = std::env::temp_dir().join(format!("remedy-fresh-dir-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let a = fresh_dir(&base, "20261106T010203Z");
+        std::fs::create_dir_all(&a).expect("첫 폴더");
+        let b = fresh_dir(&base, "20261106T010203Z");
+        let _ = std::fs::remove_dir_all(&base);
+        assert_ne!(a, b);
+        assert!(b.ends_with("20261106T010203Z-2"), "{b:?}");
+        let names = ["20261106T010203Z", "20261106T010203Z-2", "20261106T010204Z"];
+        assert!(names.windows(2).all(|w| w[0] < w[1]), "{names:?}");
     }
 
     #[test]

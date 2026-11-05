@@ -55,8 +55,8 @@ pub enum Outcome {
     WithRun(crate::menu::WithRun),
     /// 메뉴에서 고른 **파일이 드는 명령**(묶음 D·E)과 그때 고른 플러그인.
     WithFile(crate::menu::WithFile, Option<std::path::PathBuf>),
-    /// 메뉴에서 고른 **수집만** (묶음 A 성격 — 입력이 없다).
-    Collect,
+    /// 메뉴에서 고른 **수집만** (묶음 A 성격 — 입력이 없다)과 그때 고른 플러그인.
+    Collect(std::path::PathBuf),
 }
 
 /// 메뉴의 답을 안내 모드의 답으로 옮긴다. **두 타입을 하나로 합치지 않는 이유**는
@@ -72,7 +72,7 @@ fn to_outcome(p: crate::menu::Pick) -> Outcome {
         crate::menu::Pick::Plain(x) => Outcome::Plain(x),
         crate::menu::Pick::WithRun(x) => Outcome::WithRun(x),
         crate::menu::Pick::WithFile(x, p) => Outcome::WithFile(x, p),
-        crate::menu::Pick::Collect => Outcome::Collect,
+        crate::menu::Pick::Collect(p) => Outcome::Collect(p),
     }
 }
 
