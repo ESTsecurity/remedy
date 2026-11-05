@@ -18,17 +18,22 @@
 //!
 //! # 묶음으로 나눈다
 //!
-//! 명령 표면은 **20개**(최상위 14 + 하위 6)다. 평평하게 늘어놓으면 첫 화면이
-//! 스무 줄이 되어 **받아서 더블클릭한 사람이 읽지 못한다.** 그래서 입력이
-//! 무엇이냐로 묶고, 작성자·운영자용은 뒤에 둔다.
+//! 명령 표면은 **20개**(최상위 14 + 하위 6)이고 메뉴 줄은 21개다(`restore` 가
+//! 목록 보기와 되돌리기 둘). 입력이 무엇이냐로 묶고, 작성자·운영자용은 뒤에 둔다.
 //!
-//! | 묶음 | 입력 | 이번 회차 |
+//! | 묶음 | 입력 | 그 입력이 없을 때 줄에 다는 까닭 |
 //! |---|---|---|
-//! | **A** | 없다 — 바로 돈다 | **들어왔다** |
-//! | B | 옆 폴더의 플러그인 | 다음 |
-//! | C | 복원 정보 폴더의 회차 | 다음 |
-//! | D | 결과 폴더의 계획 | 다음 |
-//! | E | 임의 입력 파일 (작성자·운영자) | 다음 |
+//! | A | 없다 — 바로 돈다 | — (목록 보기만 회차가 든다) |
+//! | B | 옆 폴더의 플러그인 | 쓸 수 있는 플러그인 번들이 없습니다 |
+//! | C | 복원 정보 폴더의 회차 | 이 PC 에 치료한 기록이 없습니다 |
+//! | D | 결과 폴더의 계획 · 수집 결과 · 평가 결과 | out 폴더에 … 이 없습니다 |
+//! | E | 실행 파일 옆의 서명된 목록 (작성자·운영자) | 실행 파일 옆에 … 이 없습니다 |
+//!
+//! # 늘 전부 선다 — 못 고르는 줄은 까닭과 함께 (목표 remedy_제품화 기준 5)
+//!
+//! 줄은 기계 상태와 상관없이 **같은 차례 · 같은 번호**로 선다. 지금 입력이 없는 줄은
+//! 흐리게 그리고 까닭을 단다 — 고르기는 그 줄을 받지 않는다([`items`]). 스물한 줄이
+//! 창보다 높으면 방향키 화면은 번호 줄만 창 안에서 넘긴다(`term::view`).
 //!
 //! # 방향키와 숫자 — 고르는 자리는 [`crate::term::choose`] 하나다
 //!
@@ -171,22 +176,22 @@ enum Tag {
 struct Item {
     label: &'static str,
     tag: Tag,
+    /// 지금 고를 수 없으면 그 까닭. 줄은 그래도 선다(목표 remedy_제품화 기준 5).
+    off: Option<&'static str>,
 }
 
 /// 지금 이 기계가 **내놓을 수 있는 것**. 비어 있으면 메뉴를 열지 않는다.
 pub struct Offer {
     /// 쓸 수 있는 플러그인 (검증을 통과한 것만).
     pub plugin: Option<std::path::PathBuf>,
-    /// 복원 정보 폴더에서 읽은 회차 — **이름순.** 비어 있으면 회차 줄을 내지 않는다.
+    /// 복원 정보 폴더에서 읽은 회차 — **이름순.** 비어 있으면 회차 줄은 까닭을 달고 흐리게 선다.
     pub runs: Vec<Run>,
-    /// 후보 파일 — 종류마다 **이름순.** 비어 있는 종류의 줄은 내지 않는다.
+    /// 후보 파일 — 종류마다 **이름순.** 비어 있는 종류의 줄은 까닭을 달고 흐리게 선다.
     /// 부르는 쪽이 폴더를 읽어 채운다(메뉴는 실행 파일 자리를 모른다).
     pub files: std::collections::BTreeMap<Candidates, Vec<std::path::PathBuf>>,
 }
 
 impl Offer {
-    /// **내놓을 것이 없으면 메뉴를 열지 않는다.** 이 함수가 §3-00 의 규칙이다 —
-    /// 오늘의 시연 1단계가 그 화면을 판정한다.
     /// **내놓을 것이 없으면 메뉴를 열지 않는다.** 이 함수가 §3-00 의 규칙이다 —
     /// 오늘의 시연 1단계가 그 화면을 판정한다.
     ///
@@ -290,6 +295,29 @@ impl Candidates {
             Self::Lists => lower.ends_with(".signed"),
         }
     }
+
+    /// 이 종류의 후보가 하나도 없을 때 메뉴 줄에 다는 까닭 — 어느 자리에 무엇이 없는지.
+    /// 자리는 `guided::candidate_files` 가 보는 곳이다(목록은 실행 파일 옆, 나머지는 `out`).
+    fn missing(self, lang: remedy_sdk::i18n::Lang) -> &'static str {
+        match self {
+            Self::Plans => lang.t(
+                "out 폴더에 승인한 계획(plan*.json)이 없습니다",
+                "no approved plan (plan*.json) in out",
+            ),
+            Self::Artifacts => lang.t(
+                "out 폴더에 수집 결과(artifacts*.json)가 없습니다",
+                "no collected snapshot (artifacts*.json) in out",
+            ),
+            Self::Scans => lang.t(
+                "out 폴더에 평가 결과(scan*.json)가 없습니다",
+                "no evaluation (scan*.json) in out",
+            ),
+            Self::Lists => lang.t(
+                "실행 파일 옆에 서명된 목록(*.signed)이 없습니다",
+                "no signed list (*.signed) next to the program",
+            ),
+        }
+    }
 }
 
 /// 고른 플러그인을 명령으로 만드는 함수 — [`PLUGIN_ITEMS`] 의 세 번째 칸.
@@ -353,6 +381,96 @@ const PLAIN_ITEMS_EN: &[(&str, Plain)] = &[
     ("Every command and option", Plain::HelpAll),
 ];
 
+/// 메뉴에 설 줄 전부 — **명령 스무 개가 늘 같은 차례 · 같은 번호로 선다**(목표
+/// remedy_제품화 기준 5 · 벤치마크 축 3). 둘째 값은 작성자·운영자 묶음이 시작하는 자리다.
+///
+/// 전에는 지금 고를 수 없는 줄을 아예 내지 않았다 — 고르면 *"없습니다"* 가 나오는
+/// 줄을 두면 사용자가 자기가 잘못한 것으로 읽기 때문이었다. 그 걱정은 **까닭을 줄에
+/// 다는 것**으로 푼다: 무엇이 어디에 없어서 못 고르는지가 줄에 보이고, 그 줄은 고르기가
+/// 받지 않는다(`term::Row::Off`). 숨기면 받은 사람이 그 기능이 있는지조차 모르고,
+/// 번호가 기계 상태마다 움직인다('전' 이미지에서 10 → 17).
+///
+/// 작성자·운영자 명령은 **뒤에 둔다** — `--help-all` 이 *"플러그인 작성자와 운영자가
+/// 보는 자리이고 고객 화면이 아니다"* 라고 스스로 적어 둔 것과 같은 선이다.
+fn items(offer: &Offer, lang: remedy_sdk::i18n::Lang) -> (Vec<Item>, usize) {
+    let ko = lang == remedy_sdk::i18n::Lang::Ko;
+    let no_plugin = offer.plugin.is_none().then(|| {
+        lang.t(
+            "쓸 수 있는 플러그인 번들이 없습니다",
+            "no usable plugin bundle",
+        )
+    });
+    let no_runs = (!offer.has_runs()).then(|| {
+        lang.t(
+            "이 PC 에 치료한 기록이 없습니다",
+            "no treatment on this PC yet",
+        )
+    });
+    let mut items: Vec<Item> = Vec::new();
+
+    // ── 묶음 B — 플러그인이 드는 다섯 ──────────────────────────
+    for (k, e, mk) in PLUGIN_ITEMS {
+        items.push(Item {
+            label: if ko { k } else { e },
+            tag: Tag::NeedsPlugin(*mk),
+            off: no_plugin,
+        });
+    }
+
+    // ── 묶음 C — 회차가 드는 셋 ─────────────────────────────────
+    for (k, e, mk) in RUN_ITEMS {
+        items.push(Item {
+            label: if ko { k } else { e },
+            tag: Tag::NeedsRun(*mk),
+            off: no_runs,
+        });
+    }
+
+    // ── 묶음 A — 입력이 없는 다섯 ───────────────────────────────
+    for (label, p) in if ko { PLAIN_ITEMS } else { PLAIN_ITEMS_EN } {
+        items.push(Item {
+            label,
+            tag: Tag::Plain(*p),
+            off: if *p == Plain::RestoreList {
+                no_runs
+            } else {
+                None
+            },
+        });
+    }
+
+    // ── 작성자·운영자 명령 — 묶음 D·E ───────────────────────────
+    let author_from = items.len();
+    items.push(Item {
+        label: lang.t(
+            "수집만 하기 (평가는 사내에서)",
+            "Collect only (evaluate in-house)",
+        ),
+        tag: Tag::Collect,
+        off: no_plugin,
+    });
+    for (k, e, cand, mk) in FILE_ITEMS {
+        // 계획·평가는 플러그인이 함께 들어야 한다 — 그 까닭이 먼저다.
+        let needs_plugin = matches!(
+            cand,
+            Candidates::Plans | Candidates::Artifacts | Candidates::Scans
+        );
+        let off = if needs_plugin && no_plugin.is_some() {
+            no_plugin
+        } else if offer.files_of(*cand).is_empty() {
+            Some(cand.missing(lang))
+        } else {
+            None
+        };
+        items.push(Item {
+            label: if ko { k } else { e },
+            tag: Tag::NeedsFile(*cand, *mk),
+            off,
+        });
+    }
+    (items, author_from)
+}
+
 /// 메뉴를 보이고 하나를 받는다.
 ///
 /// **터미널이 아니면 열지 않는다** — 불변식 I7. 부르는 쪽이 이미 터미널만
@@ -367,80 +485,7 @@ pub fn run(offer: &Offer) -> Pick {
     }
 
     let lang = ui().lang;
-    let ko = lang == remedy_sdk::i18n::Lang::Ko;
-    let mut items: Vec<Item> = Vec::new();
-
-    // ── 묶음 B — 플러그인이 드는 다섯 ──────────────────────────
-    if offer.plugin.is_some() {
-        for (k, e, mk) in PLUGIN_ITEMS {
-            items.push(Item {
-                label: if ko { k } else { e },
-                tag: Tag::NeedsPlugin(*mk),
-            });
-        }
-    }
-
-    // ── 묶음 C — 회차가 드는 셋 ─────────────────────────────────
-    //
-    // 회차가 없으면 세 줄을 다 내지 않는다. 고르면 *"되돌릴 회차가 없습니다"* 가
-    // 나오는 줄을 메뉴에 두면 사용자가 자기가 잘못한 것으로 읽는다.
-    if offer.has_runs() {
-        for (k, e, mk) in RUN_ITEMS {
-            items.push(Item {
-                label: if ko { k } else { e },
-                tag: Tag::NeedsRun(*mk),
-            });
-        }
-    }
-
-    // ── 묶음 A — 입력이 없는 다섯 ───────────────────────────────
-    for (label, p) in if ko { PLAIN_ITEMS } else { PLAIN_ITEMS_EN } {
-        if *p == Plain::RestoreList && !offer.has_runs() {
-            continue;
-        }
-        items.push(Item {
-            label,
-            tag: Tag::Plain(*p),
-        });
-    }
-
-    // ── 작성자·운영자 명령 — 묶음 D·E ───────────────────────────
-    //
-    // **뒤에 둔다.** 첫 화면이 스무 줄이면 받아서 더블클릭한 사람이 읽지
-    // 못한다. `--help-all` 이 *"플러그인 작성자와 운영자가 보는 자리이고
-    // 고객 화면이 아니다"* 라고 스스로 적어 둔 것과 같은 선이다.
-    //
-    // 후보가 없는 줄은 내지 않는다 — 고르면 "없습니다" 가 나오는 줄을 메뉴에
-    // 두면 사용자가 자기가 잘못한 것으로 읽는다.
-    let mut author: Vec<Item> = Vec::new();
-    if offer.plugin.is_some() {
-        author.push(Item {
-            label: lang.t(
-                "수집만 하기 (평가는 사내에서)",
-                "Collect only (evaluate in-house)",
-            ),
-            tag: Tag::Collect,
-        });
-    }
-    for (k, e, cand, mk) in FILE_ITEMS {
-        if offer.files_of(*cand).is_empty() {
-            continue;
-        }
-        // 계획·평가는 플러그인이 함께 들어야 한다 — 없으면 고를 거리가 아니다.
-        let needs_plugin = matches!(
-            cand,
-            Candidates::Plans | Candidates::Artifacts | Candidates::Scans
-        );
-        if needs_plugin && offer.plugin.is_none() {
-            continue;
-        }
-        author.push(Item {
-            label: if ko { k } else { e },
-            tag: Tag::NeedsFile(*cand, *mk),
-        });
-    }
-    let author_from = items.len();
-    items.extend(author);
+    let (items, author_from) = items(offer, lang);
 
     // **머리말 한 덩어리** — 제품 이름 · 판 · 권한(목표 remedy_제품화 기준 3(a) ·
     // 벤치마크 축 2 · 3). 권한은 고른 뒤에 거절당하지 않게 먼저 보인다.
@@ -464,7 +509,7 @@ pub fn run(offer: &Offer) -> Pick {
         Row::Blank,
     ]);
     for (i, it) in items.iter().enumerate() {
-        if i == author_from && author_from < items.len() {
+        if i == author_from {
             rows.push(Row::Blank);
             rows.push(Row::Text(
                 lang.t(
@@ -474,7 +519,10 @@ pub fn run(offer: &Offer) -> Pick {
                 .to_string(),
             ));
         }
-        rows.push(Row::Item(it.label.to_string()));
+        rows.push(match it.off {
+            Some(why) => Row::Off(it.label.to_string(), why.to_string()),
+            None => Row::Item(it.label.to_string()),
+        });
     }
     let zero = lang.t(
         "그만두기 (명령으로 쓰려면 remedy --help)",
@@ -622,8 +670,8 @@ fn two_parts(p: &std::path::Path) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        Candidates, Offer, Plain, Run, WithFile, WithPlugin, WithRun, FILE_ITEMS, PLAIN_ITEMS,
-        PLAIN_ITEMS_EN, PLUGIN_ITEMS, RUN_ITEMS,
+        items, Candidates, Offer, Plain, Run, Tag, WithFile, WithPlugin, WithRun, FILE_ITEMS,
+        PLAIN_ITEMS, PLAIN_ITEMS_EN, PLUGIN_ITEMS, RUN_ITEMS,
     };
 
     fn offer(plugin: bool, runs: bool) -> Offer {
@@ -689,12 +737,121 @@ mod tests {
         );
     }
 
-    /// **회차가 없으면 묶음 C 를 내지 않는다.** 고르면 "없습니다" 가 나오는 줄을
-    /// 메뉴에 두면 사용자가 자기가 잘못한 것으로 읽는다.
+    /// **회차가 없으면 묶음 C 와 목록 보기는 까닭을 달고 흐리게 선다** — 숨기지 않는다.
+    /// 고르면 "없습니다" 가 나오는 줄을 그냥 두면 사용자가 자기가 잘못한 것으로 읽으므로,
+    /// 까닭이 줄에 보이고 고르기가 그 줄을 받지 않는다.
     #[test]
-    fn no_runs_means_no_run_items() {
-        assert!(!offer(true, false).has_runs());
-        assert!(offer(true, true).has_runs());
+    fn no_runs_turns_run_items_off_with_a_reason() {
+        let ko = remedy_sdk::i18n::Lang::Ko;
+        let needs_run = |t: &Tag| matches!(t, Tag::NeedsRun(_) | Tag::Plain(Plain::RestoreList));
+        let (none, _) = items(&offer(true, false), ko);
+        let (some, _) = items(&offer(true, true), ko);
+        for it in none.iter().filter(|i| needs_run(&i.tag)) {
+            assert_eq!(
+                it.off,
+                Some("이 PC 에 치료한 기록이 없습니다"),
+                "{}",
+                it.label
+            );
+        }
+        assert!(some
+            .iter()
+            .filter(|i| needs_run(&i.tag))
+            .all(|i| i.off.is_none()));
+        assert_eq!(none.iter().filter(|i| needs_run(&i.tag)).count(), 4);
+    }
+
+    /// 기준 5 — **명령 전수(`main.rs` 분기)와 메뉴를 맞댄다.** 분기에 명령을 더하고
+    /// 메뉴에 줄을 더하지 않으면 여기서 깨진다. 분기는 `let outcome = match cmd {` 부터
+    /// 인자 없는 `None =>` 까지이고, 들여쓰기 여덟 칸이 명령 · 열두 칸이 하위 명령이다.
+    #[test]
+    fn every_command_has_a_menu_line() {
+        let src = include_str!("main.rs");
+        let from = src.find("let outcome = match cmd {").expect("분기 머리");
+        let to = src[from..].find("\n        None =>").expect("분기 끝") + from;
+        let mut dispatched = std::collections::BTreeSet::new();
+        let mut parent: Option<&str> = None;
+        for line in src[from..to].lines() {
+            if let Some(r) = line.strip_prefix("        Some(\"") {
+                let name = r.split('"').next().unwrap_or_default();
+                // 하위 명령을 받는 갈래는 그 자체로는 명령이 아니다.
+                parent = line.contains("match rest.first()").then_some(name);
+                if parent.is_none() {
+                    dispatched.insert(name.to_string());
+                }
+            } else if let Some(r) = line.strip_prefix("            Some(\"") {
+                let sub = r.split('"').next().unwrap_or_default();
+                let p = parent.expect("하위 갈래 앞에는 그 명령이 있다");
+                dispatched.insert(format!("{p} {sub}"));
+            }
+        }
+        assert_eq!(dispatched.len(), 20, "명령 전수: {dispatched:?}");
+
+        let (all, _) = items(&offer(true, false), remedy_sdk::i18n::Lang::Ko);
+        let shown: std::collections::BTreeSet<String> =
+            all.iter().map(|i| command(&i.tag).to_string()).collect();
+        assert_eq!(shown, dispatched, "메뉴에 없는 명령 · 분기에 없는 줄");
+    }
+
+    /// 기준 5(a) — **새로 받은 꾸러미의 첫 메뉴**(플러그인만 있고 회차 · 결과 파일이
+    /// 없다)에 스물한 줄이 다 서고, 지금 못 고르는 열한 줄은 까닭을 단다.
+    #[test]
+    fn a_fresh_bundle_shows_every_line_and_says_why() {
+        for lang in [remedy_sdk::i18n::Lang::Ko, remedy_sdk::i18n::Lang::En] {
+            let (all, _) = items(&offer(true, false), lang);
+            assert_eq!(all.len(), 21);
+            assert_eq!(all.iter().filter(|i| i.off.is_none()).count(), 10);
+            assert!(all.iter().all(|i| i.off.is_none_or(|w| !w.is_empty())));
+        }
+    }
+
+    /// **번호가 기계 상태마다 움직이지 않는다** — 플러그인 · 회차가 있든 없든 줄 차례가
+    /// 같다('전' 이미지에서 회차가 생기자 10 → 17 로 바뀌었다).
+    #[test]
+    fn numbers_do_not_move_with_state() {
+        let ko = remedy_sdk::i18n::Lang::Ko;
+        let labels = |o: &Offer| -> Vec<&str> { items(o, ko).0.iter().map(|i| i.label).collect() };
+        let base = labels(&offer(true, false));
+        for (p, r) in [(true, true), (false, true), (false, false)] {
+            assert_eq!(labels(&offer(p, r)), base, "플러그인 {p} · 치료 기록 {r}");
+        }
+    }
+
+    /// 메뉴 줄이 부르는 명령 — `main.rs` 의 분기 낱말로.
+    fn command(t: &Tag) -> &'static str {
+        let p = std::path::PathBuf::from("x");
+        match t {
+            Tag::NeedsPlugin(mk) => match mk(p) {
+                WithPlugin::Run(_) => "run",
+                WithPlugin::Scan(_) => "scan",
+                WithPlugin::Verify(_) => "verify",
+                WithPlugin::Lint(_) => "plugin lint",
+                WithPlugin::VerifyBundle(_) => "plugin verify",
+            },
+            Tag::NeedsRun(mk) => match mk(Run {
+                id: "r".into(),
+                state: p,
+            }) {
+                WithRun::Restore(_) => "restore",
+                WithRun::Support(_) => "support-bundle",
+                WithRun::Resume(_) => "resume",
+            },
+            Tag::NeedsFile(_, mk) => match mk(p) {
+                WithFile::Apply(_) => "apply",
+                WithFile::Evaluate(_) => "evaluate",
+                WithFile::Plan(_) => "plan",
+                WithFile::AllowVerify(_) => "allowlist verify",
+                WithFile::AllowImport(_) => "allowlist import",
+                WithFile::RevokeVerify(_) => "revocation verify",
+                WithFile::RevokeImport(_) => "revocation import",
+            },
+            Tag::Collect => "collect",
+            Tag::Plain(Plain::SelfTest) => "selftest",
+            Tag::Plain(Plain::Version) => "--version",
+            Tag::Plain(Plain::Help) => "--help",
+            Tag::Plain(Plain::HelpAll) => "--help-all",
+            Tag::Plain(Plain::RestoreList) => "restore",
+        }
     }
 
     /// 묶음 B 는 **플러그인이 드는 다섯**이다. 검사·치료가 **맨 위**여야 한다 —

@@ -284,6 +284,11 @@ try {
     Add-Check "1" "게스트 스크립트가 끝까지 돌았다" (-not $r.error) `
               "작업 $(@($r.steps).Count)개"
     Add-Check "1" "메뉴가 떴다" ([bool]$r.probe.shown) "줄 $($r.probe.item_count)개"
+    # 목표 remedy_제품화 기준 5(a) — 새로 받은 꾸러미의 첫 메뉴에 **명령 스무 개의 줄
+    # 스물한 개**(`restore` 가 둘)가 다 선다. 지금 고를 수 없는 줄은 까닭을 단다.
+    $allRows = [int]$r.probe.item_count + [int]$r.probe.off_count
+    Add-Check "1" "명령 전부가 메뉴에 보인다 (못 고르는 것은 까닭과 함께)" ($allRows -eq 21) `
+              "고를 수 있는 줄 $($r.probe.item_count) · 까닭과 함께 $($r.probe.off_count)"
     Add-Check "1" "작성자·운영자 구분선이 있다" ([bool]$r.probe.separator) "구분선"
     # 그만두기는 창을 붙잡지 않는다 — 끝내기를 고른 것이다(목표 remedy_제품화 기준 4 · 2026-11-05).
     # 사용법 화면(꾸러미 없음)은 여전히 붙잡는다 — 그것은 아래 4단계의 데모 폴더가 잰다.

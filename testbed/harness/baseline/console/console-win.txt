@@ -1,36 +1,10 @@
 
-########## 0. 바이너리 배포 · 잔재 정리   [182초]
+########## 0. 바이너리 배포 · 잔재 정리   [199초]
 
 보안 제품 예외 : 랩 경로 2건으로 고정
-배포·정리 완료 · 20780032 bytes
+배포·정리 완료 · 20791808 bytes
 
-########## A1. 사용법 — 기본 언어   [188초]
-
-ESTsecurity 전용백신 1.0.0
-────────────────────────────────────────────────────────
-
-사용법
-  remedy run --plugin <plugin.yaml> [--yes]       검사하고 치료합니다
-  remedy run --plugin <plugin.yaml> --dry-run     검사만 하고 아무것도 바꾸지 않습니다
-  remedy restore --list                            되돌릴 수 있는 회차를 보여 줍니다
-  remedy restore --run <run_id> [--yes]           치료를 되돌립니다
-  remedy --help-all                               모든 명령과 옵션
-
-  관리자 권한으로 실행해야 합니다. 없으면 시작하지 않고 종료 코드 5 를 냅니다.
-  --yes 없이 실행하면 계획을 보여 주고 승인을 기다립니다.
-
-옵션
-  --lang ko|en   출력 언어 (PC 가 한국어면 한국어, 아니면 영어 · REMEDY_LANG 으로도)
-  --ascii        장식 문자를 ASCII 로 (한글을 못 그리는 터미널)
-  --verbose      자세한 진단 출력
-
-종료 코드 여덟 가지는 `remedy --help-all` 에 있습니다 (무인 배포용).
-
-Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
-알림: 이 바이너리에 서명이 없습니다. 공식 배포본이 아닙니다. 기능은 전부 동작하지만, 이것이 우리가 만든 그 바이너리인지 확인된 바 없습니다
-[exit=0]
-
-########## A2. 사용법 — 한국어   [188초]
+########## A1. 사용법 — 기본 언어   [207초]
 
 ESTsecurity 전용백신 1.0.0
 ────────────────────────────────────────────────────────
@@ -56,13 +30,39 @@ Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
 알림: 이 바이너리에 서명이 없습니다. 공식 배포본이 아닙니다. 기능은 전부 동작하지만, 이것이 우리가 만든 그 바이너리인지 확인된 바 없습니다
 [exit=0]
 
-########## A3. 버전   [189초]
+########## A2. 사용법 — 한국어   [207초]
+
+ESTsecurity 전용백신 1.0.0
+────────────────────────────────────────────────────────
+
+사용법
+  remedy run --plugin <plugin.yaml> [--yes]       검사하고 치료합니다
+  remedy run --plugin <plugin.yaml> --dry-run     검사만 하고 아무것도 바꾸지 않습니다
+  remedy restore --list                            되돌릴 수 있는 회차를 보여 줍니다
+  remedy restore --run <run_id> [--yes]           치료를 되돌립니다
+  remedy --help-all                               모든 명령과 옵션
+
+  관리자 권한으로 실행해야 합니다. 없으면 시작하지 않고 종료 코드 5 를 냅니다.
+  --yes 없이 실행하면 계획을 보여 주고 승인을 기다립니다.
+
+옵션
+  --lang ko|en   출력 언어 (PC 가 한국어면 한국어, 아니면 영어 · REMEDY_LANG 으로도)
+  --ascii        장식 문자를 ASCII 로 (한글을 못 그리는 터미널)
+  --verbose      자세한 진단 출력
+
+종료 코드 여덟 가지는 `remedy --help-all` 에 있습니다 (무인 배포용).
+
+Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
+알림: 이 바이너리에 서명이 없습니다. 공식 배포본이 아닙니다. 기능은 전부 동작하지만, 이것이 우리가 만든 그 바이너리인지 확인된 바 없습니다
+[exit=0]
+
+########## A3. 버전   [208초]
 
 ESTsecurity 전용백신 1.0.0 (remedy)
 알림: 이 바이너리에 서명이 없습니다. 공식 배포본이 아닙니다. 기능은 전부 동작하지만, 이것이 우리가 만든 그 바이너리인지 확인된 바 없습니다
 [exit=0]
 
-########## A6. 안내 모드 — 꾸러미 옆에서 인자 없이 부르면   [189초]
+########## A6. 안내 모드 — 꾸러미 옆에서 인자 없이 부르면   [208초]
 
 꾸러미: remedy.exe · plugins\demo\{plugin.yaml, rules\d.yar} — 서명 없음
 
@@ -97,7 +97,7 @@ Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
 알림: 이 바이너리에 서명이 없습니다. 공식 배포본이 아닙니다. 기능은 전부 동작하지만, 이것이 우리가 만든 그 바이너리인지 확인된 바 없습니다
 [exit=0]
 
-########## A0. 인자 없이 부르면 창을 붙잡는가 (진짜 콘솔)   [190초]
+########## A0. 인자 없이 부르면 창을 붙잡는가 (진짜 콘솔)   [208초]
 
 인자 없이 (더블클릭과 같은 조건)
   Enter 전에 기다렸는가   True
@@ -108,7 +108,7 @@ Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
   프롬프트가 나왔는가      False
 판정: True
 
-########## A7. 권한이 없을 때 (비관리자)   [193초]
+########## A7. 권한이 없을 때 (비관리자)   [212초]
 
 --- 한국어 ---
 알림: 이 바이너리에 서명이 없습니다. 공식 배포본이 아닙니다. 기능은 전부 동작하지만, 이것이 우리가 만든 그 바이너리인지 확인된 바 없습니다
@@ -134,7 +134,7 @@ Error: Administrator rights are required. This tool reads and fixes scheduled ta
 --- 문 앞에서 섰는가 (산출·상태 폴더가 없어야 한다) ---
   없다
 
-########## A8. 안내 모드 — 서명된 꾸러미 (비관리자 · 관리자)   [194초]
+########## A8. 안내 모드 — 서명된 꾸러미 (비관리자 · 관리자)   [214초]
 
 꾸러미: remedy.exe · plugins\evilai-locust — 임시 키로 서명, 그 앵커를 박은 빌드
 
@@ -159,11 +159,13 @@ EvilAI(Locust) 제거를 검사합니다.
  ESTsecurity 전용백신 1.0.0
  EvilAI(Locust) 제거  (evilai-locust 0.1.0)
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-05 13:11:46 UTC
+ 시작 시각  : 2026-11-05 14:58:22 UTC
  실행 기계  : DESKTOP-2GQIRP1 (windows)
 
 검사를 시작합니다.
-검사 중 · 파일 검사 · 폴더 1155개 · 항목 9104개 · 처리 5149/7949개 · 루트 1/1 · 경과 5초 · …hon\Python312\Lib\test\test_asyncio\test_selector_events.py
+검사 중 · 파일 검사 · 폴더 1155개 · 항목 9104개 · 처리 2023/7949개 · 루트 1/1 · 경과 5초 · …110a328ea5\resources\app\node_modules\zod\v4\locales\ro.cjs
+검사 중 · 파일 검사 · 폴더 1155개 · 항목 9104개 · 처리 2411/7949개 · 루트 1/1 · 경과 10초 · …sers\test\AppData\Local\Programs\Microsoft VS Code\Code.exe
+검사 중 · 파일 검사 · 폴더 1155개 · 항목 9104개 · 처리 7074/7949개 · 루트 1/1 · 경과 15초 · …grams\Python\Python312\tcl\tcl8.6\tzdata\America\Montevideo
 검사 완료 : 흔적 0건 · 위협 0건
 
 
@@ -174,12 +176,12 @@ EvilAI(Locust) 제거를 검사합니다.
 수행할 항목이 없습니다.
 ────────────────────────────────────────────────────────
  결과       : 위협이 발견되지 않았습니다.
- 소요 시간  : 6초
+ 소요 시간  : 16초
 ────────────────────────────────────────────────────────
  Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
 [exit=0]
 
-########## A10. 작업 메뉴 — 진짜 콘솔에서 무엇을 할지 묻는다 (그만두기로 끝낸다)   [393초]
+########## A10. 작업 메뉴 — 진짜 콘솔에서 무엇을 할지 묻는다 (그만두기로 끝낸다)   [425초]
 
 === 0. 인자 없이 띄웠다 — 메뉴 (그만두기로 끝냈다) ===
 
@@ -193,21 +195,32 @@ ESTsecurity 전용백신 1.0.0
   3. 치료가 유지됐는지 다시 보기
   4. 이 플러그인 번들이 우리 것인지 확인
   5. 룰 검사 (작성자용)
-  6. 프로그램 자체 점검
-  7. 판 보기
-  8. 쓰는 법
-  9. 모든 명령과 옵션
+  6. 치료를 되돌리기 — 이 PC 에 치료한 기록이 없습니다
+  7. 신고에 붙일 것 모으기 — 이 PC 에 치료한 기록이 없습니다
+  8. 중단된 작업 이어서 하기 — 이 PC 에 치료한 기록이 없습니다
+  9. 이 PC 에서 되돌릴 수 있는 것 보기 — 이 PC 에 치료한 기록이 없습니다
+  10. 프로그램 자체 점검
+  11. 판 보기
+  12. 쓰는 법
+  13. 모든 명령과 옵션
 
   — 작성자·운영자 명령 —
-  10. 수집만 하기 (평가는 사내에서)
+  14. 수집만 하기 (평가는 사내에서)
+  15. 승인한 계획을 수행하기 — out 폴더에 승인한 계획(plan*.json)이 없습니다
+  16. 수집 결과를 평가하기 — out 폴더에 수집 결과(artifacts*.json)가 없습니다
+  17. 평가 결과로 계획 세우기 — out 폴더에 평가 결과(scan*.json)가 없습니다
+  18. 조직 허용 목록 확인 — 실행 파일 옆에 서명된 목록(*.signed)이 없습니다
+  19. 조직 허용 목록 반입 — 실행 파일 옆에 서명된 목록(*.signed)이 없습니다
+  20. 폐기 목록 확인 — 실행 파일 옆에 서명된 목록(*.signed)이 없습니다
+  21. 폐기 목록 반입 — 실행 파일 옆에 서명된 목록(*.signed)이 없습니다
   0. 그만두기 (명령으로 쓰려면 remedy --help)
 
 아무것도 하지 않았습니다.
 알림: 이 바이너리에 서명이 없습니다. 공식 배포본이 아닙니다. 기능은 전부 동작하지만, 이것이 우리가 만든 그 바이너리인지 확인된 바 없습니다
 
-번호를 고르십시오 (0-10):
+번호를 고르십시오 (0-21):
 
-########## A4. 사용법이 어느 스트림으로 나가는가   [396초]
+########## A4. 사용법이 어느 스트림으로 나가는가   [428초]
 
 일부러 부른 사용법 — stdout 만 남긴다 (여러 줄이어야 한다)
   --help          stdout 16줄
@@ -217,7 +230,7 @@ ESTsecurity 전용백신 1.0.0
   없는 명령        stdout 0줄
   없는 명령        stderr 18줄
 
-########## A9. --help-all 본문 — 낱말까지 대조한다   [397초]
+########## A9. --help-all 본문 — 낱말까지 대조한다   [430초]
 
 ESTsecurity 전용백신 1.0.0 (remedy)
 
@@ -295,11 +308,11 @@ ESTsecurity 전용백신 1.0.0 (remedy)
 알림: 이 바이너리에 서명이 없습니다. 공식 배포본이 아닙니다. 기능은 전부 동작하지만, 이것이 우리가 만든 그 바이너리인지 확인된 바 없습니다
 [exit=0]
 
-########## B. 감염   [397초]
+########## B. 감염   [430초]
 
 감염 완료 · 페이로드 254 B
 
-########## B2. 안내 모드 — 감염된 기계에서 서명된 꾸러미로   [403초]
+########## B2. 안내 모드 — 감염된 기계에서 서명된 꾸러미로   [438초]
 
 알림: 이 바이너리에 서명이 없습니다. 공식 배포본이 아닙니다. 기능은 전부 동작하지만, 이것이 우리가 만든 그 바이너리인지 확인된 바 없습니다
 
@@ -308,12 +321,12 @@ EvilAI(Locust) 제거를 검사합니다.
  ESTsecurity 전용백신 1.0.0
  EvilAI(Locust) 제거  (evilai-locust 0.1.0)
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-05 13:12:03 UTC
+ 시작 시각  : 2026-11-05 14:58:52 UTC
  실행 기계  : DESKTOP-2GQIRP1 (windows)
 
 검사를 시작합니다.
-검사 중 · 파일 검사 · 폴더 1156개 · 항목 9106개 · 처리 2411/7950개 · 루트 1/1 · 경과 5초 · …sers\test\AppData\Local\Programs\Microsoft VS Code\Code.exe
-검사 중 · 파일 검사 · 폴더 1156개 · 항목 9106개 · 처리 6497/7950개 · 루트 1/1 · 경과 10초 · …cal\Programs\Python\Python312\include\cpython\odictobject.h
+검사 중 · 파일 검사 · 폴더 1156개 · 항목 9106개 · 처리 1331/7950개 · 루트 1/1 · 경과 5초 · …\@github\copilot-win32-x64\prebuilds\win32-x64\runtime.node
+검사 중 · 파일 검사 · 폴더 1156개 · 항목 9106개 · 처리 3399/7950개 · 루트 1/1 · 경과 10초 · …\Local\Programs\Python\Python312\Lib\encodings\shift_jis.py
 검사 완료 : 흔적 6건 · 위협 1건
 
 이 치료의 부작용:
@@ -341,17 +354,17 @@ EvilAI(Locust) 제거를 검사합니다.
      무인 배포에서는 --yes 를 명시하십시오. 아무것도 하지 않았습니다.
 [exit=2]
 
-########## C1. scan — 한국어   [417초]
+########## C1. scan — 한국어   [452초]
 
 ────────────────────────────────────────────────────────
  ESTsecurity 전용백신 1.0.0
  EvilAI(Locust) 제거  (evilai-locust 0.1.0)
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-05 13:12:16 UTC
+ 시작 시각  : 2026-11-05 14:59:05 UTC
  실행 기계  : DESKTOP-2GQIRP1 (windows)
 
 검사를 시작합니다.
-검사 중 · 파일 검사 · 폴더 1156개 · 항목 9106개 · 처리 5091/7950개 · 루트 1/1 · 경과 5초 · …ocal\Programs\Python\Python312\Lib\test\support\__init__.py
+검사 중 · 자동실행·서비스·작업 · 폴더 1282개 · 항목 9450개 · 처리 7951개 · 경과 5초
 결과 폴더 : C:\remedy-lab\out-console-scan  (artifacts.json · scan.json · plan.json)
 검사 완료 : 흔적 6건 · 위협 1건
 이 치료의 부작용:
@@ -379,17 +392,17 @@ EvilAI(Locust) 제거를 검사합니다.
 알림: 이 바이너리에 서명이 없습니다. 공식 배포본이 아닙니다. 기능은 전부 동작하지만, 이것이 우리가 만든 그 바이너리인지 확인된 바 없습니다
 [exit=2]
 
-########## C2. scan — 영어   [423초]
+########## C2. scan — 영어   [458초]
 
 ────────────────────────────────────────────────────────
  ESTsecurity Dedicated Cleaner 1.0.0
  EvilAI (Locust) Removal  (evilai-locust 0.1.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-05 13:12:23 UTC
+ Started    : 2026-11-05 14:59:11 UTC
  Machine    : DESKTOP-2GQIRP1 (windows)
 
 Starting scan.
-Scanning · files · 1156 folders · 9106 entries · 5622/7950 processed · root 1/1 · 5s elapsed · …rtlib\namespace_pkgs\module_and_namespace_package\a_test.py
+Scanning · files · 1156 folders · 9106 entries · 6854/7950 processed · root 1/1 · 5s elapsed · …Data\Local\Programs\Python\Python312\tcl\tcl8.6\msgs\it.msg
 Output    : C:\remedy-lab\out-console-scan-en  (artifacts.json · scan.json · plan.json)
 Scan done : 6 trace(s) · 1 threat(s)
 Side effects of this treatment:
@@ -417,18 +430,17 @@ Threat found, not treated.
 Notice: this binary is unsigned and is not an official release. Everything works, but it has not been verified as the binary we built
 [exit=2]
 
-########## C3. scan — 플래그로 준 --ascii · --verbose · --lang   [430초]
+########## C3. scan — 플래그로 준 --ascii · --verbose · --lang   [464초]
 
 --ascii — 장식이 ASCII 로 (C1 과 견준다)
 --------------------------------------------------------
  ESTsecurity 전용백신 1.0.0
  EvilAI(Locust) 제거  (evilai-locust 0.1.0)
 --------------------------------------------------------
- 시작 시각  : 2026-11-05 13:12:29 UTC
+ 시작 시각  : 2026-11-05 14:59:17 UTC
  실행 기계  : DESKTOP-2GQIRP1 (windows)
 
 검사를 시작합니다.
-검사 중 | 파일 검사 | 폴더 1156개 | 항목 9106개 | 처리 5942/7950개 | 루트 1/1 | 경과 5초 | …l\Programs\Python\Python312\Lib\test\test_sys_setprofile.py
 결과 폴더 : C:\remedy-lab\out-console-ascii  (artifacts.json | scan.json | plan.json)
 검사 완료 : 흔적 6건 | 위협 1건
 이 치료의 부작용:
@@ -460,12 +472,11 @@ Notice: this binary is unsigned and is not an official release. Everything works
  ESTsecurity 전용백신 1.0.0
  EvilAI(Locust) 제거  (evilai-locust 0.1.0)
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-05 13:12:36 UTC
+ 시작 시각  : 2026-11-05 14:59:22 UTC
  실행 기계  : DESKTOP-2GQIRP1 (windows)
 
 검사를 시작합니다.
-검사 중 · 파일 검사 · 폴더 1156개 · 항목 9106개 · 처리 5752/7950개 · 루트 1/1 · 경과 5초 · …thon312\Lib\test\test_lib2to3\data\fixers\parrot_example.py
-검사 시간 6.5초 · 걷기 0.3초 · 읽기 3.1초 (670.3 MB · 7947개) · 해시 0.6초 · 서명 2.0초 (90개) · 큰 파일 건너뜀 4개 · 그 밖 0.7초
+검사 시간 4.8초 · 걷기 0.2초 · 읽기 2.2초 (670.3 MB · 7947개) · 해시 0.4초 · 서명 1.4초 (90개) · 큰 파일 건너뜀 4개 · 그 밖 0.5초
 결과 폴더 : C:\remedy-lab\out-console-verbose  (artifacts.json · scan.json · plan.json)
 검사 완료 : 흔적 6건 · 위협 1건
   자세히: evidence 6 · groups 1 · verdicts 1
@@ -498,17 +509,17 @@ ESTsecurity Dedicated Cleaner 1.0.0 (remedy)
 Notice: this binary is unsigned and is not an official release. Everything works, but it has not been verified as the binary we built
 [exit=0]
 
-########## D1. run — 승인할 사람이 없다   [443초]
+########## D1. run — 승인할 사람이 없다   [474초]
 
 ────────────────────────────────────────────────────────
  ESTsecurity 전용백신 1.0.0
  EvilAI(Locust) 제거  (evilai-locust 0.1.0)
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-05 13:12:43 UTC
+ 시작 시각  : 2026-11-05 14:59:27 UTC
  실행 기계  : DESKTOP-2GQIRP1 (windows)
 
 검사를 시작합니다.
-검사 중 · 파일 검사 · 폴더 1156개 · 항목 9106개 · 처리 7075/7950개 · 루트 1/1 · 경과 5초 · …grams\Python\Python312\tcl\tcl8.6\tzdata\America\Montevideo
+검사 중 · 평가 · 폴더 1282개 · 항목 9450개 · 처리 7951개 · 경과 5초
 검사 완료 : 흔적 6건 · 위협 1건
 
 이 치료의 부작용:
@@ -537,17 +548,17 @@ Notice: this binary is unsigned and is not an official release. Everything works
      무인 배포에서는 --yes 를 명시하십시오. 아무것도 하지 않았습니다.
 [exit=2]
 
-########## D2. run --dry-run   [449초]
+########## D2. run --dry-run   [479초]
 
 ────────────────────────────────────────────────────────
  ESTsecurity 전용백신 1.0.0
  EvilAI(Locust) 제거  (evilai-locust 0.1.0)
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-05 13:12:49 UTC
+ 시작 시각  : 2026-11-05 14:59:32 UTC
  실행 기계  : DESKTOP-2GQIRP1 (windows)
 
 검사를 시작합니다.
-검사 중 · 파일 검사 · 폴더 1156개 · 항목 9106개 · 처리 6109/7950개 · 루트 1/1 · 경과 5초 · …n\Python312\Lib\test\test_unittest\test_functiontestcase.py
+검사 중 · 파일 검사 · 폴더 1156개 · 항목 9106개 · 처리 4517/7950개 · 루트 1/1 · 경과 5초 · …ackages\pip\_vendor\rich\__pycache__\themes.cpython-312.pyc
 검사 완료 : 흔적 6건 · 위협 1건
 
 이 치료의 부작용:
@@ -575,17 +586,17 @@ Notice: this binary is unsigned and is not an official release. Everything works
 알림: 이 바이너리에 서명이 없습니다. 공식 배포본이 아닙니다. 기능은 전부 동작하지만, 이것이 우리가 만든 그 바이너리인지 확인된 바 없습니다
 [exit=2]
 
-########## D3. run --yes — 치료   [456초]
+########## D3. run --yes — 치료   [486초]
 
 ────────────────────────────────────────────────────────
  ESTsecurity 전용백신 1.0.0
  EvilAI(Locust) 제거  (evilai-locust 0.1.0)
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-05 13:12:55 UTC
+ 시작 시각  : 2026-11-05 14:59:39 UTC
  실행 기계  : DESKTOP-2GQIRP1 (windows)
 
 검사를 시작합니다.
-검사 중 · 파일 검사 · 폴더 1156개 · 항목 9106개 · 처리 6647/7950개 · 루트 1/1 · 경과 5초 · …pData\Local\Programs\Python\Python312\include\pymacconfig.h
+검사 중 · 파일 검사 · 폴더 1156개 · 항목 9106개 · 처리 5253/7950개 · 루트 1/1 · 경과 5초 · …Programs\Python\Python312\Lib\test\test_compiler_codegen.py
 검사 완료 : 흔적 6건 · 위협 1건
 
 이 치료의 부작용:
@@ -610,6 +621,7 @@ Notice: this binary is unsigned and is not an official release. Everything works
   * 치료를 마친 뒤 이 PC 를 재시작하면 자동으로 한 번 더 검사합니다.
 
 치료를 시작합니다.
+치료 중 · 도구 powershell.exe -NoProfile 1초 · 경과 5초
   수행 [1/7] 프로세스 종료  (실행 중인 것을 찾아서)
   수행 [2/7] 자동 실행 등록 비활성화  \Microsoft\Windows\Locust
   수행 [3/7] 자동 실행 등록 삭제  \Microsoft\Windows\Locust
@@ -622,68 +634,68 @@ Notice: this binary is unsigned and is not an official release. Everything works
 
 ────────────────────────────────────────────────────────
  결과       : 위협 발견, 치료 완료 (7건 수행 완료)
- 소요 시간  : 10초
- 격리소     : C:\remedy-lab\state-console\quarantine\run-1793884375-1088-2fa13f18.rq
- 저널       : C:\remedy-lab\state-console\journal\run-1793884375-1088-2fa13f18.jsonl
- 되돌리려면 : remedy restore --run run-1793884375-1088-2fa13f18
- 오탐 신고  : remedy support-bundle --run run-1793884375-1088-2fa13f18
+ 소요 시간  : 12초
+ 격리소     : C:\remedy-lab\state-console\quarantine\run-1793890779-1718-2203e89c.rq
+ 저널       : C:\remedy-lab\state-console\journal\run-1793890779-1718-2203e89c.jsonl
+ 되돌리려면 : remedy restore --run run-1793890779-1718-2203e89c
+ 오탐 신고  : remedy support-bundle --run run-1793890779-1718-2203e89c
 ────────────────────────────────────────────────────────
  Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
 알림: 이 바이너리에 서명이 없습니다. 공식 배포본이 아닙니다. 기능은 전부 동작하지만, 이것이 우리가 만든 그 바이너리인지 확인된 바 없습니다
 [exit=1]
-[run_id=run-1793884375-1088-2fa13f18]
+[run_id=run-1793890779-1718-2203e89c]
 
-########## E. 예약된 재평가 명령 (RunOnce)   [467초]
+########## E. 예약된 재평가 명령 (RunOnce)   [498초]
 
-"C:\remedy-lab\bin\remedy.exe" verify --run run-1793884375-1088-2fa13f18 --plugin "C:\remedy-lab\plugins\evilai-locust\plugin.yaml" --lang ko --state-dir "C:\remedy-lab\state-console"
+"C:\remedy-lab\bin\remedy.exe" verify --run run-1793890779-1718-2203e89c --plugin "C:\remedy-lab\plugins\evilai-locust\plugin.yaml" --lang ko --state-dir "C:\remedy-lab\state-console"
 
-########## F. verify   [467초]
+########## F. verify   [498초]
 
 ────────────────────────────────────────────────────────
  ESTsecurity 전용백신 1.0.0
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-05 13:13:06 UTC
+ 시작 시각  : 2026-11-05 14:59:52 UTC
  실행 기계  : DESKTOP-2GQIRP1 (windows)
 
 검사를 시작합니다.
-검사 중 · 파일 검사 · 폴더 1155개 · 항목 9104개 · 처리 2489/7949개 · 루트 1/1 · 경과 5초 · …cal\Programs\Python\Python312\Doc\html\_static\pygments.css
-검사 중 · 파일 검사 · 폴더 1155개 · 항목 9104개 · 처리 7305/7949개 · 루트 1/1 · 경과 10초 · …ocal\Programs\Python\Python312\tcl\tcl8.6\tzdata\Etc\GMT+12
+검사 중 · 파일 검사 · 폴더 1155개 · 항목 9104개 · 처리 2057/7949개 · 루트 1/1 · 경과 5초 · …0a328ea5\resources\app\node_modules\zod\v4\locales\vi.d.cts
+검사 중 · 파일 검사 · 폴더 1155개 · 항목 9104개 · 처리 4548/7949개 · 루트 1/1 · 경과 10초 · …hon\Python312\Lib\site-packages\pip\_vendor\rich\console.py
 검사 완료 : 흔적 0건 · 위협 0건
-재평가 기록 -> C:\remedy-lab\state-console\verify\run-1793884375-1088-2fa13f18.jsonl
+재평가 기록 -> C:\remedy-lab\state-console\verify\run-1793890779-1718-2203e89c.jsonl
 
 치료 성공. 같은 플러그인이 더 이상 판정하지 않습니다.
 알림: 이 바이너리에 서명이 없습니다. 공식 배포본이 아닙니다. 기능은 전부 동작하지만, 이것이 우리가 만든 그 바이너리인지 확인된 바 없습니다
 [exit=0]
 
-########## G0. restore --list — 창을 닫아도 회차를 찾는다   [478초]
+########## G0. restore --list — 창을 닫아도 회차를 찾는다   [513초]
 
 ────────────────────────────────────────────────────────
  ESTsecurity 전용백신 1.0.0
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-05 13:13:18 UTC
+ 시작 시각  : 2026-11-05 15:00:07 UTC
  실행 기계  : DESKTOP-2GQIRP1 (windows)
 
 격리소 : C:\remedy-lab\state-console\quarantine
 
 되돌릴 수 있는 회차 1건
-  2026-11-05 13:12:55 UTC  run-1793884375-1088-2fa13f18 · 11383 바이트
+  2026-11-05 14:59:39 UTC  run-1793890779-1718-2203e89c · 11383 바이트
 
-되돌리려면 : remedy restore --run run-1793884375-1088-2fa13f18
+되돌리려면 : remedy restore --run run-1793890779-1718-2203e89c
 알림: 이 바이너리에 서명이 없습니다. 공식 배포본이 아닙니다. 기능은 전부 동작하지만, 이것이 우리가 만든 그 바이너리인지 확인된 바 없습니다
 [exit=0]
 
-########## G1. restore — 계획만   [479초]
+########## G1. restore — 계획만   [514초]
 
 ────────────────────────────────────────────────────────
  ESTsecurity 전용백신 1.0.0
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-05 13:13:18 UTC
+ 시작 시각  : 2026-11-05 15:00:07 UTC
  실행 기계  : DESKTOP-2GQIRP1 (windows)
 
-격리소     : C:\remedy-lab\state-console\quarantine\run-1793884375-1088-2fa13f18.rq
-실행 번호  : run-1793884375-1088-2fa13f18
-만든 시각  : 2026-11-05 13:12:55 UTC
-키         : local(497c892e)
+격리소     : C:\remedy-lab\state-console\quarantine\run-1793890779-1718-2203e89c.rq
+실행 번호  : run-1793890779-1718-2203e89c
+만든 시각  : 2026-11-05 14:59:39 UTC
+키         : local(f0046a38)
 
 복원할 항목 6건 · 7442 바이트
   [e0] \Microsoft\Windows\Locust
@@ -695,25 +707,25 @@ Notice: this binary is unsigned and is not an official release. Everything works
         복원 불가  ctime: 운영체제가 관리하는 값이라 복원할 수 없습니다
         복원 불가  btime: 격리할 때 생성 시각을 담지 않았습니다
   [e5] av_exclusions
-  볼륨 C:  필요 508 · 여유 21604155392 바이트
+  볼륨 C:  필요 508 · 여유 21678051328 바이트
 
 아무것도 하지 않았습니다. 위 목록을 확인하고 --yes 를 붙여 다시 부르십시오.
 알림: 이 바이너리에 서명이 없습니다. 공식 배포본이 아닙니다. 기능은 전부 동작하지만, 이것이 우리가 만든 그 바이너리인지 확인된 바 없습니다
   주의: 로컬 wrap 뿐입니다. 이 머신을 재설치하면 이 격리물은 열 수 없습니다.
 [exit=2]
 
-########## G2. restore --yes   [479초]
+########## G2. restore --yes   [514초]
 
 ────────────────────────────────────────────────────────
  ESTsecurity 전용백신 1.0.0
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-05 13:13:18 UTC
+ 시작 시각  : 2026-11-05 15:00:07 UTC
  실행 기계  : DESKTOP-2GQIRP1 (windows)
 
-격리소     : C:\remedy-lab\state-console\quarantine\run-1793884375-1088-2fa13f18.rq
-실행 번호  : run-1793884375-1088-2fa13f18
-만든 시각  : 2026-11-05 13:12:55 UTC
-키         : local(497c892e)
+격리소     : C:\remedy-lab\state-console\quarantine\run-1793890779-1718-2203e89c.rq
+실행 번호  : run-1793890779-1718-2203e89c
+만든 시각  : 2026-11-05 14:59:39 UTC
+키         : local(f0046a38)
 
 복원할 항목 6건 · 7442 바이트
   [e0] \Microsoft\Windows\Locust
@@ -725,7 +737,7 @@ Notice: this binary is unsigned and is not an official release. Everything works
         복원 불가  ctime: 운영체제가 관리하는 값이라 복원할 수 없습니다
         복원 불가  btime: 격리할 때 생성 시각을 담지 않았습니다
   [e5] av_exclusions
-  볼륨 C:  필요 508 · 여유 21604155392 바이트
+  볼륨 C:  필요 508 · 여유 21678051328 바이트
 
   복원 [e0] \Microsoft\Windows\Locust
   복원 [e1] \Microsoft\Windows\Locust
@@ -742,12 +754,12 @@ Notice: this binary is unsigned and is not an official release. Everything works
   주의: 로컬 wrap 뿐입니다. 이 머신을 재설치하면 이 격리물은 열 수 없습니다.
 [exit=0]
 
-########## D5. 치료 심장박동 — 도구가 도는 중   [481초]
+########## D5. 치료 심장박동 — 도구가 도는 중   [516초]
 
 ────────────────────────────────────────────────────────
  ESTsecurity 전용백신 1.0.0
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-05 13:13:20 UTC
+ 시작 시각  : 2026-11-05 15:00:09 UTC
  실행 기계  : DESKTOP-2GQIRP1 (windows)
 
 
@@ -774,8 +786,8 @@ Notice: this binary is unsigned and is not an official release. Everything works
     치료가 끝나면 직접 부를 명령을 알려 드립니다.
 
 치료를 시작합니다.
-치료 중 · 도구 powershell.exe -NoProfile 0초 · 경과 1초
-치료 중 · 도구 schtasks.exe /Delete 0초 · 경과 2초
+치료 중 · 도구 powershell.exe -NoProfile 1초 · 경과 1초
+치료 중 · 경과 2초
 치료 중 · 도구 powershell.exe -NoProfile 0초 · 경과 3초
   수행 [1/7] 프로세스 종료  (실행 중인 것을 찾아서)
   수행 [2/7] 자동 실행 등록 비활성화  \Microsoft\Windows\Locust
@@ -788,31 +800,31 @@ Notice: this binary is unsigned and is not an official release. Everything works
 ────────────────────────────────────────────────────────
  결과       : 위협 발견, 치료 완료 (7건 수행 완료)
  소요 시간  : 3초
- 격리소     : C:\remedy-lab\state-console-beat\quarantine\run-1793884369-2f54-148d3c2c.rq
- 저널       : C:\remedy-lab\state-console-beat\journal\run-1793884369-2f54-148d3c2c.jsonl
- 되돌리려면 : remedy restore --run run-1793884369-2f54-148d3c2c
- 오탐 신고  : remedy support-bundle --run run-1793884369-2f54-148d3c2c
+ 격리소     : C:\remedy-lab\state-console-beat\quarantine\run-1793890772-1b5c-20b919e4.rq
+ 저널       : C:\remedy-lab\state-console-beat\journal\run-1793890772-1b5c-20b919e4.jsonl
+ 되돌리려면 : remedy restore --run run-1793890772-1b5c-20b919e4
+ 오탐 신고  : remedy support-bundle --run run-1793890772-1b5c-20b919e4
 ────────────────────────────────────────────────────────
  Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
 알림: 이 바이너리에 서명이 없습니다. 공식 배포본이 아닙니다. 기능은 전부 동작하지만, 이것이 우리가 만든 그 바이너리인지 확인된 바 없습니다
 
-주의: 재평가를 예약하지 못했습니다 (이 명령은 플러그인 경로를 모릅니다. `remedy run --plugin ...` 은 압니다). 재부팅 뒤 `remedy verify --run run-1793884369-2f54-148d3c2c --plugin <plugin.yaml>` 를 직접 부르십시오
+주의: 재평가를 예약하지 못했습니다 (이 명령은 플러그인 경로를 모릅니다. `remedy run --plugin ...` 은 압니다). 재부팅 뒤 `remedy verify --run run-1793890772-1b5c-20b919e4 --plugin <plugin.yaml>` 를 직접 부르십시오
 [exit=1]
 [도구 칸이 붙은 심장박동을 받았다]
 
-########## H. support-bundle   [485초]
+########## H. support-bundle   [520초]
 
-지원 번들 폴더 : C:\remedy-lab\bundle-console\remedy-support-run-1793884375-1088-2fa13f18
+지원 번들 폴더 : C:\remedy-lab\bundle-console\remedy-support-run-1793890779-1718-2203e89c
 
 담긴 것
   plan.json               2960 바이트  무엇을 하려 했는가: 승인된 계획 전문
   journal.jsonl           3519 바이트  무엇을 했는가: 감사 로그
   verify.jsonl             155 바이트  치료가 유지됐는가: 재평가 기록
-  run.log                 7270 바이트  사람이 본 화면: 배너·계획·경고·실패 문구·마무리 표, 줄마다 시각
+  run.log                 7361 바이트  사람이 본 화면: 배너·계획·경고·실패 문구·마무리 표, 줄마다 시각
   environment.json         410 바이트  어떤 코어에서 돌았는가: 버전, 타깃, 자기무결성, 엔진 상태
 
 일부러 담지 않은 것
-  C:\remedy-lab\state-console\quarantine\run-1793884375-1088-2fa13f18.rq
+  C:\remedy-lab\state-console\quarantine\run-1793890779-1718-2203e89c.rq
     격리 컨테이너: 검체와 사용자 파일 내용이 들어 있습니다. 오탐 복구는 보내지 않고 이 기계에서 `remedy restore --run <id>` 로 합니다
   C:\remedy-lab\state-console\machine.key
     격리 컨테이너를 여는 봉인 키. 보내면 그 컨테이너를 누구나 열 수 있습니다. 어떤 경우에도 첨부하지 마십시오
@@ -826,12 +838,12 @@ Notice: this binary is unsigned and is not an official release. Everything works
 알림: 이 바이너리에 서명이 없습니다. 공식 배포본이 아닙니다. 기능은 전부 동작하지만, 이것이 우리가 만든 그 바이너리인지 확인된 바 없습니다
 [exit=0]
 
-########## I1. 오류 — 인자 빠짐   [485초]
+########## I1. 오류 — 인자 빠짐   [520초]
 
 ────────────────────────────────────────────────────────
  ESTsecurity 전용백신 1.0.0
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-05 13:13:25 UTC
+ 시작 시각  : 2026-11-05 15:00:14 UTC
  실행 기계  : DESKTOP-2GQIRP1 (windows)
 
 알림: 이 바이너리에 서명이 없습니다. 공식 배포본이 아닙니다. 기능은 전부 동작하지만, 이것이 우리가 만든 그 바이너리인지 확인된 바 없습니다
@@ -839,14 +851,14 @@ Notice: this binary is unsigned and is not an official release. Everything works
   (종료 코드 4: 사용법·입력 오류)
 [exit=4]
 
-########## I2. 오류 — 모르는 하위 명령   [485초]
+########## I2. 오류 — 모르는 하위 명령   [521초]
 
 알림: 이 바이너리에 서명이 없습니다. 공식 배포본이 아닙니다. 기능은 전부 동작하지만, 이것이 우리가 만든 그 바이너리인지 확인된 바 없습니다
 알 수 없는 하위 명령: plugin 없는것
 쓸 수 있는 것: lint · verify
 [exit=4]
 
-########## J. selftest   [486초]
+########## J. selftest   [521초]
 
 링크된 크레이트 12종
   remedy-sdk
@@ -867,57 +879,57 @@ selftest OK
 알림: 이 바이너리에 서명이 없습니다. 공식 배포본이 아닙니다. 기능은 전부 동작하지만, 이것이 우리가 만든 그 바이너리인지 확인된 바 없습니다
 [exit=0]
 
-########## K. 회차 로그 (심장박동 줄 제외)   [486초]
+########## K. 회차 로그 (심장박동 줄 제외)   [521초]
 
-restore-run-1793884375-1088-2fa13f18.log  5640 bytes
-run-1793884336-23f0-1d308988.log  3477 bytes
-run-1793884343-1b40-5c12758.log  3135 bytes
-run-1793884349-24dc-2ee13c04.log  3244 bytes
-run-1793884356-168c-12ff127c.log  3566 bytes
-run-1793884363-08e0-f0366f0.log  3590 bytes
-run-1793884369-2f54-148d3c2c.log  3467 bytes
-run-1793884375-1088-2fa13f18.log  7270 bytes
---- run-1793884375-1088-2fa13f18.log 의 머리부터 치료 시작까지 ---
-2026-11-05T13:12:55Z # remedy 1.0.0 pid 4232 · run --plugin C:\remedy-lab\plugins\evilai-locust\plugin.yaml --out-dir C:\remedy-lab\out-console-run --yes --state-dir C:\remedy-lab\state-console
-2026-11-05T13:12:55Z | ────────────────────────────────────────────────────────
-2026-11-05T13:12:55Z |  ESTsecurity 전용백신 1.0.0
-2026-11-05T13:12:55Z |  EvilAI(Locust) 제거  (evilai-locust 0.1.0)
-2026-11-05T13:12:55Z | ────────────────────────────────────────────────────────
-2026-11-05T13:12:55Z |  시작 시각  : 2026-11-05 13:12:55 UTC
-2026-11-05T13:12:55Z |  실행 기계  : DESKTOP-2GQIRP1 (windows)
-2026-11-05T13:12:55Z | 
-2026-11-05T13:12:55Z # run_id run-1793884375-1088-2fa13f18
-2026-11-05T13:12:55Z | 검사를 시작합니다.
-2026-11-05T13:13:01Z # 검사 시간 6.0초 · 걷기 0.2초 · 읽기 2.7초 (670.3 MB · 7947개) · 해시 0.5초 · 서명 1.8초 (90개) · 큰 파일 건너뜀 4개 · 그 밖 0.7초
-2026-11-05T13:13:01Z | 검사 완료 : 흔적 6건 · 위협 1건
-2026-11-05T13:13:01Z | 
-2026-11-05T13:13:01Z | 이 치료의 부작용:
-2026-11-05T13:13:01Z |   ! [1] node.exe 가 종료됩니다 — 저장하지 않은 작업이 있으면 사라집니다
-2026-11-05T13:13:01Z | 
-2026-11-05T13:13:01Z | 7 건을 수행합니다:
-2026-11-05T13:13:01Z |    1. 프로세스 종료  (실행 중인 것을 찾아서)
-2026-11-05T13:13:01Z |       지금 돌고 있는 그 프로그램을 멈춥니다
-2026-11-05T13:13:01Z |    2. 자동 실행 등록 비활성화  \Microsoft\Windows\Locust
-2026-11-05T13:13:01Z |       지우기 전에 먼저 꺼서 그 사이에 다시 실행되지 않게 합니다
-2026-11-05T13:13:01Z |    3. 자동 실행 등록 삭제  \Microsoft\Windows\Locust
-2026-11-05T13:13:01Z |       예약 실행 등록을 없앱니다. 정해진 때에 자동으로 실행되지 않게 됩니다
-2026-11-05T13:13:01Z |    4. 시작 프로그램 항목 제거  HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run\SystemSoftwareUpdater
-2026-11-05T13:13:01Z |       부팅할 때 자동으로 실행되지 않게 됩니다
-2026-11-05T13:13:01Z |    5. 파일 격리  C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12\preload.js
-2026-11-05T13:13:01Z |       파일을 격리소로 옮깁니다. 지우는 것이 아니라 되돌릴 수 있습니다
-2026-11-05T13:13:01Z |    6. 폴더 삭제  C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12
-2026-11-05T13:13:01Z |       폴더와 그 안의 것을 통째로 지웁니다
-2026-11-05T13:13:01Z |    7. 보안 제품 예외 목록 원복  HKLM\SOFTWARE\Microsoft\Windows Defender\Exclusions\Paths\C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12
-2026-11-05T13:13:01Z |       검사에서 빠져 있던 자리를 다시 검사 대상으로 되돌립니다
-2026-11-05T13:13:01Z | 
-2026-11-05T13:13:01Z |   * 치료를 마친 뒤 이 PC 를 재시작하면 자동으로 한 번 더 검사합니다.
-2026-11-05T13:13:01Z | 
-2026-11-05T13:13:01Z | 치료를 시작합니다.
+restore-run-1793890779-1718-2203e89c.log  5640 bytes
+run-1793890745-0c40-3b3b5f70.log  3410 bytes
+run-1793890751-1240-1b7404a8.log  3135 bytes
+run-1793890757-2860-13f1e114.log  3047 bytes
+run-1793890762-0b2c-486e74c.log  3361 bytes
+run-1793890767-2b18-b32485c.log  3499 bytes
+run-1793890772-1b5c-20b919e4.log  3466 bytes
+run-1793890779-1718-2203e89c.log  7361 bytes
+--- run-1793890779-1718-2203e89c.log 의 머리부터 치료 시작까지 ---
+2026-11-05T14:59:39Z # remedy 1.0.0 pid 5912 · run --plugin C:\remedy-lab\plugins\evilai-locust\plugin.yaml --out-dir C:\remedy-lab\out-console-run --yes --state-dir C:\remedy-lab\state-console
+2026-11-05T14:59:39Z | ────────────────────────────────────────────────────────
+2026-11-05T14:59:39Z |  ESTsecurity 전용백신 1.0.0
+2026-11-05T14:59:39Z |  EvilAI(Locust) 제거  (evilai-locust 0.1.0)
+2026-11-05T14:59:39Z | ────────────────────────────────────────────────────────
+2026-11-05T14:59:39Z |  시작 시각  : 2026-11-05 14:59:39 UTC
+2026-11-05T14:59:39Z |  실행 기계  : DESKTOP-2GQIRP1 (windows)
+2026-11-05T14:59:39Z | 
+2026-11-05T14:59:39Z # run_id run-1793890779-1718-2203e89c
+2026-11-05T14:59:39Z | 검사를 시작합니다.
+2026-11-05T14:59:46Z # 검사 시간 6.7초 · 걷기 0.3초 · 읽기 3.0초 (670.3 MB · 7947개) · 해시 0.6초 · 서명 1.9초 (90개) · 큰 파일 건너뜀 4개 · 그 밖 0.9초
+2026-11-05T14:59:46Z | 검사 완료 : 흔적 6건 · 위협 1건
+2026-11-05T14:59:46Z | 
+2026-11-05T14:59:46Z | 이 치료의 부작용:
+2026-11-05T14:59:46Z |   ! [1] node.exe 가 종료됩니다 — 저장하지 않은 작업이 있으면 사라집니다
+2026-11-05T14:59:46Z | 
+2026-11-05T14:59:46Z | 7 건을 수행합니다:
+2026-11-05T14:59:46Z |    1. 프로세스 종료  (실행 중인 것을 찾아서)
+2026-11-05T14:59:46Z |       지금 돌고 있는 그 프로그램을 멈춥니다
+2026-11-05T14:59:46Z |    2. 자동 실행 등록 비활성화  \Microsoft\Windows\Locust
+2026-11-05T14:59:46Z |       지우기 전에 먼저 꺼서 그 사이에 다시 실행되지 않게 합니다
+2026-11-05T14:59:46Z |    3. 자동 실행 등록 삭제  \Microsoft\Windows\Locust
+2026-11-05T14:59:46Z |       예약 실행 등록을 없앱니다. 정해진 때에 자동으로 실행되지 않게 됩니다
+2026-11-05T14:59:46Z |    4. 시작 프로그램 항목 제거  HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run\SystemSoftwareUpdater
+2026-11-05T14:59:46Z |       부팅할 때 자동으로 실행되지 않게 됩니다
+2026-11-05T14:59:46Z |    5. 파일 격리  C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12\preload.js
+2026-11-05T14:59:46Z |       파일을 격리소로 옮깁니다. 지우는 것이 아니라 되돌릴 수 있습니다
+2026-11-05T14:59:46Z |    6. 폴더 삭제  C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12
+2026-11-05T14:59:46Z |       폴더와 그 안의 것을 통째로 지웁니다
+2026-11-05T14:59:46Z |    7. 보안 제품 예외 목록 원복  HKLM\SOFTWARE\Microsoft\Windows Defender\Exclusions\Paths\C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12
+2026-11-05T14:59:46Z |       검사에서 빠져 있던 자리를 다시 검사 대상으로 되돌립니다
+2026-11-05T14:59:46Z | 
+2026-11-05T14:59:46Z |   * 치료를 마친 뒤 이 PC 를 재시작하면 자동으로 한 번 더 검사합니다.
+2026-11-05T14:59:46Z | 
+2026-11-05T14:59:46Z | 치료를 시작합니다.
 --- 검사 시간 줄 ---
-2026-11-05T13:13:01Z # 검사 시간 6.0초 · 걷기 0.2초 · 읽기 2.7초 (670.3 MB · 7947개) · 해시 0.5초 · 서명 1.8초 (90개) · 큰 파일 건너뜀 4개 · 그 밖 0.7초
-2026-11-05T13:13:18Z # 검사 시간 11.2초 · 걷기 0.3초 · 읽기 7.9초 (670.3 MB · 7946개) · 해시 0.5초 · 서명 1.8초 (90개) · 큰 파일 건너뜀 4개 · 그 밖 0.7초
+2026-11-05T14:59:46Z # 검사 시간 6.7초 · 걷기 0.3초 · 읽기 3.0초 (670.3 MB · 7947개) · 해시 0.6초 · 서명 1.9초 (90개) · 큰 파일 건너뜀 4개 · 그 밖 0.9초
+2026-11-05T15:00:07Z # 검사 시간 14.9초 · 걷기 0.4초 · 읽기 10.8초 (670.3 MB · 7946개) · 해시 0.6초 · 서명 2.4초 (90개) · 큰 파일 건너뜀 4개 · 그 밖 0.7초
 
-########## M. 조직 복구 키 — apply 가 싣고 restore 가 연다   [486초]
+########## M. 조직 복구 키 — apply 가 싣고 restore 가 연다   [521초]
 
 org 키쌍 생성 OK — 공개키 32 바이트
 검체 2개 · 룰 생성 완료
@@ -925,7 +937,7 @@ org 키쌍 생성 OK — 공개키 32 바이트
  ESTsecurity 전용백신 1.0.0
  조직 복구 키 시험  (force-orgwrap 1.0.0)
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-05 13:13:27 UTC
+ 시작 시각  : 2026-11-05 15:00:28 UTC
  실행 기계  : DESKTOP-2GQIRP1 (windows)
 
 검사를 시작합니다.
@@ -944,10 +956,10 @@ org 키쌍 생성 OK — 공개키 32 바이트
 ────────────────────────────────────────────────────────
  결과       : 위협 발견, 치료 완료 (2건 수행 완료)
  소요 시간  : 1초 미만
- 격리소     : C:\remedy-lab\state-org\quarantine\run-1793884407-1a84-2191e38c.rq
- 저널       : C:\remedy-lab\state-org\journal\run-1793884407-1a84-2191e38c.jsonl
- 되돌리려면 : remedy restore --run run-1793884407-1a84-2191e38c
- 오탐 신고  : remedy support-bundle --run run-1793884407-1a84-2191e38c
+ 격리소     : C:\remedy-lab\state-org\quarantine\run-1793890828-0220-9181060.rq
+ 저널       : C:\remedy-lab\state-org\journal\run-1793890828-0220-9181060.jsonl
+ 되돌리려면 : remedy restore --run run-1793890828-0220-9181060
+ 오탐 신고  : remedy support-bundle --run run-1793890828-0220-9181060
 ────────────────────────────────────────────────────────
  Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
 알림: 이 바이너리에 서명이 없습니다. 공식 배포본이 아닙니다. 기능은 전부 동작하지만, 이것이 우리가 만든 그 바이너리인지 확인된 바 없습니다
@@ -956,13 +968,13 @@ org 키쌍 생성 OK — 공개키 32 바이트
 ────────────────────────────────────────────────────────
  ESTsecurity 전용백신 1.0.0
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-05 13:13:27 UTC
+ 시작 시각  : 2026-11-05 15:00:28 UTC
  실행 기계  : DESKTOP-2GQIRP1 (windows)
 
-격리소     : C:\remedy-lab\state-org\quarantine\run-1793884407-1a84-2191e38c.rq
-실행 번호  : run-1793884407-1a84-2191e38c
-만든 시각  : 2026-11-05 13:13:27 UTC
-키         : local(8a492ab2) · org(a9b779f5)
+격리소     : C:\remedy-lab\state-org\quarantine\run-1793890828-0220-9181060.rq
+실행 번호  : run-1793890828-0220-9181060
+만든 시각  : 2026-11-05 15:00:28 UTC
+키         : local(c6579a08) · org(b923843e)
 꺼내기 모드입니다. 원본 자리가 아니라 C:\remedy-lab\orgout 로 꺼냅니다.
   제자리 복원은 원래 머신에서만 보장됩니다.
 
@@ -971,7 +983,7 @@ org 키쌍 생성 OK — 공개키 32 바이트
         복원 불가  ctime: 운영체제가 관리하는 값이라 복원할 수 없습니다
   [e1] C:\remedy-lab\orgout\C__remedy-lab_orgsrc_g2.evil
         복원 불가  ctime: 운영체제가 관리하는 값이라 복원할 수 없습니다
-  볼륨 C:  필요 28 · 여유 21604048896 바이트
+  볼륨 C:  필요 28 · 여유 21677981696 바이트
 
   복원 [e0] C:\remedy-lab\orgout\C__remedy-lab_orgsrc_g1.evil  (content · mtime · btime · readonly · sddl)
   복원 [e1] C:\remedy-lab\orgout\C__remedy-lab_orgsrc_g2.evil  (content · mtime · btime · readonly · sddl)
@@ -986,10 +998,10 @@ org 키쌍 생성 OK — 공개키 32 바이트
 C__remedy-lab_orgsrc_g1.evil
 C__remedy-lab_orgsrc_g2.evil
 
-########## L. 정리   [488초]
+########## L. 정리   [535초]
 
 예외 복원 완료
 정리 완료
 
-########## 끝   [493초]
+########## 끝   [541초]
 

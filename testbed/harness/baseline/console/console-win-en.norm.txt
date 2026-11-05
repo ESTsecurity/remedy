@@ -193,19 +193,30 @@ What would you like to do?
   3. Re-check that the treatment held
   4. Verify this plugin bundle
   5. Lint the rule (for authors)
-  6. Self-test
-  7. Version
-  8. How to use
-  9. Every command and option
+  6. Undo a treatment — no treatment on this PC yet
+  7. Collect what to attach to a report — no treatment on this PC yet
+  8. Resume an interrupted run — no treatment on this PC yet
+  9. Show what can be undone on this PC — no treatment on this PC yet
+  10. Self-test
+  11. Version
+  12. How to use
+  13. Every command and option
 
   - for authors and operators -
-  10. Collect only (evaluate in-house)
+  14. Collect only (evaluate in-house)
+  15. Apply an approved plan — no approved plan (plan*.json) in out
+  16. Evaluate a collected snapshot — no collected snapshot (artifacts*.json) in out
+  17. Plan from an evaluation — no evaluation (scan*.json) in out
+  18. Verify an org allowlist — no signed list (*.signed) next to the program
+  19. Import an org allowlist — no signed list (*.signed) next to the program
+  20. Verify a revocation list — no signed list (*.signed) next to the program
+  21. Import a revocation list — no signed list (*.signed) next to the program
   0. Quit (for commands, run remedy --help)
 
 Nothing was done.
 Notice: this binary is unsigned and is not an official release. Everything works, but it has not been verified as the binary we built
 
-Choose a number (0-10):
+Choose a number (0-21):
 
 ########## A4. 사용법이 어느 스트림으로 나가는가   [N초]
 

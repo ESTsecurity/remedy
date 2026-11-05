@@ -339,6 +339,10 @@ pub enum Row {
     Text(String),
     /// 번호가 붙는 줄. 번호는 1 부터 차례로 매긴다.
     Item(String),
+    /// 번호는 붙지만 지금은 고를 수 없는 줄 — 이름과 그 까닭. 흐리게 그리고, 그 번호를
+    /// 고르면 까닭을 보인다. 번호를 비워 두지 않는 것은 **번호가 기계 상태마다 움직이지
+    /// 않게** 하려는 것이다(목표 remedy_제품화 기준 5 — '전' 이미지에서 10 → 17).
+    Off(String, String),
 }
 
 /// 고른 답.
@@ -357,7 +361,7 @@ pub enum Answer {
 /// 그리는 자리이고 목록이 창에 들어가면 **방향키 + 숫자**로 고른다(결정 6). 아니면
 /// 지금까지의 글자 그대로 번호 한 줄을 받는다.
 pub fn choose(rows: &[Row], zero: Option<&str>) -> Answer {
-    let n = rows.iter().filter(|r| matches!(r, Row::Item(_))).count();
+    let n = numbered(rows).count();
     if fancy() && fits(rows, zero) {
         if let Some(a) = choose_keys(rows, zero, n) {
             return a;
@@ -366,7 +370,26 @@ pub fn choose(rows: &[Row], zero: Option<&str>) -> Answer {
     choose_line(rows, zero, n)
 }
 
-/// 지금까지의 화면. **한 글자도 바꾸지 않는다** — 랩 메뉴 하네스가 이 줄들을 읽는다.
+/// 번호가 붙는 줄들 — 화면 차례대로. `v` 번은 `(v - 1)` 째다.
+fn numbered(rows: &[Row]) -> impl Iterator<Item = &Row> {
+    rows.iter()
+        .filter(|r| matches!(r, Row::Item(_) | Row::Off(..)))
+}
+
+/// `v` 번이 고를 수 없는 줄이면 그 까닭을 담은 한 줄.
+fn off_note(rows: &[Row], v: usize) -> Option<String> {
+    match numbered(rows).nth(v.checked_sub(1)?)? {
+        Row::Off(label, why) => Some(off_line(v, label, why)),
+        _ => None,
+    }
+}
+
+fn off_line(v: usize, label: &str, why: &str) -> String {
+    format!("{v}. {label}{}{why}", remedy_sdk::i18n::deco().dash())
+}
+
+/// 지금까지의 화면 — 줄 입력. 랩 메뉴 하네스가 이 줄들을 읽는다(라벨 → 번호). 고를 수
+/// 없는 줄은 `N. 이름 — 까닭` 이고, 그 번호를 고르면 까닭을 보이고 다시 묻는다.
 fn choose_line(rows: &[Row], zero: Option<&str>, n: usize) -> Answer {
     let mut i = 0;
     for r in rows {
@@ -377,6 +400,10 @@ fn choose_line(rows: &[Row], zero: Option<&str>, n: usize) -> Answer {
                 i += 1;
                 outln!("  {i}. {label}");
             }
+            Row::Off(label, why) => {
+                i += 1;
+                outln!("  {}", off_line(i, label, why));
+            }
         }
     }
     if let Some(z) = zero {
@@ -384,23 +411,30 @@ fn choose_line(rows: &[Row], zero: Option<&str>, n: usize) -> Answer {
     }
     let lang = ui().lang;
     let lo = usize::from(zero.is_none());
-    eprintln!();
-    eprint!(
-        "{}",
-        lang.pick(
-            format!("번호를 고르십시오 ({lo}-{n}): "),
-            format!("Choose a number ({lo}-{n}): ")
-        )
-    );
-    std::io::stderr().flush().ok();
-    let mut line = String::new();
-    match std::io::stdin().read_line(&mut line) {
-        Ok(0) | Err(_) => return Answer::Invalid,
-        Ok(_) => {}
-    }
-    match line.trim().parse::<usize>() {
-        Ok(v) if v >= lo && v <= n => Answer::Num(v),
-        _ => Answer::Invalid,
+    loop {
+        eprintln!();
+        eprint!(
+            "{}",
+            lang.pick(
+                format!("번호를 고르십시오 ({lo}-{n}): "),
+                format!("Choose a number ({lo}-{n}): ")
+            )
+        );
+        std::io::stderr().flush().ok();
+        let mut line = String::new();
+        match std::io::stdin().read_line(&mut line) {
+            Ok(0) | Err(_) => return Answer::Invalid,
+            Ok(_) => {}
+        }
+        let v = match line.trim().parse::<usize>() {
+            Ok(v) if v >= lo && v <= n => v,
+            _ => return Answer::Invalid,
+        };
+        // 고를 수 없는 줄 — 까닭을 보이고 다시 묻는다. 읽을 줄이 없으면 위에서 끝난다.
+        match off_note(rows, v) {
+            Some(note) => eprintln!("{note}"),
+            None => return Answer::Num(v),
+        }
     }
 }
 
@@ -408,7 +442,9 @@ fn choose_line(rows: &[Row], zero: Option<&str>, n: usize) -> Answer {
 fn choose_keys(rows: &[Row], zero: Option<&str>, n: usize) -> Option<Answer> {
     use crossterm::event::{read, Event, KeyCode, KeyEventKind, KeyModifiers};
 
-    // 고를 수 있는 번호를 화면 차례대로 — 1..=n 다음에 0.
+    // 강조가 서는 자리를 화면 차례대로 — 1..=n 다음에 0. **고를 수 없는 줄에도 선다** —
+    // 건너뛰면 창 밖으로 넘긴 그 줄들을 넘겨 볼 길이 없다(새 꾸러미에서 아래 여섯 줄이
+    // 전부 그랬다 · 2026-11-06 이미지). 그 줄에서 Enter 는 고르지 않고 까닭을 보인다.
     let order: Vec<usize> = (1..=n).chain(zero.map(|_| 0)).collect();
     if order.is_empty() {
         return None;
@@ -417,14 +453,17 @@ fn choose_keys(rows: &[Row], zero: Option<&str>, n: usize) -> Option<Answer> {
     let mut out = std::io::stdout();
     // 고르는 동안 커서를 숨긴다 — 목록 아래에서 깜빡이면 입력 칸처럼 읽힌다.
     let _ = write!(out, "{ESC}[?25l");
-    let mut at = 0usize;
+    // 처음 강조는 고를 수 있는 첫 줄이다.
+    let mut at = order
+        .iter()
+        .position(|v| off_note(rows, *v).is_none())
+        .unwrap_or(0);
+    // 창이 목록보다 낮을 때 넘긴 자리 — 첫 번호 줄에서 몇 줄 아래부터 보이는가.
+    let mut top = 0usize;
     let mut typed = String::new();
     let mut note: Option<String> = None;
-    let mut drawn = draw(
-        &mut out,
-        &lines(rows, zero, order[at], Some(&hint(&typed, None))),
-        0,
-    );
+    let first = lines(rows, zero, order[at], Some(&hint(&typed, None)));
+    let mut drawn = draw(&mut out, &view(&first, &mut top, room()), 0);
 
     let answer = loop {
         let Ok(ev) = read() else {
@@ -433,8 +472,8 @@ fn choose_keys(rows: &[Row], zero: Option<&str>, n: usize) -> Option<Answer> {
         let key = match ev {
             Event::Key(k) if k.kind != KeyEventKind::Release => k,
             Event::Resize(..) => {
-                let shown = lines(rows, zero, order[at], Some(&hint(&typed, note.as_deref())));
-                drawn = draw(&mut out, &shown, drawn);
+                let f = lines(rows, zero, order[at], Some(&hint(&typed, note.as_deref())));
+                drawn = draw(&mut out, &view(&f, &mut top, room()), drawn);
                 continue;
             }
             _ => continue,
@@ -464,35 +503,40 @@ fn choose_keys(rows: &[Row], zero: Option<&str>, n: usize) -> Option<Answer> {
                 if typed.len() > digits(n) {
                     typed = d.to_string();
                 }
+                note = None;
                 if let Some(pos) = typed
                     .parse::<usize>()
                     .ok()
                     .and_then(|v| order.iter().position(|o| *o == v))
                 {
                     at = pos;
+                    // 고를 수 없는 번호면 그 줄로 가고 까닭을 안내 줄에.
+                    note = off_note(rows, order[at]);
                 }
-                note = None;
             }
             KeyCode::Backspace => {
                 typed.pop();
             }
             KeyCode::Esc if zero.is_some() => break Answer::Num(0),
             KeyCode::Enter => {
-                if typed.is_empty() {
-                    break Answer::Num(order[at]);
-                }
-                match typed.parse::<usize>().ok().filter(|v| order.contains(v)) {
-                    Some(v) => break Answer::Num(v),
-                    None => {
-                        note = Some(range_hint(zero.is_some(), n));
-                        typed.clear();
-                    }
+                let v = if typed.is_empty() {
+                    Some(order[at])
+                } else {
+                    typed.parse::<usize>().ok().filter(|v| order.contains(v))
+                };
+                typed.clear();
+                match v {
+                    Some(v) => match off_note(rows, v) {
+                        None => break Answer::Num(v),
+                        Some(why) => note = Some(why),
+                    },
+                    None => note = Some(range_hint(zero.is_some(), n)),
                 }
             }
             _ => {}
         }
-        let shown = lines(rows, zero, order[at], Some(&hint(&typed, note.as_deref())));
-        drawn = draw(&mut out, &shown, drawn);
+        let f = lines(rows, zero, order[at], Some(&hint(&typed, note.as_deref())));
+        drawn = draw(&mut out, &view(&f, &mut top, room()), drawn);
     };
 
     // 안내 줄을 걷고 고른 줄만 표시해 둔다 — 스크롤백에 남는 모양이다.
@@ -500,7 +544,8 @@ fn choose_keys(rows: &[Row], zero: Option<&str>, n: usize) -> Option<Answer> {
         Answer::Num(v) => v,
         _ => usize::MAX,
     };
-    draw(&mut out, &lines(rows, zero, chosen, None), drawn);
+    let last = lines(rows, zero, chosen, None);
+    draw(&mut out, &view(&last, &mut top, room()), drawn);
     let _ = write!(out, "{ESC}[?25h");
     let _ = out.flush();
     let _ = crossterm::terminal::disable_raw_mode();
@@ -523,29 +568,130 @@ fn draw(out: &mut impl Write, shown: &[String], prev: usize) -> usize {
     shown.len()
 }
 
+/// 고르는 화면 한 장 — 줄들과, 창이 모자랄 때 어디를 넘길지 셀 값.
+struct Frame {
+    lines: Vec<String>,
+    /// 맨 위에서 넘기지 않는 줄 수 — 첫 번호 줄 앞(머리말 · 물음).
+    head: usize,
+    /// 맨 아래에서 넘기지 않는 줄 수 — `0.` 줄과 안내.
+    foot: usize,
+    /// 강조한 줄의 자리.
+    sel: Option<usize>,
+    /// 줄마다 번호가 붙었는가 — 가린 자리의 "N개 더" 를 센다.
+    numbered: Vec<bool>,
+}
+
+impl Frame {
+    fn push(&mut self, line: String, numbered: bool) {
+        self.lines.push(line);
+        self.numbered.push(numbered);
+    }
+}
+
 /// 고르는 화면의 줄들. `sel` 은 강조할 번호(없으면 `usize::MAX`), `hint` 는 맨 아래 줄.
-fn lines(rows: &[Row], zero: Option<&str>, sel: usize, hint: Option<&str>) -> Vec<String> {
-    let mut v = Vec::new();
+fn lines(rows: &[Row], zero: Option<&str>, sel: usize, hint: Option<&str>) -> Frame {
+    let mut f = Frame {
+        lines: Vec::new(),
+        head: rows
+            .iter()
+            .take_while(|r| matches!(r, Row::Blank | Row::Text(_)))
+            .count(),
+        foot: 0,
+        sel: None,
+        numbered: Vec::new(),
+    };
     let mut i = 0;
     for r in rows {
         match r {
-            Row::Blank => v.push(String::new()),
+            Row::Blank => f.push(String::new(), false),
             // 이 길은 그리는 자리에서만 온다 — 글줄에도 역할 색을 얹는다(머리말 · 권한).
-            Row::Text(t) => v.push(paint(t, false).unwrap_or_else(|| t.clone())),
+            Row::Text(t) => f.push(paint(t, false).unwrap_or_else(|| t.clone()), false),
             Row::Item(label) => {
                 i += 1;
-                v.push(item_line(i, label, i == sel));
+                if i == sel {
+                    f.sel = Some(f.lines.len());
+                }
+                f.push(item_line(i, label, i == sel), true);
+            }
+            Row::Off(label, why) => {
+                i += 1;
+                let text = off_line(i, label, why);
+                if i == sel {
+                    f.sel = Some(f.lines.len());
+                    f.push(format!("{ESC}[7m> {text}{ESC}[0m"), true);
+                } else {
+                    f.push(format!("{ESC}[2m  {text}{ESC}[0m"), true);
+                }
             }
         }
     }
+    let body_end = f.lines.len();
     if let Some(z) = zero {
-        v.push(item_line(0, z, sel == 0));
+        if sel == 0 {
+            f.sel = Some(f.lines.len());
+        }
+        f.push(item_line(0, z, sel == 0), false);
     }
     if let Some(h) = hint {
-        v.push(String::new());
-        v.push(format!("{ESC}[2m{h}{ESC}[0m"));
+        f.push(String::new(), false);
+        f.push(format!("{ESC}[2m{h}{ESC}[0m"), false);
     }
+    f.foot = f.lines.len() - body_end;
+    f
+}
+
+/// 창에 들어갈 만큼만 — 목록이 창보다 높으면 머리말과 `0.` · 안내 줄은 두고 **번호
+/// 줄들만 넘긴다**(gh 가 한 화면 20개로 넘기는 것과 같은 결 · 벤치마크 축 3). 다시
+/// 그리는 줄이 창 높이를 넘으면 스크롤백이 무너진다. `max` 는 그릴 수 있는 줄 수다.
+fn view(f: &Frame, top: &mut usize, max: usize) -> Vec<String> {
+    if f.lines.len() <= max {
+        *top = 0;
+        return f.lines.clone();
+    }
+    let (start, end) = (f.head, f.lines.len() - f.foot);
+    // 위아래 "N개 더" 두 줄은 늘 둔다 — 그린 줄 수가 넘길 때마다 바뀌지 않게.
+    let rows = max.saturating_sub(f.head + f.foot + 2).max(1);
+    if let Some(s) = f.sel.filter(|s| (start..end).contains(s)) {
+        let s = s - start;
+        if s < *top {
+            *top = s;
+        }
+        if s >= *top + rows {
+            *top = s + 1 - rows;
+        }
+    }
+    *top = (*top).min((end - start).saturating_sub(rows));
+    let (from, to) = (start + *top, (start + *top + rows).min(end));
+    let hidden = |r: std::ops::Range<usize>| f.numbered[r].iter().filter(|b| **b).count();
+    let mut v = f.lines[..start].to_vec();
+    v.push(more_line(hidden(start..from), true));
+    v.extend_from_slice(&f.lines[from..to]);
+    v.push(more_line(hidden(to..end), false));
+    v.extend_from_slice(&f.lines[end..]);
     v
+}
+
+/// 다시 그릴 수 있는 줄 수 — 창 높이에서 두 줄을 남긴다(커서가 선 줄 · 꺾임 여유).
+fn room() -> usize {
+    crossterm::terminal::size().map_or(usize::MAX, |(_, h)| usize::from(h).saturating_sub(2))
+}
+
+/// 넘겨서 가린 번호 줄이 몇 개인가. 없으면 빈 줄이다.
+fn more_line(n: usize, up: bool) -> String {
+    if n == 0 {
+        return String::new();
+    }
+    let arrow = match (up, remedy_sdk::i18n::deco().ascii) {
+        (true, false) => "↑",
+        (false, false) => "↓",
+        (true, true) => "^",
+        (false, true) => "v",
+    };
+    let text = ui().lang.pick(
+        format!("  {arrow} {}에 {n}개 더", if up { "위" } else { "아래" }),
+        format!("  {arrow} {n} more {}", if up { "above" } else { "below" }),
+    );
+    format!("{ESC}[2m{text}{ESC}[0m")
 }
 
 /// 번호 줄. 강조는 반전이고, 표시 글자는 ASCII `>` 다 — `▶` 는 폭이 모호해 콘솔
@@ -563,20 +709,19 @@ fn hint(typed: &str, note: Option<&str>) -> String {
         return n.to_string();
     }
     let lang = ui().lang;
+    // 줄표 · 점도 장식 층에서 받는다 — `--ascii` 에서는 ASCII 로 간다(기준 3(c)).
+    let d = remedy_sdk::i18n::deco();
+    let (dot, dash) = (d.dot(), d.dash());
     if !typed.is_empty() {
         return lang.pick(
-            format!("번호 {typed} — Enter 를 누르면 고릅니다"),
-            format!("Number {typed} — press Enter to choose"),
+            format!("번호 {typed}{dash}Enter 를 누르면 고릅니다"),
+            format!("Number {typed}{dash}press Enter to choose"),
         );
     }
-    let arrows = if remedy_sdk::i18n::deco().ascii {
-        "Up/Down"
-    } else {
-        "↑↓"
-    };
+    let arrows = if d.ascii { "Up/Down" } else { "↑↓" };
     lang.pick(
-        format!("{arrows} 로 고르고 Enter · 번호를 쳐도 됩니다 · Ctrl+C 두 번이면 끝납니다"),
-        format!("{arrows} to move, Enter to choose · type a number · Ctrl+C twice to quit"),
+        format!("{arrows} 로 고르고 Enter{dot}번호를 쳐도 됩니다{dot}Ctrl+C 두 번이면 끝납니다"),
+        format!("{arrows} to move, Enter to choose{dot}type a number{dot}Ctrl+C twice to quit"),
     )
 }
 
@@ -592,15 +737,21 @@ fn digits(n: usize) -> usize {
     n.to_string().len()
 }
 
-/// 다시 그릴 수 있는가. 목록이 창보다 높거나 줄이 창보다 넓으면 줄이 꺾여, 올라갈 줄
-/// 수를 셀 수 없다 — 그러면 지금까지의 글자로 묻는다.
+/// 다시 그릴 수 있는가. 줄이 창보다 넓으면 꺾여 올라갈 줄 수를 셀 수 없고, 창이 머리말
+/// · 아래 줄에 번호 줄 셋도 못 담을 만큼 낮으면 넘겨 보일 자리가 없다 — 그러면
+/// 지금까지의 글자로 묻는다. 목록이 창보다 높은 것만으로는 물러나지 않는다([`view`]).
 fn fits(rows: &[Row], zero: Option<&str>) -> bool {
     let Ok((cols, height)) = crossterm::terminal::size() else {
         return false;
     };
-    let shown = lines(rows, zero, usize::MAX, Some(&hint("", None)));
-    shown.len() + 1 < usize::from(height) && shown.iter().all(|l| width(l) < usize::from(cols))
+    let f = lines(rows, zero, usize::MAX, Some(&hint("", None)));
+    let max = usize::from(height).saturating_sub(2);
+    let tall_ok = f.lines.len() <= max || f.head + f.foot + 2 + MIN_ROWS <= max;
+    tall_ok && f.lines.iter().all(|l| width(l) < usize::from(cols))
 }
+
+/// 넘겨 보일 때 최소한 보여야 하는 번호 줄 수.
+const MIN_ROWS: usize = 3;
 
 /// 화면 폭. **ASCII 가 아닌 글자는 두 칸으로 센다** — 한글은 두 칸이고, 폭이 모호한
 /// 기호(`·` `—` `↑`)를 한국어 콘솔 호스트가 두 칸으로 그린다(2026-11-05 이미지).
@@ -629,8 +780,8 @@ fn width(s: &str) -> usize {
 #[cfg(test)]
 mod tests {
     use super::{
-        decide, exit_code_for, second_press, term_ok, width, ESC, TASK_CHANGES, TASK_NONE,
-        TASK_READS,
+        decide, exit_code_for, lines, numbered, off_note, second_press, term_ok, view, width, Row,
+        ESC, TASK_CHANGES, TASK_NONE, TASK_READS,
     };
     use std::ffi::OsStr;
 
@@ -740,5 +891,64 @@ mod tests {
         assert_eq!(width("검사"), 4);
         assert_eq!(width(&format!("{ESC}[7m> 1. 검사{ESC}[0m")), 9);
         assert_eq!(width("a · b"), 6, "폭이 모호한 기호는 두 칸");
+    }
+
+    /// 고를 수 없는 줄도 번호를 받는다 — 그 번호는 고르지 않고 까닭을 낸다.
+    #[test]
+    fn an_off_row_keeps_its_number_and_tells_why() {
+        let rows = vec![
+            Row::Item("a".into()),
+            Row::Off("b".into(), "why".into()),
+            Row::Item("c".into()),
+        ];
+        assert_eq!(numbered(&rows).count(), 3);
+        let note = off_note(&rows, 2).expect("2번은 고를 수 없는 줄이다");
+        assert!(note.starts_with("2. b") && note.ends_with("why"), "{note}");
+        for v in [0, 1, 3, 4] {
+            assert_eq!(off_note(&rows, v), None, "{v}번");
+        }
+    }
+
+    /// 창이 목록보다 낮으면 번호 줄만 넘긴다 — 머리말과 아래 줄은 그대로, 강조한 줄은
+    /// 늘 보이고, 그린 줄 수는 창을 넘지 않으며, 가린 번호 줄 수를 위아래에 적는다.
+    #[test]
+    fn a_tall_list_scrolls_inside_the_window() {
+        let mut rows = vec![Row::Blank, Row::Text("head".into()), Row::Blank];
+        rows.extend((1..=20).map(|i| Row::Item(format!("item {i}"))));
+        let max = 12;
+        let mut top = 0;
+
+        // 머리 3 + 아래 3(0. 줄 · 빈 줄 · 안내) + 위아래 두 줄 = 8 → 번호 줄 넷이 보인다.
+        let v = view(&lines(&rows, Some("quit"), 1, Some("hint")), &mut top, max);
+        assert_eq!(v.len(), max);
+        assert_eq!(&v[..3], ["", "head", ""]);
+        assert!(v.iter().any(|l| l.contains("> 1. item 1")));
+        assert_eq!(v[3], "", "위로 가린 것이 없다");
+        assert!(v[8].contains("16"), "아래로 가린 번호 줄 16: {:?}", v[8]);
+        assert!(v[9].contains("0. quit") && v[11].contains("hint"));
+
+        // 맨 아래 항목을 고르면 그 줄이 보이게 넘어간다.
+        let v = view(&lines(&rows, Some("quit"), 20, Some("hint")), &mut top, max);
+        assert_eq!(v.len(), max);
+        assert!(v.iter().any(|l| l.contains("> 20. item 20")));
+        assert!(v[3].contains("16"), "위로 가린 번호 줄 16: {:?}", v[3]);
+        assert_eq!(v[8], "", "아래로 가린 것이 없다");
+
+        // 창이 넉넉하면 그대로다.
+        let all = lines(&rows, Some("quit"), 1, Some("hint"));
+        assert_eq!(view(&all, &mut top, 100), all.lines);
+        assert_eq!(top, 0);
+
+        // 가린 줄이 전부 고를 수 없는 줄이어도 그 줄에 서서 넘겨 볼 수 있다 — 새
+        // 꾸러미의 첫 메뉴가 그렇다(아래 여섯 줄이 모두 까닭을 단다).
+        let mut off = vec![Row::Blank, Row::Text("head".into()), Row::Blank];
+        off.extend((1..=5).map(|i| Row::Item(format!("item {i}"))));
+        off.extend((6..=20).map(|i| Row::Off(format!("item {i}"), "why".into())));
+        let v = view(&lines(&off, Some("quit"), 20, Some("hint")), &mut top, max);
+        assert!(
+            v.iter()
+                .any(|l| l.contains("> 20. item 20") && l.contains("why")),
+            "{v:?}"
+        );
     }
 }

@@ -420,7 +420,7 @@ fn choose(ok: &[discover::Found]) -> Option<Chosen> {
             match r {
                 Row::Blank => outln!(),
                 Row::Text(t) => outln!("{t}"),
-                Row::Item(_) => {}
+                Row::Item(_) | Row::Off(..) => {}
             }
         }
         for (i, f) in ok.iter().enumerate() {
