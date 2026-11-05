@@ -289,6 +289,18 @@ fn main() -> ExitCode {
                 if !ends_here {
                     term::task_begin(changes_system(&picked));
                 }
+                let flow = flow_of(&picked);
+                // **하기 전에 무엇을 하는지** — 치료 · 복원은 목록과 승인이 그 자리다.
+                // 검사만 그것이 없었다(목표 remedy_제품화 기준 6(a)).
+                if session && matches!(flow, Flow::Scan) {
+                    outln!(
+                        "{}",
+                        ui().lang.t(
+                            "검사만 합니다 — 아무것도 바꾸지 않습니다. 찾으면 치료할 계획을 세워 둡니다.",
+                            "Scan only — nothing is changed. If something is found, a treatment plan is kept."
+                        )
+                    );
+                }
                 let outcome = match picked {
                     guided::Outcome::ShowUsage => {
                         usage(false);
@@ -608,7 +620,7 @@ fn main() -> ExitCode {
                 tee::close();
                 term::task_end(code);
                 last = Some(code);
-                back_to_menu();
+                back_to_menu(flow, code);
             }
         }
         Some(other) => {
@@ -921,11 +933,102 @@ fn changes_system(o: &guided::Outcome) -> bool {
     }
 }
 
-/// 작업이 끝나고 메뉴로 돌아간다는 것을 남긴다 — 스크롤백에서 작업 사이가 보인다.
-fn back_to_menu() {
+/// 작업 뒤의 *다음 할 일* 을 가르는 갈래.
+#[derive(Clone, Copy)]
+enum Flow {
+    Scan,
+    Treat,
+    Restore,
+    Verify,
+    Other,
+}
+
+fn flow_of(p: &guided::Outcome) -> Flow {
+    match p {
+        guided::Outcome::WithPlugin(menu::WithPlugin::Scan(_)) => Flow::Scan,
+        guided::Outcome::WithPlugin(menu::WithPlugin::Run(_))
+        | guided::Outcome::RunWith(..)
+        | guided::Outcome::WithFile(menu::WithFile::Apply(_), _) => Flow::Treat,
+        guided::Outcome::WithRun(menu::WithRun::Restore(_)) => Flow::Restore,
+        guided::Outcome::WithPlugin(menu::WithPlugin::Verify(_)) => Flow::Verify,
+        _ => Flow::Other,
+    }
+}
+
+/// 작업 뒤에 고를 만한 메뉴 줄 — 결과에 맞는 것만(목표 remedy_제품화 기준 6(d)).
+/// 전에는 다음 할 일을 명령줄로만 적었다(`remedy restore --run …`).
+fn next_steps(flow: Flow, code: Code) -> Vec<(&'static str, menu::Line)> {
+    let lang = ui().lang;
+    match (flow, code) {
+        (Flow::Scan, Code::FoundNotRemediated) => vec![
+            (
+                lang.t("찾은 것을 치료하려면", "To treat what was found"),
+                menu::Line::Treat,
+            ),
+            (
+                lang.t(
+                    "방금 세운 계획대로 치료하려면",
+                    "To treat with the plan just made",
+                ),
+                menu::Line::Apply,
+            ),
+        ],
+        (Flow::Treat, Code::Remediated) => vec![
+            (lang.t("되돌리려면", "To undo it"), menu::Line::Undo),
+            (
+                lang.t("치료가 유지되는지 보려면", "To check that it held"),
+                menu::Line::Verify,
+            ),
+            (
+                lang.t("오탐이라 신고하려면", "To report a false positive"),
+                menu::Line::Report,
+            ),
+        ],
+        (Flow::Treat | Flow::Verify, Code::FoundNotRemediated)
+        | (Flow::Restore, Code::NoThreat) => {
+            vec![(lang.t("치료하려면", "To treat it"), menu::Line::Treat)]
+        }
+        (Flow::Treat | Flow::Restore, Code::PartialFailure) => vec![
+            (
+                lang.t("남은 것을 이어서 하려면", "To finish what is left"),
+                menu::Line::Resume,
+            ),
+            (lang.t("신고하려면", "To report it"), menu::Line::Report),
+        ],
+        _ => Vec::new(),
+    }
+}
+
+/// 작업이 끝나고 메뉴로 돌아간다. 구분선 · 다음 할 일을 남기고 **Enter 를 기다린다** —
+/// 메뉴가 곧바로 다시 서면 결과 줄이 창 밖으로 밀린다(21줄 메뉴 · 30줄 창 · 2026-11-06
+/// 이미지). 기다리는 줄은 화면을 붙잡는 장치라 stderr 로 낸다(`wait_before_closing` 과 같다).
+fn back_to_menu(flow: Flow, code: Code) {
+    let lang = ui().lang;
+    let d = remedy_sdk::i18n::deco();
     outln!();
-    outln!("{}", remedy_sdk::i18n::deco().rule());
-    outln!("{}", ui().lang.t("메뉴로 돌아갑니다.", "Back to the menu."));
+    outln!("{}", d.rule());
+    let next: Vec<(&str, usize, &str)> = next_steps(flow, code)
+        .into_iter()
+        .filter_map(|(why, l)| menu::line(l).map(|(n, label)| (why, n, label)))
+        .collect();
+    if !next.is_empty() {
+        outln!("{}", lang.t("다음 할 일", "Next"));
+        for (why, n, label) in next {
+            outln!("  {why}{}{n}. {label}", d.dash());
+        }
+        outln!();
+    }
+    eprint!(
+        "{}",
+        lang.t(
+            "Enter 를 누르면 메뉴로 돌아갑니다. ",
+            "Press Enter to go back to the menu. "
+        )
+    );
+    use std::io::Write;
+    std::io::stderr().flush().ok();
+    let mut line = String::new();
+    let _ = std::io::stdin().read_line(&mut line);
 }
 
 fn wait_before_closing() {
@@ -1814,7 +1917,8 @@ fn approved(a: &Args, plan: &remedy_sdk::artifact::PlanEnvelope) -> Result<bool,
 /// `restore --run <회차>` 는 `--yes` 가 없으면 목록을 보이고 *"--yes 를 붙여
 /// 다시 부르십시오"* 로 끝난다(종료 2). 명령줄 사용자는 그 목록을 읽고 다시
 /// 치지만 **메뉴로 들어온 사람에게는 칠 자리가 없다** — 2026-10-29 에 진짜
-/// 콘솔로 재어 보니 다섯 작업 가운데 복원만 끝까지 가지 못했다.
+/// 콘솔로 재어 보니 다섯 작업 가운데 복원만 끝까지 가지 못했다. 그래서 메뉴
+/// 세션에서는 그 줄을 내지 않고(`term::in_session`) 이 함수가 곧바로 묻는다.
 ///
 /// 그 명령에 대화형 승인을 넣는 편이 더 깔끔하지만, 그러면 **터미널에서 치는
 /// 명령줄 호출의 화면이 바뀐다** — 시연 대본 6장이 그 화면을 그대로 싣고 있고
@@ -4202,14 +4306,19 @@ fn cmd_restore(raw: &[String]) -> Result<Code, Failure> {
     }
 
     if !a.has("yes") {
-        outln!();
-        outln!(
-            "{}",
-            lang.t(
-                "아무것도 하지 않았습니다. 위 목록을 확인하고 --yes 를 붙여 다시 부르십시오.",
-                "Nothing was done. Check the list above and run again with --yes."
-            )
-        );
+        // 메뉴 세션이면 곧이어 메뉴가 묻는다(`confirm_restore`) — *"--yes 를 붙여 다시
+        // 부르십시오"* 는 칠 자리가 없는 사람에게 틀린 안내였다('전' 이미지 2026-11-05 ·
+        // 두 문장이 어긋났다). 명령줄 호출의 화면은 그대로다(시연 대본).
+        if !term::in_session() {
+            outln!();
+            outln!(
+                "{}",
+                lang.t(
+                    "아무것도 하지 않았습니다. 위 목록을 확인하고 --yes 를 붙여 다시 부르십시오.",
+                    "Nothing was done. Check the list above and run again with --yes."
+                )
+            );
+        }
         return Ok(Code::FoundNotRemediated);
     }
 
@@ -4342,6 +4451,30 @@ mod tests {
         // `20261030T113100Z` 꼴 — 이름순이 곧 시간순이라야 후보 차례가 뜻을 갖는다.
         assert!(stamp.len() >= 16, "{stamp}");
         assert!(stamp.ends_with('Z'), "{stamp}");
+    }
+
+    /// 기준 6(d) — 치료 뒤에는 되돌리기 · 유지 확인 · 신고를, 검사가 찾았으면 치료 · 계획
+    /// 수행을 권한다. 고를 것이 없는 결과에는 아무것도 권하지 않는다.
+    #[test]
+    fn next_steps_follow_the_result() {
+        let lines = |f, c| {
+            next_steps(f, c)
+                .into_iter()
+                .map(|(_, l)| l)
+                .collect::<Vec<_>>()
+        };
+        use menu::Line as L;
+        assert_eq!(
+            lines(Flow::Treat, Code::Remediated),
+            [L::Undo, L::Verify, L::Report]
+        );
+        assert_eq!(
+            lines(Flow::Scan, Code::FoundNotRemediated),
+            [L::Treat, L::Apply]
+        );
+        assert_eq!(lines(Flow::Restore, Code::NoThreat), [L::Treat]);
+        assert!(lines(Flow::Scan, Code::NoThreat).is_empty());
+        assert!(lines(Flow::Other, Code::PartialFailure).is_empty());
     }
 
     /// 같은 초에 앞 작업의 폴더가 이미 있으면 번호를 붙인다 — 덮어쓰지 않는다. 붙인

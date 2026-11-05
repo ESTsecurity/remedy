@@ -148,6 +148,12 @@ pub fn arm() {
     });
 }
 
+/// 사람이 앞에 있는 메뉴 세션인가 — 신호 처리기를 건 세션이 곧 그것이다([`arm`]).
+/// 인자를 준 명령줄 호출에서는 늘 거짓이다.
+pub fn in_session() -> bool {
+    ARMED.load(Ordering::SeqCst)
+}
+
 /// 작업 하나가 시작한다. `changes_system` 은 강제로 끝날 때의 종료 코드를 가른다.
 pub fn task_begin(changes_system: bool) {
     let t = if changes_system {
@@ -246,6 +252,38 @@ fn marked(line: &str, s: &str) -> String {
     let body = line.trim_start();
     let indent = &line[..line.len() - body.len()];
     format!("{indent}{ESC}[{s}m{mark} {body}{ESC}[0m")
+}
+
+/// 제자리 진행 줄 — 창 폭에 맞춰 자르고(꺾이면 제자리가 아니다) 역할대로 칠한다.
+pub fn live_line(text: &str) -> String {
+    let cols = crossterm::terminal::size().map_or(80, |(c, _)| usize::from(c));
+    let cut = clip(text, cols.saturating_sub(1));
+    paint(&cut, false).unwrap_or(cut)
+}
+
+/// 폭 `max` 칸에 들어가게 자른다 — 넘치면 끝을 줄임표로. 폭은 [`width`] 로 센다.
+fn clip(s: &str, max: usize) -> String {
+    if width(s) <= max {
+        return s.to_string();
+    }
+    let ell = if remedy_sdk::i18n::deco().ascii {
+        "..."
+    } else {
+        "…"
+    };
+    let room = max.saturating_sub(width(ell));
+    let mut out = String::new();
+    let mut w = 0;
+    for c in s.chars() {
+        let cw = if c.is_ascii() { 1 } else { 2 };
+        if w + cw > room {
+            break;
+        }
+        out.push(c);
+        w += cw;
+    }
+    out.push_str(ell);
+    out
 }
 
 /// 여러 줄 덩어리(렌더러가 만든 화면)를 줄마다 칠한다. 바뀐 줄이 없으면 `None`.
@@ -805,8 +843,8 @@ fn width(s: &str) -> usize {
 #[cfg(test)]
 mod tests {
     use super::{
-        decide, exit_code_for, lines, marked, numbered, off_note, second_press, term_ok, view,
-        width, Row, BAD, DIM, ESC, GOOD, TASK_CHANGES, TASK_NONE, TASK_READS, WARN,
+        clip, decide, exit_code_for, lines, marked, numbered, off_note, second_press, term_ok,
+        view, width, Row, BAD, DIM, ESC, GOOD, TASK_CHANGES, TASK_NONE, TASK_READS, WARN,
     };
     use std::ffi::OsStr;
 
@@ -916,6 +954,20 @@ mod tests {
         assert_eq!(width("검사"), 4);
         assert_eq!(width(&format!("{ESC}[7m> 1. 검사{ESC}[0m")), 9);
         assert_eq!(width("a · b"), 6, "폭이 모호한 기호는 두 칸");
+    }
+
+    /// 제자리 진행 줄은 창 폭 안에 든다 — 넘치면 줄임표로 끝난다. 짧으면 그대로다.
+    #[test]
+    fn a_live_line_is_clipped_to_the_window() {
+        assert_eq!(clip("short", 20), "short");
+        for (s, max) in [
+            ("abcdefghij", 6),
+            ("검사 중 · 폴더 1155개 · 항목 9104개", 20),
+        ] {
+            let c = clip(s, max);
+            assert!(width(&c) <= max, "{c:?} 가 {max} 칸을 넘는다");
+            assert!(c.len() < s.len(), "{c:?}");
+        }
     }
 
     /// 좋음 · 나쁨 · 주의 줄은 들여쓰기 뒤에 표시를 얹고, 문구는 끊기지 않고 이어 있다
