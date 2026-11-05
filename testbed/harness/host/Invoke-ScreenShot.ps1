@@ -45,7 +45,7 @@
 
 .EXAMPLE
     .\Invoke-ScreenShot.ps1 -Bin target\x86_64-pc-windows-msvc\release\remedy.exe -Name usage
-    .\Invoke-ScreenShot.ps1 -Package D:\dl\remedy-evilai-locust-win64 -Name menu
+    .\Invoke-ScreenShot.ps1 -Package D:\dl\remedy-evilai-locust-windows-x64 -Name menu
     .\Invoke-ScreenShot.ps1 -Package D:\dl\pkg -Terminal wt -WtZip D:\dl\Microsoft.WindowsTerminal_1.25.2733.0_x64.zip -Name menu-wt
 #>
 [CmdletBinding()]

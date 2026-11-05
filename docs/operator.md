@@ -382,12 +382,12 @@ cargo build --release --target x86_64-pc-windows-msvc -p remedy-cli
 # 3) 꾸러미를 붓는다
 cargo xtask package --plugin plugins\evilai-locust `
     --bin target\x86_64-pc-windows-msvc\release\remedy.exe `
-    --out dist\remedy-evilai-locust-win64 --public-key <공개키 파일>
+    --out dist\remedy-evilai-locust-windows-x64 --public-key <공개키 파일>
 
 # 역할이 둘이면 --plugin 을 여러 번. 둘 다 1) 에서 서명해 두어야 한다
 cargo xtask package --plugin <점검 플러그인> --plugin <치료 플러그인> `
     --bin target\x86_64-pc-windows-msvc\release\remedy.exe `
-    --out dist\remedy-<사고 이름>-win64 --public-key <공개키 파일>
+    --out dist\remedy-<사고 이름>-windows-x64 --public-key <공개키 파일>
 ```
 
 `package` 는 **서명이 맞지 않으면 만들지 않는다.** 여기서 통과시키면 그다음
@@ -404,7 +404,7 @@ cargo xtask package --plugin <점검 플러그인> --plugin <치료 플러그인
 장치다), `remedy.exe` 를 같은 폴더에 두면 꾸러미가 자기 검증에 실패한다.
 
 ```
-remedy-evilai-locust-win64\
+remedy-evilai-locust-windows-x64\
   remedy.exe
   README.txt
   plugins\evilai-locust\

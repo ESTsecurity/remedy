@@ -87,9 +87,17 @@ jobs:
           cat >"$RUNNER_TEMP/notes.md" <<'EOF'
           | 파일 | 무엇 |
           |---|---|
-          | `remedy-evilai-locust-win64.zip` | 위협 꾸러미 — 앵커를 박은 `remedy.exe` · 서명된 `evilai-locust` 룰 · `README.txt` |
+          | `remedy-evilai-locust-windows-x64.zip` | 위협 꾸러미 — 앵커를 박은 `remedy.exe` · 서명된 `evilai-locust` 룰 · `README.txt` |
           | `remedy-windows-x64.zip` | 엔진만 — Windows x64 |
           | `remedy-linux-x64.tar.gz` | 엔진만 — Linux x64 (정적 링크) |
+
+          이름은 하나의 규칙이다 — 위협 꾸러미 `remedy-<위협>-<os>-<arch>` · 엔진 `remedy-<os>-<arch>`.
+          꾸러미 안 배치도 두 OS 가 같다(실행 파일 · `plugins/<위협>/` · `README.txt`). 위협 꾸러미는
+          그 위협이 감염시키는 OS 용으로만 낸다:
+
+          | 위협 | Windows x64 | Linux x64 |
+          |---|---|---|
+          | `evilai-locust` | ✓ | — (Windows 를 노리는 위협) |
 
           꾸러미는 통째로 풀어 `README.txt` 의 차례대로 쓴다. 룰의 서명은 엔진에 박힌 공개키로
           확인한다 — `remedy plugin verify --dir plugins/evilai-locust`.
@@ -114,7 +122,7 @@ jobs:
         shell: bash
     env:
       TARGET: x86_64-pc-windows-msvc
-      PKG: dist/remedy-evilai-locust-win64
+      PKG: dist/remedy-evilai-locust-windows-x64
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -152,9 +160,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          (cd dist && 7z a -tzip ../remedy-evilai-locust-win64.zip remedy-evilai-locust-win64 >/dev/null)
+          (cd dist && 7z a -tzip ../remedy-evilai-locust-windows-x64.zip remedy-evilai-locust-windows-x64 >/dev/null)
           7z a -tzip remedy-windows-x64.zip "./target/$TARGET/release/remedy.exe" >/dev/null
-          gh release upload "$GITHUB_REF_NAME" remedy-evilai-locust-win64.zip remedy-windows-x64.zip \
+          gh release upload "$GITHUB_REF_NAME" remedy-evilai-locust-windows-x64.zip remedy-windows-x64.zip \
             --repo "$GITHUB_REPOSITORY" --clobber
 
   release-linux:
