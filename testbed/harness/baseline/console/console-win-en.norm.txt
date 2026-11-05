@@ -183,6 +183,9 @@ Nothing to do.
 
 === 0. 인자 없이 띄웠다 — 메뉴 (그만두기로 끝냈다) ===
 
+ESTsecurity Dedicated Cleaner 1.0.0
+Running with administrator rights.
+
 What would you like to do?
 
   1. Scan and treat
@@ -202,8 +205,7 @@ What would you like to do?
 Nothing was done.
 Notice: this binary is unsigned and is not an official release. Everything works, but it has not been verified as the binary we built
 
-Choose a number (0-10): 
-Press Enter to close this window.
+Choose a number (0-10):
 
 ########## A4. 사용법이 어느 스트림으로 나가는가   [N초]
 
