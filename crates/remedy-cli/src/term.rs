@@ -229,7 +229,23 @@ pub fn paint(line: &str, stderr: bool) -> Option<String> {
         return None;
     }
     let brand = remedy_core::report::brand::product(ui().lang);
-    style_of(line, brand).map(|s| format!("{ESC}[{s}m{line}{ESC}[0m"))
+    style_of(line, brand).map(|s| marked(line, s))
+}
+
+/// 줄 하나를 칠한다. 좋음 · 나쁨 · 주의 줄은 **들여쓰기 뒤에 표시**(✓ ✗ !)를 얹는다 —
+/// 색을 가려 보는 사람에게도 역할이 모양으로 남는다(목표 remedy_제품화 기준 3(a) ·
+/// 벤치마크 축 4). 표시는 문구 앞에 붙을 뿐 문구를 쪼개지 않는다(불변식 I4).
+fn marked(line: &str, s: &str) -> String {
+    let d = remedy_sdk::i18n::deco();
+    let mark = match s {
+        GOOD => d.good(),
+        BAD => d.bad(),
+        WARN => d.warn(),
+        _ => return format!("{ESC}[{s}m{line}{ESC}[0m"),
+    };
+    let body = line.trim_start();
+    let indent = &line[..line.len() - body.len()];
+    format!("{indent}{ESC}[{s}m{mark} {body}{ESC}[0m")
 }
 
 /// 여러 줄 덩어리(렌더러가 만든 화면)를 줄마다 칠한다. 바뀐 줄이 없으면 `None`.
@@ -789,8 +805,8 @@ fn width(s: &str) -> usize {
 #[cfg(test)]
 mod tests {
     use super::{
-        decide, exit_code_for, lines, numbered, off_note, second_press, term_ok, view, width, Row,
-        ESC, TASK_CHANGES, TASK_NONE, TASK_READS,
+        decide, exit_code_for, lines, marked, numbered, off_note, second_press, term_ok, view,
+        width, Row, BAD, DIM, ESC, GOOD, TASK_CHANGES, TASK_NONE, TASK_READS, WARN,
     };
     use std::ffi::OsStr;
 
@@ -900,6 +916,31 @@ mod tests {
         assert_eq!(width("검사"), 4);
         assert_eq!(width(&format!("{ESC}[7m> 1. 검사{ESC}[0m")), 9);
         assert_eq!(width("a · b"), 6, "폭이 모호한 기호는 두 칸");
+    }
+
+    /// 좋음 · 나쁨 · 주의 줄은 들여쓰기 뒤에 표시를 얹고, 문구는 끊기지 않고 이어 있다
+    /// (불변식 I4). 흐림 · 제품명 줄에는 표시가 없다.
+    #[test]
+    fn role_lines_carry_a_mark_after_the_indent() {
+        let d = remedy_sdk::i18n::deco();
+        let good = marked("  위협이 발견되지 않았습니다.", GOOD);
+        assert!(
+            good.starts_with(&format!(
+                "  {ESC}[32m{} 위협이 발견되지 않았습니다.",
+                d.good()
+            )),
+            "{good:?}"
+        );
+        let bad = marked("실패: 내부 오류", BAD);
+        assert!(
+            bad.contains(&format!("{} 실패: 내부 오류", d.bad())),
+            "{bad:?}"
+        );
+        assert!(marked("알림: x", WARN).contains("! 알림: x"));
+        assert_eq!(
+            marked("메뉴로 돌아갑니다.", DIM),
+            format!("{ESC}[2m메뉴로 돌아갑니다.{ESC}[0m")
+        );
     }
 
     /// 고를 수 없는 줄도 번호를 받는다 — 그 번호는 고르지 않고 까닭을 낸다.

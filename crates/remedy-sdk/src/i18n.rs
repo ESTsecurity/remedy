@@ -235,6 +235,26 @@ impl Deco {
             "©"
         }
     }
+    /// 좋은 결과 줄 앞의 표시.
+    pub const fn good(self) -> &'static str {
+        if self.ascii {
+            "v"
+        } else {
+            "✓"
+        }
+    }
+    /// 나쁜 결과 · 실패 줄 앞의 표시.
+    pub const fn bad(self) -> &'static str {
+        if self.ascii {
+            "x"
+        } else {
+            "✗"
+        }
+    }
+    /// 주의 · 알림 줄 앞의 표시. ASCII 라 폴백이 같다.
+    pub const fn warn(self) -> &'static str {
+        "!"
+    }
 }
 
 /// 앞말의 받침에 따라 조사를 고른다 — `이/가` · `을/를` 처럼 **받침이 있을 때의 꼴을 먼저** 준다.
