@@ -158,7 +158,7 @@ Notice: this binary is unsigned and is not an official release. Everything works
 Checking for EvilAI (Locust) Removal.
 ────────────────────────────────────────────────────────
  ESTsecurity Dedicated Cleaner 1.0.0
- EvilAI (Locust) Removal  (evilai-locust 0.1.0)
+ EvilAI (Locust) Removal  (evilai-locust 0.1.1)
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
  Machine    : <host> (windows)
@@ -317,7 +317,7 @@ Notice: this binary is unsigned and is not an official release. Everything works
 Checking for EvilAI (Locust) Removal.
 ────────────────────────────────────────────────────────
  ESTsecurity Dedicated Cleaner 1.0.0
- EvilAI (Locust) Removal  (evilai-locust 0.1.0)
+ EvilAI (Locust) Removal  (evilai-locust 0.1.1)
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
  Machine    : <host> (windows)
@@ -354,7 +354,7 @@ Side effects of this treatment:
 
 ────────────────────────────────────────────────────────
  ESTsecurity 전용백신 1.0.0
- EvilAI(Locust) 제거  (evilai-locust 0.1.0)
+ EvilAI(Locust) 제거  (evilai-locust 0.1.1)
 ────────────────────────────────────────────────────────
  시작 시각  : <T> UTC
  실행 기계  : <host> (windows)
@@ -391,7 +391,7 @@ Side effects of this treatment:
 
 ────────────────────────────────────────────────────────
  ESTsecurity Dedicated Cleaner 1.0.0
- EvilAI (Locust) Removal  (evilai-locust 0.1.0)
+ EvilAI (Locust) Removal  (evilai-locust 0.1.1)
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
  Machine    : <host> (windows)
@@ -429,7 +429,7 @@ Notice: this binary is unsigned and is not an official release. Everything works
 --ascii — 장식이 ASCII 로 (C1 과 견준다)
 --------------------------------------------------------
  ESTsecurity 전용백신 1.0.0
- EvilAI(Locust) 제거  (evilai-locust 0.1.0)
+ EvilAI(Locust) 제거  (evilai-locust 0.1.1)
 --------------------------------------------------------
  시작 시각  : <T> UTC
  실행 기계  : <host> (windows)
@@ -464,7 +464,7 @@ Notice: this binary is unsigned and is not an official release. Everything works
 --verbose — 검사 결과에 evidence·groups·verdicts 가 붙는다
 ────────────────────────────────────────────────────────
  ESTsecurity 전용백신 1.0.0
- EvilAI(Locust) 제거  (evilai-locust 0.1.0)
+ EvilAI(Locust) 제거  (evilai-locust 0.1.1)
 ────────────────────────────────────────────────────────
  시작 시각  : <T> UTC
  실행 기계  : <host> (windows)
@@ -507,7 +507,7 @@ Notice: this binary is unsigned and is not an official release. Everything works
 
 ────────────────────────────────────────────────────────
  ESTsecurity Dedicated Cleaner 1.0.0
- EvilAI (Locust) Removal  (evilai-locust 0.1.0)
+ EvilAI (Locust) Removal  (evilai-locust 0.1.1)
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
  Machine    : <host> (windows)
@@ -545,7 +545,7 @@ Notice: this binary is unsigned and is not an official release. Everything works
 
 ────────────────────────────────────────────────────────
  ESTsecurity Dedicated Cleaner 1.0.0
- EvilAI (Locust) Removal  (evilai-locust 0.1.0)
+ EvilAI (Locust) Removal  (evilai-locust 0.1.1)
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
  Machine    : <host> (windows)
@@ -582,7 +582,7 @@ Notice: this binary is unsigned and is not an official release. Everything works
 
 ────────────────────────────────────────────────────────
  ESTsecurity Dedicated Cleaner 1.0.0
- EvilAI (Locust) Removal  (evilai-locust 0.1.0)
+ EvilAI (Locust) Removal  (evilai-locust 0.1.1)
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
  Machine    : <host> (windows)
@@ -878,7 +878,7 @@ run-X.log  N bytes
 <T> # remedy 1.0.0 pid N · run --plugin C:\remedy-lab\plugins\evilai-locust\plugin.yaml --out-dir C:\remedy-lab\out-console-run --yes --state-dir C:\remedy-lab\state-console
 <T> | ────────────────────────────────────────────────────────
 <T> |  ESTsecurity Dedicated Cleaner 1.0.0
-<T> |  EvilAI (Locust) Removal  (evilai-locust 0.1.0)
+<T> |  EvilAI (Locust) Removal  (evilai-locust 0.1.1)
 <T> | ────────────────────────────────────────────────────────
 <T> |  Started    : <T> UTC
 <T> |  Machine    : <host> (windows)

@@ -8,11 +8,11 @@
   "measured": 6,
   "scope_targets": 6,
   "trace": {
-    "host": "9081dd6e5aac Linux 5.15.167.4-microsoft-standard-WSL2",
+    "host": "6fd65c92992d Linux 5.15.167.4-microsoft-standard-WSL2",
     "stages": [
-      { "stage": "clean", "at": "2026-10-26T01:36:18Z", "sha256": "14f995d8521dd1dbc3dd616af1f4d73406b0a50eeaefe5ce5a4d425fa53c95e1", "counts": { "rows": 15 } },
-      { "stage": "infected", "at": "2026-10-26T01:36:18Z", "sha256": "304c70beda5705857155fa8c4e2cdaa590da120ed8788c60e2fe48a4f0e06222", "counts": { "rows": 15 } },
-      { "stage": "treated", "at": "2026-10-26T01:36:19Z", "sha256": "edd798915454623254e45a9c4c2c5dd3ba0742005cbd832fc8cb0ec4c19a2b2b", "counts": { "rows": 15 } }
+      { "stage": "clean", "at": "2026-11-05T19:36:48Z", "sha256": "abe179348e2b00e52fea0480b62d6a3dfcc8163a6d3dd85715693e4b16e8fb86", "counts": { "rows": 15 } },
+      { "stage": "infected", "at": "2026-11-05T19:36:48Z", "sha256": "aa212c85165283dc071066ea83eacb2ed145571323cd4e961e86e9b179ce9f47", "counts": { "rows": 15 } },
+      { "stage": "treated", "at": "2026-11-05T19:36:49Z", "sha256": "37831ee432979e6d41736b3b1942d483cd0795a0f477b94a54d729bcae35b390", "counts": { "rows": 15 } }
     ],
     "actions_done": 6
   },
@@ -23,8 +23,8 @@
   "plugin_files": {
     "plugin.yaml": "bc3b1493adfbafcda4a246fcde35122b84b439365fcec66daf0c85a07bc1ee11"
   },
-  "expected_ops_sha256": "ec4c32a28daf39db748db325f899c1546c4c6d99397bcd0787ad04b124999391",
+  "expected_ops_sha256": "988118894941123d72155d82f73d8242f2ee41b41a7266501f0241e15020897a",
   "must_remain_sha256": "3c7f24012b85d9fd81dc8dd80a93402b4ca148eded380f4babb925deb1c6df5f",
-  "binary_sha256": "b7a264440a4f95d40b1bc3c6586ba4ba434a848a3cd9af0b7f1b566ae3984dd7",
-  "ran_at": "2026-10-26T01:36:19Z"
+  "binary_sha256": "589aa76b0b07b8de2846029fd9e0e2abf67c96d5db9b70034ebc5c9c2bbca8c0",
+  "ran_at": "2026-11-05T19:36:49Z"
 }

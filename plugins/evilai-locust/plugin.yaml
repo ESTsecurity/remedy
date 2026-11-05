@@ -1,14 +1,15 @@
 # EvilAI(Locust) 제거 — 첫 플러그인
 #
-# VT 패밀리명은 `meadowlocust` 다. 이 매니페스트의 값은 설계 초안
-# (claudedocs/예시-EvilAI-플러그인.md)에서 왔고, **실검체로 확인한 것과 확인하지
-# 못한 것을 구분해** 아래 주석에 적어 두었다. 확인하지 못한 것은 넣지 않았다.
+# VT 패밀리명은 `meadowlocust` 다. 이 매니페스트의 값은 사내 설계 초안에서 왔고,
+# **실검체로 확인한 것과 확인하지 못한 것을 구분해** 아래 주석에 적어 두었다.
+# 확인하지 못한 것은 넣지 않았다.
 #
-# 도출 근거: claudedocs/P9-EvilAI-YARA-룰-도출과-실측.md
+# 룰의 도출 근거(군집화 기준 · 임계값 계산 · 서로소 조건)는 사내 분석 기록에 있다 —
+# 공개 저장소에는 그 결과만 싣는다(`rules/evilai.yar` 머리 주석).
 
 schema_version: 1
 id: evilai-locust
-version: 0.1.0
+version: 0.1.1
 min_core: "1.0.0"
 platforms: [windows]
 name:
@@ -16,7 +17,6 @@ name:
   en: "EvilAI (Locust) Removal"
 references:
   - "https://www.virustotal.com/gui/search/engines%3Ameadowlocust"
-  - "claudedocs/P9-EvilAI-YARA-룰-도출과-실측.md"
 
 # ── 권한 상한 ──────────────────────────────────────────────
 # scan_roots 는 성능 최적화가 아니라 "여기 밖은 읽을 수 없다"는 상한이다.
@@ -81,8 +81,8 @@ detect:
     # **exclude 를 두지 않는다.**
     #
     # 초안에는 "정상 Node 개발 환경" 을 겨눈 두 줄이 있었으나, 감염 코퍼스를
-    # 뜨면서 둘 다 발동할 수 없음이 실측으로 드러나 지웠다
-    # (claudedocs/P9-감염-코퍼스-페이로드-바이트.md §6).
+    # 뜨면서 둘 다 발동할 수 없음이 실측으로 드러나 지웠다(감염 코퍼스의 페이로드
+    # 바이트로 쟀다 — 사내 기록).
     #
     #   `file(command).signature.subject == "Microsoft Corporation"`
     #     실기기의 node.exe 는 `CN=OpenJS Foundation` 서명이다. P10 에서
