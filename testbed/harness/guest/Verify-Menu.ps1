@@ -391,6 +391,10 @@ foreach ($s in $steps) {
         $lines += "$no"
         if ($null -ne $sub) { $lines += $sub }
         if ($s.approve) { $lines += "예" }
+        # 빈 줄 둘 — 하나는 작업 뒤 *"Enter 를 누르면 메뉴로 돌아갑니다."* 가, 하나는 두 번째
+        # 메뉴가 받아 그만두기가 된다. 진짜 콘솔은 줄이 떨어져도 EOF 가 오지 않으므로 하나만
+        # 넣으면 두 번째 메뉴가 끝없이 기다린다(2026-11-06 — 작업 열여섯이 다 시간 초과).
+        $lines += ""
         $lines += ""
     }
 
@@ -415,7 +419,7 @@ foreach ($s in $steps) {
         timed_out  = $(if ($null -ne $run) { $run.timed_out } else { $true })
         menu_shown = $(if ($null -ne $run) { [bool]($run.text -match "무엇을 할까요") } else { $false })
         # 작업 뒤 메뉴로 돌아왔는가 — "메뉴로 돌아갑니다" 가 있고 메뉴가 두 번 떴다(기준 4(a)).
-        # 마지막 빈 줄은 두 번째 메뉴에서 그만두기가 되어 회차를 끝낸다.
+        # 마지막 빈 줄은 두 번째 메뉴에서 그만두기가 되어 회차를 끝낸다(그 앞 줄은 멈춤이 받는다).
         back_menu  = $(if ($null -ne $run) { [bool]($run.text -match "메뉴로 돌아갑니다") -and ([regex]::Matches($run.text, "무엇을 할까요").Count -ge 2) } else { $false })
         asked_sub  = $sub_count
         approved   = $(if ($null -ne $run) { [bool]($run.text -match "진행하려면") } else { $false })

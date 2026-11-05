@@ -473,6 +473,49 @@ fn items(offer: &Offer, lang: remedy_sdk::i18n::Lang) -> (Vec<Item>, usize) {
     (items, author_from)
 }
 
+/// 작업 뒤의 *다음 할 일* 이 가리키는 메뉴 줄(목표 remedy_제품화 기준 6(d)).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Line {
+    /// 검사하고 치료하기
+    Treat,
+    /// 치료가 유지됐는지 다시 보기
+    Verify,
+    /// 치료를 되돌리기
+    Undo,
+    /// 신고에 붙일 것 모으기
+    Report,
+    /// 중단된 작업 이어서 하기
+    Resume,
+    /// 승인한 계획을 수행하기
+    Apply,
+}
+
+/// 그 줄의 번호와 이름. 번호는 기계 상태와 상관없다([`items`]) — 안내에 적은 번호가
+/// 다음 메뉴에서도 그 줄이다.
+pub fn line(which: Line) -> Option<(usize, &'static str)> {
+    let p = std::path::PathBuf::new();
+    let run = Run {
+        id: String::new(),
+        state: p.clone(),
+    };
+    let probe = Offer {
+        plugin: Some(p.clone()),
+        runs: Vec::new(),
+        files: std::collections::BTreeMap::new(),
+    };
+    let (all, _) = items(&probe, ui().lang);
+    let pos = all.iter().position(|it| match (&it.tag, which) {
+        (Tag::NeedsPlugin(mk), Line::Treat) => matches!(mk(p.clone()), WithPlugin::Run(_)),
+        (Tag::NeedsPlugin(mk), Line::Verify) => matches!(mk(p.clone()), WithPlugin::Verify(_)),
+        (Tag::NeedsRun(mk), Line::Undo) => matches!(mk(run.clone()), WithRun::Restore(_)),
+        (Tag::NeedsRun(mk), Line::Report) => matches!(mk(run.clone()), WithRun::Support(_)),
+        (Tag::NeedsRun(mk), Line::Resume) => matches!(mk(run.clone()), WithRun::Resume(_)),
+        (Tag::NeedsFile(_, mk), Line::Apply) => matches!(mk(p.clone()), WithFile::Apply(_)),
+        _ => false,
+    })?;
+    Some((pos + 1, all[pos].label))
+}
+
 /// 메뉴를 보이고 하나를 받는다.
 ///
 /// **터미널이 아니면 열지 않는다** — 불변식 I7. 부르는 쪽이 이미 터미널만
@@ -817,6 +860,19 @@ mod tests {
         for (p, r) in [(true, true), (false, true), (false, false)] {
             assert_eq!(labels(&offer(p, r)), base, "플러그인 {p} · 치료 기록 {r}");
         }
+    }
+
+    /// 기준 6(d) — *다음 할 일* 이 적는 번호가 메뉴의 그 줄이다(번호는 상태와 상관없다).
+    #[test]
+    fn next_step_lines_point_at_fixed_numbers() {
+        use super::{line, Line};
+        let n = |l| line(l).map(|(n, _)| n);
+        assert_eq!(n(Line::Treat), Some(1));
+        assert_eq!(n(Line::Verify), Some(3));
+        assert_eq!(n(Line::Undo), Some(6));
+        assert_eq!(n(Line::Report), Some(7));
+        assert_eq!(n(Line::Resume), Some(8));
+        assert_eq!(n(Line::Apply), Some(15));
     }
 
     /// 메뉴 줄이 부르는 명령 — `main.rs` 의 분기 낱말로.

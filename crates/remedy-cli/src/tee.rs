@@ -56,9 +56,39 @@ fn with_log<R>(f: impl FnOnce(&mut RunLog) -> R) -> Option<R> {
     guard.as_mut().map(f)
 }
 
+/// 제자리에 그린 진행 줄이 화면에 떠 있는가 — 다음 줄을 찍기 전에 걷는다.
+static LIVE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// 진행 줄. 그리는 자리면 **제자리에** 다시 그린다 — 줄을 더하지 않고, 창 폭에서
+/// 자른다(목표 remedy_제품화 기준 6(b) · 벤치마크 축 6). 아니면 지금처럼 한 줄을
+/// 더한다(파이프 · 파일 · 불변식 I1). 로그에는 늘 한 줄씩 남는다.
+fn emit_progress(text: String) {
+    if !crate::term::fancy() {
+        emit(false, text);
+        return;
+    }
+    use std::io::Write;
+    let mut out = std::io::stdout();
+    let _ = write!(out, "\r\x1b[2K{}", crate::term::live_line(&text));
+    let _ = out.flush();
+    LIVE.store(true, std::sync::atomic::Ordering::SeqCst);
+    let _ = with_log(|l| l.lines("|", &format!("{text}\n")));
+}
+
+/// 떠 있는 진행 줄을 걷는다 — 그 자리에서 다음 줄이 시작한다.
+fn clear_progress() {
+    if LIVE.swap(false, std::sync::atomic::Ordering::SeqCst) {
+        use std::io::Write;
+        let mut out = std::io::stdout();
+        let _ = write!(out, "\r\x1b[2K");
+        let _ = out.flush();
+    }
+}
+
 /// 한 줄을 찍고 로그에 복사한다. **색은 화면으로 나가는 쪽에만** 얹는다
 /// ([`crate::term::paint`]) — 로그와 파이프에는 지금 글자 그대로 간다.
 pub fn emit(stderr: bool, text: String) {
+    clear_progress();
     let shown = crate::term::paint(&text, stderr);
     let screen = shown.as_deref().unwrap_or(&text);
     if stderr {
@@ -71,6 +101,7 @@ pub fn emit(stderr: bool, text: String) {
 }
 
 pub fn emit_raw(text: String) {
+    clear_progress();
     match crate::term::paint_block(&text) {
         Some(p) => print!("{p}"),
         None => print!("{text}"),
@@ -320,7 +351,7 @@ pub fn with_heartbeat<T>(verbose: bool, beat: Beat, f: impl FnOnce() -> T) -> T 
                     }
                 }
             };
-            emit(false, line);
+            emit_progress(line);
             // 1분이 지나면 뜸하게 — 긴 회차의 로그가 심장박동으로만 차지 않게.
             let step = if secs >= 60 { period * 6 } else { period };
             next = started.elapsed() + Duration::from_secs(step);
@@ -336,6 +367,7 @@ pub fn with_heartbeat<T>(verbose: bool, beat: Beat, f: impl FnOnce() -> T) -> T 
     let out = f();
     stop.store(true, Ordering::Relaxed);
     let _ = ticker.join();
+    clear_progress();
     if beat == Beat::Scan {
         // 검사 시간이 어디로 갔는가 — 회차 로그에는 늘, 화면에는 --verbose 일 때.
         let line = timing_line(started.elapsed(), remedy_core::platform::progress::timing());
