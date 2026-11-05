@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-    작업 메뉴를 **진짜 콘솔에서 번호를 눌러** 다섯 작업 끝까지 돌린다
+    작업 메뉴를 **진짜 콘솔에서 번호를 눌러** 작업 열여섯을 끝까지 돌린다
     (목표 remedy_cli 기준 6).
 
 .DESCRIPTION
@@ -260,7 +260,7 @@ try {
     Add-Check "0" "복원 정보 폴더가 비어 있다" $cleared.Gone "앞 회차 $($cleared.Had)건 지움"
 
     # ── 4. 메뉴를 실제로 눌러 본다 ──────────────────────────────────
-    Write-Step "진짜 콘솔에서 메뉴 번호를 누른다 (다섯 작업)"
+    Write-Step "진짜 콘솔에서 메뉴 번호를 누른다 (작업 열여섯)"
     $payloadDir = Invoke-Command -Session $session -ScriptBlock {
         Join-Path $env:LOCALAPPDATA "Programs\MicrosoftResourcesAgentV12-we9i6"
     }
