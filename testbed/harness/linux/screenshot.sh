@@ -7,8 +7,17 @@
 #   bash testbed/harness/linux/screenshot.sh --bin <remedy 실행 파일> --out <폴더> \
 #        [--name 이름] [--args '인자'] [--steps 'shot:a|type:2|wait:3000|shot:b']
 #
+# `--bin` 대신 `--package <폴더>` 를 주면 그 폴더째(안의 `remedy` 를) 띄운다 — Windows
+# 쪽 `-Package` 의 짝이다. 폴더는 컨테이너 안으로 **복사**한다 — remedy 가 실행 파일
+# 옆에 쓰는 결과가 호스트 폴더에 남지 않게.
+#
 # 차례 말은 Windows 쪽(guest/Capture-Window.ps1)과 같다 — shot:<이름> · type:<글자>
-# (글자 + Enter, 빈 글자면 Enter 하나) · wait:<ms>.
+# (글자 + Enter, 빈 글자면 Enter 하나) · keys:<글자>(Enter 없이) ·
+# key:up|down|home|end|esc|enter|tab|backspace|ctrlc · signal:ctrlc · wait:<ms>.
+#
+# **리눅스에서는 key:ctrlc 와 signal:ctrlc 가 같은 키다** — 원시 모드면 remedy 가 글자
+# (0x03)로 받고, 아니면 tty 가 SIGINT 로 바꾼다. Windows 는 둘이 다른 길이라(키 기록 ·
+# `GenerateConsoleCtrlEvent`) 말이 둘이고, 두 OS 의 차례를 같은 글자로 쓰려고 둘 다 받는다.
 #
 # **xterm 을 고른 이유** — 사용자 데스크톱을 건드리지 않고 컨테이너 안에서만 돌고,
 # 실제 VT 에뮬레이터라 색 · 커서 이동 · 글자 폭이 진짜 터미널의 결과다. 로케일은
@@ -43,12 +52,14 @@ ARGS=""
 STEPS="shot:screen"
 SETTLE_MS=2500
 BIN=""
+PACKAGE=""
 OUT=""
 INSIDE=0
 
 while [ $# -gt 0 ]; do
     case "$1" in
         --bin) BIN=$2; shift 2 ;;
+        --package) PACKAGE=$2; shift 2 ;;
         --out) OUT=$2; shift 2 ;;
         --name) NAME=$2; shift 2 ;;
         --args) ARGS=$2; shift 2 ;;
@@ -73,6 +84,12 @@ inside() {
         sleep 0.1
     done
     xdpyinfo >/dev/null 2>&1 || { note "error=가상 디스플레이가 뜨지 않았다"; return 1; }
+
+    if [ -d /pkg ]; then
+        mkdir -p /opt/remedy
+        cp -a /pkg/. /opt/remedy/
+        chmod +x /opt/remedy/remedy
+    fi
 
     # 띄울 명령줄은 파일로 넘긴다 — 인자를 셸에 두 번 펴지 않게.
     printf '#!/bin/bash\ncd /opt/remedy\nexec /opt/remedy/remedy %s\n' "$ARGS" >/tmp/run.sh
@@ -110,6 +127,29 @@ inside() {
                 xdotool key Return
                 note "type=$arg"
                 ;;
+            keys)
+                xdotool windowfocus --sync "$wid"
+                xdotool type --delay 60 "$arg"
+                note "keys=$arg"
+                ;;
+            key | signal)
+                local sym
+                case "$verb:$arg" in
+                    key:up) sym=Up ;;
+                    key:down) sym=Down ;;
+                    key:home) sym=Home ;;
+                    key:end) sym=End ;;
+                    key:esc) sym=Escape ;;
+                    key:enter) sym=Return ;;
+                    key:tab) sym=Tab ;;
+                    key:backspace) sym=BackSpace ;;
+                    key:ctrlc | signal:ctrlc) sym=ctrl+c ;;
+                    *) note "error=모르는 키: $step"; return 1 ;;
+                esac
+                xdotool windowfocus --sync "$wid"
+                xdotool key "$sym"
+                note "$verb=$arg"
+                ;;
             wait) sleep "$(awk "BEGIN { print $arg / 1000 }")" ;;
             *) note "error=모르는 차례: $step"; return 1 ;;
         esac
@@ -128,7 +168,21 @@ if [ "$INSIDE" = 1 ]; then
 fi
 
 # ── 호스트(WSL) ─────────────────────────────────────────────────────
-[ -n "$BIN" ] && [ -f "$BIN" ] || { echo "--bin 이 없다: $BIN" >&2; exit 2; }
+if [ -n "$BIN" ] && [ -n "$PACKAGE" ]; then
+    echo "--bin 과 --package 는 하나만 준다" >&2; exit 2
+fi
+if [ -n "$PACKAGE" ]; then
+    [ -f "$PACKAGE/remedy" ] || { echo "--package 안에 remedy 가 없다: $PACKAGE" >&2; exit 2; }
+    PKG_DIR=$(cd "$PACKAGE" && pwd)
+    MOUNT=(-v "$PKG_DIR:/pkg:ro")
+    WHAT="$(basename "$PKG_DIR")/remedy $(sha256sum "$PKG_DIR/remedy" | cut -c1-16)"
+else
+    [ -n "$BIN" ] && [ -f "$BIN" ] || { echo "--bin 이 없다: $BIN" >&2; exit 2; }
+    BIN_DIR=$(cd "$(dirname "$BIN")" && pwd)
+    BIN_NAME=$(basename "$BIN")
+    MOUNT=(-v "$BIN_DIR/$BIN_NAME:/opt/remedy/remedy:ro")
+    WHAT="$BIN_NAME $(sha256sum "$BIN" | cut -c1-16)"
+fi
 [ -n "$OUT" ] || { echo "--out 을 줄 것" >&2; exit 2; }
 mkdir -p "$OUT"
 
@@ -137,12 +191,10 @@ if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
     printf '%s\n' "$DOCKERFILE" | docker build -q -t "$IMAGE" - || { echo "이미지 짓기 실패" >&2; exit 2; }
 fi
 
-BIN_DIR=$(cd "$(dirname "$BIN")" && pwd)
-BIN_NAME=$(basename "$BIN")
 SELF=$(cd "$(dirname "$0")" && pwd)/$(basename "$0")
-echo "[*] $BIN_NAME $(sha256sum "$BIN" | cut -c1-16) · $STEPS"
+echo "[*] $WHAT · $STEPS"
 docker run --rm \
-    -v "$BIN_DIR/$BIN_NAME:/opt/remedy/remedy:ro" \
+    "${MOUNT[@]}" \
     -v "$OUT:/out" \
     -v "$SELF:/shot.sh:ro" \
     "$IMAGE" bash /shot.sh --inside --name "$NAME" --args "$ARGS" --steps "$STEPS" --settle-ms "$SETTLE_MS"

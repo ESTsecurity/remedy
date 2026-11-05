@@ -1162,14 +1162,14 @@ x.evil
 Notice: self-integrity could not be checked (this platform has no Authenticode). Not blocking, but not verified either
 
 Error: internal error: the tool itself crashed. The machine is as the journal recorded up to this point
-  crates/remedy-cli/src/tee.rs:80:9: REMEDY_PANIC_TEST: 개발 빌드 전용 패닉 시험
+  crates/remedy-cli/src/tee.rs:87:9: REMEDY_PANIC_TEST: 개발 빌드 전용 패닉 시험
   Record: /tmp/console-capture/sP/logs/crash-<T>-N.txt
   (exit code 7: internal error: the tool itself crashed (attach logs/crash-*.txt to the report))
 [exit=7]
 Notice: self-integrity could not be checked (this platform has no Authenticode). Not blocking, but not verified either
 
 Error: internal error: the tool itself crashed. The machine is as the journal recorded up to this point
-  crates/remedy-cli/src/tee.rs:80:9: REMEDY_PANIC_TEST: 개발 빌드 전용 패닉 시험
+  crates/remedy-cli/src/tee.rs:87:9: REMEDY_PANIC_TEST: 개발 빌드 전용 패닉 시험
   Record: /tmp/console-capture/sP/logs/crash-<T>-N.txt
   (exit code 7: internal error: the tool itself crashed (attach logs/crash-*.txt to the report))
 [exit=7]
@@ -1177,7 +1177,7 @@ Error: internal error: the tool itself crashed. The machine is as the journal re
 ==> /tmp/console-capture/sP/logs/crash-<T>-N.txt <==
 remedy 1.0.0 · internal error (panic)
 at    : <T>
-where : crates/remedy-cli/src/tee.rs:80:9
+where : crates/remedy-cli/src/tee.rs:87:9
 
 ==> /tmp/console-capture/sP/logs/crash-<T>-N.txt <==
 remedy 1.0.0 · internal error (panic)

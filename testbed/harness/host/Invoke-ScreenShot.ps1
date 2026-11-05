@@ -40,6 +40,9 @@
     게스트 차례. `|` 로 잇는다 — `shot:menu|type:1|wait:8000|shot:scan`.
     말은 `guest\Capture-Window.ps1` 에 있다.
 
+.PARAMETER SetEnv
+    `이름=값` 하나 — 띄울 프로그램이 물려받는다. 색을 끈 화면은 `NO_COLOR=1`.
+
 .EXAMPLE
     .\Invoke-ScreenShot.ps1 -Bin target\x86_64-pc-windows-msvc\release\remedy.exe -Name usage
     .\Invoke-ScreenShot.ps1 -Package D:\dl\remedy-evilai-locust-win64 -Name menu
@@ -58,7 +61,8 @@ param(
     [int] $SettleMs = 2500,
     [ValidateSet("print", "screen")] [string] $Method = "print",
     [string] $Name = "shot",
-    [int] $TimeoutSec = 180
+    [int] $TimeoutSec = 180,
+    [string] $SetEnv = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -135,12 +139,13 @@ try {
     }
 
     Write-Step "대화형 세션에서 띄우고 찍는다 ($Terminal · $Steps)"
-    $run = Invoke-Command -Session $session -ArgumentList $shotDir, $LabRoot, $task, $console, $Terminal, $wtExe, $Steps, $SettleMs, $Method, $TimeoutSec -ScriptBlock {
-        param($dir, $lab, $task, $user, $terminal, $wtExe, $steps, $settle, $method, $timeout)
+    $run = Invoke-Command -Session $session -ArgumentList $shotDir, $LabRoot, $task, $console, $Terminal, $wtExe, $Steps, $SettleMs, $Method, $TimeoutSec, $SetEnv -ScriptBlock {
+        param($dir, $lab, $task, $user, $terminal, $wtExe, $steps, $settle, $method, $timeout, $setEnv)
         $a = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$lab\scripts\Capture-Window.ps1`"" +
              " -Exe `"$dir\app\remedy.exe`" -OutDir `"$dir\out`" -Terminal $terminal" +
              " -Steps `"$steps`" -SettleMs $settle -Method $method"
         if ($wtExe) { $a += " -WtExe `"$wtExe`"" }
+        if ($setEnv) { $a += " -SetEnv `"$setEnv`"" }
         $act = New-ScheduledTaskAction -Execute "powershell.exe" -Argument $a -WorkingDirectory "$dir\app"
         $pr  = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Highest
         $set = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Seconds $timeout)

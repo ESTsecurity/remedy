@@ -281,7 +281,7 @@ function Find-MenuNumber {
 $rc = [RemedyLab.Menu]::EnsureConsoleStdin()
 
 $report = [ordered]@{
-    schema      = "remedy-lab.verify-menu/1"
+    schema      = "remedy-lab.verify-menu/2"
     console_rc  = $rc
     bin         = $Bin
     payload_dir = $PayloadDir
@@ -300,10 +300,14 @@ if ($rc -ne 0) {
 # ── 0. 메뉴가 뜨는가 · 몇 줄인가 ─────────────────────────────────────
 #
 # `0` 은 그만두기이고 그 갈래의 종료 코드는 **0** 이다 (결정 8 · 2026-10-30).
+#
+# **빈 줄 없이 `0` 만 보낸다** (2026-11-05 · 목표 remedy_제품화 기준 4). 그만두기는
+# 창을 붙잡지 않는다 — 끝내기를 고른 것이다. 붙잡으면 Enter 를 기다리다 시간이 다
+# 되므로, **시간 초과가 없는 것이 곧 붙잡지 않았다는 증거**다.
 # 전에는 2(발견·미치료)였다 — `NothingUsable`(도구가 검사하지 못했다)과 같은
 # 결로 묶여 있었는데, 여기는 **사람이** 검사하지 않기로 한 것이고 화면이 그렇게
 # 말한다. 치료 승인을 거절한 자리는 이 갈래가 아니라 `approved()` 를 지나 2 다.
-$probe = Invoke-MenuRun -Lines (@() + $Lead + @("0", "")) -TimeoutMs 60000
+$probe = Invoke-MenuRun -Lines (@() + $Lead + @("0")) -TimeoutMs 30000
 $pmap = Get-MenuMap -Text $probe.text
 $report.probe = [ordered]@{
     exit        = $probe.exit
@@ -311,7 +315,7 @@ $report.probe = [ordered]@{
     shown       = [bool]($probe.text -match "무엇을 할까요")
     item_count  = @($pmap.Keys | Where-Object { $pmap[$_] -gt 0 }).Count
     separator   = [bool]($probe.text -match "작성자·운영자 명령")
-    held_window = [bool]($probe.text -match "Enter 를 누르십시오")
+    held_window = ([bool]$probe.timed_out -or [bool]($probe.text -match "Enter 를 누르십시오"))
     nothing     = [bool]($probe.text -match "아무것도 하지 않았습니다")
     labels      = @($pmap.Keys)
 }
@@ -380,13 +384,16 @@ foreach ($s in $steps) {
         expect     = $s.expect
         timed_out  = $(if ($null -ne $run) { $run.timed_out } else { $true })
         menu_shown = $(if ($null -ne $run) { [bool]($run.text -match "무엇을 할까요") } else { $false })
+        # 작업 뒤 메뉴로 돌아왔는가 — "메뉴로 돌아갑니다" 가 있고 메뉴가 두 번 떴다(기준 4(a)).
+        # 마지막 빈 줄은 두 번째 메뉴에서 그만두기가 되어 회차를 끝낸다.
+        back_menu  = $(if ($null -ne $run) { [bool]($run.text -match "메뉴로 돌아갑니다") -and ([regex]::Matches($run.text, "무엇을 할까요").Count -ge 2) } else { $false })
         asked_sub  = $sub_count
         approved   = $(if ($null -ne $run) { [bool]($run.text -match "진행하려면") } else { $false })
         before     = $before
         after      = $after
         ok         = $false
     }
-    $row.ok = ($row.found -and (-not $row.timed_out) -and $row.menu_shown -and ($row.exit -eq $s.expect))
+    $row.ok = ($row.found -and (-not $row.timed_out) -and $row.menu_shown -and $row.back_menu -and ($row.exit -eq $s.expect))
     $results.Add([pscustomobject]$row)
 
     $tr.Add("")

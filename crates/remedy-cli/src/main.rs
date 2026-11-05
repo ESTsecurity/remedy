@@ -28,6 +28,9 @@ mod menu;
 // 잠근다.
 mod guided;
 
+// 화면 공통 층 — 그리는 자리의 판정 · 방향키 + 숫자로 고르기 · Ctrl+C 두 번.
+mod term;
+
 /// 화면 전체에 걸리는 설정. 시작할 때 한 번 정하고 어디서든 읽는다.
 ///
 /// `--lang`·`--ascii`·`--verbose` 는 어느 자리에 와도 된다 — 사용자는
@@ -257,307 +260,351 @@ fn main() -> ExitCode {
             // 사용법이다. 어느 쪽이든 창을 붙잡는다 — 콘솔 서브시스템 실행
             // 파일은 프로세스가 끝나면 OS 가 창을 없애므로, 그러지 않으면
             // 화면이 검은 깜빡임 한 번으로 끝난다.
-            let outcome = match guided::run(EMBEDDED_ANCHOR) {
-                guided::Outcome::ShowUsage => {
-                    usage(false);
-                    Ok(Code::NoThreat)
-                }
-                // **0 으로 끝내지 않는다.** 꾸러미가 있는데 하나도 못 썼다면
-                // 검사를 한 적이 없는 것이고, 0 은 "이 PC 는 깨끗하다" 로 읽힌다.
-                guided::Outcome::NothingUsable => Ok(Code::GuardStop),
-                // **사람이 그만둔 것은 0 이다** (결정 8 · 2026-10-30 확정).
-                //
-                // 전에는 바로 위 `NothingUsable` 과 같은 결로 2(발견·미치료)를
-                // 냈다. 그러나 그 둘은 다르다 — `NothingUsable` 은 **도구가**
-                // 검사하지 못한 것이고, 여기는 **사람이** 검사하지 않기로 한
-                // 것이다. 화면이 *"아무것도 하지 않았습니다"* 라고 말하고 그
-                // 사람이 그것을 읽었다.
-                //
-                // `Stopped` 가 오는 자리는 둘뿐이고 **둘 다 검사 전**이다 —
-                // 룰을 고르는 화면(`guided::choose`)과 작업 메뉴(`menu::run`,
-                // 회차·파일 하위 화면 포함). 꾸러미를 찾고 **치료 승인을
-                // 거절한** 자리는 이 갈래가 아니라 `approved()` 를 지나 2 로
-                // 끝난다 — 그쪽은 검사를 했고 발견한 것이 남아 있다.
-                //
-                // 새 종료 코드를 만들지 않는다 — 불변식 I3.
-                guided::Outcome::Stopped => Ok(Code::NoThreat),
-                // **`run` 과 같은 문을 지난다.** 안내 모드가 자기 권한 검사나
-                // 자기 화면을 갖지 않는 이유다 — 두 벌이 되면 갈라지고,
-                // 갈라지면 이 경로로 들어온 사람만 다른 판정을 받는다.
-                guided::Outcome::RunWith(plugin) => {
-                    let args = vec!["--plugin".to_string(), plugin.to_string_lossy().to_string()];
-                    admin_gate()
-                        .and_then(|()| integrity_gate(&integrity))
-                        .and_then(|()| cmd_run(&args, &integrity))
-                }
-                // **묶음 A — 같은 자리로 보낸다.** 위 `Some("selftest")` 갈래와
-                // 똑같은 호출이다. 메뉴가 자기 화면이나 자기 가드를 갖지 않는
-                // 이유는 `RunWith` 와 같다 — 두 벌이 되면 갈라지고, 갈라지면
-                // 메뉴로 들어온 사람만 다른 답을 받는다.
-                guided::Outcome::Plain(p) => match p {
-                    menu::Plain::SelfTest => Ok(selftest()),
-                    menu::Plain::Version => {
-                        outln!(
-                            "{} {} (remedy)",
-                            remedy_core::report::brand::product(ui().lang),
-                            env!("CARGO_PKG_VERSION")
-                        );
-                        Ok(Code::NoThreat)
+            //
+            // **사람이 앞에 있으면 작업 뒤 메뉴로 돌아온다**(목표 remedy_제품화 기준
+            // 4(a)). 끝내는 것은 사람이다 — `0. 그만두기` 또는 Ctrl+C 두 번. 터미널이
+            // 아니면 지금까지처럼 작업 하나로 끝난다(불변식 I7).
+            let session = guided::interactive();
+            if session {
+                term::arm();
+            }
+            let mut last: Option<Code> = None;
+            loop {
+                let picked = guided::run(EMBEDDED_ANCHOR);
+                match picked {
+                    // 하위 화면의 `0` — 메뉴를 다시 보인다.
+                    guided::Outcome::Back => continue,
+                    // **사람이 그만둔 것은 0 이다** (결정 8 · 2026-10-30 확정) — 이 세션에서
+                    // 작업을 했으면 마지막 작업의 코드다. 그만두기를 고른 사람의 창은
+                    // 붙잡지 않는다: 끝내기를 고른 것이다.
+                    guided::Outcome::Stopped | guided::Outcome::End => {
+                        break Ok(last.unwrap_or(Code::NoThreat));
                     }
-                    menu::Plain::Help => {
+                    _ => {}
+                }
+                let ends_here = matches!(
+                    picked,
+                    guided::Outcome::ShowUsage | guided::Outcome::NothingUsable
+                );
+                if !ends_here {
+                    term::task_begin(changes_system(&picked));
+                }
+                let outcome = match picked {
+                    guided::Outcome::ShowUsage => {
                         usage(false);
                         Ok(Code::NoThreat)
                     }
-                    menu::Plain::HelpAll => {
-                        usage_all();
-                        Ok(Code::NoThreat)
-                    }
-                    // `restore --list` 는 기계를 만지는 명령이라 관리자 문을
-                    // 지난다 — `Some("restore")` 갈래와 같다.
+                    // **0 으로 끝내지 않는다.** 꾸러미가 있는데 하나도 못 썼다면
+                    // 검사를 한 적이 없는 것이고, 0 은 "이 PC 는 깨끗하다" 로 읽힌다.
+                    guided::Outcome::NothingUsable => Ok(Code::GuardStop),
+                    // **사람이 그만둔 것은 0 이다** (결정 8 · 2026-10-30 확정).
                     //
-                    // **두 자리를 다 보인다** (결정 3 · 2026-10-30). 한 자리만
-                    // 보이면 그 기계에 전부터 쌓인 격리물이 메뉴에서 사라지고,
-                    // 사용자는 복원할 수 없다고 믿는다(멈출 조건 5). 없는
-                    // 폴더는 건너뛴다 — "회차가 없습니다" 를 두 번 찍지 않는다.
-                    menu::Plain::RestoreList => admin_gate().and_then(|()| {
-                        let mut last = Ok(Code::NoThreat);
-                        for d in menu_state_dirs() {
-                            if !d.exists() {
-                                continue;
-                            }
-                            let args = vec![
-                                "--list".to_string(),
-                                "--state-dir".to_string(),
-                                d.to_string_lossy().to_string(),
-                            ];
-                            last = cmd_restore(&args);
-                            if last.is_err() {
-                                break;
-                            }
-                        }
-                        last
-                    }),
-                },
-                // **묶음 B — 고른 플러그인으로 같은 명령으로 보낸다.**
-                //
-                // `scan` 은 `--out-dir` 이 필수다. 메뉴 경로에서는 **실행 파일
-                // 옆의 `out\`** 을 쓴다 — 명령줄의 기본값은 건드리지 않으므로
-                // 불변식 I1 과 부딪치지 않는다(목표 `remedy_cli` 결정 3·4).
-                guided::Outcome::WithPlugin(w) => match w {
-                    menu::WithPlugin::Run(p) => {
-                        let args = vec![
-                            "--plugin".to_string(),
-                            p.to_string_lossy().to_string(),
-                            "--out-dir".to_string(),
-                            menu_out().to_string_lossy().to_string(),
-                            "--state-dir".to_string(),
-                            menu_state().to_string_lossy().to_string(),
-                        ];
+                    // 전에는 바로 위 `NothingUsable` 과 같은 결로 2(발견·미치료)를
+                    // 냈다. 그러나 그 둘은 다르다 — `NothingUsable` 은 **도구가**
+                    // 검사하지 못한 것이고, 여기는 **사람이** 검사하지 않기로 한
+                    // 것이다. 화면이 *"아무것도 하지 않았습니다"* 라고 말하고 그
+                    // 사람이 그것을 읽었다.
+                    //
+                    // `Stopped` 가 오는 자리는 둘뿐이고 **둘 다 검사 전**이다 —
+                    // 룰을 고르는 화면(`guided::choose`)과 작업 메뉴(`menu::run`,
+                    // 회차·파일 하위 화면 포함). 꾸러미를 찾고 **치료 승인을
+                    // 거절한** 자리는 이 갈래가 아니라 `approved()` 를 지나 2 로
+                    // 끝난다 — 그쪽은 검사를 했고 발견한 것이 남아 있다.
+                    //
+                    // 새 종료 코드를 만들지 않는다 — 불변식 I3.
+                    //
+                    // 세 갈래는 위에서 이미 돌아갔다 — 여기 오지 않는다.
+                    guided::Outcome::Stopped | guided::Outcome::Back | guided::Outcome::End => {
+                        Ok(last.unwrap_or(Code::NoThreat))
+                    }
+                    // **`run` 과 같은 문을 지난다.** 안내 모드가 자기 권한 검사나
+                    // 자기 화면을 갖지 않는 이유다 — 두 벌이 되면 갈라지고,
+                    // 갈라지면 이 경로로 들어온 사람만 다른 판정을 받는다.
+                    guided::Outcome::RunWith(plugin) => {
+                        let args =
+                            vec!["--plugin".to_string(), plugin.to_string_lossy().to_string()];
                         admin_gate()
                             .and_then(|()| integrity_gate(&integrity))
                             .and_then(|()| cmd_run(&args, &integrity))
                     }
-                    menu::WithPlugin::Scan(p) => {
-                        let args = vec![
-                            "--plugin".to_string(),
-                            p.to_string_lossy().to_string(),
-                            "--out-dir".to_string(),
-                            menu_out().to_string_lossy().to_string(),
-                            "--state-dir".to_string(),
-                            menu_state().to_string_lossy().to_string(),
-                        ];
-                        admin_gate().and_then(|()| cmd_scan(&args))
-                    }
-                    menu::WithPlugin::Verify(p) => {
-                        let args = vec![
-                            "--plugin".to_string(),
-                            p.to_string_lossy().to_string(),
-                            "--state-dir".to_string(),
-                            menu_state().to_string_lossy().to_string(),
-                        ];
-                        admin_gate().and_then(|()| cmd_verify(&args))
-                    }
-                    // 작성자용 둘은 **준 파일만 만지므로** 관리자 문을 지나지
-                    // 않는다 — 위 `Some("plugin")` 갈래와 같다.
-                    menu::WithPlugin::Lint(p) => {
-                        cmd_plugin_lint(&[p.to_string_lossy().to_string()])
-                    }
-                    menu::WithPlugin::VerifyBundle(p) => {
-                        let dir = p.parent().unwrap_or(&p).to_path_buf();
-                        let args = vec!["--dir".to_string(), dir.to_string_lossy().to_string()];
-                        cmd_plugin_verify(&args)
-                    }
-                },
-                // **수집만** — 입력이 없고 결과 파일은 여기서 정한다.
-                // `collect` 는 `--out <파일>` 이 필수다(폴더가 아니다).
-                guided::Outcome::Collect => {
-                    let out = menu_out();
-                    let args = vec![
-                        "--out".to_string(),
-                        out.join("artifacts.json").to_string_lossy().to_string(),
-                        "--state-dir".to_string(),
-                        menu_state().to_string_lossy().to_string(),
-                    ];
-                    std::fs::create_dir_all(&out)
-                        .map_err(|e| Failure::from(format!("{}: {e}", out.display())))
-                        .and_then(|()| admin_gate())
-                        .and_then(|()| cmd_collect(&args))
-                }
-                // **묶음 D·E — 고른 파일을 같은 명령으로 보낸다.** 위
-                // `Some("apply")`·`Some("evaluate")`·`Some("plan")`·
-                // `Some("allowlist")`·`Some("revocation")` 갈래와 같은 함수다.
-                //
-                // 플러그인이 드는 셋(`apply`·`evaluate`·`plan`)은 메뉴가
-                // 플러그인을 고를 수 있을 때만 줄을 냈으므로 여기서 다시
-                // 비어 있을 수 없다 — 그래도 `ok_or_else` 로 말하고 끝낸다.
-                guided::Outcome::WithFile(w, guided_plugin) => {
-                    let plugin = || -> Result<String, Failure> {
-                        guided_plugin
-                            .clone()
-                            .map(|p| p.to_string_lossy().to_string())
-                            .ok_or_else(|| {
-                                Failure::from(ui().lang.t(
-                                    "이 명령에는 룰 파일이 필요합니다",
-                                    "this command needs a rule file",
-                                ))
-                            })
-                    };
-                    let out = menu_out();
-                    match w {
-                        menu::WithFile::Apply(f) => plugin().and_then(|p| {
+                    // **묶음 A — 같은 자리로 보낸다.** 위 `Some("selftest")` 갈래와
+                    // 똑같은 호출이다. 메뉴가 자기 화면이나 자기 가드를 갖지 않는
+                    // 이유는 `RunWith` 와 같다 — 두 벌이 되면 갈라지고, 갈라지면
+                    // 메뉴로 들어온 사람만 다른 답을 받는다.
+                    guided::Outcome::Plain(p) => match p {
+                        menu::Plain::SelfTest => Ok(selftest()),
+                        menu::Plain::Version => {
+                            outln!(
+                                "{} {} (remedy)",
+                                remedy_core::report::brand::product(ui().lang),
+                                env!("CARGO_PKG_VERSION")
+                            );
+                            Ok(Code::NoThreat)
+                        }
+                        menu::Plain::Help => {
+                            usage(false);
+                            Ok(Code::NoThreat)
+                        }
+                        menu::Plain::HelpAll => {
+                            usage_all();
+                            Ok(Code::NoThreat)
+                        }
+                        // `restore --list` 는 기계를 만지는 명령이라 관리자 문을
+                        // 지난다 — `Some("restore")` 갈래와 같다.
+                        //
+                        // **두 자리를 다 보인다** (결정 3 · 2026-10-30). 한 자리만
+                        // 보이면 그 기계에 전부터 쌓인 격리물이 메뉴에서 사라지고,
+                        // 사용자는 복원할 수 없다고 믿는다(멈출 조건 5). 없는
+                        // 폴더는 건너뛴다 — "회차가 없습니다" 를 두 번 찍지 않는다.
+                        menu::Plain::RestoreList => admin_gate().and_then(|()| {
+                            let mut last = Ok(Code::NoThreat);
+                            for d in menu_state_dirs() {
+                                if !d.exists() {
+                                    continue;
+                                }
+                                let args = vec![
+                                    "--list".to_string(),
+                                    "--state-dir".to_string(),
+                                    d.to_string_lossy().to_string(),
+                                ];
+                                last = cmd_restore(&args);
+                                if last.is_err() {
+                                    break;
+                                }
+                            }
+                            last
+                        }),
+                    },
+                    // **묶음 B — 고른 플러그인으로 같은 명령으로 보낸다.**
+                    //
+                    // `scan` 은 `--out-dir` 이 필수다. 메뉴 경로에서는 **실행 파일
+                    // 옆의 `out\`** 을 쓴다 — 명령줄의 기본값은 건드리지 않으므로
+                    // 불변식 I1 과 부딪치지 않는다(목표 `remedy_cli` 결정 3·4).
+                    guided::Outcome::WithPlugin(w) => match w {
+                        menu::WithPlugin::Run(p) => {
                             let args = vec![
-                                "--plan".to_string(),
-                                f.to_string_lossy().to_string(),
                                 "--plugin".to_string(),
-                                p,
+                                p.to_string_lossy().to_string(),
+                                "--out-dir".to_string(),
+                                menu_out().to_string_lossy().to_string(),
                                 "--state-dir".to_string(),
                                 menu_state().to_string_lossy().to_string(),
                             ];
                             admin_gate()
                                 .and_then(|()| integrity_gate(&integrity))
-                                .and_then(|()| cmd_apply(&args, &integrity))
-                        }),
-                        menu::WithFile::Evaluate(f) => plugin().and_then(|p| {
+                                .and_then(|()| cmd_run(&args, &integrity))
+                        }
+                        menu::WithPlugin::Scan(p) => {
                             let args = vec![
-                                "--artifacts".to_string(),
-                                f.to_string_lossy().to_string(),
                                 "--plugin".to_string(),
-                                p,
-                                "--out".to_string(),
-                                out.join("scan.json").to_string_lossy().to_string(),
+                                p.to_string_lossy().to_string(),
+                                "--out-dir".to_string(),
+                                menu_out().to_string_lossy().to_string(),
                                 "--state-dir".to_string(),
                                 menu_state().to_string_lossy().to_string(),
                             ];
-                            cmd_evaluate(&args)
-                        }),
-                        menu::WithFile::Plan(f) => plugin().and_then(|p| {
+                            admin_gate().and_then(|()| cmd_scan(&args))
+                        }
+                        menu::WithPlugin::Verify(p) => {
                             let args = vec![
-                                "--scan".to_string(),
-                                f.to_string_lossy().to_string(),
                                 "--plugin".to_string(),
-                                p,
-                                "--out".to_string(),
-                                out.join("plan.json").to_string_lossy().to_string(),
+                                p.to_string_lossy().to_string(),
                                 "--state-dir".to_string(),
                                 menu_state().to_string_lossy().to_string(),
                             ];
-                            cmd_plan(&args)
-                        }),
-                        // 목록 넷은 플러그인이 들지 않는다. `verify` 는 읽기만
-                        // 하고 `import` 는 복원 정보 폴더에 쓴다 — 그래서
-                        // `import` 만 관리자 문을 지난다(명령줄과 같다).
-                        menu::WithFile::AllowVerify(f) => cmd_allowlist_verify(&file_arg(&f)),
-                        menu::WithFile::AllowImport(f) => {
-                            admin_gate().and_then(|()| cmd_allowlist_import(&imported(&f)))
+                            admin_gate().and_then(|()| cmd_verify(&args))
                         }
-                        menu::WithFile::RevokeVerify(f) => cmd_revocation_verify(&file_arg(&f)),
-                        menu::WithFile::RevokeImport(f) => {
-                            admin_gate().and_then(|()| cmd_revocation_import(&imported(&f)))
+                        // 작성자용 둘은 **준 파일만 만지므로** 관리자 문을 지나지
+                        // 않는다 — 위 `Some("plugin")` 갈래와 같다.
+                        menu::WithPlugin::Lint(p) => {
+                            cmd_plugin_lint(&[p.to_string_lossy().to_string()])
                         }
-                    }
-                }
-                // **묶음 C — 회차를 골라 같은 명령으로 보낸다.** 위
-                // `Some("restore")`·`Some("support-bundle")`·`Some("resume")`
-                // 갈래와 **같은 문·같은 함수**다. 계획을 보이고 승인을 받는
-                // 자리를 메뉴가 건너뛰지 않는다.
-                guided::Outcome::WithRun(w) => match w {
-                    // **두 걸음을 걷는다 — 사람이 하는 것과 같은 순서다.**
-                    // 먼저 `--yes` 없이 불러 목록을 보이고(종료 2), 그 목록을
-                    // 보고 나서 묻고, `예` 면 `--yes` 로 한 번 더 부른다.
-                    // 까닭은 [`confirm_restore`] 의 주석에 있다 — 명령의
-                    // 화면은 한 글자도 바뀌지 않는다.
-                    menu::WithRun::Restore(r) => {
-                        let id = r.id.clone();
-                        let state = r.state.to_string_lossy().to_string();
-                        let plan = vec![
-                            "--run".to_string(),
-                            id.clone(),
-                            "--state-dir".to_string(),
-                            state.clone(),
-                        ];
-                        admin_gate()
-                            .and_then(|()| cmd_restore(&plan))
-                            .and_then(|code| {
-                                if !matches!(code, Code::FoundNotRemediated) || !confirm_restore() {
-                                    return Ok(code);
-                                }
-                                let go = vec![
-                                    "--run".to_string(),
-                                    id,
-                                    "--state-dir".to_string(),
-                                    state,
-                                    "--yes".to_string(),
-                                ];
-                                cmd_restore(&go)
-                            })
-                    }
-                    // 신고는 자기무결성 문을 지나지 않는다 — 위 갈래와 같다.
-                    //
-                    // **`--out` 을 반드시 준다.** 주지 않으면 기본값이 `.`(현재
-                    // 폴더)이고, 더블클릭으로 띄운 경로에서 그 자리는 사람이
-                    // 짐작할 수 없다. `scan` 이 `menu_out()` 을 쓰는 것과
-                    // 같은 규칙을 지킨다 — **한 메뉴 안에서 폴더 규칙이 갈리면
-                    // 안 된다**(2026-10-29 재검토에서 갈려 있던 자리다).
-                    menu::WithRun::Support(r) => {
+                        menu::WithPlugin::VerifyBundle(p) => {
+                            let dir = p.parent().unwrap_or(&p).to_path_buf();
+                            let args = vec!["--dir".to_string(), dir.to_string_lossy().to_string()];
+                            cmd_plugin_verify(&args)
+                        }
+                    },
+                    // **수집만** — 입력이 없고 결과 파일은 여기서 정한다.
+                    // `collect` 는 `--out <파일>` 이 필수다(폴더가 아니다).
+                    guided::Outcome::Collect => {
+                        let out = menu_out();
                         let args = vec![
-                            "--run".to_string(),
-                            r.id,
-                            "--state-dir".to_string(),
-                            r.state.to_string_lossy().to_string(),
                             "--out".to_string(),
-                            beside_exe("report").to_string_lossy().to_string(),
-                        ];
-                        cmd_support_bundle(&args)
-                    }
-                    menu::WithRun::Resume(r) => {
-                        let args = vec![
-                            "--run".to_string(),
-                            r.id,
+                            out.join("artifacts.json").to_string_lossy().to_string(),
                             "--state-dir".to_string(),
-                            r.state.to_string_lossy().to_string(),
+                            menu_state().to_string_lossy().to_string(),
                         ];
-                        admin_gate()
-                            .and_then(|()| integrity_gate(&integrity))
-                            .and_then(|()| cmd_resume(&args, &integrity))
+                        std::fs::create_dir_all(&out)
+                            .map_err(|e| Failure::from(format!("{}: {e}", out.display())))
+                            .and_then(|()| admin_gate())
+                            .and_then(|()| cmd_collect(&args))
                     }
-                },
-            };
-            let code = match &outcome {
-                Ok(c) => *c,
-                Err(f) => f.code,
-            };
-            if let Err(f) = &outcome {
-                let lang = ui().lang;
-                errln!("{}: {}", lang.t("실패", "Error"), f.message);
-                errln!(
-                    "  ({} {}: {})",
-                    lang.t("종료 코드", "exit code"),
-                    f.code.code(),
-                    f.code.meaning_in(lang)
-                );
+                    // **묶음 D·E — 고른 파일을 같은 명령으로 보낸다.** 위
+                    // `Some("apply")`·`Some("evaluate")`·`Some("plan")`·
+                    // `Some("allowlist")`·`Some("revocation")` 갈래와 같은 함수다.
+                    //
+                    // 플러그인이 드는 셋(`apply`·`evaluate`·`plan`)은 메뉴가
+                    // 플러그인을 고를 수 있을 때만 줄을 냈으므로 여기서 다시
+                    // 비어 있을 수 없다 — 그래도 `ok_or_else` 로 말하고 끝낸다.
+                    guided::Outcome::WithFile(w, guided_plugin) => {
+                        let plugin = || -> Result<String, Failure> {
+                            guided_plugin
+                                .clone()
+                                .map(|p| p.to_string_lossy().to_string())
+                                .ok_or_else(|| {
+                                    Failure::from(ui().lang.t(
+                                        "이 명령에는 룰 파일이 필요합니다",
+                                        "this command needs a rule file",
+                                    ))
+                                })
+                        };
+                        let out = menu_out();
+                        match w {
+                            menu::WithFile::Apply(f) => plugin().and_then(|p| {
+                                let args = vec![
+                                    "--plan".to_string(),
+                                    f.to_string_lossy().to_string(),
+                                    "--plugin".to_string(),
+                                    p,
+                                    "--state-dir".to_string(),
+                                    menu_state().to_string_lossy().to_string(),
+                                ];
+                                admin_gate()
+                                    .and_then(|()| integrity_gate(&integrity))
+                                    .and_then(|()| cmd_apply(&args, &integrity))
+                            }),
+                            menu::WithFile::Evaluate(f) => plugin().and_then(|p| {
+                                let args = vec![
+                                    "--artifacts".to_string(),
+                                    f.to_string_lossy().to_string(),
+                                    "--plugin".to_string(),
+                                    p,
+                                    "--out".to_string(),
+                                    out.join("scan.json").to_string_lossy().to_string(),
+                                    "--state-dir".to_string(),
+                                    menu_state().to_string_lossy().to_string(),
+                                ];
+                                cmd_evaluate(&args)
+                            }),
+                            menu::WithFile::Plan(f) => plugin().and_then(|p| {
+                                let args = vec![
+                                    "--scan".to_string(),
+                                    f.to_string_lossy().to_string(),
+                                    "--plugin".to_string(),
+                                    p,
+                                    "--out".to_string(),
+                                    out.join("plan.json").to_string_lossy().to_string(),
+                                    "--state-dir".to_string(),
+                                    menu_state().to_string_lossy().to_string(),
+                                ];
+                                cmd_plan(&args)
+                            }),
+                            // 목록 넷은 플러그인이 들지 않는다. `verify` 는 읽기만
+                            // 하고 `import` 는 복원 정보 폴더에 쓴다 — 그래서
+                            // `import` 만 관리자 문을 지난다(명령줄과 같다).
+                            menu::WithFile::AllowVerify(f) => cmd_allowlist_verify(&file_arg(&f)),
+                            menu::WithFile::AllowImport(f) => {
+                                admin_gate().and_then(|()| cmd_allowlist_import(&imported(&f)))
+                            }
+                            menu::WithFile::RevokeVerify(f) => cmd_revocation_verify(&file_arg(&f)),
+                            menu::WithFile::RevokeImport(f) => {
+                                admin_gate().and_then(|()| cmd_revocation_import(&imported(&f)))
+                            }
+                        }
+                    }
+                    // **묶음 C — 회차를 골라 같은 명령으로 보낸다.** 위
+                    // `Some("restore")`·`Some("support-bundle")`·`Some("resume")`
+                    // 갈래와 **같은 문·같은 함수**다. 계획을 보이고 승인을 받는
+                    // 자리를 메뉴가 건너뛰지 않는다.
+                    guided::Outcome::WithRun(w) => match w {
+                        // **두 걸음을 걷는다 — 사람이 하는 것과 같은 순서다.**
+                        // 먼저 `--yes` 없이 불러 목록을 보이고(종료 2), 그 목록을
+                        // 보고 나서 묻고, `예` 면 `--yes` 로 한 번 더 부른다.
+                        // 까닭은 [`confirm_restore`] 의 주석에 있다 — 명령의
+                        // 화면은 한 글자도 바뀌지 않는다.
+                        menu::WithRun::Restore(r) => {
+                            let id = r.id.clone();
+                            let state = r.state.to_string_lossy().to_string();
+                            let plan = vec![
+                                "--run".to_string(),
+                                id.clone(),
+                                "--state-dir".to_string(),
+                                state.clone(),
+                            ];
+                            admin_gate()
+                                .and_then(|()| cmd_restore(&plan))
+                                .and_then(|code| {
+                                    if !matches!(code, Code::FoundNotRemediated)
+                                        || !confirm_restore()
+                                    {
+                                        return Ok(code);
+                                    }
+                                    let go = vec![
+                                        "--run".to_string(),
+                                        id,
+                                        "--state-dir".to_string(),
+                                        state,
+                                        "--yes".to_string(),
+                                    ];
+                                    cmd_restore(&go)
+                                })
+                        }
+                        // 신고는 자기무결성 문을 지나지 않는다 — 위 갈래와 같다.
+                        //
+                        // **`--out` 을 반드시 준다.** 주지 않으면 기본값이 `.`(현재
+                        // 폴더)이고, 더블클릭으로 띄운 경로에서 그 자리는 사람이
+                        // 짐작할 수 없다. `scan` 이 `menu_out()` 을 쓰는 것과
+                        // 같은 규칙을 지킨다 — **한 메뉴 안에서 폴더 규칙이 갈리면
+                        // 안 된다**(2026-10-29 재검토에서 갈려 있던 자리다).
+                        menu::WithRun::Support(r) => {
+                            let args = vec![
+                                "--run".to_string(),
+                                r.id,
+                                "--state-dir".to_string(),
+                                r.state.to_string_lossy().to_string(),
+                                "--out".to_string(),
+                                beside_exe("report").to_string_lossy().to_string(),
+                            ];
+                            cmd_support_bundle(&args)
+                        }
+                        menu::WithRun::Resume(r) => {
+                            let args = vec![
+                                "--run".to_string(),
+                                r.id,
+                                "--state-dir".to_string(),
+                                r.state.to_string_lossy().to_string(),
+                            ];
+                            admin_gate()
+                                .and_then(|()| integrity_gate(&integrity))
+                                .and_then(|()| cmd_resume(&args, &integrity))
+                        }
+                    },
+                };
+                let code = match &outcome {
+                    Ok(c) => *c,
+                    Err(f) => f.code,
+                };
+                if let Err(f) = &outcome {
+                    let lang = ui().lang;
+                    errln!("{}: {}", lang.t("실패", "Error"), f.message);
+                    errln!(
+                        "  ({} {}: {})",
+                        lang.t("종료 코드", "exit code"),
+                        f.code.code(),
+                        f.code.meaning_in(lang)
+                    );
+                }
+                if ends_here || !session {
+                    wait_before_closing();
+                    break Ok(code);
+                }
+                // 작업 하나가 끝났다 — 로그를 닫고 메뉴로 돌아간다.
+                tee::close();
+                term::task_end(code);
+                last = Some(code);
+                back_to_menu();
             }
-            wait_before_closing();
-            Ok(code)
         }
         Some(other) => {
             errln!(
@@ -850,6 +897,32 @@ fn integrity_gate(i: &remedy_core::integrity::SelfIntegrity) -> Result<(), Failu
 ///
 /// `read_line` 이 0 을 돌려주면(stdin 이 닫혔다) 곧바로 반환한다. 기다리는 것은
 /// **사람의 Enter 이지 입력 자체가 아니다.**
+/// 이 작업이 시스템을 바꾸는가 — Ctrl+C 두 번으로 끊기면 부분(3), 아니면 "위협 없음"
+/// 을 말할 수 없음(6)이다(`term`). 목록 반입도 상태 파일을 고쳐 쓰므로 바꾸는 쪽이다.
+fn changes_system(o: &guided::Outcome) -> bool {
+    match o {
+        guided::Outcome::RunWith(_) => true,
+        guided::Outcome::WithPlugin(w) => matches!(w, menu::WithPlugin::Run(_)),
+        guided::Outcome::WithRun(r) => {
+            matches!(r, menu::WithRun::Restore(_) | menu::WithRun::Resume(_))
+        }
+        guided::Outcome::WithFile(f, _) => matches!(
+            f,
+            menu::WithFile::Apply(_)
+                | menu::WithFile::AllowImport(_)
+                | menu::WithFile::RevokeImport(_)
+        ),
+        _ => false,
+    }
+}
+
+/// 작업이 끝나고 메뉴로 돌아간다는 것을 남긴다 — 스크롤백에서 작업 사이가 보인다.
+fn back_to_menu() {
+    outln!();
+    outln!("{}", remedy_sdk::i18n::deco().rule());
+    outln!("{}", ui().lang.t("메뉴로 돌아갑니다.", "Back to the menu."));
+}
+
 fn wait_before_closing() {
     use std::io::IsTerminal;
     if !std::io::stdin().is_terminal() {
