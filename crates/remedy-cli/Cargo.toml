@@ -23,6 +23,8 @@ remedy-sdk = { path = "../remedy-sdk" }
 serde.workspace = true
 serde_json.workspace = true
 serde_yaml_ng.workspace = true
+crossterm.workspace = true
+ctrlc.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true

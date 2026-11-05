@@ -60,6 +60,16 @@ object = { version = "0.39", default-features = false, features = ["read", "std"
 # 코퍼스는 계속 늘어날 것이므로(설계-04 §3.2) 원문 그대로는 저장소가 감당하지 못한다.
 flate2 = "1"
 
+# ── 화면 — 키 입력 · 원시 모드 · Windows VT (목표 remedy_제품화 ③) ─────────
+# 메뉴의 방향키 · 원시 모드의 Ctrl+C · Windows 콘솔의 VT 처리 켜기. **unsafe 를
+# 크레이트 안에 가둬 둔다** — winreg 와 같은 이유이고, 우리 코드는
+# forbid(unsafe_code) 를 유지한다. Rust 로 같은 일을 하는 Codex CLI 가 쓰는
+# 크레이트다(벤치마크 2026-11-05). 기본 기능은 끈다 — 붙여넣기 · derive 는 쓰지 않는다.
+crossterm = { version = "0.29", default-features = false, features = ["events", "windows"] }
+# 줄 입력 모드(작업 중 · 승인 묻기)의 Ctrl+C. 원시 모드가 아니면 Ctrl+C 는 키가 아니라
+# 신호로 온다 — 받지 않으면 OS 가 프로세스를 바로 끝낸다.
+ctrlc = "3"
+
 # ── 격리 컨테이너 (P5, 설계-03 §5) ───────────────────────────────────
 # AEAD 는 **X**ChaCha20-Poly1305 다. 논스가 192비트라 컨테이너마다 난수로 뽑아도
 # 재사용 위험이 없다 — AEAD 에서 가장 흔한 사고가 논스 재사용이고, 카운터를

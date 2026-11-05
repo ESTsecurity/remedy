@@ -30,14 +30,18 @@
 //! | D | 결과 폴더의 계획 | 다음 |
 //! | E | 임의 입력 파일 (작성자·운영자) | 다음 |
 //!
-//! # 방향키가 아니라 숫자다
+//! # 방향키와 숫자 — 고르는 자리는 [`crate::term::choose`] 하나다
 //!
-//! 두 플랫폼에서 **글자 그대로 같은 코드**여야 한다. 방향키는 원시 모드가 들고,
-//! 그것은 새 외부 의존과 `unsafe`(`SetConsoleMode` · `tcsetattr`)를 뜻한다 — 이
-//! 저장소는 크레이트 하나만 빼고 `forbid(unsafe_code)` 다. 그리고 리눅스 쪽
-//! 이스케이프 입력을 재는 하네스가 없다. 숫자는 `read_line` 하나이고
-//! `WriteConsoleInput` 하네스가 이미 숫자+Enter 를 보낸다.
+//! 처음에는 숫자만이었다(목표 `remedy_cli` 결정 9) — 방향키가 원시 모드를 들고, 그것이
+//! 새 외부 의존과 `unsafe` 를 뜻했기 때문이다. 목표 `remedy_제품화` 결정 6(2026-11-05)이
+//! 그것을 다시 열었다: 원시 모드는 crossterm 이 `unsafe` 를 크레이트 안에 가둔 채
+//! 들고(우리 코드는 `forbid` 그대로), 그 의존은 `deny` · `arch` 를 지났다.
+//!
+//! **숫자는 그대로 받는다.** 그리는 자리가 아니면(stdout 이 파일 · `NO_COLOR` ·
+//! `TERM=dumb`) 지금까지의 글자 그대로 번호 한 줄을 받는다 — `WriteConsoleInput`
+//! 하네스가 보내는 숫자+Enter 가 두 길 모두에서 통한다.
 
+use crate::term::{Answer, Row};
 use crate::ui;
 
 /// 메뉴가 고른 것. **여기서 실행하지 않는다** — `main` 이 같은 `cmd_*` 로 보낸다.
@@ -47,6 +51,10 @@ pub enum Pick {
     ShowUsage,
     /// 물었고 사용자가 그만두었다.
     Stopped,
+    /// 하위 화면(회차 · 파일)에서 `0` — 메뉴로 돌아간다.
+    Back,
+    /// Ctrl+C 두 번 — 세션을 끝낸다.
+    End,
     /// 이 플러그인으로 무엇을 한다 (묶음 B).
     WithPlugin(WithPlugin),
     /// 인자가 없는 명령을 그대로 돈다 (묶음 A).
@@ -434,45 +442,51 @@ pub fn run(offer: &Offer) -> Pick {
     let author_from = items.len();
     items.extend(author);
 
-    outln!();
-    outln!("{}", lang.t("무엇을 할까요?", "What would you like to do?"));
-    outln!();
+    let mut rows = vec![
+        Row::Blank,
+        Row::Text(
+            lang.t("무엇을 할까요?", "What would you like to do?")
+                .to_string(),
+        ),
+        Row::Blank,
+    ];
     for (i, it) in items.iter().enumerate() {
         if i == author_from && author_from < items.len() {
-            outln!();
-            outln!(
-                "{}",
+            rows.push(Row::Blank);
+            rows.push(Row::Text(
                 lang.t(
                     "  — 작성자·운영자 명령 —",
-                    "  - for authors and operators -"
+                    "  - for authors and operators -",
                 )
-            );
+                .to_string(),
+            ));
         }
-        outln!("  {}. {}", i + 1, it.label);
+        rows.push(Row::Item(it.label.to_string()));
     }
-    outln!(
-        "{}",
-        lang.t(
-            "  0. 그만두기 (명령으로 쓰려면 remedy --help)",
-            "  0. Quit (for commands, run remedy --help)"
-        )
+    let zero = lang.t(
+        "그만두기 (명령으로 쓰려면 remedy --help)",
+        "Quit (for commands, run remedy --help)",
     );
 
+    // 이 세션에서 작업을 한 뒤 그만두면 "아무것도 하지 않았습니다" 가 거짓이다.
     let quit = || -> Pick {
         outln!();
-        outln!(
-            "{}",
-            lang.t("아무것도 하지 않았습니다.", "Nothing was done.")
-        );
+        if crate::term::tasks_ran() {
+            outln!("{}", lang.t("끝냅니다.", "Exiting."));
+        } else {
+            outln!(
+                "{}",
+                lang.t("아무것도 하지 않았습니다.", "Nothing was done.")
+            );
+        }
         Pick::Stopped
     };
 
-    let Some(n) = ask(items.len()) else {
-        return quit();
+    let n = match crate::term::choose(&rows, Some(zero)) {
+        Answer::Num(0) | Answer::Invalid => return quit(),
+        Answer::End => return Pick::End,
+        Answer::Num(n) => n,
     };
-    if n == 0 {
-        return quit();
-    }
 
     match &items[n - 1].tag {
         Tag::NeedsPlugin(mk) => offer
@@ -483,38 +497,57 @@ pub fn run(offer: &Offer) -> Pick {
         // **회차를 한 번 더 묻는다.** 작업을 먼저 고르고 대상을 고르는 순서다 —
         // 회차를 먼저 물으면 되돌리기만 생각한 사람에게 신고가 안 보인다.
         Tag::NeedsRun(mk) => match choose_run(&offer.runs) {
-            Some(id) => Pick::WithRun(mk(id)),
-            None => quit(),
+            Sub::Got(id) => Pick::WithRun(mk(id)),
+            Sub::Back => Pick::Back,
+            Sub::Stop => quit(),
+            Sub::End => Pick::End,
         },
         Tag::Collect => Pick::Collect,
         Tag::NeedsFile(cand, mk) => match choose_file(offer.files_of(*cand)) {
-            Some(path) => Pick::WithFile(mk(path), offer.plugin.clone()),
-            None => quit(),
+            Sub::Got(path) => Pick::WithFile(mk(path), offer.plugin.clone()),
+            Sub::Back => Pick::Back,
+            Sub::Stop => quit(),
+            Sub::End => Pick::End,
         },
     }
 }
 
+/// 하위 화면의 답. `0` 은 그만두기가 아니라 **메뉴로 돌아가기**다 — 메뉴가 작업 뒤에도
+/// 이어지므로, 하위 화면에서 잘못 들어온 사람이 세션을 잃지 않는다.
+enum Sub<T> {
+    Got(T),
+    Back,
+    /// 읽지 못했다 — 지금까지처럼 그만둔다(되묻지 않는다 · 불변식 I7).
+    Stop,
+    End,
+}
+
+fn sub_answer<T: Clone>(a: Answer, list: &[T]) -> Sub<T> {
+    match a {
+        Answer::Num(0) => Sub::Back,
+        Answer::Num(n) => list.get(n - 1).cloned().map_or(Sub::Stop, Sub::Got),
+        Answer::Invalid => Sub::Stop,
+        Answer::End => Sub::End,
+    }
+}
+
+fn back_label() -> &'static str {
+    ui().lang.t("메뉴로 돌아가기", "Back to the menu")
+}
+
 /// 회차를 번호로 고르게 한다. **이름순으로 그대로 보인다** — 같은 폴더에서 늘
 /// 같은 차례가 나와야 사람이 고른 번호가 뜻을 갖는다(`guided::choose` 와 같은 규칙).
-fn choose_run(runs: &[Run]) -> Option<Run> {
+fn choose_run(runs: &[Run]) -> Sub<Run> {
     let lang = ui().lang;
-    outln!();
-    outln!(
-        "{}",
-        lang.pick(
+    let mut rows = vec![
+        Row::Blank,
+        Row::Text(lang.pick(
             format!("어느 작업입니까? ({}건)", runs.len()),
-            format!("Which run? ({})", runs.len())
-        )
-    );
-    for (i, r) in runs.iter().enumerate() {
-        outln!("  {}. {}", i + 1, r.id);
-    }
-    outln!("{}", lang.t("  0. 그만두기", "  0. Quit"));
-    let n = ask(runs.len())?;
-    if n == 0 {
-        return None;
-    }
-    runs.get(n - 1).cloned()
+            format!("Which run? ({})", runs.len()),
+        )),
+    ];
+    rows.extend(runs.iter().map(|r| Row::Item(r.id.clone())));
+    sub_answer(crate::term::choose(&rows, Some(back_label())), runs)
 }
 
 /// 후보 파일을 번호로 고르게 한다.
@@ -524,25 +557,17 @@ fn choose_run(runs: &[Run]) -> Option<Run> {
 /// 로 가면서 **그 전제가 깨졌다** — 회차가 둘이면 `plan.json` 이 두 줄로 똑같이
 /// 보여 고를 수가 없다. 전체 경로는 줄마다 넘치므로 **두 토막**만 적는다.
 /// 고른 뒤 그 명령의 배너가 전체 경로를 적는다.
-fn choose_file(files: &[std::path::PathBuf]) -> Option<std::path::PathBuf> {
+fn choose_file(files: &[std::path::PathBuf]) -> Sub<std::path::PathBuf> {
     let lang = ui().lang;
-    outln!();
-    outln!(
-        "{}",
-        lang.pick(
+    let mut rows = vec![
+        Row::Blank,
+        Row::Text(lang.pick(
             format!("어느 파일입니까? ({}개)", files.len()),
-            format!("Which file? ({})", files.len())
-        )
-    );
-    for (i, f) in files.iter().enumerate() {
-        outln!("  {}. {}", i + 1, two_parts(f));
-    }
-    outln!("{}", lang.t("  0. 그만두기", "  0. Quit"));
-    let n = ask(files.len())?;
-    if n == 0 {
-        return None;
-    }
-    files.get(n - 1).cloned()
+            format!("Which file? ({})", files.len()),
+        )),
+    ];
+    rows.extend(files.iter().map(|f| Row::Item(two_parts(f))));
+    sub_answer(crate::term::choose(&rows, Some(back_label())), files)
 }
 
 /// 경로의 **마지막 두 토막** — `<부모>/<이름>`. 부모가 없으면 이름만.
@@ -559,33 +584,6 @@ fn two_parts(p: &std::path::Path) -> String {
         ),
         None => name.into_owned(),
     }
-}
-
-/// 번호 하나를 받는다. `0` 은 그만두기. 범위 밖이거나 읽지 못하면 `None`.
-///
-/// **다시 묻지 않는다.** 되묻는 고리를 두면 터미널이 아닌 자리에서 영원히 돌 수
-/// 있고(`read_line` 이 0 을 돌려주는 자리), 그것이 불변식 I7 이 막는 것이다.
-fn ask(n: usize) -> Option<usize> {
-    use std::io::Write;
-    let lang = ui().lang;
-    eprintln!();
-    eprint!(
-        "{}",
-        lang.pick(
-            format!("번호를 고르십시오 (0-{n}): "),
-            format!("Choose a number (0-{n}): ")
-        )
-    );
-    std::io::stderr().flush().ok();
-    let mut line = String::new();
-    if std::io::stdin().read_line(&mut line).is_err() {
-        return None;
-    }
-    let v: usize = line.trim().parse().ok()?;
-    if v > n {
-        return None;
-    }
-    Some(v)
 }
 
 #[cfg(test)]

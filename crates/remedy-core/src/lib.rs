@@ -61,6 +61,8 @@ pub mod platform {
     /// 복원 정보 폴더 잠금 — **CLI 가 플랫폼을 직접 의존하지 않게** 여기로 낸다
     /// (`remedy-cli` 는 `remedy-core`·`remedy-trust`·`remedy-sdk` 만 쓴다).
     pub use remedy_platform::statedir;
+    /// 대화형 세션이 켠다 — 콘솔의 Ctrl+C 가 치료 중인 자식 도구에 닿지 않게.
+    pub use remedy_platform::tool::shield_from_ctrl_c;
     pub use remedy_platform::write::{FileMeta, LostItem, PlatformWrite, RestoreReport};
 }
 

@@ -110,6 +110,35 @@ pub const WARN_SC: Duration = Duration::from_secs(30);
 /// 복원 지점처럼 원래 오래 걸리는 도구가 이 시간을 넘기면 알린다.
 pub const WARN_LONG: Duration = Duration::from_secs(300);
 
+static SHIELD: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// 콘솔의 Ctrl+C 가 자식 도구에 닿지 않게 한다 — **인자 없는 대화형 세션만** 켠다.
+///
+/// 그 세션은 첫 Ctrl+C 에 끝내지 않고 *"한 번 더 누르면 끝납니다"* 를 띄운다(목표
+/// remedy_제품화 기준 4). 그런데 콘솔의 Ctrl+C 는 같은 콘솔의 프로세스 **전부**에
+/// 간다 — 리눅스에서는 전면 프로세스 그룹 전부다. 그대로 두면 이 프로세스는 버텨도
+/// 치료 중에 띄운 `sc.exe` · `systemctl` 이 첫 번째에 끝나 그 작업이 실패로 남는다.
+/// 그래서 켜져 있으면 자식을 **새 프로세스 그룹**으로 띄운다 — Windows 는 그 그룹의
+/// Ctrl+C 가 꺼지고, 리눅스는 터미널의 SIGINT 를 받지 않는다.
+///
+/// 인자가 있는 호출은 켜지 않는다 — 지금처럼 Ctrl+C 한 번에 끝난다(기준 4(d)).
+pub fn shield_from_ctrl_c(on: bool) {
+    SHIELD.store(on, std::sync::atomic::Ordering::SeqCst);
+}
+
+#[cfg(windows)]
+fn shield(cmd: &mut Command) {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
+    cmd.creation_flags(CREATE_NEW_PROCESS_GROUP);
+}
+
+#[cfg(unix)]
+fn shield(cmd: &mut Command) {
+    use std::os::unix::process::CommandExt;
+    cmd.process_group(0);
+}
+
 /// 자식이 어떻게 끝났는가.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Outcome {
@@ -163,6 +192,9 @@ pub fn stderr_excerpt(s: &str) -> String {
 /// (`sc.exe stop`), `warn_after` 는 알리는 시점. 스폰 자체가 실패하면 `Err`.
 pub fn run_tool(mut cmd: Command, label: &str, warn_after: Duration) -> std::io::Result<Outcome> {
     let warn_after = warn_override().unwrap_or(warn_after);
+    if SHIELD.load(std::sync::atomic::Ordering::SeqCst) {
+        shield(&mut cmd);
+    }
     let started = Instant::now();
     let mut child = cmd
         .stdin(Stdio::null())

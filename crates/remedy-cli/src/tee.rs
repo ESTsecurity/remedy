@@ -101,6 +101,13 @@ pub fn open(state_dir: &Path, name: &str) {
     }
 }
 
+/// 작업 하나가 끝났다 — 로그를 닫는다. 메뉴로 돌아오는 세션에서 부른다: 닫지 않으면
+/// 다음 메뉴 화면이 앞 작업의 회차 로그에 섞여 들어간다. 다음 작업은 [`open`] 이 새로 연다.
+pub fn close() {
+    let mut guard = RUNLOG.lock().unwrap_or_else(|e| e.into_inner());
+    *guard = None;
+}
+
 /// `run_id` 를 알게 됐을 때. 이름을 바꾸지 못하면 임시 이름으로 계속 쓴다.
 pub fn rename(run_id: &str) {
     let _ = with_log(|l| l.rename_to(run_id));

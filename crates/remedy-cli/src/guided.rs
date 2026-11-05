@@ -45,6 +45,10 @@ pub enum Outcome {
     WithPlugin(crate::menu::WithPlugin),
     /// 물었고 사용자가 그만두었다.
     Stopped,
+    /// 하위 화면에서 `0` — 메뉴로 돌아간다.
+    Back,
+    /// Ctrl+C 두 번 — 세션을 끝낸다.
+    End,
     /// 메뉴에서 고른 **입력 없는 명령**(묶음 A). `main` 이 같은 자리로 보낸다.
     Plain(crate::menu::Plain),
     /// 메뉴에서 고른 **회차가 드는 명령**(묶음 C).
@@ -62,6 +66,8 @@ fn to_outcome(p: crate::menu::Pick) -> Outcome {
     match p {
         crate::menu::Pick::ShowUsage => Outcome::ShowUsage,
         crate::menu::Pick::Stopped => Outcome::Stopped,
+        crate::menu::Pick::Back => Outcome::Back,
+        crate::menu::Pick::End => Outcome::End,
         crate::menu::Pick::WithPlugin(x) => Outcome::WithPlugin(x),
         crate::menu::Pick::Plain(x) => Outcome::Plain(x),
         crate::menu::Pick::WithRun(x) => Outcome::WithRun(x),
@@ -75,7 +81,7 @@ fn to_outcome(p: crate::menu::Pick) -> Outcome {
 /// 이것이 갈라 주는 것은 두 벌의 동작이 아니라 **지금까지의 동작을 그대로
 /// 두는 자리**다 — 콘솔 캡처와 실기기 하네스는 `stdin` 을 닫고 부르므로
 /// 거짓이 되고, 그 경로는 전과 한 글자도 다르지 않다.
-fn interactive() -> bool {
+pub(crate) fn interactive() -> bool {
     use std::io::IsTerminal;
     std::io::stdin().is_terminal()
 }
@@ -397,38 +403,34 @@ fn choose(ok: &[discover::Found]) -> Option<Chosen> {
         });
     }
 
-    outln!();
-    outln!(
-        "{}",
-        lang.pick(
+    use crate::term::{Answer, Row};
+    use std::io::IsTerminal;
+    let mut rows = vec![
+        Row::Blank,
+        Row::Text(lang.pick(
             format!("검사 항목 {}개를 찾았습니다:", ok.len()),
-            format!("Found {} things to check:", ok.len())
-        )
-    );
-    for (i, f) in ok.iter().enumerate() {
-        outln!("  {}. {}", i + 1, label(f));
-    }
-
-    use std::io::{IsTerminal, Write};
+            format!("Found {} things to check:", ok.len()),
+        )),
+    ];
+    rows.extend(ok.iter().map(|f| Row::Item(label(f))));
     if !std::io::stdin().is_terminal() {
         // 여기 올 일은 없다(안내 모드는 터미널에서만 열린다). 그래도 물어볼 수
-        // 없는 자리에서 임의로 고르지 않는다.
+        // 없는 자리에서 임의로 고르지 않는다. 목록은 지금까지처럼 보인다.
+        for r in &rows {
+            match r {
+                Row::Blank => outln!(),
+                Row::Text(t) => outln!("{t}"),
+                Row::Item(_) => {}
+            }
+        }
+        for (i, f) in ok.iter().enumerate() {
+            outln!("  {}. {}", i + 1, label(f));
+        }
         return None;
     }
-    eprintln!();
-    eprint!(
-        "{}",
-        lang.pick(
-            format!("번호를 고르십시오 (1-{}): ", ok.len()),
-            format!("Choose a number (1-{}): ", ok.len())
-        )
-    );
-    std::io::stderr().flush().ok();
-    let mut line = String::new();
-    if std::io::stdin().read_line(&mut line).is_err() {
+    let Answer::Num(n) = crate::term::choose(&rows, None) else {
         return None;
-    }
-    let n: usize = line.trim().parse().ok()?;
+    };
     let f = ok.get(n.checked_sub(1)?)?;
     Some(Chosen {
         label: label(f),

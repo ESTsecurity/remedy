@@ -285,13 +285,15 @@ try {
               "작업 $(@($r.steps).Count)개"
     Add-Check "1" "메뉴가 떴다" ([bool]$r.probe.shown) "줄 $($r.probe.item_count)개"
     Add-Check "1" "작성자·운영자 구분선이 있다" ([bool]$r.probe.separator) "구분선"
-    Add-Check "1" "창을 붙잡는다 (더블클릭한 사람이 읽는다)" ([bool]$r.probe.held_window) "Enter 안내"
+    # 그만두기는 창을 붙잡지 않는다 — 끝내기를 고른 것이다(목표 remedy_제품화 기준 4 · 2026-11-05).
+    # 사용법 화면(꾸러미 없음)은 여전히 붙잡는다 — 그것은 아래 4단계의 데모 폴더가 잰다.
+    Add-Check "1" "그만두기는 창을 붙잡지 않는다 (끝내기를 고른 것이다)" (-not [bool]$r.probe.held_window) "시간 초과 $($r.probe.timed_out)"
     # 결정 8(2026-10-30) — **사람이 그만둔 것은 0 이다.** 도구가 검사하지 못한
     # `NothingUsable` 은 그대로 5 이고, 치료 승인을 거절한 자리는 그대로 2 다.
     Add-Check "1" "그만두기가 0 으로 끝난다 (사람이 고르지 않았다)" ($r.probe.exit -eq 0) "exit=$($r.probe.exit)"
 
     foreach ($s in $r.steps) {
-        $ev = "메뉴 $($s.number)번 · exit=$($s.exit) (기대 $($s.expect))"
+        $ev = "메뉴 $($s.number)번 · exit=$($s.exit) (기대 $($s.expect)) · 메뉴로 돌아옴 $($s.back_menu)"
         if ($s.timed_out) { $ev += " · 시간 초과" }
         Add-Check "2" "$($s.key) 가 메뉴에서 끝까지 돈다" ([bool]$s.ok) $ev
     }
