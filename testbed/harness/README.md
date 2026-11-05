@@ -61,6 +61,8 @@ remedy 의 감사 로그는 **무엇을 하려 했는가**를 말한다. `Captur
 | `host/Compare-State.ps1` | 호스트 | 상태 비교 + 불변식 P 판정 |
 | `host/Reset-Vm.ps1` | 호스트 | 스냅샷 복원 + 게스트 스크립트 동기화 + **게스트 시계 맞추기** + **Store 갱신 끄기**(아래) |
 | `host/Disable-LabUpdaters.ps1` | 호스트 | 랩의 자동 갱신기를 끈다 — `remedy-lab-base-v3` 를 만든 손질 (`-ReportOnly` 로 상태만) |
+| `host/Invoke-ScreenShot.ps1` · `guest/Capture-Window.ps1` | 호스트 · VM 의 대화형 세션 | **사람이 보는 화면을 PNG 로** — 콘솔 호스트 · Windows Terminal(휴대판) 창에 띄워 차례(`shot` · `type` · `wait` · `relaunch`)대로 찍는다. 콘솔 세션에 로그온한 사용자가 있어야 한다 |
+| `linux/screenshot.sh` | 호스트(WSL) · 컨테이너 | 그 리눅스 짝 — 가상 디스플레이(Xvfb) 위 xterm · `ko_KR.UTF-8` |
 
 ### 랩 값은 어디서 오는가 (2026-10-31)
 
