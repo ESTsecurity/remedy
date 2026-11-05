@@ -21,6 +21,11 @@
       wait:<ms>    기다린다
       relaunch:<인자>  띄운 것을 닫고 같은 프로그램을 새 창에 다시 띄운다. 인자가
                    비면 처음 인자 그대로다 — 앞 작업이 남긴 회차를 다음 화면이 읽는다
+      keys:<글자>  글자만 넣는다 — Enter 없이(번호를 치고 강조가 옮는 것을 찍을 때)
+      key:<이름>   이름 있는 키 하나 — up · down · home · end · esc · enter · tab ·
+                   backspace · ctrlc. ctrlc 는 **원시 모드**에서 키로 읽히는 꼴이다
+      signal:ctrlc 줄 입력 모드(작업 중 · 승인 묻기)의 Ctrl+C — 키가 아니라 신호라서
+                   사람이 누른 것처럼 그 콘솔 전체에 보낸다
 
     키는 그 프로그램의 콘솔에 **붙어서** `WriteConsoleInput` 으로 넣는다
     (`Verify-Menu.ps1` 의 `TypeLine` 과 같은 기록). 창이 앞에 있을 필요가 없고,
@@ -43,7 +48,9 @@ param(
     [string] $WtExe,
     [string] $Steps = "shot:screen",
     [int] $SettleMs = 2500,
-    [ValidateSet("print", "screen")] [string] $Method = "print"
+    [ValidateSet("print", "screen")] [string] $Method = "print",
+    # `이름=값` 하나 — 띄울 프로그램이 물려받는다(예: `NO_COLOR=1` 로 색을 끈 화면).
+    [string] $SetEnv = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -113,32 +120,84 @@ public static class Shot {
     public static extern bool WriteConsoleInputW(IntPtr h, INPUT_RECORD[] recs, uint n, out uint written);
     [DllImport("kernel32.dll", SetLastError = true)] public static extern bool CloseHandle(IntPtr h);
 
-    // 그 프로그램의 콘솔에 붙어 한 줄을 키로 넣고 떨어진다. 음수는 실패다.
+    [DllImport("kernel32.dll", SetLastError = true)] public static extern bool GenerateConsoleCtrlEvent(uint ev, uint group);
+    [DllImport("kernel32.dll", SetLastError = true)] public static extern bool SetConsoleCtrlHandler(IntPtr handler, bool add);
+
+    static INPUT_RECORD Key(ushort vk, char ch, uint ctrl, bool down) {
+        INPUT_RECORD r = new INPUT_RECORD();
+        r.EventType = 1;
+        r.KeyEvent.bKeyDown = down;
+        r.KeyEvent.wRepeatCount = 1;
+        r.KeyEvent.wVirtualKeyCode = vk;
+        r.KeyEvent.UnicodeChar = (ushort)ch;
+        r.KeyEvent.dwControlKeyState = ctrl;
+        return r;
+    }
+
+    // 그 프로그램의 콘솔에 붙어 키 기록을 넣고 떨어진다. 음수는 실패다.
     // 이 프로세스의 원래 콘솔(숨긴 창)은 버린다 — 이 스크립트는 콘솔에 쓰지 않는다.
-    public static int TypeInto(uint pid, string text) {
+    static int Send(uint pid, INPUT_RECORD[] recs) {
         FreeConsole();
         if (!AttachConsole(pid)) return -(1000 + Marshal.GetLastWin32Error());
         try {
             IntPtr conin = CreateFileW("CONIN$", 0xC0000000u, 3u, IntPtr.Zero, 3u, 0u, IntPtr.Zero);
             if (conin == new IntPtr(-1)) return -(2000 + Marshal.GetLastWin32Error());
-            string all = text + (char)13;
-            INPUT_RECORD[] recs = new INPUT_RECORD[all.Length * 2];
-            for (int i = 0; i < all.Length; i++) {
-                for (int d = 0; d < 2; d++) {
-                    int k = i * 2 + d;
-                    recs[k].EventType = 1;
-                    recs[k].KeyEvent.bKeyDown = (d == 0);
-                    recs[k].KeyEvent.wRepeatCount = 1;
-                    recs[k].KeyEvent.wVirtualKeyCode = (all[i] == (char)13) ? (ushort)0x0D : (ushort)0;
-                    recs[k].KeyEvent.UnicodeChar = (ushort)all[i];
-                }
-            }
             uint written;
             bool ok = WriteConsoleInputW(conin, recs, (uint)recs.Length, out written);
             CloseHandle(conin);
             return ok ? (int)written : -(3000 + Marshal.GetLastWin32Error());
         } finally {
             FreeConsole();
+        }
+    }
+
+    // 글자를 키로 넣는다. `enter` 면 끝에 Enter 를 붙인다.
+    public static int TypeInto(uint pid, string text, bool enter) {
+        string all = enter ? text + (char)13 : text;
+        INPUT_RECORD[] recs = new INPUT_RECORD[all.Length * 2];
+        for (int i = 0; i < all.Length; i++) {
+            ushort vk = (all[i] == (char)13) ? (ushort)0x0D : (ushort)0;
+            recs[i * 2] = Key(vk, all[i], 0u, true);
+            recs[i * 2 + 1] = Key(vk, all[i], 0u, false);
+        }
+        return Send(pid, recs);
+    }
+
+    // 이름 있는 키 하나 — 글자가 없는 키(방향키)와 원시 모드의 Ctrl+C.
+    public static int PressKey(uint pid, string name) {
+        ushort vk;
+        char ch = (char)0;
+        uint ctrl = 0u;
+        switch (name) {
+            case "up": vk = 0x26; break;
+            case "down": vk = 0x28; break;
+            case "home": vk = 0x24; break;
+            case "end": vk = 0x23; break;
+            case "esc": vk = 0x1B; ch = (char)27; break;
+            case "enter": vk = 0x0D; ch = (char)13; break;
+            case "tab": vk = 0x09; ch = (char)9; break;
+            case "backspace": vk = 0x08; ch = (char)8; break;
+            // LEFT_CTRL_PRESSED · 'C' · 글자 0x03 — 원시 모드에서 콘솔이 넘기는 꼴이다.
+            case "ctrlc": vk = 0x43; ch = (char)3; ctrl = 0x0008u; break;
+            default: return -9;
+        }
+        return Send(pid, new INPUT_RECORD[] { Key(vk, ch, ctrl, true), Key(vk, ch, ctrl, false) });
+    }
+
+    // 줄 입력 모드의 Ctrl+C 는 키가 아니라 **신호**다 — 사람이 누르면 콘솔이 거기 붙은
+    // 프로세스 전부에 CTRL_C_EVENT 를 보낸다. 같은 것을 한다: 그 콘솔에 붙어 보내되
+    // 이 프로세스는 받지 않게 막고, 보낸 뒤 떨어진다.
+    public static int SignalCtrlC(uint pid) {
+        FreeConsole();
+        if (!AttachConsole(pid)) return -(1000 + Marshal.GetLastWin32Error());
+        try {
+            SetConsoleCtrlHandler(IntPtr.Zero, true);
+            if (!GenerateConsoleCtrlEvent(0u, 0u)) return -(2000 + Marshal.GetLastWin32Error());
+            System.Threading.Thread.Sleep(300);
+            return 0;
+        } finally {
+            FreeConsole();
+            SetConsoleCtrlHandler(IntPtr.Zero, false);
         }
     }
 }
@@ -207,6 +266,10 @@ function Find-NamedProcess {
 }
 
 New-Item -ItemType Directory -Force $OutDir | Out-Null
+if ($SetEnv) {
+    $envName, $envValue = $SetEnv.Split("=", 2)
+    [Environment]::SetEnvironmentVariable($envName, $envValue, "Process")
+}
 $me = [Security.Principal.WindowsIdentity]::GetCurrent()
 $report = [ordered]@{
     schema     = "remedy-lab.capture-window/2"
@@ -214,6 +277,7 @@ $report = [ordered]@{
     args       = $Arguments
     terminal   = $Terminal
     method     = $Method
+    set_env    = $SetEnv
     user       = $me.Name
     elevated   = (New-Object Security.Principal.WindowsPrincipal($me)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
     session_id = [System.Diagnostics.Process]::GetCurrentProcess().SessionId
@@ -273,8 +337,21 @@ try {
         switch ($verb) {
             "shot" { $rec.shot = Save-Window -Hwnd $hwnd -Path (Join-Path $OutDir "$arg.png") }
             "type" {
-                $rec.written = [Shot]::TypeInto([uint32]$target.Id, [string]$arg)
+                $rec.written = [Shot]::TypeInto([uint32]$target.Id, [string]$arg, $true)
                 if ($rec.written -lt 0) { throw "키를 넣지 못했다 ($step · $($rec.written))" }
+            }
+            "keys" {
+                $rec.written = [Shot]::TypeInto([uint32]$target.Id, [string]$arg, $false)
+                if ($rec.written -lt 0) { throw "키를 넣지 못했다 ($step · $($rec.written))" }
+            }
+            "key" {
+                $rec.written = [Shot]::PressKey([uint32]$target.Id, [string]$arg)
+                if ($rec.written -lt 0) { throw "키를 넣지 못했다 ($step · $($rec.written))" }
+            }
+            "signal" {
+                if ($arg -ne "ctrlc") { throw "모르는 신호: $step" }
+                $rec.written = [Shot]::SignalCtrlC([uint32]$target.Id)
+                if ($rec.written -lt 0) { throw "신호를 보내지 못했다 ($step · $($rec.written))" }
             }
             "wait" { Start-Sleep -Milliseconds ([int]$arg) }
             "relaunch" {

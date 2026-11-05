@@ -134,6 +134,9 @@ pub fn arm() {
     let _ = ctrlc::set_handler(|| {
         if press() {
             let _ = crossterm::terminal::disable_raw_mode();
+            if fancy() {
+                print!("{ESC}[?25h");
+            }
             eprintln!();
             std::process::exit(i32::from(forced_exit_code()));
         }
@@ -195,6 +198,136 @@ fn hint_again(during_task: bool) -> String {
             format!("Press Ctrl+C again within {secs} seconds to quit."),
         )
     }
+}
+
+// ── 색 — 화면으로 나가는 줄에만 얹는다 ──────────────────────────────
+
+/// 역할 색 다섯 — 4비트 ANSI 라 사용자 터미널의 테마를 따른다(벤치마크 축 4).
+const GOOD: &str = "32";
+const BAD: &str = "1;31";
+const WARN: &str = "33";
+const DIM: &str = "2";
+const BRAND: &str = "1;36";
+
+/// 찍기 직전의 줄 하나에 역할 색을 얹는다. 그리는 자리가 아니면 `None` — 그대로다.
+///
+/// **렌더러는 글자만 만든다.** 색은 여기서, 화면으로 나가는 줄에만 얹는다 — 회차
+/// 로그 · 파이프 · 렌더러 시험은 한 글자도 바뀌지 않는다(불변식 I1). **줄 전체를**
+/// 감싼다 — 하네스가 읽는 문구(`진행하려면` · `검사 완료` …) 가운데를 쪼개지 않는다
+/// (불변식 I4). stderr 줄은 stderr 도 터미널일 때만 칠한다.
+pub fn paint(line: &str, stderr: bool) -> Option<String> {
+    if !fancy() || (stderr && !std::io::stderr().is_terminal()) {
+        return None;
+    }
+    let brand = remedy_core::report::brand::product(ui().lang);
+    style_of(line, brand).map(|s| format!("{ESC}[{s}m{line}{ESC}[0m"))
+}
+
+/// 여러 줄 덩어리(렌더러가 만든 화면)를 줄마다 칠한다. 바뀐 줄이 없으면 `None`.
+pub fn paint_block(text: &str) -> Option<String> {
+    if !fancy() {
+        return None;
+    }
+    let mut changed = false;
+    let mut out = String::with_capacity(text.len());
+    for piece in text.split_inclusive('\n') {
+        let body = piece.trim_end_matches(['\n', '\r']);
+        let end = &piece[body.len()..];
+        match paint(body, false) {
+            Some(p) => {
+                changed = true;
+                out.push_str(&p);
+                out.push_str(end);
+            }
+            None => out.push_str(piece),
+        }
+    }
+    changed.then_some(out)
+}
+
+/// 줄의 역할. **문구로 가른다** — 문구가 바뀌면 그 줄은 색 없이 나갈 뿐이고 정보는
+/// 그대로 남는다(색은 정보를 더하지 않는다 — 기준 3(b)).
+fn style_of(line: &str, brand: &str) -> Option<&'static str> {
+    let t = line.trim_start();
+    if t.is_empty() {
+        return None;
+    }
+    let starts = |ps: &[&str]| ps.iter().any(|p| t.starts_with(p));
+    let has = |ps: &[&str]| ps.iter().any(|p| t.contains(p));
+    if starts(&["실패:", "Error:"]) {
+        return Some(BAD);
+    }
+    if starts(&["알림:", "Notice:", "주의", "Warning"])
+        || has(&[
+            "권한이 없습니다",
+            "No administrator rights",
+            "No root rights",
+        ])
+    {
+        return Some(WARN);
+    }
+    if is_rule(t)
+        || starts(&[
+            "검사 중",
+            "Scanning",
+            "치료 중",
+            "Treating",
+            "메뉴로 돌아갑니다",
+            "Back to the menu",
+        ])
+    {
+        return Some(DIM);
+    }
+    if starts(&["위협이 발견되지 않았습니다", "No threat was found"]) {
+        return Some(GOOD);
+    }
+    if starts(&["검사 완료", "Scan done"]) {
+        let clean = has(&["위협 0건", "취약 0건", " 0 threat", " 0 vulnerable"]);
+        return Some(if clean { GOOD } else { BAD });
+    }
+    if starts(&["결과", "Result"]) {
+        if has(&[
+            "치료 완료",
+            "treated (",
+            "발견되지 않았",
+            "No threat",
+            "복원 완료",
+            "restored",
+        ]) {
+            return Some(GOOD);
+        }
+        if has(&[
+            "치료하지 않았",
+            "not treated",
+            "내부 오류",
+            "internal error",
+        ]) {
+            return Some(BAD);
+        }
+        if has(&[
+            "일부 실패",
+            "Partial",
+            "가드",
+            "guard",
+            "불완전",
+            "incomplete",
+            "다 보지 못해",
+            "입력 오류",
+            "Usage error",
+        ]) {
+            return Some(WARN);
+        }
+    }
+    if t.starts_with(brand) {
+        return Some(BRAND);
+    }
+    None
+}
+
+/// 가르는 줄 — `────` 또는 `----` 만으로 된 줄.
+fn is_rule(t: &str) -> bool {
+    let t = t.trim_end();
+    t.chars().count() >= 8 && t.chars().all(|c| c == '─' || c == '-')
 }
 
 // ── 고르기 ──────────────────────────────────────────────────────────
@@ -282,6 +415,8 @@ fn choose_keys(rows: &[Row], zero: Option<&str>, n: usize) -> Option<Answer> {
     }
     crossterm::terminal::enable_raw_mode().ok()?;
     let mut out = std::io::stdout();
+    // 고르는 동안 커서를 숨긴다 — 목록 아래에서 깜빡이면 입력 칸처럼 읽힌다.
+    let _ = write!(out, "{ESC}[?25l");
     let mut at = 0usize;
     let mut typed = String::new();
     let mut note: Option<String> = None;
@@ -366,6 +501,8 @@ fn choose_keys(rows: &[Row], zero: Option<&str>, n: usize) -> Option<Answer> {
         _ => usize::MAX,
     };
     draw(&mut out, &lines(rows, zero, chosen, None), drawn);
+    let _ = write!(out, "{ESC}[?25h");
+    let _ = out.flush();
     let _ = crossterm::terminal::disable_raw_mode();
     Some(answer)
 }
@@ -393,7 +530,8 @@ fn lines(rows: &[Row], zero: Option<&str>, sel: usize, hint: Option<&str>) -> Ve
     for r in rows {
         match r {
             Row::Blank => v.push(String::new()),
-            Row::Text(t) => v.push(t.clone()),
+            // 이 길은 그리는 자리에서만 온다 — 글줄에도 역할 색을 얹는다(머리말 · 권한).
+            Row::Text(t) => v.push(paint(t, false).unwrap_or_else(|| t.clone())),
             Row::Item(label) => {
                 i += 1;
                 v.push(item_line(i, label, i == sel));
@@ -557,6 +695,43 @@ mod tests {
             "작업 사이면 마지막 작업의 코드"
         );
         assert_eq!(exit_code_for(TASK_NONE, -1), 0, "작업이 없었다");
+    }
+
+    /// 역할 색은 문구로 가른다 — 녹(좋음) · 적(나쁨) · 황(주의) · 흐림 · 제품명.
+    #[test]
+    fn roles_follow_the_words_of_the_line() {
+        use super::{style_of, BAD, BRAND, DIM, GOOD, WARN};
+        let b = "ESTsecurity 전용백신";
+        assert_eq!(style_of("검사 완료 : 흔적 0건 · 위협 0건", b), Some(GOOD));
+        assert_eq!(style_of("검사 완료 : 흔적 5건 · 위협 1건", b), Some(BAD));
+        assert_eq!(
+            style_of(" 결과      : 위협 발견, 치료 완료 (6건 수행 완료)", b),
+            Some(GOOD)
+        );
+        assert_eq!(
+            style_of(" 결과      : 위협 발견, 치료하지 않았습니다.", b),
+            Some(BAD)
+        );
+        assert_eq!(
+            style_of(" 결과      : 일부 실패 (3건 수행 완료)", b),
+            Some(WARN)
+        );
+        assert_eq!(style_of(" 결과      : 6건 복원 완료.", b), Some(GOOD));
+        assert_eq!(style_of("위협이 발견되지 않았습니다.", b), Some(GOOD));
+        assert_eq!(
+            style_of("결과 폴더 : C:\\remedy\\out", b),
+            None,
+            "결과 폴더는 결과가 아니다"
+        );
+        assert_eq!(
+            style_of("알림: 이 바이너리에 서명이 없습니다.", b),
+            Some(WARN)
+        );
+        assert_eq!(style_of("실패: 관리자 권한이 필요합니다", b), Some(BAD));
+        assert_eq!(style_of("────────────────────", b), Some(DIM));
+        assert_eq!(style_of(" ESTsecurity 전용백신 1.0.0", b), Some(BRAND));
+        assert_eq!(style_of("  1. 검사하고 치료하기", b), None);
+        assert_eq!(style_of("", b), None);
     }
 
     #[test]

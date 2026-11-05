@@ -442,14 +442,27 @@ pub fn run(offer: &Offer) -> Pick {
     let author_from = items.len();
     items.extend(author);
 
+    // **머리말 한 덩어리** — 제품 이름 · 판 · 권한(목표 remedy_제품화 기준 3(a) ·
+    // 벤치마크 축 2 · 3). 권한은 고른 뒤에 거절당하지 않게 먼저 보인다.
     let mut rows = vec![
+        Row::Blank,
+        Row::Text(format!(
+            "{} {}",
+            remedy_core::report::brand::product(lang),
+            env!("CARGO_PKG_VERSION")
+        )),
+    ];
+    if let Some(line) = privilege_line(lang) {
+        rows.push(Row::Text(line));
+    }
+    rows.extend([
         Row::Blank,
         Row::Text(
             lang.t("무엇을 할까요?", "What would you like to do?")
                 .to_string(),
         ),
         Row::Blank,
-    ];
+    ]);
     for (i, it) in items.iter().enumerate() {
         if i == author_from && author_from < items.len() {
             rows.push(Row::Blank);
@@ -533,6 +546,26 @@ fn sub_answer<T: Clone>(a: Answer, list: &[T]) -> Sub<T> {
 
 fn back_label() -> &'static str {
     ui().lang.t("메뉴로 돌아가기", "Back to the menu")
+}
+
+/// 머리말의 권한 줄. 재지 못했으면 내지 않는다 — 모르는 것을 말하지 않는다.
+fn privilege_line(lang: remedy_sdk::i18n::Lang) -> Option<String> {
+    let who = if cfg!(windows) {
+        lang.t("관리자", "administrator")
+    } else {
+        "root"
+    };
+    Some(if remedy_core::elevated()? {
+        lang.pick(
+            format!("{who} 권한으로 실행 중입니다."),
+            format!("Running with {who} rights."),
+        )
+    } else {
+        lang.pick(
+            format!("{who} 권한이 없습니다 — 검사 · 치료는 {who} 권한으로 다시 실행해야 합니다."),
+            format!("No {who} rights — run again as {who} to scan or treat."),
+        )
+    })
 }
 
 /// 회차를 번호로 고르게 한다. **이름순으로 그대로 보인다** — 같은 폴더에서 늘

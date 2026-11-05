@@ -56,18 +56,25 @@ fn with_log<R>(f: impl FnOnce(&mut RunLog) -> R) -> Option<R> {
     guard.as_mut().map(f)
 }
 
+/// 한 줄을 찍고 로그에 복사한다. **색은 화면으로 나가는 쪽에만** 얹는다
+/// ([`crate::term::paint`]) — 로그와 파이프에는 지금 글자 그대로 간다.
 pub fn emit(stderr: bool, text: String) {
+    let shown = crate::term::paint(&text, stderr);
+    let screen = shown.as_deref().unwrap_or(&text);
     if stderr {
-        eprintln!("{text}");
+        eprintln!("{screen}");
     } else {
-        println!("{text}");
+        println!("{screen}");
     }
     let mark = if stderr { "!" } else { "|" };
     let _ = with_log(|l| l.lines(mark, &format!("{text}\n")));
 }
 
 pub fn emit_raw(text: String) {
-    print!("{text}");
+    match crate::term::paint_block(&text) {
+        Some(p) => print!("{p}"),
+        None => print!("{text}"),
+    }
     let _ = with_log(|l| l.lines("|", &text));
 }
 
