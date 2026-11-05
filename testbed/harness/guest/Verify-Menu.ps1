@@ -1,7 +1,7 @@
 ﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
-    작업 메뉴를 **진짜 콘솔에서 번호를 눌러** 다섯 작업 끝까지 돌린다
+    작업 메뉴를 **진짜 콘솔에서 번호를 눌러** 작업 열여섯을 끝까지 돌린다
     (목표 remedy_cli 기준 6).
 
 .DESCRIPTION
@@ -65,7 +65,7 @@ param(
     # 메뉴보다 먼저 *"어느 것을 검사할까요"* 를 묻는다 (`guided.rs` — `choose`
     # 가 `menu::run` 앞에 선다). 한 벌이면 묻지 않으므로 비워 둔다.
     [string[]] $Lead = @(),
-    # 재는 작업을 좁힌다. 비우면 다섯 전부. **비파괴로 확인할 때** `탐지` 만
+    # 재는 작업을 좁힌다. 비우면 전부. **비파괴로 확인할 때** `탐지` 만
     # 주면 기계를 감염 상태로 남긴 채 메뉴가 도는지 볼 수 있다. 어느 것과도
     # 맞지 않는 값(`없음` 등)을 주면 **첫 화면만** 띄우고 끝난다 — 콘솔 기준선
     # 캡처가 그 꼴로 쓴다(랩 상태를 바꾸지 않아야 뒤 절의 전제가 산다).
@@ -328,7 +328,7 @@ $report.probe = [ordered]@{
 $tr.Add("=== 0. 인자 없이 띄웠다 — 메뉴 (그만두기로 끝냈다) ===")
 $tr.Add($probe.text.TrimEnd())
 
-# ── 다섯 작업 ────────────────────────────────────────────────────────
+# ── 작업 열여섯 ──────────────────────────────────────────────────────
 #
 # 차례가 뜻을 만든다. 탐지가 `out\plan.json` 을 남겨 치료의 고를 거리가 되고,
 # 치료가 회차를 만들어 신고·복원의 고를 거리가 된다. 복원이 감염을 되살리므로
@@ -342,6 +342,21 @@ $steps = @(
     [ordered]@{ key = "신고";      needle = "신고에 붙일 것 모으기";  sub = "1";   approve = $false; expect = 0; timeout = 300000 }
     [ordered]@{ key = "복원";      needle = "치료를 되돌리기";        sub = "1";   approve = $true;  expect = 0; timeout = 300000 }
     [ordered]@{ key = "탐지+치료"; needle = "검사하고 치료하기";      sub = $null; approve = $true;  expect = 1; timeout = 600000 }
+    # 아래는 목표 remedy_제품화 기준 5(b) — **메뉴에서 고를 수 있는 나머지도 진짜 콘솔에서
+    # 끝까지 돈다.** 치료가 끝난 깨끗한 기계에서 돌므로 기대 코드는 그 상태의 값이다.
+    # `sub = "last"` 는 후보 목록을 먼저 읽고 **가장 새 파일**을 고른다 — 검사 · 검사+치료도
+    # 같은 종류의 파일(artifacts · scan)을 회차 폴더에 남겨, '1' 은 감염 때의 것이다.
+    [ordered]@{ key = "유지 확인";      needle = "치료가 유지됐는지 다시 보기";        sub = $null;  approve = $false; expect = 0; timeout = 300000 }
+    [ordered]@{ key = "되돌릴 것 보기"; needle = "되돌릴 수 있는 것 보기";             sub = $null;  approve = $false; expect = 0; timeout = 60000 }
+    [ordered]@{ key = "자체 점검";      needle = "프로그램 자체 점검";                 sub = $null;  approve = $false; expect = 0; timeout = 120000 }
+    [ordered]@{ key = "판 보기";        needle = "판 보기";                            sub = $null;  approve = $false; expect = 0; timeout = 60000 }
+    [ordered]@{ key = "쓰는 법";        needle = "쓰는 법";                            sub = $null;  approve = $false; expect = 0; timeout = 60000 }
+    [ordered]@{ key = "모든 명령";      needle = "모든 명령과 옵션";                   sub = $null;  approve = $false; expect = 0; timeout = 60000 }
+    [ordered]@{ key = "번들 확인";      needle = "이 플러그인 번들이 우리 것인지 확인"; sub = $null;  approve = $false; expect = 0; timeout = 60000 }
+    [ordered]@{ key = "룰 검사";        needle = "룰 검사";                            sub = $null;  approve = $false; expect = 0; timeout = 120000 }
+    [ordered]@{ key = "수집";           needle = "수집만 하기";                        sub = $null;  approve = $false; expect = 0; timeout = 300000 }
+    [ordered]@{ key = "평가";           needle = "수집 결과를 평가하기";               sub = "last"; approve = $false; expect = 0; timeout = 300000 }
+    [ordered]@{ key = "계획";           needle = "평가 결과로 계획 세우기";            sub = "last"; approve = $false; expect = 0; timeout = 300000 }
 )
 
 # **중간에 죽어도 거기까지는 쓴다.** 2026-10-29 의 첫 회차가 다섯 작업을 전부
@@ -361,11 +376,20 @@ foreach ($s in $steps) {
     $map = Get-MenuMap -Text $look.text
     $no = Find-MenuNumber -Map $map -Needle $s.needle
 
+    $sub = $s.sub
+    if ($no -gt 0 -and $sub -eq "last") {
+        # 고른 뒤 `0`(메뉴로 돌아가기)으로 후보 수만 읽는다. 결과 폴더는 스탬프 이름순 =
+        # 시간순이라(`guided::candidate_files`) 마지막 번호가 가장 새 파일이다.
+        $peek = Invoke-MenuRun -Lines (@() + $Lead + @("$no", "0", "")) -TimeoutMs 60000
+        $sub = $null
+        if ($peek.text -match "어느 파일입니까\?\s*\((\d+)개\)") { $sub = $Matches[1] }
+    }
+
     $lines = @()
     if ($no -gt 0) {
         $lines += $Lead
         $lines += "$no"
-        if ($null -ne $s.sub) { $lines += $s.sub }
+        if ($null -ne $sub) { $lines += $sub }
         if ($s.approve) { $lines += "예" }
         $lines += ""
     }

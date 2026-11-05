@@ -51,6 +51,9 @@ static LAST_PRESS_MS: AtomicU64 = AtomicU64::new(0);
 static TASK: AtomicU8 = AtomicU8::new(TASK_NONE);
 /// 끝난 작업의 종료 코드. 음수면 이 세션에서 아직 작업이 없다.
 static LAST_CODE: AtomicI32 = AtomicI32::new(-1);
+/// 이 세션에서 시작한 작업의 차례 — 작업마다 하나씩 는다. 작업 하나에 결과 폴더
+/// 하나를 주는 데 쓴다(`main::menu_out`).
+static TASK_SEQ: AtomicU64 = AtomicU64::new(0);
 static ARMED: AtomicBool = AtomicBool::new(false);
 static FANCY: OnceLock<bool> = OnceLock::new();
 
@@ -153,6 +156,12 @@ pub fn task_begin(changes_system: bool) {
         TASK_READS
     };
     TASK.store(t, Ordering::SeqCst);
+    TASK_SEQ.fetch_add(1, Ordering::SeqCst);
+}
+
+/// 지금 작업의 차례 — 작업이 시작할 때마다 바뀐다.
+pub fn task_seq() -> u64 {
+    TASK_SEQ.load(Ordering::SeqCst)
 }
 
 /// 작업 하나가 끝났다.
