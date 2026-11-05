@@ -28,10 +28,11 @@
 
     # 번호를 박아 두지 않는다
 
-    메뉴 줄 번호는 **기계 상태에 따라 움직인다** — 되돌릴 회차가 생기면 묶음 C
-    세 줄과 되돌릴 목록 한 줄이 끼어들어 그 아래가 전부 밀린다. 그래서 작업마다
-    먼저 `0`(그만두기)으로 띄워 메뉴를 읽고, 라벨로 번호를 찾아 그 번호를
-    누른다. 찾은 번호와 실제로 돌아간 명령이 같은지는 화면으로 다시 본다.
+    2026-11-05 부터 메뉴는 기계 상태와 상관없이 스물한 줄을 같은 번호로 세운다 —
+    지금 고를 수 없는 줄은 까닭을 단다(`N. 이름 — 까닭`). 그래도 번호를 박지
+    않는다: 줄이 더해지면 번호가 바뀐다. 작업마다 먼저 `0`(그만두기)으로 띄워
+    메뉴를 읽고, 라벨로 번호를 찾아 그 번호를 누른다. 까닭이 달린 줄은 고를
+    줄로 세지 않는다. 찾은 번호와 실제로 돌아간 명령이 같은지는 화면으로 다시 본다.
 
     # 이 스크립트가 별도 프로세스인 이유
 
@@ -257,10 +258,14 @@ function Invoke-MenuRun {
 }
 
 # 메뉴 줄을 라벨 -> 번호로 읽는다. `  3. 치료가 유지됐는지 다시 보기` 모양이다.
+# 지금 고를 수 없는 줄은 `  6. 치료를 되돌리기 — 이 PC 에 치료한 기록이 없습니다` 모양이고
+# 그 번호를 누르면 까닭만 보이고 다시 묻는다 — 고를 줄로 세지 않는다(따로 센다).
+$OffRow = '^\s\s\d+\.\s+.+? (—|-) '
 function Get-MenuMap {
     param([string] $Text)
     $map = [ordered]@{}
     foreach ($line in ($Text -split "`r?`n")) {
+        if ($line -match $OffRow) { continue }
         if ($line -match '^\s\s(\d+)\.\s+(.+?)\s*$') {
             $label = $Matches[2]
             if (-not $map.Contains($label)) { $map[$label] = [int]$Matches[1] }
@@ -314,6 +319,7 @@ $report.probe = [ordered]@{
     timed_out   = $probe.timed_out
     shown       = [bool]($probe.text -match "무엇을 할까요")
     item_count  = @($pmap.Keys | Where-Object { $pmap[$_] -gt 0 }).Count
+    off_count   = @(($probe.text -split "`r?`n") | Where-Object { $_ -match $OffRow }).Count
     separator   = [bool]($probe.text -match "작성자·운영자 명령")
     held_window = ([bool]$probe.timed_out -or [bool]($probe.text -match "Enter 를 누르십시오"))
     nothing     = [bool]($probe.text -match "아무것도 하지 않았습니다")
@@ -350,7 +356,7 @@ try {
 foreach ($s in $steps) {
     $before = Get-Snapshot
 
-    # 작업마다 다시 읽는다 — 번호가 움직인다.
+    # 작업마다 다시 읽는다 — 앞 작업이 만든 회차 · 파일로 고를 수 있는 줄이 바뀐다.
     $look = Invoke-MenuRun -Lines (@() + $Lead + @("0", "")) -TimeoutMs 60000
     $map = Get-MenuMap -Text $look.text
     $no = Find-MenuNumber -Map $map -Needle $s.needle
