@@ -18,10 +18,10 @@
     }
   },
   "evilai-locust": {
-    "version": "0.1.0",
+    "version": "0.1.1",
     "files": {
-      "plugin.yaml": "c63ea9cc04900cb5692f4b4cdf536c0b39f3f69fd0401d5c1e1dcb767f438f9b",
-      "rules/evilai.yar": "0e51ab4f33e9136f77c3ad4390e62409606df2b6a729593acc3c090c2bc346b2"
+      "plugin.yaml": "fb3b7af3b4ea2e05090bf49d52956f3c8843baad6d7599fa5f5e922fd485a64e",
+      "rules/evilai.yar": "8e181e385ebb473d90fb09650f9e6a4934645b6ff386db6d220713c14f4d4e62"
     }
   },
   "hexcfg-loader": {

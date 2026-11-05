@@ -22,9 +22,8 @@
 # 여섯 번째가 있었다면 무인 모드는 아무것도 치료하지 않고 멈추고(G5 · 종료
 # 코드 5), 그러면 밟는 자리 전부가 '범위 안 불일치' 가 되어 채점 5 가
 # 불합격한다. **상한을 넘기는 것은 이 하네스로 잴 수 있는 일이 아니다** —
-# 그쪽은 `crates/remedy-cli/tests/guards.rs` 의 조작 입력과
-# `claudedocs/상한이-실제-삭제를-센다.md` 의 실측(`total_files` 를 2 로 낮춰
-# 파일 6개로 exit 5 를 확인)이 이미 재고 있다.
+# 그쪽은 `crates/remedy-cli/tests/guards.rs` 의 조작 입력과 사내 실측
+# 기록(`total_files` 를 2 로 낮춰 파일 6개로 exit 5 를 확인)이 이미 재고 있다.
 
 file.quarantine_only /etc/cron.d/sync-agent
 file.quarantine_only /opt/backup/.syncd
