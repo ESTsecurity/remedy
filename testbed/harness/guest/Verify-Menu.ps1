@@ -1,8 +1,8 @@
 ﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
-    작업 메뉴를 **진짜 콘솔에서 번호를 눌러** 작업 열여섯을 끝까지 돌린다
-    (목표 remedy_cli 기준 6).
+    작업 메뉴를 **진짜 콘솔에서 번호를 눌러** 작업 열일곱(목록이 있으면 스물하나)을 끝까지
+    돌린다 (목표 remedy_cli 기준 6 · remedy_제품화 기준 5(b)).
 
 .DESCRIPTION
     메뉴는 `stdin` 이 터미널일 때만 열린다 (불변식 I7). WinRM 세션에는 콘솔이
@@ -78,6 +78,11 @@ param(
     # 쓰는 자리(콘솔 기준선 캡처)를 위한 것이고, 판정을 보는 자리는
     # `Invoke-MenuVerify.ps1` 이며 그것은 기본값 `ko` 로 부른다.
     [ValidateSet("ko", "en")][string] $Lang = "ko",
+    # 실행 파일 옆에 서명된 목록 둘(`menu-allowlist.signed` · `menu-revocations.signed`)이
+    # 있다 — 호스트가 꾸러미를 지은 일회용 키로 서명해 둔 회차에서만 준다. 주면 목록 넷
+    # (확인 · 반입 × 허용 · 폐기)도 돈다. 내려받은 공개 꾸러미에는 그 목록이 없다(배포
+    # 키로 서명한 허용 목록은 모든 고객 기계에서 탐지를 끌 수 있는 물건이라 만들지 않는다).
+    [switch] $Lists,
     [string] $TaskName = "Locust",
     [string] $TaskPath = "\Microsoft\Windows\",
     [string] $RunName  = "SystemSoftwareUpdater"
@@ -282,6 +287,75 @@ function Find-MenuNumber {
     return 0
 }
 
+# 자식이 덧붙여 쓰는 중인 파일을 읽는다. `ReadAllText` 는 남의 쓰기 핸들이 열려 있으면
+# 공유 위반으로 실패한다 — 쓰기를 허용하는 공유 모드로 연다.
+function Read-Shared {
+    param([string] $Path)
+    try {
+        $fs = New-Object System.IO.FileStream($Path, 'Open', 'Read', 'ReadWrite')
+        try { (New-Object System.IO.StreamReader($fs)).ReadToEnd() } finally { $fs.Dispose() }
+    } catch { "" }
+}
+
+# **끝나지 않은 회차를 세운다** — `remedy-cli/tests/apply.rs` 의 `crash_and_resume` 과 같은
+# 방법이다. 대상 400건짜리 계획을 `apply` 하고, 진행 이벤트에 첫 `action`(파괴 시작)이 보이면
+# 죽인다. 늦게 보면 다 끝나 버리고(`finished`) 일찍 죽이면 파괴 전이라 네 번까지 다시 한다.
+# 상태 폴더는 메뉴가 보는 자리(실행 파일 옆 `state`)여야 메뉴에 그 회차가 뜬다. 대상은 이
+# 하네스가 만든 빈 파일이다.
+function New-InterruptedRun {
+    param([string] $Dir, [int] $Count = 400)
+    $state = Join-Path (Split-Path -Parent $Bin) "state"
+    $last = $null
+    for ($attempt = 1; $attempt -le 4; $attempt++) {
+        $runId = "run-menu-resume-$attempt"
+        if (Test-Path $Dir) { Remove-Item $Dir -Recurse -Force }
+        New-Item -ItemType Directory -Force -Path $Dir | Out-Null
+        $actions = New-Object System.Collections.Generic.List[object]
+        for ($i = 0; $i -lt $Count; $i++) {
+            $t = Join-Path $Dir ("target-{0:D4}.dat" -f $i)
+            [System.IO.File]::WriteAllText($t, "remedy-lab resume target $i")
+            $actions.Add([ordered]@{ seq = $i + 1; op = "file.quarantine_only"; target = $t
+                                     because = @("payload#0"); reversible = $true; risk = "low" })
+        }
+        $plan = [ordered]@{
+            schema_version = 1; kind = "remedy.plan"; run_id = $runId; created = "2026-11-06T00:00:00Z"
+            host = [ordered]@{ hostname = "lab"; os = "windows"; version = "10"; arch = "amd64" }
+            core = [ordered]@{ version = "0"; build = "lab" }; plugins = @()
+            actions = $actions.ToArray(); verdicts = @("g0")
+        }
+        $planFile = Join-Path $Dir "plan.json"
+        $events = Join-Path $Dir "events.ndjson"
+        [System.IO.File]::WriteAllText($planFile, ($plan | ConvertTo-Json -Depth 6),
+                                       (New-Object System.Text.UTF8Encoding($false)))
+        $psi = New-Object System.Diagnostics.ProcessStartInfo
+        $psi.FileName = $Bin
+        $psi.Arguments = "apply --plan `"$planFile`" --state-dir `"$state`" --yes --events `"$events`""
+        $psi.UseShellExecute = $false
+        # 표준 입력을 재지정한다 — 터미널이 아니어야 메뉴 · 질문이 끼지 않는다.
+        $psi.RedirectStandardInput = $true
+        $psi.RedirectStandardOutput = $true
+        $psi.RedirectStandardError = $true
+        $psi.EnvironmentVariables["REMEDY_LANG"] = "ko"
+        $p = [System.Diagnostics.Process]::Start($psi)
+        $null = $p.StandardOutput.ReadToEndAsync()
+        $null = $p.StandardError.ReadToEndAsync()
+        $deadline = (Get-Date).AddSeconds(30)
+        $seen = "none"
+        while ((Get-Date) -lt $deadline) {
+            $txt = Read-Shared $events
+            if ($txt -match '"event"\s*:\s*"finished"') { $seen = "finished"; break }
+            if ($txt -match '"event"\s*:\s*"action"') { $seen = "action"; break }
+            Start-Sleep -Milliseconds 2
+        }
+        try { $p.Kill() } catch { }
+        $p.WaitForExit()
+        $left = @(Get-ChildItem $Dir -Filter "target-*.dat").Count
+        $last = [ordered]@{ attempt = $attempt; seen = $seen; left = $left; total = $Count; run_id = $runId }
+        if ($seen -eq "action" -and $left -gt 0 -and $left -lt $Count) { return $last }
+    }
+    return $last
+}
+
 # ── 여기서부터 화면에 쓰지 않는다 ────────────────────────────────────
 $rc = [RemedyLab.Menu]::EnsureConsoleStdin()
 
@@ -328,7 +402,7 @@ $report.probe = [ordered]@{
 $tr.Add("=== 0. 인자 없이 띄웠다 — 메뉴 (그만두기로 끝냈다) ===")
 $tr.Add($probe.text.TrimEnd())
 
-# ── 작업 열여섯 ──────────────────────────────────────────────────────
+# ── 작업 열일곱 · 목록이 있으면 스물하나 ────────────────────────────────
 #
 # 차례가 뜻을 만든다. 탐지가 `out\plan.json` 을 남겨 치료의 고를 거리가 되고,
 # 치료가 회차를 만들어 신고·복원의 고를 거리가 된다. 복원이 감염을 되살리므로
@@ -357,7 +431,22 @@ $steps = @(
     [ordered]@{ key = "수집";           needle = "수집만 하기";                        sub = $null;  approve = $false; expect = 0; timeout = 300000 }
     [ordered]@{ key = "평가";           needle = "수집 결과를 평가하기";               sub = "last"; approve = $false; expect = 0; timeout = 300000 }
     [ordered]@{ key = "계획";           needle = "평가 결과로 계획 세우기";            sub = "last"; approve = $false; expect = 0; timeout = 300000 }
+    # 기준 5(b) 의 나머지 다섯(2026-11-06). 이어 하기는 바로 앞에서 끊은 회차를 **그 id 로**
+    # 고른다(`before = interrupt` 가 세우고 `id:` 가 고른다) — 회차가 여럿이라 번호를 짐작하지
+    # 않는다. 남은 대상이 0 이어야 끝까지 돈 것이다. **이어 하기는 계획을 다시 보이고 승인을
+    # 묻는다** — 승인 없이 넣었더니 빈 줄이 거절이 되어 아무것도 하지 않았다(2026-11-06 첫 회차).
+    [ordered]@{ key = "이어 하기"; needle = "중단된 작업 이어서 하기"; sub = "id:"; approve = $true; expect = 1; timeout = 300000; before = "interrupt" }
 )
+# 목록 넷 — 호스트가 일회용 키로 서명한 목록을 둔 회차에서만. 후보 파일이 둘이라 이름으로
+# 고른다. 내용은 이 기계에 없는 해시 · 쓰지 않는 플러그인이라 반입해도 뒤의 작업을 바꾸지 않는다.
+if ($Lists) {
+    $steps += @(
+        [ordered]@{ key = "허용 목록 확인"; needle = "조직 허용 목록 확인"; sub = "id:menu-allowlist.signed";   approve = $false; expect = 0; timeout = 60000 }
+        [ordered]@{ key = "허용 목록 반입"; needle = "조직 허용 목록 반입"; sub = "id:menu-allowlist.signed";   approve = $false; expect = 0; timeout = 60000 }
+        [ordered]@{ key = "폐기 목록 확인"; needle = "폐기 목록 확인";      sub = "id:menu-revocations.signed"; approve = $false; expect = 0; timeout = 60000 }
+        [ordered]@{ key = "폐기 목록 반입"; needle = "폐기 목록 반입";      sub = "id:menu-revocations.signed"; approve = $false; expect = 0; timeout = 60000 }
+    )
+}
 
 # **중간에 죽어도 거기까지는 쓴다.** 2026-10-29 의 첫 회차가 다섯 작업을 전부
 # 돌린 뒤 보고서 한 줄에서 죽어 **진단 정보를 통째로 잃었다** — 호스트는
@@ -369,6 +458,13 @@ $results = New-Object System.Collections.Generic.List[object]
 $failure = $null
 try {
 foreach ($s in $steps) {
+    # 이어 하기는 그 직전에 끊은 회차가 있어야 고를 줄이 선다.
+    $interrupt = $null
+    $sub = $s.sub
+    if ($s.before -eq "interrupt") {
+        $interrupt = New-InterruptedRun -Dir "C:\remedy-lab\resume"
+        $sub = "id:" + $interrupt.run_id
+    }
     $before = Get-Snapshot
 
     # 작업마다 다시 읽는다 — 앞 작업이 만든 회차 · 파일로 고를 수 있는 줄이 바뀐다.
@@ -376,13 +472,21 @@ foreach ($s in $steps) {
     $map = Get-MenuMap -Text $look.text
     $no = Find-MenuNumber -Map $map -Needle $s.needle
 
-    $sub = $s.sub
     if ($no -gt 0 -and $sub -eq "last") {
         # 고른 뒤 `0`(메뉴로 돌아가기)으로 후보 수만 읽는다. 결과 폴더는 스탬프 이름순 =
         # 시간순이라(`guided::candidate_files`) 마지막 번호가 가장 새 파일이다.
         $peek = Invoke-MenuRun -Lines (@() + $Lead + @("$no", "0", "")) -TimeoutMs 60000
         $sub = $null
         if ($peek.text -match "어느 파일입니까\?\s*\((\d+)개\)") { $sub = $Matches[1] }
+    } elseif ($no -gt 0 -and "$sub".StartsWith("id:")) {
+        # 후보 목록을 먼저 읽고 **그 이름이 든 줄**의 번호를 누른다. 메뉴 줄은 그 이름을
+        # 담지 않으므로 후보 줄만 걸린다.
+        $want = $sub.Substring(3)
+        $peek = Invoke-MenuRun -Lines (@() + $Lead + @("$no", "0", "")) -TimeoutMs 60000
+        $sub = $null
+        foreach ($line in ($peek.text -split "`r?`n")) {
+            if ($line -match '^\s+(\d+)\.\s+(.+?)\s*$' -and $Matches[2] -like "*$want*") { $sub = $Matches[1]; break }
+        }
     }
 
     $lines = @()
@@ -425,9 +529,15 @@ foreach ($s in $steps) {
         approved   = $(if ($null -ne $run) { [bool]($run.text -match "진행하려면") } else { $false })
         before     = $before
         after      = $after
+        interrupt  = $interrupt
+        left_after = $(if ($null -ne $interrupt) { @(Get-ChildItem "C:\remedy-lab\resume" -Filter "target-*.dat").Count } else { $null })
         ok         = $false
     }
     $row.ok = ($row.found -and (-not $row.timed_out) -and $row.menu_shown -and $row.back_menu -and ($row.exit -eq $s.expect))
+    # 이어 하기는 **끊긴 채 시작해서**(남은 대상이 있었다) **다 끝나야**(남은 대상 0) 끝까지 돈 것이다.
+    if ($null -ne $interrupt) {
+        $row.ok = $row.ok -and ($interrupt.seen -eq "action") -and ($interrupt.left -gt 0) -and ($row.left_after -eq 0)
+    }
     $results.Add([pscustomobject]$row)
 
     $tr.Add("")
