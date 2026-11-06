@@ -11,6 +11,13 @@
 # 쪽 `-Package` 의 짝이다. 폴더는 컨테이너 안으로 **복사**한다 — remedy 가 실행 파일
 # 옆에 쓰는 결과가 호스트 폴더에 남지 않게.
 #
+# `--fixtures` 를 주면 띄우기 전에 리눅스 하네스의 픽스처(`new-fixtures.sh` — 무해한
+# 껍데기)로 **감염을 세운다** — 시험 플러그인(`lab-plugin.yaml`)을 담은 꾸러미로 탐지 ·
+# 치료 · 복원 흐름을 찍는 자리다(기준 6). 컨테이너는 회차마다 버리므로 걷지 않는다.
+# 이미지에 `ca-certificates` 를 둔 것도 그래서다 — 플러그인의 `cert_store.remove` 가
+# `update-ca-certificates` 를 요구하고, 없으면 그 Op 이 거부돼 리눅스 하네스
+# (`invoke-linux-verify.sh` · `rust:1.96-bookworm`)와 다른 계획이 나온다.
+#
 # 차례 말은 Windows 쪽(guest/Capture-Window.ps1)과 같다 — shot:<이름> · type:<글자>
 # (글자 + Enter, 빈 글자면 Enter 하나) · keys:<글자>(Enter 없이) ·
 # key:up|down|home|end|esc|enter|tab|backspace|ctrlc · signal:ctrlc · wait:<ms>.
@@ -41,6 +48,7 @@ FROM debian:12
 RUN apt-get update \
  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
       xvfb x11-utils x11-apps netpbm xterm xdotool fonts-dejavu-core fonts-nanum-coding locales \
+      ca-certificates \
  && sed -i 's/^# *ko_KR.UTF-8 UTF-8/ko_KR.UTF-8 UTF-8/' /etc/locale.gen \
  && locale-gen \
  && rm -rf /var/lib/apt/lists/*
@@ -54,12 +62,14 @@ SETTLE_MS=2500
 BIN=""
 PACKAGE=""
 OUT=""
+FIXTURES=0
 INSIDE=0
 
 while [ $# -gt 0 ]; do
     case "$1" in
         --bin) BIN=$2; shift 2 ;;
         --package) PACKAGE=$2; shift 2 ;;
+        --fixtures) FIXTURES=1; shift ;;
         --out) OUT=$2; shift 2 ;;
         --name) NAME=$2; shift 2 ;;
         --args) ARGS=$2; shift 2 ;;
@@ -89,6 +99,10 @@ inside() {
         mkdir -p /opt/remedy
         cp -a /pkg/. /opt/remedy/
         chmod +x /opt/remedy/remedy
+    fi
+    if [ "$FIXTURES" = 1 ]; then
+        bash /lab/new-fixtures.sh >/out/fixtures.txt 2>&1 || { note "error=픽스처를 세우지 못했다"; return 1; }
+        note "fixtures=$(wc -l </out/fixtures.txt)줄"
     fi
 
     # 띄울 명령줄은 파일로 넘긴다 — 인자를 셸에 두 번 펴지 않게.
@@ -185,6 +199,8 @@ else
 fi
 [ -n "$OUT" ] || { echo "--out 을 줄 것" >&2; exit 2; }
 mkdir -p "$OUT"
+# 절대 경로로 — `docker run -v` 는 상대 경로를 볼륨 이름으로 읽고 멈춘다.
+OUT=$(cd "$OUT" && pwd)
 
 if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
     echo "[*] 이미지 $IMAGE 짓기 (처음 한 번)"
@@ -192,12 +208,17 @@ if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
 fi
 
 SELF=$(cd "$(dirname "$0")" && pwd)/$(basename "$0")
+LAB=()
+if [ "$FIXTURES" = 1 ]; then
+    MOUNT+=(-v "$(dirname "$SELF"):/lab:ro")
+    LAB=(--fixtures)
+fi
 echo "[*] $WHAT · $STEPS"
 docker run --rm \
     "${MOUNT[@]}" \
     -v "$OUT:/out" \
     -v "$SELF:/shot.sh:ro" \
-    "$IMAGE" bash /shot.sh --inside --name "$NAME" --args "$ARGS" --steps "$STEPS" --settle-ms "$SETTLE_MS"
+    "$IMAGE" bash /shot.sh --inside "${LAB[@]}" --name "$NAME" --args "$ARGS" --steps "$STEPS" --settle-ms "$SETTLE_MS"
 code=$?
 cat "$OUT/result.txt" 2>/dev/null
 exit $code
