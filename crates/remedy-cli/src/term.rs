@@ -938,7 +938,10 @@ mod tests {
             "결과 폴더는 결과가 아니다"
         );
         assert_eq!(
-            style_of("알림: 이 바이너리에 서명이 없습니다.", b),
+            style_of(
+                "알림: 코드서명이 없어 공식 배포본인지 스스로 확인하지 못합니다.",
+                b
+            ),
             Some(WARN)
         );
         assert_eq!(style_of("실패: 관리자 권한이 필요합니다", b), Some(BAD));

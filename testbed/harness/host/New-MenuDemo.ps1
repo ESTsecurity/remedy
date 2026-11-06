@@ -132,7 +132,7 @@ try {
     # 꾸러미가 스스로 서는지 **호스트에서** 먼저 본다. 틀리면 게스트에서
     # "검증할 수 없습니다" 만 보게 된다.
     # **PS 5.1 은 네이티브 stderr 한 줄을 ErrorRecord 로 감싼다.** 이 빌드는
-    # 서명이 없어 *"이 바이너리에 서명이 없습니다"* 를 stderr 로 내므로, 그
+    # 서명이 없어 *"알림: 코드서명이 없어 …"* 한 줄을 stderr 로 내므로, 그
     # 한 줄만으로 `Stop` 아래에서 여기가 죽는다 (2026-10-29 실측 — 저장소가
     # `Invoke-CargoBuild` 머리에 이미 적어 둔 함정이다). 판정은 종료 코드다.
     foreach ($d in @("evilai-locust", "php2shell-check", "php2shell-aftermath")) {

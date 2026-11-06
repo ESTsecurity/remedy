@@ -27,7 +27,7 @@ ESTsecurity 전용백신 1.0.0
 종료 코드 여덟 가지는 `remedy --help-all` 에 있습니다 (무인 배포용).
 
 Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
-알림: 이 바이너리에 서명이 없습니다. 공식 배포본이 아닙니다. 기능은 전부 동작하지만, 이것이 우리가 만든 그 바이너리인지 확인된 바 없습니다
+알림: 코드서명이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 [exit=0]
 
 ########## A2. 사용법 — 한국어   [N초]
@@ -53,13 +53,13 @@ ESTsecurity 전용백신 1.0.0
 종료 코드 여덟 가지는 `remedy --help-all` 에 있습니다 (무인 배포용).
 
 Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
-알림: 이 바이너리에 서명이 없습니다. 공식 배포본이 아닙니다. 기능은 전부 동작하지만, 이것이 우리가 만든 그 바이너리인지 확인된 바 없습니다
+알림: 코드서명이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 [exit=0]
 
 ########## A3. 버전   [N초]
 
 ESTsecurity Dedicated Cleaner 1.0.0 (remedy)
-Notice: this binary is unsigned and is not an official release. Everything works, but it has not been verified as the binary we built
+Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
 [exit=0]
 
 ########## A6. 안내 모드 — 꾸러미 옆에서 인자 없이 부르면   [N초]
@@ -67,7 +67,7 @@ Notice: this binary is unsigned and is not an official release. Everything works
 꾸러미: remedy.exe · plugins\demo\{plugin.yaml, rules\d.yar} — 서명 없음
 
 [서명도 앵커도 없는 꾸러미]
-Notice: this binary is unsigned and is not an official release. Everything works, but it has not been verified as the binary we built
+Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
   skipped C:\remedy-lab\pkg\plugins\demo: this build cannot verify plugin bundles (not an official release)
   nothing usable was found, so nothing was checked.
 [exit=5]
@@ -94,7 +94,7 @@ Options
 The eight exit codes are in `remedy --help-all` (for unattended deployment).
 
 Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
-Notice: this binary is unsigned and is not an official release. Everything works, but it has not been verified as the binary we built
+Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
 [exit=0]
 
 ########## A0. 인자 없이 부르면 창을 붙잡는가 (진짜 콘솔)   [N초]
@@ -111,7 +111,7 @@ Notice: this binary is unsigned and is not an official release. Everything works
 ########## A7. 권한이 없을 때 (비관리자)   [N초]
 
 --- 한국어 ---
-알림: 이 바이너리에 서명이 없습니다. 공식 배포본이 아닙니다. 기능은 전부 동작하지만, 이것이 우리가 만든 그 바이너리인지 확인된 바 없습니다
+알림: 코드서명이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 실패: 관리자 권한이 필요합니다. 이 도구는 예약 작업, HKLM, 다른 사용자의 파일을 읽고
   고치며, 그것들은 관리자만 열 수 있습니다. 권한 없이 돌면 감염된 기계에서도
   증거가 나오지 않습니다.
@@ -121,7 +121,7 @@ Notice: this binary is unsigned and is not an official release. Everything works
   (종료 코드 5: 안전 가드에 의한 중단 (상한 초과·보호 경로·서명 검증 실패))
 [exit=5]
 --- 영어 ---
-Notice: this binary is unsigned and is not an official release. Everything works, but it has not been verified as the binary we built
+Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
 Error: Administrator rights are required. This tool reads and fixes scheduled tasks,
   HKLM and other users' files, which only an administrator can open. Without
   them an infected machine yields no evidence.
@@ -139,7 +139,7 @@ Error: Administrator rights are required. This tool reads and fixes scheduled ta
 꾸러미: remedy.exe · plugins\evilai-locust — 임시 키로 서명, 그 앵커를 박은 빌드
 
 [비관리자 — 문이 닫히는 모양]
-Notice: this binary is unsigned and is not an official release. Everything works, but it has not been verified as the binary we built
+Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
 
 Checking for EvilAI (Locust) Removal.
 Error: Administrator rights are required. This tool reads and fixes scheduled tasks,
@@ -153,7 +153,7 @@ Error: Administrator rights are required. This tool reads and fixes scheduled ta
 [exit=5]
 
 [관리자 — 검증을 통과한 꾸러미로 검사가 돈다 · 이 절은 B(감염) 앞이라 랩이 아직 깨끗하다]
-Notice: this binary is unsigned and is not an official release. Everything works, but it has not been verified as the binary we built
+Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
 
 Checking for EvilAI (Locust) Removal.
 ────────────────────────────────────────────────────────
@@ -214,7 +214,7 @@ What would you like to do?
   0. Quit (for commands, run remedy --help)
 
 Nothing was done.
-Notice: this binary is unsigned and is not an official release. Everything works, but it has not been verified as the binary we built
+Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
 
 Choose a number (0-21):
 
@@ -303,7 +303,7 @@ ESTsecurity Dedicated Cleaner 1.0.0 (remedy)
   5  stopped by a safety guard (limit, protected path, signature)
   6  observation incomplete: cannot declare 'no threat'
   7  internal error: the tool itself crashed (attach logs/crash-*.txt to the report)
-Notice: this binary is unsigned and is not an official release. Everything works, but it has not been verified as the binary we built
+Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
 [exit=0]
 
 ########## B. 감염   [N초]
@@ -312,7 +312,7 @@ Notice: this binary is unsigned and is not an official release. Everything works
 
 ########## B2. 안내 모드 — 감염된 기계에서 서명된 꾸러미로   [N초]
 
-Notice: this binary is unsigned and is not an official release. Everything works, but it has not been verified as the binary we built
+Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
 
 Checking for EvilAI (Locust) Removal.
 ────────────────────────────────────────────────────────
@@ -384,7 +384,7 @@ Side effects of this treatment:
   * 치료를 마친 뒤 이 PC 를 재시작하면 자동으로 한 번 더 검사합니다.
 
 위협 발견, 치료하지 않았습니다.
-알림: 이 바이너리에 서명이 없습니다. 공식 배포본이 아닙니다. 기능은 전부 동작하지만, 이것이 우리가 만든 그 바이너리인지 확인된 바 없습니다
+알림: 코드서명이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 [exit=2]
 
 ########## C2. scan — 영어   [N초]
@@ -421,7 +421,7 @@ Side effects of this treatment:
   * After you restart this PC, one more check runs automatically.
 
 Threat found, not treated.
-Notice: this binary is unsigned and is not an official release. Everything works, but it has not been verified as the binary we built
+Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
 [exit=2]
 
 ########## C3. scan — 플래그로 준 --ascii · --verbose · --lang   [N초]
@@ -459,7 +459,7 @@ Notice: this binary is unsigned and is not an official release. Everything works
   * 치료를 마친 뒤 이 PC 를 재시작하면 자동으로 한 번 더 검사합니다.
 
 위협 발견, 치료하지 않았습니다.
-알림: 이 바이너리에 서명이 없습니다. 공식 배포본이 아닙니다. 기능은 전부 동작하지만, 이것이 우리가 만든 그 바이너리인지 확인된 바 없습니다
+알림: 코드서명이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 [exit=2]
 --verbose — 검사 결과에 evidence·groups·verdicts 가 붙는다
 ────────────────────────────────────────────────────────
@@ -496,11 +496,11 @@ Notice: this binary is unsigned and is not an official release. Everything works
   * 치료를 마친 뒤 이 PC 를 재시작하면 자동으로 한 번 더 검사합니다.
 
 위협 발견, 치료하지 않았습니다.
-알림: 이 바이너리에 서명이 없습니다. 공식 배포본이 아닙니다. 기능은 전부 동작하지만, 이것이 우리가 만든 그 바이너리인지 확인된 바 없습니다
+알림: 코드서명이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 [exit=2]
 --lang — 플래그가 REMEDY_LANG 을 이긴다 (REMEDY_LANG=ko 인데 영어여야 한다)
 ESTsecurity Dedicated Cleaner 1.0.0 (remedy)
-Notice: this binary is unsigned and is not an official release. Everything works, but it has not been verified as the binary we built
+Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
 [exit=0]
 
 ########## D1. run — 승인할 사람이 없다   [N초]
@@ -535,7 +535,7 @@ Side effects of this treatment:
       puts the excluded places back under scanning
 
   * After you restart this PC, one more check runs automatically.
-Notice: this binary is unsigned and is not an official release. Everything works, but it has not been verified as the binary we built
+Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
 
   Note: nobody is here to approve (not a terminal).
      Pass --yes for unattended deployment. Nothing was done.
@@ -575,7 +575,7 @@ Side effects of this treatment:
   * After you restart this PC, one more check runs automatically.
 
 --dry-run — nothing was changed.
-Notice: this binary is unsigned and is not an official release. Everything works, but it has not been verified as the binary we built
+Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
 [exit=2]
 
 ########## D3. run --yes — 치료   [N초]
@@ -631,7 +631,7 @@ Re-evaluation scheduled after reboot: HKLM\SOFTWARE\Microsoft\Windows\CurrentVer
  Report FP  : remedy support-bundle --run run-X
 ────────────────────────────────────────────────────────
  Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
-Notice: this binary is unsigned and is not an official release. Everything works, but it has not been verified as the binary we built
+Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
 [exit=1]
 [run_id=run-X]
 
@@ -652,7 +652,7 @@ Scan done : 0 trace(s) · 0 threat(s)
 Re-evaluation record -> C:\remedy-lab\state-console\verify\run-X.jsonl
 
 Treatment succeeded. The same plugin no longer reports a threat.
-Notice: this binary is unsigned and is not an official release. Everything works, but it has not been verified as the binary we built
+Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
 [exit=0]
 
 ########## G0. restore --list — 창을 닫아도 회차를 찾는다   [N초]
@@ -669,7 +669,7 @@ Quarantine : C:\remedy-lab\state-console\quarantine
   <T> UTC  run-X · N bytes
 
 To undo : remedy restore --run run-X
-Notice: this binary is unsigned and is not an official release. Everything works, but it has not been verified as the binary we built
+Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
 [exit=0]
 
 ########## G1. restore — 계획만   [N초]
@@ -698,7 +698,7 @@ Keys       : local(<hex>)
   Volume C:  needs 508 · free N bytes
 
 Nothing was done. Check the list above and run again with --yes.
-Notice: this binary is unsigned and is not an official release. Everything works, but it has not been verified as the binary we built
+Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
   Note: only a local wrap exists. Reinstalling this machine makes the quarantine unopenable.
 [exit=2]
 
@@ -738,7 +738,7 @@ Keys       : local(<hex>)
  Result     : 6 item(s) restored.
 ────────────────────────────────────────────────────────
  Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
-Notice: this binary is unsigned and is not an official release. Everything works, but it has not been verified as the binary we built
+Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
   Note: only a local wrap exists. Reinstalling this machine makes the quarantine unopenable.
 [exit=0]
 
@@ -791,7 +791,7 @@ Starting treatment.
  Report FP  : remedy support-bundle --run run-X
 ────────────────────────────────────────────────────────
  Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
-Notice: this binary is unsigned and is not an official release. Everything works, but it has not been verified as the binary we built
+Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
 
 Note: re-evaluation was not scheduled (this command does not know the plugin path; `remedy run --plugin ...` does). after the reboot, run `remedy verify --run run-X --plugin <plugin.yaml>` yourself
 [exit=1]
@@ -820,7 +820,7 @@ Left by the plugin (for manual upload)
 
 README.txt lists exactly what is included and what is not.
 Open it before sending. Paths, host name and user name are not redacted.
-Notice: this binary is unsigned and is not an official release. Everything works, but it has not been verified as the binary we built
+Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
 [exit=0]
 
 ########## I1. 오류 — 인자 빠짐   [N초]
@@ -831,14 +831,14 @@ Notice: this binary is unsigned and is not an official release. Everything works
  Started    : <T> UTC
  Machine    : <host> (windows)
 
-Notice: this binary is unsigned and is not an official release. Everything works, but it has not been verified as the binary we built
+Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
 Error: --plan is required
   (exit code 4: usage or input error)
 [exit=4]
 
 ########## I2. 오류 — 모르는 하위 명령   [N초]
 
-Notice: this binary is unsigned and is not an official release. Everything works, but it has not been verified as the binary we built
+Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
 unknown subcommand: plugin 없는것
 available: lint · verify
 [exit=4]
@@ -861,7 +861,7 @@ available: lint · verify
 YARA 스파이크: compiled=true matched=true
 빌드 타깃: x86_64-pc-windows-msvc
 selftest OK
-Notice: this binary is unsigned and is not an official release. Everything works, but it has not been verified as the binary we built
+Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
 [exit=0]
 
 ########## K. 회차 로그 (심장박동 줄 제외)   [N초]
@@ -946,7 +946,7 @@ org 키쌍 생성 OK — 공개키 N 바이트
  오탐 신고  : remedy support-bundle --run run-X
 ────────────────────────────────────────────────────────
  Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
-알림: 이 바이너리에 서명이 없습니다. 공식 배포본이 아닙니다. 기능은 전부 동작하지만, 이것이 우리가 만든 그 바이너리인지 확인된 바 없습니다
+알림: 코드서명이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 [exit=1]
 --- 조직 키로 연다 (제자리가 아니라 꺼내기) ---
 ────────────────────────────────────────────────────────
@@ -976,7 +976,7 @@ org 키쌍 생성 OK — 공개키 N 바이트
  결과       : 2건 복원 완료.
 ────────────────────────────────────────────────────────
  Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
-알림: 이 바이너리에 서명이 없습니다. 공식 배포본이 아닙니다. 기능은 전부 동작하지만, 이것이 우리가 만든 그 바이너리인지 확인된 바 없습니다
+알림: 코드서명이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 [exit=0]
 --- 꺼낸 것 ---
 C__remedy-lab_orgsrc_g1.evil

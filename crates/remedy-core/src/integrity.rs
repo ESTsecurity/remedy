@@ -245,6 +245,17 @@ pub fn stance(i: &SelfIntegrity) -> Stance {
     }
 }
 
+/// 서명 없는 배포 빌드의 알림 (한국어, 영어).
+///
+/// **공식 Release 에서 받은 파일도 이 줄을 띄운다** — 코드서명이 없는 동안은 그렇다.
+/// 그래서 *"공식 배포본이 아닙니다"* 라고 단정하지 않고, 서명이 없어 **스스로 확인하지
+/// 못한다**는 사실과 대신 확인할 길(받은 파일의 체크섬)을 말한다(2026-11-06 결정).
+/// 매 실행 첫 줄이라 기본 창 폭에서 한 줄이어야 한다 — 아래 시험이 잰다.
+const UNSIGNED: (&str, &str) = (
+    "코드서명이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오",
+    "unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum",
+);
+
 /// 사람에게 보일 한 줄. 파괴를 막지 않는 경우에도 **말해야 하는 것**이 있다.
 pub fn advisory(i: &SelfIntegrity) -> Option<String> {
     match i {
@@ -260,15 +271,7 @@ pub fn advisory(i: &SelfIntegrity) -> Option<String> {
         }
         // **배포 빌드에서도 말한다.** 막지 않기로 한 자리라 이 한 줄이 남는
         // 유일한 흔적이다. 조용하면 서명된 배포본과 구분되지 않는다.
-        SelfIntegrity::Unsigned => Some(
-            remedy_sdk::i18n::t(
-                "이 바이너리에 서명이 없습니다. 공식 배포본이 아닙니다. 기능은 전부 동작하지만, \
-                 이것이 우리가 만든 그 바이너리인지 확인된 바 없습니다",
-                "this binary is unsigned and is not an official release. Everything works, \
-                 but it has not been verified as the binary we built",
-            )
-            .into(),
-        ),
+        SelfIntegrity::Unsigned => Some(remedy_sdk::i18n::t(UNSIGNED.0, UNSIGNED.1).into()),
         SelfIntegrity::Unknown(why) => Some(remedy_sdk::i18n::current().pick(
             format!("자기무결성을 확인하지 못했습니다 ({why}). 막지는 않지만 확인된 것도 아닙니다"),
             format!("self-integrity could not be checked ({why}). Not blocking, but not verified either"),
@@ -332,6 +335,23 @@ mod tests {
             advisory(&SelfIntegrity::Unsigned).is_some(),
             "막지 않기로 했으면 말이라도 해야 한다 — 조용하면 서명된 배포본과 구분되지 않는다"
         );
+    }
+
+    /// 매 실행 첫 줄이 **기본 창(콘솔 호스트 · Windows Terminal 120칸)에서 한 줄**이다.
+    /// 두 줄로 접히면 메뉴가 창을 채울 때 그 첫 줄이 창 위로 밀려 꼬리만 남는다
+    /// (2026-11-06 화면 이미지 — 옛 문구는 140칸이었다). 폭은 화면 층과 같이 센다 —
+    /// ASCII 가 아니면 두 칸이고, 화면이 앞에 붙이는 표시와 머리말도 센다.
+    #[test]
+    fn 서명_없음의_알림은_기본_창에서_한_줄이다() {
+        let cols = |s: &str| {
+            s.chars()
+                .map(|c| if c.is_ascii() { 1 } else { 2 })
+                .sum::<usize>()
+        };
+        for (head, note) in [("! 알림: ", UNSIGNED.0), ("! Notice: ", UNSIGNED.1)] {
+            let w = cols(head) + cols(note);
+            assert!(w <= 120, "{w}칸 — {head}{note}");
+        }
     }
 
     #[test]
