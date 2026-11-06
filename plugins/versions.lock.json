@@ -17,6 +17,20 @@
       "plugin.yaml": "5dd8875389d8d95d81b2cbe940d86264a08e20daef064823e102d7a5391401e0"
     }
   },
+  "cwpdoor-1-check": {
+    "version": "0.1.0",
+    "files": {
+      "plugin.yaml": "66990de40b57deb89f56a31ef38b85fb0ebfe876314141bfb1882aec8c9fd992",
+      "rules/cwpdoor.yar": "f1330d26c9c65fcb56c50673b94f2c0594ffd1b57fee90b12a5a7d5e2f2494f9"
+    }
+  },
+  "cwpdoor-2-clean": {
+    "version": "0.1.0",
+    "files": {
+      "plugin.yaml": "a2f5b558f17a80ce93e6ea4b58ebb1e3d7d79a7b9a8a35c5cf37b1fef8ed60bf",
+      "rules/cwpdoor.yar": "f1330d26c9c65fcb56c50673b94f2c0594ffd1b57fee90b12a5a7d5e2f2494f9"
+    }
+  },
   "evilai-locust": {
     "version": "0.1.1",
     "files": {

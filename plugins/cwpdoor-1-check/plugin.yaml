@@ -1,0 +1,61 @@
+# CWPdoor — 백도어를 심은 cwpsrv(Control Web Panel 의 패널 웹 서버)를 **찾기만** 한다.
+#
+# 치료는 같은 꾸러미의 cwpdoor-2-clean 이 한다. 폴더 이름의 숫자는 안내 모드가 늘어놓는
+# 차례다 — 점검 먼저, 치료 나중(24-check-plugins.md 규약 6).
+#
+# **`kind: check` 를 적지 않는다.** 그 선언은 취약한 *상태* 를 위한 것이라, 감염에 붙이면
+# 화면이 백도어를 "취약" 이라고 부른다(24-check-plugins.md 머리 — ex01 과 같은 경우).
+# 그래서 remediate 만 뺀 위협 플러그인이다. 종료 코드: 2 위협 발견 · 0 위협 없음 · 6 다
+# 보지 못했다. **CWP 가 깔리지 않은 서버도 6 이다** — 선언한 자리가 전부 없으면 위협
+# 플러그인은 6 이다(아무것도 열어 보지 못한 검사가 "위협 없음" 을 말하지 않게 하는 규칙).
+schema_version: 1
+id: cwpdoor-1-check
+version: 0.1.0
+min_core: "1.0.0"
+platforms: [linux]
+name:
+  ko: "CWPdoor 점검 (탐지만)"
+  en: "CWPdoor check (detect only)"
+references:
+  - "https://blog.xlab.qianxin.com/cwpdoor-the-invisible-backdoor-living-inside-control-web-panel/"
+
+# ── 권한 상한 ──────────────────────────────────────────────
+# 패널 서버 바이너리가 있는 자리 하나. CWP 의 표준 설치 경로다.
+scan_roots:
+  - "/usr/local/cwpsrv/bin"
+subjects: [file]
+
+detect:
+  # 근거 1 — 활성화 헤더 셋(평문). 경로로 먼저 좁힌다 — 본문을 담는 것은 아래
+  # collect_extra 의 그 파일 하나라, 경로가 먼저 거짓인 다른 파일은 "재지 못했다" 로
+  # 세지 않는다.
+  - id: headers
+    subject: file
+    where:
+      all:
+        - { field: path, op: equals, value: "/usr/local/cwpsrv/bin/cwpsrv" }
+        - { yara: "rules/cwpdoor.yar:cwpdoor_integrity_headers" }
+  # 근거 2 — 바이트마다 0x55 로 XOR 된 공격자의 서명 키.
+  - id: sigkey
+    subject: file
+    where:
+      all:
+        - { field: path, op: equals, value: "/usr/local/cwpsrv/bin/cwpsrv" }
+        - { yara: "rules/cwpdoor.yar:cwpdoor_signing_key" }
+  # 흔적 — 공격 스크립트가 바꿔치기 전에 남긴 **원래 바이너리의 사본**
+  # (`cwpsrv.prev-<날짜>-<시각>`). XLab 은 이것으로 되돌리라고 권한다 — 치료하지 않는다.
+  - id: backup
+    subject: file
+    where:
+      - { field: path, op: matches, value: '^/usr/local/cwpsrv/bin/cwpsrv\.prev-[0-9]{8}-[0-9]{6}$' }
+
+# ── 판정 ──────────────────────────────────────────────────
+# 독립적인 두 근거의 논리곱. 백업은 판정에 넣지 않는다 — 운영자가 만든 사본일 수도 있다.
+verdict:
+  require: "headers and sigkey"
+
+# ── 본문 ──────────────────────────────────────────────────
+# YARA 가 이 바이트를 훑는다. 공급사 cwpsrv 42벌의 최대가 6,491,192 B, 트로이 판 1.15.10 이
+# 820,848 B 다(2026-11-06 실측).
+collect_extra:
+  - { path: "/usr/local/cwpsrv/bin/cwpsrv", max_size: 16MB }

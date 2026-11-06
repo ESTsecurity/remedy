@@ -7,8 +7,9 @@
 # 값으로 README 의 쓰는 법을 가른다. 키 · 서명 · 검증은 두 OS 가 `ci/release.sh` 를
 # 함께 쓴다.
 #
-# - 내는 것: Windows x64 위협 꾸러미 `evilai-locust` 와 엔진만 둘 — Windows x64 · Linux
-#   x64. 리눅스는 musl 정적이다(설계-01 · `rust-toolchain.toml`).
+# - 내는 것: 위협 꾸러미 둘 — Windows x64 `evilai-locust` · Linux x64 `cwpdoor`(점검
+#   `cwpdoor-1-check` · 치료 `cwpdoor-2-clean`) — 와 엔진만 둘 — Windows x64 · Linux x64.
+#   리눅스는 musl 정적이다(설계-01 · `rust-toolchain.toml`).
 # - 시험판은 `v<코어 버전>-rc.<N>` 태그다. 같은 차례를 돌고 초안을 **시험판**으로
 #   표시한다. 엔진과 README 의 '코어' 줄은 코어 버전 그대로다 — 그 버전의 후보다.
 # - 산출물을 잡 사이에 넘기지 않는다. 공개 저장소의 Actions 산출물은 로그인한 누구나
@@ -88,6 +89,7 @@ jobs:
           | 파일 | 무엇 |
           |---|---|
           | `remedy-evilai-locust-windows-x64.zip` | 위협 꾸러미 — 앵커를 박은 `remedy.exe` · 서명된 `evilai-locust` 룰 · `README.txt` |
+          | `remedy-cwpdoor-linux-x64.tar.gz` | 위협 꾸러미 — 앵커를 박은 `remedy` · 서명된 `cwpdoor-1-check`(점검) · `cwpdoor-2-clean`(치료) 룰 · `README.txt` |
           | `remedy-windows-x64.zip` | 엔진만 — Windows x64 |
           | `remedy-linux-x64.tar.gz` | 엔진만 — Linux x64 (정적 링크) |
 
@@ -95,15 +97,16 @@ jobs:
           `Get-FileHash <파일>`(Windows)로 대 본다.
 
           이름은 하나의 규칙이다 — 위협 꾸러미 `remedy-<위협>-<os>-<arch>` · 엔진 `remedy-<os>-<arch>`.
-          꾸러미 안 배치도 두 OS 가 같다(실행 파일 · `plugins/<위협>/` · `README.txt`). 위협 꾸러미는
+          꾸러미 안 배치도 두 OS 가 같다(실행 파일 · `plugins/<룰>/` · `README.txt`). 위협 꾸러미는
           그 위협이 감염시키는 OS 용으로만 낸다:
 
           | 위협 | Windows x64 | Linux x64 |
           |---|---|---|
           | `evilai-locust` | ✓ | — (Windows 를 노리는 위협) |
+          | `cwpdoor` | — (리눅스 서버의 Control Web Panel 을 노리는 위협) | ✓ |
 
           꾸러미는 통째로 풀어 `README.txt` 의 차례대로 쓴다. 룰의 서명은 엔진에 박힌 공개키로
-          확인한다 — `remedy plugin verify --dir plugins/evilai-locust`.
+          확인한다 — `remedy plugin verify --dir plugins/<룰>`.
           EOF
           pre=
           if [[ "$GITHUB_REF_NAME" == *-rc.* ]]; then pre=--prerelease; fi
@@ -181,6 +184,7 @@ jobs:
       contents: write
     env:
       TARGET: x86_64-unknown-linux-musl
+      PKG: dist/remedy-cwpdoor-linux-x64
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -214,16 +218,29 @@ jobs:
         env:
           SECRET_KEY: ${{ secrets.REMEDY_SIGN_SECRET_KEY }}
           SECRET_PASSWORD: ${{ secrets.REMEDY_SIGN_PASSWORD }}
-        run: bash ci/release.sh sign "$PLUGIN"
-      # 리눅스 위협 꾸러미는 아직 없다 — 엔진을 잰다(박힌 앵커 · selftest · 반대 확인).
+        run: |
+          bash ci/release.sh sign plugins/cwpdoor-1-check
+          bash ci/release.sh sign plugins/cwpdoor-2-clean
+      # 사고 하나에 룰 둘 — 점검과 치료. 폴더 이름의 숫자가 안내 모드의 차례다.
+      - name: package
+        run: |
+          cargo xtask package --plugin plugins/cwpdoor-1-check --plugin plugins/cwpdoor-2-clean \
+            --bin "target/$TARGET/release/remedy" --out "$PKG" --public-key "$RELEASE_PUBKEY"
+      # 기준 5(b) — 받는 사람이 푸는 그 폴더에서 잰다. 엔진만 묶음도 같은 바이너리다.
       - name: verify (5b)
-        run: bash ci/release.sh verify "target/$TARGET/release/remedy" "$PLUGIN"
+        run: |
+          bash ci/release.sh readme "$PKG/README.txt"
+          bash ci/release.sh verify "$PKG/remedy" "$PKG/plugins/cwpdoor-1-check"
+          bash ci/release.sh verify "$PKG/remedy" "$PKG/plugins/cwpdoor-2-clean"
+          cmp "$PKG/remedy" "target/$TARGET/release/remedy"
       - name: upload to draft
         if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          tar -czf remedy-cwpdoor-linux-x64.tar.gz -C dist remedy-cwpdoor-linux-x64
           tar -czf remedy-linux-x64.tar.gz -C "target/$TARGET/release" remedy
-          sha256sum remedy-linux-x64.tar.gz >remedy-linux-x64.tar.gz.sha256
-          gh release upload "$GITHUB_REF_NAME" remedy-linux-x64.tar.gz remedy-linux-x64.tar.gz.sha256 \
+          for f in remedy-cwpdoor-linux-x64.tar.gz remedy-linux-x64.tar.gz; do sha256sum "$f" >"$f.sha256"; done
+          gh release upload "$GITHUB_REF_NAME" remedy-cwpdoor-linux-x64.tar.gz remedy-linux-x64.tar.gz \
+            remedy-cwpdoor-linux-x64.tar.gz.sha256 remedy-linux-x64.tar.gz.sha256 \
             --repo "$GITHUB_REPOSITORY" --clobber
