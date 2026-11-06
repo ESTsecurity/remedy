@@ -56,8 +56,9 @@
 **하지 않는 것도 미리 알려 드립니다.**
 
 - 실시간 감시 · 상주 프로그램이 아닙니다. 필요할 때 띄워 쓰는 도구입니다.
-- 플러그인 번들이 있는 위협만 치료합니다. 지금 위협 꾸러미는 둘입니다 — **EvilAI(Locust)**
-  (Windows) · **CWPdoor**(Linux — Control Web Panel 을 쓰는 서버).
+- 플러그인 번들이 있는 위협만 다룹니다. 지금 위협 꾸러미는 셋입니다 — **EvilAI(Locust)**
+  (Windows) · **CWPdoor**(Linux — Control Web Panel 을 쓰는 서버) · **Ebury**(Linux — 찾기만
+  합니다. 아래 *Linux — Ebury 꾸러미*).
 - 그래픽 화면(GUI)이 없습니다.
 - **Windows 실행 파일에는 아직 코드서명(Authenticode)이 없습니다.** 그래서 실행할 때마다
   맨 위에 그 사실을 한 줄로 알려 드립니다(리눅스도 같은 뜻의 한 줄이 뜹니다). 받은 파일은
@@ -73,6 +74,7 @@
 |---|---|---|
 | `remedy-evilai-locust-windows-x64.zip` | **위협 꾸러미** — `remedy.exe` · 서명된 `evilai-locust` 룰 · `README.txt` | EvilAI(Locust) 를 치료할 Windows PC |
 | `remedy-cwpdoor-linux-x64.tar.gz` | **위협 꾸러미** — `remedy` · 서명된 `cwpdoor-1-check`(점검) · `cwpdoor-2-clean`(치료) 룰 · `README.txt` | CWPdoor 를 점검 · 치료할 CWP 리눅스 서버 |
+| `remedy-ebury-linux-x64.tar.gz` | **위협 꾸러미** — `remedy` · 서명된 `ebury-check`(탐지만) 룰 · `README.txt` | Ebury 를 점검할 리눅스 서버 |
 | `remedy-windows-x64.zip` | 엔진만 — Windows x64 | 사내 룰과 함께 쓰는 운영자 |
 | `remedy-linux-x64.tar.gz` | 엔진만 — Linux x64 (정적 링크) | 사내 룰과 함께 쓰는 운영자 |
 
@@ -83,6 +85,7 @@
 |---|---|---|
 | `evilai-locust` | ✓ | — (Windows 를 노리는 위협) |
 | `cwpdoor` | — (리눅스 서버의 Control Web Panel 을 노리는 위협) | ✓ |
+| `ebury` | — (리눅스 서버의 sshd 를 노리는 위협) | ✓ |
 
 ## 받은 파일 확인
 
@@ -160,6 +163,19 @@ sudo ./remedy run --plugin ./plugins/cwpdoor-2-clean/plugin.yaml --yes    # 치�
   임의 명령을 돌릴 수 있었으므로 패널 자격 증명도 모두 바꾸십시오.
 - CWP 가 깔리지 않은 서버에서는 **종료 6** 입니다 — 볼 자리(`/usr/local/cwpsrv/bin`)가 없어
   *위협 없음* 을 말하지 않습니다.
+
+### Linux — Ebury 꾸러미
+
+```sh
+tar -xzf remedy-ebury-linux-x64.tar.gz
+cd remedy-ebury-linux-x64
+sudo ./remedy run --plugin ./plugins/ebury-check/plugin.yaml          # 2 면 발견 · 0 이면 없음
+```
+
+**찾기만 합니다.** Ebury 는 `libkeyutils.so.1` 자리에 가짜 라이브러리를 둡니다 — 그것을 옮기면
+그 라이브러리를 싣는 `sshd` · `sudo` 가 뜨지 못해 원격 접속이 끊기므로 remedy 가 손대지 않습니다.
+발견되면 꾸러미의 `plugins/ebury-check/RELEASE.md` 의 차례대로 **콘솔에서** 정상 판을 다시 깔고,
+재부팅하고, 이 서버를 거친 자격 증명과 SSH 키를 모두 바꾸십시오.
 
 ### Linux — 엔진
 

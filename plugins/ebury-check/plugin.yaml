@@ -1,0 +1,65 @@
+# Ebury — sshd 를 가로채 자격 증명과 키를 훔치는 리눅스 백도어를 **찾기만** 한다.
+#
+# Ebury 는 `libkeyutils.so.1` 자리에 생성자를 하나 더 단 가짜 라이브러리를 둔다 — sshd · sudo 처럼
+# 그 라이브러리를 싣는 프로그램이 뜰 때 함께 실린다. **치료하지 않는다**: 이 파일을 옮기면 그것을
+# 싣는 sshd · sudo 가 뜨지 못해 원격 접속과 권한 상승이 끊긴다. 복구는 운영자가 콘솔에서 한다
+# (RELEASE.md).
+#
+# **`kind: check` 를 적지 않는다** — 감염이지 취약한 상태가 아니다(cwpdoor-1-check 와 같다).
+# 종료 코드: 2 위협 발견 · 0 위협 없음 · 6 다 보지 못했다.
+schema_version: 1
+id: ebury-check
+version: 0.1.0
+min_core: "1.0.2"   # collect_extra 의 glob 형이 1.0.2 부터 있다
+platforms: [linux]
+name:
+  ko: "Ebury 점검 (탐지만)"
+  en: "Ebury check (detect only)"
+references:
+  - "https://www.welivesecurity.com/en/eset-research/ebury-alive-unseen-400k-linux-servers-compromised-cryptotheft-financial-gain/"
+  - "https://github.com/eset/malware-ioc/tree/master/windigo"
+
+# ── 권한 상한 ──────────────────────────────────────────────
+# libkeyutils 가 있는 자리. RHEL 계열 · Amazon Linux 는 /usr/lib64 — /lib64 는 그쪽을 가리키는
+# 링크라 두지 않는다(두면 같은 파일을 두 번 센다). Debian · Ubuntu 는 /usr/lib/x86_64-linux-gnu,
+# /usr 를 합치지 않은 옛 Debian 은 /lib/x86_64-linux-gnu 다. 합친 기계에서는 마지막 자리가 둘째를
+# 가리켜 같은 파일이 두 경로로 보인다.
+scan_roots:
+  - "/usr/lib64"
+  - "/usr/lib/x86_64-linux-gnu"
+  - "/lib/x86_64-linux-gnu"
+subjects: [file]
+
+detect:
+  # 근거 1 — ESET: SONAME 이 libkeyutils.so.1 인데 생성자가 하나 더 있다. 경로는 세 자리 **바로 아래**
+  # 에서 이름이 libkeyutils 로 시작하는 실제 파일 — 링크(`libkeyutils.so.1` 이 보통 그렇다)는 해시하지
+  # 않아 sha256 이 없으므로 여기서 빠지고, 아래 글롭이 본문을 담는 범위와 꼭 같다.
+  - id: ctor
+    subject: file
+    where:
+      all:
+        - { field: path, op: matches, value: '^(/usr/lib64|/usr/lib/x86_64-linux-gnu|/lib/x86_64-linux-gnu)/libkeyutils[^/]*$' }
+        - { field: sha256, op: exists }
+        - { yara: "rules/ebury.yar:libkeyutils_with_ctor" }
+  # 근거 2 — ESET: v1.7 · v1.8 의 문자열 복호 루틴.
+  - id: crypto
+    subject: file
+    where:
+      all:
+        - { field: path, op: matches, value: '^(/usr/lib64|/usr/lib/x86_64-linux-gnu|/lib/x86_64-linux-gnu)/libkeyutils[^/]*$' }
+        - { field: sha256, op: exists }
+        - { yara: "rules/ebury.yar:Ebury_v1_7_crypto" }
+
+# ── 판정 ──────────────────────────────────────────────────
+# 둘 중 하나. 실물 11개에서 둘의 합이 10 을 잡았다(2026-11-06 실측 — RELEASE.md).
+verdict:
+  require: "ctor or crypto"
+
+# ── 본문 ──────────────────────────────────────────────────
+# 세 자리에서 이름이 libkeyutils 로 시작하는 실제 파일의 바이트. 규칙으로 고르지 않는다 — 고르는 규칙은
+# 정상 libkeyutils 에도 맞아 모든 정상 서버에 흔적으로 뜬다(2026-11-06 G1 이 잡았다). 실물은 15 ~ 65 KB,
+# 정상 판은 그보다 작다.
+collect_extra:
+  - { glob: "/usr/lib64/libkeyutils*", max_size: 1MB }
+  - { glob: "/usr/lib/x86_64-linux-gnu/libkeyutils*", max_size: 1MB }
+  - { glob: "/lib/x86_64-linux-gnu/libkeyutils*", max_size: 1MB }

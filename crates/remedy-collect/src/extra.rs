@@ -22,7 +22,7 @@
 use remedy_artifacts::{FileRecord, Observations, Scope};
 use remedy_platform::read::FsRead;
 use remedy_sdk::artifact::{ArtifactsEnvelope, Evidence};
-use remedy_sdk::catalog::Subject;
+use remedy_sdk::catalog::{Platform, Subject};
 use remedy_sdk::manifest::{CollectExtra, PluginManifest};
 use remedy_sdk::normalize;
 use sha2::{Digest, Sha256};
@@ -154,6 +154,46 @@ pub fn collect_extra<P: FsRead>(
                 let cap = parse_size(p.max_size.as_deref()).unwrap_or(DEFAULT_MAX_BYTES);
                 if let Err(reason) = take_body(fs, &path, cap, scope, &mut sink) {
                     unresolved.push(Unresolved { at, reason });
+                }
+            }
+            CollectExtra::Glob(g) => {
+                let pattern = normalize::for_record(&fs_expand(fs, &g.glob), scope.platform);
+                let cap = parse_size(g.max_size.as_deref()).unwrap_or(DEFAULT_MAX_BYTES);
+                let Some((dir, name)) = split_glob(&pattern) else {
+                    unresolved.push(Unresolved {
+                        at,
+                        reason: lang.pick(
+                            format!(
+                                "'{pattern}' 가 폴더와 이름 꼴로 나뉘지 않습니다 — \
+                                 와일드카드는 마지막 성분에만 둡니다"
+                            ),
+                            format!(
+                                "'{pattern}' does not split into a folder and a name \
+                                 pattern — wildcards go in the last component only"
+                            ),
+                        ),
+                    });
+                    continue;
+                };
+                // 폴더가 상한 밖이면 고를 레코드가 없어 **조용히 0건**이 된다 — 말한다.
+                if !scope.allows(dir) {
+                    unresolved.push(Unresolved {
+                        at,
+                        reason: lang.pick(
+                            format!("'{dir}' 가 scan_roots 밖입니다"),
+                            format!("'{dir}' is outside scan_roots"),
+                        ),
+                    });
+                    continue;
+                }
+                // 폴더가 없으면 고를 것이 없다 — 없는 것이지 못 본 것이 아니다.
+                for path in globbed(sink.files, dir, name, scope.platform) {
+                    if let Err(reason) = take_body(fs, &path, cap, scope, &mut sink) {
+                        unresolved.push(Unresolved {
+                            at: at.clone(),
+                            reason,
+                        });
+                    }
                 }
             }
         }
@@ -407,6 +447,62 @@ fn attach(files: &mut Vec<FileRecord>, path: &str, key: &str, bytes: &[u8]) {
     });
 }
 
+/// `<폴더>/<이름 꼴>` 로 나눈다. 와일드카드가 폴더 쪽에 있으면 `None` — 한 폴더 안만
+/// 고르므로 담는 범위가 선언에서 바로 읽힌다.
+fn split_glob(pattern: &str) -> Option<(&str, &str)> {
+    let cut = pattern.rfind(['/', '\\'])?;
+    let (dir, name) = (&pattern[..cut], &pattern[cut + 1..]);
+    if dir.is_empty() || name.is_empty() || dir.contains(['*', '?']) {
+        return None;
+    }
+    Some((dir, name))
+}
+
+/// 주 수집이 걸은 레코드 가운데 `dir` 바로 아래에서 이름이 `name` 꼴인 것.
+///
+/// **해시가 있는 것만** 고른다 — 주 수집은 링크와 해시 상한을 넘는 파일을 해시하지
+/// 않는다. 링크를 고르면 대상의 바이트가 링크의 경로에 적힌다(설계-02 §4 가 걷기에서
+/// 막은 것이다).
+fn globbed(files: &[FileRecord], dir: &str, name: &str, platform: Platform) -> Vec<String> {
+    let dir = normalize::for_compare(dir, platform);
+    let name = normalize::for_compare(name, platform);
+    files
+        .iter()
+        .filter(|f| f.sha256.is_some())
+        .filter(|f| {
+            let p = normalize::for_compare(&f.path, platform);
+            p.rfind(['/', '\\'])
+                .is_some_and(|cut| p[..cut] == dir && name_matches(&p[cut + 1..], &name))
+        })
+        .map(|f| f.path.clone())
+        .collect()
+}
+
+/// 이름 하나에 `*`(아무 길이) · `?`(한 글자)를 맞춘다. 되돌아가기는 마지막 별에서만
+/// 하므로 이름 길이 × 꼴 길이를 넘지 않는다 — 정규식처럼 터지지 않는다.
+fn name_matches(text: &str, pattern: &str) -> bool {
+    let t: Vec<char> = text.chars().collect();
+    let p: Vec<char> = pattern.chars().collect();
+    let (mut ti, mut pi) = (0usize, 0usize);
+    let mut star: Option<(usize, usize)> = None;
+    while ti < t.len() {
+        if pi < p.len() && (p[pi] == '?' || (p[pi] != '*' && p[pi] == t[ti])) {
+            pi += 1;
+            ti += 1;
+        } else if pi < p.len() && p[pi] == '*' {
+            star = Some((pi + 1, ti));
+            pi += 1;
+        } else if let Some((sp, st)) = star {
+            pi = sp;
+            ti = st + 1;
+            star = Some((sp, st + 1));
+        } else {
+            return false;
+        }
+    }
+    p[pi..].iter().all(|c| *c == '*')
+}
+
 fn fs_expand<P: FsRead>(_fs: &P, s: &str) -> String {
     // `FsRead` 는 전개를 모른다. 토큰 전개는 `Scope` 를 만들 때 이미 끝났고,
     // 여기 오는 경로는 매니페스트 원문이므로 남은 토큰만 그대로 둔다.
@@ -603,6 +699,139 @@ collect_extra:
             .collect();
         assert!(blob_bytes(&m) >= TOTAL_BUDGET, "재료가 예산에 못 미친다");
         m
+    }
+
+    /// 주 수집이 남긴 레코드 — `hashed` 가 거짓이면 링크처럼 해시가 없다.
+    fn walked(paths: &[(&str, bool)]) -> Observations {
+        let records: Vec<FileRecord> = paths
+            .iter()
+            .map(|(p, hashed)| FileRecord {
+                path: p.to_string(),
+                size: 1,
+                mtime: "2026-11-06T00:00:00Z".into(),
+                ctime: None,
+                sha256: hashed.then(|| "00".repeat(32)),
+                signature: None,
+                version: None,
+                zone: None,
+                streams: Vec::new(),
+                content_ref: None,
+            })
+            .collect();
+        let mut obs = Observations::default();
+        obs.put(Subject::File, &records);
+        obs
+    }
+
+    fn linux_scope() -> Scope {
+        let mut s = Scope::diagnostic(
+            vec!["/usr/lib64".into()],
+            remedy_sdk::catalog::Platform::Linux,
+        );
+        s.subjects = vec![Subject::File];
+        s
+    }
+
+    #[test]
+    fn a_glob_takes_the_hashed_files_of_one_folder_whose_names_match() {
+        // 이름이 감염마다 다른 파일을 규칙 없이 담는 자리다. 링크 · 다른 이름 · 하위
+        // 폴더는 고르지 않는다.
+        let f = fs(&[
+            ("/usr/lib64/libkeyutils.so.1.5", b"clean"),
+            ("/usr/lib64/libkeyutils.so.1.5.2", b"fake"),
+            ("/usr/lib64/libkeyutils.so.1", b"fake"),
+            ("/usr/lib64/libcrypt.so.1", b"other"),
+            ("/usr/lib64/sub/libkeyutils.so.9", b"deeper"),
+        ]);
+        let m = manifest("  - { glob: '/usr/lib64/libkeyutils*' }");
+        let mut obs = walked(&[
+            ("/usr/lib64/libkeyutils.so.1.5", true),
+            ("/usr/lib64/libkeyutils.so.1.5.2", true),
+            ("/usr/lib64/libkeyutils.so.1", false),
+            ("/usr/lib64/libcrypt.so.1", true),
+            ("/usr/lib64/sub/libkeyutils.so.9", true),
+        ]);
+        let un = collect_extra(&f, &m, &linux_scope(), &mut obs, RefPolicy::ReportNow);
+        assert!(un.is_empty(), "{un:?}");
+        let taken: Vec<String> = obs
+            .files()
+            .into_iter()
+            .filter(|r| r.content_ref.is_some())
+            .map(|r| r.path)
+            .collect();
+        assert_eq!(
+            taken,
+            [
+                "/usr/lib64/libkeyutils.so.1.5",
+                "/usr/lib64/libkeyutils.so.1.5.2"
+            ],
+            "링크 · 다른 이름 · 하위 폴더를 골랐거나 맞는 것을 빠뜨렸다"
+        );
+        assert_eq!(obs.blobs.len(), 2);
+    }
+
+    #[test]
+    fn a_glob_over_a_missing_folder_takes_nothing_and_reports_nothing() {
+        // 그 배포판에 그 자리가 없는 것은 정상이다 — 못 본 것이 아니다.
+        let m = manifest("  - { glob: '/usr/lib64/libkeyutils*' }");
+        let mut obs = walked(&[]);
+        let un = collect_extra(&fs(&[]), &m, &linux_scope(), &mut obs, RefPolicy::ReportNow);
+        assert!(un.is_empty(), "{un:?}");
+        assert!(obs.blobs.is_empty());
+    }
+
+    #[test]
+    fn a_glob_folder_outside_scan_roots_is_reported() {
+        // 상한 밖 폴더에는 레코드가 없어 조용히 0건이 된다 — 그것을 말한다.
+        let m = manifest("  - { glob: '/etc/libkeyutils*' }");
+        let mut obs = walked(&[]);
+        let un = collect_extra(&fs(&[]), &m, &linux_scope(), &mut obs, RefPolicy::ReportNow);
+        assert_eq!(un.len(), 1, "{un:?}");
+        assert!(
+            un[0]
+                .reason
+                .contains(remedy_sdk::i18n::t("scan_roots 밖", "outside scan_roots")),
+            "{:?}",
+            un[0]
+        );
+    }
+
+    #[test]
+    fn a_wildcard_in_the_folder_part_is_reported_not_guessed() {
+        let m = manifest("  - { glob: '/usr/*/libkeyutils*' }");
+        let mut obs = walked(&[("/usr/lib64/libkeyutils.so.1.5", true)]);
+        let f = fs(&[("/usr/lib64/libkeyutils.so.1.5", b"clean")]);
+        let un = collect_extra(&f, &m, &linux_scope(), &mut obs, RefPolicy::ReportNow);
+        assert_eq!(un.len(), 1, "{un:?}");
+        assert!(obs.blobs.is_empty(), "폴더를 짐작해 담았다");
+    }
+
+    #[test]
+    fn a_windows_glob_folds_case_like_the_rest_of_the_paths() {
+        let f = fs(&[("c:\\app\\Payload.DLL", b"x")]);
+        let m = manifest("  - { glob: 'C:\\APP\\payload.*' }");
+        let mut obs = walked(&[("c:\\app\\Payload.DLL", true)]);
+        let un = collect_extra(&f, &m, &scope(), &mut obs, RefPolicy::ReportNow);
+        assert!(un.is_empty(), "{un:?}");
+        assert_eq!(obs.blobs.len(), 1, "대소문자만 다른 이름을 놓쳤다");
+    }
+
+    #[test]
+    fn names_match_stars_and_question_marks_only() {
+        for (t, p, want) in [
+            ("libkeyutils.so.1.5.2", "libkeyutils*", true),
+            ("libkeyutils.so.1", "libkeyutils.so.?", true),
+            ("libkeyutils.so.10", "libkeyutils.so.?", false),
+            ("x.dll", "*.dll", true),
+            ("a.b.c", "*.*", true),
+            ("abc", "a*c*", true),
+            ("abd", "a*c", false),
+            ("", "*", true),
+            ("", "?", false),
+            ("aaaaaaaaaaaaaaaaaaaaaaab", "*a*a*a*a*b", true),
+        ] {
+            assert_eq!(name_matches(t, p), want, "{t:?} ~ {p:?}");
+        }
     }
 
     #[test]

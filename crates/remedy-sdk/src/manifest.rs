@@ -424,6 +424,7 @@ pub enum CollectExtra {
     Ref(CollectRef),
     Path(CollectPath),
     Subject(CollectSubject),
+    Glob(CollectGlob),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -449,6 +450,24 @@ pub struct CollectPath {
 pub struct CollectSubject {
     pub subject: Subject,
     pub path: String,
+}
+
+/// 한 폴더에서 **이름 꼴이 맞는 파일의 본문**을 담는다 — `<폴더>/<이름 꼴>`, 와일드카드
+/// (`*` · `?`)는 마지막 성분에만.
+///
+/// 이름이 감염마다 달라 `path` 로 적을 수 없고, `ref` 로 가리키려면 그 파일을 고르는
+/// 경로 규칙이 있어야 하는데 그 규칙은 정상 파일에도 맞아 **흔적**이 된다(2026-11-06 —
+/// 정상 서버마다 `libkeyutils` 가 흔적으로 떴다). 이 형은 규칙 없이 본문만 담는다.
+///
+/// 고르는 것은 **주 수집이 걸어서 해시한 파일**이다 — 링크와 해시 상한을 넘는 파일은
+/// 고르지 않는다(링크의 경로에 대상의 내용을 적지 않는다). 폴더가 없으면 담을 것이 없는
+/// 것이지 미해소가 아니다.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CollectGlob {
+    pub glob: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_size: Option<String>,
 }
 
 // ─────────────────────────────────────────────────────────── submit_hint
