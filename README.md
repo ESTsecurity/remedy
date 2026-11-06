@@ -65,6 +65,19 @@
   아래 체크섬으로 확인하십시오. 룰 묶음은 서명돼 있고 실행 파일이 그 서명을 확인합니다.
 - 32비트 Windows · ARM 리눅스 용 파일은 내지 않습니다.
 
+## 다루는 위협
+
+받기 전에 확인하십시오 — 아래 룰이 그 OS 의 꾸러미에 모두 들어 있습니다.
+
+<!-- threats:begin — `cargo xtask threats --write` 가 룰에서 만든다. 손으로 고치지 않는다 -->
+| 룰 | 하는 일 | OS | 폴더 · 판 | 참고 |
+|---|---|---|---|---|
+| EvilAI(Locust) 제거 | 찾아서 치료합니다 (되돌릴 수 있습니다) | Windows | `evilai-locust` 0.1.1 | [www.virustotal.com](https://www.virustotal.com/gui/search/engines%3Ameadowlocust) |
+| CWPdoor 점검 (탐지만) | 찾기만 합니다 | Linux | `cwpdoor-1-check` 0.1.0 | [blog.xlab.qianxin.com](https://blog.xlab.qianxin.com/cwpdoor-the-invisible-backdoor-living-inside-control-web-panel/) |
+| CWPdoor 제거 | 찾아서 치료합니다 (되돌릴 수 있습니다) | Linux | `cwpdoor-2-clean` 0.1.0 | [blog.xlab.qianxin.com](https://blog.xlab.qianxin.com/cwpdoor-the-invisible-backdoor-living-inside-control-web-panel/) |
+| Ebury 점검 (탐지만) | 찾기만 합니다 | Linux | `ebury-check` 0.1.0 | [www.welivesecurity.com](https://www.welivesecurity.com/en/eset-research/ebury-alive-unseen-400k-linux-servers-compromised-cryptotheft-financial-gain/) |
+<!-- threats:end -->
+
 ## 받기
 
 [**GitHub Releases**](https://github.com/ESTsecurity/remedy/releases/latest) 에서 받습니다.

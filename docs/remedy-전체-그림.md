@@ -689,7 +689,7 @@ flowchart TB
 ### 규칙은 문서가 아니라 CI 가 지킨다
 
 ```bash
-cargo xtask all      # 아홉을 한 번에 (아래)
+cargo xtask all      # 열하나를 한 번에 (아래)
 cargo xtask static   # 배포될 바이너리의 임포트 전수 — 네트워크 없음 확인
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
@@ -704,9 +704,11 @@ cargo deny check
 | `schema` | 생성물 8개가 SDK 와 일치하는가 |
 | `가이드` | 문서 18개의 크기 예산과 헤더 |
 | `console-doc` | `콘솔은-이렇게-보인다.md` 가 인용한 화면이 **기준선에 실제로 있는가** |
+| `screens` | 고객이 읽는 화면에 쓰지 않기로 한 말이 돌아왔는가 |
 | `snapshots` | 스냅샷 48개가 카탈로그와 맞는가 |
 | `실기기` | 위협 20개의 치료 결과가 **지금 자료로** 재어졌는가 |
 | `plugin-lock` | 룰을 고친 플러그인이 버전을 올렸는가 |
+| `threats` | README 의 *다루는 위협* 표가 룰 매니페스트와 같은가 |
 
 `arch` 의 금지 의존 목록과 `trace` 의 인벤토리는 **코드에 박혀 있지 않고 설계
 문서에서 읽는다.** 같은 사실을 두 곳에 적으면 반드시 갈라지기 때문이다.
