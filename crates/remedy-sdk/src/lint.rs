@@ -106,6 +106,7 @@ pub fn lint(m: &PluginManifest) -> Vec<LintIssue> {
     check_reputation_direction(m, &mut out);
     check_remediate_refs(m, &ids, &mut out);
     check_collect_extra_refs(m, &ids, &mut out);
+    check_collect_extra_globs(m, &mut out);
     check_yara_without_content(m, &mut out);
     check_restore_named(m, &mut out);
     check_from_subject(m, &mut out);
@@ -548,6 +549,64 @@ fn check_from_subject(m: &PluginManifest, out: &mut Vec<LintIssue>) {
     }
 }
 
+/// `collect_extra` 의 `glob` 이 **고를 수 있는 자리**를 가리키는가.
+///
+/// 글롭은 주 수집이 걸은 `file` 레코드에서 고른다. 그래서 셋 중 하나라도 어긋나면
+/// 오류 없이 **조용히 0건**이고, 그 본문에 걸린 YARA 는 "안 맞았다" 로 나간다 —
+/// 와일드카드가 폴더 쪽에 있다(한 폴더만 고른다) · 폴더가 `scan_roots` 밖이다(레코드가
+/// 없다) · `file` 이 `subjects` 에 없다(레코드가 없다).
+fn check_collect_extra_globs(m: &PluginManifest, out: &mut Vec<LintIssue>) {
+    for (i, item) in m.collect_extra.iter().enumerate() {
+        let CollectExtra::Glob(g) = item else {
+            continue;
+        };
+        let at = format!("collect_extra[{i}].glob");
+        let cut = g.glob.rfind(['/', '\\']);
+        let dir = cut.map(|c| &g.glob[..c]).unwrap_or("");
+        let name = cut.map(|c| &g.glob[c + 1..]).unwrap_or(g.glob.as_str());
+        if dir.is_empty() || name.is_empty() || dir.contains(['*', '?']) {
+            out.push(LintIssue {
+                severity: Severity::Error,
+                at,
+                message: format!(
+                    "'{}' 가 `<폴더>/<이름 꼴>` 이 아니다. 와일드카드(`*` · `?`)는 마지막 \
+                     성분에만 둔다 — 한 폴더 안만 고르므로 담는 범위가 선언에서 바로 읽힌다",
+                    g.glob
+                ),
+                valid: Some("예: `/usr/lib64/libkeyutils*`".into()),
+                doc: Some("설계-02 §6-1"),
+            });
+            continue;
+        }
+        if !m.scan_roots.iter().any(|top| root_covers(top, dir)) {
+            out.push(LintIssue {
+                severity: Severity::Error,
+                at: at.clone(),
+                message: format!(
+                    "'{dir}' 가 `scan_roots` 밖이다. 글롭은 주 수집이 걸은 레코드에서 고르므로 \
+                     그 폴더에는 고를 것이 없고, 결과는 조용한 0건이다"
+                ),
+                valid: Some(format!(
+                    "`scan_roots` 안의 폴더로 적을 것 — 지금 상한: {}",
+                    m.scan_roots.join(" · ")
+                )),
+                doc: Some("설계-02 §2"),
+            });
+        }
+        if !m.subjects.contains(&Subject::File) {
+            out.push(LintIssue {
+                severity: Severity::Error,
+                at,
+                message: "`subjects` 에 `file` 이 없다. 글롭은 `file` 레코드에서 고르므로 \
+                          고를 것이 없고, 결과는 조용한 0건이다"
+                    .into(),
+                valid: Some("`subjects` 에 `file` 을 넣을 것".into()),
+                doc: Some("설계-02 §6-1"),
+            });
+        }
+    }
+}
+
 /// YARA 를 쓰는데 **본문을 수집하지 않는가** (설계-02 §6-1 · 설계-06 §6).
 ///
 /// YARA 술어는 레코드의 `content_ref` 가 가리키는 본문을 훑는다. 그 본문은
@@ -579,7 +638,7 @@ fn check_yara_without_content(m: &PluginManifest, out: &mut Vec<LintIssue>) {
     // `subject` 는 본문을 담는 것 자체가 그 형의 목적이다.
     let collects_content = m.collect_extra.iter().any(|c| match c {
         CollectExtra::Ref(r) => r.content,
-        CollectExtra::Path(_) => true,
+        CollectExtra::Path(_) | CollectExtra::Glob(_) => true,
         // `subject` 형은 **본문을 담지 않는다.** "이 경로를 이 subject 로도
         // 보라" 는 뜻이고, 실제 수집은 그 subject 의 수집기가 한다
         // (remedy-collect/src/extra.rs). 여기서 본문으로 세면 YARA 가 실기기에서
@@ -2843,6 +2902,10 @@ mod doc_coverage_tests {
                 with_ids(check_collect_extra_refs),
             ),
             (
+                "check_collect_extra_globs",
+                Box::new(check_collect_extra_globs),
+            ),
+            (
                 "check_yara_without_content",
                 Box::new(check_yara_without_content),
             ),
@@ -3058,6 +3121,64 @@ verdict: {{ require: payload }}
         assert!(
             lint(&blank).iter().any(|i| i.at == "name.en"),
             "빈 문자열은 없는 것과 같다"
+        );
+    }
+}
+
+#[cfg(test)]
+mod glob_tests {
+    use super::{lint, Severity};
+    use crate::manifest::PluginManifest;
+
+    fn probe(subjects: &str, glob: &str) -> PluginManifest {
+        let y = format!(
+            r#"schema_version: 1
+id: glob-probe
+version: 1.0.0
+min_core: '1.0.0'
+platforms: [linux]
+name: {{ ko: '글롭 탐침', en: 'glob probe' }}
+scan_roots: ['/usr/lib64']
+subjects: [{subjects}]
+detect:
+  - id: r
+    subject: file
+    where:
+      - {{ field: path, op: ends_with, value: '/x' }}
+verdict: {{ require: 'r' }}
+collect_extra:
+  - {{ glob: '{glob}' }}
+"#
+        );
+        serde_yaml_ng::from_str(&y).unwrap_or_else(|e| panic!("{e}\n{y}"))
+    }
+
+    fn glob_errors(subjects: &str, glob: &str) -> usize {
+        lint(&probe(subjects, glob))
+            .into_iter()
+            .filter(|i| i.severity == Severity::Error && i.at == "collect_extra[0].glob")
+            .count()
+    }
+
+    #[test]
+    fn a_glob_in_one_folder_inside_the_roots_is_quiet() {
+        assert_eq!(glob_errors("file", "/usr/lib64/libkeyutils*"), 0);
+    }
+
+    /// 셋 다 오류 없이 **조용한 0건**이 되는 자리다 — 린트가 아니면 아무도 모른다.
+    #[test]
+    fn a_glob_that_can_pick_nothing_is_an_error() {
+        assert_eq!(
+            glob_errors("file", "/usr/*/libkeyutils*"),
+            1,
+            "폴더 쪽 와일드카드"
+        );
+        assert_eq!(glob_errors("file", "/etc/libkeyutils*"), 1, "scan_roots 밖");
+        assert_eq!(glob_errors("file", "libkeyutils*"), 1, "폴더가 없다");
+        assert_eq!(
+            glob_errors("process", "/usr/lib64/libkeyutils*"),
+            1,
+            "file 이 없다"
         );
     }
 }

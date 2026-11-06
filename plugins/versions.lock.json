@@ -31,6 +31,13 @@
       "rules/cwpdoor.yar": "f1330d26c9c65fcb56c50673b94f2c0594ffd1b57fee90b12a5a7d5e2f2494f9"
     }
   },
+  "ebury-check": {
+    "version": "0.1.0",
+    "files": {
+      "plugin.yaml": "8a4072ff7460d889e2caf4503548e14b74f7175ec6ae499cd2b7ac00fa2c74ad",
+      "rules/ebury.yar": "efb023efd24f6b3dc7e37a908f784f3753165d2c2ef7b6b23cd16cc67d44763a"
+    }
+  },
   "evilai-locust": {
     "version": "0.1.1",
     "files": {

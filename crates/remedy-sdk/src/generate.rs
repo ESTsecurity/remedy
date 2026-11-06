@@ -650,6 +650,13 @@ pub(crate) fn lint_cases() -> Vec<Case> {
             "규칙 id 를 확인한다. 없으면 그 선언은 영영 해소되지 않는다",
             "collect_extra:\n  - { ref: 없는룰, content: true }\n",
         ),
+        append(
+            "이름이 감염마다 다른 파일의 본문을 담는다",
+            "`glob` 의 폴더를 `scan_roots` 밖에 적었다",
+            "`scan_roots` 안의 폴더로 적는다. 글롭은 주 수집이 걸은 `file` 레코드에서 고르므로 \
+             밖의 폴더는 **조용한 0건**이다. 와일드카드는 마지막 성분에만 둔다",
+            "collect_extra:\n  - { glob: 'C:\\Windows\\System32\\*.dll' }\n",
+        ),
         Case {
             title: "YARA 로 본문을 판정한다",
             what: "본문을 담는 `collect_extra` 가 하나도 없다",

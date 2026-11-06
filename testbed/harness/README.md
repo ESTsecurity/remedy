@@ -65,6 +65,7 @@ remedy 의 감사 로그는 **무엇을 하려 했는가**를 말한다. `Captur
 | `linux/screenshot.sh` | 호스트(WSL) · 컨테이너 | 그 리눅스 짝 — 가상 디스플레이(Xvfb) 위 xterm · `ko_KR.UTF-8`. 차례 말은 `relaunch` 만 빼고 같고, `--package` 로 꾸러미 폴더째 띄운다. `--fixtures` 는 띄우기 전에 리눅스 하네스의 픽스처로 감염을 세운다 — 시험 플러그인 꾸러미(`menu-verify.sh` 가 남기는 `pkg`)로 세 흐름을 찍는 자리 |
 | `linux/menu-verify.sh` | 호스트(WSL) · 컨테이너 | **리눅스의 새 꾸러미 첫 메뉴를 Windows 와 견준다** — 임시 키 · 앵커 박은 빌드 · 서명된 `lab-plugin.yaml` · `xtask package` 로 꾸러미를 짓고, `script` 의 pty 에서 메뉴를 띄워 번호 줄 목록을 콘솔 기준선 A10 과 diff 한다. 꾸러미 배치(`layout.txt`)도 남긴다 |
 | `linux/cwpdoor-verify.sh` · `linux/fixtures/cwpdoor/` | 호스트(WSL) · 컨테이너 | **CWPdoor 두 룰(`cwpdoor-1-check` · `cwpdoor-2-clean`)이 계약대로인가** — 네트워크 끊은 컨테이너에 자리 채우기 `cwpsrv`(공개 지표만 심은 무해한 파일)와 유닛을 세우고 16칸: CWP 없는 기계 6 · 정상 0 · 감염 점검 2 → 치료 1 → 다시 점검 → 복원 0(같은 바이트) · 룰에 IP 주소 · 해시 꼴 0. `--plugins` 에 저장소의 `plugins/` 나 내려받은 꾸러미의 `plugins/` 를 준다 |
+| `linux/ebury-verify.sh` | 호스트(WSL) · 컨테이너 | **Ebury 점검 룰(`ebury-check`)이 계약대로인가** — 네트워크 끊은 컨테이너에서 빈 공유 라이브러리(생성자 하나 더 · SONAME `libkeyutils.so.1`)를 지어 12칸: 자리 없는 기계(Alpine) 6 · 정상 0 · 정상 화면에 흔적 0 · 감염 판 + 링크 2 · 아무것도 안 바꿈 · 디렉터리 읽기를 가로채는 훅(`LD_PRELOAD`) 대조군 · 훅을 건 정적 엔진 2 · Debian 자리 2 · 룰 본문 = ESET 공개 파일. `--bin` 은 정적 배포 바이너리 |
 
 ### 랩 값은 어디서 오는가 (2026-10-31)
 

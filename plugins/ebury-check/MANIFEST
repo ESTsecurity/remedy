@@ -1,0 +1,4 @@
+# remedy plugin manifest v1
+8f2cc67fd1a176f49e3117f2d3ec3ec1da2f466d69da21c08a13a972d198bfb6  RELEASE.md
+8a4072ff7460d889e2caf4503548e14b74f7175ec6ae499cd2b7ac00fa2c74ad  plugin.yaml
+efb023efd24f6b3dc7e37a908f784f3753165d2c2ef7b6b23cd16cc67d44763a  rules/ebury.yar

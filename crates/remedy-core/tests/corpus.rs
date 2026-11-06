@@ -286,6 +286,11 @@ fn plugins() -> Vec<(&'static str, PathBuf, Option<PathBuf>)> {
             repo_root().join("plugins/cwpdoor-2-clean/plugin.yaml"),
             Some(repo_root().join("plugins/cwpdoor-2-clean/rules")),
         ),
+        (
+            "ebury-check",
+            repo_root().join("plugins/ebury-check/plugin.yaml"),
+            Some(repo_root().join("plugins/ebury-check/rules")),
+        ),
         ("ex01-scheduled-task", ex("ex01-scheduled-task"), None),
         ("ex02-registry-ifeo", ex("ex02-registry-ifeo"), None),
         ("ex03-text-config", ex("ex03-text-config"), None),
