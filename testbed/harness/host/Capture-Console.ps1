@@ -494,13 +494,23 @@ verdict:
             & cargo run -q -p xtask -- package --plugin "$gStage\evilai-locust" `
                 --bin "$gStage\remedy.exe" --out "$gStage\pkg" --public-key "$gStage\pub.key" | Out-Null
             if ($LASTEXITCODE -ne 0) { throw "꾸러미 만들기 실패" }
+
+            # 찾기만 하는 실험 룰 — A11(모두 검사만)이 꾸러미 옆에 둘째로 둔다. **같은 일회용 키**다.
+            New-DetectOnlyLabRule -Source (Join-Path $repoRoot "plugins\evilai-locust") `
+                                  -Out "$gStage\remedy-lab-evilai-check"
+            & cargo run -q -p xtask -- sign plugin --dir "$gStage\remedy-lab-evilai-check" `
+                --secret-key "$gStage\sec.key" --signed-at "2026-09-10T00:00:00Z" | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw "실험 룰 서명 실패" }
         } finally { Pop-Location }
 
         Invoke-Command -Session $session -ArgumentList $LabRoot -ScriptBlock {
             param($lab)
-            Remove-Item "$lab\pkg-signed" -Recurse -Force -ErrorAction SilentlyContinue
+            Remove-Item "$lab\pkg-signed", "$lab\pkg-extra" -Recurse -Force -ErrorAction SilentlyContinue
+            New-Item -ItemType Directory -Force "$lab\pkg-extra" | Out-Null
         }
         Copy-Item "$gStage\pkg" -Destination "$LabRoot\pkg-signed" -ToSession $session -Recurse -Force
+        Copy-Item "$gStage\remedy-lab-evilai-check" -Destination "$LabRoot\pkg-extra" -ToSession $session `
+                  -Recurse -Force
 
         Emit (Invoke-Command -Session $session -ArgumentList $LabRoot -ScriptBlock {
             param($lab)
@@ -619,6 +629,34 @@ verdict:
         $text
     })
 
+    # **모두 검사만 — 항목이 둘인 꾸러미** (목표 remedy_출시_20261111 기준 3). A8 이 같은 일회용
+    # 키로 서명해 둔 찾기만 하는 실험 룰을 메뉴 하네스가 그 두 단계 동안만 꾸러미 옆에 두고
+    # `모두 검사` · `탐지만 메뉴` 를 돈다 — 검사만 하므로 기계를 바꾸지 않는다(하네스가 앞뒤
+    # 지문을 견준다). 첫 화면 · 접은 화면은 A10 이 싣는다 — 여기서는 모두 검사부터 싣는다.
+    # 그 검사가 꾸러미 옆에 남긴 결과 폴더와 회차 로그는 지운다 — B2 가 같은 꾸러미를 쓴다.
+    Sep "A11. 모두 검사만 — 항목이 둘인 꾸러미 (진짜 콘솔)"
+    Emit (Invoke-Command -Session $session -ArgumentList $LabRoot, $L -ScriptBlock {
+        param($lab, $lang)
+        $tr = "$lab\scan-all-capture.txt"
+        $js = "$lab\scan-all-capture.json"
+        Remove-Item $tr, $js -Force -ErrorAction SilentlyContinue
+        $extra = "$lab\pkg-extra\remedy-lab-evilai-check"
+        if (-not (Test-Path "$lab\pkg-signed\remedy.exe") -or -not (Test-Path $extra)) {
+            return "[A8 의 꾸러미나 실험 룰이 없다 — 그 절이 실패했으면 여기도 잴 수 없다]"
+        }
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass `
+            -File "$lab\scripts\Verify-Menu.ps1" `
+            -Bin "$lab\pkg-signed\remedy.exe" -PayloadDir $lab `
+            -OutFile $js -TranscriptFile $tr -Keys "모두 검사" -Extra $extra -Lang $lang *> $null
+        Remove-Item "$lab\pkg-signed\out", "$lab\pkg-signed\state" -Recurse -Force -ErrorAction SilentlyContinue
+        if (-not (Test-Path $tr)) { return "[전사가 없다 — 콘솔을 만들지 못했다]" }
+        $text = (Get-Content $tr -Raw -Encoding UTF8).TrimEnd()
+        Remove-Item $tr, $js -Force -ErrorAction SilentlyContinue
+        $at = $text.IndexOf("=== 모두 검사")
+        if ($at -lt 0) { return "[전사에 모두 검사 절이 없다]" }
+        $text.Substring($at)
+    })
+
     # G 는 두 스트림을 이어 붙여 받는다 — 그러면 **어느 스트림으로 나갔는지가
     # 캡처에서 사라진다.** 일부러 부른 사용법은 결과(stdout)이고 오류에 딸려 나온
     # 사용법은 오류(stderr)라는 규칙이 지켜지는지는 줄 수로 잰다 (Phase 2).
@@ -705,8 +743,8 @@ verdict:
             }
         }
         # 앵커를 박은 바이너리를 랩에 남기지 않는다. 다음 회차가 그것을 집으면
-        # 무엇을 재는지 알 수 없어진다.
-        Remove-Item $pkg -Recurse -Force -ErrorAction SilentlyContinue
+        # 무엇을 재는지 알 수 없어진다. 일회용 키로 서명한 실험 룰(A11)도 같다.
+        Remove-Item $pkg, "$lab\pkg-extra" -Recurse -Force -ErrorAction SilentlyContinue
         $o -join "`n"
     })
 
@@ -969,7 +1007,8 @@ Sep "끝"
 # 화면이 아니라 계측기가 자기를 재는 줄이고, 파일에 넣으면 기준선이 그것까지
 # 담아 "diff 를 보기 전에" 라는 말이 뜻을 잃는다.
 # 31 → 32: `--help-all` 본문 절을 더했다 (A9 · 2026-10-28).
-$ExpectSections = 33
+# 33 → 34: 모두 검사만 절을 더했다 (A11 · 목표 remedy_출시_20261111 기준 3 · 2026-11-06).
+$ExpectSections = 34
 $ExpectCodes = @("0", "1", "2", "4", "5")
 $capLines = [System.IO.File]::ReadAllLines($Out, $utf8)
 $secs = @($capLines | Where-Object { $_ -like "##########*" }).Count

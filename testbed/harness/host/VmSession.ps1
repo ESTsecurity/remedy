@@ -737,3 +737,37 @@ function Assert-CanDestroy {
     }
     Write-Ok "파괴 가능한 상태"
 }
+
+# ── 찾기만 하는 실험 룰 ─────────────────────────────────────────────
+#
+# 룰 폴더를 베껴 `remediate` 절을 빼고 id · 이름을 바꾼다 — 같은 것을 보되 치료하지 않는 룰이다.
+# 꾸러미에 룰이 둘이어야 서는 화면(고르는 화면의 *모두 검사만* · 찾기만 하는 룰의 메뉴)을 재는
+# 자리가 쓴다(`Invoke-MenuVerify.ps1` · `Capture-Console.ps1`). 서명은 부르는 쪽이 그 회차의
+# 일회용 키로 한다. 배포 키로 서명하지 않는다 — 배포물에 섞이면 안 되는 물건이다.
+function New-DetectOnlyLabRule {
+    param(
+        [Parameter(Mandatory = $true)][string] $Source,
+        [Parameter(Mandatory = $true)][string] $Out,
+        [string] $Id = "remedy-lab-evilai-check",
+        [string] $NameKo = "EvilAI(Locust) 점검 (실험 · 탐지만)",
+        [string] $NameEn = "EvilAI (Locust) check (lab, detect only)"
+    )
+    Copy-Item $Source $Out -Recurse -Force
+    $yaml = [System.IO.File]::ReadAllLines((Join-Path $Out "plugin.yaml"))
+    $kept = New-Object System.Collections.Generic.List[string]
+    $skip = $false
+    $inName = $false
+    foreach ($l in $yaml) {
+        if ($l -match '^remediate:') { $skip = $true; continue }
+        if ($skip -and $l -match '^[a-z_]+:') { $skip = $false }
+        if ($skip) { continue }
+        if ($l -match '^id:') { $l = "id: $Id" }
+        if ($l -match '^name:') { $inName = $true }
+        elseif ($inName -and $l -match '^\s+ko:') { $l = "  ko: `"$NameKo`"" }
+        elseif ($inName -and $l -match '^\s+en:') { $l = "  en: `"$NameEn`"" }
+        elseif ($l -match '^[a-z_]+:') { $inName = $false }
+        $kept.Add($l)
+    }
+    [System.IO.File]::WriteAllLines((Join-Path $Out "plugin.yaml"), $kept,
+                                    (New-Object System.Text.UTF8Encoding($false)))
+}

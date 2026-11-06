@@ -155,6 +155,8 @@ $session = $null
 $pkgSource = $null
 # 목록 넷(기준 5(b))을 재는가 — 일회용 키로 목록을 둔 회차에서만 참이다.
 $lists = $false
+# 찾기만 하는 실험 룰 — 일회용 키로 서명한 회차에서만 있다(모두 검사만 · 탐지만 메뉴).
+$extraDir = $null
 try {
     New-Item -ItemType Directory -Force $gStage | Out-Null
     if ($Package) {
@@ -221,6 +223,16 @@ try {
             if ($LASTEXITCODE -ne 0) { throw "폐기 목록 서명 실패" }
             $lists = $true
             Write-Ok "목록 둘 (허용 · 폐기 — 같은 일회용 키)"
+
+            # 찾기만 하는 실험 룰 — EvilAI 룰에서 remediate 절을 빼고 id · 이름만 바꾼 것을 **같은
+            # 일회용 키**로 서명한다(목표 remedy_출시_20261111 기준 3 · 4). 같은 것을 보므로 감염된
+            # 기계에서 둘 다 찾는다. 꾸러미에는 넣지 않는다 — 게스트가 그 두 단계 동안만 둔다.
+            $extraDir = "$gStage\remedy-lab-evilai-check"
+            New-DetectOnlyLabRule -Source (Join-Path $repoRoot "plugins\evilai-locust") -Out $extraDir
+            & cargo run -q -p xtask -- sign plugin --dir $extraDir `
+                --secret-key "$gStage\sec.key" --signed-at "2026-11-06T00:00:00Z" | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw "실험 룰 서명 실패" }
+            Write-Ok "찾기만 하는 실험 룰 (EvilAI 룰 - remediate · 같은 일회용 키)"
         } finally { Pop-Location }
 
         $nowHash = (Get-FileHash $binPath -Algorithm SHA256).Hash
@@ -252,6 +264,14 @@ try {
     if (-not $wipe.Gone) { throw "앞 회차의 꾸러미를 치우지 못했다: $LabRoot\menu (남은 remedy $($wipe.Killed)개를 끊었다)" }
     if ($wipe.Killed -gt 0) { Write-Warn "앞 회차가 띄운 remedy.exe $($wipe.Killed)개를 끊었다" }
     Copy-Item $pkgSource -Destination "$LabRoot\menu" -ToSession $session -Recurse -Force
+    if ($extraDir) {
+        Invoke-Command -Session $session -ArgumentList $LabRoot -ScriptBlock {
+            param($lab)
+            Remove-Item "$lab\menu-extra" -Recurse -Force -ErrorAction SilentlyContinue
+            New-Item -ItemType Directory -Force "$lab\menu-extra" | Out-Null
+        }
+        Copy-Item $extraDir -Destination "$LabRoot\menu-extra" -ToSession $session -Recurse -Force
+    }
     $guestDir = Join-Path (Split-Path -Parent $PSScriptRoot) "guest"
     foreach ($s in @("Verify-Menu.ps1", "Verify-DoubleClick.ps1")) {
         Copy-GuestFile -Session $session -Source (Join-Path $guestDir $s) `
@@ -294,6 +314,9 @@ try {
                    "-OutFile", "$LabRoot\menu-result.json",
                    "-TranscriptFile", "$LabRoot\menu-screens.txt")
     if ($lists) { $guestArgs += "-Lists" }
+    # **값을 괄호로 묶는다** — PowerShell 은 쉼표를 `+` 보다 먼저 묶어, 묶지 않으면 경로가
+    # 두 인자로 갈라진다(2026-11-06 첫 회차: 떨어진 폴더 이름이 게스트의 `$Lead` 로 붙었다).
+    if ($extraDir) { $guestArgs += @("-Extra", (Join-Path "$LabRoot\menu-extra" (Split-Path -Leaf $extraDir))) }
     $rc = Invoke-GuestScript -Session $session -Root $LabRoot -ScriptName "Verify-Menu.ps1" `
             -Arguments $guestArgs -PassThruExitCode
     if ($rc -ne 0) { Write-Warn "게스트 스크립트 종료 $rc" }
@@ -311,12 +334,18 @@ try {
     Add-Check "1" "게스트 스크립트가 끝까지 돌았다" (-not $r.error) `
               "작업 $(@($r.steps).Count)개"
     Add-Check "1" "메뉴가 떴다" ([bool]$r.probe.shown) "줄 $($r.probe.item_count)개"
-    # 목표 remedy_제품화 기준 5(a) — 새로 받은 꾸러미의 첫 메뉴에 **명령 스무 개의 줄
-    # 스물한 개**(`restore` 가 둘)가 다 선다. 지금 고를 수 없는 줄은 까닭을 단다.
-    $allRows = [int]$r.probe.item_count + [int]$r.probe.off_count
-    Add-Check "1" "명령 전부가 메뉴에 보인다 (못 고르는 것은 까닭과 함께)" ($allRows -eq 21) `
-              "고를 수 있는 줄 $($r.probe.item_count) · 까닭과 함께 $($r.probe.off_count)"
-    Add-Check "1" "작성자·운영자 구분선이 있다" ([bool]$r.probe.separator) "구분선"
+    # 목표 remedy_출시_20261111 기준 4 — 첫 화면은 **일반 작업 열셋 + 접은 한 줄**이고, 그 줄이
+    # 연 화면에 작성자·운영자 명령 여덟이 선다. 명령 스무 개의 줄 스물한 개(`restore` 가 둘)에
+    # 전부 **닿는다**(remedy_제품화 기준 5(a) 의 '보인다' 를 '닿는다' 로). 못 고르는 줄은 까닭을 단다.
+    $firstRows = [int]$r.probe.item_count + [int]$r.probe.off_count
+    $innerRows = [int]$r.probe.author_items + [int]$r.probe.author_off
+    Add-Check "1" "첫 화면은 열셋 + 접은 한 줄이다" ($firstRows -eq 14 -and $r.probe.author_no -eq 14) `
+              "고를 수 있는 줄 $($r.probe.item_count) · 까닭과 함께 $($r.probe.off_count) · 접은 줄 $($r.probe.author_no)번"
+    Add-Check "1" "명령 전부에 닿는다 (접은 화면 여덟 · 못 고르는 것은 까닭과 함께)" `
+              (($firstRows - 1 + $innerRows) -eq 21 -and $innerRows -eq 8) `
+              "접은 화면 — 고를 수 있는 줄 $($r.probe.author_items) · 까닭과 함께 $($r.probe.author_off)"
+    Add-Check "1" "접은 화면의 0 은 메뉴로 돌아온다" ([bool]$r.probe.author_back -and $r.probe.author_exit -eq 0) `
+              "exit=$($r.probe.author_exit)"
     # 그만두기는 창을 붙잡지 않는다 — 끝내기를 고른 것이다(목표 remedy_제품화 기준 4 · 2026-11-05).
     # 사용법 화면(꾸러미 없음)은 여전히 붙잡는다 — 그것은 아래 4단계의 데모 폴더가 잰다.
     Add-Check "1" "그만두기는 창을 붙잡지 않는다 (끝내기를 고른 것이다)" (-not [bool]$r.probe.held_window) "시간 초과 $($r.probe.timed_out)"
@@ -395,6 +424,7 @@ try {
     Invoke-Command -Session $session -ArgumentList $LabRoot -ScriptBlock {
         param($lab)
         Remove-Item "$lab\menu" -Recurse -Force -ErrorAction SilentlyContinue
+        Remove-Item "$lab\menu-extra" -Recurse -Force -ErrorAction SilentlyContinue
         # 이어 하기가 만든 빈 대상 · 계획(대상은 격리됐고 폴더에는 계획 · 이벤트가 남는다).
         Remove-Item "$lab\resume" -Recurse -Force -ErrorAction SilentlyContinue
         Remove-Item "$lab\menu-result.json", "$lab\menu-screens.txt", "$lab\demo-dblclick.json" `

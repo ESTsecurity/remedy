@@ -22,6 +22,7 @@ mod screens;
 mod sign;
 mod snapshots;
 mod staticlink;
+mod threats;
 mod trace;
 mod yara;
 
@@ -98,7 +99,9 @@ fn main() -> ExitCode {
             .and_then(|()| screens::run(&root))
             .and_then(|()| snapshots::run(&root))
             .and_then(|()| examapply::run(&root))
-            .and_then(|()| pluginlock::run(&root, false)),
+            .and_then(|()| pluginlock::run(&root, false))
+            // README 의 *다루는 위협* 표가 룰 매니페스트와 같은가 — 손으로 쓴 표는 룰이 늘면 어긋난다.
+            .and_then(|()| threats::run(&root, &[])),
         // VM 검증용 격리 컨테이너. 격리물을 **만드는** 것은 P6 의 몫이라
         // 제품 CLI 에 넣지 않고 개발 도구 쪽에 둔다.
         Some("fixture") => {
@@ -139,6 +142,10 @@ fn main() -> ExitCode {
         Some("package") => {
             let args: Vec<String> = std::env::args().skip(2).collect();
             package::run(&root, &args)
+        }
+        Some("threats") => {
+            let args: Vec<String> = std::env::args().skip(2).collect();
+            threats::run(&root, &args)
         }
         Some("sign") => {
             let args: Vec<String> = std::env::args().skip(2).collect();

@@ -57,6 +57,16 @@ pub enum Outcome {
     WithFile(crate::menu::WithFile, Option<std::path::PathBuf>),
     /// 메뉴에서 고른 **수집만** (묶음 A 성격 — 입력이 없다)과 그때 고른 플러그인.
     Collect(std::path::PathBuf),
+    /// 룰을 고르는 화면의 첫 줄 — 찾은 룰 **전부로 검사만** 한다(목표 remedy_출시_20261111
+    /// 기준 3). 화면에 쓸 이름과 경로를 고르는 화면의 차례대로 든다.
+    ScanAll(Vec<(String, std::path::PathBuf)>),
+}
+
+/// 이 룰이 치료하는가 — `remediate` 가 없으면 **찾기만 한다.** 메뉴가 치료를 약속하는 줄을
+/// 끄고, 검사 뒤 *다음 할 일* 이 치료를 권하지 않는다. 읽지 못하면 치료하는 쪽으로 본다 —
+/// 그 룰은 어차피 돌지 못하고, 줄을 끄는 것은 읽어서 안 것만이다.
+pub(crate) fn treats(plugin: &std::path::Path) -> bool {
+    load_manifest(&plugin.to_string_lossy()).map_or(true, |m| m.remediate.is_some())
 }
 
 /// 메뉴의 답을 안내 모드의 답으로 옮긴다. **두 타입을 하나로 합치지 않는 이유**는
@@ -250,6 +260,8 @@ pub fn run(anchor: Option<&str>) -> Outcome {
             if !runs.is_empty() || !files.is_empty() {
                 return to_outcome(crate::menu::run(&crate::menu::Offer {
                     plugin: None,
+                    detect_only: false,
+                    name: None,
                     runs,
                     files,
                 }));
@@ -295,12 +307,24 @@ pub fn run(anchor: Option<&str>) -> Outcome {
         report_rejections(&rejected);
     }
 
-    let Some(chosen) = choose(&ok) else {
+    let Some(choice) = choose(&ok) else {
+        // 작업 뒤 메뉴로 돌아와 그만두면 "아무것도 하지 않았습니다" 가 거짓이다 — 메뉴의
+        // 그만두기와 같은 말을 쓴다(`menu::run`). 비터미널에서는 작업이 돌지 않았으므로 그대로다.
         outln!(
             "{}",
-            lang.t("아무것도 하지 않았습니다.", "Nothing was done.")
+            if crate::term::tasks_ran() {
+                lang.t("끝냅니다.", "Exiting.")
+            } else {
+                lang.t("아무것도 하지 않았습니다.", "Nothing was done.")
+            }
         );
         return Outcome::Stopped;
+    };
+    let chosen = match choice {
+        Choice::One(c) => c,
+        Choice::All(all) => {
+            return Outcome::ScanAll(all.into_iter().map(|c| (c.label, c.path)).collect())
+        }
     };
 
     // ── 무엇을 할지 먼저 고른다 — **터미널일 때만** ──────────────
@@ -318,6 +342,8 @@ pub fn run(anchor: Option<&str>) -> Outcome {
         let (out_dir, exe_dir) = folders(&exe);
         let pick = crate::menu::run(&crate::menu::Offer {
             plugin: Some(chosen.path.clone()),
+            detect_only: !treats(&chosen.path),
+            name: Some(chosen.label.clone()),
             runs: restorable_runs(),
             files: candidate_files(&out_dir, &exe_dir),
         });
@@ -344,6 +370,12 @@ pub fn run(anchor: Option<&str>) -> Outcome {
 struct Chosen {
     label: String,
     path: std::path::PathBuf,
+}
+
+/// 고르는 화면의 답 — 룰 하나, 또는 **전부로 검사만**.
+enum Choice {
+    One(Chosen),
+    All(Vec<Chosen>),
 }
 
 /// 거절된 것을 화면에 적는다. **왜 못 쓰는지가 사용자의 다음 행동을 정한다.**
@@ -373,7 +405,11 @@ fn report_rejections(rejected: &[(discover::Found, Unusable)]) {
 }
 
 /// 하나면 그것, 여럿이면 고르게 한다 (결정 2026-09-08).
-fn choose(ok: &[discover::Found]) -> Option<Chosen> {
+///
+/// 여럿일 때 **첫 줄은 전부로 검사만**이다(목표 remedy_출시_20261111 기준 3) — 어떤 위협인지
+/// 모르는 사람이 룰을 하나씩 골라 다시 띄우지 않게. 맨 위에 두어 룰이 늘어도 그 번호는
+/// 1 이다. 치료는 지금처럼 룰을 골라서 한다.
+fn choose(ok: &[discover::Found]) -> Option<Choice> {
     let lang = ui().lang;
     let label = |f: &discover::Found| -> String {
         // 사람이 읽는 이름은 매니페스트에 있다. 못 읽으면 폴더 이름으로 간다 —
@@ -396,11 +432,12 @@ fn choose(ok: &[discover::Found]) -> Option<Chosen> {
             })
     };
 
+    let chosen = |f: &discover::Found| Chosen {
+        label: label(f),
+        path: f.path.clone(),
+    };
     if ok.len() == 1 {
-        return Some(Chosen {
-            label: label(&ok[0]),
-            path: ok[0].path.clone(),
-        });
+        return Some(Choice::One(chosen(&ok[0])));
     }
 
     use crate::term::{Answer, Row};
@@ -412,7 +449,6 @@ fn choose(ok: &[discover::Found]) -> Option<Chosen> {
             format!("Found {} things to check:", ok.len()),
         )),
     ];
-    rows.extend(ok.iter().map(|f| Row::Item(label(f))));
     if !std::io::stdin().is_terminal() {
         // 여기 올 일은 없다(안내 모드는 터미널에서만 열린다). 그래도 물어볼 수
         // 없는 자리에서 임의로 고르지 않는다. 목록은 지금까지처럼 보인다.
@@ -428,12 +464,18 @@ fn choose(ok: &[discover::Found]) -> Option<Chosen> {
         }
         return None;
     }
-    let Answer::Num(n) = crate::term::choose(&rows, None) else {
+    rows.push(Row::Item(lang.pick(
+        format!("{}개 모두 검사만 하기 (아무것도 바꾸지 않습니다)", ok.len()),
+        format!("Scan with all {} (changes nothing)", ok.len()),
+    )));
+    rows.extend(ok.iter().map(|f| Row::Item(label(f))));
+    // 작업 뒤에도 이 화면으로 돌아오므로 끝내는 줄이 보여야 한다 — 전에는 번호가 아닌 것을
+    // 쳐야 끝났다.
+    let Answer::Num(n) = crate::term::choose(&rows, Some(lang.t("그만두기", "Quit"))) else {
         return None;
     };
-    let f = ok.get(n.checked_sub(1)?)?;
-    Some(Chosen {
-        label: label(f),
-        path: f.path.clone(),
-    })
+    if n == 1 {
+        return Some(Choice::All(ok.iter().map(chosen).collect()));
+    }
+    ok.get(n.checked_sub(2)?).map(|f| Choice::One(chosen(f)))
 }

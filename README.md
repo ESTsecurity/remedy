@@ -1,25 +1,131 @@
 # remedy — ESTsecurity 전용백신
 
-![remedy 의 첫 메뉴 — Windows Terminal](docs/images/menu-windows-terminal.png)
-
 [![CI](https://github.com/ESTsecurity/remedy/actions/workflows/ci.yml/badge.svg)](https://github.com/ESTsecurity/remedy/actions/workflows/ci.yml)
 [![최신 판](https://img.shields.io/github/v/release/ESTsecurity/remedy?label=%EC%B5%9C%EC%8B%A0%20%ED%8C%90)](https://github.com/ESTsecurity/remedy/releases/latest)
 ![플랫폼](https://img.shields.io/badge/%ED%94%8C%EB%9E%AB%ED%8F%BC-Windows%20%7C%20Linux%20x64-informational)
 ![라이선스](https://img.shields.io/badge/%EB%9D%BC%EC%9D%B4%EC%84%A0%EC%8A%A4-%EB%8F%85%EC%A0%90-lightgrey)
 
-**remedy** 는 **ESTsecurity 가 만들고 관리하는 명령줄 전용백신**입니다. 특정 악성코드가 남긴
-자동 실행 등록 · 시작 프로그램 · 파일 · 보안 제품 예외를 찾아 치료하고, 치료한 것은 격리해
-두어 **언제든 되돌릴 수 있게** 합니다. 위협마다 서명된 룰 묶음(플러그인 번들)을 받아, 같은
-실행 파일 하나로 Windows 와 Linux 에서 씁니다.
+**remedy** 는 **ESTsecurity 가 만들고 관리하는 전용백신**입니다. 아래 표의 악성코드가 남긴
+파일 · 자동 실행 등록 · 보안 제품 예외를 찾아 치료하고, 치료한 것은 격리해 두어 **언제든
+되돌릴 수 있습니다.** 설치 없이, 받은 폴더에서 바로 실행합니다.
+
+## 다루는 위협
+
+받기 전에 확인하십시오 — 아래 룰이 그 OS 의 꾸러미에 모두 들어 있습니다.
+
+<!-- threats:begin — `cargo xtask threats --write` 가 룰에서 만든다. 손으로 고치지 않는다 -->
+| 룰 | 하는 일 | OS | 폴더 · 판 | 참고 |
+|---|---|---|---|---|
+| EvilAI(Locust) 제거 | 찾아서 치료합니다 (되돌릴 수 있습니다) | Windows | `evilai-locust` 0.1.1 | [www.virustotal.com](https://www.virustotal.com/gui/search/engines%3Ameadowlocust) |
+| CWPdoor 점검 (탐지만) | 찾기만 합니다 | Linux | `cwpdoor-1-check` 0.1.0 | [blog.xlab.qianxin.com](https://blog.xlab.qianxin.com/cwpdoor-the-invisible-backdoor-living-inside-control-web-panel/) |
+| CWPdoor 제거 | 찾아서 치료합니다 (되돌릴 수 있습니다) | Linux | `cwpdoor-2-clean` 0.1.0 | [blog.xlab.qianxin.com](https://blog.xlab.qianxin.com/cwpdoor-the-invisible-backdoor-living-inside-control-web-panel/) |
+| Ebury 점검 (탐지만) | 찾기만 합니다 | Linux | `ebury-check` 0.1.0 | [www.welivesecurity.com](https://www.welivesecurity.com/en/eset-research/ebury-alive-unseen-400k-linux-servers-compromised-cryptotheft-financial-gain/) |
+<!-- threats:end -->
+
+## 처음 쓰시는 분 — 다섯 단계
+
+### 1. 받기
+
+[**최신 판**](https://github.com/ESTsecurity/remedy/releases/latest)에서 쓰는 곳에 맞는 파일
+**하나**를 받습니다. 파일 하나에 프로그램과 그 OS 용 룰이 모두 들어 있습니다.
+
+| 쓰는 곳 | 받을 파일 |
+|---|---|
+| Windows PC · 서버 (64비트) | `remedy-windows-x64.zip` |
+| 리눅스 서버 (64비트) | `remedy-linux-x64.tar.gz` |
+
+같은 화면 맨 아래의 *Source code* 두 개는 개발자용 소스입니다 — 받지 않으셔도 됩니다.
+
+리눅스 서버에서 바로 받으려면:
+
+```sh
+curl -LO https://github.com/ESTsecurity/remedy/releases/latest/download/remedy-linux-x64.tar.gz
+curl -LO https://github.com/ESTsecurity/remedy/releases/latest/download/SHA256SUMS
+```
+
+### 2. 받은 파일 확인 (권장)
+
+받은 파일이 배포한 그 파일인지 **실행하기 전에** 확인합니다. 같은 자리의 `SHA256SUMS` 를 받아
+같은 폴더에 두고 실행하십시오.
+
+**Windows** — PowerShell 을 열어 받은 폴더로 이동한 뒤(`cd $HOME\Downloads`) 아래 한 줄을
+넣습니다. `True` 가 나오면 같은 파일입니다.
+
+```powershell
+(Get-FileHash remedy-windows-x64.zip).Hash -eq (Select-String windows SHA256SUMS).Line.Split(' ')[0]
+```
+
+**리눅스** — `OK`(한국어 환경에서는 `성공`)가 나오면 같은 파일입니다.
+
+```sh
+grep linux SHA256SUMS | sha256sum -c
+```
+
+### 3. 풀고 실행하기
+
+**Windows**
+
+1. 받은 zip 을 **폴더째** 풉니다(탐색기에서 마우스 오른쪽 단추 → 압축 풀기). 파일을 따로
+   옮기면 동작하지 않습니다.
+2. 풀린 폴더의 `remedy.exe` 를 마우스 오른쪽 단추로 누르고 **관리자 권한으로 실행** 을
+   고릅니다. 파란 창(SmartScreen)이 뜨면 위 2단계로 확인한 뒤 [추가 정보] → [실행] 을
+   누릅니다 — 실행 파일에 코드서명이 아직 없어서 뜹니다.
+
+**리눅스**
+
+```sh
+tar -xzf remedy-linux-x64.tar.gz
+cd remedy-linux-x64
+sudo ./remedy
+```
+
+### 4. 무엇을 누르나
+
+- **Windows** — 메뉴가 바로 뜹니다. 바꾸기 전에 먼저 보려면 **2. 검사만 하기**, 바로 치료하려면
+  **1. 검사하고 치료하기** 를 고릅니다. 치료는 바꿀 것을 모두 보여 드린 뒤 `예` 를 받아야
+  시작합니다.
+- **리눅스** — 꾸러미에 검사 항목이 셋이라 먼저 무엇을 볼지 묻습니다. 어떤 위협인지 모르면
+  **1. 3개 모두 검사만 하기** 를 고릅니다 — 아무것도 바꾸지 않고 결과를 한 번에 보여 드립니다.
+  치료는 그 항목을 고른 뒤 **1. 검사하고 치료하기** 로 합니다.
+
+작업이 끝나면 처음 화면으로 돌아옵니다. 끝내려면 **0** 을 고릅니다.
+
+### 5. 결과 읽기
+
+| 결과 줄 | 뜻 · 할 일 |
+|---|---|
+| 위협이 발견되지 않았습니다. | 그 항목의 위협이 없습니다. |
+| 위협 발견, 치료 완료 (N건 수행 완료) | 치료했습니다. 되돌리려면 메뉴의 **치료를 되돌리기** 를 고릅니다. |
+| 위협 발견, 치료하지 않았습니다. | 검사만 했거나 치료를 승인하지 않았습니다. 치료하려면 그 항목의 **1. 검사하고 치료하기** 를 고릅니다. *(탐지만)* 항목은 아래 [위협별 안내](#위협별-안내)를 따르십시오. |
+| 관측이 불완전해 '위협 없음' 을 말할 수 없습니다. | 다 보지 못했습니다 — 바로 위 *주의* 줄에 까닭이 있습니다. Control Web Panel(CWP)을 쓰지 않는 서버에서는 CWPdoor 두 항목이 늘 이렇게 끝납니다(검사할 경로가 없습니다). |
+
+작업 뒤에는 결과에 맞는 **다음 할 일을 메뉴 번호로** 알려 드립니다.
+
+## 위협별 안내
+
+### CWPdoor — Control Web Panel 을 쓰는 리눅스 서버
+
+- **CWPdoor 제거** 는 백도어가 든 `cwpsrv` 를 **격리**하고, 그것을 띄우는 `cwpsrv.service` 를
+  **멈추고 지웁니다**. 패널은 그 뒤 공급사 판을 다시 깔아 되살립니다(`yum reinstall cwpsrv`).
+  백도어는 임의 명령을 돌릴 수 있었으므로 패널 자격 증명도 모두 바꾸십시오.
+- CWP 가 깔리지 않은 서버에서는 두 항목 모두 *관측이 불완전해 '위협 없음' 을 말할 수 없습니다*
+  로 끝납니다 — 검사할 경로(`/usr/local/cwpsrv/bin`)가 없어 *위협 없음* 을 말하지 않습니다.
+
+### Ebury — 리눅스 서버의 sshd (찾기만 합니다)
+
+Ebury 는 `libkeyutils.so.1` 자리에 가짜 라이브러리를 둡니다 — 그것을 옮기면 그 라이브러리를
+싣는 `sshd` · `sudo` 가 뜨지 못해 원격 접속이 끊기므로 remedy 가 손대지 않습니다. 발견되면
+꾸러미의 `plugins/ebury-check/RELEASE.md` 의 차례대로 **콘솔에서** 정상 판을 다시 깔고,
+재부팅하고, 이 서버를 거친 자격 증명과 SSH 키를 모두 바꾸십시오.
 
 ## 화면
 
-검사가 찾은 것과 할 일을 먼저 다 보여 드리고, 결과에 맞는 **다음 할 일을 메뉴 번호로**
-알려 드립니다.
+검사가 찾은 것과 할 일을 먼저 다 보여 드리고, 결과에 맞는 다음 할 일을 메뉴 번호로 알려
+드립니다.
 
 ![검사 결과와 다음 할 일 — Windows Terminal](docs/images/scan-result-windows-terminal.png)
 
-리눅스도 같은 메뉴 · 같은 번호입니다.
+![remedy 의 첫 메뉴 — Windows Terminal](docs/images/menu-windows-terminal.png)
 
 ![remedy 의 첫 메뉴 — 리눅스 xterm](docs/images/menu-linux-xterm.png)
 
@@ -27,108 +133,52 @@
 
 - **검사 · 치료 · 되돌리기** — 치료하기 전에 무엇을 바꿀지 전부 보여 드리고 승인을 받습니다.
   지운 것은 격리소에 보관해 두었다가 *치료를 되돌리기* 로 복원합니다.
-- **메뉴 하나로 전부** — 인자 없이 띄우면 명령 스물을 늘 같은 번호로 보여 주는 메뉴가 뜹니다.
-  방향키 · 숫자로 고르고, 지금 고를 수 없는 줄에는 까닭이 붙습니다. 작업이 끝나면 메뉴로
-  돌아오고, Ctrl+C 를 두 번 누르면 끝납니다.
-- **무인 배포** — 인자를 주면 묻지 않고 돌고, 결과를 **종료 코드 여덟 가지**로 알립니다
-  (아래 표). Windows 에서는 치료 뒤 재시작하면 자동으로 한 번 더 검사해 치료가 유지되는지
-  봅니다.
-- **서명된 룰** — 룰 묶음은 서명돼 있고, 실행 파일에 박힌 공개키로 확인합니다. 메뉴는 확인을
-  통과한 꾸러미만 쓰고, `plugin verify` 는 한 바이트라도 다르면 어느 파일인지 알려 드립니다.
-  (명령줄에서 `run --plugin` 으로 직접 준 룰은 서명을 보지 않으므로, 먼저 `plugin verify` 로
-  확인하십시오.)
+- **모두 검사만** — 꾸러미에 검사 항목이 여럿이면 한 번에 전부 검사하고 결과를 한 덩어리로
+  보여 드립니다. 아무것도 바꾸지 않습니다.
+- **메뉴 하나로 전부** — 첫 화면은 자주 쓰는 일 열셋이고, 작성자 · 운영자 명령은 마지막 한 줄
+  아래에 접혀 있습니다. 방향키 · 숫자로 고르고, 지금 고를 수 없는 줄에는 까닭이 붙습니다.
+  Ctrl+C 를 두 번 누르면 끝납니다.
+- **서명된 룰** — 룰은 서명돼 있고, 실행 파일에 박힌 공개키로 확인합니다. 메뉴는 확인을 통과한
+  룰만 씁니다.
 - **네트워크 없음** — 치료 경로에 네트워크 기능이 없습니다. Windows 배포 빌드는 네트워크
   라이브러리를 하나도 가져오지 않는지 빌드마다 검사합니다. 폐쇄망에서도 그대로 씁니다.
 - **신고 묶음** — 오탐이 의심되면 *신고에 붙일 것 모으기* 가 증거를 한 묶음으로 모읍니다.
-- **두 OS 같은 구조** — 같은 메뉴 · 같은 꾸러미 배치 · 같은 이름 규칙입니다.
+- **두 OS 같은 구조** — 같은 메뉴 · 같은 꾸러미 배치입니다.
 
 ## 지원 OS · 요구 사항
 
-| | 지원 | 받을 파일 |
-|---|---|---|
-| Windows 10 · 11 · Server 2016 이상 (x64) | 지원 | 위협 꾸러미 · 엔진 |
-| Linux x86_64 — RHEL 계열 · Debian · Ubuntu | 지원 | 위협 꾸러미 · 엔진(정적 링크) |
+| | 받을 파일 |
+|---|---|
+| Windows 10 · 11 · Server 2016 이상 (x64) | `remedy-windows-x64.zip` |
+| Linux x86_64 — RHEL 계열 · Debian · Ubuntu (정적 링크라 배포판 판에 매이지 않습니다) | `remedy-linux-x64.tar.gz` |
 
-- **관리자 권한이 있어야 합니다** — Windows 는 관리자, Linux 는 root. 메뉴 맨 위에서 지금
-  권한을 먼저 알려 드립니다.
+- **관리자 권한이 있어야 합니다** — Windows 는 관리자, 리눅스는 root(`sudo`). 메뉴 맨 위에서
+  지금 권한을 먼저 알려 드립니다.
 - 설치가 없습니다 — 받은 폴더를 풀어 그 자리에서 실행합니다.
 
 **하지 않는 것도 미리 알려 드립니다.**
 
 - 실시간 감시 · 상주 프로그램이 아닙니다. 필요할 때 띄워 쓰는 도구입니다.
-- 플러그인 번들이 있는 위협만 다룹니다. 지금 위협 꾸러미는 셋입니다 — **EvilAI(Locust)**
-  (Windows) · **CWPdoor**(Linux — Control Web Panel 을 쓰는 서버) · **Ebury**(Linux — 찾기만
-  합니다. 아래 *Linux — Ebury 꾸러미*).
+- 위 *다루는 위협* 표의 위협만 다룹니다.
 - 그래픽 화면(GUI)이 없습니다.
-- **Windows 실행 파일에는 아직 코드서명(Authenticode)이 없습니다.** 그래서 실행할 때마다
-  맨 위에 그 사실을 한 줄로 알려 드립니다(리눅스도 같은 뜻의 한 줄이 뜹니다). 받은 파일은
-  아래 체크섬으로 확인하십시오. 룰 묶음은 서명돼 있고 실행 파일이 그 서명을 확인합니다.
+- **Windows 실행 파일에는 아직 코드서명(Authenticode)이 없습니다.** 그래서 실행할 때마다 맨 위에
+  그 사실을 한 줄로 알려 드립니다(리눅스도 같은 뜻의 한 줄이 뜹니다). 받은 파일은 위 2단계의
+  체크섬으로 확인하십시오. 룰은 서명돼 있고 실행 파일이 그 서명을 확인합니다.
 - 32비트 Windows · ARM 리눅스 용 파일은 내지 않습니다.
 
-## 받기
+## 운영자 — 무인 배포 · 사내 룰
 
-[**GitHub Releases**](https://github.com/ESTsecurity/remedy/releases/latest) 에서 받습니다.
-파일마다 `<파일>.sha256` 이 함께 있습니다.
-
-| 파일 | 무엇 | 누가 |
-|---|---|---|
-| `remedy-evilai-locust-windows-x64.zip` | **위협 꾸러미** — `remedy.exe` · 서명된 `evilai-locust` 룰 · `README.txt` | EvilAI(Locust) 를 치료할 Windows PC |
-| `remedy-cwpdoor-linux-x64.tar.gz` | **위협 꾸러미** — `remedy` · 서명된 `cwpdoor-1-check`(점검) · `cwpdoor-2-clean`(치료) 룰 · `README.txt` | CWPdoor 를 점검 · 치료할 CWP 리눅스 서버 |
-| `remedy-ebury-linux-x64.tar.gz` | **위협 꾸러미** — `remedy` · 서명된 `ebury-check`(탐지만) 룰 · `README.txt` | Ebury 를 점검할 리눅스 서버 |
-| `remedy-windows-x64.zip` | 엔진만 — Windows x64 | 사내 룰과 함께 쓰는 운영자 |
-| `remedy-linux-x64.tar.gz` | 엔진만 — Linux x64 (정적 링크) | 사내 룰과 함께 쓰는 운영자 |
-
-이름은 하나의 규칙입니다 — 위협 꾸러미 `remedy-<위협>-<os>-<arch>` · 엔진 `remedy-<os>-<arch>`.
-위협 꾸러미는 그 위협이 감염시키는 OS 용으로만 냅니다.
-
-| 위협 | Windows x64 | Linux x64 |
-|---|---|---|
-| `evilai-locust` | ✓ | — (Windows 를 노리는 위협) |
-| `cwpdoor` | — (리눅스 서버의 Control Web Panel 을 노리는 위협) | ✓ |
-| `ebury` | — (리눅스 서버의 sshd 를 노리는 위협) | ✓ |
-
-## 받은 파일 확인
-
-받은 파일이 배포한 그 파일인지 **실행하기 전에** 확인하십시오.
-
-**Windows (PowerShell)** — `True` 가 나오면 같습니다.
-
-```powershell
-$f = "remedy-evilai-locust-windows-x64.zip"
-(Get-FileHash $f -Algorithm SHA256).Hash -eq (Get-Content "$f.sha256").Split(" ")[0].ToUpper()
-```
-
-**Linux** — `OK`(한국어 환경에서는 `성공`)가 나오면 같습니다.
-
-```sh
-sha256sum -c remedy-cwpdoor-linux-x64.tar.gz.sha256
-```
-
-압축을 푼 뒤에는 룰 묶음의 서명도 확인할 수 있습니다 — 서명이 맞고 파일이 하나도 바뀌지
-않았으면 통과하고, 한 글자라도 다르면 어느 파일인지 알려 드립니다.
-
-```powershell
-.\remedy.exe plugin verify --dir .\plugins\evilai-locust
-```
-
-```sh
-./remedy plugin verify --dir ./plugins/cwpdoor-2-clean
-```
-
-## 빠른 시작
-
-### Windows — 메뉴로
-
-1. 받은 zip 을 **폴더째** 풉니다. 파일을 따로 옮기면 동작하지 않습니다.
-2. `remedy.exe` 를 마우스 오른쪽 단추로 누르고 **관리자 권한으로 실행**을 고릅니다.
-   (받자마자 파란 SmartScreen 창이 뜨면 위의 체크섬을 확인한 뒤 [추가 정보] → [실행].)
-3. 메뉴에서 **1. 검사하고 치료하기** 를 고릅니다. 할 일을 먼저 보여 드리고 `예` 를 받은
-   뒤에 치료합니다.
-
-### Windows — 무인 배포
+인자를 주면 묻지 않고 돌고, 결과를 **종료 코드 여덟 가지**로 알립니다. Windows 에서는 치료 뒤
+재시작하면 자동으로 한 번 더 검사해 치료가 유지되는지 봅니다.
 
 ```powershell
 .\remedy.exe run --plugin .\plugins\evilai-locust\plugin.yaml --yes
+```
+
+```sh
+sudo ./remedy run --plugin ./plugins/cwpdoor-1-check/plugin.yaml          # 점검만 — 2 면 발견
+sudo ./remedy run --plugin ./plugins/cwpdoor-2-clean/plugin.yaml --yes    # 치료
+sudo ./remedy run --plugin ./plugins/ebury-check/plugin.yaml              # 2 면 발견 · 0 이면 없음
 ```
 
 | 종료 코드 | 뜻 |
@@ -142,47 +192,15 @@ sha256sum -c remedy-cwpdoor-linux-x64.tar.gz.sha256
 | 6 | 관측 불완전 — '위협 없음' 을 말할 수 없음 |
 | 7 | 내부 오류 |
 
-### Linux — CWPdoor 꾸러미
+- **룰의 서명 확인** — 서명이 맞고 파일이 하나도 바뀌지 않았으면 통과하고, 한 글자라도 다르면
+  어느 파일인지 알려 드립니다. 명령줄에서 `run --plugin` 으로 직접 준 룰은 서명을 보지 않으므로
+  먼저 이것으로 확인하십시오.
 
-```sh
-tar -xzf remedy-cwpdoor-linux-x64.tar.gz
-cd remedy-cwpdoor-linux-x64
-sudo ./remedy
-```
+  ```sh
+  ./remedy plugin verify --dir ./plugins/cwpdoor-2-clean
+  ```
 
-메뉴가 먼저 룰 둘 중 하나를 고르게 합니다 — **1. CWPdoor 점검 (탐지만)** · **2. CWPdoor 제거**.
-무인으로는:
-
-```sh
-sudo ./remedy run --plugin ./plugins/cwpdoor-1-check/plugin.yaml          # 점검만 — 2 면 발견
-sudo ./remedy run --plugin ./plugins/cwpdoor-2-clean/plugin.yaml --yes    # 치료
-```
-
-- 치료는 백도어가 든 `cwpsrv` 를 **격리**하고, 그것을 띄우는 `cwpsrv.service` 를 **멈추고
-  지웁니다**. 패널은 그 뒤 공급사 판을 다시 깔아 되살립니다(`yum reinstall cwpsrv`). 백도어는
-  임의 명령을 돌릴 수 있었으므로 패널 자격 증명도 모두 바꾸십시오.
-- CWP 가 깔리지 않은 서버에서는 **종료 6** 입니다 — 볼 자리(`/usr/local/cwpsrv/bin`)가 없어
-  *위협 없음* 을 말하지 않습니다.
-
-### Linux — Ebury 꾸러미
-
-```sh
-tar -xzf remedy-ebury-linux-x64.tar.gz
-cd remedy-ebury-linux-x64
-sudo ./remedy run --plugin ./plugins/ebury-check/plugin.yaml          # 2 면 발견 · 0 이면 없음
-```
-
-**찾기만 합니다.** Ebury 는 `libkeyutils.so.1` 자리에 가짜 라이브러리를 둡니다 — 그것을 옮기면
-그 라이브러리를 싣는 `sshd` · `sudo` 가 뜨지 못해 원격 접속이 끊기므로 remedy 가 손대지 않습니다.
-발견되면 꾸러미의 `plugins/ebury-check/RELEASE.md` 의 차례대로 **콘솔에서** 정상 판을 다시 깔고,
-재부팅하고, 이 서버를 거친 자격 증명과 SSH 키를 모두 바꾸십시오.
-
-### Linux — 엔진
-
-```sh
-tar -xzf remedy-linux-x64.tar.gz
-sudo ./remedy run --plugin <사내 룰>/plugin.yaml
-```
+- **사내 룰** — 같은 실행 파일로 `run --plugin <사내 룰>/plugin.yaml` 을 돌립니다.
 
 되돌리기 · 재검사 · 신고까지 현장에서 돌리는 방법은 [운영자 가이드](docs/operator.md)에 있습니다.
 

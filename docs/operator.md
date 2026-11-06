@@ -214,7 +214,7 @@ sc.exe stop 65초 · 경과 S초` 가 나온다. **도구는 죽이지 않는다
 |---|---|---|
 | 받자마자 · *"Windows의 PC 보호"* 파란 창 | **SmartScreen 이다. remedy 가 낸 것이 아니다.** 인터넷에서 받은 실행 파일 중 평판이 쌓이지 않은 것에 뜬다 — 서명해도 배포 초기에는 남는다 | 창의 **추가 정보** → **실행**. 그 전에 받은 파일이 배포처의 것인지 확인한다(§5 의 서명 항목) |
 | `exit 5` · *"이 바이너리의 서명을 신뢰할 수 없다"* | 서명해 둔 뒤 **내용이 바뀌었다** — 부분 다운로드·디스크 손상·변조 중 하나다 | 배포처에서 원본을 다시 받는다. 조직 내부 CA 로 서명해 신뢰 저장소에 앵커해도 된다 |
-| 알림 · *"코드서명이 없어 공식 배포본인지 스스로 확인하지 못합니다"* | **막지 않는다.** 서명은 공식 배포의 절차이지 기능의 조건이 아니다(2026-09-02). 서명이 없으면 실행 파일이 받은 그 파일인지 스스로 확인할 수 없어 그 사실이 매 실행에 표시된다 — 공식 Release 의 파일도 코드서명이 서기 전까지는 이 줄을 띄운다 | 받은 파일을 Release 의 `<파일>.sha256` 으로 확인한다(README "받은 파일 확인"). 서명된 판이 나오면 그것을 받는다 |
+| 알림 · *"코드서명이 없어 공식 배포본인지 스스로 확인하지 못합니다"* | **막지 않는다.** 서명은 공식 배포의 절차이지 기능의 조건이 아니다(2026-09-02). 서명이 없으면 실행 파일이 받은 그 파일인지 스스로 확인할 수 없어 그 사실이 매 실행에 표시된다 — 공식 Release 의 파일도 코드서명이 서기 전까지는 이 줄을 띄운다 | 받은 파일을 Release 의 `SHA256SUMS` 로 확인한다(README 2단계 "받은 파일 확인"). 서명된 판이 나오면 그것을 받는다 |
 | `exit 5` · *"보호 경로"* · *"상한 초과"* | 계획이 건드리면 안 되는 것을 지목했다 | **룰 문제다.** `plan.json` 과 함께 룰 작성자에게 |
 | `exit 5` · *"관리자 권한이 필요합니다"* | 권한 없이 불렀다 | 관리자로 창을 다시 열고 같은 명령을. 무인 배포면 §6 |
 | `exit 7` · *"내부 오류"* | 도구가 **깨졌다** — 가드가 막은 것이 아니다 | `logs\crash-*.txt` 와 `logs\<run_id>.log` 를 신고에 붙인다. `support-bundle` 이 둘 다 담는다 |
@@ -382,13 +382,18 @@ cargo build --release --target x86_64-pc-windows-msvc -p remedy-cli
 # 3) 꾸러미를 붓는다
 cargo xtask package --plugin plugins\evilai-locust `
     --bin target\x86_64-pc-windows-msvc\release\remedy.exe `
-    --out dist\remedy-evilai-locust-windows-x64 --public-key <공개키 파일>
+    --out dist\remedy-windows-x64 --public-key <공개키 파일>
 
-# 역할이 둘이면 --plugin 을 여러 번. 둘 다 1) 에서 서명해 두어야 한다
+# 룰이 여럿이면 --plugin 을 여러 번. 모두 1) 에서 서명해 두어야 한다
 cargo xtask package --plugin <점검 플러그인> --plugin <치료 플러그인> `
     --bin target\x86_64-pc-windows-msvc\release\remedy.exe `
-    --out dist\remedy-<사고 이름>-windows-x64 --public-key <공개키 파일>
+    --out dist\remedy-windows-x64 --public-key <공개키 파일>
 ```
+
+공식 배포는 OS 마다 꾸러미 하나에 그 OS 의 룰을 **모두** 담는다(`remedy-windows-x64.zip` ·
+`remedy-linux-x64.tar.gz` + `SHA256SUMS`) — 그 OS 의 룰은 `cargo xtask threats --dirs <os>` 가
+매니페스트의 `platforms` 로 고르고, 배포 잡이 그 목록으로 서명 · 꾸러미 · 검증을 돈다
+(`.github/workflows/release.yml`).
 
 `package` 는 **서명이 맞지 않으면 만들지 않는다.** 여기서 통과시키면 그다음
 방어선은 고객의 화면이고, 거기서 실패하면 배포 사고와 변조를 구별할 수 없다.
@@ -404,7 +409,7 @@ cargo xtask package --plugin <점검 플러그인> --plugin <치료 플러그인
 장치다), `remedy.exe` 를 같은 폴더에 두면 꾸러미가 자기 검증에 실패한다.
 
 ```
-remedy-evilai-locust-windows-x64\
+remedy-windows-x64\
   remedy.exe
   README.txt
   plugins\evilai-locust\
@@ -417,7 +422,8 @@ remedy-evilai-locust-windows-x64\
 **여럿을 담으면 `plugins\` 아래가 여럿이 된다.** 폴더 이름은 `--plugin` 으로 준
 원본 디렉터리의 이름을 그대로 쓴다 — `README.txt` 의 `run` 줄과 `plugin verify`
 줄도 그 이름으로 하나씩 적힌다. 받는 사람이 실행 파일을 우클릭으로 띄우면 안내
-모드가 *"여럿이면 고르게 한다"* 로 번호를 묻는다.
+모드가 *"여럿이면 고르게 한다"* 로 번호를 묻는다 — 그 질문의 1번은 *N개 모두 검사만
+하기* 다(아무것도 바꾸지 않고 결과를 한 덩어리로 보인다).
 
 ---
 
