@@ -877,6 +877,13 @@ fn norm_tokens(line: &str) -> String {
             i += n;
             continue;
         }
+        // 메뉴가 짓는 결과 폴더의 스탬프 — 같은 초에 둘째면 꼬리 `-2` 가 붙는다(`fresh_dir`).
+        // 꼬리도 지운다 — 앞 작업과 같은 초였는지는 캡처마다 다르다.
+        if let Some(n) = stamp_len(rest) {
+            out.push_str("<T>");
+            i += n;
+            continue;
+        }
         if let Some(r) = rest.strip_prefix("pid ") {
             let n = count_while(r, |b| b.is_ascii_digit());
             if n > 0 {
@@ -930,6 +937,26 @@ fn run_id_len(s: &str) -> Option<usize> {
 }
 
 /// `YYYY-MM-DD[T ]HH[:-]MM[:-]SS[Z]` 의 길이. 크래시 파일 이름의 `15-46-37Z` 도 든다.
+/// `YYYYMMDDTHHMMSSZ` 와 꼬리 `-N` — 메뉴의 결과 폴더 이름(`remedy-cli` 의 `menu_out`).
+fn stamp_len(s: &str) -> Option<usize> {
+    let b = s.as_bytes();
+    if b.len() < 16 {
+        return None;
+    }
+    let digits = |r: std::ops::Range<usize>| r.into_iter().all(|i| b[i].is_ascii_digit());
+    if !(digits(0..8) && b[8] == b'T' && digits(9..15) && b[15] == b'Z') {
+        return None;
+    }
+    let mut n = 16;
+    if b.get(n) == Some(&b'-') {
+        let k = count_while(&s[n + 1..], |c| c.is_ascii_digit());
+        if k > 0 {
+            n += 1 + k;
+        }
+    }
+    Some(n)
+}
+
 fn ts_len(s: &str) -> Option<usize> {
     let b = s.as_bytes();
     if b.len() < 19 {
@@ -1107,6 +1134,22 @@ mod tests {
             one("verify --run run-does-not-exist"),
             "verify --run run-does-not-exist"
         );
+    }
+
+    /// 메뉴의 결과 폴더 스탬프 — 같은 초의 둘째 꼬리(`-2`)까지 지운다. 앞 작업과 같은 초였는지는
+    /// 캡처마다 다르다(모두 검사만은 룰마다 폴더를 따로 짓는다).
+    #[test]
+    fn menu_out_stamps_become_placeholders() {
+        assert_eq!(
+            one("결과 폴더 : /tmp/c/pkg/out/20261106T123637Z-2  (artifacts.json · scan.json)"),
+            "결과 폴더 : /tmp/c/pkg/out/<T>  (artifacts.json · scan.json)"
+        );
+        assert_eq!(
+            one("결과 폴더 : C:\\lab\\out\\20261106T123637Z  (artifacts.json)"),
+            "결과 폴더 : C:\\lab\\out\\<T>  (artifacts.json)"
+        );
+        // 꼴이 덜 찬 것은 그대로다.
+        assert_eq!(one("20261106T1236Z"), "20261106T1236Z");
     }
 
     #[test]

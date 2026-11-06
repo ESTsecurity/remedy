@@ -2743,8 +2743,8 @@ grep -o '\[exit=[0-9]\]' <새 캡처> | sort -u   # Windows 는 0·1·2·4·5, L
 
 | # | 무엇 | 어떻게 | 통과 기준 |
 |---|---|---|---|
-| 1 | Windows 캡처 **둘** | `host\Capture-Console.ps1 -Build` · `… -Lang en -Out <…-en-win.txt>` | 각각 끝에서 `자기 점검: 절 33 · 종료 코드 0·1·2·4·5 — 기대한 그대로` |
-| 2 | Linux 캡처 **둘** | 아래 docker 한 줄 · 거기에 `-e CAPTURE_LANG=en` | 각각 끝에서 `자기 점검: 절 48 · 종료 코드 0·1·2·3·4·5·6·7 — 기대한 그대로` |
+| 1 | Windows 캡처 **둘** | `host\Capture-Console.ps1 -Build` · `… -Lang en -Out <…-en-win.txt>` | 각각 끝에서 `자기 점검: 절 34 · 종료 코드 0·1·2·4·5 — 기대한 그대로` |
+| 2 | Linux 캡처 **둘** | 아래 docker 한 줄 · 거기에 `-e CAPTURE_LANG=en` | 각각 끝에서 `자기 점검: 절 49 · 종료 코드 0·1·2·3·4·5·6·7 — 기대한 그대로` |
 | 3 | 견주기 | `cargo xtask console-diff <넷을 한 번에>` | **의도한 줄만** 달라진다 |
 | 4 | 기준선 올리기 | 3을 확인한 **뒤에**. `.txt` 와 `.norm.txt` 를 **둘 다** | `console-doc` 이 **정규화본 4개도 원본과 같다** 고 말한다 — 네 벌 전부를 잰다 |
 | 5 | 문서 대조 | `cargo xtask console-doc` (`all` 에도 있다) | `OK` · **기준선 밖 8** (아래) |

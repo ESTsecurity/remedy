@@ -6,7 +6,7 @@
 
 ########## A1. 사용법 — 기본 언어   [N초]
 
-ESTsecurity 전용백신 1.0.2
+ESTsecurity 전용백신 1.1.0
 ────────────────────────────────────────────────────────
 
 사용법
@@ -32,7 +32,7 @@ Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
 
 ########## A2. 사용법 — 한국어   [N초]
 
-ESTsecurity 전용백신 1.0.2
+ESTsecurity 전용백신 1.1.0
 ────────────────────────────────────────────────────────
 
 사용법
@@ -58,7 +58,7 @@ Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
 
 ########## A3. 버전   [N초]
 
-ESTsecurity Dedicated Cleaner 1.0.2 (remedy)
+ESTsecurity Dedicated Cleaner 1.1.0 (remedy)
 Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
 [exit=0]
 
@@ -73,7 +73,7 @@ Notice: unsigned, so this binary cannot verify that it is the official release. 
 [exit=5]
 
 [꾸러미가 아예 없는 자리 — 지금까지의 동작 그대로여야 한다]
-ESTsecurity Dedicated Cleaner 1.0.2
+ESTsecurity Dedicated Cleaner 1.1.0
 ────────────────────────────────────────────────────────
 
 Usage
@@ -157,7 +157,7 @@ Notice: unsigned, so this binary cannot verify that it is the official release. 
 
 Checking for EvilAI (Locust) Removal.
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.0.2
+ ESTsecurity Dedicated Cleaner 1.1.0
  EvilAI (Locust) Removal  (evilai-locust 0.1.1)
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
@@ -183,7 +183,8 @@ Nothing to do.
 
 === 0. 인자 없이 띄웠다 — 메뉴 (그만두기로 끝냈다) ===
 
-ESTsecurity Dedicated Cleaner 1.0.2
+ESTsecurity Dedicated Cleaner 1.1.0
+Rule: EvilAI (Locust) Removal
 Running with administrator rights.
 
 What would you like to do?
@@ -201,22 +202,78 @@ What would you like to do?
   11. Version
   12. How to use
   13. Every command and option
-
-  - for authors and operators -
-  14. Collect only (evaluate in-house)
-  15. Apply an approved plan — no approved plan (plan*.json) in out
-  16. Evaluate a collected snapshot — no collected snapshot (artifacts*.json) in out
-  17. Plan from an evaluation — no evaluation (scan*.json) in out
-  18. Verify an org allowlist — no signed list (*.signed) next to the program
-  19. Import an org allowlist — no signed list (*.signed) next to the program
-  20. Verify a revocation list — no signed list (*.signed) next to the program
-  21. Import a revocation list — no signed list (*.signed) next to the program
+  14. Commands for authors and operators
   0. Quit (for commands, run remedy --help)
 
 Nothing was done.
 Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
 
-Choose a number (0-21):
+Choose a number (0-14):
+
+########## A11. 모두 검사만 — 항목이 둘인 꾸러미 (진짜 콘솔)   [N초]
+
+=== 모두 검사 — 고르는 화면 1 번 (2개 모두 검사만 하기) ===
+
+Found 2 things to check:
+  1. Scan with all 2 (changes nothing)
+  2. EvilAI (Locust) Removal
+  3. EvilAI (Locust) check (lab, detect only)
+  0. Quit
+
+────────────────────────────────────────────────────────
+[1/2] EvilAI (Locust) Removal
+────────────────────────────────────────────────────────
+ ESTsecurity Dedicated Cleaner 1.1.0
+ EvilAI (Locust) Removal  (evilai-locust 0.1.1)
+────────────────────────────────────────────────────────
+ Started    : <T> UTC
+ Machine    : <host> (windows)
+
+Starting scan.
+Output    : C:\remedy-lab\pkg-signed\out\<T>  (artifacts.json · scan.json · plan.json)
+Scan done : 0 trace(s) · 0 threat(s)
+
+  ** 1 item(s) this program chose not to do under its safety rules:
+     - Delete folder (remediate.remove[4]) — the capture did not resolve, so no target is fixed
+
+  * After you restart this PC, one more check runs automatically.
+
+No threat was found.
+
+────────────────────────────────────────────────────────
+[2/2] EvilAI (Locust) check (lab, detect only)
+────────────────────────────────────────────────────────
+ ESTsecurity Dedicated Cleaner 1.1.0
+ EvilAI (Locust) check (lab, detect only)  (remedy-lab-evilai-check 0.1.1)
+────────────────────────────────────────────────────────
+ Started    : <T> UTC
+ Machine    : <host> (windows)
+
+Starting scan.
+Output    : C:\remedy-lab\pkg-signed\out\<T>  (artifacts.json · scan.json · plan.json)
+Scan done : 0 trace(s) · 0 threat(s)
+
+No threat was found.
+
+────────────────────────────────────────────────────────
+Results for all 2 rules — nothing was changed
+  EvilAI (Locust) Removal — No threat was found.
+  EvilAI (Locust) check (lab, detect only) — No threat was found.
+
+────────────────────────────────────────────────────────
+
+Found 2 things to check:
+  1. Scan with all 2 (changes nothing)
+  2. EvilAI (Locust) Removal
+  3. EvilAI (Locust) check (lab, detect only)
+  0. Quit
+Exiting.
+Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
+
+Choose a number (0-3): Press Enter to go back to the menu. 
+Choose a number (0-3):
+
+=== 탐지만 메뉴 — 고르는 화면 0 번 (EvilAI(Locust) 점검 (실험 · 탐지만)) ===
 
 ########## A4. 사용법이 어느 스트림으로 나가는가   [N초]
 
@@ -230,7 +287,7 @@ Choose a number (0-21):
 
 ########## A9. --help-all 본문 — 낱말까지 대조한다   [N초]
 
-ESTsecurity Dedicated Cleaner 1.0.2 (remedy)
+ESTsecurity Dedicated Cleaner 1.1.0 (remedy)
 
   시스템을 변경하는 명령(collect·scan·run·apply·resume·restore·verify)은
   관리자 권한을 요구한다. 없으면 시작하지 않고 종료 코드 5 를 낸다.
@@ -316,7 +373,7 @@ Notice: unsigned, so this binary cannot verify that it is the official release. 
 
 Checking for EvilAI (Locust) Removal.
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.0.2
+ ESTsecurity Dedicated Cleaner 1.1.0
  EvilAI (Locust) Removal  (evilai-locust 0.1.1)
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
@@ -353,7 +410,7 @@ Side effects of this treatment:
 ########## C1. scan — 한국어   [N초]
 
 ────────────────────────────────────────────────────────
- ESTsecurity 전용백신 1.0.2
+ ESTsecurity 전용백신 1.1.0
  EvilAI(Locust) 제거  (evilai-locust 0.1.1)
 ────────────────────────────────────────────────────────
  시작 시각  : <T> UTC
@@ -390,7 +447,7 @@ Side effects of this treatment:
 ########## C2. scan — 영어   [N초]
 
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.0.2
+ ESTsecurity Dedicated Cleaner 1.1.0
  EvilAI (Locust) Removal  (evilai-locust 0.1.1)
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
@@ -428,7 +485,7 @@ Notice: unsigned, so this binary cannot verify that it is the official release. 
 
 --ascii — 장식이 ASCII 로 (C1 과 견준다)
 --------------------------------------------------------
- ESTsecurity 전용백신 1.0.2
+ ESTsecurity 전용백신 1.1.0
  EvilAI(Locust) 제거  (evilai-locust 0.1.1)
 --------------------------------------------------------
  시작 시각  : <T> UTC
@@ -463,7 +520,7 @@ Notice: unsigned, so this binary cannot verify that it is the official release. 
 [exit=2]
 --verbose — 검사 결과에 evidence·groups·verdicts 가 붙는다
 ────────────────────────────────────────────────────────
- ESTsecurity 전용백신 1.0.2
+ ESTsecurity 전용백신 1.1.0
  EvilAI(Locust) 제거  (evilai-locust 0.1.1)
 ────────────────────────────────────────────────────────
  시작 시각  : <T> UTC
@@ -499,14 +556,14 @@ Notice: unsigned, so this binary cannot verify that it is the official release. 
 알림: 코드서명이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 [exit=2]
 --lang — 플래그가 REMEDY_LANG 을 이긴다 (REMEDY_LANG=ko 인데 영어여야 한다)
-ESTsecurity Dedicated Cleaner 1.0.2 (remedy)
+ESTsecurity Dedicated Cleaner 1.1.0 (remedy)
 Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
 [exit=0]
 
 ########## D1. run — 승인할 사람이 없다   [N초]
 
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.0.2
+ ESTsecurity Dedicated Cleaner 1.1.0
  EvilAI (Locust) Removal  (evilai-locust 0.1.1)
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
@@ -544,7 +601,7 @@ Notice: unsigned, so this binary cannot verify that it is the official release. 
 ########## D2. run --dry-run   [N초]
 
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.0.2
+ ESTsecurity Dedicated Cleaner 1.1.0
  EvilAI (Locust) Removal  (evilai-locust 0.1.1)
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
@@ -581,7 +638,7 @@ Notice: unsigned, so this binary cannot verify that it is the official release. 
 ########## D3. run --yes — 치료   [N초]
 
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.0.2
+ ESTsecurity Dedicated Cleaner 1.1.0
  EvilAI (Locust) Removal  (evilai-locust 0.1.1)
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
@@ -642,7 +699,7 @@ Notice: unsigned, so this binary cannot verify that it is the official release. 
 ########## F. verify   [N초]
 
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.0.2
+ ESTsecurity Dedicated Cleaner 1.1.0
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
  Machine    : <host> (windows)
@@ -658,7 +715,7 @@ Notice: unsigned, so this binary cannot verify that it is the official release. 
 ########## G0. restore --list — 창을 닫아도 회차를 찾는다   [N초]
 
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.0.2
+ ESTsecurity Dedicated Cleaner 1.1.0
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
  Machine    : <host> (windows)
@@ -675,7 +732,7 @@ Notice: unsigned, so this binary cannot verify that it is the official release. 
 ########## G1. restore — 계획만   [N초]
 
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.0.2
+ ESTsecurity Dedicated Cleaner 1.1.0
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
  Machine    : <host> (windows)
@@ -705,7 +762,7 @@ Notice: unsigned, so this binary cannot verify that it is the official release. 
 ########## G2. restore --yes   [N초]
 
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.0.2
+ ESTsecurity Dedicated Cleaner 1.1.0
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
  Machine    : <host> (windows)
@@ -745,7 +802,7 @@ Notice: unsigned, so this binary cannot verify that it is the official release. 
 ########## D5. 치료 심장박동 — 도구가 도는 중   [N초]
 
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.0.2
+ ESTsecurity Dedicated Cleaner 1.1.0
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
  Machine    : <host> (windows)
@@ -826,7 +883,7 @@ Notice: unsigned, so this binary cannot verify that it is the official release. 
 ########## I1. 오류 — 인자 빠짐   [N초]
 
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.0.2
+ ESTsecurity Dedicated Cleaner 1.1.0
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
  Machine    : <host> (windows)
@@ -875,9 +932,9 @@ run-X.log  N bytes
 run-X.log  N bytes
 run-X.log  N bytes
 --- run-X.log 의 머리부터 치료 시작까지 ---
-<T> # remedy 1.0.2 pid N · run --plugin C:\remedy-lab\plugins\evilai-locust\plugin.yaml --out-dir C:\remedy-lab\out-console-run --yes --state-dir C:\remedy-lab\state-console
+<T> # remedy 1.1.0 pid N · run --plugin C:\remedy-lab\plugins\evilai-locust\plugin.yaml --out-dir C:\remedy-lab\out-console-run --yes --state-dir C:\remedy-lab\state-console
 <T> | ────────────────────────────────────────────────────────
-<T> |  ESTsecurity Dedicated Cleaner 1.0.2
+<T> |  ESTsecurity Dedicated Cleaner 1.1.0
 <T> |  EvilAI (Locust) Removal  (evilai-locust 0.1.1)
 <T> | ────────────────────────────────────────────────────────
 <T> |  Started    : <T> UTC
@@ -918,7 +975,7 @@ run-X.log  N bytes
 org 키쌍 생성 OK — 공개키 N 바이트
 검체 2개 · 룰 생성 완료
 ────────────────────────────────────────────────────────
- ESTsecurity 전용백신 1.0.2
+ ESTsecurity 전용백신 1.1.0
  조직 복구 키 시험  (force-orgwrap 1.0.0)
 ────────────────────────────────────────────────────────
  시작 시각  : <T> UTC
@@ -950,7 +1007,7 @@ org 키쌍 생성 OK — 공개키 N 바이트
 [exit=1]
 --- 조직 키로 연다 (제자리가 아니라 꺼내기) ---
 ────────────────────────────────────────────────────────
- ESTsecurity 전용백신 1.0.2
+ ESTsecurity 전용백신 1.1.0
 ────────────────────────────────────────────────────────
  시작 시각  : <T> UTC
  실행 기계  : <host> (windows)

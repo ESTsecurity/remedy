@@ -756,6 +756,47 @@ ec
 echo "--- 꺼낸 것 ---"
 ls "$W/orgout" 2>&1
 
+# ── 모두 검사만 — 항목이 셋인 꾸러미 (목표 remedy_출시_20261111 기준 3) ──────────
+#
+# 배포 잡과 같은 룰 목록(`xtask threats --dirs linux`)을 일회용 키로 서명해 한 꾸러미에 담고,
+# 고르는 화면의 1번을 진짜 터미널(pty)에서 고른다 — 빈 줄은 작업 뒤의 멈춤, `0` 은 고르는
+# 화면에서 그만두기다. 깨끗한 컨테이너라 CWP 가 없다: CWPdoor 둘은 6(검사할 경로가 없다 —
+# 설계대로), Ebury 는 0 이고 모두 검사만의 끝 코드는 6 이다.
+#
+# **앵커를 박은 빌드라 맨 끝에 둔다** — 앞 절들이 쓰는 릴리스 바이너리가 이 빌드로 바뀐다.
+# 다음 회차의 `build 릴리스` 는 앵커 없는 판으로 다시 짓는다(환경 변수가 바뀌면 cargo 가
+# 다시 짓는다). 개인키는 이 컨테이너와 함께 버린다. 화면은 파일로 받는다 — 줄 입력 화면이라
+# 캡처마다 같다(Windows 의 A10 · A11 과 같은 화면).
+sep "A11. 모두 검사만 — 항목이 셋인 꾸러미 (pty)"
+AW="$W/scan-all"
+rm -rf "$AW"
+mkdir -p "$AW/rules"
+if command -v script >/dev/null 2>&1 && (
+    cd /repo || exit 1
+    export REMEDY_SIGN_PASSWORD=console-capture-ephemeral
+    cargo run -q --offline -p xtask -- sign keygen --public-key "$AW/pub.key" \
+        --secret-key "$AW/sec.key" >/dev/null || exit 1
+    args=()
+    for d in $(cargo run -q --offline -p xtask -- threats --dirs linux); do
+        n=$(basename "$d")
+        cp -a "$d" "$AW/rules/$n"
+        cargo run -q --offline -p xtask -- sign plugin --dir "$AW/rules/$n" \
+            --secret-key "$AW/sec.key" --signed-at 2026-11-06T00:00:00Z >/dev/null || exit 1
+        args+=(--plugin "$AW/rules/$n")
+    done
+    REMEDY_TRUST_ANCHOR="$(sed -n 2p "$AW/pub.key")" \
+        cargo build -q --release --offline -p remedy-cli >"$BUILD_LOG" 2>&1 || exit 1
+    cargo run -q --offline -p xtask -- package "${args[@]}" --bin "$REL" --out "$AW/pkg" \
+        --public-key "$AW/pub.key" >/dev/null || exit 1
+); then
+    (cd "$AW/pkg" && { printf '1\n\n0\n'; sleep 20; } | timeout 120 script -qec \
+        "LANG=C.UTF-8 REMEDY_LANG=$L ./remedy >$AW/out.txt 2>&1" /dev/null >/dev/null 2>&1)
+    ec
+    tr -d "\r" < "$AW/out.txt"
+else
+    echo "[통합 꾸러미를 짓지 못해 이 절은 비었다 — $BUILD_LOG]"
+fi
+
 sep "끝"
 
 # ── 캡처가 자기 산출물을 센다 ──────────────────────────────────
@@ -771,7 +812,8 @@ sep "끝"
 # 45 → 46: 버전을 견주지 못한 화면을 더했다 (L5 · C-1 · 2026-10-27).
 # 46 → 47: 물어보지 못한 자리를 더했다 (L6 · B-9 · 2026-10-27).
 # 47 → 48: `--help-all` 본문 절을 더했다 (A9 · 2026-10-28).
-EXPECT_SECTIONS=48
+# 48 → 49: 모두 검사만 절을 더했다 (A11 · 목표 remedy_출시_20261111 기준 3 · 2026-11-06).
+EXPECT_SECTIONS=49
 EXPECT_CODES="0 1 2 3 4 5 6 7"
 got_codes=$(echo $CODES | tr ' ' '\n' | grep -v '^$' | sort -u | tr '\n' ' ' | sed 's/ $//')
 {

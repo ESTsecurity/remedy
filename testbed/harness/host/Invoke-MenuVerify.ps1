@@ -228,23 +228,7 @@ try {
             # 일회용 키**로 서명한다(목표 remedy_출시_20261111 기준 3 · 4). 같은 것을 보므로 감염된
             # 기계에서 둘 다 찾는다. 꾸러미에는 넣지 않는다 — 게스트가 그 두 단계 동안만 둔다.
             $extraDir = "$gStage\remedy-lab-evilai-check"
-            Copy-Item (Join-Path $repoRoot "plugins\evilai-locust") $extraDir -Recurse -Force
-            $yaml = [System.IO.File]::ReadAllLines("$extraDir\plugin.yaml")
-            $kept = New-Object System.Collections.Generic.List[string]
-            $skip = $false
-            $inName = $false
-            foreach ($l in $yaml) {
-                if ($l -match '^remediate:') { $skip = $true; continue }
-                if ($skip -and $l -match '^[a-z_]+:') { $skip = $false }
-                if ($skip) { continue }
-                if ($l -match '^id:') { $l = "id: remedy-lab-evilai-check" }
-                if ($l -match '^name:') { $inName = $true }
-                elseif ($inName -and $l -match '^\s+ko:') { $l = '  ko: "EvilAI(Locust) 점검 (실험 · 탐지만)"' }
-                elseif ($inName -and $l -match '^\s+en:') { $l = '  en: "EvilAI (Locust) check (lab, detect only)"' }
-                elseif ($l -match '^[a-z_]+:') { $inName = $false }
-                $kept.Add($l)
-            }
-            [System.IO.File]::WriteAllLines("$extraDir\plugin.yaml", $kept, $utf8)
+            New-DetectOnlyLabRule -Source (Join-Path $repoRoot "plugins\evilai-locust") -Out $extraDir
             & cargo run -q -p xtask -- sign plugin --dir $extraDir `
                 --secret-key "$gStage\sec.key" --signed-at "2026-11-06T00:00:00Z" | Out-Null
             if ($LASTEXITCODE -ne 0) { throw "실험 룰 서명 실패" }
