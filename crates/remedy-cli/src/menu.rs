@@ -32,8 +32,17 @@
 //! # 늘 전부 선다 — 못 고르는 줄은 까닭과 함께 (목표 remedy_제품화 기준 5)
 //!
 //! 줄은 기계 상태와 상관없이 **같은 차례 · 같은 번호**로 선다. 지금 입력이 없는 줄은
-//! 흐리게 그리고 까닭을 단다 — 고르기는 그 줄을 받지 않는다([`items`]). 스물한 줄이
+//! 흐리게 그리고 까닭을 단다 — 고르기는 그 줄을 받지 않는다([`items`]). 줄이
 //! 창보다 높으면 방향키 화면은 번호 줄만 창 안에서 넘긴다(`term::view`).
+//!
+//! # 작성자·운영자 명령은 접는다 (목표 remedy_출시_20261111 기준 4)
+//!
+//! 첫 화면은 일반 작업 열셋과 *작성자·운영자 명령 보기* 한 줄이다 — 그 줄을 고르면 나머지
+//! 여덟이 한 화면 더 선다. 스물한 줄이 한 화면에 서던 때는 처음 온 사람이 무엇을 누를지
+//! 몰랐다. 명령 전부에 **닿는다**는 것은 그대로다(`every_command_has_a_menu_line`).
+//!
+//! 찾기만 하는 룰(`remediate` 가 없다)에서는 치료를 약속하는 줄 — 검사하고 치료하기 ·
+//! 치료가 유지됐는지 다시 보기 · 승인한 계획을 수행하기 — 이 까닭을 달고 흐리게 선다.
 //!
 //! # 방향키와 숫자 — 고르는 자리는 [`crate::term::choose`] 하나다
 //!
@@ -186,6 +195,11 @@ struct Item {
 pub struct Offer {
     /// 쓸 수 있는 플러그인 (검증을 통과한 것만).
     pub plugin: Option<std::path::PathBuf>,
+    /// 그 플러그인이 **찾기만 하는가**(`remediate` 가 없다) — 치료를 약속하는 줄을 끈다.
+    pub detect_only: bool,
+    /// 그 플러그인의 이름 — 머리말에 적는다. 항목이 여럿인 꾸러미에서 고른 뒤 메뉴만 보면
+    /// 어느 것을 골랐는지 알 수 없었다(2026-11-06 리눅스 통합 꾸러미 화면).
+    pub name: Option<String>,
     /// 복원 정보 폴더에서 읽은 회차 — **이름순.** 비어 있으면 회차 줄은 까닭을 달고 흐리게 선다.
     pub runs: Vec<Run>,
     /// 후보 파일 — 종류마다 **이름순.** 비어 있는 종류의 줄은 까닭을 달고 흐리게 선다.
@@ -408,14 +422,23 @@ fn items(offer: &Offer, lang: remedy_sdk::i18n::Lang) -> (Vec<Item>, usize) {
             "no treatment on this PC yet",
         )
     });
+    // 찾기만 하는 룰 — 치료를 약속하는 줄은 까닭을 단다. 플러그인이 없다는 까닭이 먼저다.
+    let detect_only = (offer.detect_only && no_plugin.is_none()).then(|| {
+        lang.t(
+            "이 룰은 찾기만 하고 치료하지 않습니다",
+            "this rule only detects; it does not treat",
+        )
+    });
+    let p = std::path::PathBuf::new();
     let mut items: Vec<Item> = Vec::new();
 
     // ── 묶음 B — 플러그인이 드는 다섯 ──────────────────────────
     for (k, e, mk) in PLUGIN_ITEMS {
+        let treats = matches!(mk(p.clone()), WithPlugin::Run(_) | WithPlugin::Verify(_));
         items.push(Item {
             label: if ko { k } else { e },
             tag: Tag::NeedsPlugin(*mk),
-            off: no_plugin,
+            off: no_plugin.or(if treats { detect_only } else { None }),
         });
     }
 
@@ -459,6 +482,8 @@ fn items(offer: &Offer, lang: remedy_sdk::i18n::Lang) -> (Vec<Item>, usize) {
         );
         let off = if needs_plugin && no_plugin.is_some() {
             no_plugin
+        } else if detect_only.is_some() && matches!(mk(p.clone()), WithFile::Apply(_)) {
+            detect_only
         } else if offer.files_of(*cand).is_empty() {
             Some(cand.missing(lang))
         } else {
@@ -491,8 +516,9 @@ pub enum Line {
 }
 
 /// 그 줄의 번호와 이름. 번호는 기계 상태와 상관없다([`items`]) — 안내에 적은 번호가
-/// 다음 메뉴에서도 그 줄이다.
-pub fn line(which: Line) -> Option<(usize, &'static str)> {
+/// 다음 메뉴에서도 그 줄이다. 접어 둔 줄은 **두 걸음으로** 적는다 — 첫 화면의 번호와
+/// 그 아래 화면의 번호(`14. 작성자·운영자 명령 보기 → 2. 승인한 계획을 수행하기`).
+pub fn line(which: Line) -> Option<(usize, String)> {
     let p = std::path::PathBuf::new();
     let run = Run {
         id: String::new(),
@@ -500,10 +526,13 @@ pub fn line(which: Line) -> Option<(usize, &'static str)> {
     };
     let probe = Offer {
         plugin: Some(p.clone()),
+        detect_only: false,
+        name: None,
         runs: Vec::new(),
         files: std::collections::BTreeMap::new(),
     };
-    let (all, _) = items(&probe, ui().lang);
+    let lang = ui().lang;
+    let (all, author_from) = items(&probe, lang);
     let pos = all.iter().position(|it| match (&it.tag, which) {
         (Tag::NeedsPlugin(mk), Line::Treat) => matches!(mk(p.clone()), WithPlugin::Run(_)),
         (Tag::NeedsPlugin(mk), Line::Verify) => matches!(mk(p.clone()), WithPlugin::Verify(_)),
@@ -513,7 +542,35 @@ pub fn line(which: Line) -> Option<(usize, &'static str)> {
         (Tag::NeedsFile(_, mk), Line::Apply) => matches!(mk(p.clone()), WithFile::Apply(_)),
         _ => false,
     })?;
-    Some((pos + 1, all[pos].label))
+    if pos < author_from {
+        return Some((pos + 1, all[pos].label.to_string()));
+    }
+    Some((
+        author_from + 1,
+        format!(
+            "{} {} {}. {}",
+            author_label(lang),
+            remedy_sdk::i18n::deco().arrow(),
+            pos - author_from + 1,
+            all[pos].label
+        ),
+    ))
+}
+
+/// 첫 화면의 마지막 줄 — 접어 둔 작성자·운영자 명령을 연다.
+fn author_label(lang: remedy_sdk::i18n::Lang) -> &'static str {
+    lang.t(
+        "작성자·운영자 명령 보기",
+        "Commands for authors and operators",
+    )
+}
+
+/// 메뉴 줄을 화면 줄로 — 못 고르는 줄은 까닭과 함께.
+fn rows_of(items: &[Item]) -> impl Iterator<Item = Row> + '_ {
+    items.iter().map(|it| match it.off {
+        Some(why) => Row::Off(it.label.to_string(), why.to_string()),
+        None => Row::Item(it.label.to_string()),
+    })
 }
 
 /// 메뉴를 보이고 하나를 받는다.
@@ -542,6 +599,11 @@ pub fn run(offer: &Offer) -> Pick {
             env!("CARGO_PKG_VERSION")
         )),
     ];
+    if let Some(name) = &offer.name {
+        rows.push(Row::Text(
+            lang.pick(format!("검사 항목: {name}"), format!("Rule: {name}")),
+        ));
+    }
     if let Some(line) = privilege_line(lang) {
         rows.push(Row::Text(line));
     }
@@ -553,22 +615,9 @@ pub fn run(offer: &Offer) -> Pick {
         ),
         Row::Blank,
     ]);
-    for (i, it) in items.iter().enumerate() {
-        if i == author_from {
-            rows.push(Row::Blank);
-            rows.push(Row::Text(
-                lang.t(
-                    "  — 작성자·운영자 명령 —",
-                    "  - for authors and operators -",
-                )
-                .to_string(),
-            ));
-        }
-        rows.push(match it.off {
-            Some(why) => Row::Off(it.label.to_string(), why.to_string()),
-            None => Row::Item(it.label.to_string()),
-        });
-    }
+    // 작성자·운영자 명령은 접어 둔다 — 마지막 한 줄이 그 화면을 연다(기준 4).
+    rows.extend(rows_of(&items[..author_from]));
+    rows.push(Row::Item(author_label(lang).to_string()));
     let zero = lang.t(
         "그만두기 (명령으로 쓰려면 remedy --help)",
         "Quit (for commands, run remedy --help)",
@@ -588,13 +637,25 @@ pub fn run(offer: &Offer) -> Pick {
         Pick::Stopped
     };
 
-    let n = match crate::term::choose(&rows, Some(zero)) {
-        Answer::Num(0) | Answer::Invalid => return quit(),
-        Answer::End => return Pick::End,
-        Answer::Num(n) => n,
+    // 접어 둔 화면의 `0` 은 **이 메뉴로** 돌아온다 — 룰을 고르는 화면까지 물러나지 않는다.
+    let it = loop {
+        let n = match crate::term::choose(&rows, Some(zero)) {
+            Answer::Num(0) | Answer::Invalid => return quit(),
+            Answer::End => return Pick::End,
+            Answer::Num(n) => n,
+        };
+        if n <= author_from {
+            break &items[n - 1];
+        }
+        match choose_author(&items[author_from..]) {
+            Sub::Got(i) => break &items[author_from + i],
+            Sub::Back => {}
+            Sub::Stop => return quit(),
+            Sub::End => return Pick::End,
+        }
     };
 
-    match &items[n - 1].tag {
+    match &it.tag {
         Tag::NeedsPlugin(mk) => offer
             .plugin
             .clone()
@@ -639,6 +700,24 @@ fn sub_answer<T: Clone>(a: Answer, list: &[T]) -> Sub<T> {
 
 fn back_label() -> &'static str {
     ui().lang.t("메뉴로 돌아가기", "Back to the menu")
+}
+
+/// 접어 둔 작성자·운영자 명령 — 고른 줄의 차례(0 부터)를 돌려준다.
+fn choose_author(list: &[Item]) -> Sub<usize> {
+    let lang = ui().lang;
+    let mut rows = vec![
+        Row::Blank,
+        Row::Text(
+            lang.t(
+                "작성자·운영자 명령 — 룰을 만들거나 조직의 목록을 다루는 사람이 씁니다:",
+                "Commands for authors and operators - for people who write rules or manage org lists:",
+            )
+            .to_string(),
+        ),
+    ];
+    rows.extend(rows_of(list));
+    let at: Vec<usize> = (0..list.len()).collect();
+    sub_answer(crate::term::choose(&rows, Some(back_label())), &at)
 }
 
 /// 머리말의 권한 줄. 재지 못했으면 내지 않는다 — 모르는 것을 말하지 않는다.
@@ -722,6 +801,8 @@ mod tests {
     fn offer(plugin: bool, runs: bool) -> Offer {
         Offer {
             plugin: plugin.then(|| std::path::PathBuf::from("p.yaml")),
+            detect_only: false,
+            name: None,
             runs: if runs {
                 vec![Run {
                     id: "run-1".into(),
@@ -838,8 +919,8 @@ mod tests {
         assert_eq!(shown, dispatched, "메뉴에 없는 명령 · 분기에 없는 줄");
     }
 
-    /// 기준 5(a) — **새로 받은 꾸러미의 첫 메뉴**(플러그인만 있고 회차 · 결과 파일이
-    /// 없다)에 스물한 줄이 다 서고, 지금 못 고르는 열한 줄은 까닭을 단다.
+    /// 기준 5(a) — **새로 받은 꾸러미의 메뉴**(플러그인만 있고 회차 · 결과 파일이 없다)에
+    /// 스물한 줄이 다 서고(여덟은 접은 화면에), 지금 못 고르는 열한 줄은 까닭을 단다.
     #[test]
     fn a_fresh_bundle_shows_every_line_and_says_why() {
         for lang in [remedy_sdk::i18n::Lang::Ko, remedy_sdk::i18n::Lang::En] {
@@ -863,6 +944,7 @@ mod tests {
     }
 
     /// 기준 6(d) — *다음 할 일* 이 적는 번호가 메뉴의 그 줄이다(번호는 상태와 상관없다).
+    /// 접어 둔 줄은 첫 화면의 *작성자·운영자 명령 보기* 번호와 그 아래 화면의 번호로 적는다.
     #[test]
     fn next_step_lines_point_at_fixed_numbers() {
         use super::{line, Line};
@@ -872,7 +954,60 @@ mod tests {
         assert_eq!(n(Line::Undo), Some(6));
         assert_eq!(n(Line::Report), Some(7));
         assert_eq!(n(Line::Resume), Some(8));
-        assert_eq!(n(Line::Apply), Some(15));
+        assert_eq!(n(Line::Apply), Some(14));
+        // 화면 언어는 시험을 돌리는 기계를 따른다 — 두 언어 다 받는다.
+        let (_, apply) = line(Line::Apply).expect("승인한 계획을 수행하기");
+        assert!(
+            apply.ends_with("2. 승인한 계획을 수행하기")
+                || apply.ends_with("2. Apply an approved plan"),
+            "{apply}"
+        );
+    }
+
+    /// 기준 4 — **첫 화면은 일반 작업 열셋 + 접은 한 줄**이다. 나머지 여덟은 그 한 줄 아래에
+    /// 있고, 명령 전부에 닿는 것은 `every_command_has_a_menu_line` 이 본다.
+    #[test]
+    fn the_first_screen_is_thirteen_lines_and_one_more() {
+        let (all, author_from) = items(&offer(true, false), remedy_sdk::i18n::Lang::Ko);
+        assert_eq!(author_from, 13, "일반 작업");
+        assert_eq!(all.len() - author_from, 8, "접어 둔 작성자·운영자 명령");
+        assert_eq!(super::rows_of(&all[..author_from]).count() + 1, 14);
+    }
+
+    /// 기준 4 — **찾기만 하는 룰에서는 치료를 약속하는 줄이 까닭을 달고 흐리게 선다.**
+    /// 번호는 그대로다(줄을 빼지 않는다) — 안내에 적은 번호가 룰마다 바뀌면 안 된다.
+    #[test]
+    fn a_detect_only_rule_does_not_offer_treatment() {
+        let ko = remedy_sdk::i18n::Lang::Ko;
+        let mut o = offer(true, false);
+        o.files.insert(
+            Candidates::Plans,
+            vec![std::path::PathBuf::from("plan.json")],
+        );
+        let treating = |o: &Offer| -> Vec<(&'static str, Option<&'static str>)> {
+            items(o, ko).0.iter().map(|i| (i.label, i.off)).collect()
+        };
+        let before = treating(&o);
+        o.detect_only = true;
+        let after = treating(&o);
+        let why = Some("이 룰은 찾기만 하고 치료하지 않습니다");
+        for ((label, was), (same, now)) in before.iter().zip(&after) {
+            assert_eq!(label, same, "번호가 움직였다");
+            let promises = matches!(
+                *label,
+                "검사하고 치료하기" | "치료가 유지됐는지 다시 보기" | "승인한 계획을 수행하기"
+            );
+            if promises {
+                assert_eq!(*was, None, "{label}");
+                assert_eq!(*now, why, "{label}");
+            } else {
+                assert_eq!(was, now, "{label}");
+            }
+        }
+        // 플러그인이 없다는 까닭이 먼저다.
+        let mut none = offer(false, false);
+        none.detect_only = true;
+        assert!(items(&none, ko).0.iter().all(|i| i.off != why));
     }
 
     /// 메뉴 줄이 부르는 명령 — `main.rs` 의 분기 낱말로.

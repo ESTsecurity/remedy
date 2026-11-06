@@ -83,6 +83,10 @@ param(
     # (확인 · 반입 × 허용 · 폐기)도 돈다. 내려받은 공개 꾸러미에는 그 목록이 없다(배포
     # 키로 서명한 허용 목록은 모든 고객 기계에서 탐지를 끌 수 있는 물건이라 만들지 않는다).
     [switch] $Lists,
+    # 찾기만 하는 실험 룰의 폴더(호스트가 EvilAI 룰에서 remediate 절을 빼고 같은 일회용 키로
+    # 서명한 것). 주면 **모두 검사만** 과 **찾기만 하는 룰의 메뉴**를 잰다 — 그 두 단계 동안만
+    # 꾸러미의 plugins 옆에 두고 치운다(목표 remedy_출시_20261111 기준 3 · 4).
+    [string] $Extra = "",
     [string] $TaskName = "Locust",
     [string] $TaskPath = "\Microsoft\Windows\",
     [string] $RunName  = "SystemSoftwareUpdater"
@@ -287,6 +291,23 @@ function Find-MenuNumber {
     return 0
 }
 
+# 첫 화면의 마지막 줄 — 접어 둔 작성자·운영자 명령을 연다(목표 remedy_출시_20261111 기준 4).
+$AuthorLine = "작성자·운영자 명령 보기"
+$AuthorHead = "작성자·운영자 명령 —"
+
+# 접어 둔 화면만 잘라 읽는다 — 머리말부터 그 화면의 *번호를 고르십시오* 까지. 뒤에 다시 선
+# 첫 화면의 줄이 섞이지 않게.
+function Get-AuthorText {
+    param([string] $Text)
+    $at = $Text.IndexOf($AuthorHead)
+    if ($at -lt 0) { return "" }
+    $rest = $Text.Substring($at)
+    $end = $rest.IndexOf("번호를 고르십시오")
+    if ($end -gt 0) { $rest = $rest.Substring(0, $end) }
+    $rest
+}
+
+
 # 자식이 덧붙여 쓰는 중인 파일을 읽는다. `ReadAllText` 는 남의 쓰기 핸들이 열려 있으면
 # 공유 위반으로 실패한다 — 쓰기를 허용하는 공유 모드로 연다.
 function Read-Shared {
@@ -388,19 +409,39 @@ if ($rc -ne 0) {
 # 말한다. 치료 승인을 거절한 자리는 이 갈래가 아니라 `approved()` 를 지나 2 다.
 $probe = Invoke-MenuRun -Lines (@() + $Lead + @("0")) -TimeoutMs 30000
 $pmap = Get-MenuMap -Text $probe.text
+# 접어 둔 화면 — 첫 화면의 마지막 줄을 눌러 열고, `0` 으로 돌아와 `0` 으로 그만둔다.
+$authorNo = Find-MenuNumber -Map $pmap -Needle $AuthorLine
+$aprobe = $null
+$atext = ""
+if ($authorNo -gt 0) {
+    $aprobe = Invoke-MenuRun -Lines (@() + $Lead + @("$authorNo", "0", "0")) -TimeoutMs 30000
+    $atext = Get-AuthorText -Text $aprobe.text
+}
+$amap = Get-MenuMap -Text $atext
 $report.probe = [ordered]@{
     exit        = $probe.exit
     timed_out   = $probe.timed_out
     shown       = [bool]($probe.text -match "무엇을 할까요")
     item_count  = @($pmap.Keys | Where-Object { $pmap[$_] -gt 0 }).Count
     off_count   = @(($probe.text -split "`r?`n") | Where-Object { $_ -match $OffRow }).Count
-    separator   = [bool]($probe.text -match "작성자·운영자 명령")
+    # 첫 화면의 마지막 줄이 접은 화면을 연다 — 그 화면의 줄 수와 그 화면에서 돌아온 끝 코드.
+    author_no    = $authorNo
+    author_items = @($amap.Keys | Where-Object { $amap[$_] -gt 0 }).Count
+    author_off   = @(($atext -split "`r?`n") | Where-Object { $_ -match $OffRow }).Count
+    author_exit  = $(if ($null -ne $aprobe) { $aprobe.exit } else { $null })
+    author_back  = $(if ($null -ne $aprobe) { [regex]::Matches($aprobe.text, "무엇을 할까요").Count -ge 2 } else { $false })
     held_window = ([bool]$probe.timed_out -or [bool]($probe.text -match "Enter 를 누르십시오"))
     nothing     = [bool]($probe.text -match "아무것도 하지 않았습니다")
     labels      = @($pmap.Keys)
+    author_labels = @($amap.Keys)
 }
 $tr.Add("=== 0. 인자 없이 띄웠다 — 메뉴 (그만두기로 끝냈다) ===")
 $tr.Add($probe.text.TrimEnd())
+if ($null -ne $aprobe) {
+    $tr.Add("")
+    $tr.Add("=== 0-1. 작성자·운영자 명령 보기 — 접은 화면 (돌아와 그만두기) ===")
+    $tr.Add($aprobe.text.TrimEnd())
+}
 
 # ── 작업 열일곱 · 목록이 있으면 스물하나 ────────────────────────────────
 #
@@ -456,7 +497,73 @@ if ($Keys.Count -gt 0) { $steps = @($steps | Where-Object { $Keys -contains $_.k
 
 $results = New-Object System.Collections.Generic.List[object]
 $failure = $null
+# 모두 검사만 · 찾기만 하는 룰의 메뉴 — 실험 룰을 받은 회차에서만(`$Keys` 로 좁힐 때는 그 이름으로).
+$withExtra = [bool]$Extra -and (($Keys.Count -eq 0) -or ($Keys -contains "모두 검사"))
+$expected = $steps.Count + $(if ($withExtra) { 2 } else { 0 })
 try {
+# ── 모두 검사만 · 찾기만 하는 룰의 메뉴 — 룰이 둘일 때만 서는 화면 (기준 3 · 4) ──
+#
+# 감염된 채 **맨 먼저** 돈다 — 두 룰이 같은 것을 보므로 둘 다 찾아야 하고, 하나는 치료하지
+# 않는다. 그 두 단계 동안만 실험 룰을 꾸러미의 plugins 옆에 두고, 끝나면 치워 뒤 단계의
+# 화면(룰 하나 — 고르는 화면이 없다)을 그대로 둔다.
+if ($withExtra) {
+    $xName = ""
+    $xYaml = [System.IO.File]::ReadAllText((Join-Path $Extra "plugin.yaml"))
+    if ($xYaml -match '(?m)^\s+ko:\s*"([^"]+)"') { $xName = $Matches[1] }
+    $xDst = Join-Path (Split-Path -Parent $Bin) ("plugins\" + (Split-Path -Leaf $Extra))
+    Copy-Item $Extra -Destination $xDst -Recurse -Force
+    try {
+        # 1 = 모두 검사만 · 빈 줄 = 작업 뒤의 멈춤 · 0 = 고르는 화면에서 그만두기.
+        $before = Get-Snapshot
+        $all = Invoke-MenuRun -Lines @("1", "", "0") -TimeoutMs 600000
+        $after = Get-Snapshot
+        $sum = ""
+        $at = $all.text.IndexOf("모두 검사한 결과")
+        if ($at -ge 0) { $sum = $all.text.Substring($at) }
+        $hits = @(($sum -split "`r?`n") | Where-Object { $_ -match '^\s\s.+ (—|-) 위협 발견, 치료하지 않았습니다\.' }).Count
+        # 룰마다 결과 폴더가 따로다 — 한 폴더면 뒤 룰의 scan.json 이 앞 룰의 것을 덮는다.
+        $outs = @([regex]::Matches($all.text, '결과 폴더 : (\S+)') | ForEach-Object { $_.Groups[1].Value } |
+                  Select-Object -Unique).Count
+        $row = [ordered]@{
+            key = "모두 검사"; needle = "모두 검사만 하기"; number = 1; via = ""; lines = @("1", "", "0")
+            found = $true; exit = $all.exit; expect = 2; timed_out = $all.timed_out
+            summary = [bool]($sum -match "룰 2개"); found_both = ($hits -eq 2); out_dirs = $outs
+            unchanged = (($before | ConvertTo-Json -Compress) -eq ($after | ConvertTo-Json -Compress))
+            ended = [bool]($all.text -match "끝냅니다\.")
+            before = $before; after = $after; ok = $false
+        }
+        $row.ok = (-not $row.timed_out) -and ($row.exit -eq 2) -and $row.summary -and $row.found_both -and
+                  ($outs -eq 2) -and $row.unchanged -and $row.ended
+        $results.Add([pscustomobject]$row)
+        $tr.Add("")
+        $tr.Add("=== 모두 검사 — 고르는 화면 1 번 (2개 모두 검사만 하기) ===")
+        $tr.Add($all.text.TrimEnd())
+
+        # 찾기만 하는 룰을 고르면 머리말에 그 이름이 서고, 치료를 약속하는 줄이 까닭을 단다.
+        $xno = Find-MenuNumber -Map (Get-MenuMap -Text $all.text) -Needle $xName
+        $dm = $null
+        if ($xno -gt 0) { $dm = Invoke-MenuRun -Lines @("$xno", "0") -TimeoutMs 60000 }
+        $txt = $(if ($null -ne $dm) { $dm.text } else { "" })
+        $why = "이 룰은 찾기만 하고 치료하지 않습니다"
+        $row = [ordered]@{
+            key = "탐지만 메뉴"; needle = $xName; number = $xno; via = ""; lines = @("$xno", "0")
+            found = ($xno -gt 0); exit = $(if ($null -ne $dm) { $dm.exit } else { $null }); expect = 0
+            timed_out = $(if ($null -ne $dm) { $dm.timed_out } else { $true })
+            named = $txt.Contains("검사 항목: $xName")
+            treat_off = [bool]($txt -match "  1\. 검사하고 치료하기 (—|-) $why")
+            verify_off = [bool]($txt -match "  3\. 치료가 유지됐는지 다시 보기 (—|-) $why")
+            ok = $false
+        }
+        $row.ok = $row.found -and (-not $row.timed_out) -and ($row.exit -eq 0) -and $row.named -and
+                  $row.treat_off -and $row.verify_off
+        $results.Add([pscustomobject]$row)
+        $tr.Add("")
+        $tr.Add("=== 탐지만 메뉴 — 고르는 화면 $xno 번 ($xName) ===")
+        $tr.Add($txt.TrimEnd())
+    } finally {
+        Remove-Item $xDst -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
 foreach ($s in $steps) {
     # 이어 하기는 그 직전에 끊은 회차가 있어야 고를 줄이 선다.
     $interrupt = $null
@@ -467,22 +574,32 @@ foreach ($s in $steps) {
     }
     $before = Get-Snapshot
 
-    # 작업마다 다시 읽는다 — 앞 작업이 만든 회차 · 파일로 고를 수 있는 줄이 바뀐다.
+    # 작업마다 다시 읽는다 — 앞 작업이 만든 회차 · 파일로 고를 수 있는 줄이 바뀐다. 첫 화면에
+    # 없으면 접은 화면에서 찾고, 그때는 첫 화면의 마지막 줄을 먼저 누른다(`via`).
     $look = Invoke-MenuRun -Lines (@() + $Lead + @("0", "")) -TimeoutMs 60000
     $map = Get-MenuMap -Text $look.text
     $no = Find-MenuNumber -Map $map -Needle $s.needle
+    $via = @()
+    if ($no -eq 0) {
+        $author = Find-MenuNumber -Map $map -Needle $AuthorLine
+        if ($author -gt 0) {
+            $peekA = Invoke-MenuRun -Lines (@() + $Lead + @("$author", "0", "0", "")) -TimeoutMs 60000
+            $no = Find-MenuNumber -Map (Get-MenuMap -Text (Get-AuthorText -Text $peekA.text)) -Needle $s.needle
+            if ($no -gt 0) { $via = @("$author") }
+        }
+    }
 
     if ($no -gt 0 -and $sub -eq "last") {
         # 고른 뒤 `0`(메뉴로 돌아가기)으로 후보 수만 읽는다. 결과 폴더는 스탬프 이름순 =
         # 시간순이라(`guided::candidate_files`) 마지막 번호가 가장 새 파일이다.
-        $peek = Invoke-MenuRun -Lines (@() + $Lead + @("$no", "0", "")) -TimeoutMs 60000
+        $peek = Invoke-MenuRun -Lines (@() + $Lead + $via + @("$no", "0", "")) -TimeoutMs 60000
         $sub = $null
         if ($peek.text -match "어느 파일입니까\?\s*\((\d+)개\)") { $sub = $Matches[1] }
     } elseif ($no -gt 0 -and "$sub".StartsWith("id:")) {
         # 후보 목록을 먼저 읽고 **그 이름이 든 줄**의 번호를 누른다. 메뉴 줄은 그 이름을
         # 담지 않으므로 후보 줄만 걸린다.
         $want = $sub.Substring(3)
-        $peek = Invoke-MenuRun -Lines (@() + $Lead + @("$no", "0", "")) -TimeoutMs 60000
+        $peek = Invoke-MenuRun -Lines (@() + $Lead + $via + @("$no", "0", "")) -TimeoutMs 60000
         $sub = $null
         foreach ($line in ($peek.text -split "`r?`n")) {
             if ($line -match '^\s+(\d+)\.\s+(.+?)\s*$' -and $Matches[2] -like "*$want*") { $sub = $Matches[1]; break }
@@ -492,6 +609,7 @@ foreach ($s in $steps) {
     $lines = @()
     if ($no -gt 0) {
         $lines += $Lead
+        $lines += $via
         $lines += "$no"
         if ($null -ne $sub) { $lines += $sub }
         if ($s.approve) { $lines += "예" }
@@ -516,6 +634,7 @@ foreach ($s in $steps) {
         key        = $s.key
         needle     = $s.needle
         number     = $no
+        via        = ($via -join ",")
         lines      = $lines
         found      = ($no -gt 0)
         exit       = $(if ($null -ne $run) { $run.exit } else { $null })
@@ -541,7 +660,8 @@ foreach ($s in $steps) {
     $results.Add([pscustomobject]$row)
 
     $tr.Add("")
-    $tr.Add("=== $($s.key) — 메뉴 $no 번 ($($s.needle)) ===")
+    $where = $(if ($via.Count -gt 0) { "메뉴 $($via -join ',') → $no 번" } else { "메뉴 $no 번" })
+    $tr.Add("=== $($s.key) — $where ($($s.needle)) ===")
     if ($null -ne $run) { $tr.Add($run.text.TrimEnd()) } else { $tr.Add("[메뉴에 그 줄이 없었다]") }
 }
 } catch {
@@ -558,7 +678,7 @@ $report.steps = $results.ToArray()
 $report.error = $failure
 $report.verdict = (
     ($null -eq $failure) -and
-    ($results.Count -eq $steps.Count) -and
+    ($results.Count -eq $expected) -and
     ($report.probe.shown) -and
     ($report.probe.exit -eq 0) -and
     (@($results | Where-Object { -not $_.ok }).Count -eq 0)

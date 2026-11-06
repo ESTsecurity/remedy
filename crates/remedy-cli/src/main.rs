@@ -290,15 +290,24 @@ fn main() -> ExitCode {
                     term::task_begin(changes_system(&picked));
                 }
                 let flow = flow_of(&picked);
+                // 찾기만 하는 룰이면 치료를 말하지 않는다 — 모두 검사만은 끝난 뒤에 정한다.
+                let mut treats = treats_of(&picked);
                 // **하기 전에 무엇을 하는지** — 치료 · 복원은 목록과 승인이 그 자리다.
                 // 검사만 그것이 없었다(목표 remedy_제품화 기준 6(a)).
                 if session && matches!(flow, Flow::Scan) {
                     outln!(
                         "{}",
-                        ui().lang.t(
-                            "검사만 합니다 — 아무것도 바꾸지 않습니다. 찾으면 치료할 계획을 세워 둡니다.",
-                            "Scan only — nothing is changed. If something is found, a treatment plan is kept."
-                        )
+                        if treats {
+                            ui().lang.t(
+                                "검사만 합니다 — 아무것도 바꾸지 않습니다. 찾으면 치료할 계획을 세워 둡니다.",
+                                "Scan only — nothing is changed. If something is found, a treatment plan is kept."
+                            )
+                        } else {
+                            ui().lang.t(
+                                "검사만 합니다 — 아무것도 바꾸지 않습니다.",
+                                "Scan only — nothing is changed.",
+                            )
+                        }
                     );
                 }
                 let outcome = match picked {
@@ -339,6 +348,13 @@ fn main() -> ExitCode {
                             .and_then(|()| integrity_gate(&integrity))
                             .and_then(|()| cmd_run(&args, &integrity))
                     }
+                    // **모두 검사만** — 관리자 문을 한 번 지나고, 룰마다 메뉴의 *검사만 하기* 와
+                    // 같은 `scan` 을 부른다(`scan_all`).
+                    guided::Outcome::ScanAll(list) => admin_gate().map(|()| {
+                        let (code, treatable) = scan_all(&list);
+                        treats = treatable;
+                        code
+                    }),
                     // **묶음 A — 같은 자리로 보낸다.** 위 `Some("selftest")` 갈래와
                     // 똑같은 호출이다. 메뉴가 자기 화면이나 자기 가드를 갖지 않는
                     // 이유는 `RunWith` 와 같다 — 두 벌이 되면 갈라지고, 갈라지면
@@ -620,7 +636,7 @@ fn main() -> ExitCode {
                 tee::close();
                 term::task_end(code);
                 last = Some(code);
-                back_to_menu(flow, code);
+                back_to_menu(flow, code, treats);
             }
         }
         Some(other) => {
@@ -937,15 +953,26 @@ fn changes_system(o: &guided::Outcome) -> bool {
 #[derive(Clone, Copy)]
 enum Flow {
     Scan,
+    ScanAll,
     Treat,
     Restore,
     Verify,
     Other,
 }
 
+/// 고른 룰이 치료하는가 — 검사만 뒤의 안내가 이것으로 갈린다. 다른 갈래는 치료하는 룰에서만
+/// 메뉴에 서므로(`menu::items`) 참이다.
+fn treats_of(p: &guided::Outcome) -> bool {
+    match p {
+        guided::Outcome::WithPlugin(menu::WithPlugin::Scan(path)) => guided::treats(path),
+        _ => true,
+    }
+}
+
 fn flow_of(p: &guided::Outcome) -> Flow {
     match p {
         guided::Outcome::WithPlugin(menu::WithPlugin::Scan(_)) => Flow::Scan,
+        guided::Outcome::ScanAll(_) => Flow::ScanAll,
         guided::Outcome::WithPlugin(menu::WithPlugin::Run(_))
         | guided::Outcome::RunWith(..)
         | guided::Outcome::WithFile(menu::WithFile::Apply(_), _) => Flow::Treat,
@@ -957,9 +984,21 @@ fn flow_of(p: &guided::Outcome) -> Flow {
 
 /// 작업 뒤에 고를 만한 메뉴 줄 — 결과에 맞는 것만(목표 remedy_제품화 기준 6(d)).
 /// 전에는 다음 할 일을 명령줄로만 적었다(`remedy restore --run …`).
-fn next_steps(flow: Flow, code: Code) -> Vec<(&'static str, menu::Line)> {
+///
+/// `treats` 가 거짓이면(찾기만 하는 룰 · 모두 검사만에서 찾은 룰이 전부 그렇다) 치료를 권하지
+/// 않는다 — 메뉴도 그 줄을 꺼 둔다(목표 remedy_출시_20261111 기준 4).
+fn next_steps(flow: Flow, code: Code, treats: bool) -> Vec<(&'static str, menu::Line)> {
     let lang = ui().lang;
     match (flow, code) {
+        (Flow::Scan | Flow::ScanAll, Code::FoundNotRemediated) if !treats => Vec::new(),
+        // 모두 검사만 뒤에는 고르는 화면으로 돌아간다 — 치료는 그 룰을 고른 뒤의 1 번이다.
+        (Flow::ScanAll, Code::FoundNotRemediated) => vec![(
+            lang.t(
+                "찾은 것을 치료하려면 그 룰을 고른 뒤",
+                "To treat what was found, pick that rule, then",
+            ),
+            menu::Line::Treat,
+        )],
         (Flow::Scan, Code::FoundNotRemediated) => vec![
             (
                 lang.t("찾은 것을 치료하려면", "To treat what was found"),
@@ -999,15 +1038,112 @@ fn next_steps(flow: Flow, code: Code) -> Vec<(&'static str, menu::Line)> {
     }
 }
 
+/// **모두 검사만** — 룰을 고르는 화면의 첫 줄(목표 remedy_출시_20261111 기준 3).
+///
+/// 찾은 룰마다 메뉴의 *검사만 하기* 와 **같은 인자로** `scan` 을 차례대로 부르고, 끝에 룰마다의
+/// 결과를 한 덩어리로 다시 적는다 — 룰 셋의 화면이 이어지면 앞 룰의 결과는 창 밖으로 밀린다.
+/// 아무것도 바꾸지 않으므로 치료는 지금처럼 룰을 골라서 한다. 둘째 값은 *치료하는 룰이 무언가를
+/// 찾았는가* 이고, 다음 할 일이 그것으로 갈린다.
+fn scan_all(list: &[(String, std::path::PathBuf)]) -> (Code, bool) {
+    let lang = ui().lang;
+    let d = remedy_sdk::i18n::deco();
+    outln!(
+        "{}",
+        lang.pick(
+            format!(
+                "룰 {}개로 모두 검사만 합니다 — 아무것도 바꾸지 않습니다.",
+                list.len()
+            ),
+            format!(
+                "Scanning with all {} rules — nothing is changed.",
+                list.len()
+            )
+        )
+    );
+    let mut done: Vec<(&str, Code, Option<PluginKind>, bool)> = Vec::new();
+    for (i, (label, path)) in list.iter().enumerate() {
+        if i > 0 {
+            // 룰마다 결과 폴더와 회차 로그를 따로 둔다 — 한 폴더면 뒤 룰의 `scan.json` 이 앞
+            // 룰의 것을 덮는다(`menu_out` 은 작업마다 새 폴더다).
+            tee::close();
+            term::task_begin(false);
+        }
+        outln!();
+        outln!("{}", d.rule());
+        outln!("[{}/{}] {label}", i + 1, list.len());
+        let args = vec![
+            "--plugin".to_string(),
+            path.to_string_lossy().to_string(),
+            "--out-dir".to_string(),
+            menu_out().to_string_lossy().to_string(),
+            "--state-dir".to_string(),
+            menu_state().to_string_lossy().to_string(),
+        ];
+        let code = cmd_scan(&args).unwrap_or_else(|f| {
+            errln!("{}: {}", lang.t("실패", "Error"), f.message);
+            f.code
+        });
+        let kind = load_manifest(&path.to_string_lossy())
+            .ok()
+            .and_then(|m| m.kind);
+        done.push((label, code, kind, guided::treats(path)));
+    }
+    outln!();
+    outln!("{}", d.rule());
+    outln!(
+        "{}",
+        lang.pick(
+            format!(
+                "모두 검사한 결과 — 룰 {}개 · 아무것도 바꾸지 않았습니다",
+                list.len()
+            ),
+            format!("Results for all {} rules — nothing was changed", list.len())
+        )
+    );
+    for (label, code, kind, _) in &done {
+        outln!(
+            "  {label}{}{}",
+            d.dash(),
+            remedy_core::report::result_line(*code, 0, lang, *kind)
+        );
+    }
+    let codes: Vec<Code> = done.iter().map(|r| r.1).collect();
+    let treatable = done
+        .iter()
+        .any(|(_, c, _, t)| *t && *c == Code::FoundNotRemediated);
+    (all_scans_code(&codes), treatable)
+}
+
+/// 모두 검사만의 종료 코드 — **새 코드를 만들지 않는다**(불변식 I3). 찾은 것이 하나라도 있으면
+/// 2, 아니면 검사를 마치지 못한 룰의 코드(4 · 5 · 7 중 큰 것), 아니면 다 보지 못한 6, 모두
+/// 없으면 0. 발견이 불완전함보다 앞서는 것은 `ExitCode::IncompleteObservation` 의 규칙 그대로다.
+fn all_scans_code(codes: &[Code]) -> Code {
+    if codes.contains(&Code::FoundNotRemediated) {
+        return Code::FoundNotRemediated;
+    }
+    codes
+        .iter()
+        .copied()
+        .filter(|c| matches!(c, Code::UsageError | Code::GuardStop | Code::InternalError))
+        .max()
+        .unwrap_or_else(|| {
+            codes
+                .iter()
+                .copied()
+                .find(|c| *c != Code::NoThreat)
+                .unwrap_or(Code::NoThreat)
+        })
+}
+
 /// 작업이 끝나고 메뉴로 돌아간다. 구분선 · 다음 할 일을 남기고 **Enter 를 기다린다** —
 /// 메뉴가 곧바로 다시 서면 결과 줄이 창 밖으로 밀린다(21줄 메뉴 · 30줄 창 · 2026-11-06
 /// 이미지). 기다리는 줄은 화면을 붙잡는 장치라 stderr 로 낸다(`wait_before_closing` 과 같다).
-fn back_to_menu(flow: Flow, code: Code) {
+fn back_to_menu(flow: Flow, code: Code, treats: bool) {
     let lang = ui().lang;
     let d = remedy_sdk::i18n::deco();
     outln!();
     outln!("{}", d.rule());
-    let next: Vec<(&str, usize, &str)> = next_steps(flow, code)
+    let next: Vec<(&str, usize, String)> = next_steps(flow, code, treats)
         .into_iter()
         .filter_map(|(why, l)| menu::line(l).map(|(n, label)| (why, n, label)))
         .collect();
@@ -4458,7 +4594,7 @@ mod tests {
     #[test]
     fn next_steps_follow_the_result() {
         let lines = |f, c| {
-            next_steps(f, c)
+            next_steps(f, c, true)
                 .into_iter()
                 .map(|(_, l)| l)
                 .collect::<Vec<_>>()
@@ -4472,9 +4608,47 @@ mod tests {
             lines(Flow::Scan, Code::FoundNotRemediated),
             [L::Treat, L::Apply]
         );
+        assert_eq!(lines(Flow::ScanAll, Code::FoundNotRemediated), [L::Treat]);
         assert_eq!(lines(Flow::Restore, Code::NoThreat), [L::Treat]);
         assert!(lines(Flow::Scan, Code::NoThreat).is_empty());
         assert!(lines(Flow::Other, Code::PartialFailure).is_empty());
+    }
+
+    /// 기준 4 — **찾기만 하는 룰이 찾았으면 치료를 권하지 않는다.** 메뉴도 그 줄을 꺼 둔다.
+    #[test]
+    fn a_detect_only_find_suggests_no_treatment() {
+        for f in [Flow::Scan, Flow::ScanAll] {
+            assert!(next_steps(f, Code::FoundNotRemediated, false).is_empty());
+        }
+    }
+
+    /// 기준 3 — 모두 검사만의 종료 코드. 찾은 것이 가장 앞서고, 검사를 마치지 못한 것이
+    /// 다 보지 못한 것보다 앞선다. 새 코드는 없다(불변식 I3).
+    #[test]
+    fn scanning_with_every_rule_keeps_the_eight_codes() {
+        use Code as C;
+        assert_eq!(all_scans_code(&[C::NoThreat, C::NoThreat]), C::NoThreat);
+        assert_eq!(
+            all_scans_code(&[C::NoThreat, C::IncompleteObservation]),
+            C::IncompleteObservation
+        );
+        assert_eq!(
+            all_scans_code(&[C::IncompleteObservation, C::FoundNotRemediated]),
+            C::FoundNotRemediated
+        );
+        assert_eq!(
+            all_scans_code(&[C::GuardStop, C::IncompleteObservation]),
+            C::GuardStop
+        );
+        assert_eq!(
+            all_scans_code(&[C::UsageError, C::GuardStop, C::NoThreat]),
+            C::GuardStop
+        );
+        assert_eq!(
+            all_scans_code(&[C::GuardStop, C::FoundNotRemediated]),
+            C::FoundNotRemediated
+        );
+        assert_eq!(all_scans_code(&[]), C::NoThreat);
     }
 
     /// 같은 초에 앞 작업의 폴더가 이미 있으면 번호를 붙인다 — 덮어쓰지 않는다. 붙인
