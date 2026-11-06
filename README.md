@@ -47,7 +47,7 @@
 | | 지원 | 받을 파일 |
 |---|---|---|
 | Windows 10 · 11 · Server 2016 이상 (x64) | 지원 | 위협 꾸러미 · 엔진 |
-| Linux x86_64 — RHEL 계열 · Debian · Ubuntu | 지원 | 엔진(정적 링크) |
+| Linux x86_64 — RHEL 계열 · Debian · Ubuntu | 지원 | 위협 꾸러미 · 엔진(정적 링크) |
 
 - **관리자 권한이 있어야 합니다** — Windows 는 관리자, Linux 는 root. 메뉴 맨 위에서 지금
   권한을 먼저 알려 드립니다.
@@ -56,8 +56,8 @@
 **하지 않는 것도 미리 알려 드립니다.**
 
 - 실시간 감시 · 상주 프로그램이 아닙니다. 필요할 때 띄워 쓰는 도구입니다.
-- 플러그인 번들이 있는 위협만 치료합니다. 지금 위협 꾸러미는 **EvilAI(Locust)** 하나이고
-  Windows 용입니다 — 리눅스용 위협 꾸러미는 아직 없습니다.
+- 플러그인 번들이 있는 위협만 치료합니다. 지금 위협 꾸러미는 둘입니다 — **EvilAI(Locust)**
+  (Windows) · **CWPdoor**(Linux — Control Web Panel 을 쓰는 서버).
 - 그래픽 화면(GUI)이 없습니다.
 - **Windows 실행 파일에는 아직 코드서명(Authenticode)이 없습니다.** 그래서 실행할 때마다
   맨 위에 그 사실을 한 줄로 알려 드립니다(리눅스도 같은 뜻의 한 줄이 뜹니다). 받은 파일은
@@ -72,6 +72,7 @@
 | 파일 | 무엇 | 누가 |
 |---|---|---|
 | `remedy-evilai-locust-windows-x64.zip` | **위협 꾸러미** — `remedy.exe` · 서명된 `evilai-locust` 룰 · `README.txt` | EvilAI(Locust) 를 치료할 Windows PC |
+| `remedy-cwpdoor-linux-x64.tar.gz` | **위협 꾸러미** — `remedy` · 서명된 `cwpdoor-1-check`(점검) · `cwpdoor-2-clean`(치료) 룰 · `README.txt` | CWPdoor 를 점검 · 치료할 CWP 리눅스 서버 |
 | `remedy-windows-x64.zip` | 엔진만 — Windows x64 | 사내 룰과 함께 쓰는 운영자 |
 | `remedy-linux-x64.tar.gz` | 엔진만 — Linux x64 (정적 링크) | 사내 룰과 함께 쓰는 운영자 |
 
@@ -81,6 +82,7 @@
 | 위협 | Windows x64 | Linux x64 |
 |---|---|---|
 | `evilai-locust` | ✓ | — (Windows 를 노리는 위협) |
+| `cwpdoor` | — (리눅스 서버의 Control Web Panel 을 노리는 위협) | ✓ |
 
 ## 받은 파일 확인
 
@@ -96,7 +98,7 @@ $f = "remedy-evilai-locust-windows-x64.zip"
 **Linux** — `OK`(한국어 환경에서는 `성공`)가 나오면 같습니다.
 
 ```sh
-sha256sum -c remedy-linux-x64.tar.gz.sha256
+sha256sum -c remedy-cwpdoor-linux-x64.tar.gz.sha256
 ```
 
 압축을 푼 뒤에는 룰 묶음의 서명도 확인할 수 있습니다 — 서명이 맞고 파일이 하나도 바뀌지
@@ -104,6 +106,10 @@ sha256sum -c remedy-linux-x64.tar.gz.sha256
 
 ```powershell
 .\remedy.exe plugin verify --dir .\plugins\evilai-locust
+```
+
+```sh
+./remedy plugin verify --dir ./plugins/cwpdoor-2-clean
 ```
 
 ## 빠른 시작
@@ -132,6 +138,28 @@ sha256sum -c remedy-linux-x64.tar.gz.sha256
 | 5 | 안전 가드 중단 |
 | 6 | 관측 불완전 — '위협 없음' 을 말할 수 없음 |
 | 7 | 내부 오류 |
+
+### Linux — CWPdoor 꾸러미
+
+```sh
+tar -xzf remedy-cwpdoor-linux-x64.tar.gz
+cd remedy-cwpdoor-linux-x64
+sudo ./remedy
+```
+
+메뉴가 먼저 룰 둘 중 하나를 고르게 합니다 — **1. CWPdoor 점검 (탐지만)** · **2. CWPdoor 제거**.
+무인으로는:
+
+```sh
+sudo ./remedy run --plugin ./plugins/cwpdoor-1-check/plugin.yaml          # 점검만 — 2 면 발견
+sudo ./remedy run --plugin ./plugins/cwpdoor-2-clean/plugin.yaml --yes    # 치료
+```
+
+- 치료는 백도어가 든 `cwpsrv` 를 **격리**하고, 그것을 띄우는 `cwpsrv.service` 를 **멈추고
+  지웁니다**. 패널은 그 뒤 공급사 판을 다시 깔아 되살립니다(`yum reinstall cwpsrv`). 백도어는
+  임의 명령을 돌릴 수 있었으므로 패널 자격 증명도 모두 바꾸십시오.
+- CWP 가 깔리지 않은 서버에서는 **종료 6** 입니다 — 볼 자리(`/usr/local/cwpsrv/bin`)가 없어
+  *위협 없음* 을 말하지 않습니다.
 
 ### Linux — 엔진
 

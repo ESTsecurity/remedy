@@ -293,7 +293,7 @@ remediate.remove: data did not match any variant of untagged enum RemoveTarget a
       근거: 설계-02 §10
 ```
 
-**고치는 법.** semver 로 적는다. **Phase 이름이 아니다** — `P10` 같은 것은 개발 순서이지 배포 판이 아니고, 이 코어의 판은 아직 `1.0.0` 하나다
+**고치는 법.** semver 로 적는다. **Phase 이름이 아니다** — `P10` 같은 것은 개발 순서이지 배포 판이 아니고, 이 문서에 있는 Op 은 전부 `1.0.0` 에 있다
 
 ## Linux 에서도 돌게 하려고 플랫폼을 늘린다
 

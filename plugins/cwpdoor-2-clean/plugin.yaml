@@ -1,0 +1,74 @@
+# CWPdoor — 백도어를 심은 cwpsrv 를 격리하고 패널 서비스를 멈춘다.
+#
+# 판정은 cwpdoor-1-check 와 같다(헤더 셋 and 서명 키). 치료는 둘이다 —
+#   - 백도어 바이너리를 **격리**한다. 지우지 않으므로 `restore` 로 되돌아온다.
+#   - `cwpsrv.service` 를 서비스의 정해진 차례로 없앤다(정지 → 비활성화 → 유닛 삭제 ·
+#     설계-03 §2). 공급사 유닛은 `Restart=always` · `RestartSec=5` 라, **정지가 먼저가
+#     아니면** 프로세스를 끊은 뒤 격리 전에 systemd 가 백도어를 다시 띄운다. 리눅스에는
+#     없는 '복구 동작 제거' 는 계획에 *미룸* 으로 한 줄 남는다. 유닛 삭제는 되돌릴 수 있다.
+#
+# 원래 바이너리의 사본(`cwpsrv.prev-…`)은 **지우지 않는다** — 복구원이다. 패널을 다시
+# 쓰려면 그 사본으로 되돌리거나 공급사 판을 다시 깐다(`yum reinstall cwpsrv` — 유닛도
+# 함께 돌아온다). 백도어는 임의 명령을 돌리므로 패널 자격 증명을 바꾸고 기계 전체를
+# 침해된 것으로 보고 살핀다(XLab 권고).
+schema_version: 1
+id: cwpdoor-2-clean
+version: 0.1.0
+min_core: "1.0.0"
+platforms: [linux]
+name:
+  ko: "CWPdoor 제거"
+  en: "CWPdoor Removal"
+references:
+  - "https://blog.xlab.qianxin.com/cwpdoor-the-invisible-backdoor-living-inside-control-web-panel/"
+
+# ── 권한 상한 ──────────────────────────────────────────────
+scan_roots:
+  - "/usr/local/cwpsrv/bin"
+# service 는 systemd 유닛 자리에서 수집된다 — scan_roots 와 무관하다.
+subjects: [file, service]
+
+detect:
+  # 근거 1 · 2 — cwpdoor-1-check 와 같다. 그쪽 주석 참조.
+  - id: headers
+    subject: file
+    where:
+      all:
+        - { field: path, op: equals, value: "/usr/local/cwpsrv/bin/cwpsrv" }
+        - { yara: "rules/cwpdoor.yar:cwpdoor_integrity_headers" }
+  - id: sigkey
+    subject: file
+    where:
+      all:
+        - { field: path, op: equals, value: "/usr/local/cwpsrv/bin/cwpsrv" }
+        - { yara: "rules/cwpdoor.yar:cwpdoor_signing_key" }
+    capture: { bin: "path" }
+  # 그 바이너리를 띄우는 서비스 — **백도어 바이너리를 가리킬 때만** 선다(보간). 정상 CWP
+  # 서버에서는 근거 2 가 서지 않아 이 규칙도 서지 않는다 — 흔적으로도 세지 않는다.
+  - id: panelsvc
+    subject: service
+    where:
+      all:
+        - { field: name, op: equals, value: "cwpsrv.service" }
+        - { field: image_path, op: equals, value: "${sigkey.bin}" }
+  # 흔적 — 원래 바이너리의 사본. 치료하지 않는다(위 머리 주석).
+  - id: backup
+    subject: file
+    where:
+      - { field: path, op: matches, value: '^/usr/local/cwpsrv/bin/cwpsrv\.prev-[0-9]{8}-[0-9]{6}$' }
+
+# ── 판정 ──────────────────────────────────────────────────
+# 서비스는 넣지 않는다 — 꺼져 있거나 유닛이 다른 자리에 있어도 바이너리는 치료한다.
+verdict:
+  require: "headers and sigkey"
+
+# ── 치료 — "무엇이 남아 있으면 안 되는가" ──────────────────
+# 순서는 계획기가 정한다 — 서비스 중지 → 비활성화 → 유닛 삭제 → 바이너리 격리(2026-11-06
+# 컨테이너 실측 · 4건). 리눅스에 없는 '복구 동작 제거' 는 미룸 한 줄로 남는다.
+remediate:
+  remove:
+    - { ref: panelsvc }
+    - { ref: sigkey }
+
+collect_extra:
+  - { path: "/usr/local/cwpsrv/bin/cwpsrv", max_size: 16MB }
