@@ -379,12 +379,16 @@ impl Observation {
         }
         if self.all_roots_missing() {
             let (n, list) = (self.declared_roots, self.missing_roots.join(" · "));
+            // **`scan_roots` 라고 쓰지 않는다** (2026-11-06) — 고객 화면에서 매니페스트의 칸 이름은
+            // 읽히지 않는다. CWP 가 없는 서버에서 처음 온 사람이 이 줄을 본다. 장소는 `경로` 로
+            // 부른다(목표 remedy_20261028 — `자리` → `폴더` · `경로`). 하네스가 읽는
+            // `전부 존재하지 않아` 는 그대로 둔다(`Invoke-ObsVerify.ps1`).
             out.push(match lang {
                 Lang::Ko => format!(
-                    "선언한 scan_roots {n}개가 전부 존재하지 않아 아무 곳도 열어 보지 못했습니다: {list}"
+                    "검사할 경로 {n}개가 이 기계에 전부 존재하지 않아 아무 곳도 열어 보지 못했습니다: {list}"
                 ),
                 Lang::En => format!(
-                    "all {n} declared scan_roots are **missing**, so nothing was opened at all: {list}"
+                    "all {n} paths to scan are missing on this machine, so nothing was opened at all: {list}"
                 ),
             });
         }

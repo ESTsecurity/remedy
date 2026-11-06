@@ -1608,8 +1608,24 @@ fn load_rules(plugin_path: &str) -> Result<Vec<(String, String)>, Failure> {
 /// `collect_extra` 항목과 펼쳐지지 않은 `scan_roots` 토큰이 함께 온다. 둘 다
 /// **"선언한 것을 못 봤다"** 이고, 조용히 지나가면 그 대상에 걸린 룰이 영영
 /// 미평가인데 판정은 "안 맞았다" 로 나간다.
-fn warn_unresolved_extra(items: &[remedy_core::Unresolved]) {
-    if items.is_empty() {
+///
+/// **선언한 자리가 전부 없으면 그 아래를 가리킨 선언은 말하지 않는다** (2026-11-06). 하나도
+/// 읽힐 수 없고, 까닭은 검사 끝의 *주의* 줄이 그 자리와 함께 한 번 말한다 — 두 번 말하면 같은
+/// 사실이 `collect_extra[0]` · OS 오류 같은 낱말로 먼저 나온다(CWP 가 없는 서버에서 처음 온
+/// 사람이 본 화면). 루트 밖을 가리킨 것 · 자리를 알 수 없는 것은 그대로 말한다.
+fn warn_unresolved_extra(
+    items: &[remedy_core::Unresolved],
+    m: &PluginManifest,
+    obs: Option<&Observation>,
+) {
+    let missing: &[String] = obs
+        .filter(|o| o.all_roots_missing())
+        .map_or(&[], |o| o.missing_roots.as_slice());
+    let shown: Vec<&remedy_core::Unresolved> = items
+        .iter()
+        .filter(|u| !under_missing_root(m, u, missing))
+        .collect();
+    if shown.is_empty() {
         return;
     }
     let lang = ui().lang;
@@ -1618,13 +1634,34 @@ fn warn_unresolved_extra(items: &[remedy_core::Unresolved]) {
         "  {} {}",
         lang.t("주의:", "Note:"),
         lang.pick(
-            format!("선언한 것 {}건이 해소되지 않았습니다:", items.len()),
-            format!("{} declared item(s) could not be resolved:", items.len())
+            format!("선언한 것 {}건이 해소되지 않았습니다:", shown.len()),
+            format!("{} declared item(s) could not be resolved:", shown.len())
         )
     );
-    for u in items {
+    for u in shown {
         errln!("     - {}: {}", u.at, u.reason);
     }
+}
+
+/// 그 선언(`collect_extra[i]`)이 가리킨 경로가 **없는 루트 아래**인가. 알 수 없으면 거짓이다 —
+/// 말하는 쪽으로 기운다.
+fn under_missing_root(m: &PluginManifest, u: &remedy_core::Unresolved, missing: &[String]) -> bool {
+    let Some(i) =
+        u.at.strip_prefix("collect_extra[")
+            .and_then(|r| r.strip_suffix(']'))
+            .and_then(|n| n.parse::<usize>().ok())
+    else {
+        return false;
+    };
+    let path = match m.collect_extra.get(i) {
+        Some(remedy_sdk::manifest::CollectExtra::Path(p)) => p.path.as_str(),
+        Some(remedy_sdk::manifest::CollectExtra::Glob(g)) => g.glob.as_str(),
+        _ => return false,
+    };
+    missing.iter().any(|root| {
+        path.strip_prefix(root.as_str())
+            .is_some_and(|rest| rest.is_empty() || rest.starts_with(['/', '\\']))
+    })
 }
 
 fn cmd_collect(raw: &[String]) -> Result<Code, Failure> {
@@ -1646,7 +1683,7 @@ fn cmd_collect(raw: &[String]) -> Result<Code, Failure> {
                 &meta,
                 remedy_core::pipeline::RefPolicy::ReportNow,
             )?;
-            warn_unresolved_extra(&unresolved);
+            warn_unresolved_extra(&unresolved, &m, None);
             env
         }
         None => {
@@ -1808,7 +1845,7 @@ fn cmd_scan(raw: &[String]) -> Result<Code, Failure> {
     let (artifacts, scan, unresolved) = tee::with_heartbeat(ui().verbose, tee::Beat::Scan, || {
         remedy_core::pipeline::scan_with_rules(&m, &meta, &rules)
     })?;
-    warn_unresolved_extra(&unresolved);
+    warn_unresolved_extra(&unresolved, &m, Some(&scan.body.observation));
     let allow = load_allowed(
         |k| a.get(k.trim_start_matches("--")).map(str::to_string),
         &state_dir(&a),
@@ -2112,7 +2149,7 @@ fn cmd_run(
     let (artifacts, scan, unresolved) = tee::with_heartbeat(ui().verbose, tee::Beat::Scan, || {
         remedy_core::pipeline::scan_with_rules(&m, &meta, &rules)
     })?;
-    warn_unresolved_extra(&unresolved);
+    warn_unresolved_extra(&unresolved, &m, Some(&scan.body.observation));
     let allow = load_allowed(
         |k| a.get(k.trim_start_matches("--")).map(str::to_string),
         &state_dir(&a),
@@ -2700,7 +2737,7 @@ fn cmd_verify(raw: &[String]) -> Result<Code, Failure> {
         })?;
     // `scan` · `run` 과 같은 자리에서 말한다 — 재검사가 6 이면 **왜 못 봤는지**(본문
     // 상한 등)가 이 블록에 있다. 재부팅 회차에는 회차 로그가 유일한 화면이다.
-    warn_unresolved_extra(&unresolved);
+    warn_unresolved_extra(&unresolved, &m, Some(&scan.body.observation));
     if let Some(out) = a.get("out") {
         write_json(out, &scan)?;
         outln!("{} -> {out}", ui().lang.t("재평가", "Re-evaluation"));
@@ -4649,6 +4686,61 @@ mod tests {
             C::FoundNotRemediated
         );
         assert_eq!(all_scans_code(&[]), C::NoThreat);
+    }
+
+    /// 선언한 자리가 전부 없으면 **그 아래를 가리킨** `collect_extra` 줄은 말하지 않는다 — 까닭은
+    /// 검사 끝의 *주의* 줄이 한 번 말한다. 경계가 아닌 접두 · 없는 차례 · 자리를 알 수 없는
+    /// 것 · 루트가 있을 때는 말한다.
+    #[test]
+    fn a_declaration_under_a_missing_root_is_not_said_twice() {
+        let m: PluginManifest = serde_yaml_ng::from_str(
+            r#"schema_version: 1
+id: cwp-probe
+version: 1.0.0
+min_core: '1.0.2'
+platforms: [linux]
+name: { en: 'cwp probe' }
+scan_roots: ['/usr/local/cwpsrv/bin']
+subjects: [file]
+detect:
+  - id: r
+    subject: file
+    where:
+      - { field: path, op: ends_with, value: '/cwpsrv' }
+verdict: { require: 'r' }
+collect_extra:
+  - { path: '/usr/local/cwpsrv/bin/cwpsrv', max_size: 64MB }
+  - { path: '/usr/local/cwpsrv/bin2/cwpsrv' }
+  - { glob: '/usr/local/cwpsrv/bin/lib*' }
+"#,
+        )
+        .expect("매니페스트");
+        let u = |at: &str| remedy_core::Unresolved {
+            at: at.into(),
+            reason: String::new(),
+        };
+        let missing = vec!["/usr/local/cwpsrv/bin".to_string()];
+        assert!(under_missing_root(&m, &u("collect_extra[0]"), &missing));
+        assert!(
+            !under_missing_root(&m, &u("collect_extra[1]"), &missing),
+            "경계가 아닌 접두"
+        );
+        assert!(
+            under_missing_root(&m, &u("collect_extra[2]"), &missing),
+            "glob 형"
+        );
+        assert!(
+            !under_missing_root(&m, &u("collect_extra[9]"), &missing),
+            "없는 차례"
+        );
+        assert!(
+            !under_missing_root(&m, &u("scan_roots"), &missing),
+            "자리를 알 수 없는 것"
+        );
+        assert!(
+            !under_missing_root(&m, &u("collect_extra[0]"), &[]),
+            "루트가 있으면 말한다"
+        );
     }
 
     /// 같은 초에 앞 작업의 폴더가 이미 있으면 번호를 붙인다 — 덮어쓰지 않는다. 붙인
