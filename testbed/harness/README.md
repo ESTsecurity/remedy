@@ -63,6 +63,7 @@ remedy 의 감사 로그는 **무엇을 하려 했는가**를 말한다. `Captur
 | `host/Disable-LabUpdaters.ps1` | 호스트 | 랩의 자동 갱신기를 끈다 — `remedy-lab-base-v3` 를 만든 손질 (`-ReportOnly` 로 상태만) |
 | `host/Invoke-ScreenShot.ps1` · `guest/Capture-Window.ps1` | 호스트 · VM 의 대화형 세션 | **사람이 보는 화면을 PNG 로** — 콘솔 호스트 · Windows Terminal(휴대판) 창에 띄워 차례(`shot` · `type` · `keys` · `key` · `signal` · `wait` · `relaunch`)대로 찍는다. 콘솔 세션에 로그온한 사용자가 있어야 한다 |
 | `linux/screenshot.sh` | 호스트(WSL) · 컨테이너 | 그 리눅스 짝 — 가상 디스플레이(Xvfb) 위 xterm · `ko_KR.UTF-8`. 차례 말은 `relaunch` 만 빼고 같고, `--package` 로 꾸러미 폴더째 띄운다 |
+| `linux/menu-verify.sh` | 호스트(WSL) · 컨테이너 | **리눅스의 새 꾸러미 첫 메뉴를 Windows 와 견준다** — 임시 키 · 앵커 박은 빌드 · 서명된 `lab-plugin.yaml` · `xtask package` 로 꾸러미를 짓고, `script` 의 pty 에서 메뉴를 띄워 번호 줄 목록을 콘솔 기준선 A10 과 diff 한다. 꾸러미 배치(`layout.txt`)도 남긴다 |
 
 ### 랩 값은 어디서 오는가 (2026-10-31)
 
