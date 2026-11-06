@@ -144,7 +144,8 @@ pub fn arm() {
             std::process::exit(i32::from(forced_exit_code()));
         }
         eprintln!();
-        eprintln!("{}", hint_again(TASK.load(Ordering::SeqCst) != TASK_NONE));
+        let hint = hint_again(TASK.load(Ordering::SeqCst) != TASK_NONE);
+        eprintln!("{}", crate::tee::ascii_safe(hint));
     });
 }
 
@@ -495,7 +496,7 @@ fn choose_line(rows: &[Row], zero: Option<&str>, n: usize) -> Answer {
         };
         // 고를 수 없는 줄 — 까닭을 보이고 다시 묻는다. 읽을 줄이 없으면 위에서 끝난다.
         match off_note(rows, v) {
-            Some(note) => eprintln!("{note}"),
+            Some(note) => eprintln!("{}", crate::tee::ascii_safe(note)),
             None => return Answer::Num(v),
         }
     }
@@ -623,7 +624,8 @@ fn draw(out: &mut impl Write, shown: &[String], prev: usize) -> usize {
         s.push_str(&format!("{ESC}[{prev}A\r{ESC}[J"));
     }
     for l in shown {
-        s.push_str(l);
+        // 라벨 · 까닭 · 머리말의 문구도 ASCII 모드면 접는다(`tee::ascii_safe`).
+        s.push_str(&crate::tee::ascii_safe(l.clone()));
         s.push_str("\r\n");
     }
     let _ = out.write_all(s.as_bytes());

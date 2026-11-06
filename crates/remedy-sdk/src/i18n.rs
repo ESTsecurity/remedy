@@ -257,6 +257,37 @@ impl Deco {
     }
 }
 
+/// ASCII 모드에서 **문장 안에 박힌** 장식 글자를 접는다 — 줄표 · 점 · 화살표 ·
+/// 말줄임표 · 구분선 · 표시.
+///
+/// [`Deco`] 를 거치는 자리는 이미 ASCII 로 가지만, 문구에 글자로 박힌 `—` 같은 것은
+/// 그대로 나가 한글을 못 그리는 터미널에서 깨진다(2026-11-06 이미지 — 영어 문구 33곳
+/// 이상 · 기준 3(c)). 그래서 문구를 고치지 않고 **나가는 자리 한 곳에서** 접는다 —
+/// 새 문구가 줄표를 써도 다시 새지 않는다. 짝은 [`Deco`] 의 ASCII 꼴과 같다(시험이
+/// 잰다). 그 밖의 글자 — 한글 · 경로의 비ASCII — 는 데이터라 건드리지 않는다.
+pub fn ascii_fold(s: &str) -> std::borrow::Cow<'_, str> {
+    if s.is_ascii() {
+        return std::borrow::Cow::Borrowed(s);
+    }
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars() {
+        match c {
+            '—' | '–' | '─' => out.push('-'),
+            '·' => out.push('|'),
+            '→' => out.push_str("->"),
+            '←' => out.push_str("<-"),
+            '…' => out.push_str("..."),
+            '©' => out.push_str("(c)"),
+            '✓' => out.push('v'),
+            '✗' => out.push('x'),
+            '↑' => out.push('^'),
+            '↓' => out.push('v'),
+            _ => out.push(c),
+        }
+    }
+    std::borrow::Cow::Owned(out)
+}
+
 /// 앞말의 받침에 따라 조사를 고른다 — `이/가` · `을/를` 처럼 **받침이 있을 때의 꼴을 먼저** 준다.
 ///
 /// 한글이 아닌 글자로 끝나면(영문 파일 이름 · 기호) 받침이 없는 것으로 본다 —
@@ -406,6 +437,39 @@ mod tests {
         }
         let u = Deco { ascii: false };
         assert!(!u.rule().is_ascii());
+    }
+
+    /// 접은 꼴이 장식 층의 ASCII 꼴과 **같다** — 장식으로 찍힌 줄과 문구에 박힌 줄이
+    /// 한 화면에서 다르게 보이지 않는다.
+    #[test]
+    fn folding_a_decoration_gives_its_ascii_form() {
+        let (u, a) = (Deco { ascii: false }, Deco { ascii: true });
+        for (uni, asc) in [
+            (u.rule(), a.rule()),
+            (u.dot(), a.dot()),
+            (u.dash(), a.dash()),
+            (u.arrow(), a.arrow()),
+            (u.copyright(), a.copyright()),
+            (u.good(), a.good()),
+            (u.bad(), a.bad()),
+        ] {
+            assert_eq!(ascii_fold(uni), asc, "{uni:?}");
+        }
+    }
+
+    #[test]
+    fn folding_takes_marks_in_sentences_and_leaves_data() {
+        assert_eq!(
+            ascii_fold("moves the file into quarantine — not deleted, and reversible"),
+            "moves the file into quarantine - not deleted, and reversible"
+        );
+        assert_eq!(ascii_fold("wait… ← back ↑ ↓"), "wait... <- back ^ v");
+        // 한글 · 경로의 비ASCII 는 데이터다 — 그대로 둔다.
+        assert_eq!(ascii_fold("C:\\사용자\\a — b"), "C:\\사용자\\a - b");
+        assert!(matches!(
+            ascii_fold("already ascii"),
+            std::borrow::Cow::Borrowed(_)
+        ));
     }
 
     #[test]

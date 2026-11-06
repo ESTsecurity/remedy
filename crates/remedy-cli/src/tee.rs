@@ -56,6 +56,18 @@ fn with_log<R>(f: impl FnOnce(&mut RunLog) -> R) -> Option<R> {
     guard.as_mut().map(f)
 }
 
+/// ASCII 모드면 문장 안에 박힌 장식 글자까지 접는다([`remedy_sdk::i18n::ascii_fold`]).
+/// 화면과 로그가 같은 글자를 받도록 칠하기 전에 접는다. 아니면 한 글자도 바꾸지 않는다.
+pub(crate) fn ascii_safe(text: String) -> String {
+    if !remedy_sdk::i18n::deco().ascii {
+        return text;
+    }
+    match remedy_sdk::i18n::ascii_fold(&text) {
+        std::borrow::Cow::Owned(s) => s,
+        std::borrow::Cow::Borrowed(_) => text,
+    }
+}
+
 /// 제자리에 그린 진행 줄이 화면에 떠 있는가 — 다음 줄을 찍기 전에 걷는다.
 static LIVE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
@@ -63,6 +75,7 @@ static LIVE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(
 /// 자른다(목표 remedy_제품화 기준 6(b) · 벤치마크 축 6). 아니면 지금처럼 한 줄을
 /// 더한다(파이프 · 파일 · 불변식 I1). 로그에는 늘 한 줄씩 남는다.
 fn emit_progress(text: String) {
+    let text = ascii_safe(text);
     if !crate::term::fancy() {
         emit(false, text);
         return;
@@ -89,6 +102,7 @@ fn clear_progress() {
 /// ([`crate::term::paint`]) — 로그와 파이프에는 지금 글자 그대로 간다.
 pub fn emit(stderr: bool, text: String) {
     clear_progress();
+    let text = ascii_safe(text);
     let shown = crate::term::paint(&text, stderr);
     let screen = shown.as_deref().unwrap_or(&text);
     if stderr {
@@ -102,6 +116,7 @@ pub fn emit(stderr: bool, text: String) {
 
 pub fn emit_raw(text: String) {
     clear_progress();
+    let text = ascii_safe(text);
     match crate::term::paint_block(&text) {
         Some(p) => print!("{p}"),
         None => print!("{text}"),
