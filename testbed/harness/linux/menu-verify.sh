@@ -57,6 +57,9 @@ inside() {
         --bin "$CARGO_TARGET_DIR/release/remedy" --out "$w/pkg" --public-key "$w/pub.key" \
         >/dev/null || { echo "error=꾸러미를 짓지 못했다"; return 5; }
     (cd "$w/pkg" && find . -type f | sed 's|^\./||' | sort) >/out/layout.txt
+    # 꾸러미도 남긴다 — `screenshot.sh --package <out>/pkg` 가 같은 꾸러미로 화면을 찍는다.
+    # 개인키는 남기지 않는다(꾸러미에는 공개키가 박힌 실행 파일과 서명만 있다).
+    cp -a "$w/pkg" /out/pkg
     cd "$w/pkg" || return 6
     printf '0\n' | LANG=ko_KR.UTF-8 script -q -e -c "./remedy > /out/menu.txt 2>&1" /dev/null
     echo "menu_exit=$?"
