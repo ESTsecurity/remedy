@@ -153,6 +153,8 @@ $relBak  = "$gStage\remedy-unanchored.exe"
 $savedPw = $env:REMEDY_SIGN_PASSWORD
 $session = $null
 $pkgSource = $null
+# 목록 넷(기준 5(b))을 재는가 — 일회용 키로 목록을 둔 회차에서만 참이다.
+$lists = $false
 try {
     New-Item -ItemType Directory -Force $gStage | Out-Null
     if ($Package) {
@@ -196,6 +198,29 @@ try {
                 --bin "$gStage\remedy.exe" --out "$pkgSource" --public-key "$gStage\pub.key" | Out-Null
             if ($LASTEXITCODE -ne 0) { throw "꾸러미 만들기 실패" }
             Write-Ok "서명 · package"
+
+            # 목록 둘 — **같은 일회용 키**로 서명해 실행 파일 옆에 둔다(기준 5(b) 의 목록 넷).
+            # 내용은 이 기계에 없는 해시 · 쓰지 않는 플러그인이라 반입해도 뒤의 작업을 바꾸지
+            # 않는다. `-Package` 회차는 만들지 않는다 — 배포 키로 서명한 허용 목록은 모든 고객
+            # 기계에서 탐지를 끌 수 있는 물건이다.
+            $utf8 = New-Object System.Text.UTF8Encoding($false)
+            $sha = [System.Security.Cryptography.SHA256]::Create()
+            $noSuch = ([BitConverter]::ToString($sha.ComputeHash(
+                [System.Text.Encoding]::UTF8.GetBytes("remedy-lab menu allowlist - no such file")))).Replace("-", "").ToLower()
+            [System.IO.File]::WriteAllText("$gStage\allow.json",
+                ('[{"sha256":"' + $noSuch + '","reason":"랩 메뉴 시험 — 이 기계에 없는 파일"}]'), $utf8)
+            [System.IO.File]::WriteAllText("$gStage\revoke.json",
+                '[{"plugin":"remedy-lab-unused","below":"0.0.1","reason":"랩 메뉴 시험 — 쓰지 않는 플러그인"}]', $utf8)
+            & cargo run -q -p xtask -- sign allowlist --entries "$gStage\allow.json" --serial 1 `
+                --issued "2026-11-06T00:00:00Z" --secret-key "$gStage\sec.key" `
+                --out "$pkgSource\menu-allowlist.signed" | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw "허용 목록 서명 실패" }
+            & cargo run -q -p xtask -- sign revocations --entries "$gStage\revoke.json" --serial 1 `
+                --issued "2026-11-06T00:00:00Z" --secret-key "$gStage\sec.key" `
+                --out "$pkgSource\menu-revocations.signed" | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw "폐기 목록 서명 실패" }
+            $lists = $true
+            Write-Ok "목록 둘 (허용 · 폐기 — 같은 일회용 키)"
         } finally { Pop-Location }
 
         $nowHash = (Get-FileHash $binPath -Algorithm SHA256).Hash
@@ -260,15 +285,17 @@ try {
     Add-Check "0" "복원 정보 폴더가 비어 있다" $cleared.Gone "앞 회차 $($cleared.Had)건 지움"
 
     # ── 4. 메뉴를 실제로 눌러 본다 ──────────────────────────────────
-    Write-Step "진짜 콘솔에서 메뉴 번호를 누른다 (작업 열여섯)"
+    Write-Step "진짜 콘솔에서 메뉴 번호를 누른다 (작업 열일곱 · 목록이 있으면 스물하나)"
     $payloadDir = Invoke-Command -Session $session -ScriptBlock {
         Join-Path $env:LOCALAPPDATA "Programs\MicrosoftResourcesAgentV12-we9i6"
     }
+    $guestArgs = @("-Bin", "$LabRoot\menu\remedy.exe",
+                   "-PayloadDir", $payloadDir,
+                   "-OutFile", "$LabRoot\menu-result.json",
+                   "-TranscriptFile", "$LabRoot\menu-screens.txt")
+    if ($lists) { $guestArgs += "-Lists" }
     $rc = Invoke-GuestScript -Session $session -Root $LabRoot -ScriptName "Verify-Menu.ps1" `
-            -Arguments @("-Bin", "$LabRoot\menu\remedy.exe",
-                         "-PayloadDir", $payloadDir,
-                         "-OutFile", "$LabRoot\menu-result.json",
-                         "-TranscriptFile", "$LabRoot\menu-screens.txt") -PassThruExitCode
+            -Arguments $guestArgs -PassThruExitCode
     if ($rc -ne 0) { Write-Warn "게스트 스크립트 종료 $rc" }
 
     Copy-Item "$LabRoot\menu-result.json" -Destination (Join-Path $hostOut "menu-result.json") `
@@ -368,6 +395,8 @@ try {
     Invoke-Command -Session $session -ArgumentList $LabRoot -ScriptBlock {
         param($lab)
         Remove-Item "$lab\menu" -Recurse -Force -ErrorAction SilentlyContinue
+        # 이어 하기가 만든 빈 대상 · 계획(대상은 격리됐고 폴더에는 계획 · 이벤트가 남는다).
+        Remove-Item "$lab\resume" -Recurse -Force -ErrorAction SilentlyContinue
         Remove-Item "$lab\menu-result.json", "$lab\menu-screens.txt", "$lab\demo-dblclick.json" `
                     -Force -ErrorAction SilentlyContinue
     }
