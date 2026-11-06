@@ -330,7 +330,9 @@ try {
                    "-OutFile", "$LabRoot\menu-result.json",
                    "-TranscriptFile", "$LabRoot\menu-screens.txt")
     if ($lists) { $guestArgs += "-Lists" }
-    if ($extraDir) { $guestArgs += @("-Extra", "$LabRoot\menu-extra\" + (Split-Path -Leaf $extraDir)) }
+    # **값을 괄호로 묶는다** — PowerShell 은 쉼표를 `+` 보다 먼저 묶어, 묶지 않으면 경로가
+    # 두 인자로 갈라진다(2026-11-06 첫 회차: 떨어진 폴더 이름이 게스트의 `$Lead` 로 붙었다).
+    if ($extraDir) { $guestArgs += @("-Extra", (Join-Path "$LabRoot\menu-extra" (Split-Path -Leaf $extraDir))) }
     $rc = Invoke-GuestScript -Session $session -Root $LabRoot -ScriptName "Verify-Menu.ps1" `
             -Arguments $guestArgs -PassThruExitCode
     if ($rc -ne 0) { Write-Warn "게스트 스크립트 종료 $rc" }

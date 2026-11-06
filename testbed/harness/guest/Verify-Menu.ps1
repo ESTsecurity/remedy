@@ -55,7 +55,10 @@
 .PARAMETER TranscriptFile
     화면 전사. 시연 대본이 인용할 수 있게 남긴다.
 #>
-[CmdletBinding()]
+# **위치 인자를 받지 않는다.** 받으면 떨어진 낱말이 선언 차례대로 `$Lead` 에 조용히 붙어,
+# 모든 회차가 메뉴 번호 앞에 그 글자를 친다 — 2026-11-06 에 그렇게 접은 화면이 열리지
+# 않았다. 받지 않으면 그 자리에서 실패한다. 부르는 쪽 셋은 모두 이름을 붙인다.
+[CmdletBinding(PositionalBinding = $false)]
 param(
     [Parameter(Mandatory = $true)][string] $Bin,
     [Parameter(Mandatory = $true)][string] $PayloadDir,
@@ -295,14 +298,16 @@ function Find-MenuNumber {
 $AuthorLine = "작성자·운영자 명령 보기"
 $AuthorHead = "작성자·운영자 명령 —"
 
-# 접어 둔 화면만 잘라 읽는다 — 머리말부터 그 화면의 *번호를 고르십시오* 까지. 뒤에 다시 선
-# 첫 화면의 줄이 섞이지 않게.
+# 접어 둔 화면만 잘라 읽는다 — 머리말부터 그 화면의 `0. 메뉴로 돌아가기` 앞까지. 뒤에 다시
+# 선 첫 화면의 줄이 섞이지 않게. **끝 표지는 stdout 의 것이어야 한다** — 전사는 stdout 뒤에
+# stderr 를 붙이므로 *번호를 고르십시오*(stderr)는 맨 끝에만 있다(2026-11-06 둘째 회차가
+# 접은 화면을 22줄로 셌다 — 돌아온 첫 화면 14줄까지).
 function Get-AuthorText {
     param([string] $Text)
     $at = $Text.IndexOf($AuthorHead)
     if ($at -lt 0) { return "" }
     $rest = $Text.Substring($at)
-    $end = $rest.IndexOf("번호를 고르십시오")
+    $end = $rest.IndexOf("0. 메뉴로 돌아가기")
     if ($end -gt 0) { $rest = $rest.Substring(0, $end) }
     $rest
 }
@@ -530,10 +535,13 @@ if ($withExtra) {
             summary = [bool]($sum -match "룰 2개"); found_both = ($hits -eq 2); out_dirs = $outs
             unchanged = (($before | ConvertTo-Json -Compress) -eq ($after | ConvertTo-Json -Compress))
             ended = [bool]($all.text -match "끝냅니다\.")
+            # 작업 뒤 고르는 화면으로 돌아왔다 — 멈춤 줄이 있고 그 화면이 두 번 섰다.
+            back_menu = [bool]($all.text -match "메뉴로 돌아갑니다") -and
+                        ([regex]::Matches($all.text, "검사 항목 2개를 찾았습니다").Count -ge 2)
             before = $before; after = $after; ok = $false
         }
         $row.ok = (-not $row.timed_out) -and ($row.exit -eq 2) -and $row.summary -and $row.found_both -and
-                  ($outs -eq 2) -and $row.unchanged -and $row.ended
+                  ($outs -eq 2) -and $row.unchanged -and $row.ended -and $row.back_menu
         $results.Add([pscustomobject]$row)
         $tr.Add("")
         $tr.Add("=== 모두 검사 — 고르는 화면 1 번 (2개 모두 검사만 하기) ===")
