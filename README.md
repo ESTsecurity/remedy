@@ -127,7 +127,11 @@ Ebury 는 `libkeyutils.so.1` 자리에 가짜 라이브러리를 둡니다 — �
 
 ![remedy 의 첫 메뉴 — Windows Terminal](docs/images/menu-windows-terminal.png)
 
-![remedy 의 첫 메뉴 — 리눅스 xterm](docs/images/menu-linux-xterm.png)
+리눅스 꾸러미는 검사 항목이 셋이라 먼저 무엇을 볼지 묻고, 1번이 *모두 검사만* 입니다.
+
+![검사 항목을 고르는 첫 화면 — 리눅스 xterm](docs/images/menu-linux-xterm.png)
+
+![모두 검사한 결과 — 리눅스 xterm (Control Web Panel 이 없는 서버)](docs/images/scan-all-linux-xterm.png)
 
 ## 주요 기능
 

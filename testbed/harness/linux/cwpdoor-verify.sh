@@ -7,7 +7,8 @@
 #        [--out <결과 폴더>]
 #
 # `--plugins` 는 `cwpdoor-1-check/` · `cwpdoor-2-clean/` 을 담은 폴더다 — 저장소의 `plugins/`
-# 이거나 내려받아 푼 위협 꾸러미의 `plugins/` 다. 컨테이너는 네트워크 없이 돌고 버려진다.
+# 이거나 내려받아 푼 꾸러미의 `plugins/` 다(통합 꾸러미라 다른 룰이 함께 있어도 된다). 컨테이너는
+# 네트워크 없이 돌고 버려진다.
 #
 # # 무해한가
 #
@@ -25,6 +26,13 @@
 #
 # 서비스 **중지의 효과**는 여기서 재지 못한다 — 계획에 들고 수행도 되지만, 컨테이너에는
 # systemd 가 PID 1 이 아니어서 멈출 패널이 돌고 있지 않다.
+#
+#   E  (`--menu-ctrlc` 를 줄 때만) 메뉴 세션에서 치료하는 도중 Ctrl+C 한 번 — 첫 번은 끝내지
+#      않고, 치료가 띄운 자식 도구(`systemctl`)는 새 프로세스 그룹이라 그 Ctrl+C 를 받지 않고,
+#      5초를 넘긴 작업에 진행 줄이 선다(목표 remedy_출시_20261111 기준 7 · remedy_제품화 4(c) ·
+#      6(b) 의 리눅스 칸). 부팅 표지(`/run/systemd/system`)와 8초를 자는 대역 `systemctl` 을
+#      이 컨테이너 안에만 둔다 — 진짜 systemd 는 건드리지 않는다. 메뉴는 앵커로 확인되는 룰만
+#      쓰므로 **서명된 꾸러미**(내려받아 푼 배포물의 `remedy` · `plugins/`)에서만 뜻이 있다.
 set -u
 
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -32,12 +40,14 @@ BIN=""
 PLUGINS=""
 OUT=""
 INSIDE=0
+MENU_CTRLC=0
 while [ $# -gt 0 ]; do
     case "$1" in
         --bin) BIN=$2; shift 2 ;;
         --plugins) PLUGINS=$2; shift 2 ;;
         --out) OUT=$2; shift 2 ;;
         --inside) INSIDE=1; shift ;;
+        --menu-ctrlc) MENU_CTRLC=1; shift ;;
         *) echo "모르는 인자: $1" >&2; exit 2 ;;
     esac
 done
@@ -120,11 +130,46 @@ PY
     check "C11 바이너리 · 유닛이 같은 바이트로 돌아왔다" \
         "$([ "$(sha /usr/local/cwpsrv/bin/cwpsrv)" = "$i0" ] && [ "$(sha /lib/systemd/system/cwpsrv.service)" = "$u0" ] && echo 1 || echo 0)" ""
 
+    if [ "$MENU_CTRLC" = 1 ]; then
+        echo "── E. 메뉴 세션 — 치료 도중 Ctrl+C 한 번 ──"
+        # 실행 파일 옆에 plugins 를 둔 꾸러미 꼴 — 안내 모드는 그 자리만 보고, 결과 · 상태 폴더도
+        # 그 옆에 생긴다.
+        local K=/tmp/pkg no
+        rm -rf "$K" && mkdir -p "$K" && cp "$R" "$K/remedy" && cp -a "$P" "$K/plugins"
+        mkdir -p /run/systemd/system
+        printf '#!/bin/sh\necho "$*" >> /tmp/systemctl.calls\nsleep 8\necho done > /tmp/systemctl.done\nexit 0\n' \
+            >/usr/bin/systemctl
+        chmod +x /usr/bin/systemctl
+        rm -f /tmp/systemctl.done /tmp/systemctl.calls
+        # 고르는 화면에서 'CWPdoor 제거' 의 번호를 먼저 읽는다 — 룰이 늘면 바뀐다. `exec` 로 띄워
+        # 사이에 셸을 두지 않는다 — 셸이 SIGINT 에 죽으면 pty 가 닫혀 무엇을 쟀는지 모른다.
+        printf '0\n' | script -qec "exec env REMEDY_LANG=ko LANG=C.UTF-8 $K/remedy >/tmp/e-choose.txt 2>&1" \
+            /dev/null >/dev/null 2>&1
+        no=$(grep -m1 -E '^ +[0-9]+\. CWPdoor 제거' /tmp/e-choose.txt | sed -E 's/^ +([0-9]+)\..*/\1/')
+        # 항목 → 1(검사하고 치료하기) → 예 → 3초 뒤 Ctrl+C 한 번(대역 systemctl 이 자는 동안) →
+        # 끝나면 Enter(멈춤) → 0(고르는 화면에서 그만두기).
+        { printf '%s\n1\n예\n' "$no"; sleep 3; printf '\003'; sleep 14; printf '\n0\n'; sleep 2; } |
+            timeout 60 script -qec "exec env REMEDY_LANG=ko LANG=C.UTF-8 $K/remedy >$O/e-menu.txt 2>&1" \
+            /dev/null >/dev/null 2>&1
+        c=$?
+        check "E1 메뉴 세션의 치료가 1 로 끝난다 (Ctrl+C 한 번은 끝내지 않는다)" \
+            "$([ $c = 1 ] && echo 1 || echo 0)" "exit=$c · 항목 ${no:-?}번"
+        check "E2 첫 Ctrl+C 에 '한 번 더 누르면 끝납니다' 를 띄운다" \
+            "$(grep -q '한 번 더 누르면 끝납니다' "$O/e-menu.txt" && echo 1 || echo 0)" ""
+        check "E3 자식 도구(systemctl)가 그 Ctrl+C 를 받지 않고 끝까지 돌았다" \
+            "$([ -e /tmp/systemctl.done ] && echo 1 || echo 0)" "$(head -1 /tmp/systemctl.calls 2>/dev/null)"
+        check "E4 5초를 넘긴 작업에 진행 줄이 선다" \
+            "$(grep -q '치료 중 · ' "$O/e-menu.txt" && echo 1 || echo 0)" "$(grep -c '치료 중 · ' "$O/e-menu.txt")줄"
+        check "E5 백도어 바이너리가 없어졌다 (격리)" "$([ ! -e /usr/local/cwpsrv/bin/cwpsrv ] && echo 1 || echo 0)" ""
+    fi
+
     echo "── D. 비공개 지표 ──"
     # 값을 적지 않고 꼴로 본다 — 지표를 여기 적으면 이 파일이 그것을 싣는다. MANIFEST 는 파일
     # 해시를 담으므로 룰(plugin.yaml · rules/*.yar)만 본다.
+    # **CWPdoor 룰만 본다** — 통합 꾸러미의 plugins 에는 다른 룰이 함께 있다(Ebury 는 ESET 의
+    # 공개 룰을 원문 그대로 싣고, 그 안에 해시 꼴 문자열이 있다 — 그 룰의 몫은 ebury-verify.sh).
     local leak; leak=$(grep -lE '([0-9]{1,3}\.){3}[0-9]{1,3}|[0-9a-fA-F]{32,}' \
-        "$P"/*/plugin.yaml "$P"/*/rules/*.yar 2>/dev/null | wc -l)
+        "$P"/cwpdoor-*/plugin.yaml "$P"/cwpdoor-*/rules/*.yar 2>/dev/null | wc -l)
     check "D1 룰에 IP 주소 · 해시 꼴 문자열이 없다" "$([ "$leak" = 0 ] && echo 1 || echo 0)" "파일 ${leak}개"
 
     echo
@@ -152,5 +197,6 @@ docker run --rm --network none \
     -v "$HERE/fixtures/cwpdoor:/fixtures:ro" \
     -v "$HERE/$(basename "$0"):/verify.sh:ro" \
     -v "$OUT:/out" \
-    rust:1.96-bookworm bash /verify.sh --inside | tee "$OUT/verdict.txt"
+    rust:1.96-bookworm bash /verify.sh --inside $([ "$MENU_CTRLC" = 1 ] && echo --menu-ctrlc) |
+    tee "$OUT/verdict.txt"
 exit "${PIPESTATUS[0]}"
