@@ -32,7 +32,8 @@
    나간 키 — Ebury 는 둘 다 훔친다.
 5. **서버 전체를 침해된 것으로 본다.** 심으려면 root 권한이 필요했다. 다시 설치를 검토한다.
 
-Control Web Panel 을 쓰는 서버라면 `remedy-cwpdoor-linux-x64` 로도 점검한다.
+Control Web Panel 을 쓰는 서버라면 같은 꾸러미(`remedy-linux-x64`)의 *CWPdoor 점검* 으로도 본다 —
+고르는 화면의 1번 *모두 검사만* 이 꾸러미의 룰을 한 번에 본다.
 
 ## 결과 읽기
 
