@@ -2627,11 +2627,19 @@ fn advise_restart(report: &remedy_core::apply::Report) {
     let lang = ui().lang;
 
     let health = remedy_core::boot_health();
-    let advice = remedy_core::restart::advise(
-        report.body.reboot_required,
-        report.failed(),
-        health.as_ref(),
-    );
+    // **재시작 조언은 Windows 의 것이다.** 안전 모드 · 재부팅 시 삭제가 Windows 개념이라, 리눅스에서
+    // 일부가 실패하면 '안전 모드 진입 가능 여부: unknown … 복구 매체를 먼저 준비하십시오' 가 떴다 —
+    // 리눅스의 부팅 건전성 자리는 대역이라 늘 unknown 이다(2026-11-07 적대적 검토 · 기준선 L 절).
+    // 실패한 까닭은 위 '실패' 줄과 결과 줄이 말한다. 빠지는 줄은 stderr 뿐이다.
+    let advice = if cfg!(windows) {
+        remedy_core::restart::advise(
+            report.body.reboot_required,
+            report.failed(),
+            health.as_ref(),
+        )
+    } else {
+        RestartAdvice::Nothing
+    };
 
     match advice {
         RestartAdvice::Nothing => {}
@@ -4389,8 +4397,8 @@ fn cmd_restore(raw: &[String]) -> Result<Code, Failure> {
             // 'wrap' 은 내부 낱말이다 — 받는 사람에게는 무엇으로 열리는지와 언제 못 여는지만
             // 말한다(v1.1.0 적대적 검토).
             ui().lang.t(
-                "이 격리물은 이 기계의 키로만 열립니다. 이 기계를 재설치하면 열 수 없으니 그 전에 복원하십시오.",
-                "this quarantine opens only with this machine's key. Reinstalling this machine makes it unopenable, so restore before that."
+                "이 격리물은 이 기계의 키로만 열립니다. 이 기계를 재설치하면 열 수 없으므로, 복원이 필요하면 그 전에 하십시오.",
+                "this quarantine opens only with this machine's key. Reinstalling this machine makes it unopenable, so if it needs restoring, do it before that."
             )
         );
     }

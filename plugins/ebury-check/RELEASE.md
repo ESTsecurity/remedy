@@ -30,14 +30,19 @@
 ## 위협이 나오면 — 운영자가 할 일
 
 1. **콘솔(가상 콘솔 · IPMI 등)에서 한다.** SSH 로 들어가면 그 접속의 자격 증명이 다시 넘어간다.
-2. **정상 버전을 다시 설치하고, 패키지에 없는 파일을 지운다.** RHEL 계열은 `yum reinstall keyutils-libs`
-   (또는 `dnf`), Debian · Ubuntu 는 `apt-get install --reinstall libkeyutils1`. 결과에 나온 파일이
-   패키지의 것이 아니면 재설치가 지우지 않으므로 직접 지운다. 그다음 `libkeyutils.so.1` 링크가
-   패키지의 버전을 가리키는지 본다(`rpm -V keyutils-libs` · `dpkg -V libkeyutils1`).
-3. **재부팅한다.** 이미 떠 있는 `sshd` 등에는 가짜 라이브러리가 실려 있다.
-4. **자격 증명을 모두 바꾼다.** 이 서버로 들어온 비밀번호 · SSH 키, 그리고 이 서버에서 다른 서버로
+2. **정상 버전을 다시 설치한다.** RHEL 계열은 `yum reinstall keyutils-libs`(또는 `dnf`), Debian ·
+   Ubuntu 는 `apt-get install --reinstall libkeyutils1`.
+3. **링크가 정상 파일을 가리키는지 본 뒤에 지운다.** `ls -l` 로 `libkeyutils.so.1` 이 결과에 나온
+   파일을 더는 가리키지 않는지 본다. 결과에 나온 파일이 어느 패키지의 것도 아니면(`rpm -qf` ·
+   `dpkg -S` 가 패키지를 대지 못하면) 지우고 `ldconfig` 를 돌린 뒤 링크를 한 번 더 본다
+   (`rpm -V keyutils-libs` · `dpkg -V libkeyutils1`). 다시 설치가 되지 않았거나 링크가 여전히 그
+   파일을 가리키면 **지우지 않는다** — 지우면 `sshd` · `sudo` 가 뜨지 못한다. 순서가 이렇다:
+   지운 뒤에 확인하면, 번호가 높은 가짜 파일로 `ldconfig` 가 링크를 다시 건 경우를 놓친다
+   (2026-11-07 검토).
+4. **재부팅한다.** 이미 떠 있는 `sshd` 등에는 가짜 라이브러리가 실려 있다.
+5. **자격 증명을 모두 바꾼다.** 이 서버로 들어온 비밀번호 · SSH 키, 그리고 이 서버에서 다른 서버로
    나간 키 — Ebury 는 둘 다 훔친다.
-5. **서버 전체를 침해된 것으로 본다.** 심으려면 root 권한이 필요했다. 다시 설치를 검토한다.
+6. **서버 전체를 침해된 것으로 본다.** 심으려면 root 권한이 필요했다. 다시 설치를 검토한다.
 
 Control Web Panel 을 쓰는 서버라면 같은 배포 파일(`remedy-linux-x64`)의 *CWPdoor 점검* 으로도 본다 —
 고르는 화면의 1번 *모두 검사만* 이 그 파일의 룰을 한 번에 본다.
