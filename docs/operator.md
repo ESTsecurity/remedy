@@ -76,7 +76,9 @@ run    수집부터 치료까지 한 번에            승인을 묻는다
 
 ### 안내 모드 — 받아서 더블클릭한 사람
 
-**받은 파일을 푼 사람의 기본 경로다.** 통째로 풀고 `remedy.exe` 를 더블클릭하면
+**받은 파일을 푼 사람의 기본 경로다.** 통째로 풀고 `remedy.exe` 를 관리자 권한으로 실행하면(README
+3단계 — 마우스 오른쪽 단추 → *관리자 권한으로 실행*. 그냥 더블클릭해도 메뉴는 뜨지만 검사 · 치료 ·
+복원은 권한을 올려 다시 띄워야 한다)
 옆의 `plugins\` 를 찾아 **검증을 통과한 룰만** 고를 거리에 올리고, 고른
 것으로 `run` 과 **같은 문**을 지난다 — 권한 검사도 승인 질문도 같다. 두 벌이
 되면 갈라지고, 갈라지면 이 경로로 들어온 사람만 다른 판정을 받기 때문이다.
@@ -146,12 +148,18 @@ Enter 를 누르십시오.` 에서 기다린다.
 되돌리려면: remedy restore --run run-1788142329-32a4-2673442c
 ```
 
+상태를 기본 자리가 아닌 곳에 쌓은 회차(메뉴로 치료한 회차 — 받은 폴더의 `state`)는 그 안내에
+`--state-dir <그 자리>` 가 붙어 나온다. 아래 명령도 그때는 같은 `--state-dir` 를 준다 — 주지 않으면
+기본 자리만 보고 *"되돌릴 수 있는 회차가 없습니다"* 로 끝난다(§0 · 2026-11-08 실측).
+
 **창을 닫아 `run_id` 를 잃어버렸어도 괜찮다.** 되돌릴 수 있는 회차를 도구가 직접
 보여 준다 — 키 없이 평문 헤더만 읽으므로 무엇이 들었는지는 나오지 않고, 어느
 회차가 있는지만 나온다.
 
 ```powershell
 remedy restore --list
+# 메뉴로 치료한 회차
+remedy restore --list --state-dir <받은 폴더>\state
 ```
 
 ```
@@ -302,7 +310,10 @@ remedy run --plugin .\plugin.yaml --out-dir .\out --yes --events .\out\run.ndjso
 - `--events <파일>` 은 진행 상황을 NDJSON 으로 낸다. **사람이 읽는 출력과 다른
   스트림이다** — 문구를 파싱하지 말고 이것을 읽어라.
 - `run --plugin` 으로 돌리면 **재부팅 뒤 재평가가 자동 예약된다**
-  (`HKLM\...\RunOnce\remedy-verify`, 실행 뒤 OS 가 지운다).
+  (`HKLM\...\RunOnce\remedy-verify`, 실행 뒤 OS 가 지운다). **RunOnce 는 관리자가 로그온할 때
+  돈다** — 재부팅 뒤 표준 사용자로 로그온하면 예약이 그대로 남고 `remedy.exe` 가 뜨지 않는다(2026-11-08
+  랩 실측 — 이어서 관리자로 로그온하자 돌았다). 표준 사용자 PC 는 관리자가 로그온하거나 메뉴의
+  *치료가 유지됐는지 다시 보기*(`verify --run <id> --plugin <p>`)로 확인한다.
   `apply --plan` 은 룰 경로를 몰라 예약하지 못하고, 그 사실을 경고로 말한다.
   `resume` 도 같은 자리에서 예약한다 — `--plugin <p>` 를 함께 주면 이어받은 회차에도
   걸고, 주지 않으면 같은 경고를 낸다.
@@ -318,6 +329,8 @@ remedy run --plugin .\plugin.yaml --out-dir .\out --yes --events .\out\run.ndjso
 
 ```powershell
 remedy support-bundle --run <run_id> --out .\bundle
+# 메뉴로 치료한 회차는 받은 폴더의 state 에 있다 — 그 자리를 준다(§0)
+remedy support-bundle --run <run_id> --state-dir <받은 폴더>\state --out .\bundle
 ```
 
 담긴 것과 **일부러 담지 않은 것**을 함께 보여 준다.

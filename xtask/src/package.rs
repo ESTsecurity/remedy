@@ -75,12 +75,18 @@ pub fn run(root: &Path, args: &[String]) -> Result<(), String> {
             .ok_or_else(|| format!("{} 의 폴더 이름이 없다", dir.display()))?
             .to_string_lossy()
             .to_string();
+        let yaml = dir.join("plugin.yaml");
+        let text =
+            std::fs::read_to_string(&yaml).map_err(|e| format!("{}: {e}", yaml.display()))?;
+        let m: remedy_sdk::manifest::PluginManifest =
+            serde_yaml_ng::from_str(&text).map_err(|e| format!("{}: {e}", yaml.display()))?;
         plugins.push(Packed {
             dir: dir.clone(),
             name,
             id,
             version,
             tree,
+            treats: m.remediate.is_some(),
         });
     }
 
@@ -206,6 +212,9 @@ struct Packed {
     /// **서명과 대조가 끝난** 파일 목록(상대 경로 → 해시). 붓는 것은 이 목록이다 —
     /// 다시 훑으면 그 사이에 생긴 파일이 서명 없이 들어간다.
     tree: BTreeMap<String, String>,
+    /// 치료하는 룰인가(`remediate` 가 있다). 찾기만 하는 룰에는 *"계획을 보여 주고 승인을
+    /// 기다립니다"* 가 틀린 말이다 — 계획이 없다(2026-11-08 적대적 검토 4바퀴).
+    treats: bool,
 }
 
 /// 서명을 확인하고 (id, version, 확인된 파일 목록) 을 돌려준다.
@@ -422,7 +431,12 @@ fn readme(
         ));
     }
     s.push_str("\r\n");
-    s.push_str("   계획을 보여 주고 승인을 기다립니다. --yes 를 붙이면 묻지 않습니다.\r\n\r\n");
+    if plugins.iter().all(|p| p.treats) {
+        s.push_str("   계획을 보여 주고 승인을 기다립니다. --yes 를 붙이면 묻지 않습니다.\r\n\r\n");
+    } else {
+        s.push_str("   치료하는 항목은 계획을 보여 주고 승인을 기다립니다(--yes 를 붙이면\r\n");
+        s.push_str("   묻지 않습니다). 찾기만 하는 항목은 결과만 보여 줍니다.\r\n\r\n");
+    }
 
     // **첫 벽이 플랫폼마다 다르다.** Windows 는 SmartScreen 이고 리눅스는
     // 실행 권한이다 — 둘 다 "받자마자 막힌다" 는 같은 자리이고, 둘 다 이 글이
@@ -458,7 +472,13 @@ fn readme(
     // 다시 설치한 뒤에는 되돌리지 않는다 — 격리한 파일이 새 파일을 덮는다)를 적는다(2026-11-07 검토).
     s.push_str("위협이 나오면\r\n");
     s.push_str("--------------\r\n");
-    s.push_str("치료한 뒤 할 일(서비스 되살리기 · 비밀번호 바꾸기 · 콘솔에서 할 일)은\r\n");
+    // 괄호 안은 **그 OS 의 위협이 남기는 일**이다 — Windows 판에 리눅스의 일(서비스 · 콘솔)이
+    // 적혀 있었다(2026-11-08 적대적 검토 4바퀴).
+    if win {
+        s.push_str("치료한 뒤 할 일(다시 시작 · 백신 전체 검사 · 비밀번호 바꾸기)은\r\n");
+    } else {
+        s.push_str("치료한 뒤 할 일(서비스 되살리기 · 비밀번호 바꾸기 · 콘솔에서 할 일)은\r\n");
+    }
     s.push_str("위협마다 다릅니다. README 의 '위협별 안내' 를 따르십시오:\r\n");
     s.push_str("  https://github.com/ESTsecurity/remedy#위협별-안내\r\n");
     // **인터넷이 막힌 기계에서도 볼 곳** — 같은 차례가 룰 폴더마다 든 RELEASE.md 에 있다
@@ -477,8 +497,13 @@ fn readme(
             ));
         }
     }
-    s.push_str("치료한 프로그램을 공급사 버전으로 다시 설치했다면 치료를 되돌리지\r\n");
-    s.push_str("마십시오 — 되돌리면 격리해 둔 파일이 새로 설치한 파일을 덮습니다.\r\n\r\n");
+    // 공급사 버전을 다시 설치하는 위협은 리눅스 쪽이다(CWPdoor 의 패널). Windows 의 EvilAI 는
+    // 정상 프로그램(Node.js)을 건드리지 않아 다시 설치할 것이 없다.
+    if !win {
+        s.push_str("치료한 프로그램을 공급사 버전으로 다시 설치했다면 치료를 되돌리지\r\n");
+        s.push_str("마십시오 — 되돌리면 격리해 둔 파일이 새로 설치한 파일을 덮습니다.\r\n");
+    }
+    s.push_str("\r\n");
 
     s.push_str("룰의 서명을 확인하려면\r\n");
     s.push_str("------------------------\r\n");
@@ -637,6 +662,7 @@ mod tests {
             id: name.to_string(),
             version: "1.0.0".into(),
             tree: BTreeMap::new(),
+            treats: true,
         }
     }
 
@@ -769,13 +795,47 @@ mod tests {
             assert!(r.contains("이 폴더를 지우지 마십시오"), "{r}");
             assert!(r.contains("로컬 디스크에 풀어"), "{r}");
             assert!(r.contains("remedy#위협별-안내"), "{r}");
-            assert!(r.contains("치료를 되돌리지"), "{r}");
             assert!(
                 r.contains("https://github.com/ESTsecurity/remedy/blob/main/docs/operator.md"),
                 "{r}"
             );
             assert!(!r.contains("꾸러미"), "{r}");
         }
+        // 치료한 뒤 할 일은 **그 OS 의 위협의 일**이다 — Windows 판에 리눅스의 일(서비스 · 콘솔 ·
+        // 공급사 버전 다시 설치)이 적혀 있었다(2026-11-08 적대적 검토 4바퀴).
+        let (w, l) = (make(1, true), make_nix(2, true));
+        assert!(w.contains("다시 시작 · 백신 전체 검사"), "{w}");
+        assert!(
+            !w.contains("서비스 되살리기") && !w.contains("치료를 되돌리지"),
+            "{w}"
+        );
+        assert!(
+            l.contains("서비스 되살리기") && l.contains("치료를 되돌리지"),
+            "{l}"
+        );
+    }
+
+    /// 찾기만 하는 룰에는 계획이 없다 — *"계획을 보여 주고 승인을 기다립니다"* 는 치료하는
+    /// 항목에만 붙인다(2026-11-08 적대적 검토 4바퀴). 치료하는 룰만 든 판은 지금 그대로다.
+    #[test]
+    fn detect_only_rules_are_not_promised_a_plan() {
+        let all_treat = make_nix(2, true);
+        assert!(
+            all_treat
+                .contains("계획을 보여 주고 승인을 기다립니다. --yes 를 붙이면 묻지 않습니다."),
+            "{all_treat}"
+        );
+        let mut ps = vec![packed("rule0"), packed("rule1")];
+        ps[1].treats = false;
+        let mixed = readme(Path::new("."), &ps, "remedy", &[], true);
+        assert!(
+            mixed.contains("치료하는 항목은 계획을 보여 주고"),
+            "{mixed}"
+        );
+        assert!(
+            mixed.contains("찾기만 하는 항목은 결과만 보여 줍니다"),
+            "{mixed}"
+        );
     }
 
     /// 인터넷이 막힌 기계에서도 위협별 차례를 볼 곳 — 서명과 대조한 목록에 RELEASE.md 가 든

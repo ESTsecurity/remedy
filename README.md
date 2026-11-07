@@ -16,7 +16,7 @@
 <!-- threats:begin — `cargo xtask threats --write` 가 룰에서 만든다. 손으로 고치지 않는다 -->
 | 룰 | 하는 일 | OS | 폴더 · 버전 | 참고 |
 |---|---|---|---|---|
-| EvilAI(Locust) 제거 | 찾아서 치료합니다 (복원할 수 있습니다) | Windows | `evilai-locust` 0.1.2 | [www.virustotal.com](https://www.virustotal.com/gui/search/engines%3Ameadowlocust) |
+| EvilAI(Locust) 제거 | 찾아서 치료합니다 (복원할 수 있습니다) | Windows | `evilai-locust` 0.1.3 | [www.virustotal.com](https://www.virustotal.com/gui/search/engines%3Ameadowlocust) |
 | CWPdoor 점검 (탐지만) | 찾기만 합니다 | Linux | `cwpdoor-1-check` 0.1.1 | [blog.xlab.qianxin.com](https://blog.xlab.qianxin.com/cwpdoor-the-invisible-backdoor-living-inside-control-web-panel/) |
 | CWPdoor 제거 | 찾아서 치료합니다 (복원할 수 있습니다) | Linux | `cwpdoor-2-clean` 0.1.1 | [blog.xlab.qianxin.com](https://blog.xlab.qianxin.com/cwpdoor-the-invisible-backdoor-living-inside-control-web-panel/) |
 | Ebury 점검 (탐지만) | 찾기만 합니다 | Linux | `ebury-check` 0.1.1 | [www.welivesecurity.com](https://www.welivesecurity.com/en/eset-research/ebury-alive-unseen-400k-linux-servers-compromised-cryptotheft-financial-gain/) |
@@ -34,7 +34,8 @@
 | Windows PC · 서버 (64비트) | `remedy-windows-x64.zip` |
 | 리눅스 서버 (64비트) | `remedy-linux-x64.tar.gz` |
 
-같은 화면 맨 아래의 *Source code* 두 개는 개발자용 소스입니다 — 받지 않으셔도 됩니다.
+같은 화면 맨 아래의 *Source code* 두 개와 *Release attestation (json)* 은 개발 · 검증용입니다 — 받지
+않으셔도 됩니다.
 
 리눅스 서버에서 바로 받으려면:
 
@@ -68,8 +69,9 @@ grep linux SHA256SUMS | sha256sum -c
 
 **Windows**
 
-1. 받은 zip 을 **폴더째** 풉니다(탐색기에서 마우스 오른쪽 단추 → **모두 압축 풀기**). zip 을 연
-   채로 실행하거나 파일을 따로 옮기면 동작하지 않습니다.
+1. 받은 zip 을 **폴더째** 풉니다(탐색기에서 마우스 오른쪽 단추 → **모두 압축 풀기**. 알집 · 반디집이면
+   폴더로 푸는 메뉴를 고릅니다). zip 을 연 채로 실행하거나 파일을 따로 옮기면 동작하지 않습니다.
+   풀린 폴더 안에 `remedy-windows-x64` 폴더가 한 겹 더 있으면 그 안으로 들어갑니다.
 2. 풀린 폴더의 `remedy.exe` 를 마우스 오른쪽 단추로 누르고 **관리자 권한으로 실행** 을
    고릅니다. 파란 창(SmartScreen)이 뜨면 위 2단계로 확인한 뒤 [추가 정보] → [실행] 을
    누릅니다 — 인터넷에서 받은 실행 파일 가운데 아직 평판이 쌓이지 않은 것에 뜨는 창입니다(코드서명이
@@ -117,7 +119,8 @@ sudo ./remedy
 
 **치료한 뒤에는 받은 폴더를 지우지 마십시오.** 메뉴로 치료한 기록과 격리한 파일은 받은 폴더
 안의 `state` 에 남습니다. 폴더를 지우면 되돌릴 수 없습니다 — 되돌릴 일이 없다고 판단한 뒤에
-지우십시오. 되돌릴 때는 그 폴더의 `remedy` 를 다시 띄워 메뉴에서 고릅니다.
+지우십시오. 되돌릴 때는 그 폴더의 `remedy` 를 **치료할 때처럼 관리자 권한(리눅스는 `sudo`)으로**
+다시 띄워 메뉴에서 고릅니다 — 권한 없이 띄우면 기록을 읽지 못합니다.
 
 ## 위협별 안내
 
@@ -136,8 +139,9 @@ sudo ./remedy
 ### Ebury — 리눅스 서버의 sshd (찾기만 합니다)
 
 Ebury 는 `libkeyutils.so.1` 자리에 가짜 라이브러리를 둡니다 — 그것을 옮기면 그 라이브러리를
-싣는 `sshd` · `sudo` 가 뜨지 못해 원격 접속이 끊기므로 remedy 가 손대지 않습니다. 발견되면 아래
-차례대로 합니다.
+싣는 `sshd` · `sudo` 가 뜨지 못해 원격 접속이 끊기므로 remedy 가 손대지 않습니다. 발견되면 메뉴
+화면의 *검사 완료* 줄 아래에 찾은 파일이 번호와 함께 나옵니다(명령으로 돌렸으면 결과 폴더의
+`scan.json` 에 있습니다) — 아래에서 *결과에 나온 파일* 은 그것입니다. 아래 차례대로 합니다.
 
 1. **콘솔(가상 콘솔 · IPMI 등)에서 합니다.** SSH 로 들어가면 그 접속의 자격 증명이 다시 넘어갑니다.
 2. **정상 버전을 다시 설치합니다.** RHEL 계열은 `yum reinstall keyutils-libs`(또는 `dnf`), Debian ·
@@ -160,7 +164,14 @@ Ebury 는 `libkeyutils.so.1` 자리에 가짜 라이브러리를 둡니다 — �
 - **EvilAI(Locust) 제거** 는 페이로드를 돌리던 `node.exe` 프로세스를 멈추고, 예약 작업과 시작
   프로그램(Run) 항목을 지우고, 페이로드(`.js`)와 그 폴더를 **격리**합니다. 그 폴더를 백신 검사
   예외에 넣어 두었다면 그 예외도 지웁니다. Node.js 자체는 정상 프로그램이라 손대지 않습니다.
-- 치료한 뒤 **PC 를 다시 시작하십시오** — 다시 시작하면 한 번 더 자동으로 검사합니다.
+- **이 PC 의 모든 사용자 계정을 검사합니다** — 담당자가 자기 관리자 계정으로 실행해도 감염된
+  사용자의 것을 찾습니다. 다만 그때는 감염된 사용자의 시작 프로그램 항목 하나가 남을 수 있습니다 —
+  그 항목이 가리키는 파일은 격리되므로 실행되지 않습니다.
+- 치료한 뒤 **PC 를 다시 시작하고 관리자 계정으로 로그온하십시오** — 그때 한 번 더 자동으로
+  검사합니다. 표준 사용자로 로그온하면 이 검사는 돌지 않으므로, 관리자가 메뉴의 *3. 치료가
+  유지됐는지 다시 보기* 로 확인합니다.
+- 어느 계정에도 `AppData\Local\Programs` 폴더가 없는 PC 는 *관측이 불완전* 으로 끝납니다 — EvilAI 가
+  자리 잡는 폴더가 그 PC 에 없다는 뜻입니다.
 - EvilAI 는 다른 악성 코드를 풀어 실행하는 로더입니다. 이 도구는 EvilAI 가 남기는 항목만 보므로
   **백신으로 PC 전체를 검사**하고, 이 PC 에서 쓰던 비밀번호는 **다른 기기에서** 바꾸십시오.
 
@@ -222,9 +233,10 @@ Ebury 는 `libkeyutils.so.1` 자리에 가짜 라이브러리를 둡니다 — �
 ## 운영자 — 무인 배포 · 사내 룰
 
 인자를 주면 메뉴 없이 돌고(승인을 묻지 않으려면 `--yes`), 결과를 **종료 코드 여덟 가지**로
-알립니다. Windows 에서는 치료 뒤 재시작하면 자동으로 한 번 더 검사해 치료가 유지되는지 봅니다 —
-그 검사 창은 잠깐 떴다 닫히고, 결과는 상태 폴더의 `verify\<회차>.jsonl` 에 남습니다. 직접 보려면
-메뉴의 **3. 치료가 유지됐는지 다시 보기** 를 고릅니다.
+알립니다. Windows 에서는 치료 뒤 재시작해 **관리자 계정으로 로그온하면** 자동으로 한 번 더 검사해
+치료가 유지되는지 봅니다(표준 사용자 로그온에서는 돌지 않습니다) — 그 검사 창은 잠깐 떴다 닫히고,
+결과는 상태 폴더의 `verify\<회차>.jsonl` 에 남습니다. 직접 보려면 메뉴의 **3. 치료가 유지됐는지
+다시 보기** 를 고릅니다.
 
 ```powershell
 .\remedy.exe run --plugin .\plugins\evilai-locust\plugin.yaml --yes
@@ -251,7 +263,8 @@ sudo ./remedy run --plugin ./plugins/ebury-check/plugin.yaml              # 2 �
   하나도 바뀌지 않았으면 통과하고, 한 글자라도 다르면 어느 파일인지 알려 드립니다. 명령줄에서
   `run --plugin` 으로 직접 준 룰은 서명을 보지 않으므로 먼저 이것으로 확인하십시오. 받은 파일
   자체가 배포한 그 파일인지는 위 2단계의 체크섬으로 확인합니다. 이 기계의 폐기 목록도 함께 읽으므로
-  관리자 권한으로 돌립니다(Windows 는 관리자 창).
+  관리자 권한으로 돌립니다(Windows 는 관리자 창). 끝줄의 *폐기 목록 없음* 은 아직 폐기한 룰이
+  없다는 뜻입니다 — 실패가 아닙니다.
 
   ```sh
   sudo ./remedy plugin verify --dir ./plugins/cwpdoor-2-clean
@@ -266,7 +279,7 @@ sudo ./remedy run --plugin ./plugins/ebury-check/plugin.yaml              # 2 �
 | 누가 | 어디로 |
 |---|---|
 | 현장에서 **돌리는** 사람 | [`docs/operator.md`](docs/operator.md) — 배포 · 실행 · 되돌리기 · 신고 한 장 |
-| 처음 오는 사람 | [`docs/remedy-전체-그림.md`](docs/remedy-전체-그림.md) — 기능 · 동작 · 배포 · 구조를 그림으로 |
+| 구조를 알고 싶은 개발자 | [`docs/remedy-전체-그림.md`](docs/remedy-전체-그림.md) — 기능 · 동작 · 배포 · 구조를 그림으로 (개발 기록 · 쓰는 법은 이 README) |
 | 룰을 **쓰는** 사람 | [`docs/plugin-guide/`](docs/plugin-guide/README.md) |
 | 코어를 **고치는** 사람 | [`docs/개발-안내.md`](docs/개발-안내.md) — 설계의 척추 · 저장소 규칙 · 설계 문서 · 커밋 전 검증 |
 | 화면이 궁금한 사람 | [`docs/design/콘솔은-이렇게-보인다.md`](docs/design/콘솔은-이렇게-보인다.md) |
@@ -276,7 +289,9 @@ sudo ./remedy run --plugin ./plugins/ebury-check/plugin.yaml              # 2 �
 - **보안 취약점** — 공개 이슈로 올리지 마시고 [`SECURITY.md`](SECURITY.md) 의 신고 경로로
   보내 주십시오.
 - **오탐 · 치료 문의** — 메뉴의 *신고에 붙일 것 모으기*(`remedy support-bundle`)로 신고 묶음을
-  만들어, 이 도구를 배포한 조직의 담당자에게 전달해 주십시오.
+  만들어, 이 도구를 나눠 준 조직의 담당자에게 전달해 주십시오. GitHub 에서 직접 받으셨다면
+  `security@estsecurity.com` 으로 보내 주십시오. **신고 묶음에는 경로 · 호스트명 · 사용자명이 가려지지
+  않고 들어 있으므로 공개된 곳(공개 이슈 · 게시판)에 올리지 마십시오.**
 - **기여** — 이 저장소는 ESTsecurity 가 관리하는 독점 소프트웨어라 외부 기여(Pull Request)는
   받지 않습니다.
 
