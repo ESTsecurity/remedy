@@ -390,6 +390,35 @@ pub fn check_findings(
     lang: Lang,
     limit: usize,
 ) -> Vec<String> {
+    numbered_findings(evidence, groups, lang, limit, |e| finding_body(e, lang))
+}
+
+/// **찾기만 하는 위협 룰**이 찾은 것 — 이름(경로)만 적는 줄들 (2026-11-08 적대적 검토 4바퀴).
+///
+/// 메뉴 화면이 `위협 1건` 만 말하고 끝나 README 의 차례(*결과에 나온 파일* 을 확인하고
+/// 지운다)를 따를 수 없었다. 고르는 증거와 줄 꼴은 [`check_findings`] 와 같다. **판정을 가른
+/// 값은 적지 않는다** — 위협 룰의 그것은 내용 해시(`sha256 …` · `content_ref …`)라 사람에게
+/// 뜻이 없다(리눅스 실측). 점검 화면은 그대로다.
+pub fn threat_findings(
+    evidence: &[remedy_sdk::artifact::Evidence],
+    groups: &[remedy_sdk::artifact::EvidenceGroup],
+    lang: Lang,
+    limit: usize,
+) -> Vec<String> {
+    numbered_findings(evidence, groups, lang, limit, |e| {
+        evidence_label(e.subject, &e.target)
+    })
+}
+
+/// [`check_findings`] · [`threat_findings`] 가 함께 쓰는 몸통 — 무엇을 고르고 어떻게 번호를 다는가.
+/// `body` 가 한 증거의 알맹이(번호를 뺀 줄)를 만든다.
+fn numbered_findings(
+    evidence: &[remedy_sdk::artifact::Evidence],
+    groups: &[remedy_sdk::artifact::EvidenceGroup],
+    lang: Lang,
+    limit: usize,
+    body: impl Fn(&remedy_sdk::artifact::Evidence) -> String,
+) -> Vec<String> {
     let mut ids: Vec<&str> = Vec::new();
     for g in groups.iter().filter(|g| g.verdict) {
         for id in &g.evidence {
@@ -420,7 +449,7 @@ pub fn check_findings(
     // 다른 줄이므로 남는다.
     let mut bodies: Vec<String> = Vec::new();
     for e in &picked {
-        let b = finding_body(e, lang);
+        let b = body(e);
         if !bodies.contains(&b) {
             bodies.push(b);
         }

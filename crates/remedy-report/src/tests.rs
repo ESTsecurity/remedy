@@ -954,6 +954,45 @@ fn only_evidence_behind_a_verdict_is_listed() {
     assert!(!out[0].contains("other.exe"));
 }
 
+/// **찾기만 하는 위협 룰은 이름(경로)만** 적는다 — 판정을 가른 값이 내용 해시라 사람에게 뜻이
+/// 없다(2026-11-08 리눅스 실측: `(sha256 4458…)`). 고르는 증거 · 중복 걸러내기는 점검과 같고,
+/// 점검의 줄은 그대로다.
+#[test]
+fn a_threat_finding_names_only_the_thing() {
+    let mut x = ev(
+        "e0",
+        Subject::File,
+        serde_json::json!({"path": "/usr/lib64/libkeyutils.so.1.5.2", "sha256": "445810c9"}),
+    );
+    x.matched = vec![MatchedPredicate {
+        field: "sha256".into(),
+        op: "eq".into(),
+        value: None,
+    }];
+    // 같은 레코드를 두 규칙이 짚은 모양 — 화면에는 한 번이다.
+    let mut twin = ev("e1", Subject::File, x.target.clone());
+    twin.matched = x.matched.clone();
+    let other = ev(
+        "e2",
+        Subject::File,
+        serde_json::json!({"path": "/usr/lib64/elsewhere.so"}),
+    );
+    let e = vec![x, twin, other];
+    let g = vec![
+        group("g0", &["e0", "e1"], true),
+        group("g1", &["e2"], false),
+    ];
+    assert_eq!(
+        threat_findings(&e, &g, Lang::Ko, FINDINGS_SHOWN),
+        vec!["   1. /usr/lib64/libkeyutils.so.1.5.2".to_string()]
+    );
+    // 점검의 줄은 지금 그대로 — 판정을 가른 값을 함께 적는다.
+    assert_eq!(
+        check_findings(&e, &g, Lang::Ko, FINDINGS_SHOWN),
+        vec!["   1. /usr/lib64/libkeyutils.so.1.5.2  (sha256 445810c9)".to_string()]
+    );
+}
+
 /// **판정을 가른 값을 함께 적는다** — 이름만으로는 "왜" 가 없다.
 #[test]
 fn the_value_that_decided_it_is_shown() {

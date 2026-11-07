@@ -202,6 +202,10 @@ pub struct Offer {
     pub name: Option<String>,
     /// 복원 정보 폴더에서 읽은 회차 — **이름순.** 비어 있으면 회차 줄은 까닭을 달고 흐리게 선다.
     pub runs: Vec<Run>,
+    /// 복원 정보 폴더가 **있는데 권한 때문에 읽지 못했다** — 그때 회차 줄의 까닭은 '기록이 없다'
+    /// 가 아니라 '권한을 올려 실행' 이다. 관리자로 치료한 뒤 권한 없이 다시 띄우면 기록이 사라진
+    /// 것으로 읽혔다(2026-11-08 적대적 검토 4바퀴 — 리눅스 실측).
+    pub runs_locked: bool,
     /// 후보 파일 — 종류마다 **이름순.** 비어 있는 종류의 줄은 까닭을 달고 흐리게 선다.
     /// 부르는 쪽이 폴더를 읽어 채운다(메뉴는 실행 파일 자리를 모른다).
     pub files: std::collections::BTreeMap<Candidates, Vec<std::path::PathBuf>>,
@@ -408,6 +412,22 @@ const PLAIN_ITEMS_EN: &[(&str, Plain)] = &[
 ///
 /// 작성자·운영자 명령은 **뒤에 둔다** — `--help-all` 이 *"플러그인 작성자와 운영자가
 /// 보는 자리이고 고객 화면이 아니다"* 라고 스스로 적어 둔 것과 같은 선이다.
+/// 회차 줄의 까닭 — 기록은 있을지 모르나 **이 권한으로는 읽지 못한다.** 머리말의 권한 줄과 같은
+/// 낱말을 쓴다(Windows 는 관리자, 리눅스는 root).
+fn runs_locked_reason(lang: remedy_sdk::i18n::Lang) -> &'static str {
+    if cfg!(windows) {
+        lang.t(
+            "관리자 권한으로 실행해야 기록이 보입니다",
+            "run as administrator to see the records",
+        )
+    } else {
+        lang.t(
+            "root 권한으로 실행해야 기록이 보입니다",
+            "run as root to see the records",
+        )
+    }
+}
+
 fn items(offer: &Offer, lang: remedy_sdk::i18n::Lang) -> (Vec<Item>, usize) {
     let ko = lang == remedy_sdk::i18n::Lang::Ko;
     let no_plugin = offer.plugin.is_none().then(|| {
@@ -416,8 +436,13 @@ fn items(offer: &Offer, lang: remedy_sdk::i18n::Lang) -> (Vec<Item>, usize) {
             "no usable plugin bundle",
         )
     });
-    let no_runs =
-        (!offer.has_runs()).then(|| lang.t("치료한 기록이 없습니다", "no treatment recorded yet"));
+    let no_runs = (!offer.has_runs()).then(|| {
+        if offer.runs_locked {
+            runs_locked_reason(lang)
+        } else {
+            lang.t("치료한 기록이 없습니다", "no treatment recorded yet")
+        }
+    });
     // 찾기만 하는 룰 — 치료를 약속하는 줄은 까닭을 단다. 플러그인이 없다는 까닭이 먼저다.
     let detect_only = (offer.detect_only && no_plugin.is_none()).then(|| {
         lang.t(
@@ -527,6 +552,7 @@ pub fn line(which: Line) -> Option<(usize, String)> {
         detect_only: false,
         name: None,
         runs: Vec::new(),
+        runs_locked: false,
         files: std::collections::BTreeMap::new(),
     };
     let lang = ui().lang;
@@ -808,6 +834,7 @@ mod tests {
             } else {
                 Vec::new()
             },
+            runs_locked: false,
             files: std::collections::BTreeMap::new(),
         }
     }
@@ -877,6 +904,29 @@ mod tests {
             .filter(|i| needs_run(&i.tag))
             .all(|i| i.off.is_none()));
         assert_eq!(none.iter().filter(|i| needs_run(&i.tag)).count(), 4);
+    }
+
+    /// 기록 폴더를 **권한 때문에 못 읽었으면** '없다' 가 아니라 권한을 올리라고 말한다 — 관리자
+    /// (root)로 치료한 뒤 권한 없이 다시 띄우면 기록이 사라진 것으로 읽혔다(2026-11-08 리눅스 실측).
+    #[test]
+    fn unreadable_runs_ask_for_the_right_privilege_instead_of_saying_none() {
+        let ko = remedy_sdk::i18n::Lang::Ko;
+        let needs_run = |t: &Tag| matches!(t, Tag::NeedsRun(_) | Tag::Plain(Plain::RestoreList));
+        let locked = Offer {
+            runs_locked: true,
+            ..offer(true, false)
+        };
+        let (rows, _) = items(&locked, ko);
+        let off: Vec<_> = rows.iter().filter(|i| needs_run(&i.tag)).collect();
+        assert_eq!(off.len(), 4);
+        for it in off {
+            let why = it.off.unwrap_or_default();
+            assert!(
+                why.contains("권한으로 실행해야 기록이 보입니다"),
+                "{}: {why}",
+                it.label
+            );
+        }
     }
 
     /// 기준 5 — **명령 전수(`main.rs` 분기)와 메뉴를 맞댄다.** 분기에 명령을 더하고

@@ -960,6 +960,8 @@ enum Flow {
     Treat,
     Restore,
     Verify,
+    /// 룰 서명 확인(`plugin verify --dir`) — 성공했을 때 끝줄을 풀이한다(`guidance`).
+    Signature,
     Other,
 }
 
@@ -972,12 +974,12 @@ fn treats_of(p: &guided::Outcome) -> bool {
     }
 }
 
-/// 검사만 하기로 고른 룰 폴더의 기록 — 찾기만 하는 룰이 찾았을 때 `guidance` 가 가리킨다.
+/// 고른 룰 폴더의 기록 — 찾기만 하는 룰이 찾았을 때와 치료가 끝났을 때 `guidance` 가 가리킨다.
 fn notes_of(p: &guided::Outcome) -> Vec<std::path::PathBuf> {
     match p {
-        guided::Outcome::WithPlugin(menu::WithPlugin::Scan(path)) => {
-            notes_beside(path).into_iter().collect()
-        }
+        guided::Outcome::WithPlugin(menu::WithPlugin::Scan(path))
+        | guided::Outcome::WithPlugin(menu::WithPlugin::Run(path))
+        | guided::Outcome::RunWith(path) => notes_beside(path).into_iter().collect(),
         _ => Vec::new(),
     }
 }
@@ -991,6 +993,7 @@ fn flow_of(p: &guided::Outcome) -> Flow {
         | guided::Outcome::WithFile(menu::WithFile::Apply(_), _) => Flow::Treat,
         guided::Outcome::WithRun(menu::WithRun::Restore(_)) => Flow::Restore,
         guided::Outcome::WithPlugin(menu::WithPlugin::Verify(_)) => Flow::Verify,
+        guided::Outcome::WithPlugin(menu::WithPlugin::VerifyBundle(_)) => Flow::Signature,
         _ => Flow::Other,
     }
 }
@@ -1071,18 +1074,36 @@ fn next_steps(flow: Flow, code: Code, treats: bool) -> Vec<(&'static str, menu::
 /// **받은 폴더 안의 기록도 적는다** (`notes` — 찾은 룰 폴더의 `RELEASE.md`). 인터넷이 막힌
 /// 서버에서는 주소만으로는 차례를 볼 곳이 없었다(2026-11-07 적대적 검토). 줄은 80칸 안이다 —
 /// 리눅스 콘솔(가상 콘솔 · IPMI)은 흔히 80칸이다.
+///
+/// **치료가 끝났을 때도 같은 곳을 가리킨다**(2026-11-08 적대적 검토 4바퀴). 치료 뒤 다음 할 일은
+/// 유지 확인 · 복원 · 신고뿐이었다 — CWPdoor 는 패널을 공급사 버전으로 다시 설치하고 자격 증명을
+/// 바꿔야 하고 EvilAI 는 다시 시작 · 전체 검사 · 비밀번호 변경이 남는데, 화면은 그것을 말하지 않았다.
+///
+/// **룰 서명 확인이 성공했을 때는 끝줄을 풀이한다**(같은 검토). 화면의 끝줄이 *"폐기 목록 없음 —
+/// 폐기 여부를 확인하지 못했습니다"* 라 성공이 실패로 읽혔다 — 그 줄은 인자 실행의 출력이라 다음
+/// 버전에서 고치고, 메뉴에서는 여기서 풀어 준다.
 fn guidance(flow: Flow, code: Code, treats: bool, notes: &[std::path::PathBuf]) -> Option<String> {
+    if matches!((flow, code), (Flow::Signature, Code::NoThreat)) {
+        let lang = ui().lang;
+        return Some(format!(
+            "{}\n  {}",
+            lang.t(SIGNED_OK.0, SIGNED_OK.1),
+            lang.t(NO_REVOCATION_YET.0, NO_REVOCATION_YET.1)
+        ));
+    }
     let found_by_a_checker = matches!(
         (flow, code),
         (Flow::Scan | Flow::ScanAll, Code::FoundNotRemediated)
     ) && !treats;
-    if !found_by_a_checker {
+    let treated = matches!((flow, code), (Flow::Treat, Code::Remediated));
+    if !found_by_a_checker && !treated {
         return None;
     }
     let lang = ui().lang;
+    let head = if treated { TREATED_NEXT } else { CHECKER_FOUND };
     let mut s = format!(
         "{}\n    https://github.com/ESTsecurity/remedy#위협별-안내",
-        lang.t(CHECKER_FOUND.0, CHECKER_FOUND.1)
+        lang.t(head.0, head.1)
     );
     if !notes.is_empty() {
         s.push_str(&format!(
@@ -1099,6 +1120,18 @@ fn guidance(flow: Flow, code: Code, treats: bool, notes: &[std::path::PathBuf]) 
 const CHECKER_FOUND: (&str, &str) = (
     "이 항목은 찾기만 합니다 — 조치 차례는 README 의 '위협별 안내'에 있습니다:",
     "This rule only detects — what to do is in the README's per-threat notes:",
+);
+const SIGNED_OK: (&str, &str) = (
+    "서명이 맞고, 룰 파일도 받은 그대로입니다.",
+    "The signature matches and every rule file is as shipped.",
+);
+const NO_REVOCATION_YET: (&str, &str) = (
+    "'폐기 목록 없음' 은 아직 폐기한 룰이 없다는 뜻입니다.",
+    "'폐기 목록 없음' (no revocation list) means nothing has been revoked yet.",
+);
+const TREATED_NEXT: (&str, &str) = (
+    "치료 뒤에 할 일은 위협마다 다릅니다 — README 의 '위협별 안내'에 있습니다:",
+    "After-treatment steps differ by threat — see the README's per-threat notes:",
 );
 const CHECKER_OFFLINE: (&str, &str) = (
     "인터넷이 막힌 곳이면 받은 폴더의 이 파일에 같은 차례가 있습니다:",
@@ -1249,10 +1282,11 @@ fn back_to_menu(flow: Flow, code: Code, treats: bool, notes: &[std::path::PathBu
         .filter_map(|(why, l)| menu::line(l).map(|(n, label)| (why, n, label)))
         .collect();
     let read = guidance(flow, code, treats, notes);
+    let pick = guided::picked_rule();
     if !next.is_empty() || read.is_some() {
         outln!("{}", lang.t("다음 할 일", "Next"));
         for (why, n, label) in next {
-            outln!("  {why}{}{n}. {label}", d.dash());
+            outln!("{}", step_line(why, pick.as_ref(), n, &label, d));
         }
         if let Some(r) = read {
             outln!("  {r}");
@@ -1270,6 +1304,22 @@ fn back_to_menu(flow: Flow, code: Code, treats: bool, notes: &[std::path::PathBu
     std::io::stderr().flush().ok();
     let mut line = String::new();
     let _ = std::io::stdin().read_line(&mut line);
+}
+
+/// 다음 할 일 한 줄. 룰이 여럿인 세션이면 **먼저 고를 룰**(고르는 화면의 번호 · 이름)을 메뉴
+/// 줄 앞에 적는다 — 작업 뒤 Enter 는 그 화면으로 돌아가고, 메뉴 줄의 번호는 룰을 고른 뒤의
+/// 화면에서만 맞는다([`guided::picked_rule`] · 2026-11-08 적대적 검토 4바퀴).
+fn step_line(
+    why: &str,
+    pick: Option<&(usize, String)>,
+    n: usize,
+    label: &str,
+    d: remedy_sdk::i18n::Deco,
+) -> String {
+    match pick {
+        Some((rn, rule)) => format!("  {why}{}{rn}. {rule} {} {n}. {label}", d.dash(), d.arrow()),
+        None => format!("  {why}{}{n}. {label}", d.dash()),
+    }
 }
 
 fn wait_before_closing() {
@@ -1840,7 +1890,7 @@ fn cmd_evaluate(raw: &[String]) -> Result<Code, Failure> {
     let rules = load_rules(a.need("plugin")?)?;
     let scan = remedy_core::pipeline::evaluate_with_rules(&artifacts, &m, &rules)?;
     write_json(out, &scan)?;
-    report_scan(&scan, m.kind);
+    report_scan(&scan, m.kind, m.remediate.is_none());
     Ok(outcome(&scan.body.verdicts, &scan.body.observation, m.kind))
 }
 
@@ -1961,7 +2011,7 @@ fn cmd_scan(raw: &[String]) -> Result<Code, Failure> {
     write_json(&format!("{dir}/scan.json"), &scan)?;
     write_json(&format!("{dir}/plan.json"), &plan)?;
     output_dir_line(dir);
-    report_scan(&scan, m.kind);
+    report_scan(&scan, m.kind, m.remediate.is_none());
     report_plan(&plan, lang(&a), &a);
     let code = outcome(&scan.body.verdicts, &scan.body.observation, m.kind);
     outln!();
@@ -2281,7 +2331,7 @@ fn cmd_run(
             output_dir_line(dir);
         }
     }
-    report_scan(&scan, m.kind);
+    report_scan(&scan, m.kind, m.remediate.is_none());
     run_apply(&a, &plan, integrity, started, m.kind, true)
 }
 
@@ -2884,7 +2934,7 @@ fn cmd_verify(raw: &[String]) -> Result<Code, Failure> {
         write_json(out, &scan)?;
         outln!("{} -> {out}", ui().lang.t("재평가", "Re-evaluation"));
     }
-    report_scan(&scan, m.kind);
+    report_scan(&scan, m.kind, m.remediate.is_none());
 
     use remedy_core::pipeline::VerifyOutcome;
     // **점검에서는 '루트 전부 없음' 이 불완전이 아니다** (B-6). `classify` 는
@@ -3979,7 +4029,11 @@ fn indent(s: &str) -> String {
         )
 }
 
-fn report_scan(scan: &remedy_sdk::artifact::ScanEnvelope, kind: Option<PluginKind>) {
+fn report_scan(
+    scan: &remedy_sdk::artifact::ScanEnvelope,
+    kind: Option<PluginKind>,
+    detect_only: bool,
+) {
     let lang = ui().lang;
     let d = remedy_sdk::i18n::deco();
     // 고객에게는 **흔적 몇 건, 위협 몇 건**이면 된다. 증거·그룹·판정 통과는
@@ -4014,15 +4068,28 @@ fn report_scan(scan: &remedy_sdk::artifact::ScanEnvelope, kind: Option<PluginKin
     //
     // **치료 화면은 건드리지 않는다**(`kind` 가 점검일 때만) — 콘솔 기준선
     // 4벌과 하네스가 그 꼴로 돌고 있다.
-    if kind == Some(PluginKind::Check) && !scan.body.verdicts.is_empty() {
+    //
+    // **메뉴에서는 찾기만 하는 룰이 찾은 것도 적는다**(2026-11-08 적대적 검토 4바퀴). 화면이
+    // `위협 1건` 만 말하고 끝나 README 의 차례(*결과에 나온 파일* 을 확인하고 지운다)를 따를 수
+    // 없었다 — 경로는 결과 폴더의 JSON 에만 있었다(Ebury 실측). 치료하는 룰은 계획이 같은 것을
+    // 적으므로 그대로다. **인자로 부른 실행에서는 내지 않는다** — 그 표준 출력은 무인 배포가 읽는
+    // 계약이다(불변식 I1).
+    // 위협 룰은 **이름(경로)만** 적는다 — 판정을 가른 값이 내용 해시라 사람에게 뜻이 없다.
+    let check = kind == Some(PluginKind::Check);
+    let listed = check || (detect_only && crate::term::in_session());
+    if listed && !scan.body.verdicts.is_empty() {
         let limit = if ui().verbose {
             usize::MAX
         } else {
             remedy_core::report::FINDINGS_SHOWN
         };
-        for line in
-            remedy_core::report::check_findings(&scan.body.evidence, &scan.body.groups, lang, limit)
-        {
+        let (evidence, groups) = (&scan.body.evidence, &scan.body.groups);
+        let lines = if check {
+            remedy_core::report::check_findings(evidence, groups, lang, limit)
+        } else {
+            remedy_core::report::threat_findings(evidence, groups, lang, limit)
+        };
+        for line in lines {
             outln!("{line}");
         }
     }
@@ -4882,8 +4949,85 @@ mod tests {
             CHECKER_FOUND.1,
             CHECKER_OFFLINE.0,
             CHECKER_OFFLINE.1,
+            TREATED_NEXT.0,
+            TREATED_NEXT.1,
+            SIGNED_OK.0,
+            SIGNED_OK.1,
+            NO_REVOCATION_YET.0,
+            NO_REVOCATION_YET.1,
         ] {
             assert!(2 + cols(l) <= 80, "{} 칸: {l}", 2 + cols(l));
+        }
+    }
+
+    /// 룰 서명 확인이 **성공했을 때만** 끝줄을 풀이한다 — 실패(5)에는 화면의 거부 줄이 할 말을 한다.
+    #[test]
+    fn a_good_signature_check_explains_the_revocation_line() {
+        let g = guidance(Flow::Signature, Code::NoThreat, true, &[]).unwrap();
+        assert!(g.contains("폐기 목록 없음"), "{g}");
+        assert!(guidance(Flow::Signature, Code::GuardStop, true, &[]).is_none());
+    }
+
+    /// 치료가 끝나면 위협별 안내를 가리킨다 — 패널 다시 설치 · 자격 증명 · 다시 시작 같은 일은
+    /// 위협마다 다르고 화면은 그것을 말하지 않았다(2026-11-08 적대적 검토 4바퀴). 일부 실패 ·
+    /// 복원 뒤에는 지금 그대로다.
+    #[test]
+    fn a_finished_treatment_points_at_the_per_threat_steps() {
+        let note = std::path::PathBuf::from("plugins")
+            .join("cwpdoor-2-clean")
+            .join("RELEASE.md");
+        let g = guidance(
+            Flow::Treat,
+            Code::Remediated,
+            true,
+            std::slice::from_ref(&note),
+        )
+        .unwrap();
+        assert!(g.contains("#위협별-안내"), "{g}");
+        assert!(
+            g.lines().any(|l| l.trim() == note.display().to_string()),
+            "{g}"
+        );
+        assert!(guidance(Flow::Treat, Code::PartialFailure, true, &[]).is_none());
+        assert!(guidance(Flow::Restore, Code::NoThreat, true, &[]).is_none());
+        assert!(guidance(Flow::Verify, Code::NoThreat, true, &[]).is_none());
+    }
+
+    /// 룰이 여럿인 세션의 다음 할 일 — **먼저 고를 룰**을 앞에 적는다. 작업 뒤 Enter 는 룰을
+    /// 고르는 화면으로 돌아가는데, 메뉴 줄의 번호는 룰을 고른 뒤에야 맞는다(리눅스 실측: 치료 뒤
+    /// `6` 이 고르는 화면에서 범위 밖으로 읽혀 끝났다). 룰이 하나면 지금 그대로다.
+    #[test]
+    fn next_steps_name_the_rule_to_pick_first_when_there_are_several() {
+        let fancy = remedy_sdk::i18n::Deco { ascii: false };
+        let ascii = remedy_sdk::i18n::Deco { ascii: true };
+        assert_eq!(
+            step_line("오탐이라면", None, 6, "치료 전으로 복원하기", fancy),
+            "  오탐이라면 — 6. 치료 전으로 복원하기"
+        );
+        let pick = (3, "CWPdoor 제거".to_string());
+        assert_eq!(
+            step_line("오탐이라면", Some(&pick), 6, "치료 전으로 복원하기", fancy),
+            "  오탐이라면 — 3. CWPdoor 제거 → 6. 치료 전으로 복원하기"
+        );
+        assert_eq!(
+            step_line("오탐이라면", Some(&pick), 6, "치료 전으로 복원하기", ascii),
+            "  오탐이라면 - 3. CWPdoor 제거 -> 6. 치료 전으로 복원하기"
+        );
+        // 실제로 서는 가장 긴 줄도 80칸 안이다 — 리눅스 콘솔은 흔히 80칸이다. 한글은 두 칸.
+        // 이 줄이 서는 것은 치료하는 룰뿐이다(찾기만 하는 룰은 `next_steps` 가 비운다) — 리눅스
+        // 배포 파일에서는 *CWPdoor 제거* 하나다.
+        let cols = |s: &str| {
+            s.chars()
+                .map(|c| if ('가'..='힣').contains(&c) { 2 } else { 1 })
+                .sum::<usize>()
+        };
+        for (why, label) in [
+            ("까닭을 해결한 뒤 다시 검사하려면", "검사하고 치료하기"),
+            ("치료가 유지되는지 보려면", "치료가 유지됐는지 다시 보기"),
+            ("오탐을 신고하려면", "신고에 붙일 것 모으기"),
+        ] {
+            let l = step_line(why, Some(&pick), 3, label, fancy);
+            assert!(cols(&l) <= 80, "{} 칸: {l}", cols(&l));
         }
     }
 

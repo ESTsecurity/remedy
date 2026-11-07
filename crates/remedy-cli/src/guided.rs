@@ -233,6 +233,19 @@ fn restorable_runs() -> Vec<crate::menu::Run> {
     out
 }
 
+/// 복원 정보 폴더가 **있는데 권한 때문에 읽지 못하는가.** [`restorable_runs`] 는 못 읽은 것을
+/// 없는 것으로 세므로, 관리자(root)로 치료한 뒤 권한 없이 다시 띄우면 회차 줄이 *"치료한 기록이
+/// 없습니다"* 라고 해 기록이 사라진 것으로 읽혔다(2026-11-08 적대적 검토 4바퀴 — 리눅스 실측:
+/// 상태 폴더 `drwx------ root`). 폴더가 없으면 거짓이다 — 그때는 정말 없다.
+fn runs_locked() -> bool {
+    crate::menu_state_dirs().iter().any(|dir| {
+        matches!(
+            std::fs::read_dir(dir.join("quarantine")),
+            Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied
+        )
+    })
+}
+
 /// 인자 없이 불렸다. **내놓을 것이 있으면 메뉴를 열고, 없으면 사용법이다.**
 ///
 /// 내놓을 것은 둘 — 쓸 수 있는 플러그인과 되돌릴 수 있는 회차다. 둘 다 없으면
@@ -262,6 +275,7 @@ pub fn run(anchor: Option<&str>) -> Outcome {
                     plugin: None,
                     detect_only: false,
                     name: None,
+                    runs_locked: runs.is_empty() && runs_locked(),
                     runs,
                     files,
                 }));
@@ -365,11 +379,13 @@ pub fn run(anchor: Option<&str>) -> Outcome {
     // 실기기 하네스도 같은 방식으로 부른다.
     if interactive() {
         let (out_dir, exe_dir) = folders(&exe);
+        let runs = restorable_runs();
         let pick = crate::menu::run(&crate::menu::Offer {
             plugin: Some(chosen.path.clone()),
             detect_only: !treats(&chosen.path),
             name: Some(chosen.label.clone()),
-            runs: restorable_runs(),
+            runs_locked: runs.is_empty() && runs_locked(),
+            runs,
             files: candidate_files(&out_dir, &exe_dir),
         });
         return to_outcome(pick);
@@ -462,6 +478,7 @@ fn choose(ok: &[discover::Found]) -> Option<Choice> {
         path: f.path.clone(),
     };
     if ok.len() == 1 {
+        set_picked(None);
         return Some(Choice::One(chosen(&ok[0])));
     }
 
@@ -513,7 +530,30 @@ fn choose(ok: &[discover::Found]) -> Option<Choice> {
         return None;
     };
     if n == 1 {
+        set_picked(None);
         return Some(Choice::All(ok.iter().map(chosen).collect()));
     }
-    ok.get(n.checked_sub(2)?).map(|f| Choice::One(chosen(f)))
+    let f = ok.get(n.checked_sub(2)?)?;
+    set_picked(Some((n, label(f))));
+    Some(Choice::One(chosen(f)))
+}
+
+/// 룰이 여럿인 화면에서 고른 룰 — **그 화면의 번호와 이름.**
+///
+/// 작업이 끝나면 메뉴 고리가 이 화면부터 다시 세운다. 그런데 다음 할 일은 작업 메뉴의 번호를
+/// 가리켜서, 리눅스에서 치료 뒤 안내대로 `6`(복원)을 누르면 이 화면이 범위 밖으로 읽고
+/// 끝냈고, 검사만 뒤 `1`(치료)은 *모두 검사만* 을 돌렸다(2026-11-08 적대적 검토 4바퀴 실측).
+/// 그래서 다음 할 일이 **먼저 고를 룰**을 이것으로 앞에 적는다(`back_to_menu`). 룰이 하나인
+/// 꾸러미(Windows)와 *모두 검사만* 뒤에는 비어 있다 — 그때의 화면은 지금 그대로다.
+static PICKED: std::sync::Mutex<Option<(usize, String)>> = std::sync::Mutex::new(None);
+
+fn set_picked(v: Option<(usize, String)>) {
+    if let Ok(mut g) = PICKED.lock() {
+        *g = v;
+    }
+}
+
+/// 지금 세션에서 마지막으로 고른 룰(고르는 화면의 번호 · 이름). [`PICKED`] 참고.
+pub(crate) fn picked_rule() -> Option<(usize, String)> {
+    PICKED.lock().ok().and_then(|g| g.clone())
 }

@@ -108,7 +108,7 @@ jobs:
           | 리눅스 서버 (64비트) | `remedy-linux-x64.tar.gz` |
 
           파일 하나에 프로그램과 그 OS 용 룰이 모두 들어 있습니다. 풀면 나오는 폴더의 `README.txt` 에 사용 방법이 있습니다.
-          맨 아래 *Source code* 두 개는 개발자용 소스입니다 — 받지 않으셔도 됩니다.
+          맨 아래 *Source code* 두 개와 *Release attestation (json)* 은 개발 · 검증용입니다 — 받지 않으셔도 됩니다.
           EOF
             printf '\n처음이시면 저장소 첫 화면의 설명부터 읽으십시오 — %s/%s\n\n## 다루는 위협\n\n%s\n' \
               "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$table"

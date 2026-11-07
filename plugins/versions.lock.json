@@ -39,9 +39,9 @@
     }
   },
   "evilai-locust": {
-    "version": "0.1.2",
+    "version": "0.1.3",
     "files": {
-      "plugin.yaml": "95efac8d783351074050f9e78c0434d3d0fad4fbb0d3bf1bf1e0eeb3cdfa8bcd",
+      "plugin.yaml": "75c235be73e0cd2d82afc456b1b3bb51dea07065f2327e722fd675fcf42c7cc0",
       "rules/evilai.yar": "8e181e385ebb473d90fb09650f9e6a4934645b6ff386db6d220713c14f4d4e62"
     }
   },

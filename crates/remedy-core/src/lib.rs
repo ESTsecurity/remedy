@@ -51,8 +51,8 @@ pub mod report {
     pub use remedy_report::{
         brand, check_findings, evidence_label, impact_line, no_target, op_label, pad, pretty_time,
         render_banner, render_closing, render_plan, render_result, render_self_sufficiency,
-        result_line, self_sufficiency, AfterReboot, Banner, Closing, Lang, SelfSufficiency,
-        Shortfall, FINDINGS_SHOWN,
+        result_line, self_sufficiency, threat_findings, AfterReboot, Banner, Closing, Lang,
+        SelfSufficiency, Shortfall, FINDINGS_SHOWN,
     };
 }
 pub mod platform {
