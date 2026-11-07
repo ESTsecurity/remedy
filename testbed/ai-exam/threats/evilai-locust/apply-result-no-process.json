@@ -14,10 +14,10 @@
                   "stages":  [
                                  {
                                      "stage":  "clean",
-                                     "at":  "2026-11-05T19:42:25Z",
-                                     "sha256":  "029152352889a19aeea73bf664a7c680d02118ab3323f1929bd6308c56250c0f",
+                                     "at":  "2026-11-07T01:47:38Z",
+                                     "sha256":  "8d6c938aaa1848bb4ff73521dcf51fe9a15175592c8d80ccf2a43a064e9ec616",
                                      "counts":  {
-                                                    "processes":  176,
+                                                    "processes":  175,
                                                     "services":  281,
                                                     "tasks":  218,
                                                     "autoruns":  18,
@@ -26,10 +26,10 @@
                                  },
                                  {
                                      "stage":  "infected",
-                                     "at":  "2026-11-05T19:42:37Z",
-                                     "sha256":  "6af78ba9188af21ef87f011efe43ebe5ac43bcecddede660b1fcc055cab96dcd",
+                                     "at":  "2026-11-07T01:47:53Z",
+                                     "sha256":  "44246ecc8de8be3142fdc9ba5b353906398bfce7cda494bbea63623c71b81fab",
                                      "counts":  {
-                                                    "processes":  179,
+                                                    "processes":  174,
                                                     "services":  281,
                                                     "tasks":  219,
                                                     "autoruns":  19,
@@ -38,10 +38,10 @@
                                  },
                                  {
                                      "stage":  "treated",
-                                     "at":  "2026-11-05T19:44:47Z",
-                                     "sha256":  "d6fcbddaeed403e4b94a965a70c44dc7ac0abec9be1daecb9d4f0cee9edff450",
+                                     "at":  "2026-11-07T01:50:56Z",
+                                     "sha256":  "bdbe4f3db38dcc450999b3a1249362b8d61369d58170c87fd00be97ba0582b80",
                                      "counts":  {
-                                                    "processes":  166,
+                                                    "processes":  163,
                                                     "services":  281,
                                                     "tasks":  218,
                                                     "autoruns":  19,
@@ -56,14 +56,14 @@
     "must_remain":  0,
     "must_remain_measured":  0,
     "plugin_files":  {
-                         "MANIFEST":  "dba6afa33d2a3a8e1da1d4d9232de585a61091025c2db1d86e45a2d84f8d7288",
-                         "MANIFEST.minisig":  "bbd46eb40773758613eb68d9bc9b82cf36d1503fb9807f88b6ecc910cba4401c",
-                         "plugin.yaml":  "fb3b7af3b4ea2e05090bf49d52956f3c8843baad6d7599fa5f5e922fd485a64e",
-                         "RELEASE.md":  "d4d7e427da398b5473deaa75be560e51ca5b5e5d553eca2704440f9335683196",
+                         "MANIFEST":  "732e1641a8a0a566a59dcc27d88f9124ce4982045b12b0fd366e6e55e1ca815a",
+                         "MANIFEST.minisig":  "efe50f5beba58088679b19cf681403dd48aba2a92f8b301e56c6b06c76971bb6",
+                         "plugin.yaml":  "95efac8d783351074050f9e78c0434d3d0fad4fbb0d3bf1bf1e0eeb3cdfa8bcd",
+                         "RELEASE.md":  "739d350ecfa365ec167f03a632a5b380ef19e210a44d15c42526bde43c2259b9",
                          "rules/evilai.yar":  "8e181e385ebb473d90fb09650f9e6a4934645b6ff386db6d220713c14f4d4e62"
                      },
     "expected_ops_sha256":  "25bd91a2becc1cd3ab61223f7a031fb6bc45fd52a81628cf39bfc97ab1157127",
     "must_remain_sha256":  "8dbb08d9955111ea1f0760d84ef4c0c72d08749cca694b293f7f1594828888a5",
-    "binary_sha256":  "33d816aa70558a632e6d73e8603e7d7504a0fd7ef4a96192ec685132226c5f12",
-    "ran_at":  "2026-11-05T19:44:48Z"
+    "binary_sha256":  "bab4ce467b0f0f3698548b069a8dc88a44a0306b4c2b78c2fc5d117ab623afd0",
+    "ran_at":  "2026-11-07T01:50:58Z"
 }

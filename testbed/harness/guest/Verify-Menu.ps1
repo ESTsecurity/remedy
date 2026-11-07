@@ -270,7 +270,7 @@ function Invoke-MenuRun {
 }
 
 # 메뉴 줄을 라벨 -> 번호로 읽는다. `  3. 치료가 유지됐는지 다시 보기` 모양이다.
-# 지금 고를 수 없는 줄은 `  6. 치료를 되돌리기 — 이 PC 에 치료한 기록이 없습니다` 모양이고
+# 지금 고를 수 없는 줄은 `  6. 치료 전으로 복원하기 — 치료한 기록이 없습니다` 모양이고
 # 그 번호를 누르면 까닭만 보이고 다시 묻는다 — 고를 줄로 세지 않는다(따로 센다).
 $OffRow = '^\s\s\d+\.\s+.+? (—|-) '
 function Get-MenuMap {
@@ -460,19 +460,19 @@ $steps = @(
     [ordered]@{ key = "탐지";      needle = "검사만 하기";            sub = $null; approve = $false; expect = 2; timeout = 300000 }
     [ordered]@{ key = "치료";      needle = "승인한 계획을 수행하기"; sub = "1";   approve = $true;  expect = 1; timeout = 300000 }
     [ordered]@{ key = "신고";      needle = "신고에 붙일 것 모으기";  sub = "1";   approve = $false; expect = 0; timeout = 300000 }
-    [ordered]@{ key = "복원";      needle = "치료를 되돌리기";        sub = "1";   approve = $true;  expect = 0; timeout = 300000 }
+    [ordered]@{ key = "복원";      needle = "치료 전으로 복원하기";   sub = "1";   approve = $true;  expect = 0; timeout = 300000 }
     [ordered]@{ key = "탐지+치료"; needle = "검사하고 치료하기";      sub = $null; approve = $true;  expect = 1; timeout = 600000 }
     # 아래는 목표 remedy_제품화 기준 5(b) — **메뉴에서 고를 수 있는 나머지도 진짜 콘솔에서
     # 끝까지 돈다.** 치료가 끝난 깨끗한 기계에서 돌므로 기대 코드는 그 상태의 값이다.
     # `sub = "last"` 는 후보 목록을 먼저 읽고 **가장 새 파일**을 고른다 — 검사 · 검사+치료도
     # 같은 종류의 파일(artifacts · scan)을 회차 폴더에 남겨, '1' 은 감염 때의 것이다.
     [ordered]@{ key = "유지 확인";      needle = "치료가 유지됐는지 다시 보기";        sub = $null;  approve = $false; expect = 0; timeout = 300000 }
-    [ordered]@{ key = "되돌릴 것 보기"; needle = "되돌릴 수 있는 것 보기";             sub = $null;  approve = $false; expect = 0; timeout = 60000 }
+    [ordered]@{ key = "되돌릴 것 보기"; needle = "복원할 수 있는 치료 기록 보기";      sub = $null;  approve = $false; expect = 0; timeout = 60000 }
     [ordered]@{ key = "자체 점검";      needle = "프로그램 자체 점검";                 sub = $null;  approve = $false; expect = 0; timeout = 120000 }
-    [ordered]@{ key = "판 보기";        needle = "판 보기";                            sub = $null;  approve = $false; expect = 0; timeout = 60000 }
-    [ordered]@{ key = "쓰는 법";        needle = "쓰는 법";                            sub = $null;  approve = $false; expect = 0; timeout = 60000 }
+    [ordered]@{ key = "판 보기";        needle = "버전 보기";                          sub = $null;  approve = $false; expect = 0; timeout = 60000 }
+    [ordered]@{ key = "쓰는 법";        needle = "명령줄 사용법";                      sub = $null;  approve = $false; expect = 0; timeout = 60000 }
     [ordered]@{ key = "모든 명령";      needle = "모든 명령과 옵션";                   sub = $null;  approve = $false; expect = 0; timeout = 60000 }
-    [ordered]@{ key = "번들 확인";      needle = "이 플러그인 번들이 우리 것인지 확인"; sub = $null;  approve = $false; expect = 0; timeout = 60000 }
+    [ordered]@{ key = "번들 확인";      needle = "룰 서명 확인";                       sub = $null;  approve = $false; expect = 0; timeout = 60000 }
     [ordered]@{ key = "룰 검사";        needle = "룰 검사";                            sub = $null;  approve = $false; expect = 0; timeout = 120000 }
     [ordered]@{ key = "수집";           needle = "수집만 하기";                        sub = $null;  approve = $false; expect = 0; timeout = 300000 }
     [ordered]@{ key = "평가";           needle = "수집 결과를 평가하기";               sub = "last"; approve = $false; expect = 0; timeout = 300000 }

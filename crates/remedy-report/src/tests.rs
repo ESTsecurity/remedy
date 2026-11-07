@@ -139,6 +139,91 @@ fn deferred_items_are_never_dropped_from_the_render() {
     assert!(text.contains("remediate.remove[1]"), "{text}");
 }
 
+/// **위협이 없으면 미룬 것 · 재시작 안내를 말하지 않는다** (2026-11-07 결정 ②). 깨끗한
+/// Windows 를 검사할 때마다 *"하지 않기로 했습니다 — 폴더 삭제 (remediate.remove[4]) —
+/// capture 가 해소되지 않아"* 와 재시작 안내가 떴다(v1.1.0 기준선 A8). 계획 JSON 은 그대로다.
+#[test]
+fn a_plan_without_verdicts_says_nothing_about_deferred_or_reboot() {
+    let mut p = plan(
+        Vec::new(),
+        vec![
+            defer(Op::DirDeleteRecursive, "remediate.remove[1]"),
+            held(
+                Op::DirDeleteRecursive,
+                "remediate.remove[4]",
+                "capture 가 해소되지 않아 대상이 정해지지 않았습니다",
+            ),
+        ],
+    );
+    p.body.verdicts.clear();
+    p.body.verify_after_reboot = true;
+    let text = render_plan(&p, Lang::Ko, AfterReboot::Schedulable);
+    for gone in [
+        "치료의 전부가 아닙니다",
+        "하지 않기로",
+        "remediate.remove",
+        "재시작",
+    ] {
+        assert!(!text.contains(gone), "'{gone}' 이 남았다:\n{text}");
+    }
+    // 같은 계획에 판정이 있으면 셋 다 보인다 — 치료할 때는 조용히 빠지지 않는다.
+    p.body.verdicts.push("g0".into());
+    let text = render_plan(&p, Lang::Ko, AfterReboot::Schedulable);
+    for kept in ["치료의 전부가 아닙니다", "하지 않기로", "재시작"] {
+        assert!(text.contains(kept), "'{kept}' 이 없다:\n{text}");
+    }
+}
+
+/// **그 OS 에 없는 동작은 빠진 치료가 아니다** (2026-11-07 결정 ③). 리눅스에는 서비스 복구
+/// 설정이 없다 — CWPdoor 제거의 계획이 그것을 *"이 계획은 치료의 전부가 아닙니다"* 로 알렸다.
+/// 그 갈래만 빠지고, 정말 기다리는 것은 그대로 보인다.
+#[test]
+fn an_op_this_os_does_not_have_is_not_a_missing_treatment() {
+    let na = DeferredItem {
+        at: "remediate.remove[0]".into(),
+        op: Op::ServiceClearRecovery,
+        arrives_in: "linux 에는 개념이 없습니다".into(),
+        reason: "subject 'service' 를 제거하는 데 필요한데 이 코어에 없습니다".into(),
+    };
+    let only_na = render_plan(
+        &plan(
+            vec![action(1, Op::FileQuarantineOnly, "/usr/local/x")],
+            vec![na.clone()],
+        ),
+        Lang::Ko,
+        AfterReboot::Schedulable,
+    );
+    assert!(!only_na.contains("치료의 전부가 아닙니다"), "{only_na}");
+    assert!(!only_na.contains("서비스 복구 설정 해제"), "{only_na}");
+    let mixed = render_plan(
+        &plan(
+            vec![action(1, Op::FileQuarantineOnly, "/usr/local/x")],
+            vec![na, defer(Op::DirDeleteRecursive, "remediate.remove[1]")],
+        ),
+        Lang::Ko,
+        AfterReboot::Schedulable,
+    );
+    assert!(mixed.contains("1건은 아직 지원하지 않는 동작"), "{mixed}");
+    assert!(!mixed.contains("서비스 복구 설정 해제"), "{mixed}");
+    // 개념은 있는데 닫아 둔 것(재귀 삭제 — 가드가 없다)은 같은 꼴로 미뤄도 숨기지 않는다.
+    // 숨기면 덜 된 치료가 완전한 계획처럼 보인다(설계-03 §2).
+    let closed = render_plan(
+        &plan(
+            vec![action(1, Op::FileQuarantineOnly, "/usr/local/x")],
+            vec![DeferredItem {
+                at: "remediate.remove[1]".into(),
+                op: Op::DirDeleteRecursive,
+                arrives_in: "linux 에는 개념이 없습니다".into(),
+                reason: "이 Op 은 지금 수행할 수 없습니다".into(),
+            }],
+        ),
+        Lang::Ko,
+        AfterReboot::Schedulable,
+    );
+    assert!(closed.contains("치료의 전부가 아닙니다"), "{closed}");
+    assert!(closed.contains("폴더 삭제"), "{closed}");
+}
+
 #[test]
 fn 기다리는_것과_하지_않기로_한_것이_섞이지_않는다() {
     // **운영자가 할 일이 다르다.** 앞은 코어를 올리는 일이고, 뒤는 서명·허용
@@ -629,11 +714,39 @@ fn closing_carries_undo_and_copyright() {
         quarantine: Some("q.rq"),
         journal: None,
         kind: None,
+        state_dir: None,
     };
     let ko = render_closing(&c, Lang::Ko);
     assert!(ko.contains("remedy restore --run run-1"), "{ko}");
     assert!(
         ko.contains("1분 15초") && ko.contains("ESTsecurity Corp."),
+        "{ko}"
+    );
+    // 기본 자리면 상태 폴더를 붙이지 않는다 — 무인 배포 출력이 전과 같다(I1).
+    assert!(!ko.contains("--state-dir"), "{ko}");
+}
+
+/// 기본이 아닌 상태 폴더(메뉴의 `<받은 폴더>/state` · `--state-dir`)면 두 안내가 그 폴더를
+/// 함께 적는다 — 빼면 그 줄을 그대로 친 사람이 종료 4 로 끝난다(2026-11-07 실측).
+#[test]
+fn closing_names_a_non_default_state_dir_on_both_hints() {
+    let c = Closing {
+        code: remedy_sdk::artifact::ExitCode::Remediated,
+        done: 1,
+        elapsed_secs: 1,
+        run_id: Some("run-1"),
+        quarantine: None,
+        journal: None,
+        kind: None,
+        state_dir: Some("\"C:\\remedy x\\state\""),
+    };
+    let ko = render_closing(&c, Lang::Ko);
+    assert!(
+        ko.contains("remedy restore --run run-1 --state-dir \"C:\\remedy x\\state\""),
+        "{ko}"
+    );
+    assert!(
+        ko.contains("remedy support-bundle --run run-1 --state-dir \"C:\\remedy x\\state\""),
         "{ko}"
     );
 }
@@ -649,6 +762,7 @@ fn labels_align_by_display_width_in_both_languages() {
         quarantine: Some("q"),
         journal: Some("j"),
         kind: None,
+        state_dir: None,
     };
     for lang in [Lang::Ko, Lang::En] {
         let text = render_closing(&c, lang);
@@ -674,6 +788,7 @@ fn sub_second_runs_do_not_say_zero() {
         quarantine: None,
         journal: None,
         kind: None,
+        state_dir: None,
     };
     assert!(render_closing(&c, Lang::Ko).contains("1초 미만"));
     assert!(render_closing(&c, Lang::En).contains("under 1s"));

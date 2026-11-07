@@ -256,6 +256,17 @@ const UNSIGNED: (&str, &str) = (
     "unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum",
 );
 
+/// 코드서명 확인이 **없는 OS**(리눅스)의 알림 — [`UNSIGNED`] 와 같은 뜻을 같은 꼴로.
+///
+/// 전에는 *"자기무결성을 확인하지 못했습니다 (이 플랫폼에는 Authenticode 가 없습니다). 막지는
+/// 않지만 확인된 것도 아닙니다"* 였다 — 리눅스 첫 화면의 첫 줄이 낯선 낱말 셋(자기무결성 ·
+/// Authenticode · 플랫폼)이었고 무엇을 하면 되는지 말하지 않았다(v1.1.0 적대적 검토).
+/// 실패가 아니라 그 OS 의 사실이다.
+const NO_CODESIGN: (&str, &str) = (
+    "이 OS 에는 코드서명 확인이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오",
+    "no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum",
+);
+
 /// 사람에게 보일 한 줄. 파괴를 막지 않는 경우에도 **말해야 하는 것**이 있다.
 pub fn advisory(i: &SelfIntegrity) -> Option<String> {
     match i {
@@ -272,6 +283,10 @@ pub fn advisory(i: &SelfIntegrity) -> Option<String> {
         // **배포 빌드에서도 말한다.** 막지 않기로 한 자리라 이 한 줄이 남는
         // 유일한 흔적이다. 조용하면 서명된 배포본과 구분되지 않는다.
         SelfIntegrity::Unsigned => Some(remedy_sdk::i18n::t(UNSIGNED.0, UNSIGNED.1).into()),
+        // Windows 밖에서는 확인할 서명 체계가 없다(`VerifyError::Unsupported`) — 실패가 아니다.
+        SelfIntegrity::Unknown(_) if !cfg!(windows) => {
+            Some(remedy_sdk::i18n::t(NO_CODESIGN.0, NO_CODESIGN.1).into())
+        }
         SelfIntegrity::Unknown(why) => Some(remedy_sdk::i18n::current().pick(
             format!("자기무결성을 확인하지 못했습니다 ({why}). 막지는 않지만 확인된 것도 아닙니다"),
             format!("self-integrity could not be checked ({why}). Not blocking, but not verified either"),
@@ -348,7 +363,12 @@ mod tests {
                 .map(|c| if c.is_ascii() { 1 } else { 2 })
                 .sum::<usize>()
         };
-        for (head, note) in [("! 알림: ", UNSIGNED.0), ("! Notice: ", UNSIGNED.1)] {
+        for (head, note) in [
+            ("! 알림: ", UNSIGNED.0),
+            ("! Notice: ", UNSIGNED.1),
+            ("! 알림: ", NO_CODESIGN.0),
+            ("! Notice: ", NO_CODESIGN.1),
+        ] {
             let w = cols(head) + cols(note);
             assert!(w <= 120, "{w}칸 — {head}{note}");
         }

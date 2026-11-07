@@ -38,6 +38,10 @@
 # NanumGothicCoding(`-fd`). 한글이 든 글꼴 하나만 주면 xterm 이 가장 넓은 글자의
 # 폭으로 칸을 잡아 영문까지 한 칸씩 띄고, 120 칸 창이 화면 밖으로 나간다(같은 회차).
 #
+# **배경 · 글자 색은 Windows Terminal 의 기본(Campbell — 배경 #0C0C0C · 글자 #CCCCCC)
+# 과 같다.** xterm 의 기본은 흰 바탕이라, README 에 두 OS 화면을 나란히 실으면 한쪽만
+# 흰색이 된다(2026-11-07 — v1.1.0 의 리눅스 이미지 두 장이 그랬다).
+#
 # 이미지는 아래 Dockerfile 글자의 해시로 이름 붙인다 — 없으면 처음 한 번 짓고, 그
 # 뒤로는 패키지를 받지 않는다. 설정을 고치면 이름이 바뀌어 새로 짓는다 — 낡은
 # 이미지를 조용히 쓰지 않는다.
@@ -110,7 +114,7 @@ inside() {
     chmod +x /tmp/run.sh
     export LANG=ko_KR.UTF-8
     xterm -u8 -fa 'DejaVu Sans Mono' -fd 'NanumGothicCoding' -fs 11 -geometry 120x30 \
-        -title remedy -e /tmp/run.sh &
+        -bg '#0C0C0C' -fg '#CCCCCC' -title remedy -e /tmp/run.sh &
     local term=$!
 
     local wid=""

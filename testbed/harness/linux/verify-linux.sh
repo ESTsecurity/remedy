@@ -380,7 +380,9 @@ echo "── F. 서명 ──"
 
 # Linux 에는 Authenticode 가 없다. 그래도 **탐지·계획·보고·치료가 전부
 # 돌아야 한다** — 서명은 공식 배포의 절차이지 기능의 조건이 아니다.
-adv="$("$BIN" --version 2>&1 | grep -c '자기무결성\|integrity')"
+# 알림 문구는 1.1.1 에서 Windows 와 같은 꼴(코드서명 확인이 없어 …)로 바뀌었다 — 옛 꼴과 새 꼴을
+# 다 센다. 하나만 세면 문구가 바뀐 판에서 F1 이 실패하고, 그것이 F2 까지 끌어내린다.
+adv="$("$BIN" --version 2>&1 | grep -c '자기무결성\|integrity\|코드서명\|code-signing')"
 check "F1 서명이 없다는 사실을 매 실행에서 말한다" \
     "$([ "$adv" -ge 1 ] && echo 1 || echo 0)" "알림 ${adv}건"
 check "F2 그것이 기능을 막지 않았다" \

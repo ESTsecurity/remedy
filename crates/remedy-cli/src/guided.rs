@@ -269,6 +269,31 @@ pub fn run(anchor: Option<&str>) -> Outcome {
         }
         // 개발 빌드를 그냥 띄운 경우다. 아무 말 없이 사용법으로 간다 —
         // "찾지 못했다" 를 알리면 꾸러미가 아닌 자리에서 잡음이 된다.
+        //
+        // **배포 빌드면 한 줄 말한다.** zip 을 탐색기로 연 채 실행 파일을 누르면 Windows 가 그
+        // 파일만 임시 폴더에 꺼내 띄워 옆에 `plugins` 가 없다 — 사용법만 뜨면 받은 사람은 무엇이
+        // 잘못됐는지 모른다(v1.1.0 적대적 검토). 앵커가 없는 개발 빌드는 지금처럼 조용하다.
+        if anchor.is_some() && interactive() {
+            errln!(
+                "{}",
+                if cfg!(windows) {
+                    lang.t(
+                        "검사 룰 폴더(plugins)를 이 실행 파일 옆에서 찾지 못했습니다. 받은 zip 을 \
+                         '모두 압축 풀기'로 푼 뒤, 풀린 폴더의 remedy.exe 를 실행하십시오.",
+                        "The rule folder (plugins) is not next to this program. Extract the downloaded \
+                         zip with 'Extract All', then run remedy.exe in the extracted folder.",
+                    )
+                } else {
+                    lang.t(
+                        "검사 룰 폴더(plugins)를 이 실행 파일 옆에서 찾지 못했습니다. 받은 파일을 \
+                         통째로 푼 뒤, 풀린 폴더에서 sudo ./remedy 로 실행하십시오.",
+                        "The rule folder (plugins) is not next to this program. Extract the whole \
+                         download, then run sudo ./remedy in the extracted folder.",
+                    )
+                }
+            );
+            errln!();
+        }
         return Outcome::ShowUsage;
     }
 
@@ -464,6 +489,19 @@ fn choose(ok: &[discover::Found]) -> Option<Choice> {
         }
         return None;
     }
+    // **이 화면이 룰이 여럿인 꾸러미의 첫 화면이다**(리눅스 공식 배포가 그렇다). 작업 메뉴의
+    // 머리말처럼 이름 · 버전 · 권한을 먼저 말한다 — 전에는 sudo 를 빠뜨려도 여기서는 말이 없고
+    // 항목을 고른 뒤에야 알았다(README *"메뉴 맨 위에서 지금 권한을 먼저"* · v1.1.0 적대적 검토).
+    let mut head = vec![Row::Text(format!(
+        "{} {}",
+        remedy_core::report::brand::product(lang),
+        env!("CARGO_PKG_VERSION")
+    ))];
+    if let Some(line) = crate::menu::privilege_line(lang) {
+        head.push(Row::Text(line));
+    }
+    head.push(Row::Blank);
+    rows.splice(1..1, head);
     rows.push(Row::Item(lang.pick(
         format!("{}개 모두 검사만 하기 (아무것도 바꾸지 않습니다)", ok.len()),
         format!("Scan with all {} (changes nothing)", ok.len()),

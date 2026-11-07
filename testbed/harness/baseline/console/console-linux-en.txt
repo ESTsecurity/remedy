@@ -6,8 +6,8 @@
 
 ########## A1. 사용법 — 기본 언어 (C 로케일)
 
-Notice: self-integrity could not be checked (this platform has no Authenticode). Not blocking, but not verified either
-ESTsecurity Dedicated Cleaner 1.1.0
+Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
+ESTsecurity Dedicated Cleaner 1.1.1
 --------------------------------------------------------
 
 Usage
@@ -31,8 +31,8 @@ Copyright (c) 2026 ESTsecurity Corp. All Rights Reserved.
 
 ########## A2. 사용법 — 한국어
 
-알림: 자기무결성을 확인하지 못했습니다 (이 플랫폼에는 Authenticode 가 없습니다). 막지는 않지만 확인된 것도 아닙니다
-ESTsecurity 전용백신 1.1.0
+알림: 이 OS 에는 코드서명 확인이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
+ESTsecurity 전용백신 1.1.1
 --------------------------------------------------------
 
 사용법
@@ -56,8 +56,8 @@ Copyright (c) 2026 ESTsecurity Corp. All Rights Reserved.
 
 ########## A3. 버전
 
-Notice: self-integrity could not be checked (this platform has no Authenticode). Not blocking, but not verified either
-ESTsecurity Dedicated Cleaner 1.1.0 (remedy)
+Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
+ESTsecurity Dedicated Cleaner 1.1.1 (remedy)
 
 ########## A0. 인자 없이 부르면 창을 붙잡는가 (터미널일 때만)
 
@@ -72,7 +72,7 @@ Press Enter to close this window.
 ########## A7. 권한이 없을 때 (비root)
 
 --- 한국어 ---
-알림: 자기무결성을 확인하지 못했습니다 (이 플랫폼에는 Authenticode 가 없습니다). 막지는 않지만 확인된 것도 아닙니다
+알림: 이 OS 에는 코드서명 확인이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 실패: root 권한이 필요합니다. 이 도구는 시스템 전역의 지속성, 설정을 읽고 고치며,
   그것들은 root 만 열 수 있습니다. 권한 없이 돌면 감염된 기계에서도 증거가
   나오지 않습니다.
@@ -80,7 +80,7 @@ Press Enter to close this window.
   (종료 코드 5: 안전 가드에 의한 중단 (상한 초과·보호 경로·서명 검증 실패))
 [exit=5]
 --- 영어 ---
-Notice: self-integrity could not be checked (this platform has no Authenticode). Not blocking, but not verified either
+Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 Error: root is required. This tool reads and fixes system-wide persistence and
   configuration, which only root can open. Without it an infected machine
   yields no evidence.
@@ -95,14 +95,14 @@ Error: root is required. This tool reads and fixes system-wide persistence and
 꾸러미: remedy · plugins/demo/{plugin.yaml, rules/d.yar} — 서명 없음
 
 [서명도 앵커도 없는 꾸러미]
-Notice: self-integrity could not be checked (this platform has no Authenticode). Not blocking, but not verified either
+Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
   skipped /tmp/console-capture/pkg/plugins/demo: this build cannot verify plugin bundles (not an official release)
   nothing usable was found, so nothing was checked.
 [exit=5]
 
 [꾸러미가 아예 없는 자리 — 지금까지의 동작 그대로여야 한다]
-Notice: self-integrity could not be checked (this platform has no Authenticode). Not blocking, but not verified either
-ESTsecurity Dedicated Cleaner 1.1.0
+Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
+ESTsecurity Dedicated Cleaner 1.1.1
 ────────────────────────────────────────────────────────
 
 Usage
@@ -137,8 +137,8 @@ Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
 
 ########## A9. --help-all 본문 — 낱말까지 대조한다
 
-Notice: self-integrity could not be checked (this platform has no Authenticode). Not blocking, but not verified either
-ESTsecurity Dedicated Cleaner 1.1.0 (remedy)
+Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
+ESTsecurity Dedicated Cleaner 1.1.1 (remedy)
 
   시스템을 변경하는 명령(collect|scan|run|apply|resume|restore|verify)은
   root 권한을 요구한다. 없으면 시작하지 않고 종료 코드 5 를 낸다.
@@ -217,8 +217,8 @@ ESTsecurity Dedicated Cleaner 1.1.0 (remedy)
 만든 것: r1 100000개 · r2 100000개 · 없는 자리 하나
 [이 기계에서는 검사가 1초 안에 끝나 심장박동이 나오지 않았다 — 형태를 재지 못했다]
 (영어)
-Scanning · files · 2 folders · 154440 entries · 0 processed · root 2/2 · 1s elapsed · /tmp/console-capture/beat/r2
-Scanning · evaluating · 2 folders · 200000 entries · 200000 processed · 2s elapsed
+Scanning · files · 1 folders · 100000 entries · 93276/99999 processed · root 1/2 · 1s elapsed · /tmp/console-capture/beat/r1/faafhzn
+Scanning · files · 2 folders · 200000 entries · 200000 processed · 2s elapsed · /tmp/console-capture/beat/r2/gaafryd
 
 ########## B. 감염 픽스처
 
@@ -226,13 +226,13 @@ Scanning · evaluating · 2 folders · 200000 entries · 200000 processed · 2s 
 
 ########## C1. scan — C 로케일이라 장식이 ASCII
 
-Notice: self-integrity could not be checked (this platform has no Authenticode). Not blocking, but not verified either
+Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 --------------------------------------------------------
- ESTsecurity Dedicated Cleaner 1.1.0
+ ESTsecurity Dedicated Cleaner 1.1.1
  Library path loader removal  (ldso-preload 1.0.0)
 --------------------------------------------------------
- Started    : 2026-11-06 15:00:59 UTC
- Machine    : 363c3e982fa6 (linux)
+ Started    : 2026-11-07 01:51:35 UTC
+ Machine    : 9dd9d9b424fb (linux)
 
 Starting scan.
 Output    : /tmp/console-capture/o1  (artifacts.json | scan.json | plan.json)
@@ -252,13 +252,13 @@ Threat found, not treated.
 
 ########## C2. scan — UTF-8 로케일이면 박스 문자
 
-Notice: self-integrity could not be checked (this platform has no Authenticode). Not blocking, but not verified either
+Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.1.0
+ ESTsecurity Dedicated Cleaner 1.1.1
  Library path loader removal  (ldso-preload 1.0.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-06 15:00:59 UTC
- Machine    : 363c3e982fa6 (linux)
+ Started    : 2026-11-07 01:51:35 UTC
+ Machine    : 9dd9d9b424fb (linux)
 
 Starting scan.
 Output    : /tmp/console-capture/o2  (artifacts.json · scan.json · plan.json)
@@ -278,13 +278,13 @@ Threat found, not treated.
 
 ########## C3. scan — 영어
 
-Notice: self-integrity could not be checked (this platform has no Authenticode). Not blocking, but not verified either
+Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.1.0
+ ESTsecurity Dedicated Cleaner 1.1.1
  Library path loader removal  (ldso-preload 1.0.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-06 15:00:59 UTC
- Machine    : 363c3e982fa6 (linux)
+ Started    : 2026-11-07 01:51:35 UTC
+ Machine    : 9dd9d9b424fb (linux)
 
 Starting scan.
 Output    : /tmp/console-capture/o3  (artifacts.json · scan.json · plan.json)
@@ -305,13 +305,13 @@ Threat found, not treated.
 ########## C4. scan — 플래그로 준 --ascii · --verbose · --lang
 
 --ascii — UTF-8 로케일인데도 장식이 ASCII 여야 한다 (C2 와 견준다)
-Notice: self-integrity could not be checked (this platform has no Authenticode). Not blocking, but not verified either
+Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 --------------------------------------------------------
- ESTsecurity Dedicated Cleaner 1.1.0
+ ESTsecurity Dedicated Cleaner 1.1.1
  Library path loader removal  (ldso-preload 1.0.0)
 --------------------------------------------------------
- Started    : 2026-11-06 15:00:59 UTC
- Machine    : 363c3e982fa6 (linux)
+ Started    : 2026-11-07 01:51:35 UTC
+ Machine    : 9dd9d9b424fb (linux)
 
 Starting scan.
 Output    : /tmp/console-capture/o-ascii  (artifacts.json | scan.json | plan.json)
@@ -330,13 +330,13 @@ Threat found, not treated.
 [exit=2]
 
 --verbose — 검사 결과에 evidence·groups·verdicts 가 붙는다
-Notice: self-integrity could not be checked (this platform has no Authenticode). Not blocking, but not verified either
+Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.1.0
+ ESTsecurity Dedicated Cleaner 1.1.1
  Library path loader removal  (ldso-preload 1.0.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-06 15:00:59 UTC
- Machine    : 363c3e982fa6 (linux)
+ Started    : 2026-11-07 01:51:35 UTC
+ Machine    : 9dd9d9b424fb (linux)
 
 Starting scan.
 scan time 0.1s · walk 0.0s · read 0.0s (127 KB · 9 files) · hash 0.0s · signatures 0.0s (0 files) · 0 too big to hash · other 0.1s
@@ -357,19 +357,19 @@ Threat found, not treated.
 [exit=2]
 
 --lang — 플래그가 REMEDY_LANG 을 이긴다 (REMEDY_LANG=ko 인데 영어여야 한다)
-Notice: self-integrity could not be checked (this platform has no Authenticode). Not blocking, but not verified either
-ESTsecurity Dedicated Cleaner 1.1.0 (remedy)
+Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
+ESTsecurity Dedicated Cleaner 1.1.1 (remedy)
 [exit=0]
 
 ########## D1. run — 승인할 사람이 없다
 
-Notice: self-integrity could not be checked (this platform has no Authenticode). Not blocking, but not verified either
+Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.1.0
+ ESTsecurity Dedicated Cleaner 1.1.1
  Library path loader removal  (ldso-preload 1.0.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-06 15:00:59 UTC
- Machine    : 363c3e982fa6 (linux)
+ Started    : 2026-11-07 01:51:35 UTC
+ Machine    : 9dd9d9b424fb (linux)
 
 Starting scan.
 Scan done : 5 trace(s) · 1 threat(s)
@@ -390,13 +390,13 @@ Scan done : 5 trace(s) · 1 threat(s)
 
 ########## D2. run --dry-run
 
-Notice: self-integrity could not be checked (this platform has no Authenticode). Not blocking, but not verified either
+Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.1.0
+ ESTsecurity Dedicated Cleaner 1.1.1
  Library path loader removal  (ldso-preload 1.0.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-06 15:00:59 UTC
- Machine    : 363c3e982fa6 (linux)
+ Started    : 2026-11-07 01:51:35 UTC
+ Machine    : 9dd9d9b424fb (linux)
 
 Starting scan.
 Scan done : 5 trace(s) · 1 threat(s)
@@ -418,12 +418,12 @@ Scan done : 5 trace(s) · 1 threat(s)
 
 [exit=2]
 아니오
-Notice: self-integrity could not be checked (this platform has no Authenticode). Not blocking, but not verified either
+Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.1.0
+ ESTsecurity Dedicated Cleaner 1.1.1
 ────────────────────────────────────────────────────────
- Started    : 2026-11-06 15:00:59 UTC
- Machine    : 363c3e982fa6 (linux)
+ Started    : 2026-11-07 01:51:35 UTC
+ Machine    : 9dd9d9b424fb (linux)
 
 
 4 action(s) will run:
@@ -436,17 +436,17 @@ Notice: self-integrity could not be checked (this platform has no Authenticode).
    4. Quarantine file  /usr/local/lib/.crypt-9d41/libnsl_compat.so.2
       moves the file into quarantine — not deleted, and reversible
 
-The plan above will run. Use restore to undo. Type 'yes' to proceed:   Nothing was done.
+The plan above will run. It can be undone later (the menu's 'Undo a treatment' or the restore command). Type 'yes' (or y) to proceed:   Nothing was done.
 
 ########## D3. run --yes — 치료
 
-Notice: self-integrity could not be checked (this platform has no Authenticode). Not blocking, but not verified either
+Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.1.0
+ ESTsecurity Dedicated Cleaner 1.1.1
  Library path loader removal  (ldso-preload 1.0.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-06 15:01:04 UTC
- Machine    : 363c3e982fa6 (linux)
+ Started    : 2026-11-07 01:51:40 UTC
+ Machine    : 9dd9d9b424fb (linux)
 
 Starting scan.
 Scan done : 5 trace(s) · 1 threat(s)
@@ -470,78 +470,78 @@ Starting treatment.
 ────────────────────────────────────────────────────────
  Result     : Threat found, treated (4 action(s) done)
  Elapsed    : under 1s
- Quarantine : /tmp/console-capture/s/quarantine/run-1793977264-01b5-2a576a43.rq
- Journal    : /tmp/console-capture/s/journal/run-1793977264-01b5-2a576a43.jsonl
- To undo    : remedy restore --run run-1793977264-01b5-2a576a43
- Report FP  : remedy support-bundle --run run-1793977264-01b5-2a576a43
+ Quarantine : /tmp/console-capture/s/quarantine/run-1794016300-01b5-2b734663.rq
+ Journal    : /tmp/console-capture/s/journal/run-1794016300-01b5-2b734663.jsonl
+ To undo    : remedy restore --run run-1794016300-01b5-2b734663 --state-dir /tmp/console-capture/s
+ Report FP  : remedy support-bundle --run run-1794016300-01b5-2b734663 --state-dir /tmp/console-capture/s
 ────────────────────────────────────────────────────────
  Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
 [exit=1]
-[run_id=run-1793977264-01b5-2a576a43]
+[run_id=run-1794016300-01b5-2b734663]
 
 ########## E1. verify — 한국어
 
-알림: 자기무결성을 확인하지 못했습니다 (이 플랫폼에는 Authenticode 가 없습니다). 막지는 않지만 확인된 것도 아닙니다
+알림: 이 OS 에는 코드서명 확인이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 ────────────────────────────────────────────────────────
- ESTsecurity 전용백신 1.1.0
+ ESTsecurity 전용백신 1.1.1
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-06 15:01:04 UTC
- 실행 기계  : 363c3e982fa6 (linux)
+ 시작 시각  : 2026-11-07 01:51:41 UTC
+ 실행 기계  : 9dd9d9b424fb (linux)
 
 검사를 시작합니다.
 검사 완료 : 흔적 0건 · 위협 0건
-재평가 기록 -> /tmp/console-capture/s/verify/run-1793977264-01b5-2a576a43.jsonl
+재평가 기록 -> /tmp/console-capture/s/verify/run-1794016300-01b5-2b734663.jsonl
 
 치료 성공. 같은 플러그인이 더 이상 판정하지 않습니다.
 [exit=0]
 
 ########## E2. verify — 영어
 
-Notice: self-integrity could not be checked (this platform has no Authenticode). Not blocking, but not verified either
+Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.1.0
+ ESTsecurity Dedicated Cleaner 1.1.1
 ────────────────────────────────────────────────────────
- Started    : 2026-11-06 15:01:04 UTC
- Machine    : 363c3e982fa6 (linux)
+ Started    : 2026-11-07 01:51:41 UTC
+ Machine    : 9dd9d9b424fb (linux)
 
 Starting scan.
 Scan done : 0 trace(s) · 0 threat(s)
-Re-evaluation record -> /tmp/console-capture/s/verify/run-1793977264-01b5-2a576a43.jsonl
+Re-evaluation record -> /tmp/console-capture/s/verify/run-1794016300-01b5-2b734663.jsonl
 
 Treatment succeeded. The same plugin no longer reports a threat.
 [exit=0]
 
 ########## F0. restore --list — 창을 닫아도 회차를 찾는다
 
-Notice: self-integrity could not be checked (this platform has no Authenticode). Not blocking, but not verified either
+Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.1.0
+ ESTsecurity Dedicated Cleaner 1.1.1
 ────────────────────────────────────────────────────────
- Started    : 2026-11-06 15:01:04 UTC
- Machine    : 363c3e982fa6 (linux)
+ Started    : 2026-11-07 01:51:41 UTC
+ Machine    : 9dd9d9b424fb (linux)
 
 Quarantine : /tmp/console-capture/s/quarantine
 
 1 run(s) can be undone
-  2026-11-06 15:01:04 UTC  run-1793977264-01b5-2a576a43 · 98225 bytes
+  2026-11-07 01:51:40 UTC  run-1794016300-01b5-2b734663 · 98225 bytes
 
-To undo : remedy restore --run run-1793977264-01b5-2a576a43
+To undo : remedy restore --run run-1794016300-01b5-2b734663 --state-dir /tmp/console-capture/s
 [exit=0]
 
 ########## F1. restore — 계획만
 
-Notice: self-integrity could not be checked (this platform has no Authenticode). Not blocking, but not verified either
+Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.1.0
+ ESTsecurity Dedicated Cleaner 1.1.1
 ────────────────────────────────────────────────────────
- Started    : 2026-11-06 15:01:04 UTC
- Machine    : 363c3e982fa6 (linux)
+ Started    : 2026-11-07 01:51:41 UTC
+ Machine    : 9dd9d9b424fb (linux)
 
-Quarantine : /tmp/console-capture/s/quarantine/run-1793977264-01b5-2a576a43.rq
-Run id     : run-1793977264-01b5-2a576a43
-Created    : 2026-11-06 15:01:04 UTC
-Keys       : local(b20f1642)
-  Note: only a local wrap exists. Reinstalling this machine makes the quarantine unopenable.
+Quarantine : /tmp/console-capture/s/quarantine/run-1794016300-01b5-2b734663.rq
+Run id     : run-1794016300-01b5-2b734663
+Created    : 2026-11-07 01:51:40 UTC
+Keys       : local(1a526b27)
+  Note: this quarantine opens only with this machine's key. Reinstalling this machine makes it unopenable, so restore before that.
 
 4 item(s) to restore · 95829 bytes
   [e0] /etc/ld.so.conf.d/libc.conf
@@ -555,25 +555,25 @@ Keys       : local(b20f1642)
   [e3] /usr/local/lib/.crypt-9d41/libnsl_compat.so.2
         not restorable  ctime: the operating system owns this value; it cannot be restored
         not restorable  btime: this operating system cannot set this value
-  Volume /  needs 95829 · free 990345953280 bytes
+  Volume /  needs 95829 · free 988640161792 bytes
 
 Nothing was done. Check the list above and run again with --yes.
 [exit=2]
 
 ########## F2. restore --yes
 
-Notice: self-integrity could not be checked (this platform has no Authenticode). Not blocking, but not verified either
+Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.1.0
+ ESTsecurity Dedicated Cleaner 1.1.1
 ────────────────────────────────────────────────────────
- Started    : 2026-11-06 15:01:04 UTC
- Machine    : 363c3e982fa6 (linux)
+ Started    : 2026-11-07 01:51:41 UTC
+ Machine    : 9dd9d9b424fb (linux)
 
-Quarantine : /tmp/console-capture/s/quarantine/run-1793977264-01b5-2a576a43.rq
-Run id     : run-1793977264-01b5-2a576a43
-Created    : 2026-11-06 15:01:04 UTC
-Keys       : local(b20f1642)
-  Note: only a local wrap exists. Reinstalling this machine makes the quarantine unopenable.
+Quarantine : /tmp/console-capture/s/quarantine/run-1794016300-01b5-2b734663.rq
+Run id     : run-1794016300-01b5-2b734663
+Created    : 2026-11-07 01:51:40 UTC
+Keys       : local(1a526b27)
+  Note: this quarantine opens only with this machine's key. Reinstalling this machine makes it unopenable, so restore before that.
 
 4 item(s) to restore · 95829 bytes
   [e0] /etc/ld.so.conf.d/libc.conf
@@ -587,7 +587,7 @@ Keys       : local(b20f1642)
   [e3] /usr/local/lib/.crypt-9d41/libnsl_compat.so.2
         not restorable  ctime: the operating system owns this value; it cannot be restored
         not restorable  btime: this operating system cannot set this value
-  Volume /  needs 95829 · free 990345949184 bytes
+  Volume /  needs 95829 · free 988640161792 bytes
 
   restored [e0] /etc/ld.so.conf.d/libc.conf  (/etc/ld.so.conf.d/libc.conf:3)
   restored [e1] /usr/share/applications/org.example.Editor.desktop  (content · mtime · readonly · mode)
@@ -602,12 +602,12 @@ Keys       : local(b20f1642)
 
 ########## D5. 치료 심장박동 — 일부러 느리게 (개발 빌드)
 
-Notice: self-integrity could not be checked (this platform has no Authenticode). Not blocking, but not verified either
+Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.1.0
+ ESTsecurity Dedicated Cleaner 1.1.1
 ────────────────────────────────────────────────────────
- Started    : 2026-11-06 15:01:04 UTC
- Machine    : 363c3e982fa6 (linux)
+ Started    : 2026-11-07 01:51:41 UTC
+ Machine    : 9dd9d9b424fb (linux)
 
 
 4 action(s) will run:
@@ -631,28 +631,28 @@ Treating · 2s elapsed
 ────────────────────────────────────────────────────────
  Result     : Threat found, treated (4 action(s) done)
  Elapsed    : 2s
- Quarantine : /tmp/console-capture/s-beat/quarantine/run-1793977259-01ac-2696e862.rq
- Journal    : /tmp/console-capture/s-beat/journal/run-1793977259-01ac-2696e862.jsonl
- To undo    : remedy restore --run run-1793977259-01ac-2696e862
- Report FP  : remedy support-bundle --run run-1793977259-01ac-2696e862
+ Quarantine : /tmp/console-capture/s-beat/quarantine/run-1794016295-01ac-278a2216.rq
+ Journal    : /tmp/console-capture/s-beat/journal/run-1794016295-01ac-278a2216.jsonl
+ To undo    : remedy restore --run run-1794016295-01ac-278a2216 --state-dir /tmp/console-capture/s-beat
+ Report FP  : remedy support-bundle --run run-1794016295-01ac-278a2216 --state-dir /tmp/console-capture/s-beat
 ────────────────────────────────────────────────────────
  Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
 [exit=1]
 
 ########## G. support-bundle
 
-Notice: self-integrity could not be checked (this platform has no Authenticode). Not blocking, but not verified either
-Support bundle folder : /tmp/console-capture/bundle/remedy-support-run-1793977264-01b5-2a576a43
+Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
+Support bundle folder : /tmp/console-capture/bundle/remedy-support-run-1794016300-01b5-2b734663
 
 Included
   plan.json               1932 bytes  what was going to happen: the approved plan in full
   journal.jsonl           1382 bytes  what was done: the audit log
   verify.jsonl             308 bytes  whether the treatment held: the re-evaluation record
-  run.log                 6028 bytes  what the operator saw: banner, plan, warnings, failures, closing table, each line timed
+  run.log                 6098 bytes  what the operator saw: banner, plan, warnings, failures, closing table, each line timed
   environment.json         457 bytes  which core ran: version, target, self-integrity, engine state
 
 Deliberately left out
-  /tmp/console-capture/s/quarantine/run-1793977264-01b5-2a576a43.rq
+  /tmp/console-capture/s/quarantine/run-1794016300-01b5-2b734663.rq
     quarantine container: holds the sample and user file contents. Do not send it; a false-positive is undone on this machine with `remedy restore --run <id>`
   /tmp/console-capture/s/machine.key
     the sealing key that opens the quarantine container. Sending it lets anyone open the container. Never attach it
@@ -671,13 +671,13 @@ Open it before sending. Paths, host name and user name are not redacted.
 
 ########## Q1. scan --verbose — 목록으로 잡는다
 
-Notice: self-integrity could not be checked (this platform has no Authenticode). Not blocking, but not verified either
+Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.1.0
+ ESTsecurity Dedicated Cleaner 1.1.1
  C2 beacon autostart removal  (c2-beacon 1.0.1)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-06 15:01:07 UTC
- Machine    : 363c3e982fa6 (linux)
+ Started    : 2026-11-07 01:51:44 UTC
+ Machine    : 9dd9d9b424fb (linux)
 
 Starting scan.
 scan time 0.1s · walk 0.0s · read 0.0s (75 KB · 4 files) · hash 0.0s · signatures 0.0s (0 files) · 0 too big to hash · other 0.1s
@@ -697,13 +697,13 @@ Threat found, not treated.
 
 ########## Q2. run --yes — 목록에 있는 것만 지운다
 
-Notice: self-integrity could not be checked (this platform has no Authenticode). Not blocking, but not verified either
+Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.1.0
+ ESTsecurity Dedicated Cleaner 1.1.1
  C2 beacon autostart removal  (c2-beacon 1.0.1)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-06 15:01:07 UTC
- Machine    : 363c3e982fa6 (linux)
+ Started    : 2026-11-07 01:51:44 UTC
+ Machine    : 9dd9d9b424fb (linux)
 
 Starting scan.
 Scan done : 4 trace(s) · 1 threat(s)
@@ -724,10 +724,10 @@ Starting treatment.
 ────────────────────────────────────────────────────────
  Result     : Threat found, treated (3 action(s) done)
  Elapsed    : under 1s
- Quarantine : /tmp/console-capture/sq/quarantine/run-1793977267-01df-2ce3241b.rq
- Journal    : /tmp/console-capture/sq/journal/run-1793977267-01df-2ce3241b.jsonl
- To undo    : remedy restore --run run-1793977267-01df-2ce3241b
- Report FP  : remedy support-bundle --run run-1793977267-01df-2ce3241b
+ Quarantine : /tmp/console-capture/sq/quarantine/run-1794016304-01df-b1cc365.rq
+ Journal    : /tmp/console-capture/sq/journal/run-1794016304-01df-b1cc365.jsonl
+ To undo    : remedy restore --run run-1794016304-01df-b1cc365 --state-dir /tmp/console-capture/sq
+ Report FP  : remedy support-bundle --run run-1794016304-01df-b1cc365 --state-dir /tmp/console-capture/sq
 ────────────────────────────────────────────────────────
  Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
 [exit=1]
@@ -797,7 +797,7 @@ Starting treatment.
         "path": "/opt/.cache-9f2/agent.bin",
         "size": 51200,
         "mtime": "2026-09-01T03:12:40Z",
-        "ctime": "2026-11-06T15:01:07Z",
+        "ctime": "2026-11-07T01:51:44Z",
         "sha256": "fec8aa606ec99721bd2a5153d2973816484c18b755e23fd508b1146d954195c7"
       },
       "captures": {},
@@ -822,7 +822,7 @@ Starting treatment.
         "path": "/opt/.cache-9f2/helper.so",
         "size": 24576,
         "mtime": "2026-09-01T03:12:40Z",
-        "ctime": "2026-11-06T15:01:07Z",
+        "ctime": "2026-11-07T01:51:44Z",
         "sha256": "384670229c221ff5384c8b7691d711efe8763a41c48490f184727d334e95f5fe"
       },
       "captures": {},
@@ -843,22 +843,22 @@ Starting treatment.
 
 ########## H1. 오류 — 인자 빠짐 (한/영)
 
-알림: 자기무결성을 확인하지 못했습니다 (이 플랫폼에는 Authenticode 가 없습니다). 막지는 않지만 확인된 것도 아닙니다
+알림: 이 OS 에는 코드서명 확인이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 ────────────────────────────────────────────────────────
- ESTsecurity 전용백신 1.1.0
+ ESTsecurity 전용백신 1.1.1
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-06 15:01:07 UTC
- 실행 기계  : 363c3e982fa6 (linux)
+ 시작 시각  : 2026-11-07 01:51:44 UTC
+ 실행 기계  : 9dd9d9b424fb (linux)
 
 실패: --plan 옵션이 필요합니다
   (종료 코드 4: 사용법·입력 오류)
 [exit=4]
-Notice: self-integrity could not be checked (this platform has no Authenticode). Not blocking, but not verified either
+Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.1.0
+ ESTsecurity Dedicated Cleaner 1.1.1
 ────────────────────────────────────────────────────────
- Started    : 2026-11-06 15:01:07 UTC
- Machine    : 363c3e982fa6 (linux)
+ Started    : 2026-11-07 01:51:44 UTC
+ Machine    : 9dd9d9b424fb (linux)
 
 Error: --plan is required
   (exit code 4: usage or input error)
@@ -866,7 +866,7 @@ Error: --plan is required
 
 ########## H2. 오류 — 모르는 하위 명령
 
-Notice: self-integrity could not be checked (this platform has no Authenticode). Not blocking, but not verified either
+Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 unknown subcommand: plugin 없는것
 available: lint · verify
 [exit=4]
@@ -874,13 +874,13 @@ available: lint · verify
 ########## H3. 오류 — 모르는 언어 값
 
 --lang 'kr': 모르는 언어라 무시했습니다 (ko | en) / unknown language, ignored (ko | en)
-Notice: self-integrity could not be checked (this platform has no Authenticode). Not blocking, but not verified either
-ESTsecurity Dedicated Cleaner 1.1.0 (remedy)
+Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
+ESTsecurity Dedicated Cleaner 1.1.1 (remedy)
 [exit=0]
 
 ########## I. plugin lint
 
-Notice: self-integrity could not be checked (this platform has no Authenticode). Not blocking, but not verified either
+Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 
 /repo/testbed/ai-exam/threats/ldso-preload/reference-plugin/plugin.yaml
   경고 detect[2].where: 조건이 'path exists' 하나뿐이다. 증거 그룹이 폭증해 계획 단계 상한(50)에 걸릴 수 있다
@@ -892,7 +892,7 @@ Notice: self-integrity could not be checked (this platform has no Authenticode).
 
 ########## J. selftest
 
-Notice: self-integrity could not be checked (this platform has no Authenticode). Not blocking, but not verified either
+Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 링크된 크레이트 12종
   remedy-sdk
   remedy-artifacts
@@ -913,55 +913,55 @@ selftest OK
 
 ########## K. 회차 로그 (심장박동 줄 제외)
 
-restore-run-1793977264-01b5-2a576a43.log
-run-1793977259-019f-110a2a7c.log
-run-1793977259-01a1-14aafa3f.log
-run-1793977259-01a3-18469b73.log
-run-1793977259-01a5-1bd76d8c.log
-run-1793977259-01a7-1f6161bc.log
-run-1793977259-01aa-231399ce.log
-run-1793977259-01ac-2696e862.log
-run-1793977264-01b5-2a576a43.log
+restore-run-1794016300-01b5-2b734663.log
+run-1794016295-019f-11e6f649.log
+run-1794016295-01a1-1575aa82.log
+run-1794016295-01a3-18fba53c.log
+run-1794016295-01a5-1ca1f0b2.log
+run-1794016295-01a7-2039c98f.log
+run-1794016295-01aa-240f8269.log
+run-1794016295-01ac-278a2216.log
+run-1794016300-01b5-2b734663.log
 --- 치료 회차 로그의 머리부터 치료 시작까지 ---
-2026-11-06T15:01:04Z # remedy 1.1.0 pid 437 · run --plugin /repo/testbed/ai-exam/threats/ldso-preload/reference-plugin/plugin.yaml --out-dir /tmp/console-capture/run --yes --state-dir /tmp/console-capture/s
-2026-11-06T15:01:04Z | ────────────────────────────────────────────────────────
-2026-11-06T15:01:04Z |  ESTsecurity Dedicated Cleaner 1.1.0
-2026-11-06T15:01:04Z |  Library path loader removal  (ldso-preload 1.0.0)
-2026-11-06T15:01:04Z | ────────────────────────────────────────────────────────
-2026-11-06T15:01:04Z |  Started    : 2026-11-06 15:01:04 UTC
-2026-11-06T15:01:04Z |  Machine    : 363c3e982fa6 (linux)
-2026-11-06T15:01:04Z | 
-2026-11-06T15:01:04Z # run_id run-1793977264-01b5-2a576a43
-2026-11-06T15:01:04Z | Starting scan.
-2026-11-06T15:01:04Z # scan time 0.1s · walk 0.0s · read 0.0s (127 KB · 9 files) · hash 0.0s · signatures 0.0s (0 files) · 0 too big to hash · other 0.1s
-2026-11-06T15:01:04Z | Scan done : 5 trace(s) · 1 threat(s)
-2026-11-06T15:01:04Z | 
-2026-11-06T15:01:04Z | 4 action(s) will run:
-2026-11-06T15:01:04Z |    1. Remove line from file  /etc/ld.so.conf.d/libc.conf
-2026-11-06T15:01:04Z |       removes only the added line from that file; the file itself is kept
-2026-11-06T15:01:04Z |    2. Strip shortcut arguments  /usr/share/applications/org.example.Editor.desktop
-2026-11-06T15:01:04Z |       strips the added arguments; the shortcut still works
-2026-11-06T15:01:04Z |    3. Quarantine file  /usr/local/lib/.crypt-9d41/.seed
-2026-11-06T15:01:04Z |       moves the file into quarantine — not deleted, and reversible
-2026-11-06T15:01:04Z |    4. Quarantine file  /usr/local/lib/.crypt-9d41/libnsl_compat.so.2
-2026-11-06T15:01:04Z |       moves the file into quarantine — not deleted, and reversible
-2026-11-06T15:01:04Z | 
-2026-11-06T15:01:04Z | Starting treatment.
+2026-11-07T01:51:40Z # remedy 1.1.1 pid 437 · run --plugin /repo/testbed/ai-exam/threats/ldso-preload/reference-plugin/plugin.yaml --out-dir /tmp/console-capture/run --yes --state-dir /tmp/console-capture/s
+2026-11-07T01:51:40Z | ────────────────────────────────────────────────────────
+2026-11-07T01:51:40Z |  ESTsecurity Dedicated Cleaner 1.1.1
+2026-11-07T01:51:40Z |  Library path loader removal  (ldso-preload 1.0.0)
+2026-11-07T01:51:40Z | ────────────────────────────────────────────────────────
+2026-11-07T01:51:40Z |  Started    : 2026-11-07 01:51:40 UTC
+2026-11-07T01:51:40Z |  Machine    : 9dd9d9b424fb (linux)
+2026-11-07T01:51:40Z | 
+2026-11-07T01:51:40Z # run_id run-1794016300-01b5-2b734663
+2026-11-07T01:51:40Z | Starting scan.
+2026-11-07T01:51:40Z # scan time 0.1s · walk 0.0s · read 0.0s (127 KB · 9 files) · hash 0.0s · signatures 0.0s (0 files) · 0 too big to hash · other 0.1s
+2026-11-07T01:51:40Z | Scan done : 5 trace(s) · 1 threat(s)
+2026-11-07T01:51:40Z | 
+2026-11-07T01:51:40Z | 4 action(s) will run:
+2026-11-07T01:51:40Z |    1. Remove line from file  /etc/ld.so.conf.d/libc.conf
+2026-11-07T01:51:40Z |       removes only the added line from that file; the file itself is kept
+2026-11-07T01:51:40Z |    2. Strip shortcut arguments  /usr/share/applications/org.example.Editor.desktop
+2026-11-07T01:51:40Z |       strips the added arguments; the shortcut still works
+2026-11-07T01:51:40Z |    3. Quarantine file  /usr/local/lib/.crypt-9d41/.seed
+2026-11-07T01:51:40Z |       moves the file into quarantine — not deleted, and reversible
+2026-11-07T01:51:40Z |    4. Quarantine file  /usr/local/lib/.crypt-9d41/libnsl_compat.so.2
+2026-11-07T01:51:40Z |       moves the file into quarantine — not deleted, and reversible
+2026-11-07T01:51:40Z | 
+2026-11-07T01:51:40Z | Starting treatment.
 
 ########## L. 관측 불완전 (6) — 선언한 자리가 하나도 없다
 
-Notice: self-integrity could not be checked (this platform has no Authenticode). Not blocking, but not verified either
+Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.1.0
+ ESTsecurity Dedicated Cleaner 1.1.1
  missing roots  (force-incomplete 1.0.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-06 15:01:07 UTC
- Machine    : 363c3e982fa6 (linux)
+ Started    : 2026-11-07 01:51:44 UTC
+ Machine    : 9dd9d9b424fb (linux)
 
 Starting scan.
 Output    : /tmp/console-capture/o6  (artifacts.json · scan.json · plan.json)
 Scan done : 0 trace(s) · 0 threat(s)
-  Note: 'no threat' cannot be declared on this result:
+  Note: 'no threat' cannot be concluded, for these reasons:
      - all 2 paths to scan are missing on this machine, so nothing was opened at all: /opt/does-not-exist-1 · /opt/does-not-exist-2
 
 Observation incomplete: cannot declare 'no threat'.
@@ -969,13 +969,13 @@ Observation incomplete: cannot declare 'no threat'.
 
 ########## L2. 점검 — 선언한 자리가 없으면 해당 없음 (0)
 
-Notice: self-integrity could not be checked (this platform has no Authenticode). Not blocking, but not verified either
+Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.1.0
+ ESTsecurity Dedicated Cleaner 1.1.1
  check - missing roots  (force-check-absent 1.0.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-06 15:01:07 UTC
- Machine    : 363c3e982fa6 (linux)
+ Started    : 2026-11-07 01:51:44 UTC
+ Machine    : 9dd9d9b424fb (linux)
 
 Starting scan.
 Output    : /tmp/console-capture/ochk  (artifacts.json · scan.json · plan.json)
@@ -988,13 +988,13 @@ No vulnerability was found.
 
 ########## L3. 점검 — 취약하다 (2)
 
-Notice: self-integrity could not be checked (this platform has no Authenticode). Not blocking, but not verified either
+Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.1.0
+ ESTsecurity Dedicated Cleaner 1.1.1
  check - exposed setting  (force-check-found 1.0.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-06 15:01:08 UTC
- Machine    : 363c3e982fa6 (linux)
+ Started    : 2026-11-07 01:51:44 UTC
+ Machine    : 9dd9d9b424fb (linux)
 
 Starting scan.
 Output    : /tmp/console-capture/ochk2  (artifacts.json · scan.json · plan.json)
@@ -1006,7 +1006,7 @@ Vulnerable. Review the items listed above.
 
 ########## L4. 점검 — 린트가 모순을 막는다 (kind: check + remediate)
 
-Notice: self-integrity could not be checked (this platform has no Authenticode). Not blocking, but not verified either
+Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 
 /tmp/console-capture/chk-bad.yaml
   오류 remediate: kind: check 는 바꾸지 않는다고 선언한 것인데 remediate 가 있다
@@ -1021,19 +1021,19 @@ Notice: self-integrity could not be checked (this platform has no Authenticode).
 
 ########## L5. 점검 — 버전을 견주지 못했다 (6)
 
-Notice: self-integrity could not be checked (this platform has no Authenticode). Not blocking, but not verified either
+Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.1.0
+ ESTsecurity Dedicated Cleaner 1.1.1
  check - vulnerable version  (force-check-version 1.0.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-06 15:01:08 UTC
- Machine    : 363c3e982fa6 (linux)
+ Started    : 2026-11-07 01:51:44 UTC
+ Machine    : 9dd9d9b424fb (linux)
 
 Starting scan.
 Output    : /tmp/console-capture/ochk3  (artifacts.json · scan.json · plan.json)
 Scan done : 0 trace(s) · 0 vulnerable
   Note 'value' 의 값 '8.2.28-1ubuntu1' 을 버전으로 읽지 못했습니다 — version_lt 는 점으로 나눈 숫자만 비교합니다(예: 8.2.29). 사전 배포 꼬리(RC1 · -dev)와 패키지 개정(-1ubuntu1)은 순서가 서로 반대여서 받지 않습니다
-  Note: 'not vulnerable' cannot be declared on this result:
+  Note: 'not vulnerable' cannot be concluded, for these reasons:
      - 1 version could not be compared: 8.2.28-1ubuntu1
 
 Observation incomplete: cannot declare 'not vulnerable'.
@@ -1041,18 +1041,18 @@ Observation incomplete: cannot declare 'not vulnerable'.
 
 ########## L6. 관측 불완전 (6) — 선언한 자리를 물어보지 못했다
 
-Notice: self-integrity could not be checked (this platform has no Authenticode). Not blocking, but not verified either
+Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.1.0
+ ESTsecurity Dedicated Cleaner 1.1.1
  unreadable root  (force-unreadable-root 1.0.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-06 15:01:08 UTC
- Machine    : 363c3e982fa6 (linux)
+ Started    : 2026-11-07 01:51:44 UTC
+ Machine    : 9dd9d9b424fb (linux)
 
 Starting scan.
 Output    : /tmp/console-capture/o6b  (artifacts.json · scan.json · plan.json)
 Scan done : 0 trace(s) · 0 threat(s)
-  Note: 'no threat' cannot be declared on this result:
+  Note: 'no threat' cannot be concluded, for these reasons:
      - 1 declared root could not even be checked for existence: /tmp/console-capture/loop
 
 Observation incomplete: cannot declare 'no threat'.
@@ -1060,13 +1060,13 @@ Observation incomplete: cannot declare 'no threat'.
 
 ########## M. 부분 실패 (3) — 읽기 전용 마운트
 
-Notice: self-integrity could not be checked (this platform has no Authenticode). Not blocking, but not verified either
+Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.1.0
+ ESTsecurity Dedicated Cleaner 1.1.1
  read-only place  (force-partial 1.0.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-06 15:01:08 UTC
- Machine    : 363c3e982fa6 (linux)
+ Started    : 2026-11-07 01:51:44 UTC
+ Machine    : 9dd9d9b424fb (linux)
 
 Starting scan.
 Scan done : 2 trace(s) · 1 threat(s)
@@ -1089,23 +1089,23 @@ Warning: a restart cannot be recommended on this machine. Safe Mode availability
 ────────────────────────────────────────────────────────
  Result     : Partial failure (0 action(s) done)
  Elapsed    : under 1s
- Quarantine : /tmp/console-capture/s7/quarantine/run-1793977268-020d-aaf0c81.rq
- Journal    : /tmp/console-capture/s7/journal/run-1793977268-020d-aaf0c81.jsonl
- To undo    : remedy restore --run run-1793977268-020d-aaf0c81
- Report FP  : remedy support-bundle --run run-1793977268-020d-aaf0c81
+ Quarantine : /tmp/console-capture/s7/quarantine/run-1794016304-020d-2c06d2dc.rq
+ Journal    : /tmp/console-capture/s7/journal/run-1794016304-020d-2c06d2dc.jsonl
+ To undo    : remedy restore --run run-1794016304-020d-2c06d2dc --state-dir /tmp/console-capture/s7
+ Report FP  : remedy support-bundle --run run-1794016304-020d-2c06d2dc --state-dir /tmp/console-capture/s7
 ────────────────────────────────────────────────────────
  Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
 [exit=3]
 
 ########## N. 가드 중단 (5) — 상한 초과
 
-Notice: self-integrity could not be checked (this platform has no Authenticode). Not blocking, but not verified either
+Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.1.0
+ ESTsecurity Dedicated Cleaner 1.1.1
  read-only place  (force-guard 1.0.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-06 15:01:08 UTC
- Machine    : 363c3e982fa6 (linux)
+ Started    : 2026-11-07 01:51:44 UTC
+ Machine    : 9dd9d9b424fb (linux)
 
 Starting scan.
 Error: planning failed: the safety guard rejected the plan (1):
@@ -1115,13 +1115,13 @@ Error: planning failed: the safety guard rejected the plan (1):
 
 ########## O. 가드 중단 (5) — 계획 위조
 
-Notice: self-integrity could not be checked (this platform has no Authenticode). Not blocking, but not verified either
+Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.1.0
+ ESTsecurity Dedicated Cleaner 1.1.1
  read-only place  (force-tamper 1.0.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-06 15:01:08 UTC
- Machine    : 363c3e982fa6 (linux)
+ Started    : 2026-11-07 01:51:44 UTC
+ Machine    : 9dd9d9b424fb (linux)
 
 Starting scan.
 Scan done : 1 trace(s) · 1 threat(s)
@@ -1136,18 +1136,18 @@ Starting treatment.
 ────────────────────────────────────────────────────────
  Result     : Threat found, treated (1 action(s) done)
  Elapsed    : under 1s
- Quarantine : /tmp/console-capture/s9/quarantine/run-1793977268-0218-148a360d.rq
- Journal    : /tmp/console-capture/s9/journal/run-1793977268-0218-148a360d.jsonl
- To undo    : remedy restore --run run-1793977268-0218-148a360d
- Report FP  : remedy support-bundle --run run-1793977268-0218-148a360d
+ Quarantine : /tmp/console-capture/s9/quarantine/run-1794016304-0218-392f2120.rq
+ Journal    : /tmp/console-capture/s9/journal/run-1794016304-0218-392f2120.jsonl
+ To undo    : remedy restore --run run-1794016304-0218-392f2120 --state-dir /tmp/console-capture/s9
+ Report FP  : remedy support-bundle --run run-1794016304-0218-392f2120 --state-dir /tmp/console-capture/s9
 ────────────────────────────────────────────────────────
  Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
-Notice: self-integrity could not be checked (this platform has no Authenticode). Not blocking, but not verified either
+Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.1.0
+ ESTsecurity Dedicated Cleaner 1.1.1
 ────────────────────────────────────────────────────────
- Started    : 2026-11-06 15:01:08 UTC
- Machine    : 363c3e982fa6 (linux)
+ Started    : 2026-11-07 01:51:45 UTC
+ Machine    : 9dd9d9b424fb (linux)
 
 
 1 action(s) will run:
@@ -1155,7 +1155,7 @@ Notice: self-integrity could not be checked (this platform has no Authenticode).
       moves the file into quarantine — not deleted, and reversible
 
 Starting treatment.
-Error: this plan differs from the one in the journal. Not resuming; plan again (run run-1793977268-0218-148a360d)
+Error: this plan differs from the one in the journal. Not resuming; plan again (run run-1794016304-0218-392f2120)
   (exit code 5: stopped by a safety guard (limit, protected path, signature))
 [exit=5]
 --- 무고한 파일은 그대로인가 ---
@@ -1163,40 +1163,40 @@ x.evil
 
 ########## P. 크래시 (7) — 개발 빌드
 
-Notice: self-integrity could not be checked (this platform has no Authenticode). Not blocking, but not verified either
+Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 
 Error: internal error: the tool itself crashed. The machine is as the journal recorded up to this point
   crates/remedy-cli/src/tee.rs:133:9: REMEDY_PANIC_TEST: 개발 빌드 전용 패닉 시험
-  Record: /tmp/console-capture/sP/logs/crash-2026-11-06T15-01-08Z-543.txt
+  Record: /tmp/console-capture/sP/logs/crash-2026-11-07T01-51-45Z-543.txt
   (exit code 7: internal error: the tool itself crashed (attach logs/crash-*.txt to the report))
 [exit=7]
-Notice: self-integrity could not be checked (this platform has no Authenticode). Not blocking, but not verified either
+Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 
 Error: internal error: the tool itself crashed. The machine is as the journal recorded up to this point
   crates/remedy-cli/src/tee.rs:133:9: REMEDY_PANIC_TEST: 개발 빌드 전용 패닉 시험
-  Record: /tmp/console-capture/sP/logs/crash-2026-11-06T15-01-08Z-544.txt
+  Record: /tmp/console-capture/sP/logs/crash-2026-11-07T01-51-45Z-544.txt
   (exit code 7: internal error: the tool itself crashed (attach logs/crash-*.txt to the report))
 [exit=7]
 --- 크래시 기록의 머리 ---
-==> /tmp/console-capture/sP/logs/crash-2026-11-06T15-01-08Z-543.txt <==
-remedy 1.1.0 · internal error (panic)
-at    : 2026-11-06T15:01:08Z
+==> /tmp/console-capture/sP/logs/crash-2026-11-07T01-51-45Z-543.txt <==
+remedy 1.1.1 · internal error (panic)
+at    : 2026-11-07T01:51:45Z
 where : crates/remedy-cli/src/tee.rs:133:9
 
-==> /tmp/console-capture/sP/logs/crash-2026-11-06T15-01-08Z-544.txt <==
-remedy 1.1.0 · internal error (panic)
-at    : 2026-11-06T15:01:08Z
+==> /tmp/console-capture/sP/logs/crash-2026-11-07T01-51-45Z-544.txt <==
+remedy 1.1.1 · internal error (panic)
+at    : 2026-11-07T01:51:45Z
 
 ########## R. 조직 복구 키 — apply 가 싣고 restore 가 연다
 
 org 키쌍 생성 OK — 공개키 32 바이트
-Notice: self-integrity could not be checked (this platform has no Authenticode). Not blocking, but not verified either
+Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.1.0
+ ESTsecurity Dedicated Cleaner 1.1.1
  read-only place  (force-org 1.0.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-06 15:01:14 UTC
- Machine    : 363c3e982fa6 (linux)
+ Started    : 2026-11-07 01:51:52 UTC
+ Machine    : 9dd9d9b424fb (linux)
 
 Starting scan.
 Scan done : 2 trace(s) · 1 threat(s)
@@ -1214,26 +1214,26 @@ Starting treatment.
 ────────────────────────────────────────────────────────
  Result     : Threat found, treated (2 action(s) done)
  Elapsed    : under 1s
- Quarantine : /tmp/console-capture/sR/quarantine/run-1793977274-0231-32238798.rq
- Journal    : /tmp/console-capture/sR/journal/run-1793977274-0231-32238798.jsonl
- To undo    : remedy restore --run run-1793977274-0231-32238798
- Report FP  : remedy support-bundle --run run-1793977274-0231-32238798
+ Quarantine : /tmp/console-capture/sR/quarantine/run-1794016312-0231-3a028baa.rq
+ Journal    : /tmp/console-capture/sR/journal/run-1794016312-0231-3a028baa.jsonl
+ To undo    : remedy restore --run run-1794016312-0231-3a028baa --state-dir /tmp/console-capture/sR
+ Report FP  : remedy support-bundle --run run-1794016312-0231-3a028baa --state-dir /tmp/console-capture/sR
 ────────────────────────────────────────────────────────
  Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
 [exit=1]
 
 --- 조직 키로 연다 (제자리가 아니라 꺼내기) ---
-Notice: self-integrity could not be checked (this platform has no Authenticode). Not blocking, but not verified either
+Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.1.0
+ ESTsecurity Dedicated Cleaner 1.1.1
 ────────────────────────────────────────────────────────
- Started    : 2026-11-06 15:01:14 UTC
- Machine    : 363c3e982fa6 (linux)
+ Started    : 2026-11-07 01:51:53 UTC
+ Machine    : 9dd9d9b424fb (linux)
 
-Quarantine : /tmp/console-capture/sR/quarantine/run-1793977274-0231-32238798.rq
-Run id     : run-1793977274-0231-32238798
-Created    : 2026-11-06 15:01:14 UTC
-Keys       : local(ebd1e15c) · org(e6b0f70e)
+Quarantine : /tmp/console-capture/sR/quarantine/run-1794016312-0231-3a028baa.rq
+Run id     : run-1794016312-0231-3a028baa
+Created    : 2026-11-07 01:51:52 UTC
+Keys       : local(1553b229) · org(81a6f171)
 Extract mode: items go to /tmp/console-capture/orgout, not to their original place.
   In-place restore is only guaranteed on the original machine.
 
@@ -1244,7 +1244,7 @@ Extract mode: items go to /tmp/console-capture/orgout, not to their original pla
   [e1] /tmp/console-capture/orgout/_tmp_console-capture_orgsrc_g2.evil
         not restorable  ctime: the operating system owns this value; it cannot be restored
         not restorable  btime: this operating system cannot set this value
-  Volume /  needs 20 · free 990345011200 bytes
+  Volume /  needs 20 · free 988639219712 bytes
 
   restored [e0] /tmp/console-capture/orgout/_tmp_console-capture_orgsrc_g1.evil  (content · mtime · readonly · mode)
   restored [e1] /tmp/console-capture/orgout/_tmp_console-capture_orgsrc_g2.evil  (content · mtime · readonly · mode)
@@ -1261,7 +1261,10 @@ _tmp_console-capture_orgsrc_g2.evil
 ########## A11. 모두 검사만 — 항목이 셋인 꾸러미 (pty)
 
 [exit=6]
-Notice: self-integrity could not be checked (this platform has no Authenticode). Not blocking, but not verified either
+Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
+
+ESTsecurity Dedicated Cleaner 1.1.1
+Running with root rights.
 
 Found 3 things to check:
   1. Scan with all 3 (changes nothing)
@@ -1275,16 +1278,16 @@ Choose a number (0-4): Scanning with all 3 rules — nothing is changed.
 ────────────────────────────────────────────────────────
 [1/3] CWPdoor check (detect only)
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.1.0
- CWPdoor check (detect only)  (cwpdoor-1-check 0.1.0)
+ ESTsecurity Dedicated Cleaner 1.1.1
+ CWPdoor check (detect only)  (cwpdoor-1-check 0.1.1)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-06 15:03:48 UTC
- Machine    : 363c3e982fa6 (linux)
+ Started    : 2026-11-07 01:54:42 UTC
+ Machine    : 9dd9d9b424fb (linux)
 
 Starting scan.
-Output    : /tmp/console-capture/scan-all/pkg/out/20261106T150348Z  (artifacts.json · scan.json · plan.json)
+Output    : /tmp/console-capture/scan-all/pkg/out/20261107T015442Z  (artifacts.json · scan.json · plan.json)
 Scan done : 0 trace(s) · 0 threat(s)
-  Note: 'no threat' cannot be declared on this result:
+  Note: 'no threat' cannot be concluded, for these reasons:
      - all 1 paths to scan are missing on this machine, so nothing was opened at all: /usr/local/cwpsrv/bin
 
 Observation incomplete: cannot declare 'no threat'.
@@ -1292,16 +1295,16 @@ Observation incomplete: cannot declare 'no threat'.
 ────────────────────────────────────────────────────────
 [2/3] CWPdoor Removal
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.1.0
- CWPdoor Removal  (cwpdoor-2-clean 0.1.0)
+ ESTsecurity Dedicated Cleaner 1.1.1
+ CWPdoor Removal  (cwpdoor-2-clean 0.1.1)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-06 15:03:48 UTC
- Machine    : 363c3e982fa6 (linux)
+ Started    : 2026-11-07 01:54:42 UTC
+ Machine    : 9dd9d9b424fb (linux)
 
 Starting scan.
-Output    : /tmp/console-capture/scan-all/pkg/out/20261106T150348Z-2  (artifacts.json · scan.json · plan.json)
+Output    : /tmp/console-capture/scan-all/pkg/out/20261107T015442Z-2  (artifacts.json · scan.json · plan.json)
 Scan done : 0 trace(s) · 0 threat(s)
-  Note: 'no threat' cannot be declared on this result:
+  Note: 'no threat' cannot be concluded, for these reasons:
      - all 1 paths to scan are missing on this machine, so nothing was opened at all: /usr/local/cwpsrv/bin
 
 Observation incomplete: cannot declare 'no threat'.
@@ -1309,26 +1312,29 @@ Observation incomplete: cannot declare 'no threat'.
 ────────────────────────────────────────────────────────
 [3/3] Ebury check (detect only)
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.1.0
- Ebury check (detect only)  (ebury-check 0.1.0)
+ ESTsecurity Dedicated Cleaner 1.1.1
+ Ebury check (detect only)  (ebury-check 0.1.1)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-06 15:03:48 UTC
- Machine    : 363c3e982fa6 (linux)
+ Started    : 2026-11-07 01:54:42 UTC
+ Machine    : 9dd9d9b424fb (linux)
 
 Starting scan.
-Output    : /tmp/console-capture/scan-all/pkg/out/20261106T150348Z-3  (artifacts.json · scan.json · plan.json)
+Output    : /tmp/console-capture/scan-all/pkg/out/20261107T015442Z-3  (artifacts.json · scan.json · plan.json)
 Scan done : 0 trace(s) · 0 threat(s)
 
 No threat was found.
 
 ────────────────────────────────────────────────────────
 Results for all 3 rules — nothing was changed
-  CWPdoor check (detect only) — Observation incomplete: cannot declare 'no threat'.
-  CWPdoor Removal — Observation incomplete: cannot declare 'no threat'.
+  CWPdoor check (detect only) — not applicable (the paths to scan do not exist on this machine)
+  CWPdoor Removal — not applicable (the paths to scan do not exist on this machine)
   Ebury check (detect only) — No threat was found.
 
 ────────────────────────────────────────────────────────
 Press Enter to go back to the menu. 
+ESTsecurity Dedicated Cleaner 1.1.1
+Running with root rights.
+
 Found 3 things to check:
   1. Scan with all 3 (changes nothing)
   2. CWPdoor check (detect only)

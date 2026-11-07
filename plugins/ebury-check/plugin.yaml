@@ -9,7 +9,7 @@
 # 종료 코드: 2 위협 발견 · 0 위협 없음 · 6 다 보지 못했다.
 schema_version: 1
 id: ebury-check
-version: 0.1.0
+version: 0.1.1
 min_core: "1.0.2"   # collect_extra 의 glob 형이 1.0.2 부터 있다
 platforms: [linux]
 name:
