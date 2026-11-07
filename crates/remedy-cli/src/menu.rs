@@ -511,8 +511,6 @@ pub enum Line {
     Undo,
     /// 신고에 붙일 것 모으기
     Report,
-    /// 중단된 작업 이어서 하기
-    Resume,
 }
 
 /// 그 줄의 번호와 이름. 번호는 기계 상태와 상관없다([`items`]) — 안내에 적은 번호가
@@ -538,7 +536,6 @@ pub fn line(which: Line) -> Option<(usize, String)> {
         (Tag::NeedsPlugin(mk), Line::Verify) => matches!(mk(p.clone()), WithPlugin::Verify(_)),
         (Tag::NeedsRun(mk), Line::Undo) => matches!(mk(run.clone()), WithRun::Restore(_)),
         (Tag::NeedsRun(mk), Line::Report) => matches!(mk(run.clone()), WithRun::Support(_)),
-        (Tag::NeedsRun(mk), Line::Resume) => matches!(mk(run.clone()), WithRun::Resume(_)),
         _ => false,
     })?;
     if pos < author_from {
@@ -973,7 +970,6 @@ mod tests {
         assert_eq!(n(Line::Verify), Some(3));
         assert_eq!(n(Line::Undo), Some(6));
         assert_eq!(n(Line::Report), Some(7));
-        assert_eq!(n(Line::Resume), Some(8));
     }
 
     /// 기준 4 — **첫 화면은 일반 작업 열셋 + 접은 한 줄**이다. 나머지 여덟은 그 한 줄 아래에

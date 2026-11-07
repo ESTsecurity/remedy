@@ -461,6 +461,22 @@ fn readme(
     s.push_str("치료한 뒤 할 일(서비스 되살리기 · 비밀번호 바꾸기 · 콘솔에서 할 일)은\r\n");
     s.push_str("위협마다 다릅니다. README 의 '위협별 안내' 를 따르십시오:\r\n");
     s.push_str("  https://github.com/ESTsecurity/remedy#위협별-안내\r\n");
+    // **인터넷이 막힌 기계에서도 볼 곳** — 같은 차례가 룰 폴더마다 든 RELEASE.md 에 있다
+    // (2026-11-07 적대적 검토: 폐쇄망 서버에는 주소만으로는 볼 곳이 없었다). 서명과 대조한
+    // 목록(`tree`)에 있는 것만 적는다 — 없는 파일을 가리키지 않는다.
+    let notes: Vec<&Packed> = plugins
+        .iter()
+        .filter(|p| p.tree.contains_key("RELEASE.md"))
+        .collect();
+    if !notes.is_empty() {
+        s.push_str("인터넷이 막힌 곳이면 같은 차례가 룰 폴더의 RELEASE.md 에 있습니다:\r\n");
+        for p in notes {
+            s.push_str(&format!(
+                "  {here}plugins{sep}{}{sep}RELEASE.md\r\n",
+                p.name
+            ));
+        }
+    }
     s.push_str("치료한 프로그램을 공급사 버전으로 다시 설치했다면 치료를 되돌리지\r\n");
     s.push_str("마십시오 — 되돌리면 격리해 둔 파일이 새로 설치한 파일을 덮습니다.\r\n\r\n");
 
@@ -760,6 +776,31 @@ mod tests {
             );
             assert!(!r.contains("꾸러미"), "{r}");
         }
+    }
+
+    /// 인터넷이 막힌 기계에서도 위협별 차례를 볼 곳 — 서명과 대조한 목록에 RELEASE.md 가 든
+    /// 룰만, 그 OS 의 꼴로 적는다(2026-11-07 적대적 검토).
+    #[test]
+    fn offline_machines_are_pointed_at_the_records_inside_the_folder() {
+        let mut with = packed("ebury-check");
+        with.tree.insert("RELEASE.md".into(), "h".into());
+        let ps = vec![with, packed("bare")];
+        let nix = readme(Path::new("."), &ps, "remedy", &[], true);
+        // 리눅스 판은 줄 끝이 LF 다.
+        assert!(
+            nix.contains("  ./plugins/ebury-check/RELEASE.md\n"),
+            "{nix}"
+        );
+        assert!(!nix.contains("plugins/bare/RELEASE.md"), "{nix}");
+        let win = readme(Path::new("."), &ps, "remedy.exe", &[], true);
+        assert!(
+            win.contains(&format!(
+                "  .{BSLASH}plugins{BSLASH}ebury-check{BSLASH}RELEASE.md{CR}\n"
+            )),
+            "{win}"
+        );
+        // 든 것이 없으면 그 줄도 없다 — 없는 파일을 가리키지 않는다.
+        assert!(!make(1, true).contains("인터넷이 막힌 곳이면"));
     }
 
     /// Windows 판은 전과 같은 말을 한다 — **분기가 한쪽을 바꾸지 않았다.**

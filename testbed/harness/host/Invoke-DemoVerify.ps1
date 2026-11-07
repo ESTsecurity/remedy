@@ -303,6 +303,16 @@ try {
     # `apply --plan` 은 플러그인 경로를 모르므로 예약하지 못한다. `run` 은 안다.
     Add-Check "7 run 은 재부팅 뒤 재평가를 예약한다" `
     ($run2.Text -match "재부팅 후 재평가를 예약했습니다") "RunOnce"
+    # **상대 경로로 불러도 예약은 절대 경로로 심긴다.** 재부팅 회차는 다른 현재 폴더에서 돈다 —
+    # 받은 값(`.\evilai\…` · `.\state`)을 그대로 심으면 재부팅 뒤 룰을 찾지 못하고 결과도 남기지
+    # 못한다(2026-11-07 적대적 검토). 이 단계가 README 의 명령줄 예시와 같은 상대 경로로 부른다.
+    $planted = Invoke-Command -Session $session -ScriptBlock {
+        $k = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce'
+        (Get-ItemProperty -Path $k -Name 'remedy-verify' -ErrorAction SilentlyContinue).'remedy-verify'
+    }
+    Add-Check "7 예약된 명령은 룰과 상태 폴더를 절대 경로로 부른다" `
+    ([bool]$planted -and $planted.Contains("$demo\evilai\plugin.yaml") -and
+        $planted.Contains("$demo\state") -and -not $planted.Contains('.\')) "$planted"
 
     $ver = D "verify --plugin .\evilai\plugin.yaml --run $runId2 --state-dir .\state"
     Add-Check "7 verify 가 0 으로 끝난다 (치료 성공)" ($ver.Code -eq 0) "exit=$($ver.Code)"
