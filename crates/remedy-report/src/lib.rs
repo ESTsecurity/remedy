@@ -918,15 +918,28 @@ pub fn render_plan(p: &PlanEnvelope, lang: Lang, after_reboot: AfterReboot<'_>) 
     out
 }
 
-/// 이 항목이 **그 OS 에 개념이 없는 동작**인가 — `arrives_in` 이 Phase 이름이 아니고 그 Op 이
-/// 리눅스에 없다(`remedy-plan` 의 `defer` 가 그렇게 적는다). Windows 는 모든 Op 이 Phase 를
-/// 가지므로 걸리지 않는다. 사용자 유닛의 서비스 정지처럼 **있는데 그 자리에서만 못 하는**
-/// 것은 Op 이 리눅스에 있으므로 걸리지 않고 그대로 보인다.
+/// 이 항목이 **그 OS 에 개념이 없는 동작**인가 — `arrives_in` 이 Phase 이름이 아니고(그 OS 에서
+/// 수행할 수 없어 미뤘다) 그 Op 이 **Windows 에만 있는 개념**이다.
+///
+/// `linux_from: None` 만으로 고르지 않는다. 거기에는 개념은 있는데 아직 하지 않거나 가드가 없어
+/// 닫아 둔 것(재귀 삭제 · 방화벽 · 프록시 · PATH · 부팅 구성 · 재부팅 시 삭제 · 보안 제품 예외)이
+/// 섞여 있고, 그것을 숨기면 덜 된 치료가 완전한 계획처럼 보인다(설계-03 §2 — 2026-11-07 검토).
+/// Windows 는 이 Op 들이 Phase 를 가지므로 걸리지 않는다.
 fn not_on_this_os(d: &remedy_sdk::artifact::DeferredItem) -> bool {
+    use remedy_sdk::catalog::Op;
     let phase = remedy_sdk::catalog::Phase::ALL
         .iter()
         .any(|p| p.as_str() == d.arrives_in);
-    !phase && d.op.info().linux_from.is_none()
+    !phase
+        && matches!(
+            d.op,
+            Op::ServiceClearRecovery
+                | Op::RegistryDeleteValue
+                | Op::RegistryStripValue
+                | Op::RegistryRestoreDefault
+                | Op::RegistryDeleteKey
+                | Op::FileDeleteStream
+        )
 }
 
 /// 이 항목이 **기다리면 오는 것**인가.

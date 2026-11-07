@@ -1107,7 +1107,12 @@ fn scan_all(list: &[(String, std::path::PathBuf)]) -> (Code, bool) {
             && read_json::<remedy_sdk::artifact::ScanEnvelope>(
                 &out.join("scan.json").to_string_lossy(),
             )
-            .is_ok_and(|s| s.body.observation.all_roots_missing());
+            .is_ok_and(|s| {
+                // 다른 사유(잘림 · 거부 · 미평가 …)가 섞이면 해당 없음이 아니다 — 점검 룰이
+                // '대상 없음' 을 말할 때와 같은 규칙(`note_not_applicable`).
+                let o = &s.body.observation;
+                o.all_roots_missing() && o.is_complete_for_check()
+            });
         done.push((label, code, kind, guided::treats(path), absent));
     }
     outln!();
@@ -4282,13 +4287,16 @@ fn list_runs(state_dir: &std::path::Path) -> Result<Code, Failure> {
 /// 메뉴는 받은 폴더의 `state` 에 쓴다(`menu_state`). 안내가 그 폴더를 빼면 그 줄을 그대로 친
 /// 사람은 기본 자리(`%PROGRAMDATA%\remedy` · `/var/lib/remedy`)를 찾다 종료 4 로 끝났다
 /// (v1.1.0 실측). 기본이면 `None` — 무인 배포 출력은 한 글자도 바뀌지 않는다(불변식 I1).
-/// 공백이 든 경로는 따옴표로 감싼다 — 그대로 쳐도 한 인자로 읽히게.
+/// 경로 글자 밖의 것(공백 · `&` · `;` · `'` · 괄호 · 한글 …)이 들면 따옴표로 감싼다 — 그대로 쳐도
+/// PowerShell · cmd · bash 가 한 인자로 읽게.
 fn state_hint(dir: &std::path::Path) -> Option<String> {
     if dir == remedy_core::restore::default_state_dir() {
         return None;
     }
     let s = dir.display().to_string();
-    Some(if s.is_empty() || s.chars().any(char::is_whitespace) {
+    let plain =
+        |c: char| c.is_ascii_alphanumeric() || matches!(c, '/' | '\\' | '.' | '_' | '-' | ':');
+    Some(if s.is_empty() || !s.chars().all(plain) {
         format!("\"{s}\"")
     } else {
         s
@@ -4725,9 +4733,31 @@ mod tests {
         assert!(lines(Flow::Other, Code::PartialFailure).is_empty());
     }
 
+    /// 되돌리기 · 신고 안내의 `--state-dir` — 기본 자리면 붙이지 않고(무인 배포 출력 그대로),
+    /// 셸이 둘로 가를 글자가 든 경로는 따옴표로 감싼다(2026-11-07 결정 ①).
+    #[test]
+    fn state_hint_names_only_a_non_default_dir_and_quotes_what_a_shell_would_split() {
+        assert_eq!(state_hint(&remedy_core::restore::default_state_dir()), None);
+        assert_eq!(
+            state_hint(std::path::Path::new("/opt/remedy-linux-x64/state")).as_deref(),
+            Some("/opt/remedy-linux-x64/state")
+        );
+        for odd in [
+            r"C:\Users\Kim Lee\remedy\state",
+            r"D:\R&D\remedy\state",
+            "/home/a;b/state",
+        ] {
+            assert_eq!(
+                state_hint(std::path::Path::new(odd)).as_deref(),
+                Some(format!("\"{odd}\"").as_str()),
+                "{odd}"
+            );
+        }
+    }
+
     /// 기준 4 — **찾기만 하는 룰이 찾았으면 치료를 권하지 않는다.** 메뉴도 그 줄을 꺼 둔다.
     #[test]
-    fn a_detect_only_find_suggests_no_treatment() {
+    fn a_detect_only_find_suggests_no_treatment_and_points_at_the_steps() {
         for f in [Flow::Scan, Flow::ScanAll] {
             assert!(next_steps(f, Code::FoundNotRemediated, false).is_empty());
             // 대신 조치 차례가 있는 곳을 가리킨다 — 다음 할 일이 비지 않는다.

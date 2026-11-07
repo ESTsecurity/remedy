@@ -205,6 +205,23 @@ fn an_op_this_os_does_not_have_is_not_a_missing_treatment() {
     );
     assert!(mixed.contains("1건은 아직 지원하지 않는 동작"), "{mixed}");
     assert!(!mixed.contains("서비스 복구 설정 해제"), "{mixed}");
+    // 개념은 있는데 닫아 둔 것(재귀 삭제 — 가드가 없다)은 같은 꼴로 미뤄도 숨기지 않는다.
+    // 숨기면 덜 된 치료가 완전한 계획처럼 보인다(설계-03 §2).
+    let closed = render_plan(
+        &plan(
+            vec![action(1, Op::FileQuarantineOnly, "/usr/local/x")],
+            vec![DeferredItem {
+                at: "remediate.remove[1]".into(),
+                op: Op::DirDeleteRecursive,
+                arrives_in: "linux 에는 개념이 없습니다".into(),
+                reason: "이 Op 은 지금 수행할 수 없습니다".into(),
+            }],
+        ),
+        Lang::Ko,
+        AfterReboot::Schedulable,
+    );
+    assert!(closed.contains("치료의 전부가 아닙니다"), "{closed}");
+    assert!(closed.contains("폴더 삭제"), "{closed}");
 }
 
 #[test]

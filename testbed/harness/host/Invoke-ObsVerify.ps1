@@ -357,7 +357,9 @@ try {
         @{ name = "그 사유를 말한다"; pass = ($res["obs-missing"].Text -match '전부 존재하지 않아'); detail = "전부 존재하지 않아" }
         @{ name = "없는 경로를 전부 댄다"; pass = ($res["obs-missing"].Text -match 'no-such-place-1' -and $res["obs-missing"].Text -match 'no-such-place-2'); detail = "둘 다" }
         @{ name = "하나만 없으면 6 이 아니다"; pass = ($res["obs-partial"].Code -eq 0); detail = "exit=$($res['obs-partial'].Code)" }
-        @{ name = "그때는 '위협 없음' 이 선다"; pass = ($res["obs-partial"].Text -notmatch '말할 수 없'); detail = "완전한 관측" }
+        # 부정 단정은 옛 꼴과 지금 꼴을 다 잡는다 — 주의 머리가 1.1.1 에서 '…판단할 수 없습니다' 로
+        # 바뀌었다. 옛 꼴만 보면 거짓 경고가 찍혀도 늘 통과한다.
+        @{ name = "그때는 '위협 없음' 이 선다"; pass = ($res["obs-partial"].Text -notmatch '말할 수 없|판단할 수 없'); detail = "완전한 관측" }
     )
 
     # ② — 2026-09-13 부터 **조건부가 아니다.** 소유권과 특권을 함께 막으면
@@ -387,7 +389,7 @@ try {
     $checks += @{ name = "같은 파일 · 본문이 담기면 → 2"; pass = ($ok.Code -eq 2); detail = "exit=$($ok.Code) — ④ 의 진실은 '있다'" }
     $checks += @{ name = "그때는 미평가가 없다"; pass = (-not $ok.Text.Contains("평가하지 못했습니다")); detail = "주의 없음" }
     $checks += @{ name = "재었는데 안 맞으면 → 0"; pass = ($miss.Code -eq 0); detail = "exit=$($miss.Code)" }
-    $checks += @{ name = "그때는 '위협 없음' 이 선다"; pass = ($miss.Text -notmatch '말할 수 없'); detail = "완전한 관측" }
+    $checks += @{ name = "그때는 '위협 없음' 이 선다"; pass = ($miss.Text -notmatch '말할 수 없|판단할 수 없'); detail = "완전한 관측" }
     $order = $res['obs-yara-order']; $excl = $res['obs-yara-excl']
     $checks += @{ name = "형제 술어가 이미 거짓이면 → 0"; pass = ($order.Code -eq 0); detail = "exit=$($order.Code) — YARA 가 앞이어도" }
     $checks += @{ name = "그때는 미평가 주의도 없다"; pass = (-not $order.Text.Contains("평가하지 못했습니다")); detail = "결과를 가르지 않았다" }
