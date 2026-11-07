@@ -107,16 +107,16 @@ jobs:
           | Windows PC · 서버 (64비트) | `remedy-windows-x64.zip` |
           | 리눅스 서버 (64비트) | `remedy-linux-x64.tar.gz` |
 
-          파일 하나에 프로그램과 그 OS 용 룰이 모두 들어 있습니다. 풀면 나오는 폴더의 `README.txt` 가 쓰는 차례입니다.
+          파일 하나에 프로그램과 그 OS 용 룰이 모두 들어 있습니다. 풀면 나오는 폴더의 `README.txt` 에 사용 방법이 있습니다.
           맨 아래 *Source code* 두 개는 개발자용 소스입니다 — 받지 않으셔도 됩니다.
           EOF
             printf '\n처음이시면 저장소 첫 화면의 설명부터 읽으십시오 — %s/%s\n\n## 다루는 위협\n\n%s\n' \
               "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$table"
             cat <<'EOF'
 
-          ## 받은 파일 확인 (골라서)
+          ## 받은 파일 확인 (권장)
 
-          `SHA256SUMS` 에 두 파일의 SHA-256 이 있습니다. 받은 파일과 같은 폴더에 두고 실행하십시오.
+          `SHA256SUMS` 에 두 파일의 SHA-256 이 있습니다. 받은 파일과 같은 폴더에 둔 뒤 아래 명령을 실행하십시오.
 
           - 리눅스 — `grep linux SHA256SUMS | sha256sum -c` → `remedy-linux-x64.tar.gz: OK` (한국어 환경에서는 `성공`)
           - Windows PowerShell — 아래 한 줄 → `True`
@@ -124,6 +124,8 @@ jobs:
           ```powershell
           (Get-FileHash remedy-windows-x64.zip).Hash -eq (Select-String windows SHA256SUMS).Line.Split(' ')[0]
           ```
+
+          `False` · `FAILED`(한국어 환경에서는 `실패`)가 나오면 실행하지 말고 받은 파일을 지운 뒤 다시 받으십시오.
           EOF
           } >"$RUNNER_TEMP/notes.md"
           pre=
@@ -253,13 +255,19 @@ jobs:
             bash ci/release.sh verify "$PKG/remedy" "$PKG/plugins/$(basename "$d")"
           done
           cmp "$PKG/remedy" "target/$TARGET/release/remedy"
+      # root 가 풀면 tar 에 적힌 소유자가 그대로 남는다 — 러너 사용자(uid 1001)로 담으면 그 uid 의
+      # 계정이 실행 파일을 바꿔 다음 `sudo ./remedy` 로 root 를 얻는다(v1.1.0 이 그렇게 나갔다).
+      # 소유자를 root 로 적고, 시험 실행에서도 재도록 올리기와 나눈다.
+      - name: tarball
+        run: |
+          tar --owner=0 --group=0 --numeric-owner -czf remedy-linux-x64.tar.gz -C dist remedy-linux-x64
+          bad=$(tar -tvzf remedy-linux-x64.tar.gz --numeric-owner | awk '$2 != "0/0"' | wc -l)
+          if [ "$bad" != 0 ]; then echo "::error::tar 안에 root 가 아닌 소유자 ${bad}개"; exit 1; fi
       - name: upload to draft
         if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          tar -czf remedy-linux-x64.tar.gz -C dist remedy-linux-x64
-          gh release upload "$GITHUB_REF_NAME" remedy-linux-x64.tar.gz --repo "$GITHUB_REPOSITORY" --clobber
+        run: gh release upload "$GITHUB_REF_NAME" remedy-linux-x64.tar.gz --repo "$GITHUB_REPOSITORY" --clobber
 
   # 체크섬 한 장 — 두 꾸러미가 다 올라간 **뒤** 초안에서 받아 잰다. 받은 사람이 쓰는 그 파일의
   # 해시여야 한다(잡 안의 사본이 아니라).
