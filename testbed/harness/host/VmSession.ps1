@@ -462,14 +462,18 @@ function Invoke-GuestExe {
         아니라 의미가 갈린다 (설계-02 §8 — 6 은 "수집은 됐으나 관측이 불완전"
         이다). 무엇을 실패로 볼지는 부르는 쪽만 안다. 여기서 `-eq 0` 으로
         접어 버리면 그 구분이 사라진다.
+
+        **`-WorkingDirectory`** — 주면 그 폴더에서 띄운다. 사람은 받은 폴더에서 상대 경로로
+        부른다(README 의 명령줄 예시). 주지 않으면 원격 세션의 기본 폴더다(전과 같다).
     #>
     param(
         [Parameter(Mandatory = $true)] $Session,
         [Parameter(Mandatory = $true)][string] $Path,
-        [string[]] $Arguments = @()
+        [string[]] $Arguments = @(),
+        [string] $WorkingDirectory = ""
     )
-    Invoke-Command -Session $Session -ArgumentList $Path, $Arguments -ScriptBlock {
-        param($exe, $argv)
+    Invoke-Command -Session $Session -ArgumentList $Path, $Arguments, $WorkingDirectory -ScriptBlock {
+        param($exe, $argv, $wd)
 
         # **역슬래시-따옴표 규칙을 지킨다.** Windows CRT 는 `\"` 를 escape 된
         # 따옴표로 읽는다. `C:\dir\` 처럼 역슬래시로 끝나는 값을 그냥 감싸면
@@ -502,6 +506,7 @@ function Invoke-GuestExe {
         $psi = New-Object System.Diagnostics.ProcessStartInfo
         $psi.FileName = $exe
         $psi.Arguments = (@($argv) | ForEach-Object { Quote-Arg $_ }) -join ' '
+        if ($wd) { $psi.WorkingDirectory = $wd }
         $psi.UseShellExecute = $false
         $psi.CreateNoWindow = $true
         $psi.RedirectStandardOutput = $true

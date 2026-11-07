@@ -46,8 +46,14 @@
     파괴 경로가 이 길뿐이었다. 지금은 배포될 바로 그 바이너리로 재므로 이
     스위치는 디버그 빌드를 재고 싶을 때만 쓴다.
 
+.PARAMETER Relative
+    README 의 명령줄 예시처럼 **받은 폴더에서 상대 경로로** 부른다(`--plugin .\plugins\…` ·
+    `--state-dir .\state-p10f`). 1.1.0 까지는 그 값이 예약에 그대로 실려 다른 폴더에서 도는
+    재부팅 회차가 룰을 찾지 못했다(2026-11-07 적대적 검토) — 2c 가 예약이 절대 경로인지 잰다.
+
 .EXAMPLE
     .\Invoke-P10FVerify.ps1 -DevBuild -Build
+    .\Invoke-P10FVerify.ps1 -Build -Relative
 #>
 [CmdletBinding()]
 param(
@@ -58,6 +64,7 @@ param(
     [switch] $Build,
     [switch] $NoRevert,
     [switch] $DevBuild,
+    [switch] $Relative,
     [string] $Snapshot,
     [string] $Vmx
 )
@@ -142,8 +149,15 @@ Write-Ok "감염 구성 · 합성 페이로드 $($payload.Length) B"
 $stateDir = "$LabRoot\state-p10f"
 $runDir = "$LabRoot\out-p10f"
 Write-Step "감염 → run (예약이 걸리는 실행)"
-$r = Invoke-GuestExe -Session $session -Path "$LabRoot\bin\remedy.exe" -Arguments @(
-    "run", "--plugin", $gPlugin, "--out-dir", $runDir, "--yes", "--state-dir", $stateDir)
+if ($Relative) {
+    # 같은 자리를 받은 폴더(`$LabRoot`)에서 상대 경로로 부른다 — 사람이 README 대로 칠 때다.
+    $r = Invoke-GuestExe -Session $session -Path "$LabRoot\bin\remedy.exe" -WorkingDirectory $LabRoot `
+        -Arguments @("run", "--plugin", ".\plugins\evilai-locust\plugin.yaml", "--out-dir", ".\out-p10f",
+            "--yes", "--state-dir", ".\state-p10f")
+} else {
+    $r = Invoke-GuestExe -Session $session -Path "$LabRoot\bin\remedy.exe" -Arguments @(
+        "run", "--plugin", $gPlugin, "--out-dir", $runDir, "--yes", "--state-dir", $stateDir)
+}
 Add-Check "run 이 끝났다" ($r.exit -in @(1, 3)) "exit=$($r.exit)"
 
 $runId = Invoke-Command -Session $session -ArgumentList "$runDir\plan.json" -ScriptBlock {
@@ -165,6 +179,12 @@ Add-Check "2 예약된 명령에 --plugin 이 있다" `
 $langArg = if ($planted -match '--lang\s+(\S+)') { $Matches[1] } else { $null }
 Add-Check "2b 예약된 명령이 언어를 이름 짓는다" ([bool]$langArg) `
           $(if ($langArg) { "--lang $langArg" } else { "--lang 이 없다 — 재부팅 회차가 다른 언어로 돈다" })
+if ($Relative) {
+    # 재부팅 회차는 다른 현재 폴더에서 돈다 — 상대 경로가 실리면 룰을 찾지 못한다.
+    Add-Check "2c 상대 경로로 불러도 예약은 룰과 상태 폴더를 절대 경로로 부른다" `
+              ([bool]$planted -and $planted.Contains($gPlugin) -and $planted.Contains($stateDir) -and
+               -not $planted.Contains('.\')) "$planted"
+}
 
 # ── 자동 로그온 (랩 전용) ───────────────────────────────────
 #
