@@ -1040,10 +1040,17 @@ fn next_steps(flow: Flow, code: Code, treats: bool) -> Vec<(&'static str, menu::
         }
         // **이어서 하기가 아니다.** 실패한 Action 이 있어도 실행기는 모든 결과와 끝을 적으므로
         // 그 회차는 끝난 회차다 — 이어서 하기는 '이미 적용됨'(5)으로 거절한다(2026-11-07 적대적
-        // 검토). 남은 것은 새로 검사해 치료한다(README 결과 표 · 재시작 조언과 같은 말).
+        // 검토). 까닭을 해결한 뒤 새로 검사해 치료한다(README 결과 표 · 재시작 조언과 같은 말).
+        //
+        // **'남은 것을 치료' 라고 약속하지 않는다.** 판정의 근거가 이미 치워졌으면 다시 검사는
+        // 위협 없음(0)으로 끝나고 실패한 항목은 그대로 남는다(rc.2 실측 — CWPdoor 바이너리는
+        // 격리, 유닛 삭제만 읽기 전용으로 실패: 다시 검사 0 · 유닛 그대로).
         (Flow::Treat, Code::PartialFailure) => vec![
             (
-                lang.t("남은 것을 치료하려면", "To treat what is left"),
+                lang.t(
+                    "까닭을 해결한 뒤 다시 검사하려면",
+                    "To scan again once the cause is fixed",
+                ),
                 menu::Line::Treat,
             ),
             (lang.t("신고하려면", "To report it"), menu::Line::Report),
