@@ -558,6 +558,11 @@ pub struct Closing<'a> {
     pub journal: Option<&'a str>,
     /// 점검 플러그인이면 결과 줄이 점검 어휘를 쓴다 ([`result_line`]).
     pub kind: Option<remedy_sdk::manifest::PluginKind>,
+    /// 되돌리기 · 신고 안내에 붙일 상태 폴더(따옴표까지 씌운 인자). **기본 자리가 아닐
+    /// 때만** 준다 — 메뉴는 받은 폴더의 `state` 에 쓰는데 안내가 그것을 빼면, 그 줄을 그대로
+    /// 친 사람은 기본 자리를 찾다 종료 4 로 끝난다(2026-11-07 실측). 기본이면 `None` 이고
+    /// 줄은 전과 한 글자도 같다(무인 배포 출력 · 불변식 I1).
+    pub state_dir: Option<&'a str>,
 }
 
 pub fn render_closing(c: &Closing<'_>, lang: Lang) -> String {
@@ -586,13 +591,17 @@ pub fn render_closing(c: &Closing<'_>, lang: Lang) -> String {
         out.push_str(&format!(" {} : {j}\n", pad(lang.t("저널", "Journal"), w)));
     }
     if let Some(run) = c.run_id {
-        // "remedy restore --run" 은 시험과 하네스가 읽는 문구다.
+        // "remedy restore --run" 은 시험과 하네스가 읽는 문구다 — 상태 폴더는 그 뒤에 붙인다.
+        let at = c
+            .state_dir
+            .map(|d| format!(" --state-dir {d}"))
+            .unwrap_or_default();
         out.push_str(&format!(
-            " {} : remedy restore --run {run}\n",
+            " {} : remedy restore --run {run}{at}\n",
             pad(lang.t("되돌리려면", "To undo"), w)
         ));
         out.push_str(&format!(
-            " {} : remedy support-bundle --run {run}\n",
+            " {} : remedy support-bundle --run {run}{at}\n",
             pad(lang.t("오탐 신고", "Report FP"), w)
         ));
     }
@@ -783,7 +792,13 @@ pub fn render_plan(p: &PlanEnvelope, lang: Lang, after_reboot: AfterReboot<'_>) 
     // ── 3. 계획에 넣지 못한 것 ────────────────────────────────────
     //
     // **조용히 빠지면 이 계획이 치료의 전부인 것처럼 읽힌다** (설계-03 §2).
-    if !p.body.deferred.is_empty() {
+    //
+    // **위협이 없으면 말하지 않는다** (2026-11-07 결정 ②). 판정이 없으면 치료할 것이 없고,
+    // 그때 남는 항목은 대상이 정해지지 않은 치료 줄(*"capture 가 해소되지 않아"*)뿐이다 —
+    // 깨끗한 Windows 를 검사할 때마다 그 줄과 재시작 안내(4절)가 떠서 처음 쓰는 사람이
+    // 무엇이 잘못됐는지 물었다(v1.1.0 적대적 검토). 계획 JSON 에는 그대로 남는다.
+    let treating = !p.body.verdicts.is_empty();
+    if treating && !p.body.deferred.is_empty() {
         // **두 갈래를 섞지 않는다.** 기다리면 오는 것과 코어가 하지 않기로 한
         // 것은 운영자가 할 일이 완전히 다르다 — 앞은 코어를 올리는 일이고,
         // 뒤는 서명·허용 목록·매체를 다루는 일이다.
@@ -791,8 +806,16 @@ pub fn render_plan(p: &PlanEnvelope, lang: Lang, after_reboot: AfterReboot<'_>) 
         // 한동안 섞여 있었다. 2층(신뢰 서명)이 선 뒤로 그 항목들이
         // *"아직 이 코어에 없는 Op 을 요구한다"* 로 보고됐는데, 그 Op 은 있다.
         // 5층(허용 목록)이 오며 같은 자리가 다시 드러났다 (2026-08-29).
-        let (waiting, held): (Vec<_>, Vec<_>) =
-            p.body.deferred.iter().partition(|d| not_here_yet(d));
+        //
+        // **그 OS 에 없는 동작은 세지 않는다** (같은 날 결정 ③). 리눅스에는 서비스 복구
+        // 설정이 없다 — 그것을 *"아직 지원하지 않는 동작"* 으로 세면 CWPdoor 제거가 덜 된
+        // 치료처럼 읽힌다(룰의 RELEASE.md 도 *"빠진 치료가 아니다"* 라고 적었다).
+        let (waiting, held): (Vec<_>, Vec<_>) = p
+            .body
+            .deferred
+            .iter()
+            .filter(|d| !not_on_this_os(d))
+            .partition(|d| not_here_yet(d));
 
         if !waiting.is_empty() {
             out.push('\n');
@@ -871,7 +894,9 @@ pub fn render_plan(p: &PlanEnvelope, lang: Lang, after_reboot: AfterReboot<'_>) 
     // 부른 명령이 플러그인 경로를 몰라 요청을 만들 수 없든 — 이유를 말하고, 직접
     // 부를 명령은 실행 뒤 안내가 준다. 문구는 이유를 가리지 않는다: "이 기계에서는"
     // 이라고 하면 명령이 이유일 때 거짓이 된다 (결정 자료 나1).
-    if p.body.verify_after_reboot {
+    //
+    // 위협이 없으면 치료도 재시작 뒤 검사도 없다 — 3절과 같은 까닭으로 말하지 않는다.
+    if treating && p.body.verify_after_reboot {
         out.push('\n');
         match after_reboot {
             AfterReboot::Schedulable => out.push_str(lang.t(
@@ -891,6 +916,17 @@ pub fn render_plan(p: &PlanEnvelope, lang: Lang, after_reboot: AfterReboot<'_>) 
         }
     }
     out
+}
+
+/// 이 항목이 **그 OS 에 개념이 없는 동작**인가 — `arrives_in` 이 Phase 이름이 아니고 그 Op 이
+/// 리눅스에 없다(`remedy-plan` 의 `defer` 가 그렇게 적는다). Windows 는 모든 Op 이 Phase 를
+/// 가지므로 걸리지 않는다. 사용자 유닛의 서비스 정지처럼 **있는데 그 자리에서만 못 하는**
+/// 것은 Op 이 리눅스에 있으므로 걸리지 않고 그대로 보인다.
+fn not_on_this_os(d: &remedy_sdk::artifact::DeferredItem) -> bool {
+    let phase = remedy_sdk::catalog::Phase::ALL
+        .iter()
+        .any(|p| p.as_str() == d.arrives_in);
+    !phase && d.op.info().linux_from.is_none()
 }
 
 /// 이 항목이 **기다리면 오는 것**인가.

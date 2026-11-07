@@ -116,7 +116,7 @@ verify() {
 
 readme() {
     local f=${1:?README.txt}
-    if ! grep -qF '이 바이너리에는 신뢰 앵커가 박혀 있습니다.' "$f"; then
+    if ! grep -qF '이 실행 파일에는 룰 서명을 확인하는 ESTsecurity 공개키가 들어 있습니다.' "$f"; then
         echo "::error::$f 가 앵커 판 문구가 아니다"
         exit 1
     fi

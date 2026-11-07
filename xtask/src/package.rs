@@ -271,8 +271,10 @@ fn readme(
     files: &[String],
     anchored_ok: bool,
 ) -> String {
+    // 받는 사람의 말로 적는다 — '신뢰 앵커' 는 내부 낱말이다(v1.1.0 적대적 검토). 배포 잡의
+    // `ci/release.sh readme` 가 이 문장으로 앵커 판인지 잰다 — 고치면 함께 고친다.
     let anchored = if anchored_ok {
-        "이 바이너리에는 신뢰 앵커가 박혀 있습니다."
+        "이 실행 파일에는 룰 서명을 확인하는 ESTsecurity 공개키가 들어 있습니다."
     } else {
         "주의: 이 바이너리에는 신뢰 앵커가 박혀 있지 않습니다 \
          (개발 빌드). plugin verify 에 --public-key 를 주어야 합니다."
@@ -294,8 +296,9 @@ fn readme(
     let sep = if win { "\\" } else { "/" };
     let here = if win { ".\\" } else { "./" };
     // 관리자로 올리는 법이 다르다. Windows 는 **창을** 그렇게 열고, 리눅스는
-    // **명령에** 붙인다. `plugin verify` 에는 붙이지 않는다 — 준 파일만 읽어
-    // 관리자 문을 지나지 않는다.
+    // **명령에** 붙인다. `plugin verify` 에도 붙인다 — 준 파일 말고 이 기계의 폐기
+    // 목록(기본 상태 폴더)도 읽고, root 가 명령으로 한 번 돌린 뒤의 그 폴더는 root 만
+    // 연다(2026-11-07 실측: sudo 없이 `revocations.sig … Permission denied` · 종료 4).
     let sudo = if win { "" } else { "sudo " };
     let core = std::fs::read_to_string(root.join("Cargo.toml"))
         .ok()
@@ -307,14 +310,14 @@ fn readme(
         .unwrap_or_else(|| "?".into());
 
     let mut s = String::new();
-    s.push_str("ESTsecurity 전용백신 — 배포 꾸러미\r\n");
+    s.push_str("ESTsecurity 전용백신 — 사용 방법\r\n");
     s.push_str("========================================\r\n\r\n");
-    s.push_str(&format!("코어      {core}\r\n"));
+    s.push_str(&format!("프로그램  {core}\r\n"));
     // **하나일 때의 글자는 그대로 둔다.** `docs/operator.md` 와 화면 캡처가 그 꼴로
     // 돌고 있고, 여럿을 담을 수 있게 되었다는 사실이 하나짜리 꾸러미의 안내문을
     // 바꿀 이유는 없다.
     for p in plugins {
-        s.push_str(&format!("위협      {} {}\r\n", p.id, p.version));
+        s.push_str(&format!("검사 항목 {} {}\r\n", p.id, p.version));
     }
     s.push_str(&format!("{anchored}\r\n\r\n"));
 
@@ -346,7 +349,7 @@ fn readme(
             s.push_str(&format!(
                 "2. 터미널에서 이 폴더로 이동한 뒤 {sudo}{here}{exe} 로 띄웁니다.\r\n"
             ));
-            s.push_str("   (시스템을 되돌리는 도구라 관리자 권한이 필요합니다.)\r\n");
+            s.push_str("   (시스템을 검사하고 치료하는 도구라 관리자 권한이 필요합니다.)\r\n");
             s.push_str("   이 폴더의 룰을 스스로 찾습니다.\r\n");
         }
         // **묻는다는 것을 미리 알린다.** 안내 모드는 찾은 것이 둘 이상이면 번호를
@@ -361,7 +364,7 @@ fn readme(
         if plugins.len() > 1 {
             let n = plugins.len();
             s.push_str(&format!(
-                "   이 꾸러미에는 검사 항목이 {n}개 들어 있어, 먼저 어느 것을 볼지\r\n"
+                "   이 폴더에는 검사 항목이 {n}개 들어 있어, 먼저 어느 것을 볼지\r\n"
             ));
             s.push_str("   번호로 묻습니다.\r\n");
             s.push_str(&format!(
@@ -381,24 +384,29 @@ fn readme(
         // 가장 먼저 읽는 글이 가장 먼저 보는 화면과 다르다.
         s.push_str("     '검사하고 치료하기' 는 계획을 보여 준 뒤 승인을 기다립니다.\r\n");
         s.push_str("     '검사만 하기' 는 아무것도 바꾸지 않습니다.\r\n");
-        s.push_str("     치료한 뒤에는 '치료를 되돌리기' 줄이 생깁니다.\r\n");
+        s.push_str("     치료한 뒤에는 '치료 전으로 복원하기' 줄을 고를 수 있습니다.\r\n");
         s.push_str("   작업이 끝나면 처음 질문으로 돌아옵니다. 끝내려면 0 을 고릅니다.\r\n");
+        // **되돌리기의 전제를 적는다.** 메뉴는 치료 기록 · 격리한 파일을 실행 파일 옆
+        // `state` 에 남긴다(menu_state). 다 쓴 도구라고 폴더를 지우면 되돌릴 길이
+        // 없어진다 — 새로 푼 폴더의 메뉴는 *"치료한 기록이 없습니다"* 를 띄운다(2026-11-07 실측).
+        s.push_str("   치료한 기록과 격리한 파일은 이 폴더의 state 에 남습니다. 되돌릴 일이\r\n");
+        s.push_str("   없다고 판단할 때까지 이 폴더를 지우지 마십시오.\r\n");
         s.push_str("\r\n");
         if win {
             s.push_str(
                 "   명령 창에서 돌리려면 시작 단추를 오른쪽 단추로 눌러 '터미널(관리자)'\r\n",
             );
-            s.push_str("   를 열고 이 폴더로 이동한 뒤:\r\n\r\n");
+            s.push_str("   또는 'Windows PowerShell(관리자)' 를 열고 이 폴더로 이동한 뒤:\r\n\r\n");
         } else {
             s.push_str("   하나만 명령으로 돌리려면:\r\n\r\n");
         }
     } else if win {
-        s.push_str("2. 이 바이너리에는 신뢰 앵커가 없어 우클릭 실행만으로는 꾸러미를\r\n");
+        s.push_str("2. 이 바이너리에는 신뢰 앵커가 없어 우클릭 실행만으로는 폴더의 룰을\r\n");
         s.push_str("   확인하지 못합니다. 시작 단추를 마우스 오른쪽 단추로 누르고\r\n");
         s.push_str("   '터미널(관리자)' 또는 'Windows PowerShell(관리자)' 를 고른 뒤\r\n");
         s.push_str("   이 폴더로 이동해:\r\n\r\n");
     } else {
-        s.push_str("2. 이 바이너리에는 신뢰 앵커가 없어 띄우기만으로는 꾸러미를\r\n");
+        s.push_str("2. 이 바이너리에는 신뢰 앵커가 없어 띄우기만으로는 폴더의 룰을\r\n");
         s.push_str("   확인하지 못합니다. 터미널에서 이 폴더로 이동해:\r\n\r\n");
     }
     // **여럿이면 줄도 여럿이다.** 한 줄에 둘을 적으면 받는 사람이 그것을 한 번에
@@ -423,26 +431,38 @@ fn readme(
         s.push_str("실행 파일 중 평판이 쌓이지 않은 것에 뜹니다. 배포처에서 받은 것이\r\n");
         s.push_str("맞다면 [추가 정보] -> [실행] 을 누릅니다.\r\n\r\n");
     } else {
-        s.push_str("받자마자 '권한이 없습니다' 가 나오면\r\n");
-        s.push_str("--------------------------------------\r\n");
-        s.push_str("zip 으로 받아 풀면 실행 권한이 떨어집니다. 한 번만 올려 주면 됩니다.\r\n\r\n");
+        // **tar.gz 는 실행 권한을 담는다**(0755). 빠지는 것은 PC 에서 풀어 파일을 서버로
+        // 옮긴 경우이고, chmod 로도 안 되면 실행을 막는 마운트(noexec)다(2026-11-07 실측 —
+        // tmpfs noexec 에서 chmod 뒤에도 종료 126). 메뉴의 *"root 권한이 없습니다"* 는 다른
+        // 벽이라 따로 적는다 — 같은 말로 묶으면 sudo 를 빠뜨린 사람을 chmod 로 보낸다.
+        s.push_str("띄우자마자 'Permission denied' 가 나오면\r\n");
+        s.push_str("----------------------------------------\r\n");
+        s.push_str("PC 에서 풀어 파일을 서버로 옮기면 실행 권한이 빠질 수 있습니다.\r\n");
+        s.push_str("한 번만 올려 주면 됩니다.\r\n\r\n");
         s.push_str(&format!("     chmod +x {here}{exe}\r\n\r\n"));
+        s.push_str("그래도 같으면 이 폴더가 실행을 막는 자리(noexec — /tmp 등)에 있는\r\n");
+        s.push_str("것입니다. 홈 폴더처럼 다른 자리에 다시 푸십시오.\r\n");
+        s.push_str("메뉴에 'root 권한이 없습니다' 가 나오면 sudo 를 빠뜨린 것입니다 —\r\n");
+        s.push_str(&format!("{sudo}{here}{exe} 로 다시 띄웁니다.\r\n\r\n"));
     }
 
-    s.push_str("이 꾸러미가 우리 것인지 확인하려면\r\n");
-    s.push_str("------------------------------------\r\n");
+    s.push_str("룰의 서명을 확인하려면\r\n");
+    s.push_str("------------------------\r\n");
     // **폴더 이름으로 적는다.** 전에는 `id` 로 적었는데 꾸러미의 폴더는 원본
     // 디렉터리 이름으로 만들어진다 — 둘이 다른 플러그인에서는 README 가 없는
     // 경로를 가리켰다(지금 담아 온 `evilai-locust` 는 둘이 같아 드러나지 않았다).
     for p in plugins {
         s.push_str(&format!(
-            "     {here}{exe} plugin verify --dir {here}plugins{sep}{}\r\n",
+            "     {sudo}{here}{exe} plugin verify --dir {here}plugins{sep}{}\r\n",
             p.name
         ));
     }
     s.push_str("\r\n");
-    s.push_str("서명이 맞고 파일이 하나도 바뀌지 않았으면 통과합니다.\r\n");
-    s.push_str("한 글자라도 다르면 거부하고 어느 파일인지 말합니다.\r\n\r\n");
+    s.push_str("룰이 실행 파일에 든 공개키로 서명한 그대로인지 봅니다. 서명이 맞고\r\n");
+    s.push_str("파일이 하나도 바뀌지 않았으면 통과하고, 한 글자라도 다르면 거부하고\r\n");
+    s.push_str("어느 파일인지 말합니다. 이 기계의 폐기 목록도 함께 읽으므로 관리자\r\n");
+    s.push_str("권한으로 돌립니다. 받은 파일 자체가 배포한 그 파일인지는 릴리스의\r\n");
+    s.push_str("SHA256SUMS 로 확인합니다.\r\n\r\n");
 
     s.push_str("담긴 것\r\n");
     s.push_str("--------\r\n");
@@ -462,7 +482,9 @@ fn readme(
     }
     s.push_str("  README.txt\r\n\r\n");
 
-    s.push_str("자세한 것은 운영자 가이드(docs/operator.md)에 있습니다.\r\n");
+    // 가이드는 이 폴더에 없다 — 경로만 적으면 받은 사람이 열 수 없는 자리를 가리킨다.
+    s.push_str("자세한 것은 운영자 가이드에 있습니다:\r\n");
+    s.push_str("  https://github.com/ESTsecurity/remedy/blob/main/docs/operator.md\r\n");
     // **줄바꿈도 플랫폼이다.** 본문은 `\r\n` 으로 짜고 리눅스 판에서만 되돌린다 —
     // 반대로 하면 `push_str` 마다 어느 꼴을 썼는지 세어야 하고, 한 자리를
     // 빠뜨리면 섞인 파일이 된다. 지금까지 Windows 판 하나뿐이어서 그 선택이
@@ -621,7 +643,8 @@ mod tests {
     #[test]
     fn anchored_readme_quotes_the_menu_lines() {
         let r = make(1, true);
-        for line in ["검사하고 치료하기", "검사만 하기", "치료를 되돌리기"] {
+        for line in ["검사하고 치료하기", "검사만 하기", "치료 전으로 복원하기"]
+        {
             assert!(r.contains(line), "{line} 이 없다: {r}");
         }
     }
@@ -688,12 +711,29 @@ mod tests {
             "{r}"
         );
         assert!(r.contains("chmod +x ./remedy"), "{r}");
-        // `plugin verify` 는 준 파일만 읽어 관리자 문을 지나지 않는다.
+        // chmod 로도 안 되는 벽(noexec)과 sudo 를 빠뜨린 벽을 따로 적는다.
+        assert!(r.contains("noexec"), "{r}");
+        assert!(r.contains("'root 권한이 없습니다' 가 나오면"), "{r}");
+        // `plugin verify` 도 이 기계의 폐기 목록을 읽는다 — root 가 한 번 돌린 뒤에는
+        // sudo 없이 종료 4 다(2026-11-07 실측).
         assert!(
-            r.contains("./remedy plugin verify --dir ./plugins/rule0"),
+            r.contains("sudo ./remedy plugin verify --dir ./plugins/rule0"),
             "{r}"
         );
-        assert!(!r.contains("sudo ./remedy plugin verify"), "{r}");
+    }
+
+    /// 메뉴는 치료 기록을 이 폴더의 `state` 에 남긴다 — 폴더를 지우면 되돌릴 수 없다.
+    /// 운영자 가이드는 꾸러미에 없으므로 주소로 적는다.
+    #[test]
+    fn anchored_readme_says_keep_the_folder_and_where_the_guide_is() {
+        for r in [make(1, true), make_nix(2, true)] {
+            assert!(r.contains("이 폴더를 지우지 마십시오"), "{r}");
+            assert!(
+                r.contains("https://github.com/ESTsecurity/remedy/blob/main/docs/operator.md"),
+                "{r}"
+            );
+            assert!(!r.contains("꾸러미"), "{r}");
+        }
     }
 
     /// Windows 판은 전과 같은 말을 한다 — **분기가 한쪽을 바꾸지 않았다.**

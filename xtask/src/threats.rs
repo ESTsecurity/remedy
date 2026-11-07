@@ -67,7 +67,7 @@ fn table(plugins: &[(PathBuf, PluginManifest)]) -> String {
             .cloned()
             .unwrap_or_else(|| m.id.clone());
         let does = if m.remediate.is_some() {
-            "찾아서 치료합니다 (되돌릴 수 있습니다)"
+            "찾아서 치료합니다 (복원할 수 있습니다)"
         } else {
             "찾기만 합니다"
         };
@@ -93,7 +93,8 @@ fn table(plugins: &[(PathBuf, PluginManifest)]) -> String {
         ));
     }
     rows.sort_by_key(|(o, _)| *o);
-    let mut out = String::from("| 룰 | 하는 일 | OS | 폴더 · 판 | 참고 |\n|---|---|---|---|---|\n");
+    let mut out =
+        String::from("| 룰 | 하는 일 | OS | 폴더 · 버전 | 참고 |\n|---|---|---|---|---|\n");
     for (_, r) in rows {
         out.push_str(&r);
         out.push('\n');

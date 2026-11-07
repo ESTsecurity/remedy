@@ -25,7 +25,7 @@
 //! |---|---|---|
 //! | A | 없다 — 바로 돈다 | — (목록 보기만 회차가 든다) |
 //! | B | 옆 폴더의 플러그인 | 쓸 수 있는 플러그인 번들이 없습니다 |
-//! | C | 복원 정보 폴더의 회차 | 이 PC 에 치료한 기록이 없습니다 |
+//! | C | 복원 정보 폴더의 회차 | 치료한 기록이 없습니다 |
 //! | D | 결과 폴더의 계획 · 수집 결과 · 평가 결과 | out 폴더에 … 이 없습니다 |
 //! | E | 실행 파일 옆의 서명된 목록 (작성자·운영자) | 실행 파일 옆에 … 이 없습니다 |
 //!
@@ -354,8 +354,8 @@ const PLUGIN_ITEMS: &[(&str, &str, MakeWithPlugin)] = &[
         WithPlugin::Verify,
     ),
     (
-        "이 플러그인 번들이 우리 것인지 확인",
-        "Verify this plugin bundle",
+        "룰 서명 확인",
+        "Verify the rule signatures",
         WithPlugin::VerifyBundle,
     ),
     (
@@ -367,7 +367,7 @@ const PLUGIN_ITEMS: &[(&str, &str, MakeWithPlugin)] = &[
 
 /// 회차가 드는 명령 셋 — 묶음 C. (한국어 · 영어 · 무엇이 되는가)
 const RUN_ITEMS: &[(&str, &str, MakeWithRun)] = &[
-    ("치료를 되돌리기", "Undo a treatment", WithRun::Restore),
+    ("치료 전으로 복원하기", "Undo a treatment", WithRun::Restore),
     (
         "신고에 붙일 것 모으기",
         "Collect what to attach to a report",
@@ -382,18 +382,18 @@ const RUN_ITEMS: &[(&str, &str, MakeWithRun)] = &[
 
 /// 묶음 A — 입력이 없어 어느 기계에서나 뜻이 있다.
 const PLAIN_ITEMS: &[(&str, Plain)] = &[
-    ("이 PC 에서 되돌릴 수 있는 것 보기", Plain::RestoreList),
+    ("복원할 수 있는 치료 기록 보기", Plain::RestoreList),
     ("프로그램 자체 점검", Plain::SelfTest),
-    ("판 보기", Plain::Version),
-    ("쓰는 법", Plain::Help),
+    ("버전 보기", Plain::Version),
+    ("명령줄 사용법", Plain::Help),
     ("모든 명령과 옵션", Plain::HelpAll),
 ];
 
 const PLAIN_ITEMS_EN: &[(&str, Plain)] = &[
-    ("Show what can be undone on this PC", Plain::RestoreList),
+    ("Show treatments that can be undone", Plain::RestoreList),
     ("Self-test", Plain::SelfTest),
     ("Version", Plain::Version),
-    ("How to use", Plain::Help),
+    ("Command-line usage", Plain::Help),
     ("Every command and option", Plain::HelpAll),
 ];
 
@@ -416,12 +416,8 @@ fn items(offer: &Offer, lang: remedy_sdk::i18n::Lang) -> (Vec<Item>, usize) {
             "no usable plugin bundle",
         )
     });
-    let no_runs = (!offer.has_runs()).then(|| {
-        lang.t(
-            "이 PC 에 치료한 기록이 없습니다",
-            "no treatment on this PC yet",
-        )
-    });
+    let no_runs =
+        (!offer.has_runs()).then(|| lang.t("치료한 기록이 없습니다", "no treatment recorded yet"));
     // 찾기만 하는 룰 — 치료를 약속하는 줄은 까닭을 단다. 플러그인이 없다는 까닭이 먼저다.
     let detect_only = (offer.detect_only && no_plugin.is_none()).then(|| {
         lang.t(
@@ -434,11 +430,17 @@ fn items(offer: &Offer, lang: remedy_sdk::i18n::Lang) -> (Vec<Item>, usize) {
 
     // ── 묶음 B — 플러그인이 드는 다섯 ──────────────────────────
     for (k, e, mk) in PLUGIN_ITEMS {
-        let treats = matches!(mk(p.clone()), WithPlugin::Run(_) | WithPlugin::Verify(_));
+        let made = mk(p.clone());
+        let treats = matches!(made, WithPlugin::Run(_) | WithPlugin::Verify(_));
+        // 치료가 유지됐는지는 **치료한 기록이 있어야** 묻는다 — 없을 때 고르면 치료한 적 없는
+        // 기계에 *"치료 성공"* 이 떴다(v1.1.0 적대적 검토 · 2026-11-07 실측).
+        let after_treatment = matches!(made, WithPlugin::Verify(_));
         items.push(Item {
             label: if ko { k } else { e },
             tag: Tag::NeedsPlugin(*mk),
-            off: no_plugin.or(if treats { detect_only } else { None }),
+            off: no_plugin
+                .or(if treats { detect_only } else { None })
+                .or(if after_treatment { no_runs } else { None }),
         });
     }
 
@@ -505,14 +507,12 @@ pub enum Line {
     Treat,
     /// 치료가 유지됐는지 다시 보기
     Verify,
-    /// 치료를 되돌리기
+    /// 치료 전으로 복원하기
     Undo,
     /// 신고에 붙일 것 모으기
     Report,
     /// 중단된 작업 이어서 하기
     Resume,
-    /// 승인한 계획을 수행하기
-    Apply,
 }
 
 /// 그 줄의 번호와 이름. 번호는 기계 상태와 상관없다([`items`]) — 안내에 적은 번호가
@@ -539,7 +539,6 @@ pub fn line(which: Line) -> Option<(usize, String)> {
         (Tag::NeedsRun(mk), Line::Undo) => matches!(mk(run.clone()), WithRun::Restore(_)),
         (Tag::NeedsRun(mk), Line::Report) => matches!(mk(run.clone()), WithRun::Support(_)),
         (Tag::NeedsRun(mk), Line::Resume) => matches!(mk(run.clone()), WithRun::Resume(_)),
-        (Tag::NeedsFile(_, mk), Line::Apply) => matches!(mk(p.clone()), WithFile::Apply(_)),
         _ => false,
     })?;
     if pos < author_from {
@@ -721,7 +720,8 @@ fn choose_author(list: &[Item]) -> Sub<usize> {
 }
 
 /// 머리말의 권한 줄. 재지 못했으면 내지 않는다 — 모르는 것을 말하지 않는다.
-fn privilege_line(lang: remedy_sdk::i18n::Lang) -> Option<String> {
+/// 룰을 고르는 화면(`guided::choose`)도 같은 줄을 쓴다.
+pub(crate) fn privilege_line(lang: remedy_sdk::i18n::Lang) -> Option<String> {
     let who = if cfg!(windows) {
         lang.t("관리자", "administrator")
     } else {
@@ -873,12 +873,7 @@ mod tests {
         let (none, _) = items(&offer(true, false), ko);
         let (some, _) = items(&offer(true, true), ko);
         for it in none.iter().filter(|i| needs_run(&i.tag)) {
-            assert_eq!(
-                it.off,
-                Some("이 PC 에 치료한 기록이 없습니다"),
-                "{}",
-                it.label
-            );
+            assert_eq!(it.off, Some("치료한 기록이 없습니다"), "{}", it.label);
         }
         assert!(some
             .iter()
@@ -920,13 +915,14 @@ mod tests {
     }
 
     /// 기준 5(a) — **새로 받은 꾸러미의 메뉴**(플러그인만 있고 회차 · 결과 파일이 없다)에
-    /// 스물한 줄이 다 서고(여덟은 접은 화면에), 지금 못 고르는 열한 줄은 까닭을 단다.
+    /// 스물한 줄이 다 서고(여덟은 접은 화면에), 지금 못 고르는 열두 줄은 까닭을 단다 —
+    /// 치료한 기록이 없으면 *치료가 유지됐는지 다시 보기* 도 그 하나다(2026-11-07).
     #[test]
     fn a_fresh_bundle_shows_every_line_and_says_why() {
         for lang in [remedy_sdk::i18n::Lang::Ko, remedy_sdk::i18n::Lang::En] {
             let (all, _) = items(&offer(true, false), lang);
             assert_eq!(all.len(), 21);
-            assert_eq!(all.iter().filter(|i| i.off.is_none()).count(), 10);
+            assert_eq!(all.iter().filter(|i| i.off.is_none()).count(), 9);
             assert!(all.iter().all(|i| i.off.is_none_or(|w| !w.is_empty())));
         }
     }
@@ -943,6 +939,30 @@ mod tests {
         }
     }
 
+    /// 치료가 유지됐는지는 **치료한 기록이 있어야** 묻는다 — 없을 때 고르면 치료한 적 없는
+    /// 기계에 *"치료 성공"* 이 떴다(v1.1.0 적대적 검토 · 2026-11-07 실측).
+    #[test]
+    fn verify_needs_a_treatment_record() {
+        let ko = remedy_sdk::i18n::Lang::Ko;
+        let verify = |o: &Offer| {
+            items(o, ko)
+                .0
+                .into_iter()
+                .find(|i| match i.tag {
+                    Tag::NeedsPlugin(mk) => {
+                        matches!(mk(std::path::PathBuf::new()), WithPlugin::Verify(_))
+                    }
+                    _ => false,
+                })
+                .expect("유지 확인 줄")
+        };
+        assert_eq!(
+            verify(&offer(true, false)).off,
+            Some("치료한 기록이 없습니다")
+        );
+        assert_eq!(verify(&offer(true, true)).off, None);
+    }
+
     /// 기준 6(d) — *다음 할 일* 이 적는 번호가 메뉴의 그 줄이다(번호는 상태와 상관없다).
     /// 접어 둔 줄은 첫 화면의 *작성자·운영자 명령 보기* 번호와 그 아래 화면의 번호로 적는다.
     #[test]
@@ -954,14 +974,6 @@ mod tests {
         assert_eq!(n(Line::Undo), Some(6));
         assert_eq!(n(Line::Report), Some(7));
         assert_eq!(n(Line::Resume), Some(8));
-        assert_eq!(n(Line::Apply), Some(14));
-        // 화면 언어는 시험을 돌리는 기계를 따른다 — 두 언어 다 받는다.
-        let (_, apply) = line(Line::Apply).expect("승인한 계획을 수행하기");
-        assert!(
-            apply.ends_with("2. 승인한 계획을 수행하기")
-                || apply.ends_with("2. Apply an approved plan"),
-            "{apply}"
-        );
     }
 
     /// 기준 4 — **첫 화면은 일반 작업 열셋 + 접은 한 줄**이다. 나머지 여덟은 그 한 줄 아래에
@@ -979,7 +991,8 @@ mod tests {
     #[test]
     fn a_detect_only_rule_does_not_offer_treatment() {
         let ko = remedy_sdk::i18n::Lang::Ko;
-        let mut o = offer(true, false);
+        // 치료한 기록이 있는 기계로 잰다 — 없으면 유지 확인이 그 까닭으로 먼저 꺼진다.
+        let mut o = offer(true, true);
         o.files.insert(
             Candidates::Plans,
             vec![std::path::PathBuf::from("plan.json")],

@@ -999,27 +999,25 @@ fn next_steps(flow: Flow, code: Code, treats: bool) -> Vec<(&'static str, menu::
             ),
             menu::Line::Treat,
         )],
-        (Flow::Scan, Code::FoundNotRemediated) => vec![
-            (
-                lang.t("찾은 것을 치료하려면", "To treat what was found"),
-                menu::Line::Treat,
-            ),
-            (
-                lang.t(
-                    "방금 세운 계획대로 치료하려면",
-                    "To treat with the plan just made",
-                ),
-                menu::Line::Apply,
-            ),
-        ],
+        // 검사만 뒤에는 치료 하나만 권한다 — 접힌 운영자 명령(*승인한 계획을 수행하기*)으로
+        // 보내면 승인한 적 없는 사람에게 '승인한 계획' 을 말하게 된다(v1.1.0 적대적 검토).
+        (Flow::Scan, Code::FoundNotRemediated) => vec![(
+            lang.t("찾은 것을 치료하려면", "To treat what was found"),
+            menu::Line::Treat,
+        )],
+        // **유지 확인이 먼저다.** 되돌리기가 첫 줄이면 할 일 목록으로 읽혀 악성코드를 되살릴
+        // 수 있다(같은 검토) — 되돌리기는 오탐일 때의 일이라 그 조건을 줄에 적는다.
         (Flow::Treat, Code::Remediated) => vec![
-            (lang.t("되돌리려면", "To undo it"), menu::Line::Undo),
             (
                 lang.t("치료가 유지되는지 보려면", "To check that it held"),
                 menu::Line::Verify,
             ),
             (
-                lang.t("오탐이라 신고하려면", "To report a false positive"),
+                lang.t("오탐이라면", "If it was a false positive"),
+                menu::Line::Undo,
+            ),
+            (
+                lang.t("오탐을 신고하려면", "To report a false positive"),
                 menu::Line::Report,
             ),
         ],
@@ -1035,6 +1033,22 @@ fn next_steps(flow: Flow, code: Code, treats: bool) -> Vec<(&'static str, menu::
             (lang.t("신고하려면", "To report it"), menu::Line::Report),
         ],
         _ => Vec::new(),
+    }
+}
+
+/// 메뉴 줄로 가리킬 수 없는 다음 할 일 — **찾기만 하는 룰이 찾았을 때** 조치 차례가 있는 곳.
+///
+/// 그 룰은 치료를 권하지 않으므로(`next_steps`) 전에는 *다음 할 일* 이 비었다. SSH 백도어를
+/// 찾은 가장 급한 순간에 화면이 할 일을 말하지 않았다(v1.1.0 적대적 검토).
+fn guidance(flow: Flow, code: Code, treats: bool) -> Option<&'static str> {
+    match (flow, code) {
+        (Flow::Scan | Flow::ScanAll, Code::FoundNotRemediated) if !treats => Some(ui().lang.t(
+            "이 항목은 찾기만 합니다 — 조치 차례는 README 의 '위협별 안내'에 있습니다:\n    \
+             https://github.com/ESTsecurity/remedy#위협별-안내",
+            "This rule only detects — what to do is in the README's per-threat notes:\n    \
+             https://github.com/ESTsecurity/remedy#위협별-안내",
+        )),
+        _ => None,
     }
 }
 
@@ -1060,7 +1074,7 @@ fn scan_all(list: &[(String, std::path::PathBuf)]) -> (Code, bool) {
             )
         )
     );
-    let mut done: Vec<(&str, Code, Option<PluginKind>, bool)> = Vec::new();
+    let mut done: Vec<(&str, Code, Option<PluginKind>, bool, bool)> = Vec::new();
     for (i, (label, path)) in list.iter().enumerate() {
         if i > 0 {
             // 룰마다 결과 폴더와 회차 로그를 따로 둔다 — 한 폴더면 뒤 룰의 `scan.json` 이 앞
@@ -1071,11 +1085,12 @@ fn scan_all(list: &[(String, std::path::PathBuf)]) -> (Code, bool) {
         outln!();
         outln!("{}", d.rule());
         outln!("[{}/{}] {label}", i + 1, list.len());
+        let out = menu_out();
         let args = vec![
             "--plugin".to_string(),
             path.to_string_lossy().to_string(),
             "--out-dir".to_string(),
-            menu_out().to_string_lossy().to_string(),
+            out.to_string_lossy().to_string(),
             "--state-dir".to_string(),
             menu_state().to_string_lossy().to_string(),
         ];
@@ -1086,7 +1101,14 @@ fn scan_all(list: &[(String, std::path::PathBuf)]) -> (Code, bool) {
         let kind = load_manifest(&path.to_string_lossy())
             .ok()
             .and_then(|m| m.kind);
-        done.push((label, code, kind, guided::treats(path)));
+        // 다 보지 못한 까닭이 **검사할 경로가 이 기계에 전부 없음** 하나뿐인가 — 그 룰의 대상
+        // 제품이 없는 서버다(CWP 가 없는 서버의 CWPdoor). 결과 파일에서 읽는다.
+        let absent = code == Code::IncompleteObservation
+            && read_json::<remedy_sdk::artifact::ScanEnvelope>(
+                &out.join("scan.json").to_string_lossy(),
+            )
+            .is_ok_and(|s| s.body.observation.all_roots_missing());
+        done.push((label, code, kind, guided::treats(path), absent));
     }
     outln!();
     outln!("{}", d.rule());
@@ -1100,17 +1122,26 @@ fn scan_all(list: &[(String, std::path::PathBuf)]) -> (Code, bool) {
             format!("Results for all {} rules — nothing was changed", list.len())
         )
     );
-    for (label, code, kind, _) in &done {
-        outln!(
-            "  {label}{}{}",
-            d.dash(),
+    for (label, code, kind, _, absent) in &done {
+        // **해당 없음** — 검사할 경로가 전부 없어 다 보지 못한 룰은 그 대상이 없는 서버다
+        // (2026-11-07 결정). *"관측이 불완전해 '위협 없음' 을 말할 수 없습니다"* 로 끝나면 CWP 가
+        // 없는 서버의 점검자가 '이상 없음' 으로 보고하지 못했다. 이 줄은 메뉴 화면에만 있고
+        // 종료 코드(6)와 룰마다의 결과 화면은 그대로다.
+        let result = if *absent {
+            lang.t(
+                "해당 없음 (검사할 경로가 이 기계에 없습니다)",
+                "not applicable (the paths to scan do not exist on this machine)",
+            )
+            .to_string()
+        } else {
             remedy_core::report::result_line(*code, 0, lang, *kind)
-        );
+        };
+        outln!("  {label}{}{result}", d.dash());
     }
     let codes: Vec<Code> = done.iter().map(|r| r.1).collect();
     let treatable = done
         .iter()
-        .any(|(_, c, _, t)| *t && *c == Code::FoundNotRemediated);
+        .any(|(_, c, _, t, _)| *t && *c == Code::FoundNotRemediated);
     (all_scans_code(&codes), treatable)
 }
 
@@ -1147,10 +1178,14 @@ fn back_to_menu(flow: Flow, code: Code, treats: bool) {
         .into_iter()
         .filter_map(|(why, l)| menu::line(l).map(|(n, label)| (why, n, label)))
         .collect();
-    if !next.is_empty() {
+    let read = guidance(flow, code, treats);
+    if !next.is_empty() || read.is_some() {
         outln!("{}", lang.t("다음 할 일", "Next"));
         for (why, n, label) in next {
             outln!("  {why}{}{n}. {label}", d.dash());
+        }
+        if let Some(r) = read {
+            outln!("  {r}");
         }
         outln!();
     }
@@ -2055,11 +2090,17 @@ fn approved(a: &Args, plan: &remedy_sdk::artifact::PlanEnvelope) -> Result<bool,
     }
 
     // "진행하려면" 은 리눅스 하네스가 읽는 문구다.
+    //
+    // **되돌리는 길을 메뉴의 말로도 적고, `y` 도 받는다고 적는다.** 메뉴에는 'restore' 라는
+    // 낱말이 없고, 영문 입력 상태로 '예' 를 치면 `dP` 가 되어 취소된다 — 코드는 `y` 도 받는데
+    // 화면은 '예' 만 적었다(v1.1.0 적대적 검토).
     eprint!(
         "\n{}",
         lang.t(
-            "위 계획을 수행합니다. 되돌리려면 restore 를 써야 합니다. 진행하려면 '예' 입력: ",
-            "The plan above will run. Use restore to undo. Type 'yes' to proceed: "
+            "위 계획을 수행합니다. 나중에 되돌릴 수 있습니다(메뉴의 '치료 전으로 복원하기' · restore 명령). \
+             진행하려면 '예'(또는 y) 입력: ",
+            "The plan above will run. It can be undone later (the menu's 'Undo a treatment' or the restore \
+             command). Type 'yes' (or y) to proceed: "
         )
     );
     use std::io::Write;
@@ -2103,10 +2144,15 @@ fn confirm_restore() -> bool {
         return false;
     }
     let lang = ui().lang;
-    let ko = "위 목록대로 되돌립니다. 되돌릴 수 없다고 적힌 항목은 그대로 \
-              남습니다. 진행하려면 '예' 입력: ";
-    let en = "The list above will be restored; items marked as not restorable \
-              stay as they are. Type 'yes' to proceed: ";
+    // **되돌리면 무엇이 돌아오는지 먼저 말한다.** 치료 전으로 돌아가므로 악성으로 판정해
+    // 격리한 파일도 제자리로 오고, 그 자리에 지금 있는 파일(다시 설치한 정상 파일 포함)은
+    // 덮어쓴다(2026-11-07 실측 — 공급사 재설치 뒤 복원). 오탐일 때의 일이다.
+    let ko = "위 목록대로 치료 전 상태로 복원합니다 — 격리했던 파일이 제자리로 돌아오고, \
+              그 자리에 지금 있는 파일은 덮어씁니다. 오탐이라고 판단했을 때만 진행하십시오. \
+              진행하려면 '예'(또는 y) 입력: ";
+    let en = "The list above will be restored to the state before treatment — quarantined files \
+              go back in place and overwrite whatever is there now. Proceed only if you judged \
+              it a false positive. Type 'yes' (or y) to proceed: ";
     eprint!("\n{}", lang.t(ko, en));
     std::io::stderr().flush().ok();
     let mut line = String::new();
@@ -2126,7 +2172,7 @@ fn cmd_apply(
     banner(None);
     let plan: remedy_sdk::artifact::PlanEnvelope = read_json(a.need("plan")?)?;
     tee::rename(&plan.run_id);
-    run_apply(&a, &plan, integrity, std::time::Instant::now(), None)
+    run_apply(&a, &plan, integrity, std::time::Instant::now(), None, false)
 }
 
 /// 전 단계를 한 번에 — 수집부터 치료까지.
@@ -2166,7 +2212,7 @@ fn cmd_run(
         }
     }
     report_scan(&scan, m.kind);
-    run_apply(&a, &plan, integrity, started, m.kind)
+    run_apply(&a, &plan, integrity, started, m.kind, true)
 }
 
 /// `integrity` 는 **다시 재지 않고 받아 온다.** `main` 이 시작할 때 한 번
@@ -2184,6 +2230,7 @@ fn run_apply(
     integrity: &remedy_core::integrity::SelfIntegrity,
     started: std::time::Instant,
     kind: Option<PluginKind>,
+    scan_warned: bool,
 ) -> Result<Code, Failure> {
     let lang = ui().lang;
     let state_dir = a
@@ -2193,7 +2240,11 @@ fn run_apply(
 
     outln!();
     report_plan(plan, lang, a);
-    warn_incomplete(&plan.body.observation, kind);
+    // `run` 은 검사 단계(`report_scan`)가 같은 관측으로 이미 말했다 — 두 번 찍지 않는다.
+    // `apply --plan` · `resume` 은 검사 단계가 없으니 여기서 말한다.
+    if !scan_warned {
+        warn_incomplete(&plan.body.observation, kind);
+    }
 
     if plan.body.actions.is_empty() {
         let code = outcome(&plan.body.verdicts, &plan.body.observation, kind);
@@ -2221,6 +2272,7 @@ fn run_apply(
                     quarantine: None,
                     journal: None,
                     kind,
+                    state_dir: None,
                 },
                 lang
             )
@@ -2383,6 +2435,7 @@ fn run_apply(
     };
     let quarantine = report.container.as_ref().map(|c| c.display().to_string());
     let journal = report.journal.display().to_string();
+    let at = state_hint(&state_dir);
     outln!();
     out!(
         "{}",
@@ -2395,6 +2448,7 @@ fn run_apply(
                 quarantine: quarantine.as_deref(),
                 journal: Some(&journal),
                 kind,
+                state_dir: at.as_deref(),
             },
             lang
         )
@@ -2988,7 +3042,7 @@ fn cmd_resume(
                 format!("Resuming: {run}  ({} action(s))", plan.body.actions.len())
             )
         );
-        let code = run_apply(&a, &plan, integrity, std::time::Instant::now(), None)?;
+        let code = run_apply(&a, &plan, integrity, std::time::Instant::now(), None, false)?;
         if code.code() > worst.code() {
             worst = code;
         }
@@ -4018,13 +4072,13 @@ fn warn_incomplete(obs: &Observation, kind: Option<PluginKind>) {
         lang.t("주의:", "Note:"),
         if kind == Some(PluginKind::Check) {
             lang.t(
-                "이 결과 위에서 '취약하지 않다' 를 말할 수 없습니다:",
-                "'not vulnerable' cannot be declared on this result:",
+                "아래 까닭으로 '취약하지 않다' 고 판단할 수 없습니다:",
+                "'not vulnerable' cannot be concluded, for these reasons:",
             )
         } else {
             lang.t(
-                "이 결과 위에서 '위협 없음' 을 말할 수 없습니다:",
-                "'no threat' cannot be declared on this result:",
+                "아래 까닭으로 '위협 없음' 이라고 판단할 수 없습니다:",
+                "'no threat' cannot be concluded, for these reasons:",
             )
         }
     );
@@ -4211,13 +4265,34 @@ fn list_runs(state_dir: &std::path::Path) -> Result<Code, Failure> {
     }
     if let Some((_, newest, _, _)) = rows.first() {
         outln!();
-        // "remedy restore --run" 은 시험과 하네스가 읽는 문구다.
+        // "remedy restore --run" 은 시험과 하네스가 읽는 문구다 — 상태 폴더는 그 뒤에 붙인다.
+        let at = state_hint(state_dir)
+            .map(|d| format!(" --state-dir {d}"))
+            .unwrap_or_default();
         outln!(
-            "{} : remedy restore --run {newest}",
+            "{} : remedy restore --run {newest}{at}",
             lang.t("되돌리려면", "To undo")
         );
     }
     Ok(Code::NoThreat)
+}
+
+/// 되돌리기 · 신고 안내에 붙일 상태 폴더 — **기본 자리가 아닐 때만**(2026-11-07 결정 ①).
+///
+/// 메뉴는 받은 폴더의 `state` 에 쓴다(`menu_state`). 안내가 그 폴더를 빼면 그 줄을 그대로 친
+/// 사람은 기본 자리(`%PROGRAMDATA%\remedy` · `/var/lib/remedy`)를 찾다 종료 4 로 끝났다
+/// (v1.1.0 실측). 기본이면 `None` — 무인 배포 출력은 한 글자도 바뀌지 않는다(불변식 I1).
+/// 공백이 든 경로는 따옴표로 감싼다 — 그대로 쳐도 한 인자로 읽히게.
+fn state_hint(dir: &std::path::Path) -> Option<String> {
+    if dir == remedy_core::restore::default_state_dir() {
+        return None;
+    }
+    let s = dir.display().to_string();
+    Some(if s.is_empty() || s.chars().any(char::is_whitespace) {
+        format!("\"{s}\"")
+    } else {
+        s
+    })
 }
 
 fn cmd_restore(raw: &[String]) -> Result<Code, Failure> {
@@ -4303,9 +4378,11 @@ fn cmd_restore(raw: &[String]) -> Result<Code, Failure> {
         errln!(
             "  {} {}",
             ui().lang.t("주의:", "Note:"),
+            // 'wrap' 은 내부 낱말이다 — 받는 사람에게는 무엇으로 열리는지와 언제 못 여는지만
+            // 말한다(v1.1.0 적대적 검토).
             ui().lang.t(
-                "로컬 wrap 뿐입니다. 이 머신을 재설치하면 이 격리물은 열 수 없습니다.",
-                "only a local wrap exists. Reinstalling this machine makes the quarantine unopenable."
+                "이 격리물은 이 기계의 키로만 열립니다. 이 기계를 재설치하면 열 수 없으니 그 전에 복원하십시오.",
+                "this quarantine opens only with this machine's key. Reinstalling this machine makes it unopenable, so restore before that."
             )
         );
     }
@@ -4639,12 +4716,9 @@ mod tests {
         use menu::Line as L;
         assert_eq!(
             lines(Flow::Treat, Code::Remediated),
-            [L::Undo, L::Verify, L::Report]
+            [L::Verify, L::Undo, L::Report]
         );
-        assert_eq!(
-            lines(Flow::Scan, Code::FoundNotRemediated),
-            [L::Treat, L::Apply]
-        );
+        assert_eq!(lines(Flow::Scan, Code::FoundNotRemediated), [L::Treat]);
         assert_eq!(lines(Flow::ScanAll, Code::FoundNotRemediated), [L::Treat]);
         assert_eq!(lines(Flow::Restore, Code::NoThreat), [L::Treat]);
         assert!(lines(Flow::Scan, Code::NoThreat).is_empty());
@@ -4656,6 +4730,11 @@ mod tests {
     fn a_detect_only_find_suggests_no_treatment() {
         for f in [Flow::Scan, Flow::ScanAll] {
             assert!(next_steps(f, Code::FoundNotRemediated, false).is_empty());
+            // 대신 조치 차례가 있는 곳을 가리킨다 — 다음 할 일이 비지 않는다.
+            assert!(guidance(f, Code::FoundNotRemediated, false)
+                .is_some_and(|g| g.contains("#위협별-안내")));
+            assert!(guidance(f, Code::FoundNotRemediated, true).is_none());
+            assert!(guidance(f, Code::NoThreat, false).is_none());
         }
     }
 
