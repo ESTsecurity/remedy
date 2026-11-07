@@ -9,7 +9,7 @@
 
 schema_version: 1
 id: evilai-locust
-version: 0.1.2
+version: 0.1.3
 min_core: "1.0.0"
 platforms: [windows]
 name:
@@ -25,8 +25,17 @@ references:
 # 검체에서 관측된 페이로드 경로는 전부 `%LOCALAPPDATA%\Programs\<이름>-<랜덤>`
 # 이었다 (`SystemSoftwareUpdaterV2-q5ty`, `MicrosoftResourcesAgentV12-we9i6`).
 # System32 하위는 관측되지 않아 넣지 않았다 — 넓히려면 검체가 먼저다.
+#
+# **모든 사용자 프로필의 그 자리를 본다**(0.1.3 · 2026-11-08). 0.1.2 까지는
+# `%LOCALAPPDATA%\Programs` — **실행한 계정 하나**였다(엔진이 프로세스 환경 변수로
+# 편다). 표준 사용자 PC 를 IT 담당자가 자기 관리자 계정으로 띄우면 감염된 사용자의
+# 페이로드가 상한 밖이 되어 판정 묶음이 빠졌고, 감염된 PC 가 '위협 없음'(종료 0)으로
+# 끝났다(공개 v1.1.1 로 랩 실측). 예약 작업은 기계 전체라 그때도 잡혔다 — 그 작업이
+# 가리키는 폴더만 못 봤다. 지금은 작업의 인자에서 끌어낸 폴더가 어느 계정의 것이든
+# 상한 안이다. 주의: 다른 계정의 시작 프로그램(Run) 항목은 엔진이 실행한 계정의 것만
+# 모으므로 남을 수 있다 — 그 항목이 가리키는 페이로드는 격리되므로 돌지 않는다.
 scan_roots:
-  - "%LOCALAPPDATA%\\Programs"          # 페이로드가 자리잡는 곳
+  - "%ALLUSERPROFILES%\\AppData\\Local\\Programs"   # 페이로드가 자리잡는 곳 — 사용자마다
   # **예약 작업 경로는 여기 없다.** `persistence` 는 `scan_roots` 와 무관하게
   # 수집된다(설계-09 P12 · guard.rs 의 `collected_from_a_fixed_place`). 적으면
   # 작업 정의 XML 219건이 `file` 로 딸려 들어오고 파괴 상한만 넓어진다.
