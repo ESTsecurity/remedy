@@ -292,6 +292,8 @@ fn main() -> ExitCode {
                 let flow = flow_of(&picked);
                 // 찾기만 하는 룰이면 치료를 말하지 않는다 — 모두 검사만은 끝난 뒤에 정한다.
                 let mut treats = treats_of(&picked);
+                // 그때 가리킬 받은 폴더 안의 기록 — 모두 검사만은 찾은 룰의 것으로 끝난 뒤에 정한다.
+                let mut notes = notes_of(&picked);
                 // **하기 전에 무엇을 하는지** — 치료 · 복원은 목록과 승인이 그 자리다.
                 // 검사만 그것이 없었다(목표 remedy_제품화 기준 6(a)).
                 if session && matches!(flow, Flow::Scan) {
@@ -351,8 +353,9 @@ fn main() -> ExitCode {
                     // **모두 검사만** — 관리자 문을 한 번 지나고, 룰마다 메뉴의 *검사만 하기* 와
                     // 같은 `scan` 을 부른다(`scan_all`).
                     guided::Outcome::ScanAll(list) => admin_gate().map(|()| {
-                        let (code, treatable) = scan_all(&list);
+                        let (code, treatable, found) = scan_all(&list);
                         treats = treatable;
+                        notes = found;
                         code
                     }),
                     // **묶음 A — 같은 자리로 보낸다.** 위 `Some("selftest")` 갈래와
@@ -636,7 +639,7 @@ fn main() -> ExitCode {
                 tee::close();
                 term::task_end(code);
                 last = Some(code);
-                back_to_menu(flow, code, treats);
+                back_to_menu(flow, code, treats, &notes);
             }
         }
         Some(other) => {
@@ -969,6 +972,16 @@ fn treats_of(p: &guided::Outcome) -> bool {
     }
 }
 
+/// 검사만 하기로 고른 룰 폴더의 기록 — 찾기만 하는 룰이 찾았을 때 `guidance` 가 가리킨다.
+fn notes_of(p: &guided::Outcome) -> Vec<std::path::PathBuf> {
+    match p {
+        guided::Outcome::WithPlugin(menu::WithPlugin::Scan(path)) => {
+            notes_beside(path).into_iter().collect()
+        }
+        _ => Vec::new(),
+    }
+}
+
 fn flow_of(p: &guided::Outcome) -> Flow {
     match p {
         guided::Outcome::WithPlugin(menu::WithPlugin::Scan(_)) => Flow::Scan,
@@ -1025,13 +1038,20 @@ fn next_steps(flow: Flow, code: Code, treats: bool) -> Vec<(&'static str, menu::
         | (Flow::Restore, Code::NoThreat) => {
             vec![(lang.t("치료하려면", "To treat it"), menu::Line::Treat)]
         }
-        (Flow::Treat | Flow::Restore, Code::PartialFailure) => vec![
+        // **이어서 하기가 아니다.** 실패한 Action 이 있어도 실행기는 모든 결과와 끝을 적으므로
+        // 그 회차는 끝난 회차다 — 이어서 하기는 '이미 적용됨'(5)으로 거절한다(2026-11-07 적대적
+        // 검토). 남은 것은 새로 검사해 치료한다(README 결과 표 · 재시작 조언과 같은 말).
+        (Flow::Treat, Code::PartialFailure) => vec![
             (
-                lang.t("남은 것을 이어서 하려면", "To finish what is left"),
-                menu::Line::Resume,
+                lang.t("남은 것을 치료하려면", "To treat what is left"),
+                menu::Line::Treat,
             ),
             (lang.t("신고하려면", "To report it"), menu::Line::Report),
         ],
+        // 복원은 이어서 할 회차를 만들지 않는다.
+        (Flow::Restore, Code::PartialFailure) => {
+            vec![(lang.t("신고하려면", "To report it"), menu::Line::Report)]
+        }
         _ => Vec::new(),
     }
 }
@@ -1040,16 +1060,48 @@ fn next_steps(flow: Flow, code: Code, treats: bool) -> Vec<(&'static str, menu::
 ///
 /// 그 룰은 치료를 권하지 않으므로(`next_steps`) 전에는 *다음 할 일* 이 비었다. SSH 백도어를
 /// 찾은 가장 급한 순간에 화면이 할 일을 말하지 않았다(v1.1.0 적대적 검토).
-fn guidance(flow: Flow, code: Code, treats: bool) -> Option<&'static str> {
-    match (flow, code) {
-        (Flow::Scan | Flow::ScanAll, Code::FoundNotRemediated) if !treats => Some(ui().lang.t(
-            "이 항목은 찾기만 합니다 — 조치 차례는 README 의 '위협별 안내'에 있습니다:\n    \
-             https://github.com/ESTsecurity/remedy#위협별-안내",
-            "This rule only detects — what to do is in the README's per-threat notes:\n    \
-             https://github.com/ESTsecurity/remedy#위협별-안내",
-        )),
-        _ => None,
+///
+/// **받은 폴더 안의 기록도 적는다** (`notes` — 찾은 룰 폴더의 `RELEASE.md`). 인터넷이 막힌
+/// 서버에서는 주소만으로는 차례를 볼 곳이 없었다(2026-11-07 적대적 검토). 줄은 80칸 안이다 —
+/// 리눅스 콘솔(가상 콘솔 · IPMI)은 흔히 80칸이다.
+fn guidance(flow: Flow, code: Code, treats: bool, notes: &[std::path::PathBuf]) -> Option<String> {
+    let found_by_a_checker = matches!(
+        (flow, code),
+        (Flow::Scan | Flow::ScanAll, Code::FoundNotRemediated)
+    ) && !treats;
+    if !found_by_a_checker {
+        return None;
     }
+    let lang = ui().lang;
+    let mut s = format!(
+        "{}\n    https://github.com/ESTsecurity/remedy#위협별-안내",
+        lang.t(CHECKER_FOUND.0, CHECKER_FOUND.1)
+    );
+    if !notes.is_empty() {
+        s.push_str(&format!(
+            "\n  {}",
+            lang.t(CHECKER_OFFLINE.0, CHECKER_OFFLINE.1)
+        ));
+        for n in notes {
+            s.push_str(&format!("\n    {}", n.display()));
+        }
+    }
+    Some(s)
+}
+
+const CHECKER_FOUND: (&str, &str) = (
+    "이 항목은 찾기만 합니다 — 조치 차례는 README 의 '위협별 안내'에 있습니다:",
+    "This rule only detects — what to do is in the README's per-threat notes:",
+);
+const CHECKER_OFFLINE: (&str, &str) = (
+    "인터넷이 막힌 곳이면 받은 폴더의 이 파일에 같은 차례가 있습니다:",
+    "Without internet, the same steps are in this file in the downloaded folder:",
+);
+
+/// 룰 폴더에 든 기록(`RELEASE.md`) — 있을 때만. 배포 파일의 룰 폴더마다 하나씩 든다.
+fn notes_beside(plugin: &std::path::Path) -> Option<std::path::PathBuf> {
+    let p = plugin.parent()?.join("RELEASE.md");
+    p.is_file().then_some(p)
 }
 
 /// **모두 검사만** — 룰을 고르는 화면의 첫 줄(목표 remedy_출시_20261111 기준 3).
@@ -1057,8 +1109,9 @@ fn guidance(flow: Flow, code: Code, treats: bool) -> Option<&'static str> {
 /// 찾은 룰마다 메뉴의 *검사만 하기* 와 **같은 인자로** `scan` 을 차례대로 부르고, 끝에 룰마다의
 /// 결과를 한 덩어리로 다시 적는다 — 룰 셋의 화면이 이어지면 앞 룰의 결과는 창 밖으로 밀린다.
 /// 아무것도 바꾸지 않으므로 치료는 지금처럼 룰을 골라서 한다. 둘째 값은 *치료하는 룰이 무언가를
-/// 찾았는가* 이고, 다음 할 일이 그것으로 갈린다.
-fn scan_all(list: &[(String, std::path::PathBuf)]) -> (Code, bool) {
+/// 찾았는가* 이고, 다음 할 일이 그것으로 갈린다. 셋째 값은 *찾기만 하는 룰이 찾았을 때* 그 룰
+/// 폴더의 기록이다(`guidance`).
+fn scan_all(list: &[(String, std::path::PathBuf)]) -> (Code, bool, Vec<std::path::PathBuf>) {
     let lang = ui().lang;
     let d = remedy_sdk::i18n::deco();
     outln!(
@@ -1075,6 +1128,7 @@ fn scan_all(list: &[(String, std::path::PathBuf)]) -> (Code, bool) {
         )
     );
     let mut done: Vec<(&str, Code, Option<PluginKind>, bool, bool)> = Vec::new();
+    let mut found_notes: Vec<std::path::PathBuf> = Vec::new();
     for (i, (label, path)) in list.iter().enumerate() {
         if i > 0 {
             // 룰마다 결과 폴더와 회차 로그를 따로 둔다 — 한 폴더면 뒤 룰의 `scan.json` 이 앞
@@ -1113,7 +1167,11 @@ fn scan_all(list: &[(String, std::path::PathBuf)]) -> (Code, bool) {
                 let o = &s.body.observation;
                 o.all_roots_missing() && o.is_complete_for_check()
             });
-        done.push((label, code, kind, guided::treats(path), absent));
+        let treats = guided::treats(path);
+        if !treats && code == Code::FoundNotRemediated {
+            found_notes.extend(notes_beside(path));
+        }
+        done.push((label, code, kind, treats, absent));
     }
     outln!();
     outln!("{}", d.rule());
@@ -1147,7 +1205,7 @@ fn scan_all(list: &[(String, std::path::PathBuf)]) -> (Code, bool) {
     let treatable = done
         .iter()
         .any(|(_, c, _, t, _)| *t && *c == Code::FoundNotRemediated);
-    (all_scans_code(&codes), treatable)
+    (all_scans_code(&codes), treatable, found_notes)
 }
 
 /// 모두 검사만의 종료 코드 — **새 코드를 만들지 않는다**(불변식 I3). 찾은 것이 하나라도 있으면
@@ -1174,7 +1232,7 @@ fn all_scans_code(codes: &[Code]) -> Code {
 /// 작업이 끝나고 메뉴로 돌아간다. 구분선 · 다음 할 일을 남기고 **Enter 를 기다린다** —
 /// 메뉴가 곧바로 다시 서면 결과 줄이 창 밖으로 밀린다(21줄 메뉴 · 30줄 창 · 2026-11-06
 /// 이미지). 기다리는 줄은 화면을 붙잡는 장치라 stderr 로 낸다(`wait_before_closing` 과 같다).
-fn back_to_menu(flow: Flow, code: Code, treats: bool) {
+fn back_to_menu(flow: Flow, code: Code, treats: bool, notes: &[std::path::PathBuf]) {
     let lang = ui().lang;
     let d = remedy_sdk::i18n::deco();
     outln!();
@@ -1183,7 +1241,7 @@ fn back_to_menu(flow: Flow, code: Code, treats: bool) {
         .into_iter()
         .filter_map(|(why, l)| menu::line(l).map(|(n, label)| (why, n, label)))
         .collect();
-    let read = guidance(flow, code, treats);
+    let read = guidance(flow, code, treats, notes);
     if !next.is_empty() || read.is_some() {
         outln!("{}", lang.t("다음 할 일", "Next"));
         for (why, n, label) in next {
@@ -2490,12 +2548,22 @@ fn verify_request(a: &Args) -> Result<remedy_core::apply::VerifyRequest, String>
     };
     Ok(remedy_core::apply::VerifyRequest {
         exe,
-        plugin: std::path::PathBuf::from(plugin),
-        state_dir: a.get("state-dir").map(std::path::PathBuf::from),
+        plugin: at_reboot(plugin),
+        state_dir: a.get("state-dir").map(at_reboot),
         // 이 회차가 정한 언어를 그대로 싣는다 — 재부팅 회차는 환경을 물려받지
         // 못한다 (실측 2026-09-07: 한 로그가 앞은 한국어 뒤는 영어였다).
         lang: remedy_sdk::i18n::current(),
     })
+}
+
+/// 예약에 실을 경로 — 재부팅 회차는 다른 현재 폴더에서 돈다.
+///
+/// README 의 명령줄 예시는 `--plugin .\plugins\…` 처럼 상대 경로로 부른다.
+/// 그 값을 그대로 실으면 재부팅 뒤 검사가 룰을 찾지 못하고(종료 4) 결과도
+/// 남기지 못한다(2026-11-07 적대적 검토). 지금 폴더를 기준으로 절대 경로로
+/// 바꾼다. 바꾸지 못하면 받은 값을 싣는다 — 예전과 같다.
+fn at_reboot(p: &str) -> std::path::PathBuf {
+    std::path::absolute(p).unwrap_or_else(|_| std::path::PathBuf::from(p))
 }
 
 /// 재부팅 뒤 재평가 예약의 결과를 말한다 (설계-03 §8).
@@ -2627,11 +2695,19 @@ fn advise_restart(report: &remedy_core::apply::Report) {
     let lang = ui().lang;
 
     let health = remedy_core::boot_health();
-    let advice = remedy_core::restart::advise(
-        report.body.reboot_required,
-        report.failed(),
-        health.as_ref(),
-    );
+    // **재시작 조언은 Windows 의 것이다.** 안전 모드 · 재부팅 시 삭제가 Windows 개념이라, 리눅스에서
+    // 일부가 실패하면 '안전 모드 진입 가능 여부: unknown … 복구 매체를 먼저 준비하십시오' 가 떴다 —
+    // 리눅스의 부팅 건전성 자리는 대역이라 늘 unknown 이다(2026-11-07 적대적 검토 · 기준선 L 절).
+    // 실패한 까닭은 위 '실패' 줄과 결과 줄이 말한다. 빠지는 줄은 stderr 뿐이다.
+    let advice = if cfg!(windows) {
+        remedy_core::restart::advise(
+            report.body.reboot_required,
+            report.failed(),
+            health.as_ref(),
+        )
+    } else {
+        RestartAdvice::Nothing
+    };
 
     match advice {
         RestartAdvice::Nothing => {}
@@ -4389,8 +4465,8 @@ fn cmd_restore(raw: &[String]) -> Result<Code, Failure> {
             // 'wrap' 은 내부 낱말이다 — 받는 사람에게는 무엇으로 열리는지와 언제 못 여는지만
             // 말한다(v1.1.0 적대적 검토).
             ui().lang.t(
-                "이 격리물은 이 기계의 키로만 열립니다. 이 기계를 재설치하면 열 수 없으니 그 전에 복원하십시오.",
-                "this quarantine opens only with this machine's key. Reinstalling this machine makes it unopenable, so restore before that."
+                "이 격리물은 이 기계의 키로만 열립니다. 이 기계를 재설치하면 열 수 없으므로, 복원이 필요하면 그 전에 하십시오.",
+                "this quarantine opens only with this machine's key. Reinstalling this machine makes it unopenable, so if it needs restoring, do it before that."
             )
         );
     }
@@ -4731,6 +4807,12 @@ mod tests {
         assert_eq!(lines(Flow::Restore, Code::NoThreat), [L::Treat]);
         assert!(lines(Flow::Scan, Code::NoThreat).is_empty());
         assert!(lines(Flow::Other, Code::PartialFailure).is_empty());
+        // 일부 실패한 회차도 끝난 회차라 이어서 하기는 거절된다 — 다시 검사해 치료한다.
+        assert_eq!(
+            lines(Flow::Treat, Code::PartialFailure),
+            [L::Treat, L::Report]
+        );
+        assert_eq!(lines(Flow::Restore, Code::PartialFailure), [L::Report]);
     }
 
     /// 되돌리기 · 신고 안내의 `--state-dir` — 기본 자리면 붙이지 않고(무인 배포 출력 그대로),
@@ -4761,10 +4843,40 @@ mod tests {
         for f in [Flow::Scan, Flow::ScanAll] {
             assert!(next_steps(f, Code::FoundNotRemediated, false).is_empty());
             // 대신 조치 차례가 있는 곳을 가리킨다 — 다음 할 일이 비지 않는다.
-            assert!(guidance(f, Code::FoundNotRemediated, false)
-                .is_some_and(|g| g.contains("#위협별-안내")));
-            assert!(guidance(f, Code::FoundNotRemediated, true).is_none());
-            assert!(guidance(f, Code::NoThreat, false).is_none());
+            assert!(guidance(f, Code::FoundNotRemediated, false, &[])
+                .is_some_and(|g| g.contains("#위협별-안내") && !g.contains("인터넷이")));
+            assert!(guidance(f, Code::FoundNotRemediated, true, &[]).is_none());
+            assert!(guidance(f, Code::NoThreat, false, &[]).is_none());
+        }
+        // 받은 폴더의 기록이 있으면 그 경로를 그대로 적는다 — 인터넷이 막힌 서버의 몫이다.
+        let note = std::path::PathBuf::from("plugins")
+            .join("ebury-check")
+            .join("RELEASE.md");
+        let g = guidance(
+            Flow::ScanAll,
+            Code::FoundNotRemediated,
+            false,
+            std::slice::from_ref(&note),
+        )
+        .unwrap();
+        assert!(g.contains("#위협별-안내"), "{g}");
+        assert!(
+            g.lines().any(|l| l.trim() == note.display().to_string()),
+            "{g}"
+        );
+        // 리눅스 콘솔은 흔히 80칸이다 — 두 언어 모두 들여쓰기(2칸)까지 넘지 않는다. 한글은 두 칸.
+        let cols = |s: &str| {
+            s.chars()
+                .map(|c| if ('가'..='힣').contains(&c) { 2 } else { 1 })
+                .sum::<usize>()
+        };
+        for l in [
+            CHECKER_FOUND.0,
+            CHECKER_FOUND.1,
+            CHECKER_OFFLINE.0,
+            CHECKER_OFFLINE.1,
+        ] {
+            assert!(2 + cols(l) <= 80, "{} 칸: {l}", 2 + cols(l));
         }
     }
 
@@ -4943,6 +5055,26 @@ collect_extra:
             scheduled_line(None, Lang::Ko),
             "재부팅 후 재평가를 예약했습니다"
         );
+    }
+
+    #[test]
+    fn the_reboot_check_is_registered_with_absolute_paths() {
+        // README 의 명령줄 예시는 상대 경로로 부른다. 재부팅 회차는 다른 현재
+        // 폴더에서 돌므로 받은 값을 그대로 실으면 룰을 찾지 못한다.
+        let sep = std::path::MAIN_SEPARATOR;
+        let rel = format!(".{sep}plugins{sep}x{sep}plugin.yaml");
+        let a = parse_args(&args(&["--plugin", &rel, "--state-dir", "st"])).unwrap();
+        let r = verify_request(&a).unwrap();
+        let here = std::env::current_dir().unwrap();
+        assert!(r.plugin.is_absolute(), "{}", r.plugin.display());
+        assert_eq!(r.plugin, here.join("plugins").join("x").join("plugin.yaml"));
+        assert_eq!(r.state_dir, Some(here.join("st")));
+        // 이미 절대 경로인 값(메뉴 · 운영자 예시)은 한 글자도 바뀌지 않는다.
+        let abs = here.join("p.yaml");
+        let b = parse_args(&args(&["--plugin", abs.to_str().unwrap()])).unwrap();
+        let rb = verify_request(&b).unwrap();
+        assert_eq!(rb.plugin.as_os_str(), abs.as_os_str());
+        assert_eq!(rb.state_dir, None, "주지 않은 자리를 지어내지 않는다");
     }
 
     #[test]

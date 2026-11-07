@@ -539,7 +539,7 @@ Quarantine : /tmp/console-capture/s/quarantine/run-X.rq
 Run id     : run-X
 Created    : <T> UTC
 Keys       : local(<hex>)
-  Note: this quarantine opens only with this machine's key. Reinstalling this machine makes it unopenable, so restore before that.
+  Note: this quarantine opens only with this machine's key. Reinstalling this machine makes it unopenable, so if it needs restoring, do it before that.
 
 4 item(s) to restore · N bytes
   [e0] /etc/ld.so.conf.d/libc.conf
@@ -571,7 +571,7 @@ Quarantine : /tmp/console-capture/s/quarantine/run-X.rq
 Run id     : run-X
 Created    : <T> UTC
 Keys       : local(<hex>)
-  Note: this quarantine opens only with this machine's key. Reinstalling this machine makes it unopenable, so restore before that.
+  Note: this quarantine opens only with this machine's key. Reinstalling this machine makes it unopenable, so if it needs restoring, do it before that.
 
 4 item(s) to restore · N bytes
   [e0] /etc/ld.so.conf.d/libc.conf
@@ -1076,9 +1076,6 @@ Scan done : 2 trace(s) · 1 threat(s)
 Starting treatment.
   FAILED [1/2] Quarantine file  /opt/rokit/a.evil  /opt/rokit/a.evil: Read-only file system (os error 30)
   FAILED [2/2] Quarantine file  /opt/rokit/b.evil  /opt/rokit/b.evil: Read-only file system (os error 30)
-
-Warning: a restart cannot be recommended on this machine. Safe Mode availability: unknown.
-  The key exists but cannot be read: access is denied. Malware may have locked it, or a security policy may. Damage could not be verified, so a restart is not advised. If you must restart, prepare recovery media first. This tool does not repair the boot configuration.
 
 2 action(s) failed. The rest were carried out without rolling back.
 

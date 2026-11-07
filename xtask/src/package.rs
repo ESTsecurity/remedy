@@ -336,6 +336,9 @@ fn readme(
     s.push_str(&format!(
         "   (룰이 plugin.yaml 옆의 rules{sep} 에 있어야 합니다).\r\n"
     ));
+    // **기계마다 그 기계의 디스크에.** 메뉴는 치료 기록 · 격리한 파일을 이 폴더에 두고, 재시작 뒤
+    // 검사도 이 폴더의 절대 경로로 예약한다 — USB 에서 돌리고 빼면 둘 다 길을 잃는다(2026-11-07 검토).
+    s.push_str("   USB · 공유 폴더가 아니라 그 기계의 로컬 디스크에 풀어 실행합니다.\r\n");
     if anchored_ok {
         if win {
             s.push_str(&format!(
@@ -435,16 +438,47 @@ fn readme(
         // 옮긴 경우이고, chmod 로도 안 되면 실행을 막는 마운트(noexec)다(2026-11-07 실측 —
         // tmpfs noexec 에서 chmod 뒤에도 종료 126). 메뉴의 *"root 권한이 없습니다"* 는 다른
         // 벽이라 따로 적는다 — 같은 말로 묶으면 sudo 를 빠뜨린 사람을 chmod 로 보낸다.
-        s.push_str("띄우자마자 'Permission denied' 가 나오면\r\n");
-        s.push_str("----------------------------------------\r\n");
-        s.push_str("PC 에서 풀어 파일을 서버로 옮기면 실행 권한이 빠질 수 있습니다.\r\n");
-        s.push_str("한 번만 올려 주면 됩니다.\r\n\r\n");
+        // **sudo 는 실행 권한이 빠진 파일에 'command not found' 라고 한다** — 'Permission denied'
+        // 는 noexec 일 때다. 제목에 둘 다 두지 않으면 가장 흔한 경우를 겪은 사람이 이 절을 못 찾는다.
+        s.push_str("띄우자마자 'command not found' 나 'Permission denied' 가 나오면\r\n");
+        s.push_str("--------------------------------------------------------------\r\n");
+        s.push_str("PC 에서 풀어 파일을 서버로 옮기면 실행 권한이 빠질 수 있습니다\r\n");
+        s.push_str(
+            "(sudo 는 이때 'command not found' 라고 합니다). 한 번만 올려 주면 됩니다.\r\n\r\n",
+        );
         s.push_str(&format!("     chmod +x {here}{exe}\r\n\r\n"));
         s.push_str("그래도 같으면 이 폴더가 실행을 막는 자리(noexec — /tmp 등)에 있는\r\n");
         s.push_str("것입니다. 홈 폴더처럼 다른 자리에 다시 푸십시오.\r\n");
         s.push_str("메뉴에 'root 권한이 없습니다' 가 나오면 sudo 를 빠뜨린 것입니다 —\r\n");
         s.push_str(&format!("{sudo}{here}{exe} 로 다시 띄웁니다.\r\n\r\n"));
     }
+
+    // **치료한 뒤 할 일은 위협마다 다르다** — 패널 되살리기 · 자격 증명 바꾸기 · 콘솔에서 할 일.
+    // 서버에 남는 안내는 이 파일뿐이라 어디에 있는지와, 모든 위협에 같은 한 가지(공급사 버전을
+    // 다시 설치한 뒤에는 되돌리지 않는다 — 격리한 파일이 새 파일을 덮는다)를 적는다(2026-11-07 검토).
+    s.push_str("위협이 나오면\r\n");
+    s.push_str("--------------\r\n");
+    s.push_str("치료한 뒤 할 일(서비스 되살리기 · 비밀번호 바꾸기 · 콘솔에서 할 일)은\r\n");
+    s.push_str("위협마다 다릅니다. README 의 '위협별 안내' 를 따르십시오:\r\n");
+    s.push_str("  https://github.com/ESTsecurity/remedy#위협별-안내\r\n");
+    // **인터넷이 막힌 기계에서도 볼 곳** — 같은 차례가 룰 폴더마다 든 RELEASE.md 에 있다
+    // (2026-11-07 적대적 검토: 폐쇄망 서버에는 주소만으로는 볼 곳이 없었다). 서명과 대조한
+    // 목록(`tree`)에 있는 것만 적는다 — 없는 파일을 가리키지 않는다.
+    let notes: Vec<&Packed> = plugins
+        .iter()
+        .filter(|p| p.tree.contains_key("RELEASE.md"))
+        .collect();
+    if !notes.is_empty() {
+        s.push_str("인터넷이 막힌 곳이면 같은 차례가 룰 폴더의 RELEASE.md 에 있습니다:\r\n");
+        for p in notes {
+            s.push_str(&format!(
+                "  {here}plugins{sep}{}{sep}RELEASE.md\r\n",
+                p.name
+            ));
+        }
+    }
+    s.push_str("치료한 프로그램을 공급사 버전으로 다시 설치했다면 치료를 되돌리지\r\n");
+    s.push_str("마십시오 — 되돌리면 격리해 둔 파일이 새로 설치한 파일을 덮습니다.\r\n\r\n");
 
     s.push_str("룰의 서명을 확인하려면\r\n");
     s.push_str("------------------------\r\n");
@@ -711,8 +745,13 @@ mod tests {
             "{r}"
         );
         assert!(r.contains("chmod +x ./remedy"), "{r}");
-        // chmod 로도 안 되는 벽(noexec)과 sudo 를 빠뜨린 벽을 따로 적는다.
+        // chmod 로도 안 되는 벽(noexec)과 sudo 를 빠뜨린 벽을 따로 적는다. 제목에는 sudo 가
+        // 실행 권한이 빠진 파일에 내는 말(command not found)도 둔다.
         assert!(r.contains("noexec"), "{r}");
+        assert!(
+            r.contains("'command not found' 나 'Permission denied'"),
+            "{r}"
+        );
         assert!(r.contains("'root 권한이 없습니다' 가 나오면"), "{r}");
         // `plugin verify` 도 이 기계의 폐기 목록을 읽는다 — root 가 한 번 돌린 뒤에는
         // sudo 없이 종료 4 다(2026-11-07 실측).
@@ -728,12 +767,40 @@ mod tests {
     fn anchored_readme_says_keep_the_folder_and_where_the_guide_is() {
         for r in [make(1, true), make_nix(2, true)] {
             assert!(r.contains("이 폴더를 지우지 마십시오"), "{r}");
+            assert!(r.contains("로컬 디스크에 풀어"), "{r}");
+            assert!(r.contains("remedy#위협별-안내"), "{r}");
+            assert!(r.contains("치료를 되돌리지"), "{r}");
             assert!(
                 r.contains("https://github.com/ESTsecurity/remedy/blob/main/docs/operator.md"),
                 "{r}"
             );
             assert!(!r.contains("꾸러미"), "{r}");
         }
+    }
+
+    /// 인터넷이 막힌 기계에서도 위협별 차례를 볼 곳 — 서명과 대조한 목록에 RELEASE.md 가 든
+    /// 룰만, 그 OS 의 꼴로 적는다(2026-11-07 적대적 검토).
+    #[test]
+    fn offline_machines_are_pointed_at_the_records_inside_the_folder() {
+        let mut with = packed("ebury-check");
+        with.tree.insert("RELEASE.md".into(), "h".into());
+        let ps = vec![with, packed("bare")];
+        let nix = readme(Path::new("."), &ps, "remedy", &[], true);
+        // 리눅스 판은 줄 끝이 LF 다.
+        assert!(
+            nix.contains("  ./plugins/ebury-check/RELEASE.md\n"),
+            "{nix}"
+        );
+        assert!(!nix.contains("plugins/bare/RELEASE.md"), "{nix}");
+        let win = readme(Path::new("."), &ps, "remedy.exe", &[], true);
+        assert!(
+            win.contains(&format!(
+                "  .{BSLASH}plugins{BSLASH}ebury-check{BSLASH}RELEASE.md{CR}\n"
+            )),
+            "{win}"
+        );
+        // 든 것이 없으면 그 줄도 없다 — 없는 파일을 가리키지 않는다.
+        assert!(!make(1, true).contains("인터넷이 막힌 곳이면"));
     }
 
     /// Windows 판은 전과 같은 말을 한다 — **분기가 한쪽을 바꾸지 않았다.**

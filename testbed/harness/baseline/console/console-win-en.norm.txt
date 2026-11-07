@@ -752,7 +752,7 @@ Keys       : local(<hex>)
 
 Nothing was done. Check the list above and run again with --yes.
 Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
-  Note: this quarantine opens only with this machine's key. Reinstalling this machine makes it unopenable, so restore before that.
+  Note: this quarantine opens only with this machine's key. Reinstalling this machine makes it unopenable, so if it needs restoring, do it before that.
 [exit=2]
 
 ########## G2. restore --yes   [N초]
@@ -792,7 +792,7 @@ Keys       : local(<hex>)
 ────────────────────────────────────────────────────────
  Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
 Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
-  Note: this quarantine opens only with this machine's key. Reinstalling this machine makes it unopenable, so restore before that.
+  Note: this quarantine opens only with this machine's key. Reinstalling this machine makes it unopenable, so if it needs restoring, do it before that.
 [exit=0]
 
 ########## D5. 치료 심장박동 — 도구가 도는 중   [N초]
