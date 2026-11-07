@@ -538,7 +538,7 @@ Treatment succeeded. The same plugin no longer reports a threat.
 실행 번호  : run-X
 만든 시각  : <T> UTC
 키         : local(<hex>)
-  주의: 이 격리물은 이 기계의 키로만 열립니다. 이 기계를 재설치하면 열 수 없으니 그 전에 복원하십시오.
+  주의: 이 격리물은 이 기계의 키로만 열립니다. 이 기계를 재설치하면 열 수 없으므로, 복원이 필요하면 그 전에 하십시오.
 
 복원할 항목 4건 · N 바이트
   [e0] /etc/ld.so.conf.d/libc.conf
@@ -570,7 +570,7 @@ Treatment succeeded. The same plugin no longer reports a threat.
 실행 번호  : run-X
 만든 시각  : <T> UTC
 키         : local(<hex>)
-  주의: 이 격리물은 이 기계의 키로만 열립니다. 이 기계를 재설치하면 열 수 없으니 그 전에 복원하십시오.
+  주의: 이 격리물은 이 기계의 키로만 열립니다. 이 기계를 재설치하면 열 수 없으므로, 복원이 필요하면 그 전에 하십시오.
 
 복원할 항목 4건 · N 바이트
   [e0] /etc/ld.so.conf.d/libc.conf
@@ -1075,9 +1075,6 @@ run-X.log
 치료를 시작합니다.
   실패 [1/2] 파일 격리  /opt/rokit/a.evil  /opt/rokit/a.evil: Read-only file system (os error 30)
   실패 [2/2] 파일 격리  /opt/rokit/b.evil  /opt/rokit/b.evil: Read-only file system (os error 30)
-
-경고: 이 기계는 재시작을 권할 수 없는 상태입니다. 안전 모드 진입 가능 여부: unknown.
-  키는 있으나 읽을 수 없습니다. 권한이 막혀 있습니다. 악성코드가 잠갔을 수도, 보안 정책이 그럴 수도 있습니다. 손상 여부를 확인하지 못했으므로 권하지 않습니다. 재시작이 필요하면 복구 매체를 먼저 준비하십시오. 이 도구는 부팅 구성을 고치지 않습니다.
 
 2건이 실패했습니다. 되돌리지 않고 나머지를 수행했습니다.
 
