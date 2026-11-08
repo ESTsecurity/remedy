@@ -27,7 +27,8 @@
 ### 1. 받기
 
 [**최신 버전**](https://github.com/ESTsecurity/remedy/releases/latest)에서 쓰는 곳에 맞는 파일
-**하나**를 받습니다. 파일 하나에 프로그램과 그 OS 용 룰이 모두 들어 있습니다.
+**하나**를 받습니다. 파일 하나에 프로그램과 그 OS 용 룰이 모두 들어 있습니다. 이전 버전과 달라진 점은 그
+화면 맨 위와 [업데이트 내역](docs/업데이트-내역.md)에 있습니다.
 
 | 쓰는 곳 | 받을 파일 |
 |---|---|
@@ -321,6 +322,7 @@ sudo ./remedy run --plugin ./plugins/ebury-check/plugin.yaml              # 2 �
 | 누가 | 어디로 |
 |---|---|
 | 현장에서 **돌리는** 사람 | [`docs/operator.md`](docs/operator.md) — 배포 · 실행 · 되돌리기 · 신고 한 장 |
+| 새 버전을 받는 사람 | [`docs/업데이트-내역.md`](docs/업데이트-내역.md) — 버전마다 이전 버전과 달라진 점 |
 | 구조를 알고 싶은 개발자 | [`docs/remedy-전체-그림.md`](docs/remedy-전체-그림.md) — 기능 · 동작 · 배포 · 구조를 그림으로 (개발 기록 · 쓰는 법은 이 README) |
 | 룰을 **쓰는** 사람 | [`docs/plugin-guide/`](docs/plugin-guide/README.md) |
 | 코어를 **고치는** 사람 | [`docs/개발-안내.md`](docs/개발-안내.md) — 설계의 척추 · 저장소 규칙 · 설계 문서 · 커밋 전 검증 |
