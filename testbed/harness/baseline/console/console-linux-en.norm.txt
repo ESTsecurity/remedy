@@ -7,7 +7,7 @@
 ########## A1. 사용법 — 기본 언어 (C 로케일)
 
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
-ESTsecurity Dedicated Cleaner 1.2.0
+ESTsecurity Dedicated Cleaner 1.2.1
 --------------------------------------------------------
 
 Usage
@@ -32,7 +32,7 @@ Copyright (c) 2026 ESTsecurity Corp. All Rights Reserved.
 ########## A2. 사용법 — 한국어
 
 알림: 이 OS 에는 코드서명 확인이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
-ESTsecurity 전용백신 1.2.0
+ESTsecurity 전용백신 1.2.1
 --------------------------------------------------------
 
 사용법
@@ -57,7 +57,7 @@ Copyright (c) 2026 ESTsecurity Corp. All Rights Reserved.
 ########## A3. 버전
 
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
-ESTsecurity Dedicated Cleaner 1.2.0 (remedy)
+ESTsecurity Dedicated Cleaner 1.2.1 (remedy)
 
 ########## A0. 인자 없이 부르면 창을 붙잡는가 (터미널일 때만)
 
@@ -102,7 +102,7 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
 
 [꾸러미가 아예 없는 자리 — 지금까지의 동작 그대로여야 한다]
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
-ESTsecurity Dedicated Cleaner 1.2.0
+ESTsecurity Dedicated Cleaner 1.2.1
 ────────────────────────────────────────────────────────
 
 Usage
@@ -138,7 +138,7 @@ Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
 ########## A9. --help-all 본문 — 낱말까지 대조한다
 
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
-ESTsecurity Dedicated Cleaner 1.2.0 (remedy)
+ESTsecurity Dedicated Cleaner 1.2.1 (remedy)
 
   시스템을 변경하는 명령(collect|scan|run|apply|resume|restore|verify)은
   root 권한을 요구한다. 없으면 시작하지 않고 종료 코드 5 를 낸다.
@@ -226,7 +226,7 @@ ESTsecurity Dedicated Cleaner 1.2.0 (remedy)
 
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 --------------------------------------------------------
- ESTsecurity Dedicated Cleaner 1.2.0
+ ESTsecurity Dedicated Cleaner 1.2.1
  Library path loader removal  (ldso-preload 1.0.0)
 --------------------------------------------------------
  Started    : <T> UTC
@@ -252,7 +252,7 @@ Threat found, not treated.
 
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.2.0
+ ESTsecurity Dedicated Cleaner 1.2.1
  Library path loader removal  (ldso-preload 1.0.0)
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
@@ -278,7 +278,7 @@ Threat found, not treated.
 
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.2.0
+ ESTsecurity Dedicated Cleaner 1.2.1
  Library path loader removal  (ldso-preload 1.0.0)
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
@@ -305,7 +305,7 @@ Threat found, not treated.
 --ascii — UTF-8 로케일인데도 장식이 ASCII 여야 한다 (C2 와 견준다)
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 --------------------------------------------------------
- ESTsecurity Dedicated Cleaner 1.2.0
+ ESTsecurity Dedicated Cleaner 1.2.1
  Library path loader removal  (ldso-preload 1.0.0)
 --------------------------------------------------------
  Started    : <T> UTC
@@ -330,7 +330,7 @@ Threat found, not treated.
 --verbose — 검사 결과에 evidence·groups·verdicts 가 붙는다
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.2.0
+ ESTsecurity Dedicated Cleaner 1.2.1
  Library path loader removal  (ldso-preload 1.0.0)
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
@@ -356,14 +356,14 @@ Threat found, not treated.
 
 --lang — 플래그가 REMEDY_LANG 을 이긴다 (REMEDY_LANG=ko 인데 영어여야 한다)
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
-ESTsecurity Dedicated Cleaner 1.2.0 (remedy)
+ESTsecurity Dedicated Cleaner 1.2.1 (remedy)
 [exit=0]
 
 ########## D1. run — 승인할 사람이 없다
 
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.2.0
+ ESTsecurity Dedicated Cleaner 1.2.1
  Library path loader removal  (ldso-preload 1.0.0)
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
@@ -390,7 +390,7 @@ Scan done : 5 trace(s) · 1 threat(s)
 
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.2.0
+ ESTsecurity Dedicated Cleaner 1.2.1
  Library path loader removal  (ldso-preload 1.0.0)
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
@@ -418,7 +418,7 @@ Scan done : 5 trace(s) · 1 threat(s)
 아니오
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.2.0
+ ESTsecurity Dedicated Cleaner 1.2.1
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
  Machine    : <host> (linux)
@@ -440,7 +440,7 @@ The plan above will run. It can be undone later (the menu's 'Undo a treatment' o
 
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.2.0
+ ESTsecurity Dedicated Cleaner 1.2.1
  Library path loader removal  (ldso-preload 1.0.0)
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
@@ -481,7 +481,7 @@ Starting treatment.
 
 알림: 이 OS 에는 코드서명 확인이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 ────────────────────────────────────────────────────────
- ESTsecurity 전용백신 1.2.0
+ ESTsecurity 전용백신 1.2.1
 ────────────────────────────────────────────────────────
  시작 시각  : <T> UTC
  실행 기계  : <host> (linux)
@@ -497,7 +497,7 @@ Starting treatment.
 
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.2.0
+ ESTsecurity Dedicated Cleaner 1.2.1
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
  Machine    : <host> (linux)
@@ -513,7 +513,7 @@ Treatment succeeded. The same plugin no longer reports a threat.
 
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.2.0
+ ESTsecurity Dedicated Cleaner 1.2.1
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
  Machine    : <host> (linux)
@@ -530,7 +530,7 @@ To undo : remedy restore --run run-X --state-dir /tmp/console-capture/s
 
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.2.0
+ ESTsecurity Dedicated Cleaner 1.2.1
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
  Machine    : <host> (linux)
@@ -562,7 +562,7 @@ Nothing was done. Check the list above and run again with --yes.
 
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.2.0
+ ESTsecurity Dedicated Cleaner 1.2.1
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
  Machine    : <host> (linux)
@@ -602,7 +602,7 @@ Keys       : local(<hex>)
 
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.2.0
+ ESTsecurity Dedicated Cleaner 1.2.1
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
  Machine    : <host> (linux)
@@ -669,7 +669,7 @@ Open it before sending. Paths, host name and user name are not redacted.
 
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.2.0
+ ESTsecurity Dedicated Cleaner 1.2.1
  C2 beacon autostart removal  (c2-beacon 1.0.1)
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
@@ -695,7 +695,7 @@ Threat found, not treated.
 
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.2.0
+ ESTsecurity Dedicated Cleaner 1.2.1
  C2 beacon autostart removal  (c2-beacon 1.0.1)
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
@@ -841,7 +841,7 @@ Starting treatment.
 
 알림: 이 OS 에는 코드서명 확인이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 ────────────────────────────────────────────────────────
- ESTsecurity 전용백신 1.2.0
+ ESTsecurity 전용백신 1.2.1
 ────────────────────────────────────────────────────────
  시작 시각  : <T> UTC
  실행 기계  : <host> (linux)
@@ -851,7 +851,7 @@ Starting treatment.
 [exit=4]
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.2.0
+ ESTsecurity Dedicated Cleaner 1.2.1
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
  Machine    : <host> (linux)
@@ -871,7 +871,7 @@ available: lint · verify
 
 --lang 'kr': 모르는 언어라 무시했습니다 (ko | en) / unknown language, ignored (ko | en)
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
-ESTsecurity Dedicated Cleaner 1.2.0 (remedy)
+ESTsecurity Dedicated Cleaner 1.2.1 (remedy)
 [exit=0]
 
 ########## I. plugin lint
@@ -919,9 +919,9 @@ run-X.log
 run-X.log
 run-X.log
 --- 치료 회차 로그의 머리부터 치료 시작까지 ---
-<T> # remedy 1.2.0 pid N · run --plugin /repo/testbed/ai-exam/threats/ldso-preload/reference-plugin/plugin.yaml --out-dir /tmp/console-capture/run --yes --state-dir /tmp/console-capture/s
+<T> # remedy 1.2.1 pid N · run --plugin /repo/testbed/ai-exam/threats/ldso-preload/reference-plugin/plugin.yaml --out-dir /tmp/console-capture/run --yes --state-dir /tmp/console-capture/s
 <T> | ────────────────────────────────────────────────────────
-<T> |  ESTsecurity Dedicated Cleaner 1.2.0
+<T> |  ESTsecurity Dedicated Cleaner 1.2.1
 <T> |  Library path loader removal  (ldso-preload 1.0.0)
 <T> | ────────────────────────────────────────────────────────
 <T> |  Started    : <T> UTC
@@ -948,7 +948,7 @@ run-X.log
 
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.2.0
+ ESTsecurity Dedicated Cleaner 1.2.1
  missing roots  (force-incomplete 1.0.0)
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
@@ -967,7 +967,7 @@ Observation incomplete: cannot declare 'no threat'.
 
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.2.0
+ ESTsecurity Dedicated Cleaner 1.2.1
  check - missing roots  (force-check-absent 1.0.0)
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
@@ -986,7 +986,7 @@ No vulnerability was found.
 
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.2.0
+ ESTsecurity Dedicated Cleaner 1.2.1
  check - exposed setting  (force-check-found 1.0.0)
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
@@ -1019,7 +1019,7 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
 
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.2.0
+ ESTsecurity Dedicated Cleaner 1.2.1
  check - vulnerable version  (force-check-version 1.0.0)
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
@@ -1039,7 +1039,7 @@ Observation incomplete: cannot declare 'not vulnerable'.
 
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.2.0
+ ESTsecurity Dedicated Cleaner 1.2.1
  unreadable root  (force-unreadable-root 1.0.0)
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
@@ -1058,7 +1058,7 @@ Observation incomplete: cannot declare 'no threat'.
 
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.2.0
+ ESTsecurity Dedicated Cleaner 1.2.1
  read-only place  (force-partial 1.0.0)
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
@@ -1094,7 +1094,7 @@ Starting treatment.
 
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.2.0
+ ESTsecurity Dedicated Cleaner 1.2.1
  read-only place  (force-guard 1.0.0)
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
@@ -1110,7 +1110,7 @@ Error: planning failed: the safety guard rejected the plan (1):
 
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.2.0
+ ESTsecurity Dedicated Cleaner 1.2.1
  read-only place  (force-tamper 1.0.0)
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
@@ -1137,7 +1137,7 @@ Starting treatment.
  Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.2.0
+ ESTsecurity Dedicated Cleaner 1.2.1
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
  Machine    : <host> (linux)
@@ -1172,12 +1172,12 @@ Error: internal error: the tool itself crashed. The machine is as the journal re
 [exit=7]
 --- 크래시 기록의 머리 ---
 ==> /tmp/console-capture/sP/logs/crash-<T>-N.txt <==
-remedy 1.2.0 · internal error (panic)
+remedy 1.2.1 · internal error (panic)
 at    : <T>
 where : crates/remedy-cli/src/tee.rs:133:9
 
 ==> /tmp/console-capture/sP/logs/crash-<T>-N.txt <==
-remedy 1.2.0 · internal error (panic)
+remedy 1.2.1 · internal error (panic)
 at    : <T>
 
 ########## R. 조직 복구 키 — apply 가 싣고 restore 가 연다
@@ -1185,7 +1185,7 @@ at    : <T>
 org 키쌍 생성 OK — 공개키 N 바이트
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.2.0
+ ESTsecurity Dedicated Cleaner 1.2.1
  read-only place  (force-org 1.0.0)
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
@@ -1218,7 +1218,7 @@ Starting treatment.
 --- 조직 키로 연다 (제자리가 아니라 꺼내기) ---
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.2.0
+ ESTsecurity Dedicated Cleaner 1.2.1
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
  Machine    : <host> (linux)
@@ -1256,7 +1256,7 @@ _tmp_console-capture_orgsrc_g2.evil
 [exit=6]
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 
-ESTsecurity Dedicated Cleaner 1.2.0
+ESTsecurity Dedicated Cleaner 1.2.1
 Running with root rights.
 
 Found 3 things to check:
@@ -1271,7 +1271,7 @@ Choose a number (0-4): Scanning with all 3 rules — nothing is changed.
 ────────────────────────────────────────────────────────
 [1/3] CWPdoor check (detect only)
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.2.0
+ ESTsecurity Dedicated Cleaner 1.2.1
  CWPdoor check (detect only)  (cwpdoor-1-check 0.1.2)
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
@@ -1288,7 +1288,7 @@ Observation incomplete: cannot declare 'no threat'.
 ────────────────────────────────────────────────────────
 [2/3] CWPdoor Removal
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.2.0
+ ESTsecurity Dedicated Cleaner 1.2.1
  CWPdoor Removal  (cwpdoor-2-clean 0.1.2)
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
@@ -1305,7 +1305,7 @@ Observation incomplete: cannot declare 'no threat'.
 ────────────────────────────────────────────────────────
 [3/3] Ebury check (detect only)
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.2.0
+ ESTsecurity Dedicated Cleaner 1.2.1
  Ebury check (detect only)  (ebury-check 0.2.0)
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
@@ -1325,7 +1325,7 @@ Results for all 3 rules — nothing was changed
 
 ────────────────────────────────────────────────────────
 Press Enter to go back to the menu. 
-ESTsecurity Dedicated Cleaner 1.2.0
+ESTsecurity Dedicated Cleaner 1.2.1
 Running with root rights.
 
 Found 3 things to check:
