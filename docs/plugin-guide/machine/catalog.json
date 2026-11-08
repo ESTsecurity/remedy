@@ -19,6 +19,7 @@
   ],
   "capture_functions": [
     "first_path",
+    "last_path",
     "dirname",
     "basename",
     "lower",

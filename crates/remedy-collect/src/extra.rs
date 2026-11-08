@@ -159,7 +159,7 @@ pub fn collect_extra<P: FsRead>(
             CollectExtra::Glob(g) => {
                 let pattern = normalize::for_record(&fs_expand(fs, &g.glob), scope.platform);
                 let cap = parse_size(g.max_size.as_deref()).unwrap_or(DEFAULT_MAX_BYTES);
-                let Some((dir, name)) = split_glob(&pattern) else {
+                let Some((dir, name)) = normalize::split_glob(&pattern) else {
                     unresolved.push(Unresolved {
                         at,
                         reason: lang.pick(
@@ -447,17 +447,6 @@ fn attach(files: &mut Vec<FileRecord>, path: &str, key: &str, bytes: &[u8]) {
     });
 }
 
-/// `<폴더>/<이름 꼴>` 로 나눈다. 와일드카드가 폴더 쪽에 있으면 `None` — 한 폴더 안만
-/// 고르므로 담는 범위가 선언에서 바로 읽힌다.
-fn split_glob(pattern: &str) -> Option<(&str, &str)> {
-    let cut = pattern.rfind(['/', '\\'])?;
-    let (dir, name) = (&pattern[..cut], &pattern[cut + 1..]);
-    if dir.is_empty() || name.is_empty() || dir.contains(['*', '?']) {
-        return None;
-    }
-    Some((dir, name))
-}
-
 /// 주 수집이 걸은 레코드 가운데 `dir` 바로 아래에서 이름이 `name` 꼴인 것.
 ///
 /// **해시가 있는 것만** 고른다 — 주 수집은 링크와 해시 상한을 넘는 파일을 해시하지
@@ -472,35 +461,10 @@ fn globbed(files: &[FileRecord], dir: &str, name: &str, platform: Platform) -> V
         .filter(|f| {
             let p = normalize::for_compare(&f.path, platform);
             p.rfind(['/', '\\'])
-                .is_some_and(|cut| p[..cut] == dir && name_matches(&p[cut + 1..], &name))
+                .is_some_and(|cut| p[..cut] == dir && normalize::name_matches(&p[cut + 1..], &name))
         })
         .map(|f| f.path.clone())
         .collect()
-}
-
-/// 이름 하나에 `*`(아무 길이) · `?`(한 글자)를 맞춘다. 되돌아가기는 마지막 별에서만
-/// 하므로 이름 길이 × 꼴 길이를 넘지 않는다 — 정규식처럼 터지지 않는다.
-fn name_matches(text: &str, pattern: &str) -> bool {
-    let t: Vec<char> = text.chars().collect();
-    let p: Vec<char> = pattern.chars().collect();
-    let (mut ti, mut pi) = (0usize, 0usize);
-    let mut star: Option<(usize, usize)> = None;
-    while ti < t.len() {
-        if pi < p.len() && (p[pi] == '?' || (p[pi] != '*' && p[pi] == t[ti])) {
-            pi += 1;
-            ti += 1;
-        } else if pi < p.len() && p[pi] == '*' {
-            star = Some((pi + 1, ti));
-            pi += 1;
-        } else if let Some((sp, st)) = star {
-            pi = sp;
-            ti = st + 1;
-            star = Some((sp, st + 1));
-        } else {
-            return false;
-        }
-    }
-    p[pi..].iter().all(|c| *c == '*')
 }
 
 fn fs_expand<P: FsRead>(_fs: &P, s: &str) -> String {
@@ -830,7 +794,7 @@ collect_extra:
             ("", "?", false),
             ("aaaaaaaaaaaaaaaaaaaaaaab", "*a*a*a*a*b", true),
         ] {
-            assert_eq!(name_matches(t, p), want, "{t:?} ~ {p:?}");
+            assert_eq!(normalize::name_matches(t, p), want, "{t:?} ~ {p:?}");
         }
     }
 

@@ -8,7 +8,7 @@
 - 스키마 버전: 1
 - 현재 구현된 Phase: P12
 
-## 관찰 대상 19종
+## 관찰 대상 20종
 
 **Windows** · **Linux** 열은 *이 코어가 그 플랫폼에서 수집하기 시작하는 Phase* 다.
 
@@ -35,12 +35,13 @@
 | `proxy_config` | P4 | 개념만 | 프록시 설정 · PAC |
 | `firewall_rule` | P4 | 개념만 | 방화벽 규칙. 자기 허용·보안 제품 차단이 여기 남는다 |
 | `package` | — | P12 | 설치된 패키지. 배포판이 백포트한 판을 가리는 유일한 길 |
+| `unix_socket` | — | P12 | 이름 있는 UNIX 소켓. 추상 이름은 `@` 로 시작한다 — 상주 임플란트가 여는 자리 |
 
 ### subject 별 필드 (닫힌 집합)
 
 여기 없는 이름을 쓰면 `plugin lint` 가 거절한다.
 
-- **`persistence`** — `id` · `name` · `enabled` · `trigger` · `command` · `args` · `principal` · `source` · `win.task.register_path` · `win.task.actions` · `win.task.run_level` · `win.task.working_directory` · `linux.cron.line_no` · `linux.cron.line`
+- **`persistence`** — `id` · `name` · `enabled` · `trigger` · `command` · `args` · `principal` · `source` · `win.task.register_path` · `win.task.actions` · `win.task.run_level` · `win.task.working_directory` · `win.task.command_expanded` · `win.task.args_expanded` · `linux.cron.line_no` · `linux.cron.line`
 - **`autorun`** — `id` · `scope` · `name` · `command` · `source`
 - **`service`** — `id` · `name` · `state` · `start_type` · `image_path`
 - **`process`** — `pid` · `ppid` · `image_path` · `cmdline` · `cmdline_decoded` · `args` · `user` · `start_time` · `modules`
@@ -59,6 +60,7 @@
 - **`proxy_config`** — `scope` · `server` · `pac_url` · `bypass`
 - **`firewall_rule`** — `id` · `name` · `direction` · `action` · `enabled` · `protocol` · `local_port` · `remote_port` · `remote_address` · `application` · `service` · `profile` · `source`
 - **`package`** — `name` · `version` · `upstream_version` · `revision` · `arch` · `source` · `manager`
+- **`unix_socket`** — `name` · `inode` · `listening` · `kind`
 
 ## 파괴·변경 동작 29종
 
@@ -134,9 +136,10 @@
 | `pkg_version_lt` | P4 | O |
 | `yara` | P4 | O |
 
-## capture 함수 8종
+## capture 함수 9종
 
 - `first_path`
+- `last_path`
 - `dirname`
 - `basename`
 - `lower`
@@ -145,7 +148,7 @@
 - `base64_decode`
 - `hex_decode`
 
-`first_path` 는 **첫 공백 토큰**을 뽑는다(따옴표는 벗긴다) — 경로가 아니어도 그것을 낸다. 줄 중간의 경로는 뽑지 못한다. `key`/`value` 는 `=` 로 쓴 줄에서만 채워진다 — 공백으로 쓰는 설정(`sshd_config` 등)에서는 둘 다 비므로 그 자리는 리터럴로 적는다.
+`first_path` 는 **첫 공백 토큰**을 뽑는다(따옴표는 벗긴다) — 경로가 아니어도 그것을 낸다. `last_path` 는 **역슬래시가 든 마지막 토큰**(없으면 슬래시가 든 마지막 토큰)을 뽑는다 — `--run` 같은 플래그와 `/min` 같은 스위치는 건너뛰고, 경로가 둘 이상이면 마지막 것이다. 줄 중간의 경로는 둘 다 뽑지 못한다. `key`/`value` 는 `=` 로 쓴 줄에서만 채워진다 — 공백으로 쓰는 설정(`sshd_config` 등)에서는 둘 다 비므로 그 자리는 리터럴로 적는다.
 
 ## 지정 확장 토큰
 

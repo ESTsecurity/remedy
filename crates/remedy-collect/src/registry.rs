@@ -194,10 +194,46 @@ fn deny_if_unreadable<R: RegistryRead, T>(h: &mut Harvest<T>, reg: &R, key: &str
         h.deny(key);
     }
 }
+/// 로그온한 **다른** 사용자의 자동 실행 키 — `HKU\<SID>` 아래의 그 사용자 몫.
+///
+/// `HKCU` 는 엔진을 돌린 계정 하나다. SYSTEM(무인 배포)이나 다른 관리자로 치료하면
+/// 감염된 사용자의 Run 값이 보이지 않아 **'치료 완료' 뒤에 남았다** — 2026-11-08 랩
+/// 실측(공개 v1.1.3): SYSTEM · 새 관리자 두 경우 다 종료 1 인데 그 값이 남았고, 두
+/// 계정 다 `HKU\<감염 사용자 SID>` 에서 그 값을 읽을 수 있었다. 하이브는 그 사용자가
+/// 로그온해 있어야 실려 있다 — 로그오프한 사용자의 `NTUSER.DAT` 를 싣지는 않는다
+/// (남의 하이브를 싣는 것은 파괴 범위가 다르다).
+const USER_AUTORUN_TAILS: [&str; 2] = [
+    "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
+    "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce",
+];
+
 /// 자동 실행 항목.
-pub fn autoruns<R: RegistryRead>(reg: &R) -> Result<Harvest<AutorunRecord>, CollectError> {
+///
+/// `own_sid` 는 엔진을 돌린 계정의 SID 다 — 그 하이브는 `HKCU` 로 이미 모았으므로
+/// `HKU` 쪽에서 뺀다. 모르면(`None`) `HKU` 쪽을 모으지 않는다: 자기 하이브를 가려낼
+/// 수 없으면 한 값이 `HKCU` 와 `HKU\<SID>` 로 두 번 잡혀 두 번 지우려 든다.
+pub fn autoruns<R: RegistryRead>(
+    reg: &R,
+    own_sid: Option<&str>,
+) -> Result<Harvest<AutorunRecord>, CollectError> {
     let mut h = Harvest::default();
-    for (scope, key) in AUTORUN_KEYS {
+    let mut keys: Vec<(&str, String)> = AUTORUN_KEYS
+        .iter()
+        .map(|(scope, key)| (*scope, key.to_string()))
+        .collect();
+    if let Some(own) = own_sid {
+        for tail in USER_AUTORUN_TAILS {
+            for key in expand_user_hive(reg, &format!("HKU\\*\\{tail}")) {
+                // 진짜 사용자 계정만 — `%ALLUSERPROFILES%` 와 같은 선이다.
+                let sid = key.split('\\').nth(1).unwrap_or_default();
+                if sid.starts_with("S-1-5-21-") && !sid.eq_ignore_ascii_case(own) {
+                    keys.push(("user", key));
+                }
+            }
+        }
+    }
+    for (scope, key) in keys {
+        let key = key.as_str();
         if !reg.key_exists(key) {
             // 없는 키는 정상이다(그 Windows 판에 그 자리가 없을 수 있다).
             // **다만 잠긴 키도 여기로 온다** — 부모에게 물어 갈라야 자동 실행을
@@ -733,9 +769,51 @@ mod tests {
                 ("ScreenSaverGracePeriod", RegValue::Str("5".into())),
             ],
         );
-        let h = autoruns(&reg).unwrap();
+        let h = autoruns(&reg, None).unwrap();
         assert_eq!(h.records.len(), 1, "{:?}", h.records);
         assert_eq!(h.records[0].name, "Userinit");
+    }
+
+    /// SYSTEM 이나 다른 관리자로 돌려도 **로그온한 다른 사용자의 Run 값**이 보인다
+    /// (코어 1.2.0 · 2026-11-08 랩 실측이 그 값이 '치료 완료' 뒤에 남는 것을 보였다).
+    /// 자기 하이브는 `HKCU` 로 이미 모았으므로 `HKU` 쪽에서 빼고, 클래스 하이브와
+    /// 시스템 계정은 보지 않는다.
+    #[test]
+    fn other_logged_on_users_run_values_are_collected_without_doubling_our_own() {
+        let me = "S-1-5-21-1-2-3-1001";
+        let other = "S-1-5-21-1-2-3-1002";
+        let run = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run";
+        let val = |c: &str| vec![("Updater", RegValue::Str(c.into()))];
+        let reg = FakeReg::default()
+            .sub(
+                "HKU",
+                &[
+                    me,
+                    other,
+                    &format!("{other}_Classes"),
+                    "S-1-5-18",
+                    ".DEFAULT",
+                ],
+            )
+            .key(&format!("HKCU\\{run}"), &val("mine.exe"))
+            .key(&format!("HKU\\{me}\\{run}"), &val("mine.exe"))
+            .key(&format!("HKU\\{other}\\{run}"), &val("theirs.exe"))
+            .key(&format!("HKU\\S-1-5-18\\{run}"), &val("system.exe"));
+
+        let h = autoruns(&reg, Some(me)).unwrap();
+        let ids: Vec<&str> = h.records.iter().map(|r| r.id.as_str()).collect();
+        assert_eq!(
+            ids,
+            vec![
+                format!("HKCU\\{run}\\Updater").as_str(),
+                format!("HKU\\{other}\\{run}\\Updater").as_str(),
+            ],
+        );
+        assert!(h.records.iter().all(|r| r.scope == "user"));
+
+        // 자기 SID 를 모르면 `HKU` 쪽을 모으지 않는다 — 두 번 지우려 들지 않게.
+        let h = autoruns(&reg, None).unwrap();
+        assert_eq!(h.records.len(), 1, "{:?}", h.records);
     }
 
     #[test]

@@ -1,5 +1,5 @@
 {
-  "count": 19,
+  "count": 20,
   "subjects": [
     {
       "enumerated": {},
@@ -16,6 +16,8 @@
         "win.task.actions",
         "win.task.run_level",
         "win.task.working_directory",
+        "win.task.command_expanded",
+        "win.task.args_expanded",
         "linux.cron.line_no",
         "linux.cron.line"
       ],
@@ -489,6 +491,32 @@
       "linux_from": "P12",
       "scoping": "fixed",
       "summary": "설치된 패키지. 배포판이 백포트한 판을 가리는 유일한 길",
+      "windows": false
+    },
+    {
+      "enumerated": {
+        "kind": {
+          "defined": true,
+          "values": [
+            "stream",
+            "dgram",
+            "seqpacket"
+          ],
+          "why": "`/proc/net/unix` 의 `Type` 열(1 · 2 · 5)을 이름으로 옮긴다. 그 밖의 값은 `type-<16진>` 그대로 담아 지어내지 않는다"
+        }
+      },
+      "fields": [
+        "name",
+        "inode",
+        "listening",
+        "kind"
+      ],
+      "id": "unix_socket",
+      "implemented_in": "P4",
+      "linux": true,
+      "linux_from": "P12",
+      "scoping": "fixed",
+      "summary": "이름 있는 UNIX 소켓. 추상 이름은 `@` 로 시작한다 — 상주 임플란트가 여는 자리",
       "windows": false
     }
   ]

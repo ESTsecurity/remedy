@@ -1990,13 +1990,38 @@ fn check_overbroad(m: &PluginManifest, out: &mut Vec<LintIssue>) {
         //
         // 여는 조건: 실기기에서 프로필이 여럿인 것을 관측했을 때. 그때 다시
         // 잰다. 지금은 10-manifest.md 가 그 갈림과 권하는 쪽을 적어 둔다.
-        let star_ok = crate::catalog::DESIGNATED_TOKENS
-            .iter()
-            .any(|d| r.contains(d.token))
-            || (crate::catalog::is_registry_root(r)
-                && r.ends_with("\\*")
-                && r.matches('*').count() == 1);
-        if r.contains('*') && !star_ok {
+        //
+        // **마지막 칸의 이름 꼴은 연다** (2026-11-08 · 코어 1.2.0). 위 결정이 막은 것은
+        // 폴더 칸의 `*` — 뿌리를 여러 갈래로 **넓히는** 것이다. 마지막 칸의
+        // `*.js` 는 반대로 **좁힌다**: 그 폴더 바로 아래에서 이름이 맞는 파일만
+        // 고르고, 하위 폴더도 폴더 자체도 고르지 않는다(`normalize::glob_root`).
+        // `collect_extra` 가 같은 꼴을 이미 쓴다. 연 까닭은 실측이다 — EvilAI 의
+        // 보도 꼴은 페이로드를 `TEMP` 바로 아래에 두는데, `TEMP` 를 뿌리로 적으면
+        // 재귀로 걸으며 파일마다 해시한다(개발 기계 하나에 6만 개 · 16 GB).
+        //
+        // **이름 칸이 와일드카드뿐이면 여전히 오류다**(`…\*`). 관측 01 의 함정이
+        // 바로 그것이었다 — "좁혀라" 에 `\*` 를 붙이면 재귀로 다 본다고 읽히는데,
+        // 글롭 뿌리는 바로 아래만 본다. 글자가 섞인 꼴(`*.js`)만 받으면 그 오독이
+        // 생길 자리가 없다.
+        //
+        // 파일 뿌리는 **지정 토큰을 뗀 나머지**에서 와일드카드를 본다. 전에는 토큰이
+        // 하나라도 있으면 이 검사를 통째로 건너뛰어 `%ALLUSERPROFILES%\a\*\b` 가
+        // 지나갔다(같은 날 짚었다).
+        let star_ok = if crate::catalog::is_registry_root(r) {
+            !r.contains('*')
+                || crate::catalog::DESIGNATED_TOKENS
+                    .iter()
+                    .any(|d| r.contains(d.token))
+                || (r.ends_with("\\*") && r.matches('*').count() == 1)
+        } else {
+            let body = crate::catalog::DESIGNATED_TOKENS
+                .iter()
+                .fold(r.to_string(), |s, d| s.replace(d.token, ""));
+            !body.contains(['*', '?'])
+                || crate::normalize::glob_root(&body)
+                    .is_some_and(|(_, name)| name.chars().any(|c| c != '*' && c != '?'))
+        };
+        if !star_ok {
             let mut issue = err(
                 at.clone(),
                 if crate::catalog::is_registry_root(r) {
@@ -2008,15 +2033,21 @@ fn check_overbroad(m: &PluginManifest, out: &mut Vec<LintIssue>) {
                     )
                 } else {
                     format!(
-                        "'{r}' 에 와일드카드가 있다. **파일 경로는** 전개하지 않는다 — \
-                         그대로 열려다 실패해 수집이 0건이 된다. 끝의 `\\*` 로 펼칠 수 \
-                         있는 것은 레지스트리 루트뿐이다"
+                        "'{r}' 의 와일드카드 자리가 맞지 않는다. **파일 경로는** 마지막 칸의 \
+                         이름 꼴(`*.js` 처럼 글자가 섞인 것)만 받는다 — 그 폴더 바로 아래에서 \
+                         이름이 맞는 파일만 고르고 하위 폴더는 보지 않는다. 폴더 칸의 \
+                         와일드카드는 펼치지 않아 수집이 0건이 되고, 이름 칸의 맨 `*` 는 \
+                         '재귀로 다 본다' 로 읽히지만 그렇게 돌지 않는다. 폴더 아래를 다 보려면 \
+                         와일드카드 없이 폴더를 적는다"
                     )
                 },
                 "설계-02 §2",
             );
-            issue.valid =
-                Some("실제 디렉터리 경로 · 지정 토큰 · 맨 끝이 `\\*` 인 레지스트리 키".into());
+            issue.valid = Some(
+                "실제 디렉터리 경로 · 지정 토큰 · 마지막 칸의 이름 꼴(`…\\*.js`) · 맨 끝이 \
+                 `\\*` 인 레지스트리 키"
+                    .into(),
+            );
             out.push(issue);
             continue;
         }
@@ -2024,6 +2055,12 @@ fn check_overbroad(m: &PluginManifest, out: &mut Vec<LintIssue>) {
         // **끝의 `\*` 는 좁히는 것이 아니라 넓히는 것이다.** 세그먼트가 하나
         // 늘었다고 깊이를 더 세면 `HKLM\SOFTWARE` 는 경고를 맞고
         // `HKLM\SOFTWARE\*` 는 지나간다 — 뒤엣것이 더 넓은데도. 그 앞자리로 잰다.
+        //
+        // **글롭 뿌리는 재지 않는다** — 바로 아래의 이름 목록만 읽으므로 얕은 자리여도
+        // 전 디스크를 훑지 않는다.
+        if crate::normalize::glob_root(r).is_some() {
+            continue;
+        }
         let measured = r.strip_suffix("\\*").unwrap_or(r);
         match root_depth(measured) {
             // `C:\` · `/` · `C:\Users` 처럼 얕은 루트는 사실상 전 디스크다.
@@ -2562,6 +2599,36 @@ verdict: {{ require: 'r' }}
         assert_eq!(got[0].0, Severity::Error);
     }
 
+    /// 마지막 칸의 이름 꼴은 받는다 — 그 폴더 바로 아래의 맞는 파일만 고른다(코어 1.2.0).
+    /// 얕은 목록이라 깊이 경고도 없다.
+    #[test]
+    fn a_file_root_may_end_in_a_name_pattern() {
+        for r in [
+            "%ALLUSERPROFILES%\\AppData\\Local\\Temp\\*.js",
+            "C:\\x\\a?.js",
+            "C:\\*.lnk",
+        ] {
+            let got = at_roots(&[r]);
+            assert!(got.is_empty(), "{r}: {got:?}");
+        }
+    }
+
+    /// 이름 칸이 와일드카드뿐이면 '재귀로 다 본다' 로 읽힌다 — 받지 않는다. 폴더 칸의
+    /// 와일드카드는 지정 토큰이 함께 있어도 받지 않는다(전에는 토큰이 검사를 건너뛰게 했다).
+    #[test]
+    fn a_bare_star_or_a_folder_wildcard_is_still_an_error() {
+        for r in [
+            "C:\\x\\*",
+            "C:\\x\\??",
+            "C:\\x\\*\\a.js",
+            "%ALLUSERPROFILES%\\AppData\\*\\Temp",
+        ] {
+            let got = at_roots(&[r]);
+            assert_eq!(got.len(), 1, "{r}: {got:?}");
+            assert_eq!(got[0].0, Severity::Error, "{r}");
+        }
+    }
+
     /// 전개기가 **첫 번째** 별표만 펼친다. 중간에 두거나 둘 이상 쓰면 나머지가
     /// 리터럴로 남아 조용히 0건이 된다.
     #[test]
@@ -2692,7 +2759,7 @@ verdict: {{ require: 'r' }}
             .into_iter()
             .filter(|s| matches!(s.info().scoping, Scoping::Fixed))
             .count();
-        assert_eq!(n, 19);
+        assert_eq!(n, 20);
         // 전부 Fixed 면 이 검사는 아무것도 막지 못한다.
         assert!(fixed < n, "scan_roots 를 받는 subject 가 하나도 없다");
     }

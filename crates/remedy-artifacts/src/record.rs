@@ -182,6 +182,27 @@ pub struct WinTaskFields {
     pub run_level: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub working_directory: Option<String>,
+    /// `command` 에서 **작업 계정의 프로필 변수**를 편 값 (코어 1.2.0).
+    ///
+    /// 예약 작업은 `%LOCALAPPDATA%` 같은 변수를 **펴지 않은 채** 저장할 수 있고,
+    /// 돌 때 그 작업의 계정으로 편다. 원문만 보면 그 경로가 실제로 어느 파일인지
+    /// 모른다 — Trend Micro 가 본 EvilAI 의 작업이 그 꼴이다(2025-09 보도:
+    /// `"%LOCALAPPDATA%\TEMP\{UID}or.js"`). 그래서 수집할 때 **작업 계정**의 프로필로
+    /// 편 값을 함께 담는다. 엔진을 돌린 계정이 아니다 — 다른 관리자나 SYSTEM 으로
+    /// 검사해도 같은 값이 나와야 한다.
+    ///
+    /// 펴는 것은 `USERPROFILE` · `LOCALAPPDATA` · `APPDATA` · `TEMP` · `TMP` 다섯이고
+    /// 자리는 Windows 의 기본 자리다(사용자가 셸 폴더를 옮겼으면 다르다). 그 밖의
+    /// 변수와, 프로필을 모르는 계정(그룹 · 시스템 계정 · 찾지 못한 이름)의 변수는
+    /// **그대로 둔다** — 지어내지 않는다.
+    ///
+    /// `None` 은 "이 수집이 펴지 않았다" 다(1.2.0 전의 스냅샷). 펼 것이 없으면 원문과
+    /// 같은 값이 든다.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub command_expanded: Option<String>,
+    /// `args` 에서 같은 것을 편 값. 뜻은 `command_expanded` 와 같다.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub args_expanded: Option<String>,
 }
 
 // ─────────────────────────────────────────────────────── P4 subject 레코드
@@ -506,6 +527,27 @@ pub struct PackageRecord {
     pub source: String,
     /// 어느 DB 에서 읽었는가. `dpkg` · `apk`.
     pub manager: String,
+}
+
+/// 이름 있는 UNIX 소켓 (Linux · `/proc/net/unix` · 코어 1.2.0).
+///
+/// Ebury 의 현재 주 탐지법이 **추상 소켓 이름**이다(ESET 공개 점검 스크립트 —
+/// `@/run/systemd/log` · `@event-0YsOG9WSOE` 처럼 정상 경로를 흉내 낸 이름). 이
+/// 엔진은 정적 바이너리라 사용자 영역 루트킷이 `libc` 를 가로채 그 줄을 숨겨도
+/// 속지 않는다 — `/proc/net/unix` 를 시스템 호출로 직접 읽는다.
+///
+/// 찾기 전용이다 — 소켓을 닫는 Op 은 없고 있어서도 안 된다(설계-01 D11). 판정은
+/// 그 소켓을 연 상주 임플란트의 존재를 말할 뿐이다.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UnixSocketRecord {
+    /// `/proc/net/unix` 가 보여 주는 이름 그대로. **추상 소켓은 `@` 로 시작한다**
+    /// (커널이 앞의 NUL 을 `@` 로 적는다) — 같은 글자의 파일 소켓 경로와 다른 것이다.
+    pub name: String,
+    pub inode: u64,
+    /// 연결을 받으려고 듣고 있는가(`Flags` 의 `__SO_ACCEPTCON`, `0x10000`).
+    pub listening: bool,
+    /// `stream` · `dgram` · `seqpacket`. 그 밖의 값은 `type-<16진>` 그대로다.
+    pub kind: String,
 }
 
 /// 프록시 설정.

@@ -62,6 +62,8 @@ fn sample_task() -> PersistenceRecord {
                 actions: vec!["exec".into()],
                 run_level: Some("HighestAvailable".into()),
                 working_directory: None,
+                command_expanded: None,
+                args_expanded: None,
             },
         }),
     }

@@ -24,6 +24,7 @@ pub mod shortcut;
 pub mod signature;
 pub mod systemd;
 pub mod task;
+pub mod unix_socket;
 
 use remedy_artifacts::{
     CollectError, FileCollector, FileRecord, Harvest, Observations, PersistenceCollector,
@@ -78,7 +79,7 @@ impl<P: FsRead> FileCollector for Collector<P> {
         let roots: Vec<&String> = scope
             .roots_for(Subject::File)
             .iter()
-            .filter(|r| self.platform.exists(r))
+            .filter(|r| root_exists(&self.platform, r))
             .collect();
         let root_total = roots.len();
         for (i, root) in roots.into_iter().enumerate() {
@@ -215,6 +216,8 @@ impl<P: FsRead + EnvRead> Collector<P> {
         h.absorb_denied(w.denied, w.denied_paths);
 
         let root_norm = normalize::for_record(&root, scope.platform);
+        // 작업 계정마다 한 번만 묻는다 — 작업 200여 개가 몇 계정을 나눠 쓴다.
+        let mut profiles: std::collections::BTreeMap<String, Option<String>> = Default::default();
         for e in w.entries {
             if e.is_dir || e.is_reparse {
                 continue;
@@ -227,8 +230,21 @@ impl<P: FsRead + EnvRead> Collector<P> {
                 Some(p) => p,
                 None => continue,
             };
-            h.records
-                .push(task::to_record(parsed, &e.path, &root_norm, scope.platform));
+            let mut r = task::to_record(parsed, &e.path, &root_norm, scope.platform);
+            // **작업 계정**의 프로필로 편다 — 엔진을 돌린 계정이 아니다
+            // (`WinTaskFields::args_expanded`).
+            let profile = r.principal.as_deref().and_then(|p| {
+                profiles
+                    .entry(p.to_string())
+                    .or_insert_with(|| self.platform.profile_of(p))
+                    .clone()
+            });
+            if let Some(win) = r.win.as_mut() {
+                win.task.command_expanded =
+                    Some(task::expand_user_vars(&r.command, profile.as_deref()));
+                win.task.args_expanded = Some(task::expand_user_vars(&r.args, profile.as_deref()));
+            }
+            h.records.push(r);
         }
         h.records.sort_by(|a, b| a.id.cmp(&b.id));
         Ok(h)
@@ -761,8 +777,23 @@ fn root_look<P: FsRead + RegistryRead>(p: &P, root: &str) -> Seen {
         // `registry.rs` 의 수집기들이 쓰는 것과 같은 길이다.
         registry::unreadable_or_absent(p, key)
     } else {
-        p.look(root)
+        // 글롭 뿌리(`…\Temp\*.js`)는 **그 폴더**를 묻는다 — 꼴째 물으면 어떤 파일도
+        // 그 이름으로 있지 않아 늘 '없는 뿌리' 가 된다. 위 레지스트리 갈래와 같은 일이다.
+        p.look(root_dir(root))
     }
+}
+
+/// 있는지 물을 자리 — 글롭 뿌리면 그 폴더, 아니면 뿌리 그대로.
+fn root_dir(root: &str) -> &str {
+    remedy_sdk::normalize::glob_root(root)
+        .map(|(dir, _)| dir)
+        .unwrap_or(root)
+}
+
+/// 뿌리가 있는가. 수집기들이 걷기 전에 거르는 데 쓴다 — 글롭 뿌리는 그 폴더를 본다
+/// (위 `root_look` 과 같은 이유).
+pub(crate) fn root_exists<P: FsRead>(p: &P, root: &str) -> bool {
+    p.exists(root_dir(root))
 }
 
 pub fn collect_all<P: FsRead + RegistryRead + EnvRead + ProcessRead>(
@@ -864,7 +895,7 @@ where
         Subject::Autorun,
         match scope.platform {
             remedy_sdk::catalog::Platform::Linux => collector.collect_linux_autoruns(scope),
-            _ => registry::autoruns(p),
+            _ => registry::autoruns(p, p.own_sid().as_deref()),
         }?
     );
     // 서비스도 플랫폼마다 사는 곳이 다르다. `persistence` 와 같은 이유로
@@ -939,6 +970,9 @@ where
     // 부르면 수집 중 자식 프로세스 0 이 깨진다 (C-2).
     remedy_platform::progress::set_stage("package");
     harvest!(Subject::Package, package::packages(p, scope)?);
+    // UNIX 소켓도 자리가 정해져 있다 — `/proc/net/unix` 를 파일로 읽는다(코어 1.2.0).
+    remedy_platform::progress::set_stage("unix_socket");
+    harvest!(Subject::UnixSocket, unix_socket::unix_sockets(p, scope)?);
 
     // `indicator` 는 **마지막이다.** 앞의 관찰에서 뽑아내므로 그것들이 먼저
     // 담겨 있어야 한다.

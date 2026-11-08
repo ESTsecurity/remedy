@@ -867,6 +867,31 @@ mod tests {
         );
     }
 
+    /// 글롭 뿌리(`…\Temp\*.js`)는 그 폴더의 맞는 파일만 상한에 들인다 — **폴더 자체는
+    /// 밖이다.** 보도의 EvilAI 는 페이로드를 `TEMP` 바로 아래에 두는데, 그 파일은
+    /// 지울 수 있어도 `TEMP` 를 통째로 지우는 계획은 서지 않는다.
+    #[test]
+    fn a_glob_root_lets_its_files_go_but_never_its_folder() {
+        let f = Fixture::new();
+        let roots = [r"C:\Users\a\AppData\Local\Temp\*.js"];
+        let file = action(
+            1,
+            Op::FileDelete,
+            r"C:\Users\a\AppData\Local\Temp\0b3cor.js",
+        );
+        assert!(check(&[file], &f.cx_roots(&[], 1, &roots)).is_empty());
+
+        let dir = action(1, Op::DirDeleteRecursive, r"C:\Users\a\AppData\Local\Temp");
+        let v = check(&[dir], &f.cx_roots(&[], 1, &roots));
+        assert!(
+            v.iter().any(|x| x.message.contains(remedy_sdk::i18n::t(
+                "읽기 상한 밖",
+                "outside the read ceiling"
+            ))),
+            "{v:?}"
+        );
+    }
+
     #[test]
     fn g7_action_without_evidence_is_refused() {
         let f = Fixture::new();

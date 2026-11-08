@@ -88,6 +88,7 @@ signed_malware:                      # 서명된 악성코드 예외. 목록 자
 | `proxy_config` | WinINET/WinHTTP, PAC | 환경변수, 시스템 설정 | `scope, server, pac_url, bypass` |
 | `firewall_rule` | 방화벽 규칙(레지스트리) | iptables·nftables·firewalld | `id, name, direction, action, enabled, protocol, local_port, remote_port, remote_address, application, service, profile, source` |
 | `package` | (수집기 없음 — MSI·winget 은 개념만 있다) | dpkg `status`, apk `installed` | `name, version, upstream_version, revision, arch, source, manager(dpkg\|apk)` |
+| `unix_socket` | (해당 없음) | `/proc/net/unix` 의 이름 있는 소켓 — 추상 이름은 `@` 로 시작 | `name, inode, listening, kind(stream\|dgram\|seqpacket)` — **찾기 전용**(코어 1.2.0) |
 
 OS 고유 필드 예: `win.task.register_path`, `win.task.principal.run_level`, `win.registry.hive`, `linux.systemd.unit_path`, `linux.cron.file`.
 
@@ -98,6 +99,8 @@ OS 고유 필드 예: `win.task.register_path`, `win.task.principal.run_level`, 
 > `firewall_rule` 은 `av_exclusion` 과 같은 부류다 — 악성코드가 자기 인바운드를 허용하거나 **보안 제품의 아웃바운드를 막는다.** 뒤의 것은 파일을 다 지운 뒤에도 남아 제품 업데이트를 계속 막는다.
 >
 > 살아 있는 **연결 목록**은 여기 없다. 표본이라 재현되지 않고 지울 Op 도 없다 — 설계-01 D11.
+>
+> `unix_socket` 은 그것과 다르다 — **듣고 있는 이름 있는 UNIX 소켓**이고, 상주 임플란트가 떠 있는 동안 계속 열려 있는 자리다. Ebury 의 현재 주 탐지법이 그 이름이다. 지울 Op 은 여전히 없다(찾기 전용). 구분의 근거는 설계-01 D11 의 덧붙임.
 
 ### v1 열거 범위와 그 밖의 것
 
@@ -254,7 +257,7 @@ detect:
 - **`version_lt` · `version_gt` 는 버전을 견준다** (2026-10-27 · C-1). 점으로 나눈 열 진수 정수만 받고, 없는 성분은 `0` 이다 — `8.2` 와 `8.2.0` 이 같다. **`gt` · `lt` 를 고치지 않고 연산자를 더한 이유**는 `1.10` 이 수로도 버전으로도 읽히고 **순서가 반대**라는 데 있다(수로는 `1.10 < 1.9`) — 기존 연산자에 버전 의미를 끼워 넣으면 이미 출하된 룰의 뜻이 조용히 바뀐다. 꼬리는 받지 않는다: `8.4.0RC1`(사전 배포)은 `8.4.0` 보다 낮고 `8.2.29-1ubuntu1`(패키지 개정)은 `8.2.29` 보다 높아 **모양이 같고 순서가 반대**다. 추측하지 않고 **관측 불완전**(`unreadable_versions` → 종료 6)으로 말하며, 패키지 개정을 가리는 것은 패키지 subject 의 몫이다. 린트가 룰의 리터럴을 미리 거절한다. **주의 줄만으로는 모자랐다** — 진단을 `issues` 에만 남기자 취약한 기계가 *"취약한 곳을 찾지 못했습니다"*(종료 0)로 나갔다(실측 2026-10-27). YARA 미평가와 같은 레일이다
 - **`pkg_version_lt` 는 배포판이 적는 판을 견준다** (2026-10-27 · C-2 후속). `version_lt` 가 **일부러 거절한 꼬리**가 이쪽의 대상이다 — 배포판은 상류 번호를 올리지 않고 고치므로(실측: ubuntu 22.04 의 `php8.1-cli` 가 `8.1.2-1ubuntu2.28`, 상류는 `8.1.2` 고정) 개정의 순서를 정하지 못하면 **고친 기계도 취약으로 나간다**. 순서는 추측이 아니라 **dpkg 의 규칙**이다(데비안 정책 §5.6.12): `[epoch:]상류[-개정]` 을 셋으로 갈라 견주고, 조각 안에서 숫자 아닌 부분과 숫자 부분을 번갈아 보며 **`~` 는 무엇보다도 먼저**다(`1.0~rc1 < 1.0 < 1.0+b1`). **`_` 는 받지 않는다** — apk 는 `_alpha` 를 그 판보다 낮게, dpkg 의 규칙은 높게 읽어 **순서가 반대**다. 그때는 추측하지 않고 관측 불완전(종료 6)으로 말한다. apk 의 `-rN` 개정은 두 규칙이 같은 답을 내므로 이 연산자로 견준다. **반대 방향을 두지 않았다** — `not pkg_version_lt` 가 `>=` 이므로 범위는 둘로 적는다
 - `matches` 의 정규식 문법은 **RE2**다. 역참조·전방탐색이 없는 대신 입력 길이에 선형이라, 플러그인 룰이 스캐너를 정지시키는 사고가 원천적으로 불가능하다. 이 제약은 기능 손실이 아니라 안전 속성이다.
-- `capture` 표현식의 함수도 닫힌 집합이다: `first_path` `dirname` `basename` `lower` `expand_env` `trim_quotes` `base64_decode` `hex_decode`. 임의 코드가 아니다. 디코딩 결과 크기에 상한을 두고 초과 시 미매치로 처리한다
+- `capture` 표현식의 함수도 닫힌 집합이다: `first_path` `last_path` `dirname` `basename` `lower` `expand_env` `trim_quotes` `base64_decode` `hex_decode`. 임의 코드가 아니다. `last_path`(코어 1.2.0)는 역슬래시가 든 마지막 토큰, 없으면 슬래시가 든 마지막 토큰이다 — `cmd.exe /c start "" /min "…\node.exe" "…\a.js"` 처럼 인자 안에 실행 파일이 다시 오는 자리에서 스크립트를 집는다. 디코딩 결과 크기에 상한을 두고 초과 시 미매치로 처리한다
 - **`yara` 는 파일 전용이 아니다.** 바이트열을 제공하는 모든 필드에 적용된다 — `file` 내용, `registry_value.data`, `text_config.line`, `structured_config` 값. 파일리스 위협은 페이로드가 파일이 아니므로 이 확장이 없으면 다루지 못한다. 어느 필드가 바이트열을 제공하는지는 스키마에 표시된다
 
 ### 지정 확장 토큰
@@ -356,6 +359,12 @@ scan_roots:
 ```
 
 `%SystemRoot%\System32` 를 선언한다고 해서 그 안의 OS 파일을 지울 수 있게 되는 것은 아니다 — 삭제 가능 여부는 **읽기 상한과 완전히 별개**로 1층 보호 목록과 서명 검증이 결정한다(설계-03 §3). 읽기 상한은 정보 수집 범위를, 보호 목록은 파괴 범위를 각각 통제하며 두 축은 겹치지 않는다.
+
+#### 이름 꼴 뿌리 — 한 폴더 바로 아래의 맞는 파일만 (코어 1.2.0)
+
+파일 경로 뿌리의 **마지막 칸**에 이름 꼴(`*` · `?` 가 글자와 섞인 것)을 적으면, 그 폴더 **바로 아래**에서 이름이 맞는 파일만 상한에 든다 — `%ALLUSERPROFILES%\AppData\Local\Temp\*.js`. 하위 폴더로 내려가지 않고, **폴더 자체는 상한 밖**이다(`normalize::is_within`). 그래서 그 폴더를 겨눈 재귀 삭제는 G6 이 막는다. 걷기도 이름 목록만 읽고 맞는 파일만 해시한다.
+
+연 까닭은 실측이다(2026-11-08). EvilAI 의 공개 보도 꼴은 페이로드를 `TEMP` 바로 아래에 두는데, `TEMP` 를 뿌리로 적으면 재귀로 걸으며 파일마다 해시한다 — 개발 기계 하나의 `TEMP` 가 파일 63,661개 · 16.2 GB 였다. 폴더 칸의 와일드카드(뿌리를 여러 갈래로 넓히는 꼴)와 이름 칸이 와일드카드뿐인 꼴(`…\*` — '재귀로 다 본다' 로 오독된다)은 그대로 린트 오류다.
 
 ---
 

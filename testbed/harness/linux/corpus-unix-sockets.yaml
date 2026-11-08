@@ -1,0 +1,41 @@
+# 코퍼스용 — 이름 있는 UNIX 소켓 **만** 모은다 (코어 1.2.0 · 2026-11-08).
+#
+# # 왜 따로 있나
+#
+# `unix_socket` 은 데몬이 떠 있는 기계에서만 레코드가 생긴다. 코퍼스의 컨테이너 스냅샷에는
+# 데몬이 없어 0건이고, 그러면 그 subject 를 쓰는 룰(Ebury 의 `socket`)이 청정 코퍼스를 한 건도
+# 마주하지 않는다 — 압력 시험(`remedy-core/tests/corpus.rs`)이 그것을 막는다.
+#
+# 소켓이 있는 기계(systemd · D-Bus · Docker 가 도는 WSL 등)를 `corpus-all-subjects.yaml` 로 뜨면
+# **프로세스 명령줄까지** 담긴다. 그런 기계는 대개 사람이 쓰는 기계라 그 명령줄을 공개 코퍼스에
+# 넣을 수 없다. 그래서 소켓만 담는다 — 소켓 이름은 데몬이 정한 자리다.
+#
+# 쓰는 법(root · `cargo xtask corpus` 가 호스트명 등을 씻는다):
+#
+#     remedy collect --plugin testbed/harness/linux/corpus-unix-sockets.yaml --out <파일>
+#     cargo xtask corpus --in <파일> --label <기계>-sockets --out corpus/clean
+#
+# 넣기 전에 **소켓 이름을 한 번 읽는다** — 사람 이름이나 비밀이 든 경로가 없는지.
+schema_version: 1
+id: linux-corpus-unix-sockets
+version: 1.0.0
+min_core: "1.2.0"
+platforms: [linux]
+name:
+  ko: "코퍼스용 — 이름 있는 UNIX 소켓만"
+  en: "corpus fixture - named UNIX sockets only"
+
+# `unix_socket` 은 `scan_roots` 를 보지 않는다(커널이 정한 자리 하나). 상한은 비울 수 없으므로
+# 그 자리를 적는다 — 파일 subject 를 선언하지 않았으므로 걷지 않는다.
+scan_roots:
+  - "/proc/net/unix"
+subjects: [unix_socket]
+
+detect:
+  # **아무것도 맞히지 않는다.** 있을 수 없는 이름을 겨눈다.
+  - id: never
+    subject: unix_socket
+    where:
+      - { field: name, op: equals, value: "@remedy-corpus-never-matches" }
+
+verdict: { require: "never" }

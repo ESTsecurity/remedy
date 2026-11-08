@@ -166,6 +166,49 @@ fn path_tail(path: &[String]) -> [&str; 3] {
     [g(3), g(2), g(1)]
 }
 
+/// 작업 계정의 프로필 변수 다섯을 편다 — 뜻은 `WinTaskFields::args_expanded` 의 문서.
+///
+/// `profile` 을 모르면 원문 그대로다. 아는 다섯이 아닌 변수(`%windir%` 등)도 그대로
+/// 둔다 — 엔진을 돌린 계정의 값으로 펴면 다른 계정의 작업이 엉뚱한 자리를 가리킨다.
+pub fn expand_user_vars(s: &str, profile: Option<&str>) -> String {
+    let Some(profile) = profile.map(|p| p.trim_end_matches(['\\', '/'])) else {
+        return s.to_string();
+    };
+    let value = |name: &str| -> Option<String> {
+        Some(match name.to_ascii_uppercase().as_str() {
+            "USERPROFILE" => profile.to_string(),
+            "LOCALAPPDATA" => format!("{profile}\\AppData\\Local"),
+            "APPDATA" => format!("{profile}\\AppData\\Roaming"),
+            "TEMP" | "TMP" => format!("{profile}\\AppData\\Local\\Temp"),
+            _ => return None,
+        })
+    };
+    let mut out = String::with_capacity(s.len());
+    let mut rest = s;
+    while let Some(start) = rest.find('%') {
+        out.push_str(&rest[..start]);
+        let after = &rest[start + 1..];
+        let Some(end) = after.find('%') else {
+            out.push_str(&rest[start..]);
+            return normalize::nfc(&out);
+        };
+        match value(&after[..end]) {
+            Some(v) => {
+                out.push_str(&v);
+                rest = &after[end + 1..];
+            }
+            // 모르는 이름이다. 여는 `%` 만 옮기고 그 뒤부터 다시 찾는다 — 닫는 `%` 가
+            // 다음 변수의 여는 것일 수 있다(`%a%%LOCALAPPDATA%`).
+            None => {
+                out.push('%');
+                rest = after;
+            }
+        }
+    }
+    out.push_str(rest);
+    normalize::nfc(&out)
+}
+
 /// 파싱 결과를 레코드로. 등록 경로는 정의 파일의 위치에서 나온다.
 pub fn to_record(
     t: ParsedTask,
@@ -217,6 +260,9 @@ pub fn to_record(
                 actions: t.actions,
                 run_level: t.run_level,
                 working_directory: t.working_directory,
+                // 수집기가 작업 계정의 프로필을 안 뒤에 채운다(`expand_user_vars`).
+                command_expanded: None,
+                args_expanded: None,
             },
         }),
     }
@@ -374,5 +420,43 @@ mod tests {
         );
         assert_eq!(r.id, "\\Solo");
         assert_eq!(r.win.unwrap().task.register_path, "\\");
+    }
+
+    /// Trend Micro 가 본 EvilAI 작업(2025-09). `%^LOCALAPPDATA^%` 로 등록해 변수가
+    /// 펴지지 않은 채 저장된다 — 그 작업의 계정으로 펴야 페이로드 자리가 나온다.
+    #[test]
+    fn user_vars_expand_against_the_task_accounts_profile() {
+        let args = r#"/c start "" /min "%LOCALAPPDATA%\Programs\nodejs\node.exe" "%LocalAppData%\TEMP\0b3cor.js""#;
+        assert_eq!(
+            expand_user_vars(args, Some(r"C:\Users\test")),
+            r#"/c start "" /min "C:\Users\test\AppData\Local\Programs\nodejs\node.exe" "C:\Users\test\AppData\Local\TEMP\0b3cor.js""#
+        );
+        assert_eq!(
+            expand_user_vars(
+                r"%USERPROFILE%\a %APPDATA%\b %TEMP%\c %TMP%\d",
+                Some(r"D:\P\u\")
+            ),
+            r"D:\P\u\a D:\P\u\AppData\Roaming\b D:\P\u\AppData\Local\Temp\c D:\P\u\AppData\Local\Temp\d"
+        );
+    }
+
+    /// 모르는 계정과 모르는 변수는 그대로 둔다 — 엔진을 돌린 계정의 값으로 펴면 다른
+    /// 계정의 작업이 엉뚱한 자리를 가리킨다.
+    #[test]
+    fn unknown_accounts_and_other_vars_stay_literal() {
+        let s = r"%LOCALAPPDATA%\x";
+        assert_eq!(expand_user_vars(s, None), s);
+        assert_eq!(
+            expand_user_vars(r"%windir%\a %LOCALAPPDATA%\b", Some(r"C:\Users\t")),
+            r"%windir%\a C:\Users\t\AppData\Local\b"
+        );
+        assert_eq!(
+            expand_user_vars(r"%a%%LOCALAPPDATA%\b", Some(r"C:\Users\t")),
+            r"%a%C:\Users\t\AppData\Local\b"
+        );
+        assert_eq!(
+            expand_user_vars("50% done %", Some(r"C:\Users\t")),
+            "50% done %"
+        );
     }
 }

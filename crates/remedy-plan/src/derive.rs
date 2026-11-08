@@ -182,6 +182,9 @@ fn removal_ops(subject: Subject) -> Removal {
         // 온다"* 는 약속이고, 여기서는 오지 않는다. `BootConfig` 와 다르다:
         // 그쪽은 Op 이 있고 대상을 짚지 못해 도달하지 않는 자리다.
         Subject::Package => Removal::Choice(&[]),
+        // **소켓을 닫는 것은 치료가 아니다** — 그 소켓을 연 프로세스가 다시 연다
+        // (설계-01 D11 근거 1). 찾기 전용이고, 위 `Package` 와 같은 빈 것이다.
+        Subject::UnixSocket => Removal::Choice(&[]),
     }
 }
 
@@ -1063,6 +1066,20 @@ pub fn derive(
                 // 경로는 capture 보간을 거쳐야 한다. 보간이 안 되면 대상이
                 // 정해지지 않은 것이므로 만들지 않는다.
                 let Some(resolved) = interpolate(&p.path, scan) else {
+                    // **서지 않은 갈래의 경로는 미룸이 아니다** (코어 1.2.0). 판정식이 `or` 로
+                    // 갈래를 두면(EvilAI 0.2.0 — `(task and payload) or (task-x and payload-x)
+                    // or …`) 선 갈래 밖의 경로 삭제는 capture 가 없는 것이 맞다 — 그 갈래에는
+                    // 지울 것이 없다. 그것을 미룸으로 내면 화면이 치료마다 *"capture 가 해소되지
+                    // 않아"* 를 적어 덜 된 치료처럼 읽힌다(2026-11-08 랩 실측 · 보도 꼴 치료에서
+                    // 두 줄). 그래서 **그 경로가 가리키는 규칙이 판정 그룹에 증거를 하나도 내지
+                    // 않았을 때만** 조용히 건너뛴다. 증거는 냈는데 capture 가 없으면 지금처럼
+                    // 미룬다 — 그것은 갈래가 선 채 대상을 못 정한 것이다.
+                    let rules = template_rules(&p.path);
+                    if !rules.is_empty()
+                        && !rules.iter().all(|r| evidence.iter().any(|e| e.rule == *r))
+                    {
+                        continue;
+                    }
                     out.deferred.push(defer(
                         at.clone(),
                         op,
@@ -1472,6 +1489,24 @@ fn action(op: Op, target: Option<String>, because: Vec<String>) -> Action {
 ///
 /// 하나라도 못 채우면 `None` 이다. 반쯤 채운 경로는 **엉뚱한 곳을 가리킨다** —
 /// 그것을 지우는 것보다 아무것도 하지 않는 편이 낫다.
+/// 경로 템플릿이 가리키는 규칙 id — `${rule.capture}` 의 `rule`. 같은 규칙 안의
+/// `${capture}`(점 없음)는 규칙을 말하지 않으므로 담지 않는다.
+fn template_rules(template: &str) -> Vec<&str> {
+    let mut out = Vec::new();
+    let mut rest = template;
+    while let Some(i) = rest.find("${") {
+        let after = &rest[i + 2..];
+        let Some(j) = after.find('}') else {
+            break;
+        };
+        if let Some((rule, _)) = after[..j].split_once('.') {
+            out.push(rule);
+        }
+        rest = &after[j + 1..];
+    }
+    out
+}
+
 fn interpolate(template: &str, scan: &ScanEnvelope) -> Option<String> {
     let mut out = String::with_capacity(template.len());
     let mut rest = template;
@@ -2613,10 +2648,12 @@ mod tests {
             // 실수로 빈 것과 가르려고 **누가 비어 있는지를 못박는다** — 새
             // subject 를 Op 없이 더하면 여기서 멈추고, 그때 "영원히 없는가" 를
             // 사람이 한 번 답해야 한다.
+            //
+            // `unix_socket`(코어 1.2.0)도 그렇다 — 소켓을 닫는 것은 치료가 아니고 그
+            // 소켓을 연 프로세스가 다시 연다(설계-01 D11 근거 1 · 카탈로그의 그 항목).
             if ops.ops().is_empty() {
-                assert_eq!(
-                    x,
-                    Subject::Package,
+                assert!(
+                    matches!(x, Subject::Package | Subject::UnixSocket),
                     "'{}' 의 제거 Op 이 비어 있다. 치료가 영원히 없는 subject 라면 \
                      이 시험에 이름을 적고 그 이유를 카탈로그에 적을 것",
                     x.info().id
@@ -3371,6 +3408,44 @@ mod tests {
         let d = derive(&s, &m, Mode::default(), &Allowed::new());
         assert!(d.actions.is_empty());
         assert!(d.deferred[0].reason.contains("capture"), "{:?}", d.deferred);
+    }
+
+    /// 판정식이 갈래를 둘 때 **서지 않은 갈래의 경로 삭제는 미루지 않는다** — 그 갈래에는
+    /// 지울 것이 없다(EvilAI 0.2.0 · 2026-11-08 랩에서 보도 꼴 치료마다 미룸 두 줄이 떴다).
+    /// 선 갈래의 경로는 그대로 계획된다.
+    #[test]
+    fn a_path_of_a_branch_that_did_not_stand_is_skipped_not_deferred() {
+        let mut g = group("g0", &["task#0", "payload#0"], true);
+        g.captures.insert(
+            "task.payload_dir".into(),
+            r"C:\Users\u\AppData\Local\Programs\x".into(),
+        );
+        let s = scan(
+            vec![
+                ev("task#0", "task", Subject::Persistence, r"\Locust"),
+                ev(
+                    "payload#0",
+                    "payload",
+                    Subject::File,
+                    r"C:\Users\u\AppData\Local\Programs\x\a.js",
+                ),
+            ],
+            vec![g],
+        );
+        let m = manifest(serde_json::json!({
+            "remove": [
+                { "path": "${task.payload_dir}", "recursive": true, "guard": "payload" },
+                { "path": "${task-x.payload_dir}", "recursive": true, "guard": "payload-x" }
+            ]
+        }));
+        let d = derive(&s, &m, Mode::default(), &Allowed::new());
+        assert!(
+            d.deferred.is_empty(),
+            "서지 않은 갈래가 미룸으로 나갔다: {:?}",
+            d.deferred
+        );
+        assert_eq!(d.actions.len(), 1, "{:?}", d.actions);
+        assert_eq!(d.actions[0].op, Op::DirDeleteRecursive);
     }
 
     #[test]

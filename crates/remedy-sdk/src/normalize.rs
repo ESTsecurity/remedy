@@ -105,11 +105,86 @@ pub fn literal(s: &str) -> String {
     nfc(s)
 }
 
+/// `<폴더>/<이름 꼴>` 로 나눈다. 와일드카드가 폴더 쪽에 있으면 `None` — 한 폴더 안만
+/// 고르므로 담는 범위가 선언에서 바로 읽힌다.
+///
+/// `collect_extra` 의 글롭과 `scan_roots` 의 글롭 뿌리(코어 1.2.0)가 이 규칙 하나를
+/// 쓴다. 이름 쪽에 와일드카드가 없어도 나눈다 — 글롭인지는 [`glob_root`] 가 가린다.
+pub fn split_glob(pattern: &str) -> Option<(&str, &str)> {
+    let cut = pattern.rfind(['/', '\\'])?;
+    let (dir, name) = (&pattern[..cut], &pattern[cut + 1..]);
+    if dir.is_empty() || name.is_empty() || dir.contains(['*', '?']) {
+        return None;
+    }
+    Some((dir, name))
+}
+
+/// 파일 시스템 뿌리가 **글롭 뿌리**인가 — 마지막 칸에만 `*` · `?` 가 있다.
+///
+/// 글롭 뿌리는 그 폴더 **바로 아래**에서 이름이 맞는 파일만 고른다. 하위 폴더로
+/// 내려가지 않고, **폴더 자체는 고르지 않는다.** 그래서 상한으로 읽으면 "그 폴더의
+/// 이 꼴 파일들" 이고, 그 폴더를 겨눈 재귀 삭제는 상한 밖이다 — `TEMP` 를 보되
+/// `TEMP` 를 지울 수는 없게 하는 것이 이 꼴이 생긴 까닭이다(2026-11-08 · EvilAI 의
+/// 보도 꼴은 페이로드를 `TEMP` 바로 아래에 둔다).
+///
+/// **레지스트리 뿌리는 아니다.** 그쪽의 끝 `\*` 는 "직속 하위 키로 펼친다" 는 다른
+/// 문법이다(린트 `check_overbroad`).
+pub fn glob_root(root: &str) -> Option<(&str, &str)> {
+    if crate::catalog::is_registry_root(root) {
+        return None;
+    }
+    let (dir, name) = split_glob(root)?;
+    name.contains(['*', '?']).then_some((dir, name))
+}
+
+/// 이름 하나에 `*`(아무 길이) · `?`(한 글자)를 맞춘다. 되돌아가기는 마지막 별에서만
+/// 하므로 이름 길이 × 꼴 길이를 넘지 않는다 — 정규식처럼 터지지 않는다.
+///
+/// 대소문자는 접지 않는다 — 부르는 쪽이 [`for_compare`] 를 거친 두 값을 준다.
+pub fn name_matches(text: &str, pattern: &str) -> bool {
+    let t: Vec<char> = text.chars().collect();
+    let p: Vec<char> = pattern.chars().collect();
+    let (mut ti, mut pi) = (0usize, 0usize);
+    let mut star: Option<(usize, usize)> = None;
+    while ti < t.len() {
+        if pi < p.len() && (p[pi] == '?' || (p[pi] != '*' && p[pi] == t[ti])) {
+            pi += 1;
+            ti += 1;
+        } else if pi < p.len() && p[pi] == '*' {
+            star = Some((pi + 1, ti));
+            pi += 1;
+        } else if let Some((sp, st)) = star {
+            pi = sp;
+            ti = st + 1;
+            star = Some((sp, st + 1));
+        } else {
+            return false;
+        }
+    }
+    p[pi..].iter().all(|&c| c == '*')
+}
+
 /// `haystack` 이 `needle` 을 경로 성분 경계에서 포함하는가.
 ///
 /// 단순 부분 문자열 비교는 `C:\Program Files\Foo` 와 `C:\Program Files\Foobar` 를
 /// 구분하지 못한다. 재귀 삭제의 상한 판정에서 그 차이는 치명적이다.
+///
+/// `parent` 가 [`glob_root`] 면 **그 폴더 바로 아래의 이름이 맞는 파일**만 안이다 —
+/// 폴더 자체와 하위 폴더는 밖이다.
 pub fn is_within(child: &str, parent: &str, platform: Platform) -> bool {
+    if let Some((dir, pattern)) = glob_root(parent) {
+        let c = for_compare(child, platform);
+        let d = for_compare(dir, platform);
+        let p = for_compare(pattern, platform);
+        let sep = if platform == Platform::Windows {
+            '\\'
+        } else {
+            '/'
+        };
+        return c
+            .rfind(sep)
+            .is_some_and(|cut| c[..cut] == d && name_matches(&c[cut + 1..], &p));
+    }
     let c = for_compare(child, platform);
     let p = for_compare(parent, platform);
     if c == p {
@@ -202,6 +277,61 @@ mod tests {
         assert!(
             is_within(&child_nfd, parent, p),
             "NFD 로 들어온 한글 경로도 같은 트리로 인식되어야 한다"
+        );
+    }
+
+    #[test]
+    fn glob_root_is_a_last_segment_pattern_on_a_file_path_only() {
+        let t = r"C:\Users\a\AppData\Local\Temp\*.js";
+        assert_eq!(
+            glob_root(t),
+            Some((r"C:\Users\a\AppData\Local\Temp", "*.js"))
+        );
+        assert_eq!(glob_root("/tmp/*.s?"), Some(("/tmp", "*.s?")));
+        assert_eq!(
+            glob_root(r"C:\x\a.js"),
+            None,
+            "와일드카드가 없으면 글롭이 아니다"
+        );
+        assert_eq!(
+            glob_root(r"C:\x\*\a.js"),
+            None,
+            "폴더 칸의 와일드카드는 받지 않는다"
+        );
+        assert_eq!(
+            glob_root(r"HKLM\SOFTWARE\Microsoft\x\*"),
+            None,
+            "레지스트리의 끝 `\\*` 는 하위 키 펼치기다"
+        );
+    }
+
+    /// 글롭 뿌리는 그 폴더 바로 아래의 맞는 파일만 고른다 — **폴더 자체는 밖이다.**
+    /// 그래서 상한으로 쓰면 `TEMP` 의 `.js` 는 지울 수 있어도 `TEMP` 는 못 지운다.
+    #[test]
+    fn a_glob_root_holds_the_matching_files_but_not_the_folder() {
+        let w = Platform::Windows;
+        let root = r"C:\Users\a\AppData\Local\Temp\*.js";
+        assert!(is_within(
+            r"C:\Users\a\AppData\Local\Temp\0b3cor.js",
+            root,
+            w
+        ));
+        assert!(
+            is_within(r"C:\USERS\A\APPDATA\LOCAL\TEMP\0B3COR.JS", root, w),
+            "Windows 는 대소문자를 접는다 — 보도는 TEMP 로 적는다"
+        );
+        assert!(!is_within(r"C:\Users\a\AppData\Local\Temp", root, w));
+        assert!(!is_within(r"C:\Users\a\AppData\Local\Temp\x\a.js", root, w));
+        assert!(!is_within(r"C:\Users\a\AppData\Local\Temp\a.txt", root, w));
+        assert!(!is_within(r"C:\Users\a\AppData\Local\Temp2\a.js", root, w));
+
+        let l = Platform::Linux;
+        assert!(is_within("/tmp/a.sh", "/tmp/*.sh", l));
+        assert!(!is_within("/tmp", "/tmp/*.sh", l));
+        assert!(!is_within("/tmp/x/a.sh", "/tmp/*.sh", l));
+        assert!(
+            !is_within("/tmp/A.SH", "/tmp/*.sh", l),
+            "Linux 는 접지 않는다"
         );
     }
 }

@@ -139,6 +139,7 @@ fn apply(name: &str, v: &str) -> Result<String, ExprError> {
 
     Ok(match f {
         CaptureFn::FirstPath => first_path(v),
+        CaptureFn::LastPath => last_path(v),
         CaptureFn::Dirname => dirname(v),
         CaptureFn::Basename => basename(v),
         CaptureFn::Lower => normalize::fold_case(v),
@@ -167,6 +168,61 @@ fn first_path(v: &str) -> String {
         }
     }
     t.split_whitespace().next().unwrap_or("").to_string()
+}
+
+/// 명령줄에서 **마지막** 경로를 꺼낸다 — 역슬래시가 든 마지막 토큰, 없으면 슬래시가
+/// 든 마지막 토큰.
+///
+/// 토큰은 따옴표로 묶인 덩어리 하나(따옴표는 뗀다)이거나 공백으로 갈린 낱말 하나다.
+/// 구분자가 없는 토큰(`--run` · 빈 `""`)은 경로가 아니라 건너뛴다.
+///
+/// **역슬래시를 먼저 보는 까닭.** Windows 의 스위치(`/c` · `/min`)는 슬래시를
+/// 담는다. 슬래시를 같은 무게로 세면 `cmd.exe /c start "" /min "…\node.exe"
+/// "…\a.js" /x` 에서 `/x` 가 잡힌다. 역슬래시가 하나도 없을 때만 슬래시를 경로로
+/// 본다 — Linux 의 명령줄이 그렇다.
+///
+/// `first_path` 와 짝이지만 같은 규칙이 아니다. 첫 자리는 실행 파일 자리라 첫
+/// 토큰이 곧 경로지만, 마지막 자리에는 플래그가 올 수 있다. 그리고 **경로가 둘 이상
+/// 나오면 마지막 것**이다 — `"…\a.js" "…\b.json"` 이면 `…\b.json` 이다. 룰이
+/// 원하는 경로가 마지막이라는 것은 룰의 `where` 가 보증해야 한다.
+fn last_path(v: &str) -> String {
+    let tokens = cmdline_tokens(v);
+    let pick = |sep: char| tokens.iter().rev().find(|t| t.contains(sep)).cloned();
+    pick('\\').or_else(|| pick('/')).unwrap_or_default()
+}
+
+/// 명령줄을 토큰으로 가른다. 따옴표 덩어리는 따옴표를 뗀 한 토큰이다. 닫히지 않은
+/// 따옴표는 끝까지를 한 덩어리로 본다 — 남이 만든 문자열이라 짝이 맞는다고
+/// 믿지 않는다.
+fn cmdline_tokens(v: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut chars = v.chars().peekable();
+    while let Some(&c) = chars.peek() {
+        if c.is_whitespace() {
+            chars.next();
+            continue;
+        }
+        let mut tok = String::new();
+        if c == '"' {
+            chars.next();
+            for ch in chars.by_ref() {
+                if ch == '"' {
+                    break;
+                }
+                tok.push(ch);
+            }
+        } else {
+            while let Some(&ch) = chars.peek() {
+                if ch.is_whitespace() {
+                    break;
+                }
+                tok.push(ch);
+                chars.next();
+            }
+        }
+        out.push(tok);
+    }
+    out
 }
 
 fn split_at_last_sep(v: &str) -> Option<(usize, char)> {
@@ -293,6 +349,40 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(dir, "C:\\Users\\t\\AppData\\Local\\Programs\\app-1");
+    }
+
+    /// Trend Micro 가 본 EvilAI 의 작업 동작(2025-09 보도). `first_path` 는 `/c` 를
+    /// 집는다 — 이 함수가 생긴 까닭이다.
+    #[test]
+    fn last_path_takes_the_script_out_of_a_cmd_start_wrapper() {
+        let args = r#"/c start "" /min "%LOCALAPPDATA%\Programs\nodejs\node.exe" "%LOCALAPPDATA%\TEMP\0b3c-9e1aor.js""#;
+        assert_eq!(first_path(args), "/c");
+        assert_eq!(last_path(args), r"%LOCALAPPDATA%\TEMP\0b3c-9e1aor.js");
+    }
+
+    #[test]
+    fn last_path_skips_trailing_flags_and_windows_switches() {
+        assert_eq!(last_path(r#""C:\a\main.js" --run"#), r"C:\a\main.js");
+        assert_eq!(last_path(r#""C:\a\main.js" /x"#), r"C:\a\main.js");
+        assert_eq!(last_path(r"C:\a\main.js --run"), r"C:\a\main.js");
+    }
+
+    #[test]
+    fn last_path_takes_the_last_of_several_paths() {
+        // 룰이 원하는 경로가 마지막임을 보증하는 것은 룰의 `where` 다.
+        assert_eq!(last_path(r#""C:\a\x.js" "C:\b\y.json""#), r"C:\b\y.json");
+    }
+
+    #[test]
+    fn last_path_falls_back_to_slashes_only_without_backslashes() {
+        assert_eq!(last_path("/usr/bin/node /opt/x/a.js --run"), "/opt/x/a.js");
+        assert_eq!(last_path("--run -v"), "");
+        assert_eq!(last_path(""), "");
+    }
+
+    #[test]
+    fn last_path_tolerates_an_unclosed_quote() {
+        assert_eq!(last_path(r#"/c "C:\a\b.js"#), r"C:\a\b.js");
     }
 
     #[test]

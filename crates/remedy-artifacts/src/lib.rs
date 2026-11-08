@@ -15,8 +15,8 @@ pub use record::{
     AutorunRecord, AvExclusionRecord, BootConfigRecord, BrowserExtensionRecord, CertStoreRecord,
     FileRecord, FirewallRuleRecord, HostsEntryRecord, IndicatorRecord, PackageRecord,
     PersistenceRecord, ProcessRecord, ProxyConfigRecord, RegistryKeyRecord, RegistryValueRecord,
-    ServiceRecord, ShortcutRecord, Signature, StructuredConfigRecord, TextConfigRecord, WinTask,
-    Zone,
+    ServiceRecord, ShortcutRecord, Signature, StructuredConfigRecord, TextConfigRecord,
+    UnixSocketRecord, WinTask, Zone,
 };
 pub use scope::Scope;
 
