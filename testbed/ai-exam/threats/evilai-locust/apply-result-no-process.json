@@ -14,10 +14,10 @@
                   "stages":  [
                                  {
                                      "stage":  "clean",
-                                     "at":  "2026-11-07T17:11:50Z",
-                                     "sha256":  "73b4cc27586a29c73defbdb5b04e84da5ba31d251ff68b4820e3e35039fa554f",
+                                     "at":  "2026-11-08T00:20:41Z",
+                                     "sha256":  "e5bf2db3d9e5e9e7248e2532c88ab8f04794aac985bcfad40e42d9697f632a7a",
                                      "counts":  {
-                                                    "processes":  173,
+                                                    "processes":  172,
                                                     "services":  281,
                                                     "tasks":  218,
                                                     "autoruns":  18,
@@ -26,10 +26,10 @@
                                  },
                                  {
                                      "stage":  "infected",
-                                     "at":  "2026-11-07T17:12:04Z",
-                                     "sha256":  "e1d5cbba2fc0fd08f551a2d40b96da863b2f15700245d1a8bee408edd62b31c6",
+                                     "at":  "2026-11-08T00:20:55Z",
+                                     "sha256":  "7c9aeeff95f770cf47e4dc48a2452ff81b9d21741a6371c7cb6908eba4837f80",
                                      "counts":  {
-                                                    "processes":  173,
+                                                    "processes":  171,
                                                     "services":  281,
                                                     "tasks":  219,
                                                     "autoruns":  19,
@@ -38,10 +38,10 @@
                                  },
                                  {
                                      "stage":  "treated",
-                                     "at":  "2026-11-07T17:15:00Z",
-                                     "sha256":  "a9eebcad86e20fff1af0e843f15664a47f8e85170f8d9e3230c0b586175e6af5",
+                                     "at":  "2026-11-08T00:23:40Z",
+                                     "sha256":  "fb883c943fe50f83e275da6e0a839f35b5bcc1f61a10ec138000d7da3ec53930",
                                      "counts":  {
-                                                    "processes":  163,
+                                                    "processes":  164,
                                                     "services":  281,
                                                     "tasks":  218,
                                                     "autoruns":  19,
@@ -64,6 +64,6 @@
                      },
     "expected_ops_sha256":  "25bd91a2becc1cd3ab61223f7a031fb6bc45fd52a81628cf39bfc97ab1157127",
     "must_remain_sha256":  "8dbb08d9955111ea1f0760d84ef4c0c72d08749cca694b293f7f1594828888a5",
-    "binary_sha256":  "01d401b0f802cc2b6c31f77a93b67652891f83e48d034eb5e23a5e86746a5ab4",
-    "ran_at":  "2026-11-07T17:15:02Z"
+    "binary_sha256":  "7cea3001f5eec127667a8ba9c8774106c1852cbca55dde0c783eb5759d9ae7c9",
+    "ran_at":  "2026-11-08T00:23:42Z"
 }
