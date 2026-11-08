@@ -17,9 +17,9 @@
 | 룰 | 하는 일 | OS | 폴더 · 버전 | 참고 |
 |---|---|---|---|---|
 | EvilAI(Locust) 제거 | 찾아서 치료합니다 (복원할 수 있습니다) | Windows | `evilai-locust` 0.1.3 | [www.virustotal.com](https://www.virustotal.com/gui/search/engines%3Ameadowlocust) |
-| CWPdoor 점검 (탐지만) | 찾기만 합니다 | Linux | `cwpdoor-1-check` 0.1.1 | [blog.xlab.qianxin.com](https://blog.xlab.qianxin.com/cwpdoor-the-invisible-backdoor-living-inside-control-web-panel/) |
-| CWPdoor 제거 | 찾아서 치료합니다 (복원할 수 있습니다) | Linux | `cwpdoor-2-clean` 0.1.1 | [blog.xlab.qianxin.com](https://blog.xlab.qianxin.com/cwpdoor-the-invisible-backdoor-living-inside-control-web-panel/) |
-| Ebury 점검 (탐지만) | 찾기만 합니다 | Linux | `ebury-check` 0.1.1 | [www.welivesecurity.com](https://www.welivesecurity.com/en/eset-research/ebury-alive-unseen-400k-linux-servers-compromised-cryptotheft-financial-gain/) |
+| CWPdoor 점검 (탐지만) | 찾기만 합니다 | Linux | `cwpdoor-1-check` 0.1.2 | [blog.xlab.qianxin.com](https://blog.xlab.qianxin.com/cwpdoor-the-invisible-backdoor-living-inside-control-web-panel/) |
+| CWPdoor 제거 | 찾아서 치료합니다 (복원할 수 있습니다) | Linux | `cwpdoor-2-clean` 0.1.2 | [blog.xlab.qianxin.com](https://blog.xlab.qianxin.com/cwpdoor-the-invisible-backdoor-living-inside-control-web-panel/) |
+| Ebury 점검 (탐지만) | 찾기만 합니다 | Linux | `ebury-check` 0.1.2 | [www.welivesecurity.com](https://www.welivesecurity.com/en/eset-research/ebury-alive-unseen-400k-linux-servers-compromised-cryptotheft-financial-gain/) |
 <!-- threats:end -->
 
 ## 처음 쓰시는 분 — 다섯 단계
@@ -127,9 +127,22 @@ sudo ./remedy
 ### CWPdoor — Control Web Panel 을 쓰는 리눅스 서버
 
 - **CWPdoor 제거** 는 백도어가 든 `cwpsrv` 를 **격리**하고, 그것을 띄우는 `cwpsrv.service` 를
-  **멈추고 지웁니다**. 패널은 그 뒤 공급사의 정상 버전을 다시 설치하고(`yum reinstall cwpsrv` —
-  서비스 파일도 함께 돌아옵니다) `systemctl enable --now cwpsrv` 로 다시 켭니다.
-  백도어는 임의 명령을 돌릴 수 있었으므로 패널 자격 증명도 모두 바꾸십시오.
+  **멈추고 지웁니다**. 패널은 그 뒤 공급사의 **최신 버전**을 설치하고(`yum install cwpsrv` 로 올립니다.
+  같은 버전을 다시 깔려면 `yum reinstall cwpsrv` — 어느 쪽이든 서비스 파일이 함께 돌아옵니다)
+  `systemctl enable --now cwpsrv` 로 다시 켭니다. 침입에 쓰인 구멍이 깔려 있던 버전의 것일 수 있어
+  공개 보고는 최신 버전으로 올리라고 권합니다.
+- 패널을 되살린 뒤 **백도어가 열던 창구가 사라졌는지 한 번 보십시오.** 아래가 아무것도 내지 않아야
+  합니다. 이 도구는 이것을 재지 못합니다(돌고 있는 창구는 검사 대상이 아닙니다).
+
+  ```sh
+  ss -axp | grep integrity
+  ```
+
+- 백도어는 임의 명령을 돌릴 수 있었으므로 **패널 자격 증명을 모두 바꾸고**, 서버 전체를 침해된 것으로
+  보고 다른 흔적을 살피십시오.
+- **치료가 끝나도 '이 서버에 CWPdoor 가 없다' 는 뜻은 아닙니다.** 이 룰은 공개 보고가 밝힌 활성화
+  방식과 공격자의 서명 키를 **함께** 지닌 파일을 찾습니다 — 서명 키가 다른 배포는 찾지 못합니다.
+  의심되면 위 `ss` 확인과 함께 담당자에게 알리십시오.
 - 공급사 버전을 다시 설치한 뒤에는 **치료를 되돌리지 마십시오** — 되돌리면 격리해 둔 백도어가
   새로 설치한 정상 파일을 덮어씁니다. 되돌리기는 오탐이라 판단했을 때, 다시 설치하기 전에만 씁니다.
 - CWP 가 깔리지 않은 서버에서는 두 항목 모두 검사할 경로(`/usr/local/cwpsrv/bin`)가 없어 *관측이
@@ -159,6 +172,17 @@ Ebury 는 `libkeyutils.so.1` 자리에 가짜 라이브러리를 둡니다 — �
    나간 키 — Ebury 는 둘 다 훔칩니다.
 6. **서버 전체를 침해된 것으로 봅니다.** 심으려면 root 권한이 필요했습니다. 다시 설치를 검토합니다.
 
+**'위협 없음' 이 Ebury 가 없다는 뜻은 아닙니다.** 이 항목은 라이브러리 **파일의 내용**을 봅니다.
+공개 보고(ESET)는 다섯 가지 설치 방법을 적는데, 이 룰은 그 가운데 **보고가 이름을 밝힌 파일들**을
+봅니다 — OpenSSH 실행 파일 자체를 고친 경우와 아직 이름이 알려지지 않은 파일은 찾지 못합니다.
+또 ESET 의 현재 주 점검 방법은 **돌고 있는 백도어가 여는 창구**를 보는 것인데, 이 도구는 그것을
+재지 못합니다. 침해가 의심되면 ESET 가 공개한 점검 스크립트를 함께 돌리십시오(root 권한).
+
+```sh
+curl -LO https://raw.githubusercontent.com/eset/malware-research/master/ebury/detect_ebury.sh
+sudo bash detect_ebury.sh
+```
+
 ### EvilAI(Locust) — Windows PC
 
 - **EvilAI(Locust) 제거** 는 페이로드를 돌리던 `node.exe` 프로세스를 멈추고, 예약 작업과 시작
@@ -172,6 +196,11 @@ Ebury 는 `libkeyutils.so.1` 자리에 가짜 라이브러리를 둡니다 — �
   유지됐는지 다시 보기* 로 확인합니다.
 - 어느 계정에도 `AppData\Local\Programs` 폴더가 없는 PC 는 *관측이 불완전* 으로 끝납니다 — EvilAI 가
   자리 잡는 폴더가 그 PC 에 없다는 뜻입니다.
+- **'위협 없음' 이 이 PC 가 깨끗하다는 뜻은 아닙니다.** 이 항목은 확보한 검체에서 확인한 꼴을 찾습니다 —
+  `AppData\Local\Programs` 아래의 페이로드를 `\Microsoft\Windows\` 폴더의 예약 작업이 `node.exe` 로
+  직접 띄우는 꼴입니다. 공개 보고에는 페이로드를 임시 폴더에 두거나, 작업을 폴더 없이 등록하거나,
+  `cmd.exe` 를 거쳐 띄우는 변종도 있습니다 — 그런 꼴은 찾지 못하고, 시작 메뉴에 만드는 바로 가기도
+  보지 않습니다. 감염이 의심되면 백신으로 PC 전체를 검사하고 담당자에게 알리십시오.
 - EvilAI 는 다른 악성 코드를 풀어 실행하는 로더입니다. 이 도구는 EvilAI 가 남기는 항목만 보므로
   **백신으로 PC 전체를 검사**하고, 이 PC 에서 쓰던 비밀번호는 **다른 기기에서** 바꾸십시오.
 
