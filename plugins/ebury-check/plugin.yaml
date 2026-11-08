@@ -9,7 +9,7 @@
 # 종료 코드: 2 위협 발견 · 0 위협 없음 · 6 다 보지 못했다.
 schema_version: 1
 id: ebury-check
-version: 0.1.1
+version: 0.1.2
 min_core: "1.0.2"   # collect_extra 의 glob 형이 1.0.2 부터 있다
 platforms: [linux]
 name:
@@ -30,15 +30,32 @@ scan_roots:
   - "/lib/x86_64-linux-gnu"
 subjects: [file]
 
+# ── 이름과 자리 ────────────────────────────────────────────
+#
+# **ESET 가 적은 설치 방법 다섯을 따라간다**(0.1.2 · `malware-ioc` 의 `windigo/README.adoc`). 0.1.1 은
+# `libkeyutils*` 하나만 봐서 나머지를 종료 0 '위협 없음' 으로 지나쳤다(2026-11-08 실측 — RELEASE.md):
+#
+#   ⓐ `libkeyutils.so` 교체                     — 0.1.1 도 덮었다
+#   ⓑ `[...]/lib/tls/` 에 두어 먼저 실리게      — `(/tls)?` 를 더했다
+#   ⓒ `libkeyutils.so` 를 패치해 `libXXX.so` 를 싣게 — 그 XXX 들을 이름에 더했다
+#   ⓓ 트로이 `libkeyutils` 가 다른 파일을 싣게  — 그 파일들을 이름에 더했다
+#   ⓔ OpenSSH 실행 파일 자체 패치               — **덮지 않는다**(자리가 `scan_roots` 밖이다)
+#
+# 이름 목록은 ESET 가 **실제로 본 것**이다 — 지어낸 이름은 넣지 않는다. `libllz564` 는 위 규칙 meta 의
+# 해시가 가리키는 그 표본(v1.8.1 · v1.8.2)의 이름이다. 목록에 없는 새 이름은 지금도 놓친다 — 이름에
+# 기대지 않는 길(SONAME + 크기 범위로 본문을 담기)은 수집 상한을 먼저 재야 한다(RELEASE.md '남는 것').
+#
+# `scan_roots` 는 하위 폴더까지 걷는다 — 그래서 `tls` 를 자리로 따로 적지 않는다(2026-11-08 실측:
+# 세 자리만 적은 채로 `/usr/lib64/tls/` 아래 파일이 걸렸다).
 detect:
-  # 근거 1 — ESET: SONAME 이 libkeyutils.so.1 인데 생성자가 하나 더 있다. 경로는 세 자리 **바로 아래**
-  # 에서 이름이 libkeyutils 로 시작하는 실제 파일 — 링크(`libkeyutils.so.1` 이 보통 그렇다)는 해시하지
-  # 않아 sha256 이 없으므로 여기서 빠지고, 아래 글롭이 본문을 담는 범위와 꼭 같다.
+  # 근거 1 — ESET: SONAME 이 libkeyutils.so.1 인데 생성자가 하나 더 있다. 위 이름 목록에 드는 실제
+  # 파일만 본다 — 링크(`libkeyutils.so.1` 이 보통 그렇다)는 해시하지 않아 sha256 이 없으므로 여기서
+  # 빠지고, 아래 글롭이 본문을 담는 범위와 꼭 같다.
   - id: ctor
     subject: file
     where:
       all:
-        - { field: path, op: matches, value: '^(/usr/lib64|/usr/lib/x86_64-linux-gnu|/lib/x86_64-linux-gnu)/libkeyutils[^/]*$' }
+        - { field: path, op: matches, value: '^(/usr/lib64|/usr/lib/x86_64-linux-gnu|/lib/x86_64-linux-gnu)(/tls)?/(libkeyutils|libns2|libns5|libpw3|libpw5|libsbr|libslr|libstz|libtsq|libtsr|libkeystats|libkeyctl|librwctl|libllz564)[^/]*$' }
         - { field: sha256, op: exists }
         - { yara: "rules/ebury.yar:libkeyutils_with_ctor" }
   # 근거 2 — ESET: v1.7 · v1.8 의 문자열 복호 루틴.
@@ -46,7 +63,7 @@ detect:
     subject: file
     where:
       all:
-        - { field: path, op: matches, value: '^(/usr/lib64|/usr/lib/x86_64-linux-gnu|/lib/x86_64-linux-gnu)/libkeyutils[^/]*$' }
+        - { field: path, op: matches, value: '^(/usr/lib64|/usr/lib/x86_64-linux-gnu|/lib/x86_64-linux-gnu)(/tls)?/(libkeyutils|libns2|libns5|libpw3|libpw5|libsbr|libslr|libstz|libtsq|libtsr|libkeystats|libkeyctl|librwctl|libllz564)[^/]*$' }
         - { field: sha256, op: exists }
         - { yara: "rules/ebury.yar:Ebury_v1_7_crypto" }
 
@@ -56,10 +73,95 @@ verdict:
   require: "ctor or crypto"
 
 # ── 본문 ──────────────────────────────────────────────────
-# 세 자리에서 이름이 libkeyutils 로 시작하는 실제 파일의 바이트. 규칙으로 고르지 않는다 — 고르는 규칙은
-# 정상 libkeyutils 에도 맞아 모든 정상 서버에 흔적으로 뜬다(2026-11-06 G1 이 잡았다). 실물은 15 ~ 65 KB,
-# 정상 판은 그보다 작다.
+# 위 이름 목록에 드는 실제 파일의 바이트. 규칙으로 고르지 않는다 — 고르는 규칙은 정상 libkeyutils 에도
+# 맞아 모든 정상 서버에 흔적으로 뜬다(2026-11-06 G1 이 잡았다). 실물은 15 ~ 65 KB, 정상 판은 그보다 작다.
+#
+# **탐지 경로와 꼭 같은 범위여야 한다.** 본문이 없는 레코드는 YARA 를 재지 못해 *미평가*로 남고, 그러면
+# 판정이 아니라 관측 불완전(6)이 된다. 그래서 자리 3 × (바로 아래 · `tls` 아래) × 이름 14 = 84줄이다 —
+# 글롭은 `*` 와 `?` 만 받고 **폴더 쪽에는 와일드카드를 둘 수 없다**(`collect_extra` 의 `split_glob`).
+# 없는 폴더의 글롭은 아무것도 담지 않고 아무 말도 하지 않는다.
 collect_extra:
   - { glob: "/usr/lib64/libkeyutils*", max_size: 1MB }
+  - { glob: "/usr/lib64/libns2*", max_size: 1MB }
+  - { glob: "/usr/lib64/libns5*", max_size: 1MB }
+  - { glob: "/usr/lib64/libpw3*", max_size: 1MB }
+  - { glob: "/usr/lib64/libpw5*", max_size: 1MB }
+  - { glob: "/usr/lib64/libsbr*", max_size: 1MB }
+  - { glob: "/usr/lib64/libslr*", max_size: 1MB }
+  - { glob: "/usr/lib64/libstz*", max_size: 1MB }
+  - { glob: "/usr/lib64/libtsq*", max_size: 1MB }
+  - { glob: "/usr/lib64/libtsr*", max_size: 1MB }
+  - { glob: "/usr/lib64/libkeystats*", max_size: 1MB }
+  - { glob: "/usr/lib64/libkeyctl*", max_size: 1MB }
+  - { glob: "/usr/lib64/librwctl*", max_size: 1MB }
+  - { glob: "/usr/lib64/libllz564*", max_size: 1MB }
+  - { glob: "/usr/lib64/tls/libkeyutils*", max_size: 1MB }
+  - { glob: "/usr/lib64/tls/libns2*", max_size: 1MB }
+  - { glob: "/usr/lib64/tls/libns5*", max_size: 1MB }
+  - { glob: "/usr/lib64/tls/libpw3*", max_size: 1MB }
+  - { glob: "/usr/lib64/tls/libpw5*", max_size: 1MB }
+  - { glob: "/usr/lib64/tls/libsbr*", max_size: 1MB }
+  - { glob: "/usr/lib64/tls/libslr*", max_size: 1MB }
+  - { glob: "/usr/lib64/tls/libstz*", max_size: 1MB }
+  - { glob: "/usr/lib64/tls/libtsq*", max_size: 1MB }
+  - { glob: "/usr/lib64/tls/libtsr*", max_size: 1MB }
+  - { glob: "/usr/lib64/tls/libkeystats*", max_size: 1MB }
+  - { glob: "/usr/lib64/tls/libkeyctl*", max_size: 1MB }
+  - { glob: "/usr/lib64/tls/librwctl*", max_size: 1MB }
+  - { glob: "/usr/lib64/tls/libllz564*", max_size: 1MB }
   - { glob: "/usr/lib/x86_64-linux-gnu/libkeyutils*", max_size: 1MB }
+  - { glob: "/usr/lib/x86_64-linux-gnu/libns2*", max_size: 1MB }
+  - { glob: "/usr/lib/x86_64-linux-gnu/libns5*", max_size: 1MB }
+  - { glob: "/usr/lib/x86_64-linux-gnu/libpw3*", max_size: 1MB }
+  - { glob: "/usr/lib/x86_64-linux-gnu/libpw5*", max_size: 1MB }
+  - { glob: "/usr/lib/x86_64-linux-gnu/libsbr*", max_size: 1MB }
+  - { glob: "/usr/lib/x86_64-linux-gnu/libslr*", max_size: 1MB }
+  - { glob: "/usr/lib/x86_64-linux-gnu/libstz*", max_size: 1MB }
+  - { glob: "/usr/lib/x86_64-linux-gnu/libtsq*", max_size: 1MB }
+  - { glob: "/usr/lib/x86_64-linux-gnu/libtsr*", max_size: 1MB }
+  - { glob: "/usr/lib/x86_64-linux-gnu/libkeystats*", max_size: 1MB }
+  - { glob: "/usr/lib/x86_64-linux-gnu/libkeyctl*", max_size: 1MB }
+  - { glob: "/usr/lib/x86_64-linux-gnu/librwctl*", max_size: 1MB }
+  - { glob: "/usr/lib/x86_64-linux-gnu/libllz564*", max_size: 1MB }
+  - { glob: "/usr/lib/x86_64-linux-gnu/tls/libkeyutils*", max_size: 1MB }
+  - { glob: "/usr/lib/x86_64-linux-gnu/tls/libns2*", max_size: 1MB }
+  - { glob: "/usr/lib/x86_64-linux-gnu/tls/libns5*", max_size: 1MB }
+  - { glob: "/usr/lib/x86_64-linux-gnu/tls/libpw3*", max_size: 1MB }
+  - { glob: "/usr/lib/x86_64-linux-gnu/tls/libpw5*", max_size: 1MB }
+  - { glob: "/usr/lib/x86_64-linux-gnu/tls/libsbr*", max_size: 1MB }
+  - { glob: "/usr/lib/x86_64-linux-gnu/tls/libslr*", max_size: 1MB }
+  - { glob: "/usr/lib/x86_64-linux-gnu/tls/libstz*", max_size: 1MB }
+  - { glob: "/usr/lib/x86_64-linux-gnu/tls/libtsq*", max_size: 1MB }
+  - { glob: "/usr/lib/x86_64-linux-gnu/tls/libtsr*", max_size: 1MB }
+  - { glob: "/usr/lib/x86_64-linux-gnu/tls/libkeystats*", max_size: 1MB }
+  - { glob: "/usr/lib/x86_64-linux-gnu/tls/libkeyctl*", max_size: 1MB }
+  - { glob: "/usr/lib/x86_64-linux-gnu/tls/librwctl*", max_size: 1MB }
+  - { glob: "/usr/lib/x86_64-linux-gnu/tls/libllz564*", max_size: 1MB }
   - { glob: "/lib/x86_64-linux-gnu/libkeyutils*", max_size: 1MB }
+  - { glob: "/lib/x86_64-linux-gnu/libns2*", max_size: 1MB }
+  - { glob: "/lib/x86_64-linux-gnu/libns5*", max_size: 1MB }
+  - { glob: "/lib/x86_64-linux-gnu/libpw3*", max_size: 1MB }
+  - { glob: "/lib/x86_64-linux-gnu/libpw5*", max_size: 1MB }
+  - { glob: "/lib/x86_64-linux-gnu/libsbr*", max_size: 1MB }
+  - { glob: "/lib/x86_64-linux-gnu/libslr*", max_size: 1MB }
+  - { glob: "/lib/x86_64-linux-gnu/libstz*", max_size: 1MB }
+  - { glob: "/lib/x86_64-linux-gnu/libtsq*", max_size: 1MB }
+  - { glob: "/lib/x86_64-linux-gnu/libtsr*", max_size: 1MB }
+  - { glob: "/lib/x86_64-linux-gnu/libkeystats*", max_size: 1MB }
+  - { glob: "/lib/x86_64-linux-gnu/libkeyctl*", max_size: 1MB }
+  - { glob: "/lib/x86_64-linux-gnu/librwctl*", max_size: 1MB }
+  - { glob: "/lib/x86_64-linux-gnu/libllz564*", max_size: 1MB }
+  - { glob: "/lib/x86_64-linux-gnu/tls/libkeyutils*", max_size: 1MB }
+  - { glob: "/lib/x86_64-linux-gnu/tls/libns2*", max_size: 1MB }
+  - { glob: "/lib/x86_64-linux-gnu/tls/libns5*", max_size: 1MB }
+  - { glob: "/lib/x86_64-linux-gnu/tls/libpw3*", max_size: 1MB }
+  - { glob: "/lib/x86_64-linux-gnu/tls/libpw5*", max_size: 1MB }
+  - { glob: "/lib/x86_64-linux-gnu/tls/libsbr*", max_size: 1MB }
+  - { glob: "/lib/x86_64-linux-gnu/tls/libslr*", max_size: 1MB }
+  - { glob: "/lib/x86_64-linux-gnu/tls/libstz*", max_size: 1MB }
+  - { glob: "/lib/x86_64-linux-gnu/tls/libtsq*", max_size: 1MB }
+  - { glob: "/lib/x86_64-linux-gnu/tls/libtsr*", max_size: 1MB }
+  - { glob: "/lib/x86_64-linux-gnu/tls/libkeystats*", max_size: 1MB }
+  - { glob: "/lib/x86_64-linux-gnu/tls/libkeyctl*", max_size: 1MB }
+  - { glob: "/lib/x86_64-linux-gnu/tls/librwctl*", max_size: 1MB }
+  - { glob: "/lib/x86_64-linux-gnu/tls/libllz564*", max_size: 1MB }

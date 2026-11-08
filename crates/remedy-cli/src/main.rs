@@ -1096,20 +1096,38 @@ fn guidance(flow: Flow, code: Code, treats: bool, notes: &[std::path::PathBuf]) 
         (Flow::Scan | Flow::ScanAll, Code::FoundNotRemediated)
     ) && !treats;
     let treated = matches!((flow, code), (Flow::Treat, Code::Remediated));
-    if !found_by_a_checker && !treated {
+    // **깨끗하게 끝난 결과도 범위를 밝힌다**(2026-11-08 — 룰 대 공개 보도 대조). 룰은 공개 보도가
+    // 밝힌 꼴을 찾는다. 같은 위협의 다른 설치 방법 · 다른 키 · 다른 자리는 이름 그대로 찾지 못하는데,
+    // 화면은 *"위협이 발견되지 않았습니다"* 로만 끝나 그 결과가 기계의 무죄로 읽혔다(실측: Ebury 는
+    // ESET 가 적은 설치 방법 다섯 중 하나만, CWPdoor 는 키가 다르면 0, EvilAI 는 보도의 변종에서 0).
+    // 종료 코드와 결과 줄은 그대로다 — 더하는 것은 무엇을 보았는지 읽을 곳 한 줄이다.
+    let clean = matches!(
+        (flow, code),
+        (Flow::Scan | Flow::ScanAll | Flow::Treat, Code::NoThreat)
+    );
+    if !found_by_a_checker && !treated && !clean {
         return None;
     }
     let lang = ui().lang;
-    let head = if treated { TREATED_NEXT } else { CHECKER_FOUND };
+    let head = if treated {
+        TREATED_NEXT
+    } else if clean {
+        CLEAN_SCOPE
+    } else {
+        CHECKER_FOUND
+    };
     let mut s = format!(
         "{}\n    https://github.com/ESTsecurity/remedy#위협별-안내",
         lang.t(head.0, head.1)
     );
     if !notes.is_empty() {
-        s.push_str(&format!(
-            "\n  {}",
-            lang.t(CHECKER_OFFLINE.0, CHECKER_OFFLINE.1)
-        ));
+        // 깨끗한 결과에는 '같은 차례' 라고 하지 않는다 — 할 차례가 없다. 적혀 있는 것은 범위다.
+        let off = if clean {
+            CLEAN_OFFLINE
+        } else {
+            CHECKER_OFFLINE
+        };
+        s.push_str(&format!("\n  {}", lang.t(off.0, off.1)));
         for n in notes {
             s.push_str(&format!("\n    {}", n.display()));
         }
@@ -1120,6 +1138,14 @@ fn guidance(flow: Flow, code: Code, treats: bool, notes: &[std::path::PathBuf]) 
 const CHECKER_FOUND: (&str, &str) = (
     "이 항목은 찾기만 합니다 — 조치 차례는 README 의 '위협별 안내'에 있습니다:",
     "This rule only detects — what to do is in the README's per-threat notes:",
+);
+const CLEAN_OFFLINE: (&str, &str) = (
+    "인터넷이 막힌 곳이면 받은 폴더의 이 파일에 적혀 있습니다:",
+    "Without internet, it is written in this file in the downloaded folder:",
+);
+const CLEAN_SCOPE: (&str, &str) = (
+    "'위협 없음' 은 이 항목이 보는 꼴이 없다는 뜻입니다 — 무엇을 보는지:",
+    "'No threat' means this item's known shapes were not found. What it checks:",
 );
 const SIGNED_OK: (&str, &str) = (
     "서명이 맞고, 룰 파일도 받은 그대로입니다.",
@@ -4920,7 +4946,6 @@ mod tests {
             assert!(guidance(f, Code::FoundNotRemediated, false, &[])
                 .is_some_and(|g| g.contains("#위협별-안내") && !g.contains("인터넷이")));
             assert!(guidance(f, Code::FoundNotRemediated, true, &[]).is_none());
-            assert!(guidance(f, Code::NoThreat, false, &[]).is_none());
         }
         // 받은 폴더의 기록이 있으면 그 경로를 그대로 적는다 — 인터넷이 막힌 서버의 몫이다.
         let note = std::path::PathBuf::from("plugins")
@@ -4955,9 +4980,45 @@ mod tests {
             SIGNED_OK.1,
             NO_REVOCATION_YET.0,
             NO_REVOCATION_YET.1,
+            CLEAN_SCOPE.0,
+            CLEAN_SCOPE.1,
+            CLEAN_OFFLINE.0,
+            CLEAN_OFFLINE.1,
         ] {
             assert!(2 + cols(l) <= 80, "{} 칸: {l}", 2 + cols(l));
         }
+    }
+
+    /// 깨끗하게 끝난 결과도 **범위를 밝힌다** — 룰은 공개 보도가 밝힌 꼴을 찾고, 같은 위협의 다른 설치
+    /// 방법은 이름 그대로 찾지 못한다(2026-11-08 실측). 종료 코드와 결과 줄은 그대로고, 읽을 곳 한 줄을
+    /// 더한다. 관측 불완전(6)에는 내지 않는다 — 그쪽은 *주의* 줄이 까닭을 말한다.
+    #[test]
+    fn a_clean_result_still_says_what_it_covered() {
+        let note = std::path::PathBuf::from("plugins")
+            .join("ebury-check")
+            .join("RELEASE.md");
+        for f in [Flow::Scan, Flow::ScanAll, Flow::Treat] {
+            for treats in [true, false] {
+                let g = guidance(f, Code::NoThreat, treats, std::slice::from_ref(&note))
+                    .expect("깨끗한 결과에도 범위 한 줄");
+                // 시험은 기본 언어(영어)로 돈다 — 두 판 가운데 어느 쪽이든 받는다.
+                assert!(
+                    g.contains(CLEAN_SCOPE.0) || g.contains(CLEAN_SCOPE.1),
+                    "{g}"
+                );
+                assert!(g.contains("#위협별-안내"), "{g}");
+                assert!(
+                    g.contains(CLEAN_OFFLINE.0) || g.contains(CLEAN_OFFLINE.1),
+                    "{g}"
+                );
+                assert!(
+                    g.lines().any(|l| l.trim() == note.display().to_string()),
+                    "{g}"
+                );
+            }
+        }
+        assert!(guidance(Flow::Scan, Code::IncompleteObservation, true, &[]).is_none());
+        assert!(guidance(Flow::Restore, Code::NoThreat, true, &[]).is_none());
     }
 
     /// 룰 서명 확인이 **성공했을 때만** 끝줄을 풀이한다 — 실패(5)에는 화면의 거부 줄이 할 말을 한다.

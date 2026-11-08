@@ -18,23 +18,23 @@
     }
   },
   "cwpdoor-1-check": {
-    "version": "0.1.1",
+    "version": "0.1.2",
     "files": {
-      "plugin.yaml": "ea03ead3683cb4f602cb0b277d7d5b95f634dfc10938ba47f3e1c6e4cd59d408",
+      "plugin.yaml": "ba6b4ea200ffcf25c78e23c51a1e02d99a8c0a366d00223851489200e4002acd",
       "rules/cwpdoor.yar": "f1330d26c9c65fcb56c50673b94f2c0594ffd1b57fee90b12a5a7d5e2f2494f9"
     }
   },
   "cwpdoor-2-clean": {
-    "version": "0.1.1",
+    "version": "0.1.2",
     "files": {
-      "plugin.yaml": "8ac1076f367e2a4c4538245607ec5818e61dae0b70b47d52c9c9c5e8bcbea926",
+      "plugin.yaml": "31e9779e70f05597276f0345a3534b1cce4c0d9301f231e07b70d9d4c754cfa6",
       "rules/cwpdoor.yar": "f1330d26c9c65fcb56c50673b94f2c0594ffd1b57fee90b12a5a7d5e2f2494f9"
     }
   },
   "ebury-check": {
-    "version": "0.1.1",
+    "version": "0.1.2",
     "files": {
-      "plugin.yaml": "3e7df7a0ad0326b0805601c5ecfd7bb9378065c35ca135918d588feb78905c3d",
+      "plugin.yaml": "6d92a16cc8372b71e9d8508f7c7694f485d06c48032ef7c5025ef6aa3c8d4a0d",
       "rules/ebury.yar": "efb023efd24f6b3dc7e37a908f784f3753165d2c2ef7b6b23cd16cc67d44763a"
     }
   },
