@@ -16,10 +16,10 @@
 <!-- threats:begin — `cargo xtask threats --write` 가 룰에서 만든다. 손으로 고치지 않는다 -->
 | 룰 | 하는 일 | OS | 폴더 · 버전 | 참고 |
 |---|---|---|---|---|
-| EvilAI(Locust) 제거 | 찾아서 치료합니다 (복원할 수 있습니다) | Windows | `evilai-locust` 0.1.3 | [www.virustotal.com](https://www.virustotal.com/gui/search/engines%3Ameadowlocust) |
+| EvilAI(Locust) 제거 | 찾아서 치료합니다 (복원할 수 있습니다) | Windows | `evilai-locust` 0.2.0 | [www.virustotal.com](https://www.virustotal.com/gui/search/engines%3Ameadowlocust) |
 | CWPdoor 점검 (탐지만) | 찾기만 합니다 | Linux | `cwpdoor-1-check` 0.1.2 | [blog.xlab.qianxin.com](https://blog.xlab.qianxin.com/cwpdoor-the-invisible-backdoor-living-inside-control-web-panel/) |
 | CWPdoor 제거 | 찾아서 치료합니다 (복원할 수 있습니다) | Linux | `cwpdoor-2-clean` 0.1.2 | [blog.xlab.qianxin.com](https://blog.xlab.qianxin.com/cwpdoor-the-invisible-backdoor-living-inside-control-web-panel/) |
-| Ebury 점검 (탐지만) | 찾기만 합니다 | Linux | `ebury-check` 0.1.2 | [www.welivesecurity.com](https://www.welivesecurity.com/en/eset-research/ebury-alive-unseen-400k-linux-servers-compromised-cryptotheft-financial-gain/) |
+| Ebury 점검 (탐지만) | 찾기만 합니다 | Linux | `ebury-check` 0.2.0 | [www.welivesecurity.com](https://www.welivesecurity.com/en/eset-research/ebury-alive-unseen-400k-linux-servers-compromised-cryptotheft-financial-gain/) |
 <!-- threats:end -->
 
 ## 처음 쓰시는 분 — 다섯 단계
@@ -172,11 +172,16 @@ Ebury 는 `libkeyutils.so.1` 자리에 가짜 라이브러리를 둡니다 — �
    나간 키 — Ebury 는 둘 다 훔칩니다.
 6. **서버 전체를 침해된 것으로 봅니다.** 심으려면 root 권한이 필요했습니다. 다시 설치를 검토합니다.
 
-**'위협 없음' 이 Ebury 가 없다는 뜻은 아닙니다.** 이 항목은 라이브러리 **파일의 내용**을 봅니다.
-공개 보고(ESET)는 다섯 가지 설치 방법을 적는데, 이 룰은 그 가운데 **보고가 이름을 밝힌 파일들**을
-봅니다 — OpenSSH 실행 파일 자체를 고친 경우와 아직 이름이 알려지지 않은 파일은 찾지 못합니다.
-또 ESET 의 현재 주 점검 방법은 **돌고 있는 백도어가 여는 창구**를 보는 것인데, 이 도구는 그것을
-재지 못합니다. 침해가 의심되면 ESET 가 공개한 점검 스크립트를 함께 돌리십시오(root 권한).
+결과에 `@` 로 시작하는 이름만 나오면 그것은 파일이 아니라 **돌고 있는 백도어가 여는 창구**(추상 UNIX
+소켓)입니다. 그때는 콘솔(1단계)에서 먼저 그 창구를 연 프로세스와 그 프로세스가 실은 라이브러리를 찾으십시오 —
+가짜 라이브러리가 알려지지 않은 이름일 수 있습니다. 명령은 `plugins/ebury-check/RELEASE.md` 의
+*위협이 나오면* 절에 있습니다.
+
+**'위협 없음' 이 Ebury 가 없다는 뜻은 아닙니다.** 이 항목은 라이브러리 **파일의 내용**과, ESET 가
+공개한 **창구 이름 24개**를 봅니다. 공개 보고(ESET)는 다섯 가지 설치 방법을 적는데, 이 룰은 그 가운데
+**보고가 이름을 밝힌 파일들**을 봅니다 — OpenSSH 실행 파일 자체를 고친 경우와 아직 이름이 알려지지
+않은 파일 · 창구는 찾지 못하고, 백도어가 지금 돌고 있지 않으면 창구도 없습니다. 침해가 의심되면
+ESET 가 공개한 점검 스크립트를 함께 돌리십시오(root 권한 — 창구에 실제로 접속해 봅니다).
 
 ```sh
 curl -LO https://raw.githubusercontent.com/eset/malware-research/master/ebury/detect_ebury.sh
@@ -186,21 +191,29 @@ sudo bash detect_ebury.sh
 ### EvilAI(Locust) — Windows PC
 
 - **EvilAI(Locust) 제거** 는 페이로드를 돌리던 `node.exe` 프로세스를 멈추고, 예약 작업과 시작
-  프로그램(Run) 항목을 지우고, 페이로드(`.js`)와 그 폴더를 **격리**합니다. 그 폴더를 백신 검사
-  예외에 넣어 두었다면 그 예외도 지웁니다. Node.js 자체는 정상 프로그램이라 손대지 않습니다.
-- **이 PC 의 모든 사용자 계정을 검사합니다** — 담당자가 자기 관리자 계정으로 실행해도 감염된
-  사용자의 것을 찾습니다. 다만 그때는 감염된 사용자의 시작 프로그램 항목 하나가 남을 수 있습니다 —
-  그 항목이 가리키는 파일은 격리되므로 실행되지 않습니다.
+  프로그램(Run) 항목을 지우고, 페이로드(`.js`)와 그 폴더를 **격리**합니다. 페이로드가 임시
+  폴더(`TEMP`) 바로 아래에 있으면 **그 파일만** 격리하고 임시 폴더는 건드리지 않습니다. 그 폴더를
+  백신 검사 예외에 넣어 두었다면 그 예외도 지웁니다. Node.js 자체는 정상 프로그램이라 손대지 않습니다.
+- **이 PC 의 모든 사용자 계정을 검사합니다** — 담당자가 자기 관리자 계정이나 배포 도구(SYSTEM)로
+  실행해도 감염된 사용자의 것을 찾고, 그 사용자가 **로그온해 있으면** 그 사용자의 시작 프로그램
+  항목까지 지웁니다. 로그오프한 사용자의 항목은 남을 수 있습니다 — 그 항목이 가리키는 파일은
+  격리되므로 실행되지 않습니다.
 - 치료한 뒤 **PC 를 다시 시작하고 관리자 계정으로 로그온하십시오** — 그때 한 번 더 자동으로
   검사합니다. 표준 사용자로 로그온하면 이 검사는 돌지 않으므로, 관리자가 메뉴의 *3. 치료가
   유지됐는지 다시 보기* 로 확인합니다.
 - 어느 계정에도 `AppData\Local\Programs` 폴더가 없는 PC 는 *관측이 불완전* 으로 끝납니다 — EvilAI 가
   자리 잡는 폴더가 그 PC 에 없다는 뜻입니다.
-- **'위협 없음' 이 이 PC 가 깨끗하다는 뜻은 아닙니다.** 이 항목은 확보한 검체에서 확인한 꼴을 찾습니다 —
-  `AppData\Local\Programs` 아래의 페이로드를 `\Microsoft\Windows\` 폴더의 예약 작업이 `node.exe` 로
-  직접 띄우는 꼴입니다. 공개 보고에는 페이로드를 임시 폴더에 두거나, 작업을 폴더 없이 등록하거나,
-  `cmd.exe` 를 거쳐 띄우는 변종도 있습니다 — 그런 꼴은 찾지 못하고, 시작 메뉴에 만드는 바로 가기도
-  보지 않습니다. 감염이 의심되면 백신으로 PC 전체를 검사하고 담당자에게 알리십시오.
+- **'위협 없음' 이 이 PC 가 깨끗하다는 뜻은 아닙니다.** 이 항목은 확보한 검체의 꼴과 공개 보고(Trend
+  Micro)가 적은 꼴을 찾습니다 — 페이로드가 `AppData\Local\Programs` 아래 폴더나 임시 폴더(`TEMP`)
+  바로 아래에 있고, 예약 작업이 그것을 `node.exe` 로 직접 또는 `cmd.exe` 를 거쳐 띄우는 꼴입니다
+  (작업이 어느 폴더에 등록됐는지는 묻지 않습니다). 보고가 이름을 밝힌 시작 메뉴 바로 가기
+  (`PDF Editor`)와 시작 프로그램 항목(`PDFEditorUpdater`)도 감염이 확인된 PC 에서 함께 격리합니다.
+  임시 폴더 안의 하위 폴더에 둔 페이로드처럼 그 밖의 꼴은 찾지 못합니다. 감염이 의심되면 백신으로
+  PC 전체를 검사하고 담당자에게 알리십시오.
+- **가짜 앱 자체는 지우지 않습니다.** EvilAI 는 'PDF Editor' 같은 정상처럼 보이는 앱을 깔게 해서
+  들어옵니다 — *설정 → 앱* 에서 그 앱을 제거하십시오. 공개 보고가 밝힌 서명자는 App Interplace LLC ·
+  Byte Media Sdn Bhd · Echo Infini Sdn. Bhd. · GLINT SOFTWARE SDN. BHD. · Global Tech Allies ltd ·
+  Pixel Catalyst Media LLC 입니다.
 - EvilAI 는 다른 악성 코드를 풀어 실행하는 로더입니다. 이 도구는 EvilAI 가 남기는 항목만 보므로
   **백신으로 PC 전체를 검사**하고, 이 PC 에서 쓰던 비밀번호는 **다른 기기에서** 바꾸십시오.
 
