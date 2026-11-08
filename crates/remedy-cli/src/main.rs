@@ -1303,9 +1303,13 @@ fn back_to_menu(flow: Flow, code: Code, treats: bool, notes: &[std::path::PathBu
     let d = remedy_sdk::i18n::deco();
     outln!();
     outln!("{}", d.rule());
+    // 번호는 **돌아갈 그 화면에서** 센다 — 기본 화면은 일이 있을 때만 줄을 세우므로(목표
+    // remedy_사용자메뉴 기준 4), 이 작업이 만든 · 지운 회차를 지금 다시 읽은 모양으로 센다. 그 화면에
+    // 서지 않는 줄은 적지 않는다(찾기만 하는 룰의 메뉴로 돌아가면 치료 줄을 가리키지 않는다).
+    let after = guided::next_offer();
     let next: Vec<(&str, usize, String)> = next_steps(flow, code, treats)
         .into_iter()
-        .filter_map(|(why, l)| menu::line(l).map(|(n, label)| (why, n, label)))
+        .filter_map(|(why, l)| menu::line(l, &after).map(|(n, label)| (why, n, label)))
         .collect();
     let read = guidance(flow, code, treats, notes);
     let pick = guided::picked_rule();
@@ -5062,17 +5066,17 @@ mod tests {
         let fancy = remedy_sdk::i18n::Deco { ascii: false };
         let ascii = remedy_sdk::i18n::Deco { ascii: true };
         assert_eq!(
-            step_line("오탐이라면", None, 6, "치료 전으로 복원하기", fancy),
-            "  오탐이라면 — 6. 치료 전으로 복원하기"
+            step_line("오탐이라면", None, 4, "치료 전으로 복원하기", fancy),
+            "  오탐이라면 — 4. 치료 전으로 복원하기"
         );
         let pick = (3, "CWPdoor 제거".to_string());
         assert_eq!(
-            step_line("오탐이라면", Some(&pick), 6, "치료 전으로 복원하기", fancy),
-            "  오탐이라면 — 3. CWPdoor 제거 → 6. 치료 전으로 복원하기"
+            step_line("오탐이라면", Some(&pick), 4, "치료 전으로 복원하기", fancy),
+            "  오탐이라면 — 3. CWPdoor 제거 → 4. 치료 전으로 복원하기"
         );
         assert_eq!(
-            step_line("오탐이라면", Some(&pick), 6, "치료 전으로 복원하기", ascii),
-            "  오탐이라면 - 3. CWPdoor 제거 -> 6. 치료 전으로 복원하기"
+            step_line("오탐이라면", Some(&pick), 4, "치료 전으로 복원하기", ascii),
+            "  오탐이라면 - 3. CWPdoor 제거 -> 4. 치료 전으로 복원하기"
         );
         // 실제로 서는 가장 긴 줄도 80칸 안이다 — 리눅스 콘솔은 흔히 80칸이다. 한글은 두 칸.
         // 이 줄이 서는 것은 치료하는 룰뿐이다(찾기만 하는 룰은 `next_steps` 가 비운다) — 리눅스

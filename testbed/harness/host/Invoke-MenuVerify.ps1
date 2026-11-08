@@ -334,17 +334,20 @@ try {
     Add-Check "1" "게스트 스크립트가 끝까지 돌았다" (-not $r.error) `
               "작업 $(@($r.steps).Count)개"
     Add-Check "1" "메뉴가 떴다" ([bool]$r.probe.shown) "줄 $($r.probe.item_count)개"
-    # 목표 remedy_출시_20261111 기준 4 — 첫 화면은 **일반 작업 열셋 + 접은 한 줄**이고, 그 줄이
-    # 연 화면에 작성자·운영자 명령 여덟이 선다. 명령 스무 개의 줄 스물한 개(`restore` 가 둘)에
-    # 전부 **닿는다**(remedy_제품화 기준 5(a) 의 '보인다' 를 '닿는다' 로). 못 고르는 줄은 까닭을 단다.
+    # 목표 remedy_사용자메뉴 기준 1 — 치료 기록이 없는 기계의 첫 화면은 **받은 사람의 일 둘(검사하고
+    # 치료하기 · 검사만 하기) + 더 보기 한 줄**이고 까닭을 단 흐린 줄이 없다(v1.2.0 은 열넷 중 다섯이
+    # 흐렸다). 더 보기에는 기록 보기 · 프로그램 · 룰 작성자 · 운영자 명령 열다섯이 서고, 못 고르는 줄은
+    # 까닭을 단다. 기록이 드는 넷(유지 확인 · 복원 · 신고 · 이어서 하기)은 그 일이 생긴 뒤 아래 작업
+    # 단계가 첫 화면에서 찾는다 — 그래서 명령 스무 개의 줄 스물한 개에 전부 닿는다(기준 3).
     $firstRows = [int]$r.probe.item_count + [int]$r.probe.off_count
     $innerRows = [int]$r.probe.author_items + [int]$r.probe.author_off
-    Add-Check "1" "첫 화면은 열셋 + 접은 한 줄이다" ($firstRows -eq 14 -and $r.probe.author_no -eq 14) `
-              "고를 수 있는 줄 $($r.probe.item_count) · 까닭과 함께 $($r.probe.off_count) · 접은 줄 $($r.probe.author_no)번"
-    Add-Check "1" "명령 전부에 닿는다 (접은 화면 여덟 · 못 고르는 것은 까닭과 함께)" `
-              (($firstRows - 1 + $innerRows) -eq 21 -and $innerRows -eq 8) `
-              "접은 화면 — 고를 수 있는 줄 $($r.probe.author_items) · 까닭과 함께 $($r.probe.author_off)"
-    Add-Check "1" "접은 화면의 0 은 메뉴로 돌아온다" ([bool]$r.probe.author_back -and $r.probe.author_exit -eq 0) `
+    Add-Check "1" "첫 화면은 받은 사람의 일 둘 + 더 보기 한 줄이다 (흐린 줄 0)" `
+              ($firstRows -eq 3 -and $r.probe.off_count -eq 0 -and $r.probe.author_no -eq 3) `
+              "고를 수 있는 줄 $($r.probe.item_count) · 까닭과 함께 $($r.probe.off_count) · 더 보기 $($r.probe.author_no)번"
+    Add-Check "1" "더 보기에 열다섯 줄이 선다 (못 고르는 것은 까닭과 함께)" `
+              ($innerRows -eq 15) `
+              "더 보기 — 고를 수 있는 줄 $($r.probe.author_items) · 까닭과 함께 $($r.probe.author_off)"
+    Add-Check "1" "더 보기의 0 은 메뉴로 돌아온다" ([bool]$r.probe.author_back -and $r.probe.author_exit -eq 0) `
               "exit=$($r.probe.author_exit)"
     # 그만두기는 창을 붙잡지 않는다 — 끝내기를 고른 것이다(목표 remedy_제품화 기준 4 · 2026-11-05).
     # 사용법 화면(꾸러미 없음)은 여전히 붙잡는다 — 그것은 아래 4단계의 데모 폴더가 잰다.

@@ -16,33 +16,40 @@
 //! | 개발 빌드 | `cargo run` 으로 그냥 띄우면 옆에 아무것도 없다. 거기서 메뉴가 뜨면 잡음이다 |
 //! | 불변식 I7 | 터미널이 아니면 **묻지 않는다** — 물을 수 없는 자리에서 임의로 고르지 않는다 |
 //!
-//! # 묶음으로 나눈다
+//! # 기본 화면은 받은 사람의 일만 — 그 일이 있을 때만 선다 (목표 remedy_사용자메뉴)
 //!
-//! 명령 표면은 **20개**(최상위 14 + 하위 6)이고 메뉴 줄은 21개다(`restore` 가
-//! 목록 보기와 되돌리기 둘). 입력이 무엇이냐로 묶고, 작성자·운영자용은 뒤에 둔다.
+//! 명령 표면은 **20개**(최상위 14 + 하위 6)이고 메뉴 줄은 21개다(`restore` 가 목록 보기와
+//! 되돌리기 둘). 그중 전용백신을 받은 사람의 일은 여섯이고 **기본 화면**에 선다 — 다만
+//! **그 일이 있을 때만**이다([`screens`]).
 //!
-//! | 묶음 | 입력 | 그 입력이 없을 때 줄에 다는 까닭 |
-//! |---|---|---|
-//! | A | 없다 — 바로 돈다 | — (목록 보기만 회차가 든다) |
-//! | B | 옆 폴더의 플러그인 | 쓸 수 있는 플러그인 번들이 없습니다 |
-//! | C | 복원 정보 폴더의 회차 | 치료한 기록이 없습니다 |
-//! | D | 결과 폴더의 계획 · 수집 결과 · 평가 결과 | out 폴더에 … 이 없습니다 |
-//! | E | 실행 파일 옆의 서명된 목록 (작성자·운영자) | 실행 파일 옆에 … 이 없습니다 |
+//! | 줄 | 서는 때 |
+//! |---|---|
+//! | 검사하고 치료하기 | 치료하는 룰을 골랐다 |
+//! | 검사만 하기 | 룰을 골랐다 |
+//! | 치료가 유지됐는지 다시 보기 | 치료하는 룰 · 치료한 기록이 있다 |
+//! | 치료 전으로 복원하기 | 치료한 기록이 있다(권한으로 못 읽으면 그 까닭과 함께) |
+//! | 신고에 붙일 것 모으기 | 치료한 기록이 있다 |
+//! | 중단된 작업 이어서 하기 | 끝나지 않은 치료가 있다 |
 //!
-//! # 늘 전부 선다 — 못 고르는 줄은 까닭과 함께 (목표 remedy_제품화 기준 5)
+//! 나머지 열다섯 — 기록 보기 · 프로그램 정보 · 룰 작성자 · 운영자 명령 — 은 기본 화면의 마지막 줄
+//! *더 보기* 한 곳에서 닿는다.
 //!
-//! 줄은 기계 상태와 상관없이 **같은 차례 · 같은 번호**로 선다. 지금 입력이 없는 줄은
-//! 흐리게 그리고 까닭을 단다 — 고르기는 그 줄을 받지 않는다([`items`]). 줄이
-//! 창보다 높으면 방향키 화면은 번호 줄만 창 안에서 넘긴다(`term::view`).
+//! **전에는 스물한 줄이 늘 같은 번호로 섰다**(목표 remedy_제품화 기준 5 · remedy_출시_20261111
+//! 기준 4 — 첫 화면 열셋 + 접은 한 줄). 그러자 치료할 것이 없는 깨끗한 PC 의 첫 화면이 14줄이 되어
+//! 다섯 줄이 *"치료한 기록이 없습니다"* 를 달고 흐렸고, 일곱 줄(룰 서명 확인 · 룰 검사 · 자체 점검 ·
+//! 버전 · 명령줄 사용법 · 모든 명령과 옵션 · 작성자·운영자 명령 보기)이 받은 사람의 일이 아니었다
+//! (v1.2.0 실측 · 2026-11-08). 찾기만 하는 룰에서는 1번 *검사하고 치료하기* 부터 흐렸다.
 //!
-//! # 작성자·운영자 명령은 접는다 (목표 remedy_출시_20261111 기준 4)
+//! **번호는 이제 상태마다 다르다.** 숨기면 번호가 움직인다는 것이 전의 까닭이었는데, 그 걱정은
+//! 두 자리가 받는다 — 치료하는 룰의 1 · 2번은 늘 그 줄이고(README 가 그 번호를 적는다), 작업 뒤
+//! *다음 할 일* 은 **돌아갈 그 화면에서** 번호를 센다([`line`]).
 //!
-//! 첫 화면은 일반 작업 열셋과 *작성자·운영자 명령 보기* 한 줄이다 — 그 줄을 고르면 나머지
-//! 여덟이 한 화면 더 선다. 스물한 줄이 한 화면에 서던 때는 처음 온 사람이 무엇을 누를지
-//! 몰랐다. 명령 전부에 **닿는다**는 것은 그대로다(`every_command_has_a_menu_line`).
+//! # 더 보기 — 늘 같은 차례, 못 고르는 줄은 까닭과 함께
 //!
-//! 찾기만 하는 룰(`remediate` 가 없다)에서는 치료를 약속하는 줄 — 검사하고 치료하기 ·
-//! 치료가 유지됐는지 다시 보기 · 승인한 계획을 수행하기 — 이 까닭을 달고 흐리게 선다.
+//! 개발자 · 룰 작성자 · 운영자의 자리라 전의 규칙을 그대로 쓴다 — 열다섯 줄이 묶음 제목 넷
+//! (기록 · 프로그램 · 룰 작성자 · 운영자) 아래 기계 상태와 상관없이 같은 차례로 서고, 지금 입력이
+//! 없는 줄은 흐리게 그리고 까닭을 단다(고르기는 그 줄을 받지 않는다). 줄이 창보다 높으면 방향키
+//! 화면은 번호 줄과 묶음 제목만 창 안에서 넘긴다(`term::view` · `Row::Group`).
 //!
 //! # 방향키와 숫자 — 고르는 자리는 [`crate::term::choose`] 하나다
 //!
@@ -172,23 +179,58 @@ pub enum Plain {
 
 /// 메뉴 한 줄 — **무엇을 고른 것인지만 들고 있다.** 실행은 `main` 이 한다.
 enum Tag {
-    /// 묶음 B — 고른 플러그인으로 무엇을 한다.
+    /// 고른 플러그인으로 무엇을 한다.
     NeedsPlugin(MakeWithPlugin),
-    /// 묶음 C — 회차를 한 번 더 물어야 한다.
+    /// 치료한 회차를 한 번 더 물어야 한다.
     NeedsRun(MakeWithRun),
-    /// 묶음 D·E — 파일을 한 번 더 물어야 한다.
+    /// **끝나지 않은** 회차를 한 번 더 물어야 한다 — 이어서 하기. 끝난 회차를 고르게 하면
+    /// '이미 적용됨'(5)으로 거절된다(2026-11-07 적대적 검토).
+    NeedsUnfinished(MakeWithRun),
+    /// 파일을 한 번 더 물어야 한다.
     NeedsFile(Candidates, MakeWithFile),
     /// 입력이 없는 수집.
     Collect,
-    /// 묶음 A — 그대로 돈다.
+    /// 그대로 돈다.
     Plain(Plain),
 }
 
 struct Item {
     label: &'static str,
     tag: Tag,
-    /// 지금 고를 수 없으면 그 까닭. 줄은 그래도 선다(목표 remedy_제품화 기준 5).
+    /// 지금 고를 수 없으면 그 까닭 — 더 보기의 줄과, 기록을 권한으로 못 읽었을 때의 복원 줄.
     off: Option<&'static str>,
+    /// 기본 화면의 줄이면 그 일 — *다음 할 일* 이 그것으로 줄을 찾는다([`line`]).
+    main: Option<Main>,
+}
+
+/// 기본 화면에 설 수 있는 줄 — **받은 사람의 일** 여섯. 서는 줄만 차례대로 번호를 받는다.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Main {
+    /// 검사하고 치료하기 — 치료하는 룰을 골랐다.
+    Treat,
+    /// 검사만 하기 — 룰을 골랐다.
+    Scan,
+    /// 치료가 유지됐는지 다시 보기 — 치료하는 룰 · 치료한 기록이 있다.
+    Verify,
+    /// 치료 전으로 복원하기 — 치료한 기록이 있다.
+    Restore,
+    /// 신고에 붙일 것 모으기 — 치료한 기록이 있다.
+    Support,
+    /// 중단된 작업 이어서 하기 — 끝나지 않은 치료가 있다.
+    Resume,
+}
+
+impl Main {
+    fn tag(self) -> Tag {
+        match self {
+            Self::Treat => Tag::NeedsPlugin(WithPlugin::Run),
+            Self::Scan => Tag::NeedsPlugin(WithPlugin::Scan),
+            Self::Verify => Tag::NeedsPlugin(WithPlugin::Verify),
+            Self::Restore => Tag::NeedsRun(WithRun::Restore),
+            Self::Support => Tag::NeedsRun(WithRun::Support),
+            Self::Resume => Tag::NeedsUnfinished(WithRun::Resume),
+        }
+    }
 }
 
 /// 지금 이 기계가 **내놓을 수 있는 것**. 비어 있으면 메뉴를 열지 않는다.
@@ -200,8 +242,11 @@ pub struct Offer {
     /// 그 플러그인의 이름 — 머리말에 적는다. 항목이 여럿인 꾸러미에서 고른 뒤 메뉴만 보면
     /// 어느 것을 골랐는지 알 수 없었다(2026-11-06 리눅스 통합 꾸러미 화면).
     pub name: Option<String>,
-    /// 복원 정보 폴더에서 읽은 회차 — **이름순.** 비어 있으면 회차 줄은 까닭을 달고 흐리게 선다.
+    /// 복원 정보 폴더에서 읽은 회차 — **이름순.** 비어 있으면 회차 줄(복원 · 유지 확인 · 신고)은
+    /// 기본 화면에 서지 않는다.
     pub runs: Vec<Run>,
+    /// 끝나지 않은 치료(저널에 끝이 없다) — **이름순.** 있을 때만 *이어서 하기* 가 선다.
+    pub unfinished: Vec<Run>,
     /// 복원 정보 폴더가 **있는데 권한 때문에 읽지 못했다** — 그때 회차 줄의 까닭은 '기록이 없다'
     /// 가 아니라 '권한을 올려 실행' 이다. 관리자로 치료한 뒤 권한 없이 다시 띄우면 기록이 사라진
     /// 것으로 읽혔다(2026-11-08 적대적 검토 4바퀴 — 리눅스 실측).
@@ -219,7 +264,10 @@ impl Offer {
     /// `remedy.exe` 뿐이고 `out`·`state` 는 재감염이 지운다(실측 2026-10-29 ·
     /// `New-DemoMachine.ps1:230`).
     pub fn is_empty(&self) -> bool {
-        self.plugin.is_none() && self.runs.is_empty() && self.files.is_empty()
+        self.plugin.is_none()
+            && self.runs.is_empty()
+            && self.unfinished.is_empty()
+            && self.files.is_empty()
     }
 
     fn has_runs(&self) -> bool {
@@ -231,7 +279,7 @@ impl Offer {
     }
 }
 
-/// 고른 회차를 명령으로 만드는 함수 — [`RUN_ITEMS`] 의 세 번째 칸.
+/// 고른 회차를 명령으로 만드는 함수 — 복원 · 신고 · 이어서 하기([`Main::tag`]).
 type MakeWithRun = fn(Run) -> WithRun;
 
 /// 고른 파일을 명령으로 만드는 함수 — [`FILE_ITEMS`] 의 네 번째 칸.
@@ -340,78 +388,85 @@ impl Candidates {
     }
 }
 
-/// 고른 플러그인을 명령으로 만드는 함수 — [`PLUGIN_ITEMS`] 의 세 번째 칸.
+/// 고른 플러그인을 명령으로 만드는 함수 — 검사 · 치료 · 유지 확인([`Main::tag`])과 [`AUTHOR_ITEMS`].
 type MakeWithPlugin = fn(std::path::PathBuf) -> WithPlugin;
 
-/// 플러그인이 드는 명령 다섯 — 묶음 B. **검사·치료가 맨 위다** — 꾸러미를 받아서
-/// 띄운 사람의 목적이 그것이다. 작성자용 둘(`lint`·`plugin verify`)은 아래.
-const PLUGIN_ITEMS: &[(&str, &str, MakeWithPlugin)] = &[
-    ("검사하고 치료하기", "Scan and treat", WithPlugin::Run),
+/// 기본 화면의 줄 여섯 — (한국어 · 영어 · 그 일). **차례가 번호다** — 서는 줄만 센다. 검사 ·
+/// 치료가 맨 위다: 받아서 띄운 사람의 목적이 그것이고, 치료하는 룰에서 1 · 2번은 늘 그 둘이다
+/// (README 와 피드백 문안이 그 번호를 적는다). 치료 뒤의 셋은 *다음 할 일* 의 차례와 같다 —
+/// 유지 확인이 먼저, 되돌리기와 신고가 뒤(되돌리기가 첫 줄이면 할 일 목록으로 읽힌다).
+const MAIN_ITEMS: &[(&str, &str, Main)] = &[
+    ("검사하고 치료하기", "Scan and treat", Main::Treat),
     (
         "검사만 하기 (아무것도 바꾸지 않습니다)",
         "Scan only (changes nothing)",
-        WithPlugin::Scan,
+        Main::Scan,
     ),
     (
         "치료가 유지됐는지 다시 보기",
         "Re-check that the treatment held",
-        WithPlugin::Verify,
+        Main::Verify,
+    ),
+    ("치료 전으로 복원하기", "Undo a treatment", Main::Restore),
+    (
+        "신고에 붙일 것 모으기",
+        "Collect what to attach to a report",
+        Main::Support,
+    ),
+    (
+        "중단된 작업 이어서 하기",
+        "Resume an interrupted run",
+        Main::Resume,
+    ),
+];
+
+/// 더 보기의 묶음 제목 넷 — (한국어 · 영어). 차례가 화면의 차례다.
+const GROUPS: [(&str, &str); 4] = [
+    ("기록", "Records"),
+    ("프로그램", "Program"),
+    ("룰 작성자", "Rule authors"),
+    (
+        "운영자 (사내 평가 · 조직 목록)",
+        "Operators (in-house evaluation, org lists)",
+    ),
+];
+
+/// 더 보기 · 기록 — 되돌릴 수 있는 회차 목록. *치료 전으로 복원하기* 가 같은 목록을 먼저 보이므로
+/// 받은 사람의 일로 두지 않는다.
+const RECORD_ITEM: (&str, &str, Plain) = (
+    "복원할 수 있는 치료 기록 보기",
+    "Show treatments that can be undone",
+    Plain::RestoreList,
+);
+
+/// 더 보기 · 프로그램 — 입력이 없어 어느 기계에서나 뜻이 있다. 버전은 머리말이 이미 보이고,
+/// 자체 점검과 명령줄 안내는 지원 · 운영자의 일이다.
+const PROGRAM_ITEMS: &[(&str, &str, Plain)] = &[
+    ("프로그램 자체 점검", "Self-test", Plain::SelfTest),
+    ("버전 보기", "Version", Plain::Version),
+    ("명령줄 사용법", "Command-line usage", Plain::Help),
+    (
+        "모든 명령과 옵션",
+        "Every command and option",
+        Plain::HelpAll,
+    ),
+];
+
+/// 더 보기 · 룰 작성자 — 고른 룰로 본다. 서명은 프로그램이 룰을 쓰기 전에 스스로 확인한다
+/// (`discover::usable`) — 받은 사람이 따로 고를 일이 아니다.
+const AUTHOR_ITEMS: &[(&str, &str, MakeWithPlugin)] = &[
+    (
+        "룰 검사 (작성자용)",
+        "Lint the rule (for authors)",
+        WithPlugin::Lint,
     ),
     (
         "룰 서명 확인",
         "Verify the rule signatures",
         WithPlugin::VerifyBundle,
     ),
-    (
-        "룰 검사 (작성자용)",
-        "Lint the rule (for authors)",
-        WithPlugin::Lint,
-    ),
 ];
 
-/// 회차가 드는 명령 셋 — 묶음 C. (한국어 · 영어 · 무엇이 되는가)
-const RUN_ITEMS: &[(&str, &str, MakeWithRun)] = &[
-    ("치료 전으로 복원하기", "Undo a treatment", WithRun::Restore),
-    (
-        "신고에 붙일 것 모으기",
-        "Collect what to attach to a report",
-        WithRun::Support,
-    ),
-    (
-        "중단된 작업 이어서 하기",
-        "Resume an interrupted run",
-        WithRun::Resume,
-    ),
-];
-
-/// 묶음 A — 입력이 없어 어느 기계에서나 뜻이 있다.
-const PLAIN_ITEMS: &[(&str, Plain)] = &[
-    ("복원할 수 있는 치료 기록 보기", Plain::RestoreList),
-    ("프로그램 자체 점검", Plain::SelfTest),
-    ("버전 보기", Plain::Version),
-    ("명령줄 사용법", Plain::Help),
-    ("모든 명령과 옵션", Plain::HelpAll),
-];
-
-const PLAIN_ITEMS_EN: &[(&str, Plain)] = &[
-    ("Show treatments that can be undone", Plain::RestoreList),
-    ("Self-test", Plain::SelfTest),
-    ("Version", Plain::Version),
-    ("Command-line usage", Plain::Help),
-    ("Every command and option", Plain::HelpAll),
-];
-
-/// 메뉴에 설 줄 전부 — **명령 스무 개가 늘 같은 차례 · 같은 번호로 선다**(목표
-/// remedy_제품화 기준 5 · 벤치마크 축 3). 둘째 값은 작성자·운영자 묶음이 시작하는 자리다.
-///
-/// 전에는 지금 고를 수 없는 줄을 아예 내지 않았다 — 고르면 *"없습니다"* 가 나오는
-/// 줄을 두면 사용자가 자기가 잘못한 것으로 읽기 때문이었다. 그 걱정은 **까닭을 줄에
-/// 다는 것**으로 푼다: 무엇이 어디에 없어서 못 고르는지가 줄에 보이고, 그 줄은 고르기가
-/// 받지 않는다(`term::Row::Off`). 숨기면 받은 사람이 그 기능이 있는지조차 모르고,
-/// 번호가 기계 상태마다 움직인다('전' 이미지에서 10 → 17).
-///
-/// 작성자·운영자 명령은 **뒤에 둔다** — `--help-all` 이 *"플러그인 작성자와 운영자가
-/// 보는 자리이고 고객 화면이 아니다"* 라고 스스로 적어 둔 것과 같은 선이다.
 /// 회차 줄의 까닭 — 기록은 있을지 모르나 **이 권한으로는 읽지 못한다.** 머리말의 권한 줄과 같은
 /// 낱말을 쓴다(Windows 는 관리자, 리눅스는 root).
 fn runs_locked_reason(lang: remedy_sdk::i18n::Lang) -> &'static str {
@@ -428,79 +483,102 @@ fn runs_locked_reason(lang: remedy_sdk::i18n::Lang) -> &'static str {
     }
 }
 
-fn items(offer: &Offer, lang: remedy_sdk::i18n::Lang) -> (Vec<Item>, usize) {
+/// 더 보기의 한 묶음 — 제목과 줄.
+struct Group {
+    title: &'static str,
+    items: Vec<Item>,
+}
+
+/// 지금 상태의 메뉴 — 기본 화면에 서는 줄과 더 보기의 묶음 넷.
+struct Screens {
+    main: Vec<Item>,
+    more: Vec<Group>,
+}
+
+/// 이 상태에서 설 줄. 기본 화면은 **그 일이 있을 때만** 줄을 세운다 — 깨끗한 PC 에 *"치료한
+/// 기록이 없습니다"* 를 단 줄을 늘어놓지 않는다(목표 remedy_사용자메뉴 기준 1 · 2). 더 보기는
+/// 늘 같은 열다섯 줄이고 못 고르는 줄은 까닭을 단다(그 목표의 결정 2).
+fn screens(offer: &Offer, lang: remedy_sdk::i18n::Lang) -> Screens {
     let ko = lang == remedy_sdk::i18n::Lang::Ko;
-    let no_plugin = offer.plugin.is_none().then(|| {
+    let pick = |k: &'static str, e: &'static str| -> &'static str {
+        if ko {
+            k
+        } else {
+            e
+        }
+    };
+    let plugin = offer.plugin.is_some();
+    let treats = plugin && !offer.detect_only;
+    let runs = offer.has_runs();
+    // 기록이 있을지 모르는데 이 권한으로 못 읽었다 — 그때만 복원 한 줄이 그 까닭과 함께 선다.
+    // 숨기면 관리자(root)로 치료한 뒤 권한 없이 다시 띄운 사람이 기록이 사라진 것으로 읽는다.
+    let locked = (!runs && offer.runs_locked).then(|| runs_locked_reason(lang));
+
+    // ── 기본 화면 — 받은 사람의 일 ──────────────────────────────────
+    let mut main = Vec::new();
+    for (k, e, m) in MAIN_ITEMS {
+        let (shown, off) = match m {
+            Main::Treat => (treats, None),
+            Main::Scan => (plugin, None),
+            // 치료가 유지됐는지는 **치료한 기록이 있어야** 묻는다 — 없을 때 고르면 치료한 적 없는
+            // 기계에 *"치료 성공"* 이 떴다(v1.1.0 적대적 검토 · 2026-11-07 실측).
+            Main::Verify => (treats && runs, None),
+            Main::Restore => (runs || locked.is_some(), locked),
+            Main::Support => (runs, None),
+            Main::Resume => (!offer.unfinished.is_empty(), None),
+        };
+        if shown {
+            main.push(Item {
+                label: pick(k, e),
+                tag: m.tag(),
+                off,
+                main: Some(*m),
+            });
+        }
+    }
+
+    // ── 더 보기 — 늘 같은 열다섯 줄 ─────────────────────────────────
+    let no_plugin = (!plugin).then(|| {
         lang.t(
             "쓸 수 있는 플러그인 번들이 없습니다",
             "no usable plugin bundle",
         )
     });
-    let no_runs = (!offer.has_runs()).then(|| {
-        if offer.runs_locked {
-            runs_locked_reason(lang)
-        } else {
-            lang.t("치료한 기록이 없습니다", "no treatment recorded yet")
-        }
+    let no_runs = (!runs).then(|| {
+        locked.unwrap_or_else(|| lang.t("치료한 기록이 없습니다", "no treatment recorded yet"))
     });
-    // 찾기만 하는 룰 — 치료를 약속하는 줄은 까닭을 단다. 플러그인이 없다는 까닭이 먼저다.
-    let detect_only = (offer.detect_only && no_plugin.is_none()).then(|| {
+    // 찾기만 하는 룰 — 치료를 약속하는 줄(승인한 계획을 수행하기)은 까닭을 단다.
+    let detect_only = (offer.detect_only && plugin).then(|| {
         lang.t(
             "이 룰은 찾기만 하고 치료하지 않습니다",
             "this rule only detects; it does not treat",
         )
     });
+    let more_item = |label: &'static str, tag: Tag, off: Option<&'static str>| Item {
+        label,
+        tag,
+        off,
+        main: None,
+    };
+    let (rk, re, rp) = RECORD_ITEM;
+    let records = vec![more_item(pick(rk, re), Tag::Plain(rp), no_runs)];
+    let program = PROGRAM_ITEMS
+        .iter()
+        .map(|(k, e, p)| more_item(pick(k, e), Tag::Plain(*p), None))
+        .collect();
+    let authors = AUTHOR_ITEMS
+        .iter()
+        .map(|(k, e, mk)| more_item(pick(k, e), Tag::NeedsPlugin(*mk), no_plugin))
+        .collect();
     let p = std::path::PathBuf::new();
-    let mut items: Vec<Item> = Vec::new();
-
-    // ── 묶음 B — 플러그인이 드는 다섯 ──────────────────────────
-    for (k, e, mk) in PLUGIN_ITEMS {
-        let made = mk(p.clone());
-        let treats = matches!(made, WithPlugin::Run(_) | WithPlugin::Verify(_));
-        // 치료가 유지됐는지는 **치료한 기록이 있어야** 묻는다 — 없을 때 고르면 치료한 적 없는
-        // 기계에 *"치료 성공"* 이 떴다(v1.1.0 적대적 검토 · 2026-11-07 실측).
-        let after_treatment = matches!(made, WithPlugin::Verify(_));
-        items.push(Item {
-            label: if ko { k } else { e },
-            tag: Tag::NeedsPlugin(*mk),
-            off: no_plugin
-                .or(if treats { detect_only } else { None })
-                .or(if after_treatment { no_runs } else { None }),
-        });
-    }
-
-    // ── 묶음 C — 회차가 드는 셋 ─────────────────────────────────
-    for (k, e, mk) in RUN_ITEMS {
-        items.push(Item {
-            label: if ko { k } else { e },
-            tag: Tag::NeedsRun(*mk),
-            off: no_runs,
-        });
-    }
-
-    // ── 묶음 A — 입력이 없는 다섯 ───────────────────────────────
-    for (label, p) in if ko { PLAIN_ITEMS } else { PLAIN_ITEMS_EN } {
-        items.push(Item {
-            label,
-            tag: Tag::Plain(*p),
-            off: if *p == Plain::RestoreList {
-                no_runs
-            } else {
-                None
-            },
-        });
-    }
-
-    // ── 작성자·운영자 명령 — 묶음 D·E ───────────────────────────
-    let author_from = items.len();
-    items.push(Item {
-        label: lang.t(
+    let mut operators = vec![more_item(
+        lang.t(
             "수집만 하기 (평가는 사내에서)",
             "Collect only (evaluate in-house)",
         ),
-        tag: Tag::Collect,
-        off: no_plugin,
-    });
+        Tag::Collect,
+        no_plugin,
+    )];
     for (k, e, cand, mk) in FILE_ITEMS {
         // 계획·평가는 플러그인이 함께 들어야 한다 — 그 까닭이 먼저다.
         let needs_plugin = matches!(
@@ -516,16 +594,20 @@ fn items(offer: &Offer, lang: remedy_sdk::i18n::Lang) -> (Vec<Item>, usize) {
         } else {
             None
         };
-        items.push(Item {
-            label: if ko { k } else { e },
-            tag: Tag::NeedsFile(*cand, *mk),
-            off,
-        });
+        operators.push(more_item(pick(k, e), Tag::NeedsFile(*cand, *mk), off));
     }
-    (items, author_from)
+    let more = [records, program, authors, operators]
+        .into_iter()
+        .zip(GROUPS)
+        .map(|(items, (k, e))| Group {
+            title: pick(k, e),
+            items,
+        })
+        .collect();
+    Screens { main, more }
 }
 
-/// 작업 뒤의 *다음 할 일* 이 가리키는 메뉴 줄(목표 remedy_제품화 기준 6(d)).
+/// 작업 뒤의 *다음 할 일* 이 가리키는 기본 화면의 줄(목표 remedy_제품화 기준 6(d)).
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Line {
     /// 검사하고 치료하기
@@ -538,52 +620,43 @@ pub enum Line {
     Report,
 }
 
-/// 그 줄의 번호와 이름. 번호는 기계 상태와 상관없다([`items`]) — 안내에 적은 번호가
-/// 다음 메뉴에서도 그 줄이다. 접어 둔 줄은 **두 걸음으로** 적는다 — 첫 화면의 번호와
-/// 그 아래 화면의 번호(`14. 작성자·운영자 명령 보기 → 2. 승인한 계획을 수행하기`).
-pub fn line(which: Line) -> Option<(usize, String)> {
-    let p = std::path::PathBuf::new();
-    let run = Run {
-        id: String::new(),
-        state: p.clone(),
+/// 그 줄의 번호와 이름 — **돌아갈 그 화면에서** 센다(목표 remedy_사용자메뉴 기준 4). 기본 화면은
+/// 일이 있을 때만 줄을 세우므로 번호가 상태마다 다르다 — 부르는 쪽이 작업 **뒤**의 상태로 `offer` 를
+/// 만든다(`guided::next_offer`). 그 화면에 서지 않거나 고를 수 없는 줄이면 `None` — 없는 줄을
+/// 가리키지 않는다.
+pub fn line(which: Line, offer: &Offer) -> Option<(usize, String)> {
+    let want = match which {
+        Line::Treat => Main::Treat,
+        Line::Verify => Main::Verify,
+        Line::Undo => Main::Restore,
+        Line::Report => Main::Support,
     };
-    let probe = Offer {
-        plugin: Some(p.clone()),
-        detect_only: false,
-        name: None,
-        runs: Vec::new(),
-        runs_locked: false,
-        files: std::collections::BTreeMap::new(),
-    };
-    let lang = ui().lang;
-    let (all, author_from) = items(&probe, lang);
-    let pos = all.iter().position(|it| match (&it.tag, which) {
-        (Tag::NeedsPlugin(mk), Line::Treat) => matches!(mk(p.clone()), WithPlugin::Run(_)),
-        (Tag::NeedsPlugin(mk), Line::Verify) => matches!(mk(p.clone()), WithPlugin::Verify(_)),
-        (Tag::NeedsRun(mk), Line::Undo) => matches!(mk(run.clone()), WithRun::Restore(_)),
-        (Tag::NeedsRun(mk), Line::Report) => matches!(mk(run.clone()), WithRun::Support(_)),
-        _ => false,
-    })?;
-    if pos < author_from {
-        return Some((pos + 1, all[pos].label.to_string()));
-    }
-    Some((
-        author_from + 1,
-        format!(
-            "{} {} {}. {}",
-            author_label(lang),
-            remedy_sdk::i18n::deco().arrow(),
-            pos - author_from + 1,
-            all[pos].label
-        ),
-    ))
+    let main = screens(offer, ui().lang).main;
+    let pos = main
+        .iter()
+        .position(|it| it.main == Some(want) && it.off.is_none())?;
+    Some((pos + 1, main[pos].label.to_string()))
 }
 
-/// 첫 화면의 마지막 줄 — 접어 둔 작성자·운영자 명령을 연다.
-fn author_label(lang: remedy_sdk::i18n::Lang) -> &'static str {
+/// 기본 화면의 마지막 줄 — 더 보기를 연다.
+fn more_label(lang: remedy_sdk::i18n::Lang) -> &'static str {
     lang.t(
-        "작성자·운영자 명령 보기",
-        "Commands for authors and operators",
+        "더 보기 (기록 · 프로그램 정보 · 관리자 · 룰 작성자)",
+        "More (records, program info, admin, rule authors)",
+    )
+}
+
+/// 기본 화면의 `0.` 줄. 명령줄 안내는 더 보기의 머리말로 갔다 — 받은 사람의 첫 화면에
+/// `remedy --help` 를 적지 않는다.
+fn quit_label(lang: remedy_sdk::i18n::Lang) -> &'static str {
+    lang.t("그만두기", "Quit")
+}
+
+/// 더 보기의 머리말.
+fn more_head(lang: remedy_sdk::i18n::Lang) -> &'static str {
+    lang.t(
+        "더 보기 — 관리자 · 룰 작성자 · 문제 확인용 명령입니다 (명령줄로 쓰려면 remedy --help)",
+        "More - commands for administrators, rule authors and troubleshooting (for the command line, see remedy --help)",
     )
 }
 
@@ -609,7 +682,7 @@ pub fn run(offer: &Offer) -> Pick {
     }
 
     let lang = ui().lang;
-    let (items, author_from) = items(offer, lang);
+    let Screens { main, more } = screens(offer, lang);
 
     // **머리말 한 덩어리** — 제품 이름 · 판 · 권한(목표 remedy_제품화 기준 3(a) ·
     // 벤치마크 축 2 · 3). 권한은 고른 뒤에 거절당하지 않게 먼저 보인다.
@@ -637,13 +710,10 @@ pub fn run(offer: &Offer) -> Pick {
         ),
         Row::Blank,
     ]);
-    // 작성자·운영자 명령은 접어 둔다 — 마지막 한 줄이 그 화면을 연다(기준 4).
-    rows.extend(rows_of(&items[..author_from]));
-    rows.push(Row::Item(author_label(lang).to_string()));
-    let zero = lang.t(
-        "그만두기 (명령으로 쓰려면 remedy --help)",
-        "Quit (for commands, run remedy --help)",
-    );
+    // 받은 사람의 일 — 그 일이 있을 때만 선다. 나머지는 마지막 한 줄(더 보기)이 연다.
+    rows.extend(rows_of(&main));
+    rows.push(Row::Item(more_label(lang).to_string()));
+    let zero = quit_label(lang);
 
     // 이 세션에서 작업을 한 뒤 그만두면 "아무것도 하지 않았습니다" 가 거짓이다.
     let quit = || -> Pick {
@@ -659,18 +729,18 @@ pub fn run(offer: &Offer) -> Pick {
         Pick::Stopped
     };
 
-    // 접어 둔 화면의 `0` 은 **이 메뉴로** 돌아온다 — 룰을 고르는 화면까지 물러나지 않는다.
+    // 더 보기의 `0` 은 **이 메뉴로** 돌아온다 — 룰을 고르는 화면까지 물러나지 않는다.
     let it = loop {
         let n = match crate::term::choose(&rows, Some(zero)) {
             Answer::Num(0) | Answer::Invalid => return quit(),
             Answer::End => return Pick::End,
             Answer::Num(n) => n,
         };
-        if n <= author_from {
-            break &items[n - 1];
+        if n <= main.len() {
+            break &main[n - 1];
         }
-        match choose_author(&items[author_from..]) {
-            Sub::Got(i) => break &items[author_from + i],
+        match choose_more(&more) {
+            Sub::Got((g, i)) => break &more[g].items[i],
             Sub::Back => {}
             Sub::Stop => return quit(),
             Sub::End => return Pick::End,
@@ -686,6 +756,13 @@ pub fn run(offer: &Offer) -> Pick {
         // **회차를 한 번 더 묻는다.** 작업을 먼저 고르고 대상을 고르는 순서다 —
         // 회차를 먼저 물으면 되돌리기만 생각한 사람에게 신고가 안 보인다.
         Tag::NeedsRun(mk) => match choose_run(&offer.runs) {
+            Sub::Got(id) => Pick::WithRun(mk(id)),
+            Sub::Back => Pick::Back,
+            Sub::Stop => quit(),
+            Sub::End => Pick::End,
+        },
+        // 이어서 하기는 **끝나지 않은 회차만** 고를 거리로 올린다.
+        Tag::NeedsUnfinished(mk) => match choose_run(&offer.unfinished) {
             Sub::Got(id) => Pick::WithRun(mk(id)),
             Sub::Back => Pick::Back,
             Sub::Stop => quit(),
@@ -724,21 +801,18 @@ fn back_label() -> &'static str {
     ui().lang.t("메뉴로 돌아가기", "Back to the menu")
 }
 
-/// 접어 둔 작성자·운영자 명령 — 고른 줄의 차례(0 부터)를 돌려준다.
-fn choose_author(list: &[Item]) -> Sub<usize> {
+/// 더 보기 — 묶음 제목 넷 아래 열다섯 줄. 고른 줄의 (묶음, 차례 — 0 부터)를 돌려준다. 제목은
+/// 번호가 없는 글줄이고(`Row::Group`), 번호는 묶음을 건너 이어진다.
+fn choose_more(groups: &[Group]) -> Sub<(usize, usize)> {
     let lang = ui().lang;
-    let mut rows = vec![
-        Row::Blank,
-        Row::Text(
-            lang.t(
-                "작성자·운영자 명령 — 룰을 만들거나 조직의 목록을 다루는 사람이 씁니다:",
-                "Commands for authors and operators - for people who write rules or manage org lists:",
-            )
-            .to_string(),
-        ),
-    ];
-    rows.extend(rows_of(list));
-    let at: Vec<usize> = (0..list.len()).collect();
+    let mut rows = vec![Row::Blank, Row::Text(more_head(lang).to_string())];
+    let mut at = Vec::new();
+    for (g, group) in groups.iter().enumerate() {
+        rows.push(Row::Blank);
+        rows.push(Row::Group(group.title.to_string()));
+        rows.extend(rows_of(&group.items));
+        at.extend((0..group.items.len()).map(|i| (g, i)));
+    }
     sub_answer(crate::term::choose(&rows, Some(back_label())), &at)
 }
 
@@ -817,20 +891,31 @@ fn two_parts(p: &std::path::Path) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        items, Candidates, Offer, Plain, Run, Tag, WithFile, WithPlugin, WithRun, FILE_ITEMS,
-        PLAIN_ITEMS, PLAIN_ITEMS_EN, PLUGIN_ITEMS, RUN_ITEMS,
+        line, screens, Candidates, Line, Main, Offer, Plain, Run, Tag, WithFile, WithPlugin,
+        WithRun, AUTHOR_ITEMS, FILE_ITEMS, GROUPS, MAIN_ITEMS, PROGRAM_ITEMS, RECORD_ITEM,
     };
+    use remedy_sdk::i18n::Lang;
 
-    fn offer(plugin: bool, runs: bool) -> Offer {
+    fn a_run(id: &str) -> Run {
+        Run {
+            id: id.into(),
+            state: std::path::PathBuf::from("s"),
+        }
+    }
+
+    /// 플러그인 · 치료한 기록 · 끝나지 않은 치료가 있는지로 만든 상태.
+    fn state(plugin: bool, runs: bool, unfinished: bool) -> Offer {
         Offer {
             plugin: plugin.then(|| std::path::PathBuf::from("p.yaml")),
             detect_only: false,
             name: None,
             runs: if runs {
-                vec![Run {
-                    id: "run-1".into(),
-                    state: std::path::PathBuf::from("s"),
-                }]
+                vec![a_run("run-1")]
+            } else {
+                Vec::new()
+            },
+            unfinished: if unfinished {
+                vec![a_run("run-2")]
             } else {
                 Vec::new()
             },
@@ -838,6 +923,22 @@ mod tests {
             files: std::collections::BTreeMap::new(),
         }
     }
+
+    fn offer(plugin: bool, runs: bool) -> Offer {
+        state(plugin, runs, false)
+    }
+
+    /// 기본 화면의 줄 이름 — 화면 차례대로.
+    fn main_labels(o: &Offer) -> Vec<&'static str> {
+        screens(o, Lang::Ko).main.iter().map(|i| i.label).collect()
+    }
+
+    const TREAT: &str = "검사하고 치료하기";
+    const SCAN: &str = "검사만 하기 (아무것도 바꾸지 않습니다)";
+    const VERIFY: &str = "치료가 유지됐는지 다시 보기";
+    const UNDO: &str = "치료 전으로 복원하기";
+    const REPORT: &str = "신고에 붙일 것 모으기";
+    const RESUME: &str = "중단된 작업 이어서 하기";
 
     /// **이것이 오늘의 시연을 지키는 규칙이다.** 내놓을 것이 없으면 메뉴를 열지
     /// 않는다 — 시연 1단계가 인자 없이 부르고 게이트가 *"사용법 다섯 줄"* 을
@@ -848,90 +949,75 @@ mod tests {
         assert!(!offer(true, false).is_empty());
         assert!(!offer(false, true).is_empty());
         assert!(!offer(true, true).is_empty());
+        assert!(!state(false, false, true).is_empty());
     }
 
-    /// 묶음 A 는 **입력이 없는 명령 다섯**이다. 수가 줄면 메뉴에서 고를 수 있는
-    /// 명령이 줄었다는 뜻이고, 그것은 완료 기준 1 의 분자다.
+    /// 기준 1 — **깨끗한 PC 의 기본 화면은 받은 사람의 일만** 보인다. 치료하는 룰은 둘, 찾기만 하는
+    /// 룰은 하나(그 뒤에 *더 보기*). 까닭을 단 흐린 줄은 없다 — v1.2.0 은 열넷 중 다섯(찾기만 하는
+    /// 룰은 여섯)이 흐렸다(2026-11-08 실측).
     #[test]
-    fn group_a_carries_five_commands() {
-        assert_eq!(PLAIN_ITEMS.len(), 5, "{PLAIN_ITEMS:?}");
-        assert_eq!(PLAIN_ITEMS_EN.len(), PLAIN_ITEMS.len());
-    }
-
-    /// 두 언어가 **같은 명령을 같은 차례로** 낸다. 어긋나면 한 언어로 돌린
-    /// 사람만 다른 줄을 고른다 — 번호가 뜻을 잃는다.
-    #[test]
-    fn both_languages_offer_the_same_commands_in_the_same_order() {
-        let ko: Vec<Plain> = PLAIN_ITEMS.iter().map(|(_, p)| *p).collect();
-        let en: Vec<Plain> = PLAIN_ITEMS_EN.iter().map(|(_, p)| *p).collect();
-        assert_eq!(ko, en);
-    }
-
-    /// 묶음 C 는 **회차가 드는 셋**이다. 완료 기준 1 의 분자 넷 중 셋이 여기다
-    /// (`restore --list` 는 묶음 A).
-    #[test]
-    fn group_c_carries_three_commands() {
-        assert_eq!(RUN_ITEMS.len(), 3);
-        let r = Run {
-            id: "r".into(),
-            state: std::path::PathBuf::from("s"),
-        };
-        let made: Vec<WithRun> = RUN_ITEMS.iter().map(|(_, _, f)| f(r.clone())).collect();
-        assert_eq!(
-            made,
-            vec![
-                WithRun::Restore(r.clone()),
-                WithRun::Support(r.clone()),
-                WithRun::Resume(r.clone())
-            ]
-        );
-    }
-
-    /// **회차가 없으면 묶음 C 와 목록 보기는 까닭을 달고 흐리게 선다** — 숨기지 않는다.
-    /// 고르면 "없습니다" 가 나오는 줄을 그냥 두면 사용자가 자기가 잘못한 것으로 읽으므로,
-    /// 까닭이 줄에 보이고 고르기가 그 줄을 받지 않는다.
-    #[test]
-    fn no_runs_turns_run_items_off_with_a_reason() {
-        let ko = remedy_sdk::i18n::Lang::Ko;
-        let needs_run = |t: &Tag| matches!(t, Tag::NeedsRun(_) | Tag::Plain(Plain::RestoreList));
-        let (none, _) = items(&offer(true, false), ko);
-        let (some, _) = items(&offer(true, true), ko);
-        for it in none.iter().filter(|i| needs_run(&i.tag)) {
-            assert_eq!(it.off, Some("치료한 기록이 없습니다"), "{}", it.label);
+    fn a_clean_pc_shows_only_what_the_user_does() {
+        assert_eq!(main_labels(&offer(true, false)), [TREAT, SCAN]);
+        let mut detect = offer(true, false);
+        detect.detect_only = true;
+        assert_eq!(main_labels(&detect), [SCAN]);
+        for o in [offer(true, false), detect] {
+            assert!(screens(&o, Lang::Ko).main.iter().all(|i| i.off.is_none()));
         }
-        assert!(some
-            .iter()
-            .filter(|i| needs_run(&i.tag))
-            .all(|i| i.off.is_none()));
-        assert_eq!(none.iter().filter(|i| needs_run(&i.tag)).count(), 4);
     }
 
-    /// 기록 폴더를 **권한 때문에 못 읽었으면** '없다' 가 아니라 권한을 올리라고 말한다 — 관리자
-    /// (root)로 치료한 뒤 권한 없이 다시 띄우면 기록이 사라진 것으로 읽혔다(2026-11-08 리눅스 실측).
+    /// 기준 2 — **일이 생기면 그 줄이 선다.** 치료한 기록이 있으면 유지 확인(치료하는 룰만) · 복원 ·
+    /// 신고, 끝나지 않은 치료가 있으면 이어서 하기.
     #[test]
-    fn unreadable_runs_ask_for_the_right_privilege_instead_of_saying_none() {
-        let ko = remedy_sdk::i18n::Lang::Ko;
-        let needs_run = |t: &Tag| matches!(t, Tag::NeedsRun(_) | Tag::Plain(Plain::RestoreList));
+    fn lines_appear_when_their_work_exists() {
+        assert_eq!(
+            main_labels(&offer(true, true)),
+            [TREAT, SCAN, VERIFY, UNDO, REPORT]
+        );
+        assert_eq!(
+            main_labels(&state(true, true, true)),
+            [TREAT, SCAN, VERIFY, UNDO, REPORT, RESUME]
+        );
+        // 격리 전에 끊긴 치료 — 되돌릴 것은 없고 이어서 할 것만 있다.
+        assert_eq!(
+            main_labels(&state(true, false, true)),
+            [TREAT, SCAN, RESUME]
+        );
+        // 찾기만 하는 룰 — 치료를 약속하는 둘(치료 · 유지 확인)은 서지 않는다. 기록은 기계의 것이라
+        // 다른 룰로 치료한 기록의 복원 · 신고는 선다.
+        let mut detect = offer(true, true);
+        detect.detect_only = true;
+        assert_eq!(main_labels(&detect), [SCAN, UNDO, REPORT]);
+        // 룰 없이 기록만 — 꾸러미를 지운 뒤 되돌리려는 사람이 여기 온다.
+        assert_eq!(main_labels(&offer(false, true)), [UNDO, REPORT]);
+        assert!(main_labels(&offer(false, false)).is_empty());
+    }
+
+    /// 기준 2(c) — 기록 폴더를 **권한 때문에 못 읽었으면** 복원 한 줄이 권한을 올리라는 까닭과 함께
+    /// 선다. 숨기면 관리자(root)로 치료한 뒤 권한 없이 다시 띄운 사람이 기록이 사라진 것으로 읽는다
+    /// (2026-11-08 리눅스 실측). 더 보기의 기록 보기도 같은 까닭이다.
+    #[test]
+    fn unreadable_runs_ask_for_the_right_privilege_instead_of_hiding() {
         let locked = Offer {
             runs_locked: true,
             ..offer(true, false)
         };
-        let (rows, _) = items(&locked, ko);
-        let off: Vec<_> = rows.iter().filter(|i| needs_run(&i.tag)).collect();
-        assert_eq!(off.len(), 4);
-        for it in off {
-            let why = it.off.unwrap_or_default();
-            assert!(
-                why.contains("권한으로 실행해야 기록이 보입니다"),
-                "{}: {why}",
-                it.label
-            );
-        }
+        let s = screens(&locked, Lang::Ko);
+        let shown: Vec<_> = s.main.iter().map(|i| (i.label, i.off.is_some())).collect();
+        assert_eq!(shown, [(TREAT, false), (SCAN, false), (UNDO, true)]);
+        let why = s.main[2].off.unwrap_or_default();
+        assert!(why.contains("권한으로 실행해야 기록이 보입니다"), "{why}");
+        assert_eq!(s.more[0].items[0].off, Some(why));
+        // 고를 수 없는 줄은 다음 할 일이 가리키지 않는다.
+        assert_eq!(line(Line::Undo, &locked), None);
     }
 
-    /// 기준 5 — **명령 전수(`main.rs` 분기)와 메뉴를 맞댄다.** 분기에 명령을 더하고
+    /// 기준 3 — **명령 전수(`main.rs` 분기)와 메뉴를 맞댄다.** 분기에 명령을 더하고
     /// 메뉴에 줄을 더하지 않으면 여기서 깨진다. 분기는 `let outcome = match cmd {` 부터
     /// 인자 없는 `None =>` 까지이고, 들여쓰기 여덟 칸이 명령 · 열두 칸이 하위 명령이다.
+    ///
+    /// 일이 다 있는 상태에서 기본 화면 + 더 보기가 스무 명령에 닿는다. 깨끗한 PC 에서 서지 않는 것은
+    /// **입력이 없는 셋**(유지 확인 · 신고 · 이어서 하기)뿐이다 — `restore` 는 더 보기의 기록 보기로 닿는다.
     #[test]
     fn every_command_has_a_menu_line() {
         let src = include_str!("main.rs");
@@ -955,118 +1041,195 @@ mod tests {
         }
         assert_eq!(dispatched.len(), 20, "명령 전수: {dispatched:?}");
 
-        let (all, _) = items(&offer(true, false), remedy_sdk::i18n::Lang::Ko);
-        let shown: std::collections::BTreeSet<String> =
-            all.iter().map(|i| command(&i.tag).to_string()).collect();
-        assert_eq!(shown, dispatched, "메뉴에 없는 명령 · 분기에 없는 줄");
+        let reach = |o: &Offer| -> std::collections::BTreeSet<String> {
+            let s = screens(o, Lang::Ko);
+            s.main
+                .iter()
+                .chain(s.more.iter().flat_map(|g| g.items.iter()))
+                .map(|i| command(&i.tag).to_string())
+                .collect()
+        };
+        assert_eq!(
+            reach(&state(true, true, true)),
+            dispatched,
+            "메뉴에 없는 명령 · 분기에 없는 줄"
+        );
+        let hidden: Vec<String> = dispatched
+            .difference(&reach(&offer(true, false)))
+            .cloned()
+            .collect();
+        assert_eq!(hidden, ["resume", "support-bundle", "verify"]);
     }
 
-    /// 기준 5(a) — **새로 받은 꾸러미의 메뉴**(플러그인만 있고 회차 · 결과 파일이 없다)에
-    /// 스물한 줄이 다 서고(여덟은 접은 화면에), 지금 못 고르는 열두 줄은 까닭을 단다 —
-    /// 치료한 기록이 없으면 *치료가 유지됐는지 다시 보기* 도 그 하나다(2026-11-07).
+    /// 더 보기는 **묶음 넷 · 열다섯 줄**이고 기계 상태와 상관없이 같은 차례로 선다(목표
+    /// remedy_사용자메뉴 결정 2). 기본 화면의 여섯과 합쳐 스물한 줄 — 명령 스물(`restore` 가 둘)이다.
     #[test]
-    fn a_fresh_bundle_shows_every_line_and_says_why() {
-        for lang in [remedy_sdk::i18n::Lang::Ko, remedy_sdk::i18n::Lang::En] {
-            let (all, _) = items(&offer(true, false), lang);
-            assert_eq!(all.len(), 21);
-            assert_eq!(all.iter().filter(|i| i.off.is_none()).count(), 9);
-            assert!(all.iter().all(|i| i.off.is_none_or(|w| !w.is_empty())));
+    fn more_is_fifteen_lines_in_four_groups_in_a_fixed_order() {
+        let shape = |o: &Offer| -> Vec<(&'static str, Vec<&'static str>)> {
+            screens(o, Lang::Ko)
+                .more
+                .iter()
+                .map(|g| (g.title, g.items.iter().map(|i| i.label).collect()))
+                .collect()
+        };
+        let base = shape(&offer(true, false));
+        let sizes: Vec<usize> = base.iter().map(|(_, v)| v.len()).collect();
+        assert_eq!(sizes, [1, 4, 2, 8]);
+        let titles: Vec<&str> = base.iter().map(|(t, _)| *t).collect();
+        assert_eq!(
+            titles,
+            [
+                "기록",
+                "프로그램",
+                "룰 작성자",
+                "운영자 (사내 평가 · 조직 목록)"
+            ]
+        );
+        for o in [
+            offer(true, true),
+            offer(false, true),
+            offer(false, false),
+            state(true, true, true),
+        ] {
+            assert_eq!(shape(&o), base);
+        }
+        assert_eq!(MAIN_ITEMS.len() + sizes.iter().sum::<usize>(), 21);
+    }
+
+    /// 더 보기에서 지금 못 고르는 줄은 **까닭을 단다** — 새로 받은 꾸러미(플러그인만)에서 기록 보기와
+    /// 운영자의 일곱이 그렇다(수집만은 고를 수 있다). v1.2.0 의 접은 화면과 같은 값이다.
+    #[test]
+    fn more_says_why_a_line_cannot_be_picked() {
+        for lang in [Lang::Ko, Lang::En] {
+            let s = screens(&offer(true, false), lang);
+            let off: Vec<usize> = s
+                .more
+                .iter()
+                .map(|g| g.items.iter().filter(|i| i.off.is_some()).count())
+                .collect();
+            assert_eq!(off, [1, 0, 0, 7]);
+            assert!(s
+                .more
+                .iter()
+                .flat_map(|g| g.items.iter())
+                .all(|i| i.off.is_none_or(|w| !w.is_empty())));
+        }
+        let s = screens(&offer(true, false), Lang::Ko);
+        assert_eq!(s.more[0].items[0].off, Some("치료한 기록이 없습니다"));
+    }
+
+    /// 두 언어가 **같은 명령을 같은 차례로** 낸다. 어긋나면 한 언어로 돌린
+    /// 사람만 다른 줄을 고른다 — 번호가 뜻을 잃는다.
+    #[test]
+    fn both_languages_offer_the_same_commands_in_the_same_order() {
+        for o in [
+            offer(true, false),
+            state(true, true, true),
+            offer(false, true),
+        ] {
+            let cmds = |lang: Lang| -> Vec<&'static str> {
+                let s = screens(&o, lang);
+                s.main
+                    .iter()
+                    .chain(s.more.iter().flat_map(|g| g.items.iter()))
+                    .map(|i| command(&i.tag))
+                    .collect()
+            };
+            assert_eq!(cmds(Lang::Ko), cmds(Lang::En));
         }
     }
 
-    /// **번호가 기계 상태마다 움직이지 않는다** — 플러그인 · 회차가 있든 없든 줄 차례가
-    /// 같다('전' 이미지에서 회차가 생기자 10 → 17 로 바뀌었다).
+    /// 기준 4 — *다음 할 일* 이 적는 번호는 **돌아갈 그 화면의** 번호이고, 서지 않는 줄은 가리키지
+    /// 않는다.
     #[test]
-    fn numbers_do_not_move_with_state() {
-        let ko = remedy_sdk::i18n::Lang::Ko;
-        let labels = |o: &Offer| -> Vec<&str> { items(o, ko).0.iter().map(|i| i.label).collect() };
-        let base = labels(&offer(true, false));
-        for (p, r) in [(true, true), (false, true), (false, false)] {
-            assert_eq!(labels(&offer(p, r)), base, "플러그인 {p} · 치료 기록 {r}");
+    fn next_step_lines_point_at_lines_that_are_shown() {
+        let n = |l: Line, o: &Offer| line(l, o).map(|(n, _)| n);
+        // 치료한 뒤 — 유지 확인 3 · 복원 4 · 신고 5. README 가 적은 *3. 치료가 유지됐는지 다시 보기* 가
+        // 그 줄이다.
+        let after = offer(true, true);
+        assert_eq!(n(Line::Treat, &after), Some(1));
+        assert_eq!(n(Line::Verify, &after), Some(3));
+        assert_eq!(n(Line::Undo, &after), Some(4));
+        assert_eq!(n(Line::Report, &after), Some(5));
+        // 깨끗한 PC — 치료만 있다.
+        let clean = offer(true, false);
+        assert_eq!(n(Line::Treat, &clean), Some(1));
+        for l in [Line::Verify, Line::Undo, Line::Report] {
+            assert_eq!(n(l, &clean), None);
+        }
+        // 찾기만 하는 룰 · 기록 있음 — 검사만 1 · 복원 2 · 신고 3.
+        let mut detect = offer(true, true);
+        detect.detect_only = true;
+        assert_eq!(n(Line::Treat, &detect), None);
+        assert_eq!(n(Line::Undo, &detect), Some(2));
+        assert_eq!(n(Line::Report, &detect), Some(3));
+        // 룰 없이 기록만 — 복원 1 · 신고 2.
+        assert_eq!(n(Line::Undo, &offer(false, true)), Some(1));
+        assert_eq!(n(Line::Treat, &offer(false, true)), None);
+    }
+
+    /// 치료하는 룰에서 **1 · 2번은 늘 그 둘이다** — README 4단계와 팀원 피드백 문안이 그 번호를 적는다.
+    #[test]
+    fn treat_and_scan_keep_their_numbers_in_every_state() {
+        for runs in [false, true] {
+            for unfinished in [false, true] {
+                for locked in [false, true] {
+                    let o = Offer {
+                        runs_locked: locked,
+                        ..state(true, runs, unfinished)
+                    };
+                    assert_eq!(main_labels(&o)[..2], [TREAT, SCAN]);
+                }
+            }
         }
     }
 
-    /// 치료가 유지됐는지는 **치료한 기록이 있어야** 묻는다 — 없을 때 고르면 치료한 적 없는
-    /// 기계에 *"치료 성공"* 이 떴다(v1.1.0 적대적 검토 · 2026-11-07 실측).
+    /// 기준 1(d) — 그만두기 줄에 명령 안내를 적지 않는다. 명령줄을 쓸 사람의 안내는 더 보기의 머리말이다.
     #[test]
-    fn verify_needs_a_treatment_record() {
-        let ko = remedy_sdk::i18n::Lang::Ko;
-        let verify = |o: &Offer| {
-            items(o, ko)
-                .0
+    fn the_quit_line_does_not_teach_commands() {
+        for lang in [Lang::Ko, Lang::En] {
+            assert!(!super::quit_label(lang).contains("--help"));
+            assert!(super::more_head(lang).contains("remedy --help"));
+        }
+    }
+
+    /// 찾기만 하는 룰 — 더 보기의 *승인한 계획을 수행하기* 는 계획이 있어도 그 까닭을 단다. 플러그인이
+    /// 없다는 까닭이 먼저다.
+    #[test]
+    fn a_detect_only_rule_does_not_offer_treatment() {
+        let apply = |o: &Offer| -> Option<&'static str> {
+            screens(o, Lang::Ko)
+                .more
                 .into_iter()
+                .flat_map(|g| g.items)
                 .find(|i| match i.tag {
-                    Tag::NeedsPlugin(mk) => {
-                        matches!(mk(std::path::PathBuf::new()), WithPlugin::Verify(_))
+                    Tag::NeedsFile(_, mk) => {
+                        matches!(mk(std::path::PathBuf::new()), WithFile::Apply(_))
                     }
                     _ => false,
                 })
-                .expect("유지 확인 줄")
+                .expect("계획 수행 줄")
+                .off
         };
-        assert_eq!(
-            verify(&offer(true, false)).off,
-            Some("치료한 기록이 없습니다")
-        );
-        assert_eq!(verify(&offer(true, true)).off, None);
-    }
-
-    /// 기준 6(d) — *다음 할 일* 이 적는 번호가 메뉴의 그 줄이다(번호는 상태와 상관없다).
-    /// 접어 둔 줄은 첫 화면의 *작성자·운영자 명령 보기* 번호와 그 아래 화면의 번호로 적는다.
-    #[test]
-    fn next_step_lines_point_at_fixed_numbers() {
-        use super::{line, Line};
-        let n = |l| line(l).map(|(n, _)| n);
-        assert_eq!(n(Line::Treat), Some(1));
-        assert_eq!(n(Line::Verify), Some(3));
-        assert_eq!(n(Line::Undo), Some(6));
-        assert_eq!(n(Line::Report), Some(7));
-    }
-
-    /// 기준 4 — **첫 화면은 일반 작업 열셋 + 접은 한 줄**이다. 나머지 여덟은 그 한 줄 아래에
-    /// 있고, 명령 전부에 닿는 것은 `every_command_has_a_menu_line` 이 본다.
-    #[test]
-    fn the_first_screen_is_thirteen_lines_and_one_more() {
-        let (all, author_from) = items(&offer(true, false), remedy_sdk::i18n::Lang::Ko);
-        assert_eq!(author_from, 13, "일반 작업");
-        assert_eq!(all.len() - author_from, 8, "접어 둔 작성자·운영자 명령");
-        assert_eq!(super::rows_of(&all[..author_from]).count() + 1, 14);
-    }
-
-    /// 기준 4 — **찾기만 하는 룰에서는 치료를 약속하는 줄이 까닭을 달고 흐리게 선다.**
-    /// 번호는 그대로다(줄을 빼지 않는다) — 안내에 적은 번호가 룰마다 바뀌면 안 된다.
-    #[test]
-    fn a_detect_only_rule_does_not_offer_treatment() {
-        let ko = remedy_sdk::i18n::Lang::Ko;
-        // 치료한 기록이 있는 기계로 잰다 — 없으면 유지 확인이 그 까닭으로 먼저 꺼진다.
         let mut o = offer(true, true);
         o.files.insert(
             Candidates::Plans,
             vec![std::path::PathBuf::from("plan.json")],
         );
-        let treating = |o: &Offer| -> Vec<(&'static str, Option<&'static str>)> {
-            items(o, ko).0.iter().map(|i| (i.label, i.off)).collect()
-        };
-        let before = treating(&o);
+        assert_eq!(apply(&o), None);
         o.detect_only = true;
-        let after = treating(&o);
-        let why = Some("이 룰은 찾기만 하고 치료하지 않습니다");
-        for ((label, was), (same, now)) in before.iter().zip(&after) {
-            assert_eq!(label, same, "번호가 움직였다");
-            let promises = matches!(
-                *label,
-                "검사하고 치료하기" | "치료가 유지됐는지 다시 보기" | "승인한 계획을 수행하기"
-            );
-            if promises {
-                assert_eq!(*was, None, "{label}");
-                assert_eq!(*now, why, "{label}");
-            } else {
-                assert_eq!(was, now, "{label}");
-            }
-        }
-        // 플러그인이 없다는 까닭이 먼저다.
+        assert_eq!(apply(&o), Some("이 룰은 찾기만 하고 치료하지 않습니다"));
         let mut none = offer(false, false);
         none.detect_only = true;
-        assert!(items(&none, ko).0.iter().all(|i| i.off != why));
+        assert_eq!(apply(&none), Some("쓸 수 있는 플러그인 번들이 없습니다"));
+    }
+
+    /// 치료가 유지됐는지는 **치료한 기록이 있어야** 묻는다 — 없을 때 고르면 치료한 적 없는
+    /// 기계에 *"치료 성공"* 이 떴다(v1.1.0 적대적 검토 · 2026-11-07 실측). 이제는 그 줄이 서지 않는다.
+    #[test]
+    fn verify_needs_a_treatment_record() {
+        assert!(!main_labels(&offer(true, false)).contains(&VERIFY));
+        assert!(main_labels(&offer(true, true)).contains(&VERIFY));
     }
 
     /// 메뉴 줄이 부르는 명령 — `main.rs` 의 분기 낱말로.
@@ -1080,10 +1243,7 @@ mod tests {
                 WithPlugin::Lint(_) => "plugin lint",
                 WithPlugin::VerifyBundle(_) => "plugin verify",
             },
-            Tag::NeedsRun(mk) => match mk(Run {
-                id: "r".into(),
-                state: p,
-            }) {
+            Tag::NeedsRun(mk) | Tag::NeedsUnfinished(mk) => match mk(a_run("r")) {
                 WithRun::Restore(_) => "restore",
                 WithRun::Support(_) => "support-bundle",
                 WithRun::Resume(_) => "resume",
@@ -1106,52 +1266,31 @@ mod tests {
         }
     }
 
-    /// 묶음 B 는 **플러그인이 드는 다섯**이다. 검사·치료가 **맨 위**여야 한다 —
-    /// 꾸러미를 받아서 띄운 사람의 목적이 그것이고, 번호 1 이 그 뜻이다.
+    /// 기본 화면의 여섯은 **받은 사람의 일**이고 검사 · 치료가 맨 위다 — 받아서 띄운 사람의 목적이
+    /// 그것이고, 번호 1 이 그 뜻이다. 이어서 하기만 끝나지 않은 회차를 묻는다.
     #[test]
-    fn group_b_carries_five_commands_and_treat_is_first() {
-        assert_eq!(PLUGIN_ITEMS.len(), 5);
-        let p = std::path::PathBuf::from("p.yaml");
-        let made: Vec<WithPlugin> = PLUGIN_ITEMS.iter().map(|(_, _, f)| f(p.clone())).collect();
+    fn the_main_lines_are_the_users_six_and_treat_is_first() {
+        let cmds: Vec<&str> = MAIN_ITEMS
+            .iter()
+            .map(|(_, _, m)| command(&m.tag()))
+            .collect();
         assert_eq!(
-            made[0],
-            WithPlugin::Run(p.clone()),
-            "검사·치료가 맨 위가 아니다"
-        );
-        assert_eq!(
-            made,
-            vec![
-                WithPlugin::Run(p.clone()),
-                WithPlugin::Scan(p.clone()),
-                WithPlugin::Verify(p.clone()),
-                WithPlugin::VerifyBundle(p.clone()),
-                WithPlugin::Lint(p),
+            cmds,
+            [
+                "run",
+                "scan",
+                "verify",
+                "restore",
+                "support-bundle",
+                "resume"
             ]
         );
+        assert_eq!(MAIN_ITEMS[0].2, Main::Treat);
+        assert!(matches!(Main::Resume.tag(), Tag::NeedsUnfinished(_)));
+        assert!(matches!(Main::Restore.tag(), Tag::NeedsRun(_)));
     }
 
-    /// **메뉴가 내는 줄의 수.** 완료 기준 1 이 세는 것은 *명령* 이고 이 수는
-    /// *줄* 이다 — 둘이 다른 이유는 `restore` 가 두 줄에 나뉘기 때문이다
-    /// (`--list` 는 묶음 A, `--run` 은 묶음 C). 줄이 줄면 고를 수 있는 것이
-    /// 줄었다는 뜻이므로 수로 잠근다.
-    ///
-    /// **줄 21 · 명령 20.** 묶음 B 5 + C 3 + A 5 + D·E 7 = 20 줄에 `수집만` 한
-    /// 줄을 더해 21 이고, `restore` 가 두 줄이라 명령은 20 이다.
-    #[test]
-    fn the_menu_offers_twenty_one_lines() {
-        assert_eq!(PLUGIN_ITEMS.len(), 5, "묶음 B");
-        assert_eq!(RUN_ITEMS.len(), 3, "묶음 C");
-        assert_eq!(PLAIN_ITEMS.len(), 5, "묶음 A");
-        assert_eq!(FILE_ITEMS.len(), 7, "묶음 D·E");
-        // `수집만` 은 상수 표에 없다(입력이 없어 항목이 하나뿐이다) — 그 한 줄을 더한다.
-        assert_eq!(
-            PLUGIN_ITEMS.len() + RUN_ITEMS.len() + PLAIN_ITEMS.len() + FILE_ITEMS.len() + 1,
-            21
-        );
-    }
-
-    /// 묶음 D·E 는 **파일이 드는 일곱**이다. 넷은 목록(`*.signed`)이고 셋은
-    /// 결과 폴더의 산출물이다.
+    /// 파일이 드는 일곱이다. 넷은 목록(`*.signed`)이고 셋은 결과 폴더의 산출물이다.
     #[test]
     fn group_de_carries_seven_commands() {
         assert_eq!(FILE_ITEMS.len(), 7);
@@ -1221,17 +1360,12 @@ mod tests {
     /// 이름이 비어 있으면 번호만 남은 줄이 된다.
     #[test]
     fn every_item_has_a_label() {
-        for (label, p) in PLAIN_ITEMS.iter().chain(PLAIN_ITEMS_EN) {
-            assert!(!label.trim().is_empty(), "{p:?}");
-        }
-        for (k, e, _) in RUN_ITEMS {
-            assert!(!k.trim().is_empty() && !e.trim().is_empty());
-        }
-        for (k, e, _) in PLUGIN_ITEMS {
-            assert!(!k.trim().is_empty() && !e.trim().is_empty());
-        }
-        for (k, e, _, _) in FILE_ITEMS {
-            assert!(!k.trim().is_empty() && !e.trim().is_empty());
-        }
+        let filled = |k: &str, e: &str| !k.trim().is_empty() && !e.trim().is_empty();
+        assert!(MAIN_ITEMS.iter().all(|(k, e, _)| filled(k, e)));
+        assert!(GROUPS.iter().all(|(k, e)| filled(k, e)));
+        assert!(filled(RECORD_ITEM.0, RECORD_ITEM.1));
+        assert!(PROGRAM_ITEMS.iter().all(|(k, e, _)| filled(k, e)));
+        assert!(AUTHOR_ITEMS.iter().all(|(k, e, _)| filled(k, e)));
+        assert!(FILE_ITEMS.iter().all(|(k, e, _, _)| filled(k, e)));
     }
 }

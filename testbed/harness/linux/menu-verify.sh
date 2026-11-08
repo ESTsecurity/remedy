@@ -115,9 +115,9 @@ docker run --rm \
     rust:1.96-bookworm bash /repo/testbed/harness/linux/menu-verify.sh --inside | tee "$OUT/run.txt"
 [ -s "$OUT/menu.txt" ] || { echo "메뉴를 받지 못했다 — $OUT/run.txt"; exit 1; }
 
-# 번호 줄과 묶음 머리만 — 두 OS 가 같아야 하는 것.
+# 첫 화면의 번호 줄만 — 두 OS 가 같아야 하는 것(목표 remedy_사용자메뉴 기준 5).
 items() { awk '/무엇을 할까요\?/{f=1} /번호를 고르십시오/{exit} f' "$1" \
-            | grep -E '^ +[0-9]+\. |작성자·운영자'; }
+            | grep -E '^ +[0-9]+\. '; }
 items "$OUT/menu.txt" >"$OUT/items.txt"
 items "$REPO/testbed/harness/baseline/console/console-win.txt" >"$OUT/items-win.txt"
 {
@@ -138,14 +138,17 @@ items "$REPO/testbed/harness/baseline/console/console-win.txt" >"$OUT/items-win.
     echo "scan_all_lines=$(sed -n '/모두 검사한 결과/,/Enter 를 누르면/p' "$OUT/scan-all.txt" | grep -c -E '^  .+ (—|-) ')"
     echo "scan_all_dirs=$(grep -o -E '결과 폴더 : [^ ]+' "$OUT/scan-all.txt" | sort -u | wc -l)"
     echo "scan_all_ended=$(grep -c '끝냅니다\.' "$OUT/scan-all.txt")"
-    # 찾기만 하는 룰의 메뉴 — 머리말의 이름 · 치료를 약속하는 두 줄이 까닭을 단다.
+    # 찾기만 하는 룰의 메뉴 — 머리말의 이름 · 1 번이 검사만 하기 · 치료를 약속하는 두 줄은 서지 않는다
+    # (목표 remedy_사용자메뉴 기준 1 — v1.2.0 은 그 둘이 까닭을 달고 흐렸다).
     echo "detect_only_exit=$(sed -n 's/^detect_only_exit=//p' "$OUT/run.txt")"
     echo "detect_only_named=$(grep -c '검사 항목: Ebury 점검 (탐지만)' "$OUT/detect-only.txt")"
-    echo "detect_only_off=$(grep -c -E '^ +(1\. 검사하고 치료하기|3\. 치료가 유지됐는지 다시 보기) (—|-) 이 룰은 찾기만 하고 치료하지 않습니다' "$OUT/detect-only.txt")"
+    echo "detect_only_first=$(grep -c -E '^ +1\. 검사만 하기' "$OUT/detect-only.txt")"
+    echo "detect_only_treat=$(grep -c -E '^ +[0-9]+\. (검사하고 치료하기|치료가 유지됐는지 다시 보기)' "$OUT/detect-only.txt")"
 } | tee "$OUT/verdict.txt"
 v() { sed -n "s/^$1=//p" "$OUT/verdict.txt"; }
 [ "$(v items_diff)" = 0 ] && [ -n "$(v linux_rules)" ] \
     && [ "$(v scan_all_exit)" = 6 ] && [ "$(v scan_all_summary)" = 1 ] \
     && [ "$(v scan_all_lines)" = "$(v linux_rules)" ] && [ "$(v scan_all_dirs)" = "$(v linux_rules)" ] \
     && [ "$(v scan_all_ended)" = 1 ] && [ "$(v detect_only_exit)" = 0 ] \
-    && [ "$(v detect_only_named)" = 1 ] && [ "$(v detect_only_off)" = 2 ]
+    && [ "$(v detect_only_named)" = 1 ] && [ "$(v detect_only_first)" = 1 ] \
+    && [ "$(v detect_only_treat)" = 0 ]
