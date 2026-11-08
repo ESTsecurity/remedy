@@ -233,6 +233,52 @@ fn restorable_runs() -> Vec<crate::menu::Run> {
     out
 }
 
+/// **끝나지 않은 치료** — 저널에 끝이 없는 회차. 메뉴의 *중단된 작업 이어서 하기* 는 이것이 있을 때만
+/// 서고, 이것만 고를 거리로 올린다(목표 remedy_사용자메뉴 기준 2(b)). 끝난 회차를 올리면 `resume` 이
+/// '이미 적용됨'(5)으로 거절한다(2026-11-07 적대적 검토). 두 자리를 [`restorable_runs`] 와 같은 차례로
+/// 본다. 읽지 못하면 없는 것으로 본다 — 명령줄 `resume` 은 그 폴더를 읽어 까닭을 말한다.
+fn unfinished_runs() -> Vec<crate::menu::Run> {
+    let mut out = Vec::new();
+    for dir in crate::menu_state_dirs() {
+        let mut ids = remedy_core::apply::unfinished_runs(&dir).unwrap_or_default();
+        ids.sort();
+        out.extend(ids.into_iter().map(|id| crate::menu::Run {
+            id,
+            state: dir.clone(),
+        }));
+    }
+    out
+}
+
+/// 지금 세션의 작업 메뉴의 모양 — (룰을 들고 섰는가, 그 룰이 찾기만 하는가). 작업 뒤 *다음 할 일* 이
+/// 돌아갈 그 화면의 번호를 세는 데 쓴다([`next_offer`]). 룰 없이 기록만 있는 기계의 메뉴에는 치료 줄이
+/// 없고, 찾기만 하는 룰의 메뉴에서는 1 번이 *검사만 하기* 다. *모두 검사만* 뒤의 안내는 찾은 룰 가운데
+/// 치료하는 것을 고른 뒤의 메뉴를 가리키므로 (룰 있음, 치료함)이다.
+static MENU_SHAPE: std::sync::Mutex<(bool, bool)> = std::sync::Mutex::new((true, false));
+
+fn set_menu_shape(plugin: bool, detect_only: bool) {
+    if let Ok(mut g) = MENU_SHAPE.lock() {
+        *g = (plugin, detect_only);
+    }
+}
+
+/// 작업 **뒤** 돌아갈 메뉴의 모양 — *다음 할 일* 이 그 화면에서 줄의 번호를 센다(목표 remedy_사용자메뉴
+/// 기준 4). 기본 화면은 일이 있을 때만 줄을 세우므로, 치료가 만든 회차 · 복원이 지운 회차를 지금 다시
+/// 읽는다. 후보 파일은 기본 화면의 번호와 상관없어 읽지 않는다.
+pub(crate) fn next_offer() -> crate::menu::Offer {
+    let (plugin, detect_only) = MENU_SHAPE.lock().map_or((true, false), |g| *g);
+    let runs = restorable_runs();
+    crate::menu::Offer {
+        plugin: plugin.then(std::path::PathBuf::new),
+        detect_only,
+        name: None,
+        runs_locked: runs.is_empty() && runs_locked(),
+        runs,
+        unfinished: unfinished_runs(),
+        files: std::collections::BTreeMap::new(),
+    }
+}
+
 /// 복원 정보 폴더가 **있는데 권한 때문에 읽지 못하는가.** [`restorable_runs`] 는 못 읽은 것을
 /// 없는 것으로 세므로, 관리자(root)로 치료한 뒤 권한 없이 다시 띄우면 회차 줄이 *"치료한 기록이
 /// 없습니다"* 라고 해 기록이 사라진 것으로 읽혔다(2026-11-08 적대적 검토 4바퀴 — 리눅스 실측:
@@ -265,18 +311,21 @@ pub fn run(anchor: Option<&str>) -> Outcome {
         // 터미널일 때만이다 — 아니면 지금까지처럼 사용법이다(불변식 I7).
         if interactive() {
             let runs = restorable_runs();
+            let unfinished = unfinished_runs();
             let (out_dir, exe_dir) = folders(&exe);
             let files = candidate_files(&out_dir, &exe_dir);
             // 꾸러미가 없어도 **회차나 후보 파일이 있으면** 메뉴를 연다 — 치료한
             // 적이 있는 기계에서 되돌리려는 사람, 목록을 반입하려는 운영자가
             // 여기 온다. 전에는 그 사람에게 사용법만 보였다.
-            if !runs.is_empty() || !files.is_empty() {
+            if !runs.is_empty() || !unfinished.is_empty() || !files.is_empty() {
+                set_menu_shape(false, false);
                 return to_outcome(crate::menu::run(&crate::menu::Offer {
                     plugin: None,
                     detect_only: false,
                     name: None,
                     runs_locked: runs.is_empty() && runs_locked(),
                     runs,
+                    unfinished,
                     files,
                 }));
             }
@@ -362,7 +411,8 @@ pub fn run(anchor: Option<&str>) -> Outcome {
     let chosen = match choice {
         Choice::One(c) => c,
         Choice::All(all) => {
-            return Outcome::ScanAll(all.into_iter().map(|c| (c.label, c.path)).collect())
+            set_menu_shape(true, false);
+            return Outcome::ScanAll(all.into_iter().map(|c| (c.label, c.path)).collect());
         }
     };
 
@@ -380,12 +430,15 @@ pub fn run(anchor: Option<&str>) -> Outcome {
     if interactive() {
         let (out_dir, exe_dir) = folders(&exe);
         let runs = restorable_runs();
+        let detect_only = !treats(&chosen.path);
+        set_menu_shape(true, detect_only);
         let pick = crate::menu::run(&crate::menu::Offer {
             plugin: Some(chosen.path.clone()),
-            detect_only: !treats(&chosen.path),
+            detect_only,
             name: Some(chosen.label.clone()),
             runs_locked: runs.is_empty() && runs_locked(),
             runs,
+            unfinished: unfinished_runs(),
             files: candidate_files(&out_dir, &exe_dir),
         });
         return to_outcome(pick);
@@ -497,7 +550,7 @@ fn choose(ok: &[discover::Found]) -> Option<Choice> {
         for r in &rows {
             match r {
                 Row::Blank => outln!(),
-                Row::Text(t) => outln!("{t}"),
+                Row::Text(t) | Row::Group(t) => outln!("{t}"),
                 Row::Item(_) | Row::Off(..) => {}
             }
         }

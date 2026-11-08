@@ -294,11 +294,12 @@ function Find-MenuNumber {
     return 0
 }
 
-# 첫 화면의 마지막 줄 — 접어 둔 작성자·운영자 명령을 연다(목표 remedy_출시_20261111 기준 4).
-$AuthorLine = "작성자·운영자 명령 보기"
-$AuthorHead = "작성자·운영자 명령 —"
+# 첫 화면의 마지막 줄 — 더 보기를 연다(목표 remedy_사용자메뉴 결정 2). 그 화면에 기록 보기 ·
+# 프로그램 · 룰 작성자 · 운영자 명령 열다섯이 묶음 제목 넷 아래 선다.
+$AuthorLine = "더 보기"
+$AuthorHead = "더 보기 —"
 
-# 접어 둔 화면만 잘라 읽는다 — 머리말부터 그 화면의 `0. 메뉴로 돌아가기` 앞까지. 뒤에 다시
+# 더 보기 화면만 잘라 읽는다 — 머리말부터 그 화면의 `0. 메뉴로 돌아가기` 앞까지. 뒤에 다시
 # 선 첫 화면의 줄이 섞이지 않게. **끝 표지는 stdout 의 것이어야 한다** — 전사는 stdout 뒤에
 # stderr 를 붙이므로 *번호를 고르십시오*(stderr)는 맨 끝에만 있다(2026-11-06 둘째 회차가
 # 접은 화면을 22줄로 셌다 — 돌아온 첫 화면 14줄까지).
@@ -414,7 +415,7 @@ if ($rc -ne 0) {
 # 말한다. 치료 승인을 거절한 자리는 이 갈래가 아니라 `approved()` 를 지나 2 다.
 $probe = Invoke-MenuRun -Lines (@() + $Lead + @("0")) -TimeoutMs 30000
 $pmap = Get-MenuMap -Text $probe.text
-# 접어 둔 화면 — 첫 화면의 마지막 줄을 눌러 열고, `0` 으로 돌아와 `0` 으로 그만둔다.
+# 더 보기 — 첫 화면의 마지막 줄을 눌러 열고, `0` 으로 돌아와 `0` 으로 그만둔다.
 $authorNo = Find-MenuNumber -Map $pmap -Needle $AuthorLine
 $aprobe = $null
 $atext = ""
@@ -429,7 +430,7 @@ $report.probe = [ordered]@{
     shown       = [bool]($probe.text -match "무엇을 할까요")
     item_count  = @($pmap.Keys | Where-Object { $pmap[$_] -gt 0 }).Count
     off_count   = @(($probe.text -split "`r?`n") | Where-Object { $_ -match $OffRow }).Count
-    # 첫 화면의 마지막 줄이 접은 화면을 연다 — 그 화면의 줄 수와 그 화면에서 돌아온 끝 코드.
+    # 첫 화면의 마지막 줄이 더 보기를 연다 — 그 화면의 줄 수와 그 화면에서 돌아온 끝 코드.
     author_no    = $authorNo
     author_items = @($amap.Keys | Where-Object { $amap[$_] -gt 0 }).Count
     author_off   = @(($atext -split "`r?`n") | Where-Object { $_ -match $OffRow }).Count
@@ -444,7 +445,7 @@ $tr.Add("=== 0. 인자 없이 띄웠다 — 메뉴 (그만두기로 끝냈다) =
 $tr.Add($probe.text.TrimEnd())
 if ($null -ne $aprobe) {
     $tr.Add("")
-    $tr.Add("=== 0-1. 작성자·운영자 명령 보기 — 접은 화면 (돌아와 그만두기) ===")
+    $tr.Add("=== 0-1. 더 보기 — 기록 · 프로그램 · 룰 작성자 · 운영자 (돌아와 그만두기) ===")
     $tr.Add($aprobe.text.TrimEnd())
 }
 
@@ -547,19 +548,23 @@ if ($withExtra) {
         $tr.Add("=== 모두 검사 — 고르는 화면 1 번 (2개 모두 검사만 하기) ===")
         $tr.Add($all.text.TrimEnd())
 
-        # 찾기만 하는 룰을 고르면 머리말에 그 이름이 서고, 치료를 약속하는 줄이 까닭을 단다.
+        # 찾기만 하는 룰을 고르면 머리말에 그 이름이 서고, 치료를 약속하는 줄(치료 · 유지 확인)은
+        # 서지 않는다 — 1 번이 검사만 하기다(목표 remedy_사용자메뉴 기준 1).
         $xno = Find-MenuNumber -Map (Get-MenuMap -Text $all.text) -Needle $xName
         $dm = $null
         if ($xno -gt 0) { $dm = Invoke-MenuRun -Lines @("$xno", "0") -TimeoutMs 60000 }
         $txt = $(if ($null -ne $dm) { $dm.text } else { "" })
-        $why = "이 룰은 찾기만 하고 치료하지 않습니다"
+        # 고르는 화면이 아니라 그 뒤의 작업 메뉴만 본다 — "무엇을 할까요?" 부터.
+        $menuAt = $txt.IndexOf("무엇을 할까요")
+        $menuTxt = $(if ($menuAt -ge 0) { $txt.Substring($menuAt) } else { "" })
         $row = [ordered]@{
             key = "탐지만 메뉴"; needle = $xName; number = $xno; via = ""; lines = @("$xno", "0")
             found = ($xno -gt 0); exit = $(if ($null -ne $dm) { $dm.exit } else { $null }); expect = 0
             timed_out = $(if ($null -ne $dm) { $dm.timed_out } else { $true })
             named = $txt.Contains("검사 항목: $xName")
-            treat_off = [bool]($txt -match "  1\. 검사하고 치료하기 (—|-) $why")
-            verify_off = [bool]($txt -match "  3\. 치료가 유지됐는지 다시 보기 (—|-) $why")
+            treat_off = [bool]($menuTxt -match "  1\. 검사만 하기") -and
+                        (-not [bool]($menuTxt -match "검사하고 치료하기"))
+            verify_off = -not [bool]($menuTxt -match "치료가 유지됐는지 다시 보기")
             ok = $false
         }
         $row.ok = $row.found -and (-not $row.timed_out) -and ($row.exit -eq 0) -and $row.named -and
@@ -583,7 +588,8 @@ foreach ($s in $steps) {
     $before = Get-Snapshot
 
     # 작업마다 다시 읽는다 — 앞 작업이 만든 회차 · 파일로 고를 수 있는 줄이 바뀐다. 첫 화면에
-    # 없으면 접은 화면에서 찾고, 그때는 첫 화면의 마지막 줄을 먼저 누른다(`via`).
+    # 없으면 더 보기에서 찾고, 그때는 첫 화면의 마지막 줄을 먼저 누른다(`via`). 기록이 드는 줄
+    # (복원 · 신고 · 유지 확인 · 이어서 하기)은 그 일이 생긴 뒤에만 첫 화면에 선다.
     $look = Invoke-MenuRun -Lines (@() + $Lead + @("0", "")) -TimeoutMs 60000
     $map = Get-MenuMap -Text $look.text
     $no = Find-MenuNumber -Map $map -Needle $s.needle

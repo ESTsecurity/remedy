@@ -401,6 +401,10 @@ pub enum Row {
     Blank,
     /// 그대로 쓰는 줄 — 머리말 · 구분선.
     Text(String),
+    /// 묶음 제목 — 번호 줄 사이에 서는 글줄(*더 보기* 의 기록 · 프로그램 · …). [`Row::Text`]
+    /// 와 같게 그리지만 **머리말이 아니다** — 줄이 창보다 높을 때 넘기는 쪽에 들어, 첫 묶음의
+    /// 제목이 맨 위에 붙박여 다른 묶음의 줄 위에 서지 않는다.
+    Group(String),
     /// 번호가 붙는 줄. 번호는 1 부터 차례로 매긴다.
     Item(String),
     /// 번호는 붙지만 지금은 고를 수 없는 줄 — 이름과 그 까닭. 흐리게 그리고, 그 번호를
@@ -459,7 +463,7 @@ fn choose_line(rows: &[Row], zero: Option<&str>, n: usize) -> Answer {
     for r in rows {
         match r {
             Row::Blank => outln!(),
-            Row::Text(t) => outln!("{t}"),
+            Row::Text(t) | Row::Group(t) => outln!("{t}"),
             Row::Item(label) => {
                 i += 1;
                 outln!("  {i}. {label}");
@@ -671,6 +675,7 @@ fn lines(rows: &[Row], zero: Option<&str>, sel: usize, hint: Option<&str>) -> Fr
             Row::Blank => f.push(String::new(), false),
             // 이 길은 그리는 자리에서만 온다 — 글줄에도 역할 색을 얹는다(머리말 · 권한).
             Row::Text(t) => f.push(paint(t, false).unwrap_or_else(|| t.clone()), false),
+            Row::Group(t) => f.push(t.clone(), false),
             Row::Item(label) => {
                 i += 1;
                 if i == sel {
@@ -1018,6 +1023,26 @@ mod tests {
 
     /// 창이 목록보다 낮으면 번호 줄만 넘긴다 — 머리말과 아래 줄은 그대로, 강조한 줄은
     /// 늘 보이고, 그린 줄 수는 창을 넘지 않으며, 가린 번호 줄 수를 위아래에 적는다.
+    #[test]
+    fn a_group_title_scrolls_with_its_lines_and_is_not_pinned() {
+        // 더 보기의 꼴 — 머리말 뒤에 묶음 제목과 번호 줄이 번갈아 선다(목표 remedy_사용자메뉴 결정 2).
+        let mut rows = vec![Row::Blank, Row::Text("head".into()), Row::Blank];
+        for g in 1..=4 {
+            rows.push(Row::Group(format!("group {g}")));
+            rows.extend((1..=4).map(|i| Row::Item(format!("item {g}-{i}"))));
+        }
+        let f = lines(&rows, Some("back"), 1, None);
+        assert_eq!(f.head, 3, "묶음 제목은 머리말이 아니다");
+        // 번호는 묶음을 건너 이어진다 — 둘째 묶음의 첫 줄이 5 번이다.
+        assert!(f.lines.iter().any(|l| l.contains("5. item 2-1")));
+        // 맨 아래를 고르면 넘어가고, 첫 묶음의 제목은 위에 남지 않는다.
+        let mut top = 0;
+        let v = view(&lines(&rows, Some("back"), 16, None), &mut top, 12);
+        assert_eq!(&v[..3], ["", "head", ""]);
+        assert!(!v.iter().any(|l| l == "group 1"), "{v:?}");
+        assert!(v.iter().any(|l| l.contains("> 16. item 4-4")), "{v:?}");
+    }
+
     #[test]
     fn a_tall_list_scrolls_inside_the_window() {
         let mut rows = vec![Row::Blank, Row::Text("head".into()), Row::Blank];
