@@ -50,6 +50,9 @@ pub(crate) fn walk(
     root: &str,
     limit: usize,
 ) -> Result<WalkResult, PlatformError> {
+    if let Some((dir, pattern)) = normalize::glob_root(root) {
+        return walk_glob(view, dir, pattern, limit);
+    }
     let mut out = Vec::new();
     let mut truncated = false;
     let mut denied = 0usize;
@@ -122,6 +125,81 @@ pub(crate) fn walk(
         stack.extend(subdirs);
     }
 
+    out.sort_by(|a, b| a.path.cmp(&b.path));
+    Ok(WalkResult {
+        entries: out,
+        truncated,
+        denied,
+        denied_paths,
+    })
+}
+
+/// 글롭 뿌리(`…\Temp\*.js`) — 그 폴더 **바로 아래**에서 이름이 맞는 파일만.
+///
+/// 하위 폴더로 내려가지 않고 폴더는 담지 않는다(`normalize::glob_root`). `TEMP`
+/// 하나가 파일 6만 개 · 16 GB 인 기계가 있다(2026-11-08 · 개발 기계 실측) — 재귀로
+/// 걸으며 파일마다 읽고 해시하면 검사가 몇십 분이 된다. 바로 아래의 이름 목록만
+/// 읽는 것은 그와 견줄 수 없이 싸다.
+///
+/// 폴더가 **없으면** 빈 결과다(못 본 것이 아니다). 있는데 열리지 않으면 `denied` 로
+/// 센다 — 재귀 걷기와 같은 규칙이다.
+fn walk_glob(
+    view: &impl PathView,
+    dir: &str,
+    pattern: &str,
+    limit: usize,
+) -> Result<WalkResult, PlatformError> {
+    let platform = if cfg!(windows) {
+        remedy_sdk::catalog::Platform::Windows
+    } else {
+        remedy_sdk::catalog::Platform::Linux
+    };
+    let want = normalize::for_compare(pattern, platform);
+    let mut out = Vec::new();
+    let mut truncated = false;
+    let mut denied = 0usize;
+    let mut denied_paths: Vec<String> = Vec::new();
+    let access = view.for_access(dir);
+    match std::fs::read_dir(&access) {
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        Err(_) => {
+            denied = 1;
+            denied_paths.push(normalize::nfc(&view.for_record(&access)));
+        }
+        Ok(rd) => {
+            crate::progress::enter_dir(&access);
+            let mut entries: Vec<_> = rd.flatten().collect();
+            entries.sort_by_key(|e| e.file_name());
+            for e in entries {
+                crate::progress::tick_entry();
+                let name = e.file_name().to_string_lossy().to_string();
+                if !normalize::name_matches(&normalize::for_compare(&name, platform), &want) {
+                    continue;
+                }
+                let md = match e.metadata() {
+                    Ok(m) => m,
+                    Err(_) => continue,
+                };
+                if md.is_dir() {
+                    continue;
+                }
+                if out.len() >= limit {
+                    truncated = true;
+                    break;
+                }
+                let accessed = e.path().to_string_lossy().to_string();
+                out.push(FsEntry {
+                    path: normalize::nfc(&view.for_record(&accessed)),
+                    is_dir: false,
+                    is_reparse: e.file_type().map(|t| t.is_symlink()).unwrap_or(false),
+                    size: md.len(),
+                    mtime: rfc3339(md.modified()).unwrap_or_else(|| "1970-01-01T00:00:00Z".into()),
+                    ctime: rfc3339(md.created()),
+                    mode: unix_mode(&md),
+                });
+            }
+        }
+    }
     out.sort_by(|a, b| a.path.cmp(&b.path));
     Ok(WalkResult {
         entries: out,
@@ -402,6 +480,39 @@ mod tests {
         let _ = std::fs::remove_dir_all(&d);
         std::fs::create_dir_all(&d).expect("실험 디렉터리");
         d
+    }
+
+    #[test]
+    fn a_glob_root_lists_only_matching_files_directly_under_the_folder() {
+        let d = lab("glob");
+        for n in ["b.js", "a.JS", "c.txt"] {
+            std::fs::write(d.join(n), b"x").expect("쓰기");
+        }
+        std::fs::create_dir(d.join("sub.js")).expect("하위");
+        std::fs::write(d.join("sub.js").join("z.js"), b"x").expect("쓰기");
+
+        let sep = std::path::MAIN_SEPARATOR;
+        let root = format!("{}{sep}*.js", d.to_str().unwrap());
+        let w = walk(&Identity, &root, 100).expect("순회");
+        let names: Vec<&str> = w
+            .entries
+            .iter()
+            .map(|e| e.path.rsplit(['\\', '/']).next().unwrap())
+            .collect();
+        // 폴더(`sub.js`)도 하위의 `z.js` 도 담지 않는다. 대소문자는 Windows 에서만 접는다.
+        if cfg!(windows) {
+            assert_eq!(names, vec!["a.JS", "b.js"]);
+        } else {
+            assert_eq!(names, vec!["b.js"]);
+        }
+        assert!(w.entries.iter().all(|e| !e.is_dir));
+        assert_eq!((w.denied, w.truncated), (0, false));
+
+        // 폴더가 없으면 볼 것이 없다 — 못 본 것이 아니다.
+        let gone = format!("{}{sep}nope{sep}*.js", d.to_str().unwrap());
+        let w = walk(&Identity, &gone, 100).expect("순회");
+        assert!(w.entries.is_empty());
+        assert_eq!(w.denied, 0);
     }
 
     #[test]

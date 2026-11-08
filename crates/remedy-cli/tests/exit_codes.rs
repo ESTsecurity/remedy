@@ -127,6 +127,44 @@ fn selftest_is_zero() {
     assert_eq!(run(&["selftest"]), 0);
 }
 
+/// **더 새 코어를 요구하는 룰로는 시작하지 않는다** (설계-02 §10).
+///
+/// 확인이 `plugin lint` 에만 있던 동안, 공개된 1.1.3 은 `min_core: "1.2.0"` 인 룰을
+/// 거절하지 않고 평가했다(2026-11-08 실측). 낮은 코어는 모르는 필드를 조용히 0건으로
+/// 보므로 그 결과가 0(위협 없음)일 수 있다 — 무인 배포가 읽는 것은 그 숫자뿐이다.
+/// 수집 전에 멈추므로 플랫폼과 무관하다.
+#[test]
+fn a_rule_that_needs_a_newer_core_stops_before_the_scan() {
+    let p = work().join("needs-newer-core.yaml");
+    std::fs::write(
+        &p,
+        format!(
+            "schema_version: 1\nid: needs-newer-core\nversion: 1.0.0\nmin_core: '99.0.0'\n\
+             platforms: [windows, linux]\nname: {{ ko: 'x', en: 'x' }}\nscan_roots: ['{root}']\n\
+             subjects: [file]\ndetect:\n  - id: a\n    subject: file\n    where:\n      \
+             - {{ field: path, op: ends_with, value: 'marker.txt' }}\nverdict: {{ require: 'a' }}\n",
+            root = work().display()
+        ),
+    )
+    .expect("플러그인");
+    let out = Command::new(EXE)
+        .args(["run", "--plugin", p.to_str().unwrap(), "--dry-run"])
+        .env("REMEDY_ELEVATION", "yes")
+        .env("REMEDY_LANG", "ko")
+        .output()
+        .unwrap_or_else(|e| panic!("{EXE} 실행 실패: {e}"));
+    let said = String::from_utf8_lossy(&out.stderr);
+    assert_eq!(
+        out.status.code(),
+        Some(4),
+        "사용법·입력 오류여야 한다: {said}"
+    );
+    assert!(
+        said.contains("min_core") && said.contains("99.0.0"),
+        "까닭이 화면에 있어야 한다: {said}"
+    );
+}
+
 /// Windows 에서만 수집 백엔드가 있다. 다른 플랫폼에서는 수집이 성립하지 않으므로
 /// 이 아래 검사는 `NoBackend` 오류를 받는다 (설계-09 P12 에서 Linux 가 들어온다).
 #[cfg(windows)]

@@ -121,18 +121,23 @@
 >
 > 실행기·복원기·왕복 시험은 P8 에서 이미 만들었다. 없는 것은 판정 재료뿐이다.
 
-### 3.3 subject 19종 → Phase
+### 3.3 subject 20종 → Phase
 
 | Phase | subject |
 |---|---|
 | **P2** | `file` · `persistence` |
-| **P4** | `autorun` · `service` · `process` · `registry_value` · `registry_key` · `text_config` · `structured_config` · `shortcut` · `hosts_entry` · `browser_extension` · `av_exclusion` · `cert_store` · `proxy_config` · `firewall_rule` · `boot_config` · `indicator` · `package` |
+| **P4** | `autorun` · `service` · `process` · `registry_value` · `registry_key` · `text_config` · `structured_config` · `shortcut` · `hosts_entry` · `browser_extension` · `av_exclusion` · `cert_store` · `proxy_config` · `firewall_rule` · `boot_config` · `indicator` · `package` · `unix_socket` |
 
 > `package` 는 P12 회차(2026-10-27 · C-2)에 더해졌는데 **P4** 다. 이 칸은
 > *"언제 커밋했는가"* 가 아니라 **어느 표면이 소유하는가**이고 수집 표면은
 > P4 다 — `firewall_rule` 이 같은 자리에 있다. 이 subject 는 **Linux 전용**
 > 이다(`windows: false`): 개념은 Windows 에도 있으나(MSI · winget · Appx) 이
 > 코어에 수집기가 없고, 그 축에는 `linux_from` 같은 *"아직"* 칸이 없다.
+>
+> `unix_socket` 도 같은 까닭으로 **P4** 다(코어 1.2.0 · 2026-11-08). `/proc/net/unix` 의
+> 이름 있는 소켓을 파일로 읽는 **Linux 전용 · 찾기 전용** subject 이고, Ebury 의 현재 주
+> 탐지법(추상 소켓 이름)을 룰로 쓰려고 열었다. 살아 있는 연결 목록을 뺀 결정(설계-01 D11)과
+> 무엇이 다른지는 그 결정의 덧붙임에 있다.
 
 ### 3.4 CLI 명령 → Phase
 

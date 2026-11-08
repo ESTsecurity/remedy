@@ -133,6 +133,8 @@ fn infected() -> (ArtifactsEnvelope, Scope) {
                     actions: vec!["exec".into()],
                     run_level: None,
                     working_directory: None,
+                    command_expanded: None,
+                    args_expanded: None,
                 },
             }),
         }],

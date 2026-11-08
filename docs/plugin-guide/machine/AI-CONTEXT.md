@@ -47,7 +47,7 @@ remediate:
 
 ## subject 와 필드 (닫힌 집합)
 
-- `persistence`: id name enabled trigger command args principal source win.task.register_path win.task.actions win.task.run_level win.task.working_directory linux.cron.line_no linux.cron.line
+- `persistence`: id name enabled trigger command args principal source win.task.register_path win.task.actions win.task.run_level win.task.working_directory win.task.command_expanded win.task.args_expanded linux.cron.line_no linux.cron.line
 - `autorun`: id scope name command source
 - `service`: id name state start_type image_path
 - `process`: pid ppid image_path cmdline cmdline_decoded args user start_time modules
@@ -66,6 +66,7 @@ remediate:
 - `proxy_config`: scope server pac_url bypass
 - `firewall_rule`: id name direction action enabled protocol local_port remote_port remote_address application service profile source
 - `package`: name version upstream_version revision arch source manager
+- `unix_socket`: name inode listening kind
 
 **`from` 은 `path` 필드가 있는 subject 에만 통한다** — file text_config structured_config shortcut browser_extension. 그 밖에는 `where` 값에 `${다른규칙.capture}` 를 넣어 부모에 묶는다.
 
@@ -83,9 +84,9 @@ equals · not_equals · matches · contains · starts_with · ends_with · in ·
 
 ## capture 함수
 
-first_path · dirname · basename · lower · expand_env · trim_quotes · base64_decode · hex_decode
+first_path · last_path · dirname · basename · lower · expand_env · trim_quotes · base64_decode · hex_decode
 
-`first_path` 는 **첫 공백 토큰**을 뽑는다(따옴표는 벗긴다) — 경로가 아니어도 그것을 낸다. 줄 중간의 경로는 뽑지 못한다. `key`/`value` 는 `=` 로 쓴 줄에서만 채워진다 — 공백으로 쓰는 설정(`sshd_config` 등)에서는 둘 다 비므로 그 자리는 리터럴로 적는다.
+`first_path` 는 **첫 공백 토큰**을 뽑는다(따옴표는 벗긴다) — 경로가 아니어도 그것을 낸다. `last_path` 는 **역슬래시가 든 마지막 토큰**(없으면 슬래시가 든 마지막 토큰)을 뽑는다 — `--run` 같은 플래그와 `/min` 같은 스위치는 건너뛰고, 경로가 둘 이상이면 마지막 것이다. 줄 중간의 경로는 둘 다 뽑지 못한다. `key`/`value` 는 `=` 로 쓴 줄에서만 채워진다 — 공백으로 쓰는 설정(`sshd_config` 등)에서는 둘 다 비므로 그 자리는 리터럴로 적는다.
 
 ## 지정 확장 토큰
 

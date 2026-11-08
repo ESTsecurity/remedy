@@ -11,7 +11,7 @@
 | `schema_version` | ● | 지금은 `1` |
 | `id` | ● | 전역 고유. `[a-z0-9-]+` |
 | `version` | ● | semver. **폐기 목록의 `min_plugin_version` 이 이것을 본다.** 고객 화면 첫 줄에 적히므로 **룰이나 매니페스트를 고치면 올린다** — `cargo xtask plugin-lock` 이 그것을 강제한다 |
-| `min_core` | ● | 요구하는 코어 최소 버전. `주.부.수` 세 자리. **린트가 이 코어와 비교한다** — 더 높으면 오류다. **이 문서에 있는 Op 은 전부 `1.0.0` 부터 있다** — `P6`·`P10` 같은 Phase 는 개발 순서이지 배포 판이 아니라 둘을 잇는 표는 없다 |
+| `min_core` | ● | 요구하는 코어 최소 버전. `주.부.수` 세 자리. **코어가 룰을 읽을 때마다 자기와 비교해** 더 높으면 돌지 않는다(린트도 오류). **이 문서에 있는 Op 은 전부 `1.0.0` 부터 있다** — `P6`·`P10` 같은 Phase 는 개발 순서이지 배포 판이 아니라 둘을 잇는 표는 없다 |
 | `platforms` | ● | `[windows]` · `[linux]` · 둘 다 |
 | `name` | ● | `{ ko: …, en: … }` — **고객 화면의 첫 줄**이다. 두 언어 다 적는다. 한쪽이 비면 린트 오류 |
 | `scan_roots` | ● | **읽기 권한 상한** (아래) |
@@ -54,7 +54,7 @@ scan_roots:
 
 | `scan_roots` 가 범위를 정한다 | `file` · `text_config` · `structured_config` · `shortcut` · `browser_extension` · `registry_value` · `registry_key` |
 |---|---|
-| **무관하게 수집된다** | `persistence` · `autorun` · `process` · `service` · `av_exclusion` · `firewall_rule` · `hosts_entry` · `cert_store` · `proxy_config` · `boot_config` · `indicator` · `package` |
+| **무관하게 수집된다** | `persistence` · `autorun` · `process` · `service` · `av_exclusion` · `firewall_rule` · `hosts_entry` · `cert_store` · `proxy_config` · `boot_config` · `indicator` · `package` · `unix_socket` |
 
 > **레지스트리 값·키는 `scan_roots` 에 레지스트리 루트를 적어야 모인다.**
 > 수집기가 `scan_roots` 에서 `HKLM\…` 모양인 것만 골라 그 아래를 훑는다.
@@ -85,7 +85,7 @@ scan_roots:
 |---|---|
 | **맨 끝에서만** | 전개기가 첫 번째 별표만 펼친다. 중간에 두거나 둘 이상 쓰면 나머지가 리터럴로 남아 **조용히 0건**이 된다. 린트가 막는다 |
 | **한 단계만** | 재귀가 아니다. 손자 키의 값은 안 온다 |
-| **파일 경로에는 없다** | `%LOCALAPPDATA%\\*` 는 오류다. 그쪽은 전개되지 않아 없는 디렉터리가 된다 |
+| **파일 경로는 마지막 칸의 이름 꼴만** | `…\\Temp\\*.js` 는 그 폴더 바로 아래의 맞는 파일만 고른다(코어 1.2.0 · 폴더 자체는 상한 밖). `%LOCALAPPDATA%\\*` 와 폴더 칸의 `*` 는 오류다 |
 | **폭을 벌지 못한다** | `HKLM\\SOFTWARE\\*` 는 `HKLM\\SOFTWARE` 와 같은 깊이로 재진다. 별표는 좁히는 것이 아니라 **넓히는 것**이라서다 |
 
 > `HKU\\*` 는 이것의 특수한 경우이자 지정 토큰이라 중간에 와도 된다

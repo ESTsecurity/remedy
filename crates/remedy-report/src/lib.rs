@@ -344,7 +344,9 @@ pub fn evidence_label(subject: remedy_sdk::catalog::Subject, target: &serde_json
             (Some(p), Some(n)) => Some(format!("{p}:{n}")),
             (p, _) => p,
         },
-        S::Package | S::Service | S::FirewallRule => first_of(target, &["name"]),
+        // 소켓은 이름이 곧 찾아갈 단서다 — 추상 이름의 `@` 를 그대로 둔다(`ss -xlp` 가 같은
+        // 꼴로 보여 준다).
+        S::Package | S::Service | S::FirewallRule | S::UnixSocket => first_of(target, &["name"]),
         S::Persistence | S::Autorun => first_of(target, &["name", "id", "command"]),
         S::Process => first_of(target, &["image_path", "cmdline", "pid"]),
         S::Indicator | S::AvExclusion => first_of(target, &["value"]),

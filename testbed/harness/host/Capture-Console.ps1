@@ -784,8 +784,10 @@ verdict:
     Sep "D3. run --yes — 치료"
     Emit (G @("run", "--plugin", $Plugin, "--out-dir", "$LabRoot\out-console-run", "--yes", "--state-dir", $State) $L)
 
+    # **`-Encoding UTF8` 를 빼지 않는다.** 계획 JSON 은 UTF-8 이고 PowerShell 5.1 의 기본은 ANSI(CP949)라,
+    # 한글 미룸 사유가 든 계획에서 글자가 닫는 따옴표를 먹어 파싱이 깨졌다(2026-11-08 — 이 절이 THROW).
     $runId = Invoke-Command -Session $session -ArgumentList "$LabRoot\out-console-run\plan.json" -ScriptBlock {
-        param($p) if (Test-Path $p) { (Get-Content $p -Raw | ConvertFrom-Json).run_id }
+        param($p) if (Test-Path $p) { (Get-Content $p -Raw -Encoding UTF8 | ConvertFrom-Json).run_id }
     }
     Emit "[run_id=$runId]"
 

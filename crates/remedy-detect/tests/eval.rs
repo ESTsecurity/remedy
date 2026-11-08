@@ -48,6 +48,8 @@ fn task(name: &str, dir: &str) -> PersistenceRecord {
                 actions: vec!["exec".into()],
                 run_level: None,
                 working_directory: None,
+                command_expanded: None,
+                args_expanded: None,
             },
         }),
     }

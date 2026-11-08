@@ -797,7 +797,7 @@ fn sub_second_runs_do_not_say_zero() {
 // ───────────────────────────────────────── 점검 결과 항목 (2026-10-28)
 //
 // 점검 화면이 `취약 N건` 이라는 **수만** 내고 끝나던 자리다. 재는 것은 둘 —
-// **subject 19종이 전부 이름을 낸다**(빈 줄이 나가면 사용자가 아무것도 못 한다)
+// **subject 20종이 전부 이름을 낸다**(빈 줄이 나가면 사용자가 아무것도 못 한다)
 // 와 **잘리는 갈래가 실제로 돈다**(안 재면 죽은 코드다).
 
 use remedy_sdk::artifact::{Evidence, EvidenceGroup, MatchedPredicate};
@@ -825,7 +825,7 @@ fn group(id: &str, evidence: &[&str], verdict: bool) -> EvidenceGroup {
     }
 }
 
-/// **19종 전부가 이름을 낸다.** 카탈로그가 적은 식별 필드를 주면 그것이 나오고,
+/// **20종 전부가 이름을 낸다.** 카탈로그가 적은 식별 필드를 주면 그것이 나오고,
 /// 모르는 모양을 주어도 subject 의 id 로 떨어진다 — 빈 줄은 없다.
 #[test]
 fn every_subject_names_its_target() {
@@ -921,7 +921,15 @@ fn every_subject_names_its_target() {
             serde_json::json!({"name": "Ext"}),
             "Ext",
         ),
+        (
+            Subject::UnixSocket,
+            serde_json::json!({"name": "@/run/systemd/log", "inode": 7}),
+            "@/run/systemd/log",
+        ),
     ];
+    // 카탈로그의 subject 가 하나도 빠지지 않았는가 — 새 subject 를 더하고 여기를
+    // 잊으면 그 subject 의 화면 이름은 아무도 재지 않는다.
+    assert_eq!(cases.len(), Subject::ALL.len(), "모든 subject 를 재야 한다");
     for (s, t, want) in cases {
         assert_eq!(&evidence_label(*s, t), want, "{s:?} 의 이름이 틀렸다");
     }

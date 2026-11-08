@@ -350,7 +350,7 @@ pub(crate) fn files_with_ext<P: FsRead, T>(
 ) -> Result<Vec<String>, CollectError> {
     let mut out = Vec::new();
     for root in scope.roots_for(subject) {
-        if crate::registry::is_registry_root(root) || !fs.exists(root) {
+        if crate::registry::is_registry_root(root) || !crate::root_exists(fs, root) {
             continue;
         }
         let w = fs

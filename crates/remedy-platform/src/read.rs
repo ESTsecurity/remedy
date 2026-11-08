@@ -474,6 +474,25 @@ pub trait ProcessRead {
 /// 평가가 기계의 환경에 좌우되면 같은 스냅샷을 두 번 평가한 결과가 달라진다.
 pub trait EnvRead {
     fn expand(&self, s: &str) -> String;
+
+    /// 계정의 프로필 폴더 — 예약 작업의 `principal`(SID 또는 계정 이름)을 받는다.
+    ///
+    /// 작업 계정의 변수(`%LOCALAPPDATA%` 등)를 **그 계정의 자리로** 펴는 데 쓴다
+    /// (`WinTaskFields::args_expanded`). 모르면 `None` 이고 **기본은 모른다** — 프로필
+    /// 목록이 없는 백엔드(Linux · 시험용)가 그렇다. 지어내지 않는다.
+    fn profile_of(&self, principal: &str) -> Option<String> {
+        let _ = principal;
+        None
+    }
+
+    /// 이 엔진을 돌리는 계정의 SID(Windows). 모르면 `None` — 기본은 모른다.
+    ///
+    /// 로그온한 다른 사용자의 Run 값을 `HKU\<SID>` 에서 모을 때(코어 1.2.0) **자기
+    /// 하이브를 빼는 데** 쓴다 — `HKCU` 와 같은 하이브라 함께 모으면 한 값을 두 번
+    /// 지우려 든다. 모르면 `HKU` 쪽을 모으지 않는다(`registry::autoruns`).
+    fn own_sid(&self) -> Option<String> {
+        None
+    }
 }
 
 /// `scan_root` 하나를 편 결과.

@@ -18,7 +18,10 @@ fn closed_sets_have_the_declared_size() {
     // D11 로 `network_conn` 을 빼 17, 그 뒤 `firewall_rule` 을 넣어 다시 18.
     // 18 → 19: `package` (2026-10-27 · C-2). 배포판 백포트를 가리는 유일한 길이고
     // **Linux 전용**이다 — dpkg·apk DB 를 파일로 읽는다.
-    assert_eq!(Subject::ALL.len(), 19, "설계-02 §3 은 subject 19종이다");
+    // 19 → 20: `unix_socket` (2026-11-08 · 코어 1.2.0). Ebury 의 현재 주 탐지법이
+    // 추상 소켓 이름이다. **Linux 전용**이고 찾기 전용이다 — `/proc/net/unix` 를 파일로
+    // 읽고, 닫는 Op 은 없다(설계-01 D11 의 덧붙임).
+    assert_eq!(Subject::ALL.len(), 20, "설계-02 §3 은 subject 20종이다");
     assert_eq!(Op::ALL.len(), 29, "설계-03 §2 는 Op 29종이다");
     // 12 → 14. `version_lt`·`version_gt` 를 더했다 — `lt` 는 수와 RFC3339 시각만
     // 봐서 `8.2.29` 를 견주지 못했고, 고치면 `1.10` 에서 순서가 뒤집힌다.
@@ -26,10 +29,12 @@ fn closed_sets_have_the_declared_size() {
     // 거절한 **개정 꼬리**가 그쪽의 대상이고, 순서는 dpkg 의 규칙이다. 반대
     // 방향은 두지 않았다 — `not` 이 `>=` 이므로 범위가 둘로 적힌다.
     assert_eq!(Operator::ALL.len(), 15, "설계-02 §4 는 연산자 15종이다");
+    // 8 → 9: `last_path` (2026-11-08 · 코어 1.2.0). 공개 보도의 EvilAI 작업이
+    // `cmd.exe /c start "" /min "…\node.exe" "…\a.js"` 라 `first_path` 가 `/c` 를 집었다.
     assert_eq!(
         CaptureFn::ALL.len(),
-        8,
-        "설계-02 §4 는 capture 함수 8종이다"
+        9,
+        "설계-02 §4 는 capture 함수 9종이다"
     );
     assert_eq!(DESIGNATED_TOKENS.len(), 3, "지정 확장 토큰은 3종이다");
     assert_eq!(ArtifactKind::ALL.len(), 4, "아티팩트 봉투는 4종이다");
@@ -596,7 +601,7 @@ fn the_gate_matches_what_the_catalog_says_is_implemented() {
     // Op 은 전부 P10 이하라 그쪽 가용성은 바뀌지 않는다.
     assert_eq!(IMPLEMENTED_THROUGH, Phase::P12);
 
-    // P2·P4 가 subject 19종을 전부 열었다 (설계-09 §3.3).
+    // P2·P4 가 subject 19종을 전부 열었다 (설계-09 §3.3). 20번째 `unix_socket`(코어 1.2.0)도 P4 표면이다.
     let pending: Vec<&str> = Subject::ALL
         .iter()
         .filter(|s| s.info().implemented_in > IMPLEMENTED_THROUGH)

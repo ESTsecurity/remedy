@@ -1,4 +1,4 @@
-//! 닫힌 집합 카탈로그 — subject 19종 · Op 29종 · 연산자 15종 · capture 함수 8종.
+//! 닫힌 집합 카탈로그 — subject 20종 · Op 29종 · 연산자 15종 · capture 함수 9종.
 //!
 //! 각 항목의 메타데이터는 **exhaustive match** 로 붙인다. 변이를 추가하면
 //! 메타데이터를 채우기 전까지 컴파일이 되지 않는다. 표를 따로 두면 언젠가
@@ -134,7 +134,7 @@ impl Scoping {
 }
 // ─────────────────────────────────────────────────────────── Subject
 
-/// 관찰 대상 타입 18종 (설계-02 §3).
+/// 관찰 대상 타입 20종 (설계-02 §3).
 ///
 /// 순서는 설계-02 §3 표와 같다. 사람이 두 목록을 대조할 일이 남아 있는 한
 /// 순서가 같은 편이 낫다.
@@ -162,6 +162,7 @@ pub enum Subject {
     ProxyConfig,
     FirewallRule,
     Package,
+    UnixSocket,
 }
 
 /// subject 하나에 대해 코어가 아는 모든 것.
@@ -271,7 +272,7 @@ pub const RETIRED_SUBJECTS: [(&str, &str); 1] = [(
 )];
 
 impl Subject {
-    pub const ALL: [Subject; 19] = [
+    pub const ALL: [Subject; 20] = [
         Subject::Persistence,
         Subject::Autorun,
         Subject::Service,
@@ -291,6 +292,7 @@ impl Subject {
         Subject::ProxyConfig,
         Subject::FirewallRule,
         Subject::Package,
+        Subject::UnixSocket,
     ];
 
     /// 메타데이터. `match` 가 exhaustive 하므로 변이를 추가하면 여기서 막힌다.
@@ -601,6 +603,14 @@ impl Subject {
                 509건만 있고 `Block` 은 아직 관측되지 않았다 — 그래서 이 전수는 우리가 \
                 보증하는 것이 아니라 **아는 만큼**이다",
         },
+        EnumeratedField {
+            subject: Subject::UnixSocket,
+            field: "kind",
+            values: &["stream", "dgram", "seqpacket"],
+            defined: true,
+            why: "`/proc/net/unix` 의 `Type` 열(1 · 2 · 5)을 이름으로 옮긴다. 그 밖의 값은 \
+                `type-<16진>` 그대로 담아 지어내지 않는다",
+        },
     ];
 
     /// 이 subject 의 레코드가 가진 필드 (설계-02 §3). **닫힌 집합이다.**
@@ -632,6 +642,10 @@ impl Subject {
                 "win.task.actions",
                 "win.task.run_level",
                 "win.task.working_directory",
+                // 작업 계정의 프로필 변수를 편 값 (코어 1.2.0 · `WinTaskFields` 문서).
+                // 1.2.0 전의 스냅샷에는 없다 — 그 스냅샷에서 이 필드를 쓴 조건은 서지 않는다.
+                "win.task.command_expanded",
+                "win.task.args_expanded",
                 // cron 항목은 **파일 안의 줄**이다. 그것을 지우는 Op 이 번호만
                 // 으로 고치지 않으려면 원문이 레코드에 있어야 한다
                 // (설계-09 P12 결정 5).
@@ -726,6 +740,10 @@ impl Subject {
                 "source",
                 "manager",
             ],
+            // `name` 은 `/proc/net/unix` 가 보여 주는 그대로다 — 추상 소켓은 `@` 로
+            // 시작하고(커널이 앞의 NUL 을 `@` 로 적는다), 파일 소켓은 경로다. 이름 없는
+            // 소켓은 담지 않는다(바쁜 서버에 수천 개이고 룰이 겨눌 것이 없다).
+            Subject::UnixSocket => &["name", "inode", "listening", "kind"],
         }
     }
 
@@ -950,6 +968,26 @@ impl Subject {
                 linux: true,
                 linux_from: Some(Phase::P12),
                 summary: "설치된 패키지. 배포판이 백포트한 판을 가리는 유일한 길",
+            },
+            // **이름 있는 UNIX 소켓**(코어 1.2.0 · 2026-11-08). Ebury 의 현재 주 탐지법이
+            // 추상 소켓 이름이라(ESET 공개 점검 스크립트) 그것을 룰로 쓰려고 열었다.
+            //
+            // 설계-01 D11(살아 있는 네트워크 연결을 빼기로 한 결정)과 **다른 것**이다 —
+            // 그 근거 넷 중 셋이 여기 닿지 않는다: `/proc/net/unix` 를 파일로 읽으니
+            // 임포트가 없고, 수집기가 있으니 선언만으로 종료 6 이 고정되지 않으며,
+            // 상주 임플란트가 떠 있는 동안 계속 열려 있는 **듣는 자리**라 1밀리초
+            // 연결 표본과 다르다. 남는 하나(치료 Op 이 없다)는 `package` 처럼 찾기
+            // 전용으로 둔다. 설계-01 D11 의 덧붙임에 같은 말이 있다.
+            Subject::UnixSocket => SubjectInfo {
+                id: "unix_socket",
+                // 커널이 정한 자리 하나(`/proc/net/unix`)다. `scan_roots` 를 보지 않는다.
+                scoping: Scoping::Fixed,
+                implemented_in: Phase::P4,
+                windows: false,
+                linux: true,
+                linux_from: Some(Phase::P12),
+                summary:
+                    "이름 있는 UNIX 소켓. 추상 이름은 `@` 로 시작한다 — 상주 임플란트가 여는 자리",
             },
         }
     }
@@ -2067,30 +2105,28 @@ pub fn unquoted_version_number(v: &serde_json::Value) -> bool {
 
 // ─────────────────────────────────────────────────────────── capture 함수
 
-/// `capture` 표현식에서 쓸 수 있는 함수 8종 (설계-02 §4). 임의 코드가 아니다.
+/// `capture` 표현식에서 쓸 수 있는 함수 9종 (설계-02 §4). 임의 코드가 아니다.
 ///
-/// # 여기 **없는** 것 하나 — 두 번째 경로
+/// # `last_path` — 마지막 경로 (2026-11-08 · 코어 1.2.0)
 ///
-/// `first_path` 는 문자열의 **첫** 경로를 집는다. 두 번째를 집는 함수는 없다.
-/// 그래서 한 필드에 실행 파일과 인자가 **함께** 오는 자리에서는 인자 쪽 경로를
-/// 뽑을 수 없다.
+/// `first_path` 는 문자열의 **첫** 경로를 집는다. 한 필드에 실행 파일과 인자가
+/// **함께** 오거나, 인자 안에 실행 파일이 다시 오는 자리에서는 원하는 경로가 첫
+/// 자리가 아니다.
 ///
-/// 실제로 막히는 자리가 있다. `autorun` 의 `command` 는 레지스트리 Run 값
-/// 그대로라 `"…\node.exe" "…\payload.js"` 가 한 문자열이고, `autorun` 에는
-/// `args` 필드가 없다(`Subject::fields`). 같은 위협을 `persistence` 로 보면
-/// 예약 작업 XML 이 둘을 나눠 주므로 `args | first_path` 가 통한다.
+/// 이 자리는 2026-09-04 회차 응시자가 짚었고(`autorun` 의 `command` 는 Run 값
+/// 그대로라 `"…\node.exe" "…\payload.js"` 가 한 문자열이다), 그때는 **관측이
+/// 쌓인 뒤에 판단**하기로 비워 두었다. 2026-11-08 에 공개 보도가 그 관측을 줬다 —
+/// Trend Micro 가 본 EvilAI 의 예약 작업 동작이 `cmd.exe /c start "" /min
+/// "…\node.exe" "…\{UID}or.js"` 다. `first_path` 는 `/c` 를 집고, 그래서 그 작업이
+/// 가리키는 페이로드를 룰이 세울 수 없었다(랩 실측 · 종료 0).
 ///
-/// **결과.** Run 값만 남고 예약 작업이 이미 지워진 기계에서는 그 Run 값을
-/// 독립적인 부모로 세울 수 없다. 2026-09-04 회차 응시자가 이것을 정확히 짚고
-/// **함수를 지어내지 않았다** — 그 태도가 맞고, 그래서 여기 적는다.
-///
-/// 여는 길은 둘이다 — 두 번째(또는 마지막) 경로를 집는 함수를 더하거나,
-/// `autorun` 에 `args` 를 파생 필드로 두거나. **둘 다 닫힌 집합을 넓히는
-/// 결정**이라 관측이 더 쌓인 뒤에 판단한다.
+/// 무엇을 집는지는 `last_path` 의 문서(`remedy-detect` `expr.rs`)에 있다 — 역슬래시가
+/// 든 마지막 토큰, 없으면 슬래시가 든 마지막 토큰.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum CaptureFn {
     FirstPath,
+    LastPath,
     Dirname,
     Basename,
     Lower,
@@ -2101,8 +2137,9 @@ pub enum CaptureFn {
 }
 
 impl CaptureFn {
-    pub const ALL: [CaptureFn; 8] = [
+    pub const ALL: [CaptureFn; 9] = [
         CaptureFn::FirstPath,
+        CaptureFn::LastPath,
         CaptureFn::Dirname,
         CaptureFn::Basename,
         CaptureFn::Lower,
@@ -2115,6 +2152,7 @@ impl CaptureFn {
     pub const fn id(self) -> &'static str {
         match self {
             CaptureFn::FirstPath => "first_path",
+            CaptureFn::LastPath => "last_path",
             CaptureFn::Dirname => "dirname",
             CaptureFn::Basename => "basename",
             CaptureFn::Lower => "lower",

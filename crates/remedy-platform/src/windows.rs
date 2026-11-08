@@ -271,6 +271,57 @@ impl EnvRead for Live {
     fn expand(&self, s: &str) -> String {
         crate::local::expand_percent(s)
     }
+
+    /// `ProfileList` 에서 찾는다 — `%ALLUSERPROFILES%` 가 쓰는 그 출처다.
+    ///
+    /// SID(`S-1-5-21-…`)면 그 항목의 `ProfileImagePath` 다. 계정 이름(`COMPUTER\user`
+    /// · `user`)이면 프로필 폴더 이름이 그 이름과 같은 것이 **하나뿐일 때만** 답한다
+    /// — 도메인 계정은 폴더가 `user.DOMAIN` 일 수 있고, 둘 이상이면 고를 근거가 없다.
+    /// 시스템 계정(`S-1-5-18/19/20`)과 그룹은 답하지 않는다 — 작업 계정의 사용자 변수를
+    /// 펴려는 것이고, 그 계정들은 사용자가 아니다.
+    fn profile_of(&self, principal: &str) -> Option<String> {
+        let path_of =
+            |sid: &str| match self.value(&format!("{PROFILE_LIST}\\{sid}"), "ProfileImagePath") {
+                Ok(Some(RegValue::Str(p))) => Some(self.expand(&p)).filter(|p| !p.is_empty()),
+                _ => None,
+            };
+        if principal.starts_with("S-1-") {
+            return principal
+                .starts_with("S-1-5-21-")
+                .then(|| path_of(principal))
+                .flatten();
+        }
+        let user = principal.rsplit('\\').next().filter(|u| !u.is_empty())?;
+        let mut hits = self
+            .subkeys(PROFILE_LIST)
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|sid| sid.starts_with("S-1-5-21-"))
+            .filter_map(|sid| path_of(&sid))
+            .filter(|p| {
+                p.trim_end_matches('\\')
+                    .rsplit('\\')
+                    .next()
+                    .is_some_and(|leaf| leaf.eq_ignore_ascii_case(user))
+            });
+        let first = hits.next()?;
+        hits.next().is_none().then_some(first)
+    }
+
+    /// `sysinfo` 가 이 프로세스의 토큰 사용자를 SID 문자열로 준다 — 이 크레이트는
+    /// `unsafe` 를 금하므로 토큰을 직접 묻지 않는다(`elevated` 의 문서와 같은 까닭).
+    fn own_sid(&self) -> Option<String> {
+        use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, UpdateKind};
+        let pid = sysinfo::get_current_pid().ok()?;
+        let mut sys = sysinfo::System::new();
+        sys.refresh_processes_specifics(
+            ProcessesToUpdate::Some(&[pid]),
+            true,
+            ProcessRefreshKind::nothing().with_user(UpdateKind::Always),
+        );
+        let sid = sys.process(pid)?.user_id()?.to_string();
+        sid.starts_with("S-1-").then_some(sid)
+    }
 }
 
 impl RegistryRead for Live {

@@ -115,7 +115,6 @@ pub fn lint(m: &PluginManifest) -> Vec<LintIssue> {
     check_recursive_scope(m, &mut out);
     check_subject_platform(m, &mut out);
     check_edit_platform(m, &mut out);
-    check_min_core(m, &mut out);
     check_name(m, &mut out);
     out
 }
@@ -142,69 +141,6 @@ fn check_name(m: &PluginManifest, out: &mut Vec<LintIssue>) {
             });
         }
     }
-}
-
-/// 이 코어가 플러그인이 요구하는 버전을 만족하는가 (설계-02 §10).
-///
-/// # 왜 뒤늦게 생겼는가
-///
-/// `min_core` 는 스키마에 있고 가이드가 *"요구하는 코어 최소 버전"* 이라고 적고
-/// 모든 예제가 선언하는데, **코어는 그 값을 읽기만 했다.** 2026-08-28 점검에서
-/// `min_core: "99.0.0"` 인 플러그인이 린트도 실행도 통과하는 것을 실측했다.
-///
-/// 형제 필드인 `schema_version` 은 같은 자리에서 강제된다. **둘이 갈려 있었다.**
-///
-/// # 무엇이 조용히 깨지는가
-///
-/// 미래 코어를 요구하는 플러그인이 낡은 코어에서 **그냥 돈다.** 그 플러그인이
-/// 기대하는 Op·필드·연산자가 없으면 탐지가 0건이 되고, 작성자는 룰이 도는 줄
-/// 안다 — [`Subject::NOT_POPULATED_YET`](crate::catalog::Subject::NOT_POPULATED_YET)
-/// 이 막으려는 실패 방식과 같은 모양이다.
-///
-/// # 세 자리 수만 본다
-///
-/// SemVer 전체를 구현하지 않는다. 사전 배포 태그(`-rc.1`)나 빌드 메타(`+abc`)를
-/// 다루기 시작하면 비교 규칙이 이 파일의 주제와 무관하게 커진다. **파싱되지 않는
-/// 값은 오류다** — 조용히 통과시키면 오타 하나가 검사를 통째로 끈다.
-fn check_min_core(m: &PluginManifest, out: &mut Vec<LintIssue>) {
-    let core = env!("CARGO_PKG_VERSION");
-    let Some(want) = semver3(&m.min_core) else {
-        out.push(LintIssue {
-            severity: Severity::Error,
-            at: "min_core".into(),
-            message: format!("'{}' 을 버전으로 읽지 못했다", m.min_core),
-            valid: Some("`주.부.수` 세 자리 수 — 예: 1.0.0".into()),
-            doc: Some("설계-02 §10"),
-        });
-        return;
-    };
-    // 코어 버전은 우리가 짓는 값이다. 여기서 파싱이 실패하면 그것은 플러그인의
-    // 문제가 아니라 이 저장소의 문제이므로 검사를 건너뛰지 않고 드러낸다.
-    let have = semver3(core).expect("코어 버전이 세 자리 수가 아니다");
-    if want > have {
-        out.push(LintIssue {
-            severity: Severity::Error,
-            at: "min_core".into(),
-            message: format!(
-                "이 플러그인은 코어 {} 이상을 요구하는데 이 코어는 {core} 다.                  낮은 코어에서 돌리면 없는 Op·필드를 쓴 룰이 조용히 0건을 보고한다",
-                m.min_core
-            ),
-            valid: Some(format!("이 코어가 만족하는 min_core: {core} 이하")),
-            doc: Some("설계-02 §10"),
-        });
-    }
-}
-
-/// `주.부.수` 세 자리. 그 밖의 모양은 `None`.
-fn semver3(v: &str) -> Option<(u64, u64, u64)> {
-    let mut it = v.split('.');
-    let a = it.next()?.parse().ok()?;
-    let b = it.next()?.parse().ok()?;
-    let c = it.next()?.parse().ok()?;
-    if it.next().is_some() {
-        return None;
-    }
-    Some((a, b, c))
 }
 
 /// 선언한 subject 를 **그 플랫폼에서 실제로 수집할 수 있는가** (설계-09 P12).
@@ -1990,13 +1926,38 @@ fn check_overbroad(m: &PluginManifest, out: &mut Vec<LintIssue>) {
         //
         // 여는 조건: 실기기에서 프로필이 여럿인 것을 관측했을 때. 그때 다시
         // 잰다. 지금은 10-manifest.md 가 그 갈림과 권하는 쪽을 적어 둔다.
-        let star_ok = crate::catalog::DESIGNATED_TOKENS
-            .iter()
-            .any(|d| r.contains(d.token))
-            || (crate::catalog::is_registry_root(r)
-                && r.ends_with("\\*")
-                && r.matches('*').count() == 1);
-        if r.contains('*') && !star_ok {
+        //
+        // **마지막 칸의 이름 꼴은 연다** (2026-11-08 · 코어 1.2.0). 위 결정이 막은 것은
+        // 폴더 칸의 `*` — 뿌리를 여러 갈래로 **넓히는** 것이다. 마지막 칸의
+        // `*.js` 는 반대로 **좁힌다**: 그 폴더 바로 아래에서 이름이 맞는 파일만
+        // 고르고, 하위 폴더도 폴더 자체도 고르지 않는다(`normalize::glob_root`).
+        // `collect_extra` 가 같은 꼴을 이미 쓴다. 연 까닭은 실측이다 — EvilAI 의
+        // 보도 꼴은 페이로드를 `TEMP` 바로 아래에 두는데, `TEMP` 를 뿌리로 적으면
+        // 재귀로 걸으며 파일마다 해시한다(개발 기계 하나에 6만 개 · 16 GB).
+        //
+        // **이름 칸이 와일드카드뿐이면 여전히 오류다**(`…\*`). 관측 01 의 함정이
+        // 바로 그것이었다 — "좁혀라" 에 `\*` 를 붙이면 재귀로 다 본다고 읽히는데,
+        // 글롭 뿌리는 바로 아래만 본다. 글자가 섞인 꼴(`*.js`)만 받으면 그 오독이
+        // 생길 자리가 없다.
+        //
+        // 파일 뿌리는 **지정 토큰을 뗀 나머지**에서 와일드카드를 본다. 전에는 토큰이
+        // 하나라도 있으면 이 검사를 통째로 건너뛰어 `%ALLUSERPROFILES%\a\*\b` 가
+        // 지나갔다(같은 날 짚었다).
+        let star_ok = if crate::catalog::is_registry_root(r) {
+            !r.contains('*')
+                || crate::catalog::DESIGNATED_TOKENS
+                    .iter()
+                    .any(|d| r.contains(d.token))
+                || (r.ends_with("\\*") && r.matches('*').count() == 1)
+        } else {
+            let body = crate::catalog::DESIGNATED_TOKENS
+                .iter()
+                .fold(r.to_string(), |s, d| s.replace(d.token, ""));
+            !body.contains(['*', '?'])
+                || crate::normalize::glob_root(&body)
+                    .is_some_and(|(_, name)| name.chars().any(|c| c != '*' && c != '?'))
+        };
+        if !star_ok {
             let mut issue = err(
                 at.clone(),
                 if crate::catalog::is_registry_root(r) {
@@ -2008,15 +1969,21 @@ fn check_overbroad(m: &PluginManifest, out: &mut Vec<LintIssue>) {
                     )
                 } else {
                     format!(
-                        "'{r}' 에 와일드카드가 있다. **파일 경로는** 전개하지 않는다 — \
-                         그대로 열려다 실패해 수집이 0건이 된다. 끝의 `\\*` 로 펼칠 수 \
-                         있는 것은 레지스트리 루트뿐이다"
+                        "'{r}' 의 와일드카드 자리가 맞지 않는다. **파일 경로는** 마지막 칸의 \
+                         이름 꼴(`*.js` 처럼 글자가 섞인 것)만 받는다 — 그 폴더 바로 아래에서 \
+                         이름이 맞는 파일만 고르고 하위 폴더는 보지 않는다. 폴더 칸의 \
+                         와일드카드는 펼치지 않아 수집이 0건이 되고, 이름 칸의 맨 `*` 는 \
+                         '재귀로 다 본다' 로 읽히지만 그렇게 돌지 않는다. 폴더 아래를 다 보려면 \
+                         와일드카드 없이 폴더를 적는다"
                     )
                 },
                 "설계-02 §2",
             );
-            issue.valid =
-                Some("실제 디렉터리 경로 · 지정 토큰 · 맨 끝이 `\\*` 인 레지스트리 키".into());
+            issue.valid = Some(
+                "실제 디렉터리 경로 · 지정 토큰 · 마지막 칸의 이름 꼴(`…\\*.js`) · 맨 끝이 \
+                 `\\*` 인 레지스트리 키"
+                    .into(),
+            );
             out.push(issue);
             continue;
         }
@@ -2024,6 +1991,12 @@ fn check_overbroad(m: &PluginManifest, out: &mut Vec<LintIssue>) {
         // **끝의 `\*` 는 좁히는 것이 아니라 넓히는 것이다.** 세그먼트가 하나
         // 늘었다고 깊이를 더 세면 `HKLM\SOFTWARE` 는 경고를 맞고
         // `HKLM\SOFTWARE\*` 는 지나간다 — 뒤엣것이 더 넓은데도. 그 앞자리로 잰다.
+        //
+        // **글롭 뿌리는 재지 않는다** — 바로 아래의 이름 목록만 읽으므로 얕은 자리여도
+        // 전 디스크를 훑지 않는다.
+        if crate::normalize::glob_root(r).is_some() {
+            continue;
+        }
         let measured = r.strip_suffix("\\*").unwrap_or(r);
         match root_depth(measured) {
             // `C:\` · `/` · `C:\Users` 처럼 얕은 루트는 사실상 전 디스크다.
@@ -2562,6 +2535,36 @@ verdict: {{ require: 'r' }}
         assert_eq!(got[0].0, Severity::Error);
     }
 
+    /// 마지막 칸의 이름 꼴은 받는다 — 그 폴더 바로 아래의 맞는 파일만 고른다(코어 1.2.0).
+    /// 얕은 목록이라 깊이 경고도 없다.
+    #[test]
+    fn a_file_root_may_end_in_a_name_pattern() {
+        for r in [
+            "%ALLUSERPROFILES%\\AppData\\Local\\Temp\\*.js",
+            "C:\\x\\a?.js",
+            "C:\\*.lnk",
+        ] {
+            let got = at_roots(&[r]);
+            assert!(got.is_empty(), "{r}: {got:?}");
+        }
+    }
+
+    /// 이름 칸이 와일드카드뿐이면 '재귀로 다 본다' 로 읽힌다 — 받지 않는다. 폴더 칸의
+    /// 와일드카드는 지정 토큰이 함께 있어도 받지 않는다(전에는 토큰이 검사를 건너뛰게 했다).
+    #[test]
+    fn a_bare_star_or_a_folder_wildcard_is_still_an_error() {
+        for r in [
+            "C:\\x\\*",
+            "C:\\x\\??",
+            "C:\\x\\*\\a.js",
+            "%ALLUSERPROFILES%\\AppData\\*\\Temp",
+        ] {
+            let got = at_roots(&[r]);
+            assert_eq!(got.len(), 1, "{r}: {got:?}");
+            assert_eq!(got[0].0, Severity::Error, "{r}");
+        }
+    }
+
     /// 전개기가 **첫 번째** 별표만 펼친다. 중간에 두거나 둘 이상 쓰면 나머지가
     /// 리터럴로 남아 조용히 0건이 된다.
     #[test]
@@ -2692,7 +2695,7 @@ verdict: {{ require: 'r' }}
             .into_iter()
             .filter(|s| matches!(s.info().scoping, Scoping::Fixed))
             .count();
-        assert_eq!(n, 19);
+        assert_eq!(n, 20);
         // 전부 Fixed 면 이 검사는 아무것도 막지 못한다.
         assert!(fixed < n, "scan_roots 를 받는 subject 가 하나도 없다");
     }
@@ -2916,7 +2919,6 @@ mod doc_coverage_tests {
             ("check_recursive_scope", Box::new(check_recursive_scope)),
             ("check_subject_platform", Box::new(check_subject_platform)),
             ("check_edit_platform", Box::new(check_edit_platform)),
-            ("check_min_core", Box::new(check_min_core)),
             ("check_name", Box::new(check_name)),
         ]
     }

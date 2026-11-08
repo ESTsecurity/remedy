@@ -91,6 +91,19 @@ jobs:
             echo "::error::$GITHUB_REF_NAME 는 이미 공개된 Release 다"
             exit 1
           fi
+          # 맨 위는 이전 버전과 달라진 점이다 — 새 버전 페이지에 온 사람이 먼저 찾는 것이다.
+          # 출처는 docs/업데이트-내역.md 의 이 버전 칸 하나다(README 도 그 파일을 가리킨다).
+          # 칸이 없으면 멈춘다 — 달라진 점이 빠진 본문을 올리지 않는다.
+          version=$(grep -m1 -E '^\s*version' Cargo.toml | cut -d'"' -f2)
+          log=docs/업데이트-내역.md
+          head="## $version"
+          changes=$(awk -v h="$head" 'f && /^## / { exit } f { print } index($0, h " ") == 1 || $0 == h { f = 1 }' "$log" | sed '/./,$!d')
+          prev=$(awk -v h="$head" 'f && /^## / { print $2; exit } index($0, h " ") == 1 || $0 == h { f = 1 }' "$log")
+          if [ -z "$changes" ]; then
+            echo "::error::$log 에 '$head' 칸이 없다 — 이 버전에서 달라진 점을 먼저 적는다"
+            exit 1
+          fi
+          history="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/main/docs/%EC%97%85%EB%8D%B0%EC%9D%B4%ED%8A%B8-%EB%82%B4%EC%97%AD.md"
           table=$(sed -n '/<!-- threats:begin/,/<!-- threats:end -->/p' README.md | sed '1d;$d')
           if [ -z "$table" ]; then
             echo "::error::README 에 위협 표가 없다 — cargo xtask threats --write"
@@ -99,6 +112,8 @@ jobs:
           # 리눅스 확인은 `grep | sha256sum -c` 꼴이다 — `--ignore-missing` 은 coreutils 8.25 부터라
           # CentOS 7 급(8.22)이 거부한다. 한국어 환경의 `성공` 은 coreutils 번역 그대로다.
           {
+            printf '## 이전 버전과 달라진 점 (%s%s)\n\n%s\n\n버전마다 달라진 점 전부 — [업데이트 내역](%s)\n\n' \
+              "${prev:+$prev → }" "$version" "$changes" "$history"
             cat <<'EOF'
           ## 무엇을 받나요
 

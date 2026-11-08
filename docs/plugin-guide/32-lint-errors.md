@@ -161,7 +161,7 @@ error: unclosed group
 
 ```
 오류 detect[0].where.all[0].field: 'cmdline_of_task' 는 subject 'persistence' 에 없는 필드다
-      쓸 수 있는 것: id · name · enabled · trigger · command · args · principal · source · win.task.register_path · win.task.actions · win.task.run_level · win.task.working_directory · linux.cron.line_no · linux.cron.line
+      쓸 수 있는 것: id · name · enabled · trigger · command · args · principal · source · win.task.register_path · win.task.actions · win.task.run_level · win.task.working_directory · win.task.command_expanded · win.task.args_expanded · linux.cron.line_no · linux.cron.line
       근거: 설계-02 §3
 ```
 
@@ -313,7 +313,7 @@ remediate.remove: data did not match any variant of untagged enum RemoveTarget a
 
 ```
 경고 subjects.firewall_rule: Linux 에 개념은 있으나 이 코어의 'firewall_rule' 수집기가 Windows 전용이다. Windows 에서는 동작하지만 **Linux 에서는 0건**이 된다
-      쓸 수 있는 것: Linux 에서 수집되는 subject: persistence · autorun · service · process · file · indicator · text_config · structured_config · shortcut · hosts_entry · browser_extension · cert_store · package
+      쓸 수 있는 것: Linux 에서 수집되는 subject: persistence · autorun · service · process · file · indicator · text_config · structured_config · shortcut · hosts_entry · browser_extension · cert_store · package · unix_socket
       근거: 설계-09 P12
 ```
 

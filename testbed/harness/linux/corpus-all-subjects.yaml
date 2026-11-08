@@ -67,6 +67,9 @@ subjects:
     # 패키지 DB 는 자리가 정해져 있다(`/var/lib/dpkg/status` ·
     # `/lib/apk/db/installed`). `scan_roots` 와 무관하게 모인다 (C-2).
     package,
+    # 이름 있는 UNIX 소켓 — `/proc/net/unix` (코어 1.2.0). 데몬이 없는 컨테이너에는
+    # 거의 없다 — 소켓이 있는 기계는 `corpus-unix-sockets.yaml` 로 따로 뜬다.
+    unix_socket,
   ]
 
 # 드롭인 디렉터리 — 확장자가 없어서 접미사 축으로는 닿지 않는다 (C-5).
