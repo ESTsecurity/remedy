@@ -26,6 +26,9 @@
 #      (LD_PRELOAD)을 걸어도 정적 엔진은 2 다(대조군: 동적 링크인 ls 는 속는다). Debian 자리에서도
 #      2 — 합친 /usr 에서 몇 경로로 보이는지 센다
 #   D  룰 본문이 ESET 공개 파일과 바이트까지 같다 · 매니페스트에 IP 주소 · 해시 꼴이 없다
+#   E  소켓(룰 0.2.0 · 코어 1.2.0) — ESET 표의 추상 소켓을 파이썬으로 열면 2 · 같은 글자의 **파일**
+#      소켓이면 0 · `/proc/net/unix` 를 그 줄이 빠진 사본으로 바꿔치는 훅(LD_PRELOAD)에 동적 링크인
+#      cat 은 속고(대조군) 정적 엔진은 그래도 2 다. 소켓은 컨테이너 안에서만 듣고 아무도 접속하지 않는다
 set -u
 
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -132,6 +135,54 @@ inside() {
     check "D1 룰 본문이 ESET 공개 파일과 같다" "$([ "$body" = "$ESET_EBURY_YAR" ] && echo 1 || echo 0)" ""
     local leak; leak=$(grep -cE '([0-9]{1,3}\.){3}[0-9]{1,3}|[0-9a-fA-F]{32,}' "$CHECK")
     check "D2 매니페스트에 IP 주소 · 해시 꼴이 없다" "$([ "$leak" = 0 ] && echo 1 || echo 0)" "줄 ${leak}개"
+
+    echo "── E. 소켓 ──"
+    # 이름 하나로 소켓을 열고 들으며 기다린다. `@` 로 시작하면 추상 소켓(앞에 NUL)이다.
+    printf '%s\n' 'import socket, sys, time' 's = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)' \
+        'a = sys.argv[1]' 's.bind(chr(0) + a[1:] if a.startswith("@") else a)' 's.listen(1)' \
+        'open("/tmp/fx/sock.ready", "w").close()' 'time.sleep(300)' >/tmp/fx/sock.py
+    listen() { # 이름 — 열고 준비될 때까지 기다린다. 끄는 것은 부른 쪽이다
+        rm -f /tmp/fx/sock.ready
+        python3 /tmp/fx/sock.py "$1" &
+        SOCK_PID=$!
+        for _ in $(seq 50); do [ -f /tmp/fx/sock.ready ] && return 0; sleep 0.1; done
+        return 1
+    }
+    local name='@event-0YsOG9WSOE'   # ESET 표 · 1.8.3
+    listen "$name" || return 9
+    run e1 run --plugin "$CHECK" --dry-run; c=$?
+    check "E1 ESET 표의 추상 소켓 — 2 (위협 발견)" "$([ $c = 2 ] && echo 1 || echo 0)" "exit=$c · $name"
+    # 훅 — `/proc/net/unix` 를 열려 하면 그 줄을 뺀 사본을 연다. 대조군: 동적 링크인 cat 은 속아야
+    # 한다(훅이 실제로 듣는다는 증거). 정적 엔진은 로더를 거치지 않으므로 그래도 2 여야 한다.
+    grep -vF "${name#@}" /proc/net/unix >/tmp/fx/unix.hidden
+    printf '%s\n' '#define _GNU_SOURCE' '#include <dlfcn.h>' '#include <fcntl.h>' '#include <stdarg.h>' \
+        '#include <string.h>' \
+        'static const char *sw(const char *p) { return (p && !strcmp(p, "/proc/net/unix")) ? "/tmp/fx/unix.hidden" : p; }' \
+        'static int md(int f, va_list a) { return (f & O_CREAT) ? va_arg(a, int) : 0; }' \
+        'int open(const char *p, int f, ...) { static int (*r)(const char *, int, ...); va_list a; int m;' \
+        '  if (!r) r = dlsym(RTLD_NEXT, "open"); va_start(a, f); m = md(f, a); va_end(a); return r(sw(p), f, m); }' \
+        'int open64(const char *p, int f, ...) { static int (*r)(const char *, int, ...); va_list a; int m;' \
+        '  if (!r) r = dlsym(RTLD_NEXT, "open64"); va_start(a, f); m = md(f, a); va_end(a); return r(sw(p), f, m); }' \
+        'int openat(int d, const char *p, int f, ...) { static int (*r)(int, const char *, int, ...); va_list a; int m;' \
+        '  if (!r) r = dlsym(RTLD_NEXT, "openat"); va_start(a, f); m = md(f, a); va_end(a); return r(d, sw(p), f, m); }' \
+        'int openat64(int d, const char *p, int f, ...) { static int (*r)(int, const char *, int, ...); va_list a; int m;' \
+        '  if (!r) r = dlsym(RTLD_NEXT, "openat64"); va_start(a, f); m = md(f, a); va_end(a); return r(d, sw(p), f, m); }' \
+        >/tmp/fx/hide-unix.c
+    gcc -shared -fPIC -o /tmp/fx/hide-unix.so /tmp/fx/hide-unix.c -ldl || return 9
+    local plain hooked
+    plain=$(grep -cF "${name#@}" /proc/net/unix)
+    hooked=$(LD_PRELOAD=/tmp/fx/hide-unix.so cat /proc/net/unix | grep -cF "${name#@}")
+    check "E3 대조군 — 훅을 건 cat 은 그 소켓을 못 본다" "$([ "$plain" -gt 0 ] && [ "$hooked" = 0 ] && echo 1 || echo 0)" \
+        "훅 없이 ${plain} · 훅 걸고 ${hooked}"
+    LD_PRELOAD=/tmp/fx/hide-unix.so run e-hook run --plugin "$CHECK" --dry-run; c=$?
+    check "E4 같은 훅을 건 채 정적 엔진 — 그래도 2" "$([ $c = 2 ] && echo 1 || echo 0)" "exit=$c"
+    kill "$SOCK_PID" 2>/dev/null; wait "$SOCK_PID" 2>/dev/null
+    # 같은 글자의 **파일** 소켓 — 이름이 경로를 흉내 낸 표의 항목(`@/run/systemd/log` · 1.7.3)과 겹친다.
+    mkdir -p /run/systemd && listen /run/systemd/log || return 9
+    run e2 run --plugin "$CHECK" --dry-run; c=$?
+    check "E2 같은 글자의 파일 소켓(/run/systemd/log) — 0" "$([ $c = 0 ] && echo 1 || echo 0)" "exit=$c"
+    kill "$SOCK_PID" 2>/dev/null; wait "$SOCK_PID" 2>/dev/null
+    rm -f /run/systemd/log
 }
 
 if [ "$INSIDE" = 1 ]; then
@@ -168,7 +219,7 @@ inner=${PIPESTATUS[0]}
 
 # 칸 수까지 본다 — 안쪽이 중간에 멈추면 남은 칸이 조용히 사라지고 "실패 0" 이 남는다(2026-11-06 에
 # 실제로 그랬다 — 훅이 컴파일되지 않아 여섯 칸만 돌고 통과로 끝났다).
-EXPECTED=12
+EXPECTED=16
 pass=$(awk -F'\t' '$2 == 1' "$OUT/checks.tsv" | wc -l)
 fail=$(awk -F'\t' '$2 != 1' "$OUT/checks.tsv" | wc -l)
 echo

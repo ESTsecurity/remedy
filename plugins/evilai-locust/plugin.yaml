@@ -6,17 +6,27 @@
 #
 # 룰의 도출 근거(군집화 기준 · 임계값 계산 · 서로소 조건)는 사내 분석 기록에 있다 —
 # 공개 저장소에는 그 결과만 싣는다(`rules/evilai.yar` 머리 주석).
+#
+# **0.2.0 — 공개 보도의 꼴을 따라간다** (2026-11-08 · 코어 1.2.0 이 있어야 선다).
+# Trend Micro 보도(2025-09)가 적은 작업은 검체의 꼴과 세 자리가 다르다 — 작업이
+# 루트 폴더에 있고, `cmd.exe /c start "" /min` 이 node.exe 를 띄우고, 페이로드
+# `.js` 가 `%LOCALAPPDATA%\TEMP` 바로 아래에 있다(변수는 펴지지 않은 채 저장된다).
+# 0.1.3 은 셋 중 **하나만** 달라도 판정이 서지 않았다(랩 실측 · 종료 0). 그래서
+# 작업을 세 갈래로 본다 — 아래 `detect` 머리 참조.
 
 schema_version: 1
 id: evilai-locust
-version: 0.1.3
-min_core: "1.0.0"
+version: 0.2.0
+# `last_path` 캡처 · 작업의 `win.task.args_expanded` · 글롭 뿌리(`…\Temp\*.js`)가
+# 코어 1.2.0 에서 생겼다. 그 전 코어는 이 룰을 읽지 못한다.
+min_core: "1.2.0"
 platforms: [windows]
 name:
   ko: "EvilAI(Locust) 제거"
   en: "EvilAI (Locust) Removal"
 references:
   - "https://www.virustotal.com/gui/search/engines%3Ameadowlocust"
+  - "https://www.trendaisecurity.com/en-us/resources-insights/trendai-security-blog/evilai"
 
 # ── 권한 상한 ──────────────────────────────────────────────
 # scan_roots 는 성능 최적화가 아니라 "여기 밖은 읽을 수 없다"는 상한이다.
@@ -32,10 +42,25 @@ references:
 # 페이로드가 상한 밖이 되어 판정 묶음이 빠졌고, 감염된 PC 가 '위협 없음'(종료 0)으로
 # 끝났다(공개 v1.1.1 로 랩 실측). 예약 작업은 기계 전체라 그때도 잡혔다 — 그 작업이
 # 가리키는 폴더만 못 봤다. 지금은 작업의 인자에서 끌어낸 폴더가 어느 계정의 것이든
-# 상한 안이다. 주의: 다른 계정의 시작 프로그램(Run) 항목은 엔진이 실행한 계정의 것만
-# 모으므로 남을 수 있다 — 그 항목이 가리키는 페이로드는 격리되므로 돌지 않는다.
+# 상한 안이다. 다른 계정의 시작 프로그램(Run) 값은 코어 1.2.0 부터 그 사용자가
+# 로그온해 있으면 `HKU\<SID>` 에서 모은다 — 그 전에는 엔진을 돌린 계정의 것만 모아
+# SYSTEM · 다른 관리자로 치료하면 '치료 완료' 뒤에 남았다(2026-11-08 랩 실측).
+# 로그오프한 사용자의 값은 여전히 남는다 — 가리키는 페이로드는 격리되므로 돌지 않는다.
+#
+# **`TEMP` 는 글롭 뿌리로 본다**(0.2.0). 보도의 페이로드는 `TEMP` **바로 아래**의
+# `.js` 다. `TEMP` 를 그대로 뿌리로 적으면 재귀로 걸으며 파일마다 해시한다 — 개발
+# 기계 하나의 `TEMP` 가 파일 6만 개 · 16 GB 였다(2026-11-08 실측). `…\Temp\*.js` 는
+# 그 폴더 바로 아래의 `.js` 이름 목록만 읽고, **폴더 자체는 상한 밖**이라 `TEMP` 를
+# 통째로 지우는 계획은 G6 에서 막힌다(`remedy-plan` 시험
+# `a_glob_root_lets_its_files_go_but_never_its_folder`). 하위 폴더의 `.js` 는 보지
+# 않는다 — 보도의 꼴이 아니고, 보려면 그 비용을 다시 내야 한다.
+#
+# **시작 메뉴의 `PDF Editor*.lnk`** 도 같은 꼴로 좁혀 둔다 — 보도가 적은 바로가기
+# 하나만 지목하고(아래 `lnk`), 다른 바로가기는 상한 밖이다.
 scan_roots:
   - "%ALLUSERPROFILES%\\AppData\\Local\\Programs"   # 페이로드가 자리잡는 곳 — 사용자마다
+  - "%ALLUSERPROFILES%\\AppData\\Local\\Temp\\*.js"   # 보도의 페이로드 자리 — 바로 아래만
+  - "%ALLUSERPROFILES%\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\PDF Editor*.lnk"
   # **예약 작업 경로는 여기 없다.** `persistence` 는 `scan_roots` 와 무관하게
   # 수집된다(설계-09 P12 · guard.rs 의 `collected_from_a_fixed_place`). 적으면
   # 작업 정의 XML 219건이 `file` 로 딸려 들어오고 파괴 상한만 넓어진다.
@@ -45,6 +70,9 @@ scan_roots:
 # 선언한 대상 타입만 볼 수 있다. 여기 없는 subject 는 detect 에서 쓸 수 없다.
 # **다섯 개 전부 아래에서 실제로 쓴다.** 쓰지 않을 것을 선언해 두면 상한만
 # 넓히고 아무 능력도 얻지 못한다.
+#
+# 바로가기는 `shortcut` 이 아니라 `file` 로 본다 — `shortcut` 의 제거는 인자를
+# 지우는 것(`shortcut.strip_args`)이라 바로가기 자체를 격리하지 못한다.
 subjects: [persistence, file, autorun, process, av_exclusion]
 
 allow_removable: false                  # 기본값. USB 웜이 아니므로 켜지 않는다
@@ -59,14 +87,36 @@ allow_removable: false                  # 기본값. USB 웜이 아니므로 켜
 # 목록이 곧 플래그이므로 비어 있으면 예외가 없다. 서명된 대상을 만나면
 # 설계-03 §3 2층이 삭제를 막고 그 사실을 보고한다 — 본 적 없는 서명 주체를
 # 지어 넣어 예외를 여는 것보다 옳은 실패 방향이다.
+#
+# 0.2.0 에도 비워 둔다. 보도는 서명자 여섯을 밝히지만(가짜 앱 쪽이다), 이 룰이
+# 지우는 것 — 작업 · `.js` · Run 값 · 바로가기 · 페이로드 폴더 — 에는 서명된 실행
+# 파일이 없다. 가짜 앱 자체는 지우지 않고 안내한다(`RELEASE.md`).
 
 # ── 관찰 규칙 ──────────────────────────────────────────────
+#
+# **작업을 세 갈래로 본다**(0.2.0). 갈래마다 페이로드를 찾는 자리와 지우는 법이
+# 달라 규칙이 갈래마다 있다 — 한 작업은 **한 갈래에만** 맞는다.
+#
+#   task       node.exe 가 `Programs\<폴더>\` 의 .js 를 직접 — 검체의 꼴.
+#              원문 `args` 를 본다(1.2.0 전의 스냅샷에도 선다).
+#   task-x     같은 자리를 `cmd.exe /c start … node.exe` 가 띄우거나, 변수
+#              (`%LOCALAPPDATA%`)를 펴지 않은 채 저장된 꼴 — 편 값
+#              `win.task.args_expanded` 와 `last_path` 로 본다.
+#   task-temp  페이로드가 `TEMP` 바로 아래 — 보도의 꼴. 파일 하나를 지목한다.
+#
+# 앞 둘은 **폴더**(`payload_dir`)를 지목해 그 폴더를 지운다. `task-temp` 는 **파일**
+# (`script_path`)을 지목한다 — `TEMP` 는 지울 폴더가 아니다.
 detect:
   # (1) 예약 작업 — 이 위협의 뼈대
   #
   # 검체 확인: 샌드박스 행위가
   #   "C:\Program Files\nodejs\node.exe" "…\preload.js"
   # 로 아래 두 조건과 그대로 맞는다.
+  #
+  # **등록 폴더(`\Microsoft\Windows\`) 조건을 뺐다**(0.2.0). 보도의 작업은 루트
+  # 폴더(`\sys_component_health_{UID}`)에 있고, 그 하나만 달라도 0.1.3 은 판정을
+  # 세우지 못했다(랩 실측 · 종료 0). 이 조건은 검체에서 본 자리였지 오탐 방어가
+  # 아니다 — 판정은 아래 페이로드의 YARA 가 함께 서야 선다.
   - id: task
     subject: persistence
     where:
@@ -81,7 +131,6 @@ detect:
         # `dirname` 이 scan_roots 상한 자체가 되고, 아래 재귀 삭제가 사용자가
         # 설치한 프로그램 폴더 전체를 겨눈다 (P11 r2 가 실측으로 드러냈다).
         - { field: args,                   op: matches,     value: '(?i)\\AppData\\Local\\Programs\\[^"]+\\[^\\"]+\.js("|\s|$)' }
-        - { field: win.task.register_path, op: starts_with, value: "\\Microsoft\\Windows\\" }
     capture:
       # 폴더 이름이 감염마다 바뀌므로 리터럴로 적을 수 없다.
       # 증거에서 뽑아낸다 — 이것이 "랜덤 폴더명" 을 다루는 방법이다.
@@ -110,9 +159,58 @@ detect:
     # 것은 실행 파일이 아니라 **무엇을 실행하는가** 이고, 그 몫은 아래 payload
     # 룰의 YARA 가 맡는다.
     #
-    # 오탐 방어의 본체는 `verdict: task and payload` 의 논리곱과 `from:` 이 거는
-    # 스캔 범위 제한이다. 청정 환경 0 건은 G1 이 매 커밋 보증한다.
+    # 오탐 방어의 본체는 `verdict` 의 갈래마다의 논리곱(작업 and 페이로드)과
+    # `from:` 이 거는 스캔 범위 제한이다. 청정 환경 0 건은 G1 이 매 커밋 보증한다.
     score: 90        # 보고·우선순위 표시용일 뿐이다. 판정 게이트가 아니다
+
+  # (1-b) `cmd.exe` 가 node.exe 를 띄우는 작업 — `Programs\<폴더>\` 의 .js (0.2.0)
+  #
+  # `first_path` 는 `cmd.exe /c start "" /min "…\node.exe" "…\a.js"` 에서 `/c` 를
+  # 집는다. 그래서 **작업 계정의 프로필로 편** 인자(`win.task.args_expanded` · 코어
+  # 1.2.0)에서 **마지막 경로**(`last_path`)를 집는다. 아래 정규식 끝의
+  # `(\s+[^\\/"\s]+)*\s*$` 가 그 `.js` 가 마지막 경로임을 보증한다 — 뒤에 플래그
+  # (`--run`)는 와도 다른 경로는 오지 않는다.
+  #
+  # **(1) 과 겹치지 않는다** — 명령이 다르다(`cmd.exe` 대 `node.exe`). 한 작업이 두
+  # 갈래에 맞으면 같은 작업을 두 번 지우는 계획이 선다. 그래서 변수(`%LOCALAPPDATA%`)
+  # 를 펴지 않은 채 node.exe 를 **직접** 부르는 `Programs` 꼴은 여기서 받지 않는다 —
+  # (1) 의 원문과 겹칠 수 있고, 보도에도 검체에도 그 꼴이 없다(`RELEASE.md`).
+  - id: task-x
+    subject: persistence
+    where:
+      all:
+        - { field: command,                op: matches, value: '(?i)\\cmd\.exe$' }
+        - { field: win.task.args_expanded, op: matches, value: '(?i)\\node\.exe"?\s' }
+        - { field: win.task.args_expanded, op: matches, value: '(?i)\\AppData\\Local\\Programs\\[^"]+\\[^\\"]+\.js"?(\s+[^\\/"\s]+)*\s*$' }
+    capture:
+      script_path: "win.task.args_expanded | last_path"
+      payload_dir: "${script_path} | dirname"
+    score: 90
+
+  # (1-c) 페이로드가 `TEMP` 바로 아래 — Trend Micro 보도의 꼴 (0.2.0)
+  #
+  #   cmd.exe /c start "" /min "%LOCALAPPDATA%\Programs\nodejs\node.exe"
+  #                            "%LOCALAPPDATA%\TEMP\{UID}or.js"
+  #
+  # `.js` 가 `Temp` **바로 아래**여야 한다(`[^\\"]+` 에 역슬래시가 없다) — 위
+  # `scan_roots` 의 글롭 뿌리가 보는 자리가 거기뿐이다. 이름은 묻지 않는다 — 보도는
+  # GUID 뒤에 `or` · `ro` · `of` 를 붙인다고 적지만, 판정은 아래 YARA 가 내용으로
+  # 세운다.
+  - id: task-temp
+    subject: persistence
+    where:
+      all:
+        - any:
+            - { field: command, op: matches, value: '(?i)\\node\.exe$' }
+            - all:
+                - { field: command,                op: matches, value: '(?i)\\cmd\.exe$' }
+                - { field: win.task.args_expanded, op: matches, value: '(?i)\\node\.exe"?\s' }
+        - { field: win.task.args_expanded, op: matches, value: '(?i)\\AppData\\Local\\Temp\\[^\\"]+\.js"?(\s+[^\\/"\s]+)*\s*$' }
+    capture:
+      script_path: "win.task.args_expanded | last_path"
+      # `…\<사용자>\AppData` — 아래 바로가기(`lnk`)를 **이 사용자의 것**으로 묶는다.
+      appdata_dir: "${script_path} | dirname | dirname | dirname"
+    score: 90
 
   # (2-a) 본문을 담을 대상 — **경로로만** 매치한다
   #
@@ -127,9 +225,23 @@ detect:
   #
   # 감염 코퍼스는 이 결함을 가린다 — 거기서는 본문이 이미 주입돼 있기 때문이다.
   # 실기기에서 `scan` 을 돌려야 드러난다 (설계-09 P9 항목 3).
+  #
+  # 갈래마다 하나씩 있다(0.2.0) — `from:` 이 가리키는 작업이 다르다.
   - id: payload-file
     subject: file
     from: "${task.payload_dir}"          # 증거에서 파생된 경로만
+    where:
+      - { field: path, op: ends_with, value: ".js" }
+  - id: payload-file-x
+    subject: file
+    from: "${task-x.payload_dir}"
+    where:
+      - { field: path, op: ends_with, value: ".js" }
+  # `TEMP` 갈래는 폴더가 아니라 **그 파일 하나**다 — 같은 `TEMP` 의 다른 `.js` 는
+  # 작업이 가리키지 않았으므로 보지 않는다.
+  - id: payload-file-temp
+    subject: file
+    from: "${task-temp.script_path}"
     where:
       - { field: path, op: ends_with, value: ".js" }
 
@@ -149,18 +261,66 @@ detect:
       # 아니라 관측 불완전이 된다 (P11 r2 가 실측으로 드러냈다).
       - { field: path, op: ends_with, value: ".js" }
       - { yara: "rules/evilai.yar:evilai_locust_js" }
+  - id: payload-x
+    subject: file
+    from: "${task-x.payload_dir}"
+    where:
+      - { field: path, op: ends_with, value: ".js" }
+      - { yara: "rules/evilai.yar:evilai_locust_js" }
+  - id: payload-temp
+    subject: file
+    from: "${task-temp.script_path}"
+    where:
+      - { field: path, op: ends_with, value: ".js" }
+      - { yara: "rules/evilai.yar:evilai_locust_js" }
 
   # (3) Run 키 이중화
   - id: runkey
     subject: autorun
     where:
       - { field: command, op: contains, value: "${task.payload_dir}" }
+  - id: runkey-x
+    subject: autorun
+    where:
+      - { field: command, op: contains, value: "${task-x.payload_dir}" }
+  - id: runkey-temp
+    subject: autorun
+    where:
+      - { field: command, op: contains, value: "${task-temp.script_path}" }
+
+  # (3-b) 보도가 **이름과 자리만** 밝힌 두 흔적 (0.2.0)
+  #
+  # Run 값 `PDFEditorUpdater` 와 시작 메뉴의 `PDF Editor.lnk`. 보도는 그 값의 명령도
+  # 바로가기의 대상도 적지 않았다 — 그래서 위 (3) 처럼 페이로드 경로로 묶을 수 없고
+  # **이름 · 자리로** 지목한다. 판정 근거가 아니다(`verdict` 에 없다). 판정이 선
+  # 기계에서만 치료 계획에 들어가고, 지우지 않고 **격리**한다 — 같은 이름의 정상
+  # 앱 바로가기가 감염 기계에 함께 있으면 그것도 들어갈 수 있어서다(`restore` 로
+  # 돌아온다).
+  - id: run-pdfeditor
+    subject: autorun
+    where:
+      - { field: name, op: matches, value: '(?i)^PDFEditorUpdater$' }
+  #
+  # 바로가기는 **보도 꼴 작업(`task-temp`)이 가리킨 그 사용자의 프로필 안**의 것만
+  # 본다. 이름(`PDF Editor`)이 흔해서, 묶지 않으면 정상 앱을 쓰는 깨끗한 기계마다
+  # '흔적 1건' 이 뜬다(2026-11-08 랩 미끼 실측). 보도도 그 바로가기를 이 꼴과 함께
+  # 적는다.
+  - id: lnk
+    subject: file
+    where:
+      all:
+        - { field: path, op: starts_with, value: "${task-temp.appdata_dir}" }
+        - { field: path, op: matches, value: '(?i)\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\PDF Editor\.lnk$' }
 
   # (4) 백신 예외 등록 — 증거이자 원복 대상이다
   - id: av-exclusion
     subject: av_exclusion
     where:
       - { field: value, op: contains, value: "${task.payload_dir}" }
+  - id: av-exclusion-x
+    subject: av_exclusion
+    where:
+      - { field: value, op: contains, value: "${task-x.payload_dir}" }
 
   # (5) 돌고 있는 페이로드 프로세스
   #
@@ -181,24 +341,48 @@ detect:
       all:
         - { field: image_path, op: matches,  value: '(?i)\\node\.exe$' }
         - { field: args,       op: contains, value: "${task.payload_dir}" }
+  - id: payload-process-x
+    subject: process
+    where:
+      all:
+        - { field: image_path, op: matches,  value: '(?i)\\node\.exe$' }
+        - { field: args,       op: contains, value: "${task-x.payload_dir}" }
+  # `TEMP` 갈래는 **그 파일**을 물고 있는 node 만 — `TEMP` 를 문 node 전부가 아니다.
+  - id: payload-process-temp
+    subject: process
+    where:
+      all:
+        - { field: image_path, op: matches,  value: '(?i)\\node\.exe$' }
+        - { field: args,       op: contains, value: "${task-temp.script_path}" }
 
 # ── 판정 게이트 ────────────────────────────────────────────
 # 점수 임계값(score >= 80)을 게이트로 쓸 수 없다.
 # 독립적인 두 근거의 논리곱이라야, 룰 하나의 오탐이 곧바로 삭제로 이어지지 않는다.
+# 갈래가 셋이어도 **갈래마다** 작업과 그 작업이 가리킨 페이로드의 곱이다(0.2.0).
 #
 # 프로세스는 넣지 않는다. 재부팅 직후처럼 돌고 있지 않은 순간이 있고, 그때
-# 판정이 서지 않으면 치료할 수 없다.
+# 판정이 서지 않으면 치료할 수 없다. 이름만 아는 두 흔적(3-b)도 넣지 않는다.
 verdict:
-  require: "task and payload"
+  require: "(task and payload) or (task-x and payload-x) or (task-temp and payload-temp)"
 
 # ── 치료 — "무엇이 남아 있으면 안 되는가" ──────────────────
 # 순서·백업·프로세스 종료를 여기 적지 않는다. 계획기가 도출한다.
 remediate:
   remove:
     - { ref: payload-process }
+    - { ref: payload-process-x }
+    - { ref: payload-process-temp }
     - { ref: task }
+    - { ref: task-x }
+    - { ref: task-temp }
     - { ref: payload }
+    - { ref: payload-x }
+    - { ref: payload-temp }
     - { ref: runkey }
+    - { ref: runkey-x }
+    - { ref: runkey-temp }
+    - { ref: run-pdfeditor }
+    - { ref: lnk }
     # recursive 는 guard 가 필수다. guard 는 "그 디렉터리 안에서 악성으로 판정된 파일" 을 가리킨다.
     # capture 해석이 어긋나 payload_dir 가 %LOCALAPPDATA%\Programs 자체가 되더라도,
     # 그 안에 악성 판정 파일이 없으므로 이 삭제는 계획에 들어가지 않는다.
@@ -206,7 +390,12 @@ remediate:
     # **P10-C 에서 열렸다.** 이전에는 미룸으로 보고되고 빈 디렉터리가 남았다.
     # 네 번째 조건("하위에 신뢰 서명 파일이 있으면 거부")은 실행 시점에 판정된다
     # — 계획기는 파일 시스템을 열거할 수 없기 때문이다 (설계-03 §4).
+    #
+    # **`TEMP` 갈래에는 폴더 삭제가 없다**(0.2.0). 지우는 것은 그 `.js` 하나다 —
+    # `TEMP` 는 사용자의 폴더이고, 위 `scan_roots` 의 글롭 뿌리가 그 폴더 자체를
+    # 상한 밖에 둔다(적었더라도 G6 이 막는다).
     - { path: "${task.payload_dir}", recursive: true, guard: payload }
+    - { path: "${task-x.payload_dir}", recursive: true, guard: payload-x }
   restore:
     - av_exclusions                      # 원복은 파괴가 아니므로 별도 절이다
   verify:
@@ -221,7 +410,9 @@ collect_extra:
   # **`payload` 가 아니라 `payload-file` 을 가리킨다.** 위 (2-a) 주석 참조 —
   # YARA 로만 정의된 룰을 가리키면 순환이라 본문이 영영 담기지 않는다.
   - { ref: payload-file, content: true }                               # 페이로드 본문
+  - { ref: payload-file-x, content: true }
+  - { ref: payload-file-temp, content: true }
 
 submit_hint:
-  samples: [payload]
+  samples: [payload, payload-x, payload-temp]
   confidentiality_min: 1                 # 하한만 올릴 수 있다. 낮출 수는 없다

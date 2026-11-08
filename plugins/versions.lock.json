@@ -32,16 +32,16 @@
     }
   },
   "ebury-check": {
-    "version": "0.1.2",
+    "version": "0.2.0",
     "files": {
-      "plugin.yaml": "6d92a16cc8372b71e9d8508f7c7694f485d06c48032ef7c5025ef6aa3c8d4a0d",
+      "plugin.yaml": "31c0e35dd71c77efde67f7c39932fb14fc330c37e111e09f7788032293f7f762",
       "rules/ebury.yar": "efb023efd24f6b3dc7e37a908f784f3753165d2c2ef7b6b23cd16cc67d44763a"
     }
   },
   "evilai-locust": {
-    "version": "0.1.3",
+    "version": "0.2.0",
     "files": {
-      "plugin.yaml": "75c235be73e0cd2d82afc456b1b3bb51dea07065f2327e722fd675fcf42c7cc0",
+      "plugin.yaml": "e08443cf25cf46c76eb8c9b060ba99e5d36434f616a3d0d31b397ac690394776",
       "rules/evilai.yar": "8e181e385ebb473d90fb09650f9e6a4934645b6ff386db6d220713c14f4d4e62"
     }
   },

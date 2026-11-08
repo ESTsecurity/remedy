@@ -9,8 +9,8 @@
 # 종료 코드: 2 위협 발견 · 0 위협 없음 · 6 다 보지 못했다.
 schema_version: 1
 id: ebury-check
-version: 0.1.2
-min_core: "1.0.2"   # collect_extra 의 glob 형이 1.0.2 부터 있다
+version: 0.2.0
+min_core: "1.2.0"   # `unix_socket` subject 가 1.2.0 부터 있다(collect_extra 의 glob 형은 1.0.2)
 platforms: [linux]
 name:
   ko: "Ebury 점검 (탐지만)"
@@ -28,7 +28,8 @@ scan_roots:
   - "/usr/lib64"
   - "/usr/lib/x86_64-linux-gnu"
   - "/lib/x86_64-linux-gnu"
-subjects: [file]
+# `unix_socket` 은 `scan_roots` 를 보지 않는다 — 커널이 정한 자리(`/proc/net/unix`) 하나다.
+subjects: [file, unix_socket]
 
 # ── 이름과 자리 ────────────────────────────────────────────
 #
@@ -66,11 +67,53 @@ detect:
         - { field: path, op: matches, value: '^(/usr/lib64|/usr/lib/x86_64-linux-gnu|/lib/x86_64-linux-gnu)(/tls)?/(libkeyutils|libns2|libns5|libpw3|libpw5|libsbr|libslr|libstz|libtsq|libtsr|libkeystats|libkeyctl|librwctl|libllz564)[^/]*$' }
         - { field: sha256, op: exists }
         - { yara: "rules/ebury.yar:Ebury_v1_7_crypto" }
+  # 근거 3 — ESET 의 **현재 주 탐지법**: 상주한 Ebury 가 여는 추상 UNIX 소켓(0.2.0 · 코어 1.2.0).
+  #
+  # 이름은 ESET 공개 점검 스크립트(`eset/malware-research` 의 `ebury/detect_ebury.sh`)의 표 그대로다 —
+  # 24개(1.5.x ~ 1.8.3 · 표는 25줄이고 `/tmp/dbus-n3UUkeqEZG` 가 두 판에 겹친다). 정상 경로를 흉내 낸
+  # 이름이 많지만(`/run/systemd/log` · `/proc/udevd`) **파일이 아니라 추상 소켓**이고, `/proc/net/unix` 는
+  # 그 앞의 NUL 을 `@` 로 적는다 — 그래서 아래 값은 전부 `@` 로 시작하고, 같은 글자의 파일 소켓에는 맞지
+  # 않는다. 판정이 서는 데 라이브러리 파일이 필요 없다 — 이름이 위 목록에 없는 라이브러리로 심긴 판도
+  # 그 sshd 가 떠 있는 동안에는 이 소켓으로 보인다.
+  #
+  # 엔진은 정적 바이너리라 Ebury 의 사용자 영역 루트킷이 `libc` 를 가로채 이 줄을 숨겨도 속지 않는다
+  # (ESET 스크립트가 `LD_PRELOAD` 를 비우고 다시 도는 까닭이 그 가로채기다).
+  - id: socket
+    subject: unix_socket
+    where:
+      - field: name
+        op: in
+        value:
+          - "@/proc/udevd"                       # 1.5.x
+          - "@/tmp/dbus-0m9eDQpdXZ"              # 1.5.1e
+          - "@/tmp/dbus-ZP7tFO4xsL"              # 1.5.5
+          - "@/tmp/dbus-Xrga2cOewg"              # 1.5.5c
+          - "@/tmp/dbus-9XZXkmdfpN"              # 1.5.6d
+          - "@/tmp/dbus-n3UUkeqEZG"              # 1.5.6dp · 1.5.6ep
+          - "@/tmp/dbus-luzG4UqDt8"              # 1.6.2a
+          - "@/tmp/dbus-kZ8VEtJDOJ"              # 1.6.2d
+          - "@/tmp/dbus-VdyGBaqZws"              # 1.6.2fp
+          - "@/tmp/dbus-vBWUDhHCHp"              # 1.6.2gp
+          - "@/run/systemd/journal/dlog"         # 1.6.3
+          - "@/run/systemd/log-wuO3nuFBHN"       # 1.7.0c
+          - "@/run/systemd/journal-YAjXO8luqOa"  # 1.7.0p
+          - "@/run/systemd/log-90zMvYX7uL"       # 1.7.1c
+          - "@/run/systemd/log"                  # 1.7.3
+          - "@UDEV-4kAmkRW3"                     # 1.7.3c
+          - "@/dev/event-E4LgEFWIcy"             # 1.7.4c
+          - "@/dev/stats-MxPAxNpy3x"             # 1.7.4d
+          - "@event-CRbBwZlvXa"                  # 1.8.0 · 1.8.1
+          - "@event-wHPG5cMU8A"                  # 1.8.2.e1-e2
+          - "@event-hyAa2VL3WE"                  # 1.8.2.e3-e4
+          - "@event-lqG1FF5dwG"                  # 1.8.2.e6
+          - "@event-te6Enx7MQS"                  # 1.8.2.e7
+          - "@event-0YsOG9WSOE"                  # 1.8.3
 
 # ── 판정 ──────────────────────────────────────────────────
-# 둘 중 하나. 실물 11개에서 둘의 합이 10 을 잡았다(2026-11-06 실측 — RELEASE.md).
+# 셋 중 하나. 실물 11개에서 앞의 둘의 합이 10 을 잡았다(2026-11-06 실측 — RELEASE.md). 소켓은 그 sshd 가
+# 떠 있는 동안의 근거다 — 라이브러리 이름이 위 목록 밖이어도 선다(0.2.0).
 verdict:
-  require: "ctor or crypto"
+  require: "ctor or crypto or socket"
 
 # ── 본문 ──────────────────────────────────────────────────
 # 위 이름 목록에 드는 실제 파일의 바이트. 규칙으로 고르지 않는다 — 고르는 규칙은 정상 libkeyutils 에도
