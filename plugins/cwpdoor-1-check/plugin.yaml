@@ -10,7 +10,7 @@
 # 플러그인은 6 이다(아무것도 열어 보지 못한 검사가 "위협 없음" 을 말하지 않게 하는 규칙).
 schema_version: 1
 id: cwpdoor-1-check
-version: 0.1.1
+version: 0.1.2
 min_core: "1.0.0"
 platforms: [linux]
 name:

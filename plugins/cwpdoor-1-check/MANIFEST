@@ -1,4 +1,4 @@
 # remedy plugin manifest v1
-049eb343efa5874357c22155b9f1d7f9d5e38eeb1748919b65e130fe7efbaa80  RELEASE.md
-ea03ead3683cb4f602cb0b277d7d5b95f634dfc10938ba47f3e1c6e4cd59d408  plugin.yaml
+deb3ad92b3dbfddb29d16c9a572837856fdf435d7ce2620194ae714946ca03ad  RELEASE.md
+ba6b4ea200ffcf25c78e23c51a1e02d99a8c0a366d00223851489200e4002acd  plugin.yaml
 f1330d26c9c65fcb56c50673b94f2c0594ffd1b57fee90b12a5a7d5e2f2494f9  rules/cwpdoor.yar
