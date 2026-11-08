@@ -363,10 +363,13 @@ remedy support-bundle --run <run_id> --state-dir <받은 폴더>\state --out .\b
 
 ## 9. 새 위협이 오면
 
-**룰만 배포한다.** `plugin.yaml` 과 그 옆 `rules/*.yar` 을 바꾸면 된다 —
-`remedy.exe` 는 그대로다. 룰을 쓰는 법은 [`plugin-guide/`](plugin-guide/README.md).
+**대개 룰만 배포한다.** `plugin.yaml` 과 그 옆 `rules/*.yar` 을 바꾸면 된다 — 룰의
+`min_core` 가 깔린 `remedy.exe` 의 버전 이하이면 `remedy.exe` 는 그대로다. 더 높으면
+`remedy.exe` 도 같은 릴리스의 것으로 바꾼다. 1.2.0 부터는 낮은 코어가 그 룰로 시작하지 않고
+종료 4 를 내지만, **1.1.3 이하는 확인하지 않고 그 룰을 돌린다** — 룰이 쓰는 새 기능이 없는 채로.
+룰을 쓰는 법은 [`plugin-guide/`](plugin-guide/README.md).
 
-받은 룰이 도는지 먼저 확인한다.
+받은 룰이 도는지 **깔린 `remedy.exe` 로** 먼저 확인한다 — `min_core` 가 높으면 여기서 오류가 난다.
 
 ```powershell
 remedy plugin lint .\새룰\plugin.yaml

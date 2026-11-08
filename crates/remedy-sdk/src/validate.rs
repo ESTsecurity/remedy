@@ -98,6 +98,8 @@ pub fn validate(m: &PluginManifest) -> Vec<SchemaIssue> {
         );
     }
 
+    check_min_core(m, &mut issues);
+
     if m.scan_roots.is_empty() {
         issues.push(SchemaIssue::new(
             "scan_roots",
@@ -208,6 +210,76 @@ pub fn validate(m: &PluginManifest) -> Vec<SchemaIssue> {
     issues
 }
 
+/// 이 코어가 플러그인이 요구하는 버전을 만족하는가 (설계-02 §10 — `schema_version`
+/// 과 `min_core` 둘 다 만족해야 로드된다).
+///
+/// # 무엇이 조용히 깨지는가
+///
+/// 미래 코어를 요구하는 플러그인이 낡은 코어에서 **그냥 돈다.** 그 플러그인이
+/// 기대하는 Op·필드·캡처가 없으면 탐지가 0건이 되고, 작성자도 운영자도 룰이 도는
+/// 줄 안다 — [`Subject::NOT_POPULATED_YET`](crate::catalog::Subject::NOT_POPULATED_YET)
+/// 이 막으려는 실패 방식과 같은 모양이다.
+///
+/// # 왜 여기 있는가
+///
+/// 2026-08-28 에 `min_core: "99.0.0"` 이 린트도 실행도 통과하는 것을 실측하고
+/// **린트에만** 이 검사를 더했다. 검사·치료가 룰을 읽는 이 자리에는 빠졌다 —
+/// 2026-11-08 에 공개된 1.1.3 이 `min_core: "1.2.0"` 인 룰을 거절하지 않고 평가하는
+/// 것을 실측했다. 형제 필드인 `schema_version` 처럼 **로드할 때마다** 본다.
+/// 린트는 `validate` 의 결과를 그대로 담으므로 작성자도 같은 오류를 본다.
+///
+/// # 세 자리 수만 본다
+///
+/// SemVer 전체를 구현하지 않는다. 사전 배포 태그(`-rc.1`)나 빌드 메타(`+abc`)를
+/// 다루기 시작하면 비교 규칙이 이 파일의 주제와 무관하게 커진다. **파싱되지 않는
+/// 값은 오류다** — 조용히 통과시키면 오타 하나가 검사를 통째로 끈다.
+fn check_min_core(m: &PluginManifest, issues: &mut Vec<SchemaIssue>) {
+    let core = env!("CARGO_PKG_VERSION");
+    let Some(want) = semver3(&m.min_core) else {
+        issues.push(
+            SchemaIssue::new(
+                "min_core",
+                format!("'{}' 을 버전으로 읽지 못했다", m.min_core),
+                "설계-02 §10",
+            )
+            .with_valid("`주.부.수` 세 자리 수 — 예: 1.0.0"),
+        );
+        return;
+    };
+    // 코어 버전은 우리가 짓는 값이다. 여기서 파싱이 실패하면 그것은 플러그인의
+    // 문제가 아니라 이 저장소의 문제이므로 검사를 건너뛰지 않고 드러낸다.
+    let have = semver3(core).expect("코어 버전이 세 자리 수가 아니다");
+    if want > have {
+        issues.push(
+            SchemaIssue::new(
+                "min_core",
+                format!(
+                    "이 룰은 코어 {} 이상을 요구하는데 이 코어는 {core} 다. 낮은 코어에서 \
+                     돌리면 모르는 Op·필드를 쓴 룰이 조용히 0건을 보고한다",
+                    m.min_core
+                ),
+                "설계-02 §10",
+            )
+            .with_valid(format!(
+                "이 코어가 만족하는 min_core: {core} 이하 — 받은 룰이면 같은 릴리스의 \
+                 remedy 로 돌린다"
+            )),
+        );
+    }
+}
+
+/// `주.부.수` 세 자리. 그 밖의 모양은 `None`.
+fn semver3(v: &str) -> Option<(u64, u64, u64)> {
+    let mut it = v.split('.');
+    let a = it.next()?.parse().ok()?;
+    let b = it.next()?.parse().ok()?;
+    let c = it.next()?.parse().ok()?;
+    if it.next().is_some() {
+        return None;
+    }
+    Some((a, b, c))
+}
+
 /// 지금 코어가 실제로 수집할 수 있는 subject.
 fn implemented_subjects() -> String {
     Subject::ALL
@@ -236,5 +308,57 @@ fn pending(s: Subject) -> Option<Phase> {
         Some(p)
     } else {
         None
+    }
+}
+
+#[cfg(test)]
+mod min_core_tests {
+    use super::*;
+
+    fn min_core_issues(v: &str) -> Vec<SchemaIssue> {
+        let y = format!(
+            "schema_version: 1\nid: x\nversion: 0.1.0\nmin_core: '{v}'\nplatforms: [linux]\n\
+             name: {{ ko: 'x', en: 'x' }}\nscan_roots: ['/opt/x']\nsubjects: [file]\n\
+             detect:\n  - id: a\n    subject: file\n    where:\n      \
+             - {{ field: path, op: ends_with, value: 'x' }}\nverdict: {{ require: 'a' }}\n"
+        );
+        let m: PluginManifest = serde_yaml_ng::from_str(&y).expect("시험 매니페스트");
+        validate(&m)
+            .into_iter()
+            .filter(|i| i.at == "min_core")
+            .collect()
+    }
+
+    /// 이 자리가 **검사·치료가 룰을 읽는 자리**다 — 막는 문제(`available_in` 없음)여야
+    /// `load_manifest` 가 시작 전에 멈춘다.
+    #[test]
+    fn a_rule_that_needs_a_newer_core_does_not_load() {
+        let (a, b, c) = semver3(env!("CARGO_PKG_VERSION")).expect("코어 버전");
+        for newer in [
+            format!("{a}.{b}.{}", c + 1),
+            format!("{a}.{}.0", b + 1),
+            format!("{}.0.0", a + 1),
+        ] {
+            let found = min_core_issues(&newer);
+            assert_eq!(found.len(), 1, "{newer}: {found:?}");
+            assert!(
+                found[0].available_in.is_none(),
+                "기다리면 풀리는 문제가 아니라 막는 문제다"
+            );
+        }
+    }
+
+    #[test]
+    fn this_core_or_an_older_one_loads() {
+        for v in [env!("CARGO_PKG_VERSION"), "1.0.0", "0.1.0"] {
+            assert!(min_core_issues(v).is_empty(), "{v}");
+        }
+    }
+
+    #[test]
+    fn a_version_that_does_not_parse_is_an_error_not_a_pass() {
+        for v in ["P10", "1.2", "1.2.0-rc.1", "1.2.0.0", ""] {
+            assert_eq!(min_core_issues(v).len(), 1, "{v}");
+        }
     }
 }

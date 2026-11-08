@@ -115,7 +115,6 @@ pub fn lint(m: &PluginManifest) -> Vec<LintIssue> {
     check_recursive_scope(m, &mut out);
     check_subject_platform(m, &mut out);
     check_edit_platform(m, &mut out);
-    check_min_core(m, &mut out);
     check_name(m, &mut out);
     out
 }
@@ -142,69 +141,6 @@ fn check_name(m: &PluginManifest, out: &mut Vec<LintIssue>) {
             });
         }
     }
-}
-
-/// 이 코어가 플러그인이 요구하는 버전을 만족하는가 (설계-02 §10).
-///
-/// # 왜 뒤늦게 생겼는가
-///
-/// `min_core` 는 스키마에 있고 가이드가 *"요구하는 코어 최소 버전"* 이라고 적고
-/// 모든 예제가 선언하는데, **코어는 그 값을 읽기만 했다.** 2026-08-28 점검에서
-/// `min_core: "99.0.0"` 인 플러그인이 린트도 실행도 통과하는 것을 실측했다.
-///
-/// 형제 필드인 `schema_version` 은 같은 자리에서 강제된다. **둘이 갈려 있었다.**
-///
-/// # 무엇이 조용히 깨지는가
-///
-/// 미래 코어를 요구하는 플러그인이 낡은 코어에서 **그냥 돈다.** 그 플러그인이
-/// 기대하는 Op·필드·연산자가 없으면 탐지가 0건이 되고, 작성자는 룰이 도는 줄
-/// 안다 — [`Subject::NOT_POPULATED_YET`](crate::catalog::Subject::NOT_POPULATED_YET)
-/// 이 막으려는 실패 방식과 같은 모양이다.
-///
-/// # 세 자리 수만 본다
-///
-/// SemVer 전체를 구현하지 않는다. 사전 배포 태그(`-rc.1`)나 빌드 메타(`+abc`)를
-/// 다루기 시작하면 비교 규칙이 이 파일의 주제와 무관하게 커진다. **파싱되지 않는
-/// 값은 오류다** — 조용히 통과시키면 오타 하나가 검사를 통째로 끈다.
-fn check_min_core(m: &PluginManifest, out: &mut Vec<LintIssue>) {
-    let core = env!("CARGO_PKG_VERSION");
-    let Some(want) = semver3(&m.min_core) else {
-        out.push(LintIssue {
-            severity: Severity::Error,
-            at: "min_core".into(),
-            message: format!("'{}' 을 버전으로 읽지 못했다", m.min_core),
-            valid: Some("`주.부.수` 세 자리 수 — 예: 1.0.0".into()),
-            doc: Some("설계-02 §10"),
-        });
-        return;
-    };
-    // 코어 버전은 우리가 짓는 값이다. 여기서 파싱이 실패하면 그것은 플러그인의
-    // 문제가 아니라 이 저장소의 문제이므로 검사를 건너뛰지 않고 드러낸다.
-    let have = semver3(core).expect("코어 버전이 세 자리 수가 아니다");
-    if want > have {
-        out.push(LintIssue {
-            severity: Severity::Error,
-            at: "min_core".into(),
-            message: format!(
-                "이 플러그인은 코어 {} 이상을 요구하는데 이 코어는 {core} 다.                  낮은 코어에서 돌리면 없는 Op·필드를 쓴 룰이 조용히 0건을 보고한다",
-                m.min_core
-            ),
-            valid: Some(format!("이 코어가 만족하는 min_core: {core} 이하")),
-            doc: Some("설계-02 §10"),
-        });
-    }
-}
-
-/// `주.부.수` 세 자리. 그 밖의 모양은 `None`.
-fn semver3(v: &str) -> Option<(u64, u64, u64)> {
-    let mut it = v.split('.');
-    let a = it.next()?.parse().ok()?;
-    let b = it.next()?.parse().ok()?;
-    let c = it.next()?.parse().ok()?;
-    if it.next().is_some() {
-        return None;
-    }
-    Some((a, b, c))
 }
 
 /// 선언한 subject 를 **그 플랫폼에서 실제로 수집할 수 있는가** (설계-09 P12).
@@ -2983,7 +2919,6 @@ mod doc_coverage_tests {
             ("check_recursive_scope", Box::new(check_recursive_scope)),
             ("check_subject_platform", Box::new(check_subject_platform)),
             ("check_edit_platform", Box::new(check_edit_platform)),
-            ("check_min_core", Box::new(check_min_core)),
             ("check_name", Box::new(check_name)),
         ]
     }
