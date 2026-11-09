@@ -2390,6 +2390,22 @@ mod enumerated_tests {
         assert_eq!(got[0].0, Severity::Warning);
     }
 
+    /// `package.manager` 는 셋이다 — 코어 1.3.0 에서 `rpm` 이 들어왔다. 수집이 적는 값을 전수가
+    /// 모르면 **RPM 줄이 전부 린트 오류**가 된다(2026-11-09 · 룰을 쓰다 드러났다).
+    #[test]
+    fn every_package_manager_the_collector_writes_is_known() {
+        for m in ["dpkg", "apk", "rpm"] {
+            let got = issues(
+                "package",
+                &format!("{{ field: manager, op: equals, value: '{m}' }}"),
+            );
+            assert!(got.is_empty(), "{m}: {got:?}");
+        }
+        let got = issues("package", "{ field: manager, op: equals, value: 'yum' }");
+        assert_eq!(got.len(), 1, "{got:?}");
+        assert_eq!(got[0].0, Severity::Error);
+    }
+
     /// `sha256` 리터럴 — 자리 표시·대문자는 오류, 한 글자의 반복은 경고, 실제
     /// 지문과 `${…}` 는 조용하다 (`check_sha256_literals`, 2026-10-02).
     #[test]
