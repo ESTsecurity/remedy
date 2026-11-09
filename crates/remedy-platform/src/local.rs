@@ -241,6 +241,45 @@ pub(crate) fn read_file(
         .map_err(|e| PlatformError::io(path, e))
 }
 
+/// 흘려 읽는 조각 크기.
+const STREAM_CHUNK: usize = 1024 * 1024;
+
+/// [`FsRead::read_stream`](crate::read::FsRead::read_stream) 의 실제 구현 — 1 MiB 조각으로 읽어 넘긴다.
+///
+/// 크기를 먼저 보고(`read_file` 과 같은 규약), 읽는 동안에도 센다 — 그 사이에 파일이 커지면 상한을 넘은
+/// 것으로 답한다. 자른 내용이 해시로 남지 않게 하려는 것이다.
+pub(crate) fn read_stream(
+    view: &impl PathView,
+    path: &str,
+    max: u64,
+    sink: &mut dyn FnMut(&[u8]),
+) -> Result<bool, PlatformError> {
+    use std::io::{ErrorKind, Read};
+    let p = view.for_access(path);
+    let mut f = std::fs::File::open(&p).map_err(|e| PlatformError::io(path, e))?;
+    let len = f.metadata().map_err(|e| PlatformError::io(path, e))?.len();
+    if len > max {
+        return Ok(false);
+    }
+    let mut buf = vec![0u8; STREAM_CHUNK];
+    let mut total = 0u64;
+    loop {
+        let n = match f.read(&mut buf) {
+            Ok(n) => n,
+            Err(e) if e.kind() == ErrorKind::Interrupted => continue,
+            Err(e) => return Err(PlatformError::io(path, e)),
+        };
+        if n == 0 {
+            return Ok(true);
+        }
+        total += n as u64;
+        if total > max {
+            return Ok(false);
+        }
+        sink(&buf[..n]);
+    }
+}
+
 /// 이 경로를 **봤는가 · 없는가 · 못 물었는가** (B-9 · 2026-10-27).
 ///
 /// # 왜 `Path::exists()` 로는 안 되는가
@@ -513,6 +552,39 @@ mod tests {
         let w = walk(&Identity, &gone, 100).expect("순회");
         assert!(w.entries.is_empty());
         assert_eq!(w.denied, 0);
+    }
+
+    #[test]
+    fn a_streamed_read_hands_over_every_byte_in_chunks_and_respects_the_cap() {
+        // 조각 하나보다 큰 파일 — 조각 경계가 값에 끼어들지 않는지 본다.
+        let d = lab("stream");
+        let body: Vec<u8> = (0..STREAM_CHUNK * 2 + 7).map(|i| (i % 251) as u8).collect();
+        let f = d.join("big.bin");
+        std::fs::write(&f, &body).expect("쓰기");
+        let path = f.to_str().unwrap();
+
+        let mut got = Vec::new();
+        let mut chunks = 0;
+        let whole = read_stream(&Identity, path, body.len() as u64, &mut |c| {
+            got.extend_from_slice(c);
+            chunks += 1;
+        })
+        .expect("읽기");
+        assert!(whole);
+        assert_eq!(got, body, "조각을 이은 것이 원문과 다르다");
+        assert!(chunks >= 3, "한 번에 읽었다 — 본문을 들고 있다: {chunks}");
+
+        // 상한보다 크면 읽지 않고 그렇다고 답한다 — 자른 내용으로 해시하지 않는다.
+        let mut touched = false;
+        let whole = read_stream(&Identity, path, body.len() as u64 - 1, &mut |_| {
+            touched = true
+        })
+        .expect("읽기");
+        assert!(!whole);
+        assert!(!touched);
+
+        // 없는 파일은 오류다 — 없는 것을 빈 해시로 만들지 않는다.
+        assert!(read_stream(&Identity, d.join("nope").to_str().unwrap(), 1, &mut |_| {}).is_err());
     }
 
     #[test]

@@ -71,6 +71,29 @@ pub trait FsRead {
     /// 그 해시는 아무 의미가 없다.
     fn read_file(&self, path: &str, max: u64) -> Result<Option<Vec<u8>>, PlatformError>;
 
+    /// 파일을 **조각으로 흘려 읽는다** — `sink` 가 조각마다 받는다(코어 1.3.0).
+    ///
+    /// 본문을 한꺼번에 들지 않으므로 [`read_file`](Self::read_file) 의 상한보다 큰 파일의
+    /// 해시에 쓴다(매니페스트의 `hash_large`). `max` 를 넘으면 — 읽는 사이에 커진 경우까지 —
+    /// `Ok(false)` 이고, 그때 `sink` 가 받은 조각은 부르는 쪽이 버린다. **자른 내용으로 해시하지
+    /// 않는다**는 `read_file` 의 규약과 같다.
+    ///
+    /// 기본 구현은 `read_file` 한 번이다 — 시험용 가짜는 따로 구현하지 않아도 같은 답을 낸다.
+    fn read_stream(
+        &self,
+        path: &str,
+        max: u64,
+        sink: &mut dyn FnMut(&[u8]),
+    ) -> Result<bool, PlatformError> {
+        match self.read_file(path, max)? {
+            Some(b) => {
+                sink(&b);
+                Ok(true)
+            }
+            None => Ok(false),
+        }
+    }
+
     /// 이 경로를 **봤는가 · 없는가 · 못 물었는가** (B-9 · 2026-10-27).
     ///
     /// # 왜 참·거짓이 아닌가

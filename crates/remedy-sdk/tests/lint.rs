@@ -164,6 +164,58 @@ fn an_unconfirmed_line_needs_core_1_3_0() {
     );
 }
 
+// ───────────────────────────── 큰 파일 해시 (`hash_large` · 2026-11-09 · 코어 1.3.0)
+
+/// 기본 모양에 `hash_large` 한 줄을 끼운다.
+fn with_hash_large(names: &str, core: &str) -> String {
+    BASE.replace("min_core: '1.0.0'", &format!("min_core: '{core}'"))
+        .replace("subjects:", &format!("hash_large: {names}\nsubjects:"))
+}
+
+#[test]
+fn a_hash_large_name_on_core_1_3_0_is_clean() {
+    let e = errors(&with_hash_large("['node.exe', 'php*.dll']", "1.3.0"));
+    assert!(e.is_empty(), "{e:?}");
+}
+
+#[test]
+fn a_hash_large_entry_is_one_file_name() {
+    // 경로를 적으면 이 키가 읽는 자리를 정하는 것처럼 읽힌다 — 그 자리는 scan_roots 다.
+    for bad in ["'C:\\Program Files\\nodejs\\node.exe'", "'bin/node'", "''"] {
+        let e = errors(&with_hash_large(&format!("[{bad}]"), "1.3.0"));
+        assert!(
+            e.iter().any(|x| x.starts_with("hash_large[0] ::")),
+            "{bad}: {e:?}"
+        );
+    }
+    // 글자 · 숫자가 없는 꼴은 상한을 넘는 파일을 전부 흘려 읽는다 — 상한을 통째로 올리는 것과 같다.
+    // 확장자 하나(`*.exe`)는 좁힌 것이라 받는다.
+    let e = errors(&with_hash_large("['*', '*.*', '*.exe']", "1.3.0"));
+    for i in 0..2 {
+        assert!(
+            e.iter()
+                .any(|x| x.starts_with(&format!("hash_large[{i}] ::"))
+                    && x.contains("어느 이름에나")),
+            "{i}: {e:?}"
+        );
+    }
+    assert!(
+        !e.iter().any(|x| x.starts_with("hash_large[2] ::")),
+        "{e:?}"
+    );
+}
+
+#[test]
+fn a_hash_large_line_needs_core_1_3_0() {
+    // 낮은 코어는 이 키를 모른다 — 요구 판을 적어야 로드 단계가 그 차이를 말한다.
+    let e = errors(&with_hash_large("['node.exe']", "1.2.1"));
+    assert!(
+        e.iter()
+            .any(|x| x.starts_with("min_core ::") && x.contains("hash_large")),
+        "{e:?}"
+    );
+}
+
 #[test]
 fn duplicate_rule_ids_are_an_error() {
     // 같은 id 가 둘이면 `${task.x}` 가 어느 것을 가리키는지 알 수 없다.

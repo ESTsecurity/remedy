@@ -165,6 +165,76 @@ fn 상한을_넘은_파일은_해시처럼_빈다() {
     assert_eq!(f.version, None, "상한을 넘었는데 버전이 담겼다");
 }
 
+/// 선언한 이름의 큰 파일은 **흘려 읽어 해시만** 뜬다(`hash_large` · 코어 1.3.0).
+///
+/// 공식 `node.exe` 는 83.0 · 89.6 MiB 라(2026-11-09 실측) 해시 상한(32 MiB)에 걸려 `sha256` 이 비었고,
+/// 그 해시로 판정하는 룰은 어느 기계에서도 판정을 세우지 못했다. 이름을 적은 파일만 넓히고, 판은 담지
+/// 않는다 — 본문을 들지 않기 때문이다.
+#[test]
+fn 선언한_이름의_큰_파일은_해시만_뜬다() {
+    use sha2::{Digest, Sha256};
+    let mut big = pe::pe_with("22.23.4");
+    big.resize(64 * 1024, 0);
+    let want = format!("{:x}", Sha256::digest(&big));
+    let files = vec![
+        ("c:\\app\\node.exe".to_string(), big.clone(), false),
+        // Windows 의 이름은 대소문자를 가리지 않는다 — 글롭 뿌리와 같은 규칙.
+        ("c:\\app\\v24\\NODE.EXE".to_string(), big.clone(), false),
+        // 이름을 적지 않은 큰 파일은 전처럼 빈다.
+        ("c:\\app\\other.exe".to_string(), big.clone(), false),
+    ];
+    let run = |hash_large: &[&str], cap: u64| {
+        let fs = FakeFs {
+            root: ROOT.into(),
+            files: files.clone(),
+        };
+        let mut s = scope();
+        s.max_hash_bytes = 1024;
+        s.hash_large = hash_large.iter().map(|x| x.to_string()).collect();
+        s.max_large_hash_bytes = cap;
+        collect_all(&Collector::new(fs), &s).expect("수집").files()
+    };
+    let sha = |files: &[remedy_artifacts::FileRecord], n: &str| {
+        files
+            .iter()
+            .find(|f| f.path.ends_with(n))
+            .unwrap_or_else(|| panic!("{n} 이 없다"))
+            .sha256
+            .clone()
+    };
+
+    let got = run(&["node.exe"], 1024 * 1024);
+    assert_eq!(
+        sha(&got, "\\node.exe"),
+        Some(want.clone()),
+        "선언한 이름인데 해시가 비었다"
+    );
+    assert_eq!(
+        sha(&got, "NODE.EXE"),
+        Some(want),
+        "대소문자가 다른 같은 이름을 놓쳤다"
+    );
+    assert_eq!(
+        sha(&got, "other.exe"),
+        None,
+        "적지 않은 이름까지 흘려 읽었다"
+    );
+    assert!(
+        got.iter().all(|f| f.version.is_none()),
+        "흘려 읽은 파일에 판이 담겼다 — 본문을 들지 않는다"
+    );
+
+    // 흘려 읽는 상한을 넘으면 전처럼 빈다.
+    let got = run(&["node.exe"], 32 * 1024);
+    assert_eq!(sha(&got, "\\node.exe"), None, "상한을 넘었는데 해시가 떴다");
+    // 선언이 없으면 전과 같다.
+    let got = run(&[], 1024 * 1024);
+    assert!(
+        got.iter().all(|f| f.sha256.is_none()),
+        "선언이 없는데 해시가 떴다"
+    );
+}
+
 #[test]
 fn 재파스_지점은_해시처럼_빈다() {
     // 링크를 따라가면 **링크가 가리킨 다른 파일**의 값을 링크의 것으로 적는다.

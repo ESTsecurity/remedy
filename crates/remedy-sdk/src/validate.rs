@@ -123,6 +123,7 @@ pub fn validate(m: &PluginManifest) -> Vec<SchemaIssue> {
     }
 
     check_unconfirmed(m, &mut issues);
+    check_hash_large(m, &mut issues);
 
     if m.detect.is_empty() {
         issues.push(SchemaIssue::new(
@@ -257,6 +258,58 @@ fn check_unconfirmed(m: &PluginManifest, issues: &mut Vec<SchemaIssue>) {
                 format!(
                     "verdict.unconfirmed 는 코어 1.3.0 부터 있다 — min_core '{}' 로는 낮은 코어가 이 룰을 \
                      받아 확인 필요를 내지 못한다",
+                    m.min_core
+                ),
+                "설계-02 §10",
+            )
+            .with_valid("min_core: \"1.3.0\" 이상".to_string()),
+        );
+    }
+}
+
+/// `hash_large` 를 쓸 수 있는 룰인가 (2026-11-09 · 코어 1.3.0).
+///
+/// - **파일 이름 하나의 꼴**이다 — 경로 구분자가 있으면 경로로 적은 것이다. 읽는 자리는 `scan_roots`
+///   가 정하고, 이 키는 그 안에서 해시를 넓힐 뿐이다.
+/// - **글자 · 숫자가 하나도 없는 꼴(`*` · `*.*`)은 받지 않는다** — 상한을 넘는 파일을 전부 흘려 읽게
+///   되고, 그것은 해시 상한을 통째로 올리는 것과 같다.
+/// - **`min_core` 는 1.3.0 이상** — 낮은 코어는 이 키를 모른다(매니페스트를 읽다 멈춘다). 요구 판을
+///   적어야 로드 단계가 그 차이를 말한다([`check_min_core`]).
+fn check_hash_large(m: &PluginManifest, issues: &mut Vec<SchemaIssue>) {
+    if m.hash_large.is_empty() {
+        return;
+    }
+    for (i, p) in m.hash_large.iter().enumerate() {
+        let name = p.trim();
+        if name.is_empty() || name.contains(['/', '\\']) {
+            issues.push(
+                SchemaIssue::new(
+                    format!("hash_large[{i}]"),
+                    format!(
+                        "'{p}' 은 파일 이름 하나의 꼴이 아니다 — 읽는 자리는 scan_roots 가 정한다"
+                    ),
+                    "docs/plugin-guide/10-manifest.md",
+                )
+                .with_valid("node.exe · php*.dll 처럼 이름만".to_string()),
+            );
+        } else if !name.chars().any(char::is_alphanumeric) {
+            issues.push(
+                SchemaIssue::new(
+                    format!("hash_large[{i}]"),
+                    format!("'{p}' 은 어느 이름에나 맞는다 — 상한을 넘는 파일을 전부 흘려 읽는다"),
+                    "docs/plugin-guide/10-manifest.md",
+                )
+                .with_valid("이름에 글자를 하나 이상 적을 것 (예: node.exe)".to_string()),
+            );
+        }
+    }
+    const SINCE: (u64, u64, u64) = (1, 3, 0);
+    if semver3(&m.min_core).is_some_and(|v| v < SINCE) {
+        issues.push(
+            SchemaIssue::new(
+                "min_core",
+                format!(
+                    "hash_large 는 코어 1.3.0 부터 있다 — min_core '{}' 로는 낮은 코어가 이 룰을 읽다 멈춘다",
                     m.min_core
                 ),
                 "설계-02 §10",

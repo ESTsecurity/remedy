@@ -302,6 +302,9 @@ pub fn scope_from_manifest(
             text_config_dirs: expanded_config_dirs,
             platform: host_platform(),
             max_hash_bytes: 32 * 1024 * 1024,
+            // 이름 꼴이라 전개할 토큰이 없다 — 읽는 자리는 위 `scan_roots` 그대로다.
+            hash_large: m.hash_large.clone(),
+            max_large_hash_bytes: remedy_artifacts::MAX_LARGE_HASH_BYTES,
             max_files: 500_000,
         },
         notes,
@@ -479,6 +482,9 @@ pub fn scope_of(artifacts: &ArtifactsEnvelope) -> Scope {
         text_config_dirs: artifacts.body.scope.text_config_dirs.clone(),
         platform: snapshot_platform(&artifacts.host),
         max_hash_bytes: 0,
+        // 평가는 파일을 다시 읽지 않는다 — 흘려 읽을 것도 없다.
+        hash_large: Vec::new(),
+        max_large_hash_bytes: 0,
         max_files: 0,
     }
 }

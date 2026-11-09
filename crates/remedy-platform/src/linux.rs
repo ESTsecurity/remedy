@@ -166,6 +166,15 @@ impl FsRead for Live {
         local::read_file(self, path, max)
     }
 
+    fn read_stream(
+        &self,
+        path: &str,
+        max: u64,
+        sink: &mut dyn FnMut(&[u8]),
+    ) -> Result<bool, PlatformError> {
+        local::read_stream(self, path, max, sink)
+    }
+
     fn look(&self, path: &str) -> crate::read::Seen {
         local::look(self, path)
     }

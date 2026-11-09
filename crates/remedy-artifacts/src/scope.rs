@@ -40,9 +40,18 @@ pub struct Scope {
     pub platform: Platform,
     /// 파일 하나의 해시 계산 상한. 넘으면 메타데이터만 담는다.
     pub max_hash_bytes: u64,
+    /// 해시 상한을 넘어도 **흘려 읽어 해시만** 구할 파일 이름 꼴(매니페스트의 `hash_large` · 코어 1.3.0).
+    /// 비면 전과 같다. 이름 하나의 꼴이라 읽는 자리는 여전히 `scan_roots` 다.
+    pub hash_large: Vec<String>,
+    /// 위 파일을 흘려 읽는 상한. 넘으면 `max_hash_bytes` 를 넘은 파일처럼 메타데이터만 담는다.
+    pub max_large_hash_bytes: u64,
     /// 수집할 파일 개수 상한. 넘으면 `truncated` 가 선다.
     pub max_files: usize,
 }
+
+/// `hash_large` 로 흘려 읽는 상한 — 공식 `node.exe` 가 83.0 MiB(22.23.4) · 89.6 MiB(24.22.1)다(2026-11-09
+/// 실측). 본문을 들지 않으므로 메모리가 아니라 **읽는 시간**의 상한이다.
+pub const MAX_LARGE_HASH_BYTES: u64 = 256 * 1024 * 1024;
 
 impl Scope {
     /// 진단 모드용 범위 — **플러그인 없이** 도는 경로다 (설계-00 §5).
@@ -59,6 +68,9 @@ impl Scope {
             text_config_dirs: Vec::new(),
             platform,
             max_hash_bytes: 32 * 1024 * 1024,
+            // 매니페스트가 없으니 흘려 읽을 이름도 없다 — 상한만 같은 값으로 둔다.
+            hash_large: Vec::new(),
+            max_large_hash_bytes: MAX_LARGE_HASH_BYTES,
             max_files: 500_000,
         }
     }

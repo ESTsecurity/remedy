@@ -151,6 +151,27 @@ pub struct PluginManifest {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub text_config_dirs: Vec<String>,
 
+    /// 해시 상한(32 MiB)을 넘어도 **흘려 읽어 해시만** 구할 파일의 **이름 꼴**(2026-11-09 · 코어 1.3.0).
+    ///
+    /// # 왜 필요한가
+    ///
+    /// 점검 룰은 공식 빌드의 해시로 판정한다. 그런데 공식 `node.exe` 는 **83.0 MiB(22.23.4) · 89.6 MiB
+    /// (24.22.1)** 라(실측) 상한에 걸려 `sha256` 이 비고, 그 룰은 어느 기계에서도 판정을 세우지 못한다.
+    /// 상한을 통째로 올리면 `scan_roots` 의 큰 파일을 전부 메모리에 올린다.
+    ///
+    /// ```yaml
+    /// hash_large: ["node.exe"]
+    /// ```
+    ///
+    /// # 무엇을 하고 하지 않는가
+    ///
+    /// - **이름 하나의 꼴**이다(`*` · `?` — 글롭 뿌리와 같은 규칙). 경로가 아니므로 읽는 자리는 여전히
+    ///   `scan_roots` 다 — 상한 밖을 읽는 길이 없다.
+    /// - 본문을 들지 않고 조각으로 흘려 해시만 구한다. **판(`version`)은 비고** 본문 수집도 없다.
+    /// - **256 MiB 까지**다. 그보다 크면 전처럼 `sha256` 이 빈다.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub hash_large: Vec<String>,
+
     /// 이동식 매체 접근. 기본 false.
     ///
     /// 켜는 것만으로는 부족하다 — 이동식 매체 대상 파괴 Action 은 대화형에서
