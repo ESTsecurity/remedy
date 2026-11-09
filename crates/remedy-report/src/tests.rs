@@ -576,6 +576,79 @@ fn result_line_keeps_the_phrase_the_harness_reads() {
     assert!(result_line(C::NoThreat, 0, Lang::En, None).contains("No threat"));
 }
 
+/// 확인 필요만 남은 점검(`verdict.unconfirmed` · 2026-11-09)은 *"다 보지 못해"* 가 아니라 *"확인이
+/// 필요합니다"* 다. 그 밖의 조합은 [`result_line`] 과 **한 글자도 같다**.
+#[test]
+fn a_review_only_check_says_review_needed_and_nothing_else_changes() {
+    use remedy_sdk::artifact::ExitCode as C;
+    use remedy_sdk::manifest::PluginKind;
+    let check = Some(PluginKind::Check);
+    for lang in [Lang::Ko, Lang::En] {
+        let review = result_line_for(C::IncompleteObservation, 0, lang, check, true);
+        assert_eq!(review, review_line(lang));
+        assert!(!review.contains("다 보지 못해"), "{review}");
+        // 거짓이면 전과 같다.
+        assert_eq!(
+            result_line_for(C::IncompleteObservation, 0, lang, check, false),
+            result_line(C::IncompleteObservation, 0, lang, check)
+        );
+        // 점검이 아니거나 6 이 아니면 `review` 를 보지 않는다.
+        for (code, kind) in [
+            (C::IncompleteObservation, None),
+            (C::FoundNotRemediated, check),
+            (C::NoThreat, check),
+        ] {
+            assert_eq!(
+                result_line_for(code, 0, lang, kind, true),
+                result_line(code, 0, lang, kind),
+                "{code:?} {kind:?}"
+            );
+        }
+    }
+    assert!(review_line(Lang::Ko).starts_with("확인이 필요합니다"));
+    assert!(!review_line(Lang::En)
+        .chars()
+        .any(|c| ('가'..='힣').contains(&c)));
+}
+
+/// 확인 필요 항목은 **사유가 짚은 그룹의 증거**만 적고, 짚은 증거가 없으면 아무것도 적지 않는다 —
+/// 판정 쪽처럼 흔적 전부로 대신하면 확인할 것과 상관없는 줄이 섞인다.
+#[test]
+fn unconfirmed_items_list_only_the_noted_groups() {
+    use remedy_sdk::artifact::{Evidence, EvidenceGroup, UnconfirmedNote};
+    let ev = |id: &str, path: &str| Evidence {
+        id: id.into(),
+        rule: "present".into(),
+        subject: remedy_sdk::catalog::Subject::File,
+        score: None,
+        target: serde_json::json!({ "path": path }),
+        captures: Default::default(),
+        matched: Vec::new(),
+    };
+    let group = |id: &str, evidence: &[&str]| EvidenceGroup {
+        id: id.into(),
+        evidence: evidence.iter().map(|s| s.to_string()).collect(),
+        captures: Default::default(),
+        verdict: false,
+        excluded_reason: None,
+    };
+    let evidence = vec![ev("e0", "/usr/bin/php"), ev("e1", "/opt/other/php")];
+    let groups = vec![group("g0", &["e0"]), group("g1", &["e1"])];
+    let note = UnconfirmedNote {
+        why: [("ko".to_string(), "까닭".to_string())].into(),
+        groups: vec!["g0".to_string()],
+    };
+    let lines = unconfirmed_findings(&evidence, &groups, &[note], Lang::Ko, 10);
+    assert_eq!(lines.len(), 1, "{lines:?}");
+    assert!(lines[0].contains("/usr/bin/php"), "{lines:?}");
+    // 짚은 그룹이 없으면 빈 목록이다 — 흔적 전부로 대신하지 않는다.
+    let none = UnconfirmedNote {
+        why: Default::default(),
+        groups: vec!["g9".to_string()],
+    };
+    assert!(unconfirmed_findings(&evidence, &groups, &[none], Lang::Ko, 10).is_empty());
+}
+
 #[test]
 fn a_check_plugin_says_vulnerable_not_threat() {
     use remedy_sdk::artifact::ExitCode as C;
@@ -715,6 +788,7 @@ fn closing_carries_undo_and_copyright() {
         journal: None,
         kind: None,
         state_dir: None,
+        review: false,
     };
     let ko = render_closing(&c, Lang::Ko);
     assert!(ko.contains("remedy restore --run run-1"), "{ko}");
@@ -739,6 +813,7 @@ fn closing_names_a_non_default_state_dir_on_both_hints() {
         journal: None,
         kind: None,
         state_dir: Some("\"C:\\remedy x\\state\""),
+        review: false,
     };
     let ko = render_closing(&c, Lang::Ko);
     assert!(
@@ -763,6 +838,7 @@ fn labels_align_by_display_width_in_both_languages() {
         journal: Some("j"),
         kind: None,
         state_dir: None,
+        review: false,
     };
     for lang in [Lang::Ko, Lang::En] {
         let text = render_closing(&c, lang);
@@ -789,6 +865,7 @@ fn sub_second_runs_do_not_say_zero() {
         journal: None,
         kind: None,
         state_dir: None,
+        review: false,
     };
     assert!(render_closing(&c, Lang::Ko).contains("1초 미만"));
     assert!(render_closing(&c, Lang::En).contains("under 1s"));

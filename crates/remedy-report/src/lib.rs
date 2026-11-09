@@ -412,6 +412,42 @@ pub fn threat_findings(
     })
 }
 
+/// 점검 룰이 **확인 필요**로 남긴 항목(`verdict.unconfirmed` · 2026-11-09) — [`check_findings`] 와 같은 꼴.
+///
+/// 판정이 선 그룹이 아니라 **사유가 짚은 그룹**의 증거를 적는다. 짚은 증거가 없으면 아무것도 적지
+/// 않는다 — 판정 쪽처럼 흔적 전부로 대신하면 확인할 것과 상관없는 줄이 섞인다.
+pub fn unconfirmed_findings(
+    evidence: &[remedy_sdk::artifact::Evidence],
+    groups: &[remedy_sdk::artifact::EvidenceGroup],
+    notes: &[remedy_sdk::artifact::UnconfirmedNote],
+    lang: Lang,
+    limit: usize,
+) -> Vec<String> {
+    let noted =
+        |g: &remedy_sdk::artifact::EvidenceGroup| notes.iter().any(|n| n.groups.contains(&g.id));
+    let picked = picked_evidence(evidence, groups, noted);
+    numbered(&picked, lang, limit, |e| finding_body(e, lang))
+}
+
+/// 고른 그룹들의 증거 — 한 번씩, 그룹 차례대로.
+fn picked_evidence<'a>(
+    evidence: &'a [remedy_sdk::artifact::Evidence],
+    groups: &[remedy_sdk::artifact::EvidenceGroup],
+    pick: impl Fn(&remedy_sdk::artifact::EvidenceGroup) -> bool,
+) -> Vec<&'a remedy_sdk::artifact::Evidence> {
+    let mut ids: Vec<&str> = Vec::new();
+    for g in groups.iter().filter(|g| pick(g)) {
+        for id in &g.evidence {
+            if !ids.contains(&id.as_str()) {
+                ids.push(id);
+            }
+        }
+    }
+    ids.iter()
+        .filter_map(|id| evidence.iter().find(|e| e.id == *id))
+        .collect()
+}
+
 /// [`check_findings`] · [`threat_findings`] 가 함께 쓰는 몸통 — 무엇을 고르고 어떻게 번호를 다는가.
 /// `body` 가 한 증거의 알맹이(번호를 뺀 줄)를 만든다.
 fn numbered_findings(
@@ -421,23 +457,22 @@ fn numbered_findings(
     limit: usize,
     body: impl Fn(&remedy_sdk::artifact::Evidence) -> String,
 ) -> Vec<String> {
-    let mut ids: Vec<&str> = Vec::new();
-    for g in groups.iter().filter(|g| g.verdict) {
-        for id in &g.evidence {
-            if !ids.contains(&id.as_str()) {
-                ids.push(id);
-            }
-        }
-    }
+    let mut picked = picked_evidence(evidence, groups, |g| g.verdict);
     // 그룹이 비어 있는 플러그인도 있다(판정이 증거 하나로 서는 모양). 그때는
     // 흔적을 그대로 쓴다 — 빈 목록보다 낫다.
-    let picked: Vec<&remedy_sdk::artifact::Evidence> = if ids.is_empty() {
-        evidence.iter().collect()
-    } else {
-        ids.iter()
-            .filter_map(|id| evidence.iter().find(|e| e.id == *id))
-            .collect()
-    };
+    if picked.is_empty() {
+        picked = evidence.iter().collect();
+    }
+    numbered(&picked, lang, limit, body)
+}
+
+/// 증거들을 번호 줄로 — 같은 줄은 한 번, `limit` 을 넘으면 *그 외 N건* 한 줄.
+fn numbered(
+    picked: &[&remedy_sdk::artifact::Evidence],
+    lang: Lang,
+    limit: usize,
+    body: impl Fn(&remedy_sdk::artifact::Evidence) -> String,
+) -> Vec<String> {
     if picked.is_empty() {
         return Vec::new();
     }
@@ -450,7 +485,7 @@ fn numbered_findings(
     // 가르는 기준은 **찍히는 줄 그대로**다. 같은 파일이라도 적히는 값이 다르면
     // 다른 줄이므로 남는다.
     let mut bodies: Vec<String> = Vec::new();
-    for e in &picked {
+    for e in picked.iter().copied() {
         let b = body(e);
         if !bodies.contains(&b) {
             bodies.push(b);
@@ -507,6 +542,36 @@ fn finding_body(e: &remedy_sdk::artifact::Evidence, lang: Lang) -> String {
         Some(w) => format!("{label}  ({w})"),
         None => label,
     }
+}
+
+/// 점검 룰이 **확인 필요만** 남겼을 때의 결과 줄(`verdict.unconfirmed` · 2026-11-09).
+///
+/// 6 의 점검 문장(*"다 보지 못해 '취약하지 않다' 를 말할 수 없습니다"*)은 이 경우 틀린 말이다 —
+/// 다 **보았고**, 본 것이 '취약하지 않다' 를 가릴 근거가 아니었다. 고르는 쪽은 [`result_line_for`].
+pub fn review_line(lang: Lang) -> String {
+    lang.t(
+        "확인이 필요합니다. 위에 적은 항목은 '취약하지 않다' 를 가릴 근거가 없습니다.",
+        "Review needed: there is no basis to call the items listed above not vulnerable.",
+    )
+    .to_string()
+}
+
+/// [`result_line`] 이되 **확인 필요만 남은 점검**이면 [`review_line`] 을 고른다. `review` 는
+/// [`remedy_sdk::artifact::Observation::only_unconfirmed`] 를 부르는 쪽이 준다 — 이 칸이 거짓이면 줄은
+/// 전과 한 글자도 같다.
+pub fn result_line_for(
+    code: remedy_sdk::artifact::ExitCode,
+    done: usize,
+    lang: Lang,
+    kind: Option<remedy_sdk::manifest::PluginKind>,
+    review: bool,
+) -> String {
+    use remedy_sdk::artifact::ExitCode as C;
+    use remedy_sdk::manifest::PluginKind;
+    if review && kind == Some(PluginKind::Check) && code == C::IncompleteObservation {
+        return review_line(lang);
+    }
+    result_line(code, done, lang, kind)
 }
 
 pub fn result_line(
@@ -594,6 +659,8 @@ pub struct Closing<'a> {
     /// 친 사람은 기본 자리를 찾다 종료 4 로 끝난다(2026-11-07 실측). 기본이면 `None` 이고
     /// 줄은 전과 한 글자도 같다(무인 배포 출력 · 불변식 I1).
     pub state_dir: Option<&'a str>,
+    /// 점검 룰이 **확인 필요만** 남겼는가 — 결과 줄이 [`review_line`] 이 된다([`result_line_for`]).
+    pub review: bool,
 }
 
 pub fn render_closing(c: &Closing<'_>, lang: Lang) -> String {
@@ -605,7 +672,7 @@ pub fn render_closing(c: &Closing<'_>, lang: Lang) -> String {
     out.push_str(&format!(
         " {} : {}\n",
         pad(lang.t("결과", "Result"), w),
-        result_line(c.code, c.done, lang, c.kind)
+        result_line_for(c.code, c.done, lang, c.kind, c.review)
     ));
     out.push_str(&format!(
         " {} : {}\n",

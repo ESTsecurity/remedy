@@ -1216,6 +1216,15 @@ pub fn evaluate(
     let order = topo_order(&manifest.detect)?;
     let require =
         verdict::parse(&manifest.verdict.require).map_err(|e| EvalError(e.to_string()))?;
+    // `verdict.unconfirmed` — 판정이 서지 않은 그룹에서만 본다(아래). 같은 문법이다.
+    let unconfirmed = manifest
+        .verdict
+        .unconfirmed
+        .iter()
+        .map(|u| {
+            verdict::parse(&u.when).map_err(|e| EvalError(format!("verdict.unconfirmed: {e}")))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
 
     // 판정식이 없는 규칙을 참조하면 영원히 성립하지 않는다. 조용히 두면
     // "왜 안 잡히는가" 의 원인이 보이지 않는다.
@@ -1225,6 +1234,18 @@ pub fn evaluate(
         if !manifest.detect.iter().any(|r| &r.id == w) {
             return Err(EvalError(format!(
                 "verdict.require 가 없는 규칙 '{w}' 를 참조합니다"
+            )));
+        }
+    }
+    for expr in &unconfirmed {
+        let mut wanted = Vec::new();
+        verdict::referenced_rules(expr, &mut wanted);
+        if let Some(w) = wanted
+            .iter()
+            .find(|w| !manifest.detect.iter().any(|r| r.id == **w))
+        {
+            return Err(EvalError(format!(
+                "verdict.unconfirmed 가 없는 규칙 '{w}' 를 참조합니다"
             )));
         }
     }
@@ -1354,6 +1375,8 @@ pub fn evaluate(
     // 그룹 번호를 다시 매긴다 — 팬아웃 순서가 곧 번호다.
     let mut out_groups = Vec::with_capacity(groups.len());
     let mut passed = Vec::new();
+    // `verdict.unconfirmed` 의 줄마다 그것이 선 그룹.
+    let mut unconfirmed_at: Vec<Vec<String>> = vec![Vec::new(); unconfirmed.len()];
     for (n, g) in groups.into_iter().enumerate() {
         let id = format!("g{n}");
         let counts: BTreeMap<String, usize> = g
@@ -1364,6 +1387,14 @@ pub fn evaluate(
         let ok = g.excluded.is_none() && verdict::eval(&require, &counts);
         if ok {
             passed.push(id.clone());
+        } else if g.excluded.is_none() {
+            // **찾은 것이 모르는 것보다 앞선다** — 판정이 선 그룹은 확인 필요로 세지 않는다.
+            // 제외된 그룹도 세지 않는다(제외는 '이것은 아니다' 를 이미 말했다).
+            for (i, expr) in unconfirmed.iter().enumerate() {
+                if verdict::eval(expr, &counts) {
+                    unconfirmed_at[i].push(id.clone());
+                }
+            }
         }
         let mut ids: Vec<String> = g.evidence.values().flatten().cloned().collect();
         ids.sort();
@@ -1409,6 +1440,18 @@ pub fn evaluate(
         observation: remedy_sdk::artifact::Observation {
             unevaluated_rules: unevaluated_rules.into_iter().collect(),
             unreadable_versions: unreadable_versions.into_iter().collect(),
+            // 선 줄만 싣는다 — 서지 않은 줄까지 실으면 빈 사유가 화면에 남는다.
+            unconfirmed: manifest
+                .verdict
+                .unconfirmed
+                .iter()
+                .zip(unconfirmed_at)
+                .filter(|(_, groups)| !groups.is_empty())
+                .map(|(u, groups)| remedy_sdk::artifact::UnconfirmedNote {
+                    why: u.why.clone(),
+                    groups,
+                })
+                .collect(),
             ..Default::default()
         },
         scan_roots: Vec::new(),

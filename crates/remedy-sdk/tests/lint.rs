@@ -99,6 +99,71 @@ fn verdict_referencing_a_missing_rule_is_an_error() {
     assert!(e.iter().any(|x| x.contains("verdict.require")), "{e:?}");
 }
 
+// ───────────────────────────── 확인 필요 (`verdict.unconfirmed` · 2026-11-09 · 코어 1.3.0)
+
+/// 점검 룰에 *확인 필요* 한 줄을 단 모양 — 각 시험이 한 곳만 비튼다.
+fn with_unconfirmed() -> String {
+    BASE.replace("min_core: '1.0.0'", "min_core: '1.3.0'")
+        .replace("name: {", "kind: check\nname: {")
+        .replace(
+            "verdict: { require: 'task and payload' }",
+            "verdict:\n  require: 'task and payload'\n  unconfirmed:\n    \
+             - when: 'task'\n      why: { ko: '판을 확인하십시오', en: 'check the build' }",
+        )
+}
+
+#[test]
+fn an_unconfirmed_line_on_a_check_rule_is_clean() {
+    let e = errors(&with_unconfirmed());
+    assert!(e.is_empty(), "{e:?}");
+}
+
+#[test]
+fn an_unconfirmed_line_needs_a_check_rule() {
+    // 치료 룰의 6 은 *"다 보지 못했다"* 하나다.
+    let y = with_unconfirmed().replace("kind: check\n", "");
+    let e = errors(&y);
+    assert!(
+        e.iter().any(|x| x.starts_with("verdict.unconfirmed ::")),
+        "{e:?}"
+    );
+}
+
+#[test]
+fn an_unconfirmed_line_names_existing_rules() {
+    let y = with_unconfirmed().replace("when: 'task'", "when: 'task and 없는룰'");
+    let e = errors(&y);
+    assert!(
+        e.iter()
+            .any(|x| x.starts_with("verdict.unconfirmed[0].when") && x.contains("없는룰")),
+        "{e:?}"
+    );
+}
+
+#[test]
+fn an_unconfirmed_line_speaks_both_languages() {
+    // 사유 줄이 6 의 유일한 설명이다 — 한쪽이 비면 그 언어의 무인 배포가 까닭을 읽지 못한다.
+    let y = with_unconfirmed().replace(", en: 'check the build'", "");
+    let e = errors(&y);
+    assert!(
+        e.iter()
+            .any(|x| x.starts_with("verdict.unconfirmed[0].why") && x.contains("'en'")),
+        "{e:?}"
+    );
+}
+
+#[test]
+fn an_unconfirmed_line_needs_core_1_3_0() {
+    // 낮은 코어는 이 칸을 모른다 — 요구 판을 적어야 로드 단계가 그 차이를 말한다.
+    let y = with_unconfirmed().replace("min_core: '1.3.0'", "min_core: '1.2.1'");
+    let e = errors(&y);
+    assert!(
+        e.iter()
+            .any(|x| x.starts_with("min_core ::") && x.contains("1.3.0")),
+        "{e:?}"
+    );
+}
+
 #[test]
 fn duplicate_rule_ids_are_an_error() {
     // 같은 id 가 둘이면 `${task.x}` 가 어느 것을 가리키는지 알 수 없다.

@@ -558,6 +558,13 @@
             },
             "type": "array"
           },
+          "unconfirmed": {
+            "description": "점검 룰이 **판정은 세우지 못했지만 '취약하지 않다' 도 말할 수 없다고 선언한** 그룹 — 매니페스트의 `verdict.unconfirmed`(2026-11-09 · 코어 1.3.0).\n\n# 왜 관측 불완전과 한 칸인가\n\n뜻이 같다 — *\"이 결과 위에서 '없다' 를 말할 수 없다\"* 이고 종료 코드도 같은 6 이다. 무인 배포 · 메뉴 · 재부팅 재검사가 6 을 읽는 길을 그대로 타게 하려고 따로 두지 않았다. 다른 것은 원인을 **룰이 안다**는 것 하나이고, 그래서 사유 문장을 룰이 적는다([`UnconfirmedNote::why`]).\n\n**점검 플러그인도 면제가 아니다** — 이것이 점검을 위한 칸이다.",
+            "items": {
+              "$ref": "#/definitions/UnconfirmedNote"
+            },
+            "type": "array"
+          },
           "unevaluated_rules": {
             "description": "**평가하지 못한** YARA 규칙 — `rules/<파일>.yar:<룰 이름>`. 정렬 · 중복 없음. 룰 참조가 틀린 술어는 그 원문을, 참조가 없는 술어는 `<필드>: <값>` (`data: null`)을 적는다.\n\n**레코드의 매치나 제외를 가른 YARA 만 실린다.** 그 YARA 가 무엇을 냈어도 레코드가 매치되지 않거나(형제 술어가 거짓 · 확정 제외 · capture 실패) 이미 매치되면(`any` 의 다른 갈래) 싣지 않는다 — 그래서 술어 순서와 무관하다. `exclude` 의 YARA 는 그것이 맞았다면 제외됐을 때 실리고, 그 레코드는 전처럼 증거로 남는다 — 그 위에 판정(2)이 설 수 있다.\n\n**판정식은 보지 않는다**(보수 쪽). 다른 필수 규칙이 0 이라 판정이 어차피 서지 않아도 6 이 될 수 있다.\n\n스냅샷이 아니라 **평가**가 아는 사실이라 `artifacts.json` 에는 없고 `scan.json` · `plan.json` 에만 실린다(평가기가 채우고 파이프라인이 스냅샷의 관측과 합친다).\n\n# 왜 관측 불완전인가 (결정 2026-10-26)\n\n훑을 본문이 없으면 그 규칙은 \"안 맞았다\" 가 아니라 \"재지 못했다\" 다 (설계-03 §1). 그 사실이 `issues` 에만 남자 판정이 없을 때 **종료 코드 0 \"위협 없음\"** 이 나갔다 — 무인 배포는 그 주의 줄이 실린 stderr 를 버린다 (2026-10-25 적대 검증 · 본문 누락으로 재현). 본문이 상한(파일 8 MiB · 총 64 MiB)에 걸려도 같은 길이다. 이진 값의 바이트가 레코드에 없으면(레지스트리 256 KiB 초과 · 고정 자리 subject) 주의조차 없이 *\"안 맞았다\"* 였다(2026-10-26).",
             "items": {
@@ -697,6 +704,30 @@
             "type": "array"
           }
         },
+        "type": "object"
+      },
+      "UnconfirmedNote": {
+        "description": "[`Observation::unconfirmed`] 의 한 줄 — 룰의 `verdict.unconfirmed` 하나가 선 자리.",
+        "properties": {
+          "groups": {
+            "description": "그 식이 선 증거 그룹(`g0` …). 정렬 · 중복 없음.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "why": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "룰이 적은 까닭(`ko` · `en`) 그대로 — 산출물이 홀로 읽혀야 한다(설계-03 §1).",
+            "type": "object"
+          }
+        },
+        "required": [
+          "groups",
+          "why"
+        ],
         "type": "object"
       },
       "UserImpact": {
@@ -1241,6 +1272,13 @@
             },
             "type": "array"
           },
+          "unconfirmed": {
+            "description": "점검 룰이 **판정은 세우지 못했지만 '취약하지 않다' 도 말할 수 없다고 선언한** 그룹 — 매니페스트의 `verdict.unconfirmed`(2026-11-09 · 코어 1.3.0).\n\n# 왜 관측 불완전과 한 칸인가\n\n뜻이 같다 — *\"이 결과 위에서 '없다' 를 말할 수 없다\"* 이고 종료 코드도 같은 6 이다. 무인 배포 · 메뉴 · 재부팅 재검사가 6 을 읽는 길을 그대로 타게 하려고 따로 두지 않았다. 다른 것은 원인을 **룰이 안다**는 것 하나이고, 그래서 사유 문장을 룰이 적는다([`UnconfirmedNote::why`]).\n\n**점검 플러그인도 면제가 아니다** — 이것이 점검을 위한 칸이다.",
+            "items": {
+              "$ref": "#/definitions/UnconfirmedNote"
+            },
+            "type": "array"
+          },
           "unevaluated_rules": {
             "description": "**평가하지 못한** YARA 규칙 — `rules/<파일>.yar:<룰 이름>`. 정렬 · 중복 없음. 룰 참조가 틀린 술어는 그 원문을, 참조가 없는 술어는 `<필드>: <값>` (`data: null`)을 적는다.\n\n**레코드의 매치나 제외를 가른 YARA 만 실린다.** 그 YARA 가 무엇을 냈어도 레코드가 매치되지 않거나(형제 술어가 거짓 · 확정 제외 · capture 실패) 이미 매치되면(`any` 의 다른 갈래) 싣지 않는다 — 그래서 술어 순서와 무관하다. `exclude` 의 YARA 는 그것이 맞았다면 제외됐을 때 실리고, 그 레코드는 전처럼 증거로 남는다 — 그 위에 판정(2)이 설 수 있다.\n\n**판정식은 보지 않는다**(보수 쪽). 다른 필수 규칙이 0 이라 판정이 어차피 서지 않아도 6 이 될 수 있다.\n\n스냅샷이 아니라 **평가**가 아는 사실이라 `artifacts.json` 에는 없고 `scan.json` · `plan.json` 에만 실린다(평가기가 채우고 파이프라인이 스냅샷의 관측과 합친다).\n\n# 왜 관측 불완전인가 (결정 2026-10-26)\n\n훑을 본문이 없으면 그 규칙은 \"안 맞았다\" 가 아니라 \"재지 못했다\" 다 (설계-03 §1). 그 사실이 `issues` 에만 남자 판정이 없을 때 **종료 코드 0 \"위협 없음\"** 이 나갔다 — 무인 배포는 그 주의 줄이 실린 stderr 를 버린다 (2026-10-25 적대 검증 · 본문 누락으로 재현). 본문이 상한(파일 8 MiB · 총 64 MiB)에 걸려도 같은 길이다. 이진 값의 바이트가 레코드에 없으면(레지스트리 256 KiB 초과 · 고정 자리 subject) 주의조차 없이 *\"안 맞았다\"* 였다(2026-10-26).",
             "items": {
@@ -1315,6 +1353,30 @@
           "unix_socket"
         ],
         "type": "string"
+      },
+      "UnconfirmedNote": {
+        "description": "[`Observation::unconfirmed`] 의 한 줄 — 룰의 `verdict.unconfirmed` 하나가 선 자리.",
+        "properties": {
+          "groups": {
+            "description": "그 식이 선 증거 그룹(`g0` …). 정렬 · 중복 없음.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "why": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "룰이 적은 까닭(`ko` · `en`) 그대로 — 산출물이 홀로 읽혀야 한다(설계-03 §1).",
+            "type": "object"
+          }
+        },
+        "required": [
+          "groups",
+          "why"
+        ],
+        "type": "object"
       }
     },
     "description": "네 단계가 공유하는 봉투.\n\n`deny_unknown_fields` 를 걸지 않는다 — `flatten` 과 함께 쓸 수 없고, 이 구조는 사용자 입력이 아니라 우리 산출물이다. 엄격한 거부가 필요한 곳은 `plugin.yaml` 이다.",

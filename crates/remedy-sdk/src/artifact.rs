@@ -225,6 +225,43 @@ pub struct Observation {
     /// 값을 읽지 못한 것은 다르다.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub unreadable_versions: Vec<String>,
+
+    /// 점검 룰이 **판정은 세우지 못했지만 '취약하지 않다' 도 말할 수 없다고 선언한** 그룹 —
+    /// 매니페스트의 `verdict.unconfirmed`(2026-11-09 · 코어 1.3.0).
+    ///
+    /// # 왜 관측 불완전과 한 칸인가
+    ///
+    /// 뜻이 같다 — *"이 결과 위에서 '없다' 를 말할 수 없다"* 이고 종료 코드도 같은 6 이다. 무인
+    /// 배포 · 메뉴 · 재부팅 재검사가 6 을 읽는 길을 그대로 타게 하려고 따로 두지 않았다. 다른 것은
+    /// 원인을 **룰이 안다**는 것 하나이고, 그래서 사유 문장을 룰이 적는다([`UnconfirmedNote::why`]).
+    ///
+    /// **점검 플러그인도 면제가 아니다** — 이것이 점검을 위한 칸이다.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub unconfirmed: Vec<UnconfirmedNote>,
+}
+
+/// [`Observation::unconfirmed`] 의 한 줄 — 룰의 `verdict.unconfirmed` 하나가 선 자리.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct UnconfirmedNote {
+    /// 룰이 적은 까닭(`ko` · `en`) 그대로 — 산출물이 홀로 읽혀야 한다(설계-03 §1).
+    pub why: BTreeMap<String, String>,
+    /// 그 식이 선 증거 그룹(`g0` …). 정렬 · 중복 없음.
+    pub groups: Vec<String>,
+}
+
+impl UnconfirmedNote {
+    /// 그 언어의 까닭. 없으면 다른 언어로 — 린트가 둘 다 요구하지만 낡은 산출물도 읽힌다.
+    pub fn why_in(&self, lang: crate::i18n::Lang) -> &str {
+        let (want, other) = match lang {
+            crate::i18n::Lang::Ko => ("ko", "en"),
+            crate::i18n::Lang::En => ("en", "ko"),
+        };
+        self.why
+            .get(want)
+            .or_else(|| self.why.get(other))
+            .map(String::as_str)
+            .unwrap_or_default()
+    }
 }
 
 /// 사유 줄에 적을 **읽지 못한 버전의 수** 상한. 나머지는 *"외 N개"* 로 센다.
@@ -263,6 +300,19 @@ impl Observation {
             && self.unreadable_roots.is_empty()
             && self.unevaluated_rules.is_empty()
             && self.unreadable_versions.is_empty()
+            && self.unconfirmed.is_empty()
+    }
+
+    /// 다 보지 못한 까닭이 **룰이 선언한 확인 필요뿐인가** — 결과 문장을 *"다 보지 못해"* 가
+    /// 아니라 *"확인이 필요합니다"* 로 고르는 자리다. 다른 사유가 섞이면 거짓이다(그때는 정말로
+    /// 다 보지 못했다).
+    pub fn only_unconfirmed(&self) -> bool {
+        !self.unconfirmed.is_empty()
+            && Observation {
+                unconfirmed: Vec::new(),
+                ..self.clone()
+            }
+            .is_complete_for_check()
     }
 
     /// 이 관측 위에서 **점검 플러그인이** "해당 없음" 을 말할 수 있는가.
@@ -296,6 +346,7 @@ impl Observation {
             && self.unreadable_roots.is_empty()
             && self.unevaluated_rules.is_empty()
             && self.unreadable_versions.is_empty()
+            && self.unconfirmed.is_empty()
     }
 
     /// 불완전한 이유들. 사람에게 보여 줄 문장이다.
@@ -480,6 +531,19 @@ impl Observation {
                 ),
             });
         }
+        // **룰의 문장을 그대로 싣고 수만 붙인다** — 무엇을 확인할지는 룰만 안다. 항목 자체는
+        // 결과 화면이 번호와 함께 적는다(`check_findings` 와 같은 꼴).
+        for note in &self.unconfirmed {
+            let n = note.groups.len();
+            let why = note.why_in(lang);
+            out.push(match lang {
+                Lang::Ko => format!("확인이 필요합니다 — {why} ({n}곳)"),
+                Lang::En => format!(
+                    "needs review - {why} ({n} item{})",
+                    if n == 1 { "" } else { "s" }
+                ),
+            });
+        }
         out
     }
 }
@@ -524,9 +588,10 @@ impl ArtifactsBody {
             declared_roots: self.scope.scan_roots.len(),
             missing_roots: self.scope.missing_roots.clone(),
             unreadable_roots: self.scope.unreadable_roots.clone(),
-            // 평가 전이라 알 수 없다 — 평가기가 둘 다 채운다.
+            // 평가 전이라 알 수 없다 — 평가기가 셋 다 채운다.
             unevaluated_rules: Vec::new(),
             unreadable_versions: Vec::new(),
+            unconfirmed: Vec::new(),
         }
     }
 }

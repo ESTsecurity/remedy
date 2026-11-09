@@ -269,13 +269,80 @@ fn ext_snapshot(version: &str) -> ArtifactsEnvelope {
 }
 
 fn ext_eval(version: &str) -> remedy_sdk::artifact::ScanBody {
+    ext_eval_with(version, VERSION_MANIFEST)
+}
+
+fn ext_eval_with(version: &str, yaml: &str) -> remedy_sdk::artifact::ScanBody {
     let env = ext_snapshot(version);
     evaluate(
         &Snapshot::from_envelope(&env),
-        &manifest(VERSION_MANIFEST),
+        &manifest(yaml),
         &ext_scope(),
     )
     .unwrap()
+}
+
+// ─────────────────────────────────────────── 확인 필요 (`verdict.unconfirmed` · 2026-11-09)
+
+/// 위 룰에 **"있는데 고쳤는지 모른다"** 를 더한 모양 — 고친 판 이상이면 *확인 필요* 다.
+fn review_manifest() -> String {
+    VERSION_MANIFEST
+        .replace("min_core: \"1.0.0\"", "min_core: \"1.3.0\"")
+        .replace(
+            "verdict:\n  require: \"old\"\n",
+            "  - id: present\n    subject: browser_extension\n    where:\n      \
+             - { field: ext_id, op: equals, value: \"abc\" }\n\
+             verdict:\n  require: \"old\"\n  unconfirmed:\n    - when: \"present\"\n      \
+             why: { ko: \"고친 빌드인지 가릴 근거가 없습니다\", en: \"no basis to tell a fixed build\" }\n",
+        )
+}
+
+#[test]
+fn an_unconfirmed_line_stands_only_where_no_verdict_does() {
+    let yaml = review_manifest();
+    // 고친 판 이상 — 판정은 서지 않고 *확인 필요* 가 선다.
+    let body = ext_eval_with("8.2.30", &yaml);
+    assert!(body.verdicts.is_empty(), "{:?}", body.verdicts);
+    let notes = &body.observation.unconfirmed;
+    assert_eq!(notes.len(), 1, "{notes:?}");
+    assert_eq!(notes[0].groups, vec!["g0".to_string()]);
+    assert_eq!(
+        notes[0].why_in(remedy_sdk::i18n::Lang::En),
+        "no basis to tell a fixed build"
+    );
+    assert!(!body.observation.is_complete_for_check());
+
+    // **찾은 것이 모르는 것보다 앞선다** — 판정이 선 그룹은 확인 필요로 세지 않는다.
+    let body = ext_eval_with("8.2.28", &yaml);
+    assert_eq!(body.verdicts.len(), 1);
+    assert!(
+        body.observation.unconfirmed.is_empty(),
+        "{:?}",
+        body.observation.unconfirmed
+    );
+}
+
+#[test]
+fn an_unconfirmed_line_naming_a_missing_rule_is_refused() {
+    // 서지 않는 줄은 *확인 필요* 를 조용히 0 으로 만든다 — 평가에서도 막는다(린트는 건너뛸 수 있다).
+    let yaml = review_manifest().replace("when: \"present\"", "when: \"ghost\"");
+    let env = ext_snapshot("8.2.30");
+    let err = evaluate(
+        &Snapshot::from_envelope(&env),
+        &manifest(&yaml),
+        &ext_scope(),
+    )
+    .expect_err("없는 규칙을 가리켰다");
+    assert!(err.to_string().contains("verdict.unconfirmed"), "{err}");
+}
+
+#[test]
+fn a_rule_without_unconfirmed_writes_the_same_observation() {
+    // 이 칸이 없는 룰은 전과 한 글자도 같다 — 산출물에 키조차 나오지 않는다(불변식 I1).
+    let body = ext_eval("8.2.30");
+    assert!(body.observation.unconfirmed.is_empty());
+    let json = serde_json::to_string(&body.observation).unwrap();
+    assert!(!json.contains("unconfirmed"), "{json}");
 }
 
 #[test]

@@ -530,11 +530,14 @@ pub fn evaluate_with_rules(
     // **평가기가 아는 둘은 지키며 합친다** — 재지 못한 YARA 규칙(결정 2026-10-26)
     // 과 견주지 못한 버전(2026-10-27 · C-1). 스냅샷의 관측으로 통째로 덮으면
     // 그것이 지워지고, 판정이 없을 때 종료 코드 0 "위협 없음" 이 다시 나간다.
+    // 룰이 선언한 확인 필요(`verdict.unconfirmed` · 2026-11-09)도 평가기만 안다 — 같은 이유로 지킨다.
     let unevaluated = std::mem::take(&mut body.observation.unevaluated_rules);
     let unreadable = std::mem::take(&mut body.observation.unreadable_versions);
+    let unconfirmed = std::mem::take(&mut body.observation.unconfirmed);
     body.observation = artifacts.body.observation();
     body.observation.unevaluated_rules = unevaluated;
     body.observation.unreadable_versions = unreadable;
+    body.observation.unconfirmed = unconfirmed;
     body.scan_roots = artifacts.body.scope.scan_roots.clone();
     body.removable_roots = artifacts.body.scope.removable_roots.clone();
 

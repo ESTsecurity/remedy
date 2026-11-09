@@ -1193,7 +1193,7 @@ fn scan_all(list: &[(String, std::path::PathBuf)]) -> (Code, bool, Vec<std::path
             )
         )
     );
-    let mut done: Vec<(&str, Code, Option<PluginKind>, bool, bool)> = Vec::new();
+    let mut done: Vec<ScanAllRow> = Vec::new();
     let mut found_notes: Vec<std::path::PathBuf> = Vec::new();
     for (i, (label, path)) in list.iter().enumerate() {
         if i > 0 {
@@ -1221,23 +1221,36 @@ fn scan_all(list: &[(String, std::path::PathBuf)]) -> (Code, bool, Vec<std::path
         let kind = load_manifest(&path.to_string_lossy())
             .ok()
             .and_then(|m| m.kind);
-        // 다 보지 못한 까닭이 **검사할 경로가 이 기계에 전부 없음** 하나뿐인가 — 그 룰의 대상
-        // 제품이 없는 서버다(CWP 가 없는 서버의 CWPdoor). 결과 파일에서 읽는다.
-        let absent = code == Code::IncompleteObservation
-            && read_json::<remedy_sdk::artifact::ScanEnvelope>(
-                &out.join("scan.json").to_string_lossy(),
-            )
-            .is_ok_and(|s| {
-                // 다른 사유(잘림 · 거부 · 미평가 …)가 섞이면 해당 없음이 아니다 — 점검 룰이
-                // '대상 없음' 을 말할 때와 같은 규칙(`note_not_applicable`).
-                let o = &s.body.observation;
-                o.all_roots_missing() && o.is_complete_for_check()
-            });
+        // 다 보지 못한 까닭을 결과 파일에서 읽는다 — 요약 줄의 말이 그것으로 갈린다.
+        let obs = (code == Code::IncompleteObservation)
+            .then(|| {
+                read_json::<remedy_sdk::artifact::ScanEnvelope>(
+                    &out.join("scan.json").to_string_lossy(),
+                )
+                .ok()
+            })
+            .flatten()
+            .map(|s| s.body.observation);
+        // 까닭이 **검사할 경로가 이 기계에 전부 없음** 하나뿐인가 — 그 룰의 대상 제품이 없는 서버다
+        // (CWP 가 없는 서버의 CWPdoor). 다른 사유(잘림 · 거부 · 미평가 …)가 섞이면 해당 없음이
+        // 아니다 — 점검 룰이 '대상 없음' 을 말할 때와 같은 규칙(`note_not_applicable`).
+        let absent = obs
+            .as_ref()
+            .is_some_and(|o| o.all_roots_missing() && o.is_complete_for_check());
+        // 까닭이 **룰이 선언한 확인 필요**뿐인가(`verdict.unconfirmed` · 2026-11-09).
+        let review = obs.as_ref().is_some_and(|o| o.only_unconfirmed());
         let treats = guided::treats(path);
         if !treats && code == Code::FoundNotRemediated {
             found_notes.extend(notes_beside(path));
         }
-        done.push((label, code, kind, treats, absent));
+        done.push(ScanAllRow {
+            label,
+            code,
+            kind,
+            treats,
+            absent,
+            review,
+        });
     }
     outln!();
     outln!("{}", d.rule());
@@ -1251,27 +1264,40 @@ fn scan_all(list: &[(String, std::path::PathBuf)]) -> (Code, bool, Vec<std::path
             format!("Results for all {} rules — nothing was changed", list.len())
         )
     );
-    for (label, code, kind, _, absent) in &done {
+    for row in &done {
         // **해당 없음** — 검사할 경로가 전부 없어 다 보지 못한 룰은 그 대상이 없는 서버다
         // (2026-11-07 결정). *"관측이 불완전해 '위협 없음' 을 말할 수 없습니다"* 로 끝나면 CWP 가
         // 없는 서버의 점검자가 '이상 없음' 으로 보고하지 못했다. 이 줄은 메뉴 화면에만 있고
         // 종료 코드(6)와 룰마다의 결과 화면은 그대로다.
-        let result = if *absent {
+        let result = if row.absent {
             lang.t(
                 "해당 없음 (검사할 경로가 이 기계에 없습니다)",
                 "not applicable (the paths to scan do not exist on this machine)",
             )
             .to_string()
         } else {
-            remedy_core::report::result_line(*code, 0, lang, *kind)
+            remedy_core::report::result_line_for(row.code, 0, lang, row.kind, row.review)
         };
-        outln!("  {label}{}{result}", d.dash());
+        outln!("  {}{}{result}", row.label, d.dash());
     }
-    let codes: Vec<Code> = done.iter().map(|r| r.1).collect();
+    let codes: Vec<Code> = done.iter().map(|r| r.code).collect();
     let treatable = done
         .iter()
-        .any(|(_, c, _, t, _)| *t && *c == Code::FoundNotRemediated);
+        .any(|r| r.treats && r.code == Code::FoundNotRemediated);
     (all_scans_code(&codes), treatable, found_notes)
+}
+
+/// *모두 검사만* 의 룰 하나 — 요약 줄을 짓는 재료.
+struct ScanAllRow<'a> {
+    label: &'a str,
+    code: Code,
+    kind: Option<PluginKind>,
+    /// 치료하는 룰인가.
+    treats: bool,
+    /// 다 보지 못한 까닭이 *검사할 경로가 전부 없음* 하나뿐 — **해당 없음**.
+    absent: bool,
+    /// 다 보지 못한 까닭이 *룰이 선언한 확인 필요* 하나뿐 — [`remedy_core::report::review_line`].
+    review: bool,
 }
 
 /// 모두 검사만의 종료 코드 — **새 코드를 만들지 않는다**(불변식 I3). 찾은 것이 하나라도 있으면
@@ -2047,7 +2073,13 @@ fn cmd_scan(raw: &[String]) -> Result<Code, Failure> {
     outln!();
     outln!(
         "{}",
-        remedy_core::report::result_line(code, 0, ui().lang, m.kind)
+        remedy_core::report::result_line_for(
+            code,
+            0,
+            ui().lang,
+            m.kind,
+            scan.body.observation.only_unconfirmed()
+        )
     );
     Ok(code)
 }
@@ -2423,6 +2455,7 @@ fn run_apply(
                     journal: None,
                     kind,
                     state_dir: None,
+                    review: plan.body.observation.only_unconfirmed(),
                 },
                 lang
             )
@@ -2599,6 +2632,8 @@ fn run_apply(
                 journal: Some(&journal),
                 kind,
                 state_dir: at.as_deref(),
+                // 치료를 수행한 회차다 — 확인 필요는 점검(바꾸지 않는 룰)에만 있다.
+                review: false,
             },
             lang
         )
@@ -3076,9 +3111,16 @@ fn cmd_verify(raw: &[String]) -> Result<Code, Failure> {
             // 위 '주의' 줄들(`report_scan`)이 말한다. "치료 성공" 을 말하지 않는다
             // (결정 2026-10-26). 재부팅 회차라면 기록에 그 관측이 함께 남는다.
             let lang = ui().lang;
+            let check = m.kind == Some(PluginKind::Check);
             errln!(
                 "\n{}",
-                if m.kind == Some(PluginKind::Check) {
+                if check && scan.body.observation.only_unconfirmed() {
+                    // 다 **보았다** — 룰이 *확인 필요* 를 선언했다(`verdict.unconfirmed` · 2026-11-09).
+                    lang.t(
+                        "다시 점검했습니다. 판정은 서지 않았지만 위에 적은 항목은 '취약하지 않다' 를 가릴 근거가 없습니다.",
+                        "Re-checked: no verdict stands, but there is no basis to call the items listed above not vulnerable.",
+                    )
+                } else if check {
                     lang.t(
                         "점검을 마치지 못했습니다. 판정은 서지 않았지만 다 보지 못해 '취약하지 않다' 를 말할 수 없습니다.",
                         "The check could not be completed. No verdict stands, but not everything could be seen, so 'not vulnerable' cannot be declared.",
@@ -4107,13 +4149,13 @@ fn report_scan(
     // 위협 룰은 **이름(경로)만** 적는다 — 판정을 가른 값이 내용 해시라 사람에게 뜻이 없다.
     let check = kind == Some(PluginKind::Check);
     let listed = check || (detect_only && crate::term::in_session());
+    let limit = if ui().verbose {
+        usize::MAX
+    } else {
+        remedy_core::report::FINDINGS_SHOWN
+    };
+    let (evidence, groups) = (&scan.body.evidence, &scan.body.groups);
     if listed && !scan.body.verdicts.is_empty() {
-        let limit = if ui().verbose {
-            usize::MAX
-        } else {
-            remedy_core::report::FINDINGS_SHOWN
-        };
-        let (evidence, groups) = (&scan.body.evidence, &scan.body.groups);
         let lines = if check {
             remedy_core::report::check_findings(evidence, groups, lang, limit)
         } else {
@@ -4121,6 +4163,21 @@ fn report_scan(
         };
         for line in lines {
             outln!("{line}");
+        }
+    }
+    // **확인이 필요한 항목**(`verdict.unconfirmed` · 2026-11-09) — 판정 항목과 같은 꼴로 적는다. 무엇을
+    // 확인할지는 아래 `주의` 의 사유 줄이 룰의 말로 적는다. 이 칸이 없는 룰에서는 한 줄도 나오지 않는다.
+    let notes = &scan.body.observation.unconfirmed;
+    if check && !notes.is_empty() {
+        let lines = remedy_core::report::unconfirmed_findings(evidence, groups, notes, lang, limit);
+        if !lines.is_empty() {
+            outln!(
+                "  {}",
+                lang.t("확인이 필요한 항목:", "Items that need review:")
+            );
+            for line in lines {
+                outln!("{line}");
+            }
         }
     }
     if ui().verbose {
