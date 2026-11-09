@@ -122,6 +122,8 @@ pub fn validate(m: &PluginManifest) -> Vec<SchemaIssue> {
         );
     }
 
+    check_unconfirmed(m, &mut issues);
+
     if m.detect.is_empty() {
         issues.push(SchemaIssue::new(
             "detect",
@@ -208,6 +210,60 @@ pub fn validate(m: &PluginManifest) -> Vec<SchemaIssue> {
     }
 
     issues
+}
+
+/// `verdict.unconfirmed` 를 쓸 수 있는 룰인가 (2026-11-09 · 코어 1.3.0).
+///
+/// - **점검(`kind: check`)만 쓴다.** 치료 룰의 6 은 *"다 보지 못했다"* 하나이고, 치료 룰이 *"찾았지만
+///   모른다"* 를 말하면 계획은 서지 않는데 판정 화면은 위협을 말한다 — 둘 중 하나는 거짓이다.
+/// - **까닭은 두 언어로.** 사유 줄이 결론의 유일한 설명이다 — 한쪽이 비면 그 언어로 돌린 무인
+///   배포는 6 의 까닭을 읽지 못한다(2026-09-14 의 영어 화면과 같은 결함).
+/// - **`min_core` 는 1.3.0 이상.** 낮은 코어는 이 칸을 모른다 — 매니페스트를 읽다 멈추거나(모르는 칸
+///   거부) 그보다 낮으면 칸을 버리고 *확인 필요* 를 0 으로 낸다. 요구 판을 적어야 로드 단계가 그 차이를
+///   말한다([`check_min_core`]).
+fn check_unconfirmed(m: &PluginManifest, issues: &mut Vec<SchemaIssue>) {
+    if m.verdict.unconfirmed.is_empty() {
+        return;
+    }
+    if m.kind != Some(crate::manifest::PluginKind::Check) {
+        issues.push(
+            SchemaIssue::new(
+                "verdict.unconfirmed",
+                "점검 룰(kind: check)만 쓸 수 있다 — 치료 룰의 6 은 '다 보지 못했다' 하나다",
+                "docs/plugin-guide/24-check-plugins.md",
+            )
+            .with_valid("kind: check 를 적거나 verdict.unconfirmed 를 빼라".to_string()),
+        );
+    }
+    for (i, u) in m.verdict.unconfirmed.iter().enumerate() {
+        for lang in ["ko", "en"] {
+            if u.why.get(lang).is_none_or(|t| t.trim().is_empty()) {
+                issues.push(
+                    SchemaIssue::new(
+                        format!("verdict.unconfirmed[{i}].why"),
+                        format!("'{lang}' 까닭이 없다 — 사유 줄이 6 의 유일한 설명이다"),
+                        "docs/plugin-guide/24-check-plugins.md",
+                    )
+                    .with_valid("why: { ko: '…', en: '…' }".to_string()),
+                );
+            }
+        }
+    }
+    const SINCE: (u64, u64, u64) = (1, 3, 0);
+    if semver3(&m.min_core).is_some_and(|v| v < SINCE) {
+        issues.push(
+            SchemaIssue::new(
+                "min_core",
+                format!(
+                    "verdict.unconfirmed 는 코어 1.3.0 부터 있다 — min_core '{}' 로는 낮은 코어가 이 룰을 \
+                     받아 확인 필요를 내지 못한다",
+                    m.min_core
+                ),
+                "설계-02 §10",
+            )
+            .with_valid("min_core: \"1.3.0\" 이상".to_string()),
+        );
+    }
 }
 
 /// 이 코어가 플러그인이 요구하는 버전을 만족하는가 (설계-02 §10 — `schema_version`

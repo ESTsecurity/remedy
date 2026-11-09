@@ -707,6 +707,20 @@ fn check_references(m: &PluginManifest, ids: &BTreeSet<&str>, out: &mut Vec<Lint
             });
         }
     }
+    // `verdict.unconfirmed` 도 같다 — 서지 않는 줄은 *확인 필요* 를 조용히 0 으로 만든다.
+    for (i, u) in m.verdict.unconfirmed.iter().enumerate() {
+        for token in verdict_tokens(&u.when) {
+            if !ids.contains(token.as_str()) {
+                out.push(LintIssue {
+                    severity: Severity::Error,
+                    at: format!("verdict.unconfirmed[{i}].when"),
+                    message: format!("없는 규칙 '{token}' 를 참조한다"),
+                    valid: Some(known()),
+                    doc: Some("docs/plugin-guide/24-check-plugins.md"),
+                });
+            }
+        }
+    }
 }
 
 /// 필드 이름이 그 subject 에 **실재하는가** (설계-06 §6·§7).

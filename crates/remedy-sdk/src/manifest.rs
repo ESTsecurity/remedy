@@ -309,6 +309,35 @@ pub struct YaraPredicate {
 pub struct Verdict {
     /// `and` `or` `not` `(...)` 과 `<rule-id>`, `count(<rule-id>) >= N` 만 지원한다.
     pub require: String,
+
+    /// **판정이 서지 않았지만 '취약하지 않다' 도 말할 수 없는 모양** — 점검(`kind: check`) 전용
+    /// (2026-11-09 · 코어 1.3.0).
+    ///
+    /// # 왜 필요한가
+    ///
+    /// 그전에는 점검 룰이 항목마다 *확인 필요* 를 낼 수 없었다 — 6 은 관측 사유로만 나왔고, 백포트를
+    /// 모르는 설치본은 **판정을 세우고(2) 안내문이 풀어 주는** 수밖에 없었다(`24-check-plugins.md`).
+    /// 그러면 무인 배포가 *취약* 과 *모른다* 를 같은 코드로 읽는다. 사내 런타임 스캐너는 둘을 가른다
+    /// — *모르는 빌드 · 백포트를 모르는 설치본 · 세션 설정* 은 확인 필요다(목표 remedy_PHP스캐너통합).
+    ///
+    /// # 어떻게 서는가
+    ///
+    /// 그룹마다 `require` 가 서지 않았을 때만 본다 — **찾은 것이 모르는 것보다 앞선다**(2 가 6 보다
+    /// 앞서는 규칙 그대로). 하나라도 서면 그 사유가 관측([`crate::artifact::Observation::unconfirmed`])
+    /// 에 실리고 결과는 6 이다. 비어 있으면 아무것도 바뀌지 않는다 — 이 칸이 없는 룰은 전과 한
+    /// 글자도 같다.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub unconfirmed: Vec<Unconfirmed>,
+}
+
+/// [`Verdict::unconfirmed`] 의 한 줄 — 언제 *확인 필요* 인가와 그 까닭.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Unconfirmed {
+    /// `require` 와 같은 문법의 식.
+    pub when: String,
+    /// 화면의 사유 줄 — **무엇을 왜 확인해야 하는가.** `ko` · `en` 둘 다 적는다.
+    pub why: LocalizedText,
 }
 
 // ─────────────────────────────────────────────────────────── remediate

@@ -11,6 +11,18 @@ use remedy_sdk::catalog::{
 use remedy_sdk::manifest::{PluginManifest, RemoveTarget};
 use remedy_sdk::{validate, IMPLEMENTED_THROUGH};
 
+/// 시험용 *확인 필요* 한 줄 — 까닭 두 언어 · 그룹 하나.
+fn note(ko: &str, en: &str) -> remedy_sdk::artifact::UnconfirmedNote {
+    remedy_sdk::artifact::UnconfirmedNote {
+        why: [
+            ("ko".to_string(), ko.to_string()),
+            ("en".to_string(), en.to_string()),
+        ]
+        .into(),
+        groups: vec!["g0".to_string()],
+    }
+}
+
 // ───────────────────────────────────────────── 닫힌 집합의 크기
 
 #[test]
@@ -297,9 +309,11 @@ fn observation_completeness_and_reasons() {
         unevaluated_rules: vec!["rules/a.yar:x".into(), "rules/b.yar:y".into()],
         unreadable_versions: vec!["8.2.29-1ubuntu1".into()],
         unreadable_roots: vec!["\\\\host\\share".into()],
+        // 룰이 선언한 확인 필요(2026-11-09)도 이유 한 줄이다.
+        unconfirmed: vec![note("공급사 판을 확인하십시오", "check the vendor build")],
     };
     assert!(!all.is_complete());
-    assert_eq!(all.reasons().len(), 8);
+    assert_eq!(all.reasons().len(), 9);
 
     // **YARA 를 재지 못한 것만으로도 불완전하다** (결정 2026-10-26). 이것이
     // 빠지면 판정이 없을 때 종료 코드 0 "위협 없음" 이 나간다.
@@ -419,10 +433,11 @@ fn every_reason_speaks_both_languages() {
         unevaluated_rules: vec!["rules/a.yar:x".into(), "rules/b.yar:y".into()],
         unreadable_versions: vec!["8.2.29-1ubuntu1".into()],
         unreadable_roots: vec!["\\\\host\\share".into()],
+        unconfirmed: vec![note("공급사 판을 확인하십시오", "check the vendor build")],
     };
     let ko = all.reasons_in(Lang::Ko);
     let en = all.reasons_in(Lang::En);
-    assert_eq!(ko.len(), 8, "{ko:?}");
+    assert_eq!(ko.len(), 9, "{ko:?}");
     assert_eq!(
         en.len(),
         ko.len(),
