@@ -2312,6 +2312,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "remedy-net"
+version = "1.3.0"
+dependencies = [
+ "remedy-report",
+ "remedy-sdk",
+ "winreg",
+]
+
+[[package]]
 name = "remedy-plan"
 version = "1.3.0"
 dependencies = [
