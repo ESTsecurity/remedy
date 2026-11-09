@@ -1,0 +1,381 @@
+# Node2Shell 점검 — 리눅스 (CVE-2026-111497 · Brotli 디코더)
+#
+# **고치지 않는다.** Node.js · Brotli 를 올리는 것은 운영자의 일이다.
+#
+# # 세 갈래로 본다
+#
+# 1. **공식 빌드의 `node`**(nodejs.org 의 tar 묶음 · 공식 Docker 이미지 · nvm · fnm · Volta) — SHA-256 으로
+#    판을 안다(nodejs.org 가 서명한 SHASUMS256). 22 · 24 · 26 계열은 고친 판(22.23.4 · 24.22.1 · 26.12.1)
+#    미만이면 **취약**이고, 지원이 끝난 18.20.8 · 20.20.2 는 든 Brotli(1.1.0)가 영향 범위라 **취약**이다.
+#    해시가 맞지 않는 `node` 는 **확인 필요**다 — 단 배포판의 Node.js 패키지가 있으면 그 실행 파일은 패키지의
+#    것으로 보고 아래 갈래가 판정한다. 공식 `node` 는 해시 상한(32 MiB)을 넘어 `hash_large` 로 해시한다.
+# 2. **배포판 Node.js 패키지** — Debian 이 *미수정* 으로 확인한 판은 **취약**이다. Debian 의 nodejs 는 시스템
+#    Brotli(`libbrotli1`)를 쓰므로 그것이 *미수정* 판이어도 **취약**이다. Oracle Linux 8.10 의 모듈(22 · 24)은
+#    공지의 수정 판과 견준다 — 공급사가 먼저다(같은 꼴의 모듈 판을 RHEL · Rocky 도 낸다). 그 밖의 Node.js
+#    패키지(Ubuntu · RHEL · 다른 저장소 · 기준에 없는 판)는 **확인 필요**다.
+# 3. **RHEL · Oracle Linux 8.10 의 시스템 Brotli** 가 수정 판보다 낮고 RPM 의 Node.js 가 있으면 **확인 필요**다
+#    — 그 Node.js 가 시스템 Brotli 를 쓰는지(공유 연결)는 이 도구가 재지 못한다.
+#
+# 공식 해시가 맞아야 판을 믿고, 기준에 없는 계열을 지원 종료 여부만으로 취약이라 하지 않는다.
+#
+# # 판정 기준의 출처 (공개)
+#
+# - CVE-2026-111497(CNA Google): Brotli 1.0.3~1.0.10 미만 · 1.1.0~1.1.1 미만 · 1.2.0~1.2.1 미만
+# - Node.js 2026-10 보안 릴리스: 22.23.4 · 24.22.1 · 26.12.1
+# - Node 공식 해시: nodejs.org 의 서명한 SHASUMS256 — linux-x64 89판 · linux-x64-musl 8판
+# - Debian security-tracker CVE-2026-111497 — nodejs · libbrotli1 의 미수정 판
+# - Oracle Linux ELSA-2026-500519(nodejs:22) · ELSA-2026-500520(nodejs:24) · RHSA-2026:90501 · ELSA-2026-90501(brotli)
+#
+# # 이 룰이 보지 않는 것
+#
+# - 다른 제품 안에 든 Node.js(Electron 앱 · 단일 실행 파일 · 컨테이너 이미지) · 선언한 자리 밖의 `node`
+# - 실행 중인 프로세스가 고친 판을 실었는가 — 고친 뒤에는 그 서비스를 다시 시작한다
+schema_version: 1
+id: node2shell-check-linux
+version: 0.1.0
+min_core: "1.3.0"   # verdict.unconfirmed · hash_large · rpm_version_lt 가 1.3.0 부터 있다
+platforms: [linux]
+
+kind: check
+
+name:
+  ko: "Node2Shell 점검 (CVE-2026-111497)"
+  en: "Node2Shell check (CVE-2026-111497)"
+
+references:
+  - "CVE-2026-111497"
+  - "https://nodejs.org/en/blog/vulnerability/october-2026-security-releases"
+  - "https://github.com/google/brotli/releases/tag/v1.2.1"
+  - "https://security-tracker.debian.org/tracker/CVE-2026-111497"
+  - "https://linux.oracle.com/errata/ELSA-2026-500519.html"
+  - "https://linux.oracle.com/errata/ELSA-2026-500520.html"
+  - "https://access.redhat.com/errata/RHSA-2026:90501"
+  - "https://linux.oracle.com/errata/ELSA-2026-90501.html"
+
+# 실행 파일 자리 — `/usr/bin` · `/usr/local/bin` 은 **그 폴더 바로 아래의 `node*` 만** 본다(글롭 뿌리) — 폴더를
+# 통째로 해시하지 않는다. tar 묶음 · 버전 관리자의 자리는 버전마다 폴더라 통째로 본다. 사용자 홈은
+# `%ALLUSERPROFILES%`(`/home` 아래와 `/root`)로 모든 사용자를 본다.
+scan_roots:
+  - "/usr/bin/node*"
+  - "/usr/local/bin/node*"
+  - "/opt/node"
+  - "/opt/nodejs"
+  - "/usr/local/lib/nodejs"
+  - "%ALLUSERPROFILES%/.nvm/versions/node"
+  - "%ALLUSERPROFILES%/.local/share/fnm/node-versions"
+  - "%ALLUSERPROFILES%/.fnm/node-versions"
+  - "%ALLUSERPROFILES%/.volta/tools/image/node"
+
+subjects: [package, file]
+
+# 공식 `node` 는 해시 상한(32 MiB)을 넘는다 — 이 이름만 흘려 읽어 해시한다.
+hash_large: ["node"]
+
+detect:
+  # ── 1. 공식 빌드의 node ───────────────────────────────────────────────────
+  - id: node_vuln
+    subject: file
+    where:
+      all:
+        - { field: path, op: matches, value: '/node$' }
+        - field: sha256
+          op: in
+          value:
+            - "8f4e416b508c3c149ad62d13c37b83a61f24c40058ed3bb07fe298d9d228cd3a"   # 18.20.8 linux-x64 node-v18.20.8-linux-x64/bin/node (vulnerable)
+            - "6295488653f0d93b0a157841746fef7e72cc4328cfb60c4bbe0ca2668a836ffd"   # 20.20.2 linux-x64 node-v20.20.2-linux-x64/bin/node (vulnerable)
+            - "0570891fc6e07540b25f18b753445fc16d4428b8a894cca5cf9805c2feee230f"   # 22.0.0 linux-x64 node-v22.0.0-linux-x64/bin/node (vulnerable)
+            - "e1448903de546faaca762a9e02ce64396002048faf605dc5b96ac58c736a35e3"   # 22.1.0 linux-x64 node-v22.1.0-linux-x64/bin/node (vulnerable)
+            - "f1ec7f40cbbf7369f3c25230f6e5137cd932cd627baac7fe04a11a86eaab031c"   # 22.2.0 linux-x64 node-v22.2.0-linux-x64/bin/node (vulnerable)
+            - "f7ff2f133dae87d05cbe764bfde1e626a978d5c4c82fd857720848dcac7b0a61"   # 22.3.0 linux-x64 node-v22.3.0-linux-x64/bin/node (vulnerable)
+            - "92e69172f64bdf13b32699ae024a12423887b3fd8e4c307e4d6a33ee942a610e"   # 22.4.0 linux-x64 node-v22.4.0-linux-x64/bin/node (vulnerable)
+            - "be4df62fc58d6a5e527073a60f05e6716c0df19e9d821388b2b4674b07a40479"   # 22.4.1 linux-x64 node-v22.4.1-linux-x64/bin/node (vulnerable)
+            - "a77b4802a405a4a151623f35c7e6a396fd97766ed7415c1b90b0046b290dc9b7"   # 22.5.0 linux-x64 node-v22.5.0-linux-x64/bin/node (vulnerable)
+            - "1f2b3f45361ff679ae3acc4b13cdd6b8be0fedf5913a9cb49db7084d75557c1c"   # 22.5.1 linux-x64 node-v22.5.1-linux-x64/bin/node (vulnerable)
+            - "d56f36b0c4450fcecf57f62913062d673af1d95623e39d468a170d3c448c994d"   # 22.6.0 linux-x64 node-v22.6.0-linux-x64/bin/node (vulnerable)
+            - "d3dbda29899339a95ca5f5fe66e9927d59ef6fe08f81f6c2371ec998e9cdc49c"   # 22.7.0 linux-x64 node-v22.7.0-linux-x64/bin/node (vulnerable)
+            - "73d975e37e8c0e340872a4e602391999c09509d9bb94643ba2314ecddd3002fc"   # 22.8.0 linux-x64 node-v22.8.0-linux-x64/bin/node (vulnerable)
+            - "2a27e9b88e584c013881f84e8ac32bd8070764107818d7cc826a6685b31c2270"   # 22.9.0 linux-x64 node-v22.9.0-linux-x64/bin/node (vulnerable)
+            - "18c1f183ca348ea8bcd10e91ac7cf46942a18872d2e693884fac34e9bba205d9"   # 22.10.0 linux-x64 node-v22.10.0-linux-x64/bin/node (vulnerable)
+            - "08a8fa363038215afda76c21853ec2c64b405b2610ba4ff04ef09448997f982d"   # 22.11.0 linux-x64 node-v22.11.0-linux-x64/bin/node (vulnerable)
+            - "177208bfc4a9403121a40c72d038c670f4fd937fa16ca7df0a720e90be0fe2d9"   # 22.12.0 linux-x64 node-v22.12.0-linux-x64/bin/node (vulnerable)
+            - "af8d5d1e234beb26b3095e6bebf80edc781f79c9435553a383037eccec2716f8"   # 22.13.0 linux-x64 node-v22.13.0-linux-x64/bin/node (vulnerable)
+            - "a3627568bc920247f5edecc025a040bfa3c3f76bf3456ac424f6ac76aa5e6a47"   # 22.13.1 linux-x64 node-v22.13.1-linux-x64/bin/node (vulnerable)
+            - "1abce2374a485bddae3c27b17a3e3143e2780232026e627c4fe74ddde3f380a1"   # 22.14.0 linux-x64 node-v22.14.0-linux-x64/bin/node (vulnerable)
+            - "c43f3f73f6917481d2364daf7b7bf8c4fc4a7643580b4626f13f003131ec8716"   # 22.15.0 linux-x64 node-v22.15.0-linux-x64/bin/node (vulnerable)
+            - "fcb06b28567cfe421d03fb223d08e38187b5b7c79ff8fe1809bfccbf68cdd814"   # 22.15.1 linux-x64 node-v22.15.1-linux-x64/bin/node (vulnerable)
+            - "8142d37c6f2f372ef040419e7a111a6baf17df89f8078d02447d6c639ae20c1d"   # 22.16.0 linux-x64 node-v22.16.0-linux-x64/bin/node (vulnerable)
+            - "8071ae0fca095a272ad698a90c7061801a86fb6392ddb81e922b68a91a4374b9"   # 22.17.0 linux-x64 node-v22.17.0-linux-x64/bin/node (vulnerable)
+            - "e5207b0c9f178fe6b5caf8f5bab550b9f589a3f8e0e802165340e8bbf7f90927"   # 22.17.1 linux-x64 node-v22.17.1-linux-x64/bin/node (vulnerable)
+            - "ccacb2d6d87ba6d118b2bffc1ae33747a05cc5fc6b1f1ec4fc1d420b687e952d"   # 22.18.0 linux-x64 node-v22.18.0-linux-x64/bin/node (vulnerable)
+            - "596b5144ff242737f1c1be6a5f0ccb3907dbba2482344143cb1a6898633402a9"   # 22.19.0 linux-x64 node-v22.19.0-linux-x64/bin/node (vulnerable)
+            - "b1cbec894e45a5814b6ab756e1e14f8a76516273197e67e0412b57c1e10d0d9f"   # 22.20.0 linux-x64 node-v22.20.0-linux-x64/bin/node (vulnerable)
+            - "29e9c28204d89d85cc426b518b4a7c6e32aafecd5e447d65301ffb2c1c15335a"   # 22.21.0 linux-x64 node-v22.21.0-linux-x64/bin/node (vulnerable)
+            - "92181daccf61361e7c54d6404a3e2c2307a916d076492e3c0b388e6e5f86a854"   # 22.21.1 linux-x64 node-v22.21.1-linux-x64/bin/node (vulnerable)
+            - "1bec56ef7cfa9a76f3e0b7c0a87f220eb73f23102b9c0b4c7529a3f7c3ce7c31"   # 22.22.0 linux-x64 node-v22.22.0-linux-x64/bin/node (vulnerable)
+            - "243fd8938011479f41b3de101842150fa990f33fbbb3f7aabd330857f2d79e1d"   # 22.22.1 linux-x64 node-v22.22.1-linux-x64/bin/node (vulnerable)
+            - "81925c0995b5c1427b5d538e6a90ca2fdc4daffb786b09af749beaf7369d4e90"   # 22.22.2 linux-x64 node-v22.22.2-linux-x64/bin/node (vulnerable)
+            - "e6ec2c188d83d813f81f2de8aea084d74dce603ac1abedd0a30ad941b10087b2"   # 22.22.3 linux-x64 node-v22.22.3-linux-x64/bin/node (vulnerable)
+            - "b587d8a062552ab52ecae2a7b0bcd079351d1dc61cf2555fd5994f558274ae58"   # 22.23.0 linux-x64 node-v22.23.0-linux-x64/bin/node (vulnerable)
+            - "93956de2e59480474a7b46571da1651180b1a050cdf32641ebec4ce6e478e068"   # 22.23.1 linux-x64 node-v22.23.1-linux-x64/bin/node (vulnerable)
+            - "3517c2df0b2f8cd7f422b4b8450ef81c6889f08eb03e281d6de9079b15e6a327"   # 22.23.2 linux-x64 node-v22.23.2-linux-x64/bin/node (vulnerable)
+            - "fde6a4bf8d0562f7751d1a2d6cb9b417c4cfe107bbcb0aa3e9a24e125e348f48"   # 22.23.3 linux-x64 node-v22.23.3-linux-x64/bin/node (vulnerable)
+            - "b28b0a4873f0412b1974ad99a71ed81772cbe9f3dee567446d5e18e0d401e6e3"   # 22.23.3 linux-x64-musl node-v22.23.3-linux-x64-musl/bin/node (vulnerable)
+            - "5677177955d00aa75909df3490120a2e2a2bba80ebcc66a505e8f9d7a5f0b463"   # 24.0.0 linux-x64 node-v24.0.0-linux-x64/bin/node (vulnerable)
+            - "d65fe5f3d660b985cea2d1fe428ffdc7b4d74f3ac1e3c5152357072e3e72d376"   # 24.0.1 linux-x64 node-v24.0.1-linux-x64/bin/node (vulnerable)
+            - "10188a6a352ca105b62c647b5d241116b34d0ed9bd12f1aec778be5c23f4c6f2"   # 24.0.2 linux-x64 node-v24.0.2-linux-x64/bin/node (vulnerable)
+            - "d749a21260a55be742733ae38a4f2def14822f9863a574993abeb65617747d44"   # 24.1.0 linux-x64 node-v24.1.0-linux-x64/bin/node (vulnerable)
+            - "3fe8fd0442065d39c6a875e0672c8aa198c96983bf099c0d3b0ffee70622ddd2"   # 24.2.0 linux-x64 node-v24.2.0-linux-x64/bin/node (vulnerable)
+            - "11ee468e2ac16c11dde59c6897b341968442430439733fdce6ff6f4da8bca38f"   # 24.3.0 linux-x64 node-v24.3.0-linux-x64/bin/node (vulnerable)
+            - "e1713b7955960650a66e5df2de03bc6606c609620d6d8432d0814ae13e91df3e"   # 24.4.0 linux-x64 node-v24.4.0-linux-x64/bin/node (vulnerable)
+            - "82e1a4da51b1870fc16495482f47c9bbb634dd02559f80ab5385090123cb034a"   # 24.4.1 linux-x64 node-v24.4.1-linux-x64/bin/node (vulnerable)
+            - "e0e46d3a1c0667117303412647cafcbcefb1be7612493015ec8fd6b7440162a4"   # 24.5.0 linux-x64 node-v24.5.0-linux-x64/bin/node (vulnerable)
+            - "e943ee9282bef08233665cb71cc57a9f5794bbe70a4822b38e60e394c15979e2"   # 24.6.0 linux-x64 node-v24.6.0-linux-x64/bin/node (vulnerable)
+            - "0a60ee85e22e52daede22c3cd27d3185becbdab180cf3c3c935130ce7b117d45"   # 24.7.0 linux-x64 node-v24.7.0-linux-x64/bin/node (vulnerable)
+            - "85ede4ce63fdae514aea9f1d93db8fa53a13ed9eeb2f1b212cd0fd1df5f07e9e"   # 24.8.0 linux-x64 node-v24.8.0-linux-x64/bin/node (vulnerable)
+            - "3dc61cdcc38781a678b31903d2f69ed16094206e2258df53a4eb2c0fe4f0a793"   # 24.9.0 linux-x64 node-v24.9.0-linux-x64/bin/node (vulnerable)
+            - "141542ec0c8f73b568cd774ea8df43f23768cb086eb5bf21d2dea33072fb2f56"   # 24.10.0 linux-x64 node-v24.10.0-linux-x64/bin/node (vulnerable)
+            - "d918479037f14dc30c8d21df3767a010fe710685373baec7edf680ca8c3edbee"   # 24.11.0 linux-x64 node-v24.11.0-linux-x64/bin/node (vulnerable)
+            - "5796fd9700e83170bc7ddfdf7f18858c794a9f91cb39dd6f9e95060b292f2563"   # 24.11.1 linux-x64 node-v24.11.1-linux-x64/bin/node (vulnerable)
+            - "16143bdaa79716e871d3d9b2f50ce680bca293eba7f0c3fc1d004ed2258fc839"   # 24.12.0 linux-x64 node-v24.12.0-linux-x64/bin/node (vulnerable)
+            - "53fb205ae78805130177e24bcb459a69a1518c8d98f8965f31d85aae7ea840fc"   # 24.13.0 linux-x64 node-v24.13.0-linux-x64/bin/node (vulnerable)
+            - "d95de52ccb76fb2c5775bf176f29f3025e4b19352c092aad51ce5d930717359f"   # 24.13.1 linux-x64 node-v24.13.1-linux-x64/bin/node (vulnerable)
+            - "e237a2839d0cbdc9a9a2adda1a184afc0f5b20306ffbe923af5686550472d8a8"   # 24.14.0 linux-x64 node-v24.14.0-linux-x64/bin/node (vulnerable)
+            - "bf9112eb83a827dc9f9c8d19bb7bddcbf00f7b2fedae18fdcaee05406981f20a"   # 24.14.1 linux-x64 node-v24.14.1-linux-x64/bin/node (vulnerable)
+            - "d1de76d8edf2fededf6f8b30d244e2c0529ac607923a018283b77e9c74bd932c"   # 24.15.0 linux-x64 node-v24.15.0-linux-x64/bin/node (vulnerable)
+            - "b2959781cc5a74c357ffa02367efa8a0330cbb1c9cb347732fdfaaaca381cbcd"   # 24.16.0 linux-x64 node-v24.16.0-linux-x64/bin/node (vulnerable)
+            - "62d66443847de1f527f74afe715900b12884ace52136dc9cd8e91e61acc2f527"   # 24.17.0 linux-x64 node-v24.17.0-linux-x64/bin/node (vulnerable)
+            - "41a74efb34cbde5c7632cdac0cf8bd1a14d0b8d73dc1e82755014d9a9ce70f5c"   # 24.18.0 linux-x64 node-v24.18.0-linux-x64/bin/node (vulnerable)
+            - "f3432a45b03b2da0d270095fdd8813dc34cbea73f5fc8b18c7a384b7cf9b333a"   # 24.18.1 linux-x64 node-v24.18.1-linux-x64/bin/node (vulnerable)
+            - "bc17c508ffeed0ec622934f9b7fa72f8e78da65350e63c3eceb56fa688aa5e12"   # 24.19.0 linux-x64 node-v24.19.0-linux-x64/bin/node (vulnerable)
+            - "89af8424dd53e560b1933f87ba650d8bf57c83ca5a04600eefb31f416aabbae7"   # 24.20.0 linux-x64 node-v24.20.0-linux-x64/bin/node (vulnerable)
+            - "7fde7b8afa198da66257f42ee2001d874c7355631e6d1579a5fb5ef1f246df4c"   # 24.21.0 linux-x64 node-v24.21.0-linux-x64/bin/node (vulnerable)
+            - "67ca5783febb8bf85736c79fcdd92c8d6d465a0eb2a082672bcdfa76a506751c"   # 24.22.0 linux-x64 node-v24.22.0-linux-x64/bin/node (vulnerable)
+            - "c8726a01ce4ac245ea9e5cb483992a90e628e5847d98f9a9f3be048d09a50d75"   # 24.22.0 linux-x64-musl node-v24.22.0-linux-x64-musl/bin/node (vulnerable)
+            - "a3269c1d31b923e5b63d2dd3664ef5332ac848771460c63af441db6a3f053ead"   # 26.0.0 linux-x64 node-v26.0.0-linux-x64/bin/node (vulnerable)
+            - "da220b82279ed9885a7759f6efb8c4b9351ece579f93429bf7b7d2fbd481bcf8"   # 26.1.0 linux-x64 node-v26.1.0-linux-x64/bin/node (vulnerable)
+            - "030a5e93e4f7a022b12a3ec80fecd22af9614356904a05ece6b1b2dbf4c1f588"   # 26.2.0 linux-x64 node-v26.2.0-linux-x64/bin/node (vulnerable)
+            - "5325ac9da58541494afcc136f0880279a2a853609bf4dae7755e04fb682b6926"   # 26.3.0 linux-x64 node-v26.3.0-linux-x64/bin/node (vulnerable)
+            - "0b52710a27133a3baf45f0d1f10689ab874f50e5821d8e611486d17e20bcacdd"   # 26.3.1 linux-x64 node-v26.3.1-linux-x64/bin/node (vulnerable)
+            - "4cfdaeec2e3689e4728b4bc98932a9147a3f98162bdc7955c03c0d7fa3b8aa94"   # 26.4.0 linux-x64 node-v26.4.0-linux-x64/bin/node (vulnerable)
+            - "3de740a941a630439b22b79aafb383f4912b76354a2694765e8d59a033746538"   # 26.5.0 linux-x64 node-v26.5.0-linux-x64/bin/node (vulnerable)
+            - "fb48e77df2f8e92fedfec39afa60a5f41563441f6b61316ada5fb295a431c2c6"   # 26.5.1 linux-x64 node-v26.5.1-linux-x64/bin/node (vulnerable)
+            - "02deeca25470eb95255f60147927a1b9785dcb784c9d7690cc712f359331ac8e"   # 26.6.0 linux-x64 node-v26.6.0-linux-x64/bin/node (vulnerable)
+            - "ad19784f7e90ba789a099eccba77ede8dc90a778c424f1c10a70fed3ff903fdc"   # 26.7.0 linux-x64 node-v26.7.0-linux-x64/bin/node (vulnerable)
+            - "d76dcb890cf4167c4808df11b362147190b8405ba6cdb67e35fac4594eb2d42b"   # 26.8.0 linux-x64 node-v26.8.0-linux-x64/bin/node (vulnerable)
+            - "19235a9b678f84729464c52623f92de130a165452747c6826d3fdc13df3abcc3"   # 26.8.1 linux-x64 node-v26.8.1-linux-x64/bin/node (vulnerable)
+            - "8a22a371fd85aecf5411636574309f6380fbc42694aaf0651a089a8ef9c44e52"   # 26.8.2 linux-x64 node-v26.8.2-linux-x64/bin/node (vulnerable)
+            - "05757b064ad2a221b41874794da42361c9bab033c7c33c1f1b458c25a7de7e59"   # 26.9.0 linux-x64 node-v26.9.0-linux-x64/bin/node (vulnerable)
+            - "ab9c8eecf9f82d6693cdc3accced17034065c8d96213b0aa76a7e803d20ae1da"   # 26.10.0 linux-x64 node-v26.10.0-linux-x64/bin/node (vulnerable)
+            - "c445d85bb8886e15bbc85973134274fb190088233b174841b9999dbabfeef9f8"   # 26.11.0 linux-x64 node-v26.11.0-linux-x64/bin/node (vulnerable)
+            - "79bec1a885677573483fd5b81b6aa9a8f8993afe12bc74c10ae100d588f58006"   # 26.11.0 linux-x64-musl node-v26.11.0-linux-x64-musl/bin/node (vulnerable)
+            - "5a7b8a3cf5ccb57d297519754fd73238f64cf560afd0ef19a2f9bf7384cbb657"   # 26.11.1 linux-x64 node-v26.11.1-linux-x64/bin/node (vulnerable)
+            - "1d39736ceb126dee4ea975679f10b6e49214ab165c7aab130612cb59752bd406"   # 26.11.1 linux-x64-musl node-v26.11.1-linux-x64-musl/bin/node (vulnerable)
+            - "caa24debe02770c92a70677e2a62ca98890150e7ac1c17bcfe31bcc98cc89943"   # 26.12.0 linux-x64 node-v26.12.0-linux-x64/bin/node (vulnerable)
+            - "f536e791055d451fd95e77501b4226552d380f4025b234d7124e8e170290a179"   # 26.12.0 linux-x64-musl node-v26.12.0-linux-x64-musl/bin/node (vulnerable)
+  # 해시가 있는 정규 파일만 — 배포판의 `/usr/bin/nodejs` 같은 링크는 해시가 없다.
+  - id: node_unknown
+    subject: file
+    where:
+      all:
+        - { field: path, op: matches, value: '/node(js)?$' }
+        - { field: sha256, op: exists }
+    exclude:
+      - field: sha256
+        op: in
+        value:
+          - "8f4e416b508c3c149ad62d13c37b83a61f24c40058ed3bb07fe298d9d228cd3a"   # 18.20.8 linux-x64 node-v18.20.8-linux-x64/bin/node (vulnerable)
+          - "6295488653f0d93b0a157841746fef7e72cc4328cfb60c4bbe0ca2668a836ffd"   # 20.20.2 linux-x64 node-v20.20.2-linux-x64/bin/node (vulnerable)
+          - "0570891fc6e07540b25f18b753445fc16d4428b8a894cca5cf9805c2feee230f"   # 22.0.0 linux-x64 node-v22.0.0-linux-x64/bin/node (vulnerable)
+          - "e1448903de546faaca762a9e02ce64396002048faf605dc5b96ac58c736a35e3"   # 22.1.0 linux-x64 node-v22.1.0-linux-x64/bin/node (vulnerable)
+          - "f1ec7f40cbbf7369f3c25230f6e5137cd932cd627baac7fe04a11a86eaab031c"   # 22.2.0 linux-x64 node-v22.2.0-linux-x64/bin/node (vulnerable)
+          - "f7ff2f133dae87d05cbe764bfde1e626a978d5c4c82fd857720848dcac7b0a61"   # 22.3.0 linux-x64 node-v22.3.0-linux-x64/bin/node (vulnerable)
+          - "92e69172f64bdf13b32699ae024a12423887b3fd8e4c307e4d6a33ee942a610e"   # 22.4.0 linux-x64 node-v22.4.0-linux-x64/bin/node (vulnerable)
+          - "be4df62fc58d6a5e527073a60f05e6716c0df19e9d821388b2b4674b07a40479"   # 22.4.1 linux-x64 node-v22.4.1-linux-x64/bin/node (vulnerable)
+          - "a77b4802a405a4a151623f35c7e6a396fd97766ed7415c1b90b0046b290dc9b7"   # 22.5.0 linux-x64 node-v22.5.0-linux-x64/bin/node (vulnerable)
+          - "1f2b3f45361ff679ae3acc4b13cdd6b8be0fedf5913a9cb49db7084d75557c1c"   # 22.5.1 linux-x64 node-v22.5.1-linux-x64/bin/node (vulnerable)
+          - "d56f36b0c4450fcecf57f62913062d673af1d95623e39d468a170d3c448c994d"   # 22.6.0 linux-x64 node-v22.6.0-linux-x64/bin/node (vulnerable)
+          - "d3dbda29899339a95ca5f5fe66e9927d59ef6fe08f81f6c2371ec998e9cdc49c"   # 22.7.0 linux-x64 node-v22.7.0-linux-x64/bin/node (vulnerable)
+          - "73d975e37e8c0e340872a4e602391999c09509d9bb94643ba2314ecddd3002fc"   # 22.8.0 linux-x64 node-v22.8.0-linux-x64/bin/node (vulnerable)
+          - "2a27e9b88e584c013881f84e8ac32bd8070764107818d7cc826a6685b31c2270"   # 22.9.0 linux-x64 node-v22.9.0-linux-x64/bin/node (vulnerable)
+          - "18c1f183ca348ea8bcd10e91ac7cf46942a18872d2e693884fac34e9bba205d9"   # 22.10.0 linux-x64 node-v22.10.0-linux-x64/bin/node (vulnerable)
+          - "08a8fa363038215afda76c21853ec2c64b405b2610ba4ff04ef09448997f982d"   # 22.11.0 linux-x64 node-v22.11.0-linux-x64/bin/node (vulnerable)
+          - "177208bfc4a9403121a40c72d038c670f4fd937fa16ca7df0a720e90be0fe2d9"   # 22.12.0 linux-x64 node-v22.12.0-linux-x64/bin/node (vulnerable)
+          - "af8d5d1e234beb26b3095e6bebf80edc781f79c9435553a383037eccec2716f8"   # 22.13.0 linux-x64 node-v22.13.0-linux-x64/bin/node (vulnerable)
+          - "a3627568bc920247f5edecc025a040bfa3c3f76bf3456ac424f6ac76aa5e6a47"   # 22.13.1 linux-x64 node-v22.13.1-linux-x64/bin/node (vulnerable)
+          - "1abce2374a485bddae3c27b17a3e3143e2780232026e627c4fe74ddde3f380a1"   # 22.14.0 linux-x64 node-v22.14.0-linux-x64/bin/node (vulnerable)
+          - "c43f3f73f6917481d2364daf7b7bf8c4fc4a7643580b4626f13f003131ec8716"   # 22.15.0 linux-x64 node-v22.15.0-linux-x64/bin/node (vulnerable)
+          - "fcb06b28567cfe421d03fb223d08e38187b5b7c79ff8fe1809bfccbf68cdd814"   # 22.15.1 linux-x64 node-v22.15.1-linux-x64/bin/node (vulnerable)
+          - "8142d37c6f2f372ef040419e7a111a6baf17df89f8078d02447d6c639ae20c1d"   # 22.16.0 linux-x64 node-v22.16.0-linux-x64/bin/node (vulnerable)
+          - "8071ae0fca095a272ad698a90c7061801a86fb6392ddb81e922b68a91a4374b9"   # 22.17.0 linux-x64 node-v22.17.0-linux-x64/bin/node (vulnerable)
+          - "e5207b0c9f178fe6b5caf8f5bab550b9f589a3f8e0e802165340e8bbf7f90927"   # 22.17.1 linux-x64 node-v22.17.1-linux-x64/bin/node (vulnerable)
+          - "ccacb2d6d87ba6d118b2bffc1ae33747a05cc5fc6b1f1ec4fc1d420b687e952d"   # 22.18.0 linux-x64 node-v22.18.0-linux-x64/bin/node (vulnerable)
+          - "596b5144ff242737f1c1be6a5f0ccb3907dbba2482344143cb1a6898633402a9"   # 22.19.0 linux-x64 node-v22.19.0-linux-x64/bin/node (vulnerable)
+          - "b1cbec894e45a5814b6ab756e1e14f8a76516273197e67e0412b57c1e10d0d9f"   # 22.20.0 linux-x64 node-v22.20.0-linux-x64/bin/node (vulnerable)
+          - "29e9c28204d89d85cc426b518b4a7c6e32aafecd5e447d65301ffb2c1c15335a"   # 22.21.0 linux-x64 node-v22.21.0-linux-x64/bin/node (vulnerable)
+          - "92181daccf61361e7c54d6404a3e2c2307a916d076492e3c0b388e6e5f86a854"   # 22.21.1 linux-x64 node-v22.21.1-linux-x64/bin/node (vulnerable)
+          - "1bec56ef7cfa9a76f3e0b7c0a87f220eb73f23102b9c0b4c7529a3f7c3ce7c31"   # 22.22.0 linux-x64 node-v22.22.0-linux-x64/bin/node (vulnerable)
+          - "243fd8938011479f41b3de101842150fa990f33fbbb3f7aabd330857f2d79e1d"   # 22.22.1 linux-x64 node-v22.22.1-linux-x64/bin/node (vulnerable)
+          - "81925c0995b5c1427b5d538e6a90ca2fdc4daffb786b09af749beaf7369d4e90"   # 22.22.2 linux-x64 node-v22.22.2-linux-x64/bin/node (vulnerable)
+          - "e6ec2c188d83d813f81f2de8aea084d74dce603ac1abedd0a30ad941b10087b2"   # 22.22.3 linux-x64 node-v22.22.3-linux-x64/bin/node (vulnerable)
+          - "b587d8a062552ab52ecae2a7b0bcd079351d1dc61cf2555fd5994f558274ae58"   # 22.23.0 linux-x64 node-v22.23.0-linux-x64/bin/node (vulnerable)
+          - "93956de2e59480474a7b46571da1651180b1a050cdf32641ebec4ce6e478e068"   # 22.23.1 linux-x64 node-v22.23.1-linux-x64/bin/node (vulnerable)
+          - "3517c2df0b2f8cd7f422b4b8450ef81c6889f08eb03e281d6de9079b15e6a327"   # 22.23.2 linux-x64 node-v22.23.2-linux-x64/bin/node (vulnerable)
+          - "fde6a4bf8d0562f7751d1a2d6cb9b417c4cfe107bbcb0aa3e9a24e125e348f48"   # 22.23.3 linux-x64 node-v22.23.3-linux-x64/bin/node (vulnerable)
+          - "b28b0a4873f0412b1974ad99a71ed81772cbe9f3dee567446d5e18e0d401e6e3"   # 22.23.3 linux-x64-musl node-v22.23.3-linux-x64-musl/bin/node (vulnerable)
+          - "94efd062ed066c1a0b332e18249859c905e920eeada5df55d24c99b919629a90"   # 22.23.4 linux-x64 node-v22.23.4-linux-x64/bin/node (fixed)
+          - "5a92a46a1d8279fec6776e3123ca22e26a6fddbb7cf1b55e019dbb38eea8ff26"   # 22.23.4 linux-x64-musl node-v22.23.4-linux-x64-musl/bin/node (fixed)
+          - "5677177955d00aa75909df3490120a2e2a2bba80ebcc66a505e8f9d7a5f0b463"   # 24.0.0 linux-x64 node-v24.0.0-linux-x64/bin/node (vulnerable)
+          - "d65fe5f3d660b985cea2d1fe428ffdc7b4d74f3ac1e3c5152357072e3e72d376"   # 24.0.1 linux-x64 node-v24.0.1-linux-x64/bin/node (vulnerable)
+          - "10188a6a352ca105b62c647b5d241116b34d0ed9bd12f1aec778be5c23f4c6f2"   # 24.0.2 linux-x64 node-v24.0.2-linux-x64/bin/node (vulnerable)
+          - "d749a21260a55be742733ae38a4f2def14822f9863a574993abeb65617747d44"   # 24.1.0 linux-x64 node-v24.1.0-linux-x64/bin/node (vulnerable)
+          - "3fe8fd0442065d39c6a875e0672c8aa198c96983bf099c0d3b0ffee70622ddd2"   # 24.2.0 linux-x64 node-v24.2.0-linux-x64/bin/node (vulnerable)
+          - "11ee468e2ac16c11dde59c6897b341968442430439733fdce6ff6f4da8bca38f"   # 24.3.0 linux-x64 node-v24.3.0-linux-x64/bin/node (vulnerable)
+          - "e1713b7955960650a66e5df2de03bc6606c609620d6d8432d0814ae13e91df3e"   # 24.4.0 linux-x64 node-v24.4.0-linux-x64/bin/node (vulnerable)
+          - "82e1a4da51b1870fc16495482f47c9bbb634dd02559f80ab5385090123cb034a"   # 24.4.1 linux-x64 node-v24.4.1-linux-x64/bin/node (vulnerable)
+          - "e0e46d3a1c0667117303412647cafcbcefb1be7612493015ec8fd6b7440162a4"   # 24.5.0 linux-x64 node-v24.5.0-linux-x64/bin/node (vulnerable)
+          - "e943ee9282bef08233665cb71cc57a9f5794bbe70a4822b38e60e394c15979e2"   # 24.6.0 linux-x64 node-v24.6.0-linux-x64/bin/node (vulnerable)
+          - "0a60ee85e22e52daede22c3cd27d3185becbdab180cf3c3c935130ce7b117d45"   # 24.7.0 linux-x64 node-v24.7.0-linux-x64/bin/node (vulnerable)
+          - "85ede4ce63fdae514aea9f1d93db8fa53a13ed9eeb2f1b212cd0fd1df5f07e9e"   # 24.8.0 linux-x64 node-v24.8.0-linux-x64/bin/node (vulnerable)
+          - "3dc61cdcc38781a678b31903d2f69ed16094206e2258df53a4eb2c0fe4f0a793"   # 24.9.0 linux-x64 node-v24.9.0-linux-x64/bin/node (vulnerable)
+          - "141542ec0c8f73b568cd774ea8df43f23768cb086eb5bf21d2dea33072fb2f56"   # 24.10.0 linux-x64 node-v24.10.0-linux-x64/bin/node (vulnerable)
+          - "d918479037f14dc30c8d21df3767a010fe710685373baec7edf680ca8c3edbee"   # 24.11.0 linux-x64 node-v24.11.0-linux-x64/bin/node (vulnerable)
+          - "5796fd9700e83170bc7ddfdf7f18858c794a9f91cb39dd6f9e95060b292f2563"   # 24.11.1 linux-x64 node-v24.11.1-linux-x64/bin/node (vulnerable)
+          - "16143bdaa79716e871d3d9b2f50ce680bca293eba7f0c3fc1d004ed2258fc839"   # 24.12.0 linux-x64 node-v24.12.0-linux-x64/bin/node (vulnerable)
+          - "53fb205ae78805130177e24bcb459a69a1518c8d98f8965f31d85aae7ea840fc"   # 24.13.0 linux-x64 node-v24.13.0-linux-x64/bin/node (vulnerable)
+          - "d95de52ccb76fb2c5775bf176f29f3025e4b19352c092aad51ce5d930717359f"   # 24.13.1 linux-x64 node-v24.13.1-linux-x64/bin/node (vulnerable)
+          - "e237a2839d0cbdc9a9a2adda1a184afc0f5b20306ffbe923af5686550472d8a8"   # 24.14.0 linux-x64 node-v24.14.0-linux-x64/bin/node (vulnerable)
+          - "bf9112eb83a827dc9f9c8d19bb7bddcbf00f7b2fedae18fdcaee05406981f20a"   # 24.14.1 linux-x64 node-v24.14.1-linux-x64/bin/node (vulnerable)
+          - "d1de76d8edf2fededf6f8b30d244e2c0529ac607923a018283b77e9c74bd932c"   # 24.15.0 linux-x64 node-v24.15.0-linux-x64/bin/node (vulnerable)
+          - "b2959781cc5a74c357ffa02367efa8a0330cbb1c9cb347732fdfaaaca381cbcd"   # 24.16.0 linux-x64 node-v24.16.0-linux-x64/bin/node (vulnerable)
+          - "62d66443847de1f527f74afe715900b12884ace52136dc9cd8e91e61acc2f527"   # 24.17.0 linux-x64 node-v24.17.0-linux-x64/bin/node (vulnerable)
+          - "41a74efb34cbde5c7632cdac0cf8bd1a14d0b8d73dc1e82755014d9a9ce70f5c"   # 24.18.0 linux-x64 node-v24.18.0-linux-x64/bin/node (vulnerable)
+          - "f3432a45b03b2da0d270095fdd8813dc34cbea73f5fc8b18c7a384b7cf9b333a"   # 24.18.1 linux-x64 node-v24.18.1-linux-x64/bin/node (vulnerable)
+          - "bc17c508ffeed0ec622934f9b7fa72f8e78da65350e63c3eceb56fa688aa5e12"   # 24.19.0 linux-x64 node-v24.19.0-linux-x64/bin/node (vulnerable)
+          - "89af8424dd53e560b1933f87ba650d8bf57c83ca5a04600eefb31f416aabbae7"   # 24.20.0 linux-x64 node-v24.20.0-linux-x64/bin/node (vulnerable)
+          - "7fde7b8afa198da66257f42ee2001d874c7355631e6d1579a5fb5ef1f246df4c"   # 24.21.0 linux-x64 node-v24.21.0-linux-x64/bin/node (vulnerable)
+          - "67ca5783febb8bf85736c79fcdd92c8d6d465a0eb2a082672bcdfa76a506751c"   # 24.22.0 linux-x64 node-v24.22.0-linux-x64/bin/node (vulnerable)
+          - "c8726a01ce4ac245ea9e5cb483992a90e628e5847d98f9a9f3be048d09a50d75"   # 24.22.0 linux-x64-musl node-v24.22.0-linux-x64-musl/bin/node (vulnerable)
+          - "e32e2d16081cf644f88392934288086e7662529d0d43277c34f7aad2207cfafb"   # 24.22.1 linux-x64 node-v24.22.1-linux-x64/bin/node (fixed)
+          - "569128f3066ac7be59b10b9a0adef708def642ee37cbf9d560a9bdb68f872108"   # 24.22.1 linux-x64-musl node-v24.22.1-linux-x64-musl/bin/node (fixed)
+          - "a3269c1d31b923e5b63d2dd3664ef5332ac848771460c63af441db6a3f053ead"   # 26.0.0 linux-x64 node-v26.0.0-linux-x64/bin/node (vulnerable)
+          - "da220b82279ed9885a7759f6efb8c4b9351ece579f93429bf7b7d2fbd481bcf8"   # 26.1.0 linux-x64 node-v26.1.0-linux-x64/bin/node (vulnerable)
+          - "030a5e93e4f7a022b12a3ec80fecd22af9614356904a05ece6b1b2dbf4c1f588"   # 26.2.0 linux-x64 node-v26.2.0-linux-x64/bin/node (vulnerable)
+          - "5325ac9da58541494afcc136f0880279a2a853609bf4dae7755e04fb682b6926"   # 26.3.0 linux-x64 node-v26.3.0-linux-x64/bin/node (vulnerable)
+          - "0b52710a27133a3baf45f0d1f10689ab874f50e5821d8e611486d17e20bcacdd"   # 26.3.1 linux-x64 node-v26.3.1-linux-x64/bin/node (vulnerable)
+          - "4cfdaeec2e3689e4728b4bc98932a9147a3f98162bdc7955c03c0d7fa3b8aa94"   # 26.4.0 linux-x64 node-v26.4.0-linux-x64/bin/node (vulnerable)
+          - "3de740a941a630439b22b79aafb383f4912b76354a2694765e8d59a033746538"   # 26.5.0 linux-x64 node-v26.5.0-linux-x64/bin/node (vulnerable)
+          - "fb48e77df2f8e92fedfec39afa60a5f41563441f6b61316ada5fb295a431c2c6"   # 26.5.1 linux-x64 node-v26.5.1-linux-x64/bin/node (vulnerable)
+          - "02deeca25470eb95255f60147927a1b9785dcb784c9d7690cc712f359331ac8e"   # 26.6.0 linux-x64 node-v26.6.0-linux-x64/bin/node (vulnerable)
+          - "ad19784f7e90ba789a099eccba77ede8dc90a778c424f1c10a70fed3ff903fdc"   # 26.7.0 linux-x64 node-v26.7.0-linux-x64/bin/node (vulnerable)
+          - "d76dcb890cf4167c4808df11b362147190b8405ba6cdb67e35fac4594eb2d42b"   # 26.8.0 linux-x64 node-v26.8.0-linux-x64/bin/node (vulnerable)
+          - "19235a9b678f84729464c52623f92de130a165452747c6826d3fdc13df3abcc3"   # 26.8.1 linux-x64 node-v26.8.1-linux-x64/bin/node (vulnerable)
+          - "8a22a371fd85aecf5411636574309f6380fbc42694aaf0651a089a8ef9c44e52"   # 26.8.2 linux-x64 node-v26.8.2-linux-x64/bin/node (vulnerable)
+          - "05757b064ad2a221b41874794da42361c9bab033c7c33c1f1b458c25a7de7e59"   # 26.9.0 linux-x64 node-v26.9.0-linux-x64/bin/node (vulnerable)
+          - "ab9c8eecf9f82d6693cdc3accced17034065c8d96213b0aa76a7e803d20ae1da"   # 26.10.0 linux-x64 node-v26.10.0-linux-x64/bin/node (vulnerable)
+          - "c445d85bb8886e15bbc85973134274fb190088233b174841b9999dbabfeef9f8"   # 26.11.0 linux-x64 node-v26.11.0-linux-x64/bin/node (vulnerable)
+          - "79bec1a885677573483fd5b81b6aa9a8f8993afe12bc74c10ae100d588f58006"   # 26.11.0 linux-x64-musl node-v26.11.0-linux-x64-musl/bin/node (vulnerable)
+          - "5a7b8a3cf5ccb57d297519754fd73238f64cf560afd0ef19a2f9bf7384cbb657"   # 26.11.1 linux-x64 node-v26.11.1-linux-x64/bin/node (vulnerable)
+          - "1d39736ceb126dee4ea975679f10b6e49214ab165c7aab130612cb59752bd406"   # 26.11.1 linux-x64-musl node-v26.11.1-linux-x64-musl/bin/node (vulnerable)
+          - "caa24debe02770c92a70677e2a62ca98890150e7ac1c17bcfe31bcc98cc89943"   # 26.12.0 linux-x64 node-v26.12.0-linux-x64/bin/node (vulnerable)
+          - "f536e791055d451fd95e77501b4226552d380f4025b234d7124e8e170290a179"   # 26.12.0 linux-x64-musl node-v26.12.0-linux-x64-musl/bin/node (vulnerable)
+          - "08f12d42fb304468e8ee86247fe686aae5b225836ea65e9d6566c11ae6ba2e8e"   # 26.12.1 linux-x64 node-v26.12.1-linux-x64/bin/node (fixed)
+          - "c6fa3c4a915da799b59b908e74a34f8f3307b7ec3251b211bc88d452558b3351"   # 26.12.1 linux-x64-musl node-v26.12.1-linux-x64-musl/bin/node (fixed)
+
+  # ── 2. 배포판 Node.js 패키지 ──────────────────────────────────────────────
+  - id: node_pkg
+    subject: package
+    where:
+      - { field: name, op: matches, value: '^(nodejs[0-9]*|libnode[0-9]*(t64)?)$' }
+  - id: deb_node
+    subject: package
+    where:
+      all:
+        - { field: manager, op: equals, value: dpkg }
+        - { field: name, op: matches, value: '^(nodejs|libnode[0-9]+(t64)?)$' }
+  # Debian 이 미수정으로 확인한 판(12 · 13 · 14 · sid).
+  - id: deb_node_vuln
+    subject: package
+    where:
+      all:
+        - { field: manager, op: equals, value: dpkg }
+        - { field: name, op: equals, value: nodejs }
+        - field: version
+          op: in
+          value:
+            - "18.20.4+dfsg-1~deb12u2"
+            - "18.20.4+dfsg-1~deb12u3"
+            - "20.19.2+dfsg-1+deb13u2"
+            - "20.19.2+dfsg-1+deb13u3"
+            - "24.21.0+dfsg+~cs24.13.4-1"
+            - "24.22.0+dfsg+~cs24.19.2-2"
+  # Debian 의 nodejs 가 쓰는 시스템 Brotli 의 미수정 판(12 · 13 · 14 · sid).
+  - id: deb_libbrotli_vuln
+    subject: package
+    where:
+      all:
+        - { field: manager, op: equals, value: dpkg }
+        - { field: name, op: equals, value: libbrotli1 }
+        - { field: version, op: in, value: ["1.0.9-2", "1.1.0-2", "1.2.0-4"] }
+  # Oracle Linux 8.10 의 nodejs 모듈 — 공급사 → 계열 → 판.
+  - id: ol8_node_vuln
+    subject: package
+    where:
+      all:
+        - { field: vendor, op: equals, value: "Oracle America" }
+        - { field: name, op: matches, value: '^nodejs' }
+        - any:
+            - all:
+                - { field: version, op: matches, value: '^1:22\.[0-9]+\.[0-9]+-[0-9]+(?:\.[0-9]+)*\.module\+el8\.10\.0\+[0-9]+\+[0-9a-f]{8}$' }
+                - { field: version, op: rpm_version_lt, value: "1:22.23.2-2.0.1.module+el8.10.0+91085+97cfd505" }
+            - all:
+                - { field: version, op: matches, value: '^1:24\.[0-9]+\.[0-9]+-[0-9]+(?:\.[0-9]+)*\.module\+el8\.10\.0\+[0-9]+\+[0-9a-f]{8}$' }
+                - { field: version, op: rpm_version_lt, value: "1:24.21.0-1.0.1.module+el8.10.0+91086+e75af208" }
+  # 기준 밖의 Node.js 패키지 — `exclude` 는 한 항목씩이라 공급사와 판을 함께 걸 수 없어 **공급사마다**
+  # 적는다. Oracle 의 두 계열 줄은 그 공급사 안에서만 빼고, 그 밖의 공급사 · dpkg · apk 는 전부 확인 필요다.
+  - id: node_pkg_ol_unknown
+    subject: package
+    where:
+      all:
+        - { field: vendor, op: equals, value: "Oracle America" }
+        - { field: name, op: matches, value: '^(nodejs[0-9]*|libnode[0-9]*(t64)?)$' }
+    exclude:
+      - { field: version, op: matches, value: '^1:22\.[0-9]+\.[0-9]+-[0-9]+(?:\.[0-9]+)*\.module\+el8\.10\.0\+[0-9]+\+[0-9a-f]{8}$' }
+      - { field: version, op: matches, value: '^1:24\.[0-9]+\.[0-9]+-[0-9]+(?:\.[0-9]+)*\.module\+el8\.10\.0\+[0-9]+\+[0-9a-f]{8}$' }
+  - id: node_pkg_other
+    subject: package
+    where:
+      - { field: name, op: matches, value: '^(nodejs[0-9]*|libnode[0-9]*(t64)?)$' }
+    exclude:
+      - { field: vendor, op: equals, value: "Oracle America" }
+
+  # ── 3. RHEL · Oracle Linux 8.10 의 시스템 Brotli ─────────────────────────
+  - id: rpm_node
+    subject: package
+    where:
+      all:
+        - { field: manager, op: equals, value: rpm }
+        - { field: name, op: matches, value: '^(nodejs[0-9]*|libnode[0-9]*)$' }
+  - id: rpm_brotli_vuln
+    subject: package
+    where:
+      all:
+        - { field: vendor, op: in, value: ["Red Hat, Inc.", "Oracle America"] }
+        - { field: name, op: equals, value: brotli }
+        - { field: version, op: matches, value: '^(?:0:)?1\.0\.[0-9]+-[0-9]+\.el8_10(?:\.[0-9]+)?$' }
+        - { field: version, op: rpm_version_lt, value: "0:1.0.6-5.el8_10" }
+
+verdict:
+  require: "node_vuln or deb_node_vuln or (deb_libbrotli_vuln and deb_node) or ol8_node_vuln"
+  unconfirmed:
+    - when: "node_unknown and not node_pkg"
+      why:
+        ko: "공식 Node.js 빌드의 해시와 맞지 않는 node 실행 파일입니다(기준에 없는 판 · 다른 빌드) — 판과 받은 곳을 확인하고 22.23.4 · 24.22.1 · 26.12.1 이상인지 보십시오"
+        en: "a node executable that does not match an official Node.js build hash (an uncovered version or another build) - check its version and origin, and whether it is 22.23.4, 24.22.1, 26.12.1 or later"
+    - when: "node_pkg_ol_unknown or node_pkg_other"
+      why:
+        ko: "공급사 수정 판 기준이 없는 Node.js 패키지입니다(다른 저장소이거나 기준에 없는 배포판 · 계열) — 그 공급사에 CVE-2026-111497 의 패치 여부를 확인하십시오"
+        en: "a Node.js package with no vendor fix baseline (another repository, or an uncovered distribution or line) - confirm with that vendor whether CVE-2026-111497 is patched"
+    - when: "rpm_brotli_vuln and rpm_node"
+      why:
+        ko: "시스템 Brotli 가 공급사 수정 판보다 낮습니다 — 이 Node.js 가 시스템 Brotli 를 쓰면 영향을 받습니다. brotli 패키지를 올리십시오"
+        en: "the system Brotli is below the vendor fix - this Node.js is affected if it uses the system Brotli; update the brotli package"
