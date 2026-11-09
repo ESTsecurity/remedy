@@ -524,6 +524,10 @@ fn finding_body(e: &remedy_sdk::artifact::Evidence, lang: Lang) -> String {
     // 룰이면 사람이 볼 값은 **판 하나**다. 그 밖의 모양에서만 맞은 필드를
     // 원래 이름으로 적는다(이름에 이미 쓴 필드는 뺀다).
     let in_label = ["path", "name", "key", "hive", "line_no", "entry"];
+    // **내용 해시는 적지 않는다** (2026-11-09) — 64자리 값은 사람에게 뜻이 없다. 공식 빌드 해시로
+    // 판정하는 점검 룰(`sha256 in […]` · `sha256 exists`)에서 경로 뒤에 그대로 찍혔다. 위협 룰 화면
+    // ([`threat_findings`])이 이름만 적는 것과 같은 까닭이다.
+    let unreadable = ["sha256", "content_ref", "streams"];
     let matched_version = e
         .matched
         .iter()
@@ -536,6 +540,7 @@ fn finding_body(e: &remedy_sdk::artifact::Evidence, lang: Lang) -> String {
         e.matched
             .iter()
             .filter(|m| !in_label.contains(&m.field.as_str()))
+            .filter(|m| !unreadable.contains(&m.field.as_str()))
             .find_map(|m| text_at(&e.target, &m.field).map(|v| format!("{} {v}", m.field)))
     };
     match why {

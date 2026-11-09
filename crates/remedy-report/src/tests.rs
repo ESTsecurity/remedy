@@ -649,6 +649,41 @@ fn unconfirmed_items_list_only_the_noted_groups() {
     assert!(unconfirmed_findings(&evidence, &groups, &[none], Lang::Ko, 10).is_empty());
 }
 
+/// 내용 해시로 판정한 항목은 **경로만** 적는다 — 64자리 값은 사람에게 뜻이 없다(2026-11-09).
+#[test]
+fn a_hash_that_decided_a_finding_is_not_printed() {
+    use remedy_sdk::artifact::{Evidence, EvidenceGroup, MatchedPredicate};
+    let e = Evidence {
+        id: "e0".into(),
+        rule: "official".into(),
+        subject: remedy_sdk::catalog::Subject::File,
+        score: None,
+        target: serde_json::json!({ "path": "/usr/local/bin/php", "sha256": "ab".repeat(32) }),
+        captures: Default::default(),
+        matched: vec![
+            MatchedPredicate {
+                field: "path".into(),
+                op: "matches".into(),
+                value: Some(serde_json::json!("^/usr/local/bin/php$")),
+            },
+            MatchedPredicate {
+                field: "sha256".into(),
+                op: "in".into(),
+                value: Some(serde_json::json!(["ab".repeat(32)])),
+            },
+        ],
+    };
+    let g = EvidenceGroup {
+        id: "g0".into(),
+        evidence: vec!["e0".into()],
+        captures: Default::default(),
+        verdict: true,
+        excluded_reason: None,
+    };
+    let lines = check_findings(&[e], &[g], Lang::Ko, 10);
+    assert_eq!(lines, vec!["   1. /usr/local/bin/php".to_string()]);
+}
+
 #[test]
 fn a_check_plugin_says_vulnerable_not_threat() {
     use remedy_sdk::artifact::ExitCode as C;
@@ -1071,10 +1106,11 @@ fn a_threat_finding_names_only_the_thing() {
         threat_findings(&e, &g, Lang::Ko, FINDINGS_SHOWN),
         vec!["   1. /usr/lib64/libkeyutils.so.1.5.2".to_string()]
     );
-    // 점검의 줄은 지금 그대로 — 판정을 가른 값을 함께 적는다.
+    // **점검도 해시는 적지 않는다**(2026-11-09) — 공식 빌드 해시로 판정하는 점검 룰에서 64자리 값이
+    // 경로 뒤에 찍혔다. 판처럼 사람이 읽는 값은 그대로 적는다(`the_value_that_decided_it_is_shown`).
     assert_eq!(
         check_findings(&e, &g, Lang::Ko, FINDINGS_SHOWN),
-        vec!["   1. /usr/lib64/libkeyutils.so.1.5.2  (sha256 445810c9)".to_string()]
+        vec!["   1. /usr/lib64/libkeyutils.so.1.5.2".to_string()]
     );
 }
 

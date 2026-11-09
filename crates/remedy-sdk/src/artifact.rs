@@ -531,18 +531,12 @@ impl Observation {
                 ),
             });
         }
-        // **룰의 문장을 그대로 싣고 수만 붙인다** — 무엇을 확인할지는 룰만 안다. 항목 자체는
-        // 결과 화면이 번호와 함께 적는다(`check_findings` 와 같은 꼴).
+        // **룰의 문장을 그대로 싣는다** — 무엇을 확인할지는 룰만 안다. 항목은 결과 화면이 번호와
+        // 함께 적는다(`unconfirmed_findings`). 수를 붙이지 않는다 — 셀 수 있는 것은 그룹이고 그룹
+        // 하나에 항목이 여럿 들어, *"(1곳)"* 아래에 항목 둘이 서는 화면이 됐다(2026-11-09 리눅스 모양
+        // 시험).
         for note in &self.unconfirmed {
-            let n = note.groups.len();
-            let why = note.why_in(lang);
-            out.push(match lang {
-                Lang::Ko => format!("확인이 필요합니다 — {why} ({n}곳)"),
-                Lang::En => format!(
-                    "needs review - {why} ({n} item{})",
-                    if n == 1 { "" } else { "s" }
-                ),
-            });
+            out.push(note.why_in(lang).to_string());
         }
         out
     }
