@@ -127,12 +127,9 @@ fn an_app_with_no_fix_evidence_is_review_needed_not_clean() {
     // 무엇을 확인할지 — 항목은 표준 출력에 번호와 함께, 까닭은 `주의` 아래 룰의 말로.
     assert!(r.stdout.contains("확인이 필요한 항목:"), "{}", r.stdout);
     assert!(r.stdout.contains("app.bin"), "{}", r.stdout);
-    assert!(
-        r.stderr
-            .contains(&format!("확인이 필요합니다 — {WHY_KO} (1곳)")),
-        "{}",
-        r.stderr
-    );
+    // 사유 줄은 룰의 문장 그대로다 — 그룹 수를 붙이면 항목 수와 어긋난다.
+    assert!(r.stderr.contains(&format!("- {WHY_KO}")), "{}", r.stderr);
+    assert!(!r.stderr.contains("1곳"), "{}", r.stderr);
     // 다 **보았다** — 결과 줄이 *"다 보지 못해"* 라고 하지 않는다.
     assert!(
         r.stdout.contains("확인이 필요합니다. 위에 적은 항목은"),
