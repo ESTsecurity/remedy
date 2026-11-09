@@ -152,6 +152,11 @@
       "takes_value": true
     },
     {
+      "id": "rpm_version_lt",
+      "implemented_in": "P4",
+      "takes_value": true
+    },
+    {
       "id": "yara",
       "implemented_in": "P4",
       "takes_value": true

@@ -40,7 +40,7 @@ fn closed_sets_have_the_declared_size() {
     // 14 → 15: `pkg_version_lt` (2026-10-27 · C-2 후속). `version_lt` 가 일부러
     // 거절한 **개정 꼬리**가 그쪽의 대상이고, 순서는 dpkg 의 규칙이다. 반대
     // 방향은 두지 않았다 — `not` 이 `>=` 이므로 범위가 둘로 적힌다.
-    assert_eq!(Operator::ALL.len(), 15, "설계-02 §4 는 연산자 15종이다");
+    assert_eq!(Operator::ALL.len(), 16, "설계-02 §4 는 연산자 16종이다");
     // 8 → 9: `last_path` (2026-11-08 · 코어 1.2.0). 공개 보도의 EvilAI 작업이
     // `cmd.exe /c start "" /min "…\node.exe" "…\a.js"` 라 `first_path` 가 `/c` 를 집었다.
     assert_eq!(
@@ -624,7 +624,7 @@ fn the_gate_matches_what_the_catalog_says_is_implemented() {
         .collect();
     assert!(pending.is_empty(), "아직 기다리는 subject: {pending:?}");
 
-    // 연산자 15종도 마찬가지다.
+    // 연산자 16종도 마찬가지다.
     use remedy_sdk::catalog::Operator;
     let pending: Vec<&str> = Operator::ALL
         .iter()

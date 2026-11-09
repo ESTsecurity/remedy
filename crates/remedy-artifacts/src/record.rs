@@ -525,8 +525,15 @@ pub struct PackageRecord {
     /// 없으면 빈 문자열이고, 그때는 이름이 곧 원본이다. `php8.2-cli` 의
     /// `source` 가 `php8.2` 이므로 **계열 하나를 한 줄로 겨눌 수 있다.**
     pub source: String,
-    /// 어느 DB 에서 읽었는가. `dpkg` · `apk`.
+    /// 어느 DB 에서 읽었는가. `dpkg` · `apk` · `rpm`(코어 1.3.0).
     pub manager: String,
+    /// 공급사 — RPM 의 `VENDOR`(`Red Hat, Inc.` · `Oracle America` · `SUSE LLC …`) (2026-11-09 · 코어 1.3.0).
+    ///
+    /// **같은 판 문자열을 여러 공급사가 낸다** — RHEL 의 `8.0.30-8.el9_8.1` 을 다시 지은 Rocky · Alma 도 같은
+    /// 판을 적는다. 공급사 공지는 그 공급사의 빌드에만 말하므로 룰이 이 칸으로 가른다. dpkg · apk 에는 이
+    /// 칸이 없어 비고, **비면 산출물에 싣지 않는다** — 그 기계들의 스냅샷은 전과 바이트까지 같다.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub vendor: String,
 }
 
 /// 이름 있는 UNIX 소켓 (Linux · `/proc/net/unix` · 코어 1.2.0).

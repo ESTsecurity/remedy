@@ -273,6 +273,57 @@ fn an_unquoted_version_is_an_error_for_the_package_operator_too() {
 }
 
 #[test]
+fn an_rpm_version_passes_rpm_version_lt_and_fails_pkg_version_lt() {
+    // RHEL 의 개정은 `_` 를 담는다 — `pkg_version_lt` 는 그것을 거절하고(dpkg 와 apk 가 반대로
+    // 읽는다) `rpm_version_lt` 는 받는다(rpm 에서는 구분자일 뿐이다).
+    for v in [
+        "0:8.0.30-8.el9_8.1",
+        "7.4.33-8.module+el8.10.0+25117+30337cca",
+        "0:8.3.36-150700.3.24.1",
+        "1.0~rc1",
+        "1.0^git1",
+    ] {
+        let ok = with_payload_pred(&format!(
+            "{{ field: path, op: rpm_version_lt, value: '{v}' }}"
+        ));
+        assert_eq!(blocking(&lint(&parse(&ok))), 0, "'{v}': {:?}", errors(&ok));
+    }
+    let no = with_payload_pred("{ field: path, op: pkg_version_lt, value: '0:8.0.30-8.el9_8.1' }");
+    assert!(
+        !errors(&no).is_empty(),
+        "pkg_version_lt 가 `_` 를 받아 버렸다"
+    );
+}
+
+#[test]
+fn a_shape_rpm_does_not_write_is_an_error_for_rpm_version_lt() {
+    for bad in [
+        "php-8.0.30",
+        "el9",
+        "a:1.0",
+        ":1.0",
+        "1.0 2",
+        "8.0.30-8.el9#1",
+    ] {
+        let y = with_payload_pred(&format!(
+            "{{ field: path, op: rpm_version_lt, value: '{bad}' }}"
+        ));
+        let e = errors(&y);
+        assert_eq!(e.len(), 1, "{bad}: {e:?}");
+        assert!(
+            e[0].contains(bad) && e[0].contains("RPM 판"),
+            "{bad}: {}",
+            e[0]
+        );
+    }
+    // 따옴표 없는 `8.10` 은 이미 `8.1` 로 도착한 값이다 — 모양 검사로는 잡히지 않는다.
+    let y = with_payload_pred("{ field: path, op: rpm_version_lt, value: 8.10 }");
+    let e = errors(&y);
+    assert_eq!(e.len(), 1, "{e:?}");
+    assert!(e[0].contains("따옴표"), "{}", e[0]);
+}
+
+#[test]
 fn a_version_operator_without_a_value_is_an_error() {
     // 값이 없으면 평가기가 관측에 적을 이름조차 비어 **사유 줄의 끝이 빈 채로**
     // 나간다 — `yara_label` 이 막으려는 바로 그 모양이다. `takes_value` 는

@@ -489,7 +489,7 @@ flowchart TB
 ```
 
 > `package` 와 `unix_socket` 은 **Linux 전용**이다(`windows: false`). 둘 다 정해진 자리를
-> 파일로 직접 읽고(dpkg·apk DB · `/proc/net/unix`) **치료 Op 이 없다** — 패키지를 올리는 것은
+> 파일로 직접 읽고(dpkg·apk·rpm DB · `/proc/net/unix`) **치료 Op 이 없다** — 패키지를 올리는 것은
 > 공급사의 일이고, 소켓을 닫는 것은 치료가 아니다(그 소켓을 연 프로세스가 다시 연다). `unix_socket`
 > 은 코어 1.2.0 에서 더했다 — Ebury 의 현재 주 탐지법이 추상 소켓 이름이다(설계-01 D11 덧붙임).
 
@@ -552,9 +552,9 @@ flowchart TB
 | `TextLine` · `StructuredConfig` | 설정 |
 | `AvExclusion` · `CertStore` · `BootConfig` | 보안 설정 |
 
-연산자 **15종**: `equals` · `not_equals` · `matches` · `contains` ·
+연산자 **16종**: `equals` · `not_equals` · `matches` · `contains` ·
 `starts_with` · `ends_with` · `in` · `glob` · `exists` · `gt` · `lt` ·
-`version_lt` · `pkg_version_lt` · `version_gt` · `yara`
+`version_lt` · `pkg_version_lt` · `rpm_version_lt` · `version_gt` · `yara`
 
 > **`pkg_version_lt` 가 빠져 있었다** (2026-10-29 에 더했다). 2026-10-27 에
 > 들어온 연산자인데 이 목록만 열넷으로 남아 있었다 — 어느 게이트도 이 문서를

@@ -1380,7 +1380,9 @@ fn check_version_literals(m: &PluginManifest, out: &mut Vec<LintIssue>) {
             // `version_lt`·`version_gt` 는 점숫자만 받고 `pkg_version_lt` 는
             // 배포판 판을 받는다 — 둘을 한 자리에서 보되 판정은 나눈다.
             let pkg_op = matches!(f.op, Operator::PkgVersionLt);
-            let version_op = pkg_op || matches!(f.op, Operator::VersionLt | Operator::VersionGt);
+            let rpm_op = matches!(f.op, Operator::RpmVersionLt);
+            let version_op =
+                pkg_op || rpm_op || matches!(f.op, Operator::VersionLt | Operator::VersionGt);
             if !version_op && !matches!(f.op, Operator::Gt | Operator::Lt) {
                 continue;
             }
@@ -1411,6 +1413,8 @@ fn check_version_literals(m: &PluginManifest, out: &mut Vec<LintIssue>) {
                 } else {
                     let ok = if pkg_op {
                         crate::catalog::is_pkg_version(&v)
+                    } else if rpm_op {
+                        crate::catalog::is_rpm_version(&v)
                     } else {
                         crate::catalog::is_version(&v)
                     };
@@ -1420,6 +1424,8 @@ fn check_version_literals(m: &PluginManifest, out: &mut Vec<LintIssue>) {
                         let shown = if v.trim().is_empty() { "(없음)" } else { &v };
                         if pkg_op {
                             out.push(pkg_version_error(&at, &f.field, shown));
+                        } else if rpm_op {
+                            out.push(rpm_version_error(&at, &f.field, shown));
                         } else {
                             out.push(version_error(&at, &f.field, shown, f.op.id()));
                         }
@@ -1489,6 +1495,25 @@ fn pkg_version_error(at: &str, field: &str, v: &str) -> LintIssue {
              숫자로 시작해야 하고 `_` 는 받지 않는다(apk 는 `_alpha` 를 낮게, dpkg 의 \
              규칙은 높게 읽어 순서가 반대다). 상류 판만 보려면 \
              `upstream_version` 에 `version_lt` 를 걸 것"
+                .into(),
+        ),
+        doc: Some("24-check-plugins.md"),
+    }
+}
+
+/// `rpm_version_lt` 에 적은 값이 RPM 판 모양이 아니다 (2026-11-09).
+fn rpm_version_error(at: &str, field: &str, v: &str) -> LintIssue {
+    LintIssue {
+        severity: Severity::Error,
+        at: format!("{at}.value"),
+        message: format!(
+            "'{field}' 에 걸린 rpm_version_lt 의 값 '{v}' {} RPM 판으로 읽지 못했다. \
+             이 항목은 어느 기계에서도 판정을 세우지 못하고 진단만 남긴다",
+            crate::i18n::particle(v, "을", "를")
+        ),
+        valid: Some(
+            "RPM 이 적는 그대로 — 예: 0:8.0.30-8.el9_8.1 · 7.4.33-8.module+el8.10.0+25117+30337cca. \
+             숫자로 시작해야 한다. 배포판(dpkg · apk) 판은 pkg_version_lt 를 쓸 것"
                 .into(),
         ),
         doc: Some("24-check-plugins.md"),
@@ -2363,6 +2388,22 @@ mod enumerated_tests {
         );
         assert_eq!(got.len(), 1, "{got:?}");
         assert_eq!(got[0].0, Severity::Warning);
+    }
+
+    /// `package.manager` 는 셋이다 — 코어 1.3.0 에서 `rpm` 이 들어왔다. 수집이 적는 값을 전수가
+    /// 모르면 **RPM 줄이 전부 린트 오류**가 된다(2026-11-09 · 룰을 쓰다 드러났다).
+    #[test]
+    fn every_package_manager_the_collector_writes_is_known() {
+        for m in ["dpkg", "apk", "rpm"] {
+            let got = issues(
+                "package",
+                &format!("{{ field: manager, op: equals, value: '{m}' }}"),
+            );
+            assert!(got.is_empty(), "{m}: {got:?}");
+        }
+        let got = issues("package", "{ field: manager, op: equals, value: 'yum' }");
+        assert_eq!(got.len(), 1, "{got:?}");
+        assert_eq!(got[0].0, Severity::Error);
     }
 
     /// `sha256` 리터럴 — 자리 표시·대문자는 오류, 한 글자의 반복은 경고, 실제

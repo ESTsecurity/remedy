@@ -330,6 +330,131 @@ fn verrevcmp(a: &str, b: &str) -> std::cmp::Ordering {
     Ordering::Equal
 }
 
+/// RPM 이 적은 판끼리 (2026-11-09) — `rpm_version_lt` 가 쓴다.
+///
+/// `[epoch:]판[-개정]` 을 셋으로 갈라 **epoch → 판 → 개정** 순으로 [`rpmvercmp`] 로 견준다(rpm 의
+/// `rpmverCmp`). epoch 이 없으면 `0` 이고, 개정은 **둘 다 있을 때만** 견준다 — rpm 과 같다.
+/// 모양이 아니면 `None` 이다(`is_rpm_version`).
+pub fn rpm_version_cmp(a: &str, b: &str) -> Option<std::cmp::Ordering> {
+    use remedy_sdk::catalog::is_rpm_version;
+    if !is_rpm_version(a) || !is_rpm_version(b) {
+        return None;
+    }
+    let (ea, va, ra) = split_evr(a.trim());
+    let (eb, vb, rb) = split_evr(b.trim());
+    let mut ord = rpmvercmp(ea, eb).then_with(|| rpmvercmp(va, vb));
+    if let (Some(ra), Some(rb)) = (ra, rb) {
+        ord = ord.then_with(|| rpmvercmp(ra, rb));
+    }
+    Some(ord)
+}
+
+/// `1:8.0.30-8.el9_8.1` → `("1", "8.0.30", Some("8.el9_8.1"))`. 개정은 **마지막** `-` 뒤이고, 비면
+/// 없는 것이다(rpm 의 `rpmverCmp` 는 빈 개정을 견주지 않는다).
+fn split_evr(s: &str) -> (&str, &str, Option<&str>) {
+    let (epoch, rest) = match s.split_once(':') {
+        Some((e, rest)) => (e, rest),
+        None => ("0", s),
+    };
+    match rest.rsplit_once('-') {
+        Some((v, r)) => (epoch, v, (!r.is_empty()).then_some(r)),
+        None => (epoch, rest, None),
+    }
+}
+
+/// rpm 의 `rpmvercmp` — 글자 · 숫자가 아닌 문자는 **구분자로만** 보고, 숫자 덩어리와 글자 덩어리를
+/// 번갈아 견준다. 숫자 덩어리는 수로 보고(앞의 `0` 은 값이 아니다) **글자 덩어리보다 늘 높다.**
+/// `~` 는 무엇보다도 먼저, `^` 는 끝보다는 뒤이고 다른 무엇보다는 먼저다.
+fn rpmvercmp(a: &str, b: &str) -> std::cmp::Ordering {
+    use std::cmp::Ordering::{Equal, Greater, Less};
+    if a == b {
+        return Equal;
+    }
+    let (a, b) = (a.as_bytes(), b.as_bytes());
+    let sep = |c: u8| !c.is_ascii_alphanumeric() && c != b'~' && c != b'^';
+    let (mut i, mut j) = (0usize, 0usize);
+    loop {
+        while i < a.len() && sep(a[i]) {
+            i += 1;
+        }
+        while j < b.len() && sep(b[j]) {
+            j += 1;
+        }
+        let (x, y) = (a.get(i).copied(), b.get(j).copied());
+        if x == Some(b'~') || y == Some(b'~') {
+            if x != Some(b'~') {
+                return Greater;
+            }
+            if y != Some(b'~') {
+                return Less;
+            }
+            i += 1;
+            j += 1;
+            continue;
+        }
+        if x == Some(b'^') || y == Some(b'^') {
+            if x.is_none() {
+                return Less;
+            }
+            if y.is_none() {
+                return Greater;
+            }
+            if x != Some(b'^') {
+                return Greater;
+            }
+            if y != Some(b'^') {
+                return Less;
+            }
+            i += 1;
+            j += 1;
+            continue;
+        }
+        if x.is_none() || y.is_none() {
+            break;
+        }
+        let (si, sj) = (i, j);
+        let numeric = a[i].is_ascii_digit();
+        let take = |c: u8| {
+            if numeric {
+                c.is_ascii_digit()
+            } else {
+                c.is_ascii_alphabetic()
+            }
+        };
+        while i < a.len() && take(a[i]) {
+            i += 1;
+        }
+        while j < b.len() && take(b[j]) {
+            j += 1;
+        }
+        // 갈래가 다르다 — 한쪽은 숫자, 다른 쪽은 글자. **숫자가 높다.**
+        if j == sj {
+            return if numeric { Greater } else { Less };
+        }
+        let (mut s1, mut s2) = (&a[si..i], &b[sj..j]);
+        if numeric {
+            while s1.first() == Some(&b'0') {
+                s1 = &s1[1..];
+            }
+            while s2.first() == Some(&b'0') {
+                s2 = &s2[1..];
+            }
+            if s1.len() != s2.len() {
+                return s1.len().cmp(&s2.len());
+            }
+        }
+        match s1.cmp(s2) {
+            Equal => continue,
+            o => return o,
+        }
+    }
+    match (i >= a.len(), j >= b.len()) {
+        (true, true) => Equal,
+        (true, false) => Less,
+        _ => Greater,
+    }
+}
+
 /// 숫자 아닌 한 문자의 순서. **`~` 는 끝보다도 먼저다.**
 ///
 /// 그래서 `1.0~rc1` 이 `1.0` 보다 낮다 — 사전 배포를 적는 dpkg 의 방식이고,
@@ -513,6 +638,54 @@ mod tests {
         assert_eq!(version_cmp("8.02.9", "8.2.9"), Some(Equal));
         assert_eq!(version_cmp("8.0", "8.00"), Some(Equal));
         assert_eq!(version_cmp("8.010", "8.9"), Some(Greater));
+    }
+
+    // ───────────────────────────── rpm_version_lt (2026-11-09)
+
+    fn rpm_lt(a: &str, b: &str) -> bool {
+        rpm_version_cmp(a, b) == Some(std::cmp::Ordering::Less)
+    }
+
+    /// rpm 이 내놓는 판 그대로 — RHEL 계열의 수정 판이 실제로 갈리는 모양들.
+    #[test]
+    fn rpm_versions_order_as_rpm_does() {
+        // 개정의 마지막 조각 · `_` 는 구분자일 뿐이다.
+        assert!(rpm_lt("8.0.30-8.el9_8", "8.0.30-8.el9_8.1"));
+        assert!(rpm_lt("0:8.0.30-1.el9_2", "0:8.0.30-8.el9_8.1"));
+        assert!(!rpm_lt("8.0.30-8.el9_8.1", "8.0.30-8.el9_8.1"));
+        assert!(!rpm_lt("8.0.30-8.el9_8.2", "0:8.0.30-8.el9_8.1"));
+        // 모듈 빌드 — 빌드 번호가 수로 갈린다.
+        assert!(rpm_lt(
+            "7.4.33-8.module+el8.10.0+25000+aaaa",
+            "0:7.4.33-8.module+el8.10.0+25117+30337cca"
+        ));
+        // epoch 이 판보다 앞선다.
+        assert!(rpm_lt("9.9.9-1", "1:1.0-1"));
+        // 숫자 덩어리는 글자 덩어리보다 높다 · 앞의 0 은 값이 아니다.
+        assert!(rpm_lt("1.a", "1.1"));
+        assert_eq!(
+            rpm_version_cmp("1.010-1", "1.10-1"),
+            Some(std::cmp::Ordering::Equal)
+        );
+        // `~` 는 먼저(사전 배포) · `^` 는 끝보다 뒤(스냅숏).
+        assert!(rpm_lt("1.0~rc1-1", "1.0-1"));
+        assert!(rpm_lt("1.0-1", "1.0^git1-1"));
+        // 개정은 둘 다 있을 때만 견준다(rpm 과 같다) — 빈 개정은 없는 것이다.
+        assert_eq!(
+            rpm_version_cmp("8.0.30", "8.0.30-8.el9_8.1"),
+            Some(std::cmp::Ordering::Equal)
+        );
+        assert_eq!(
+            rpm_version_cmp("8.0.30-", "8.0.30-8.el9_8.1"),
+            Some(std::cmp::Ordering::Equal)
+        );
+    }
+
+    #[test]
+    fn a_shape_rpm_does_not_write_is_not_compared() {
+        for bad in ["", "el9", "v8.0.30-1", "8.0.30 1", "x:1.0-1"] {
+            assert_eq!(rpm_version_cmp(bad, "1.0-1"), None, "{bad:?}");
+        }
     }
 
     // ───────────────────────────── pkg_version_lt (C-2 후속 · 2026-10-27)

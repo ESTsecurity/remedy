@@ -66,7 +66,7 @@ remediate:
 - `cert_store`: store subject issuer thumbprint not_after linux.path
 - `proxy_config`: scope server pac_url bypass
 - `firewall_rule`: id name direction action enabled protocol local_port remote_port remote_address application service profile source
-- `package`: name version upstream_version revision arch source manager
+- `package`: name version upstream_version revision arch source manager vendor
 - `unix_socket`: name inode listening kind
 
 **`from` 은 `path` 필드가 있는 subject 에만 통한다** — file text_config structured_config shortcut browser_extension. 그 밖에는 `where` 값에 `${다른규칙.capture}` 를 넣어 부모에 묶는다.
@@ -79,7 +79,7 @@ file.quarantine_only · shortcut.strip_args · av.restore_exclusions · hosts.re
 
 ## 연산자
 
-equals · not_equals · matches · contains · starts_with · ends_with · in · glob · exists · gt · lt · version_lt · version_gt · pkg_version_lt · yara
+equals · not_equals · matches · contains · starts_with · ends_with · in · glob · exists · gt · lt · version_lt · version_gt · pkg_version_lt · rpm_version_lt · yara
 
 정규식은 **RE2** 다. 역참조·전방탐색이 없다.
 

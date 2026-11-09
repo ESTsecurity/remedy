@@ -4,7 +4,7 @@
 //! 서로 무관한 두 정상 소프트웨어의 조각이 합쳐져 감염 판정을 만든다.
 
 use remedy_artifacts::{
-    BootConfigRecord, FileRecord, Observations, PersistenceRecord, Scope, WinTask,
+    BootConfigRecord, FileRecord, Observations, PackageRecord, PersistenceRecord, Scope, WinTask,
 };
 use remedy_detect::{evaluate, Snapshot};
 use remedy_sdk::artifact::{ArtifactsEnvelope, CoreInfo, HostInfo};
@@ -799,6 +799,7 @@ fn every_operator_the_catalog_calls_available_actually_evaluates() {
             // `is_pkg_version` 이 거절해 비교 코드가 한 번도 돌지 않고,
             // 그러면 이 시험은 배선만 보고 통과한다.
             Operator::PkgVersionLt => "\"1.0-1ubuntu2\"".into(),
+            Operator::RpmVersionLt => "\"0:8.0.30-8.el9_8.1\"".into(),
             Operator::Yara => "\"rules/x.yar:r\"".into(),
             _ => "\"evil\"".into(),
         };
@@ -824,6 +825,89 @@ fn every_operator_the_catalog_calls_available_actually_evaluates() {
             op.info().implemented_in.as_str()
         );
     }
+}
+
+// ─────────────────────────────────────────── RPM 판 (코어 1.3.0)
+
+/// RHEL 9 의 공지 한 줄 모양 — 공급사로 가르고, 판은 rpm 의 규칙으로 견준다.
+const RPM_MANIFEST: &str = r#"
+schema_version: 1
+id: rpm-line
+version: 0.1.0
+min_core: "1.3.0"
+platforms: [linux]
+name: { ko: "예시", en: "Sample" }
+scan_roots: ["/etc/php"]
+subjects: [package]
+detect:
+  - id: rhel9
+    subject: package
+    where:
+      all:
+        - { field: vendor, op: equals, value: "Red Hat, Inc." }
+        - { field: name, op: equals, value: php-cli }
+        - { field: version, op: rpm_version_lt, value: "0:8.0.30-8.el9_8.1" }
+verdict:
+  require: "rhel9"
+"#;
+
+fn rpm(version: &str, vendor: &str) -> PackageRecord {
+    PackageRecord {
+        name: "php-cli".into(),
+        version: version.into(),
+        upstream_version: "8.0.30".into(),
+        revision: String::new(),
+        arch: "x86_64".into(),
+        source: "php".into(),
+        manager: "rpm".into(),
+        vendor: vendor.into(),
+    }
+}
+
+#[test]
+fn an_rpm_line_picks_the_vendor_and_compares_as_rpm_does() {
+    let mut sc = Scope::diagnostic(Vec::new(), Platform::Linux);
+    sc.subjects.push(Subject::Package);
+    let matched = |rec: PackageRecord| {
+        let mut o = Observations::default();
+        o.put(Subject::Package, &[rec]);
+        let host = HostInfo {
+            hostname: "H".into(),
+            os: "linux".into(),
+            version: "9".into(),
+            arch: "amd64".into(),
+        };
+        let core = CoreInfo {
+            version: "0".into(),
+            build: "d".into(),
+        };
+        let env = remedy_artifacts::assemble(
+            "r".into(),
+            "2026-11-09T00:00:00Z".into(),
+            host,
+            core,
+            &sc,
+            o,
+        );
+        let body = evaluate(&Snapshot::from_envelope(&env), &manifest(RPM_MANIFEST), &sc).unwrap();
+        assert!(body.issues.is_empty(), "{:?}", body.issues);
+        body.verdicts.len()
+    };
+    const RH: &str = "Red Hat, Inc.";
+    // 고친 판보다 낮다 — 개정의 `_` 뒤(`el9_8` 의 8 · `.1`)까지 rpm 의 규칙으로 본다.
+    assert_eq!(matched(rpm("8.0.30-8.el9_7", RH)), 1);
+    assert_eq!(matched(rpm("8.0.30-8.el9_8", RH)), 1);
+    // 고친 판 · 그보다 높은 판.
+    assert_eq!(matched(rpm("8.0.30-8.el9_8.1", RH)), 0);
+    assert_eq!(matched(rpm("8.0.30-9.el9", RH)), 0);
+    // 같은 판 문자열이라도 다른 공급사의 빌드는 그 공지의 대상이 아니다.
+    assert_eq!(
+        matched(rpm(
+            "8.0.30-8.el9_7",
+            "Rocky Enterprise Software Foundation"
+        )),
+        0
+    );
 }
 
 #[test]
