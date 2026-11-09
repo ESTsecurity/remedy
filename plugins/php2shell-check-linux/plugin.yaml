@@ -238,6 +238,14 @@ detect:
           - "e29f5ecb9a360087341f83a569bd5db249aec5049d4f34cd39904697cc3e8cdb"   # 8.3.36 linux/amd64 cli /usr/local/lib/libphp.so
           - "ea386c64c65dcd1ec432a1cdc356ef07bc943b33f89d301b7683382a884bef98"   # 8.3.36 linux/amd64 fpm /usr/local/bin/php
           - "c05fc7b4fa52c240c93ee21f2497bf897bd0bcdea3da0166c18cb06354ee4cdb"   # 8.3.36 linux/amd64 fpm /usr/local/sbin/php-fpm
+          # 공식 이미지의 **현재 태그는 다시 지어진다**(기반 이미지가 바뀔 때마다) — 실행 파일 해시가 그때마다
+          # 바뀐다. 2026-11-09 에 받은 `php:8.3.36-*`(2026-11-05 에 다시 지은 이미지)의 실행 파일을 재서 더했다.
+          # 그 뒤에 다시 지은 이미지는 이 목록에 없어 *확인 필요* 다.
+          - "cf4f50c6a83bb038b5967b12a2f7155f6ee64e19f78763656becc3699636239f"   # 8.3.36 linux/amd64 cli /usr/local/bin/php (php@sha256:6281022…)
+          - "01a9dd5b32757a6ccfbd96e3151b5c1760974a1009d5cd8db8031637acee4bd9"   # 8.3.36 linux/amd64 cli /usr/local/bin/php-cgi (php@sha256:6281022…)
+          - "9ffb5ad79a6c4aabffc957b7da6f7b6c85d62f5b716d2c3646c565cc5417f54a"   # 8.3.36 linux/amd64 cli /usr/local/lib/libphp.so (php@sha256:6281022…)
+          - "202d8b1c3f28b53b08f7f6f262bfc0c54a55f61ddcd5bf872797aa82d399ee0d"   # 8.3.36 linux/amd64 fpm /usr/local/bin/php (php@sha256:03af352…)
+          - "cb761a313cce69efa4a02098f68c72b35db1bb6977bc0c537d7d4c8a0eacd4ef"   # 8.3.36 linux/amd64 fpm /usr/local/sbin/php-fpm (php@sha256:03af352…)
 
   # ── 3. RPM 계열 — 이 코어가 아직 읽지 못하는 자리 ─────────────────────────
   #
