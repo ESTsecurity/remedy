@@ -1,0 +1,146 @@
+# PHP2Shell 점검 — Windows (CVE-2026-109618 · CVE-2026-109619)
+#
+# **고치지 않는다.** 원인은 OOM 상황의 요청 데이터 미초기화이고 메우는 것은 공급사의 일이다.
+# 설정으로 완화할 수도 없다 — 점검의 답은 **판 하나**다.
+#
+# # 판정은 공식 빌드의 해시로만 확정한다
+#
+# PE 의 판 문자열은 그 빌드가 패치를 담았는지 말해 주지 않는다 — 같은 판 번호로 다시 지은 빌드 ·
+# 공급사가 고친 빌드 · 직접 지은 빌드가 모두 같은 문자열을 낸다. 그래서
+#
+# - **공식 빌드 해시와 맞으면** 그 판이 판정이다(고친 판이면 0, 아니면 2).
+# - **맞지 않으면 확인 필요(6)** 다. 판이 수정 판보다 낮으면 *패치되지 않았을 가능성이 큽니다* 라고
+#   따로 적어, 할 일이 판 올리기인지 받은 곳 확인인지 화면에서 갈린다.
+#
+# 판정의 단위는 **설치본**(코어 DLL 이 있는 폴더)이다 — 한 기계에 여럿 깔려도 한 설치본의 사실이
+# 다른 설치본의 판정을 바꾸지 않게, 코어 DLL 마다 그룹을 가른다(`from: ${core.dir}`).
+#
+# # 런타임만 본다
+#
+# 코어 DLL(`php8ts.dll` · `php8.dll` · `php7ts.dll` · … · `php5.dll`)이 PHP 의 판이다. 확장
+# DLL(`ext\php_*.dll`)은 PHP 와 같은 판을 선언하지만 PHP 가 아니다 — 그것으로 PHP 를 세면 다른
+# 제품 안의 확장 몇 개가 가짜 PHP 여럿이 된다(공개된 SBOM 도구의 실패 사례).
+#
+# # 수정 판의 출처 (공개 공지)
+#
+# - 상류: 8.2.35 · 8.3.36 · 8.4.27 · 8.5.12 — https://www.php.net/archive/2026.php · 8.1 이하는
+#   지원이 끝나 수정 판이 없다
+# - 공식 빌드 해시: downloads.php.net 의 `php-8.3.35` · `php-8.3.36` Windows x64(TS · NTS) 코어 DLL
+#
+# # 이 룰이 보지 않는 것
+#
+# - 선언한 자리 밖에 둔 PHP — 흔한 자리만 적었다(`scan_roots`).
+# - 실행 중인 PHP 가 고친 판을 실었는가 — 고친 뒤에는 IIS · Apache · PHP 를 다시 시작한다.
+schema_version: 1
+id: php2shell-check-windows
+version: 0.1.0
+min_core: "1.3.0"   # verdict.unconfirmed 가 1.3.0 부터 있다
+platforms: [windows]
+
+kind: check
+
+name:
+  ko: "PHP2Shell 점검 (CVE-2026-109618 · 109619)"
+  en: "PHP2Shell check (CVE-2026-109618, 109619)"
+
+references:
+  - "CVE-2026-109618"
+  - "CVE-2026-109619"
+  - "https://www.php.net/archive/2026.php"
+
+# 흔한 설치 자리 — 수동 설치 · XAMPP · WampServer · Laragon · Chocolatey(`C:\tools\phpNN`).
+#
+# # 경고 하나를 남긴다 — 그 이유를 여기 적는다
+#
+# 린트가 `C:\php` 를 *"사실상 전체를 훑는다(깊이 2)"* 로 경고한다. 맞는 지적이지만 PHP 의 수동
+# 설치본은 그 디렉터리 **바로 아래**에 코어 DLL 을 두므로 더 좁힐 자리가 없다. 좁히는 대신 읽는 것을
+# 좁혔다 — `subjects` 가 `file` 하나이고 판정이 코어 DLL 이름에만 걸린다. `C:\tools` 는 통째로 적지
+# 않는다 — Chocolatey 가 msys64 같은 큰 도구를 함께 두는 자리라 폴더 이름(`php83` …)으로 적는다.
+scan_roots:
+  - 'C:\php'
+  - 'C:\Program Files\PHP'
+  - 'C:\Program Files (x86)\PHP'
+  - 'C:\xampp\php'
+  - 'C:\wamp64\bin\php'
+  - 'C:\wamp\bin\php'
+  - 'C:\laragon\bin\php'
+  - 'C:\tools\php85'
+  - 'C:\tools\php84'
+  - 'C:\tools\php83'
+  - 'C:\tools\php82'
+  - 'C:\tools\php81'
+  - 'C:\tools\php80'
+  - 'C:\tools\php74'
+
+subjects: [file]
+
+detect:
+  # 설치본 하나 = 코어 DLL 하나. 아래 규칙은 모두 이 폴더 안에서만 본다.
+  - id: core
+    subject: file
+    where:
+      - { field: path, op: matches, value: '(?i)\\php[5-8](ts)?\.dll$' }
+    capture:
+      dir: 'path | dirname'
+
+  - id: core_official_vuln
+    subject: file
+    from: '${core.dir}'
+    where:
+      all:
+        - { field: path, op: matches, value: '(?i)\\php[5-8](ts)?\.dll$' }
+        - field: sha256
+          op: in
+          value:
+            - "37d0e60d20b7f17a564bafab657f9cf448044a3f333a6abce8750113d79fe5f7"   # 8.3.35 windows/amd64 nts php8.dll
+            - "986b6d6e4f56d348acbedf0ea5ef80b81cbbeaed28fdb0227c5f33f6fe68ed81"   # 8.3.35 windows/amd64 ts php8ts.dll
+
+  - id: core_official_fixed
+    subject: file
+    from: '${core.dir}'
+    where:
+      all:
+        - { field: path, op: matches, value: '(?i)\\php[5-8](ts)?\.dll$' }
+        - field: sha256
+          op: in
+          value:
+            - "77cd2e30cc9c223086eea12ef2a214dd34a3f92117324906ea9990c0606f4bd7"   # 8.3.36 windows/amd64 nts php8.dll
+            - "f7c85c4f5547379f5177ef1d6cace4f2473792034914718f6820aa252dec29c1"   # 8.3.36 windows/amd64 ts php8ts.dll
+
+  # 판이 그 계열의 수정 판보다 낮다 — 또는 수정 판이 없는 계열(5.4~8.1). 따옴표는 **필수다**:
+  # 없으면 YAML 이 `8.2` 를 수로 읽어 뒤의 0 이 사라진다.
+  - id: core_below_fix
+    subject: file
+    from: '${core.dir}'
+    where:
+      all:
+        - { field: path, op: matches, value: '(?i)\\php[5-8](ts)?\.dll$' }
+        - any:
+            - all:
+                - { field: version, op: matches, value: '^8\.2\.' }
+                - { field: version, op: version_lt, value: "8.2.35" }
+            - all:
+                - { field: version, op: matches, value: '^8\.3\.' }
+                - { field: version, op: version_lt, value: "8.3.36" }
+            - all:
+                - { field: version, op: matches, value: '^8\.4\.' }
+                - { field: version, op: version_lt, value: "8.4.27" }
+            - all:
+                - { field: version, op: matches, value: '^8\.5\.' }
+                - { field: version, op: version_lt, value: "8.5.12" }
+            - { field: version, op: matches, value: '^(5\.[4-6]|7\.[0-4]|8\.[01])\.' }
+
+# 판정이 규칙 하나(`core_official_vuln`)에 걸려 있다는 린트 경고도 남긴다 — 그 경고는 **룰 하나의 오탐이
+# 곧바로 삭제로 이어지는** 치료 룰을 위한 것이다. 이 룰은 아무것도 바꾸지 않고, 공식 빌드의 해시가
+# 맞는다는 것은 그 자체로 결정적인 근거다(판 문자열과 달리 다른 빌드가 같은 값을 낼 수 없다).
+verdict:
+  require: "core_official_vuln"
+  unconfirmed:
+    - when: "core_below_fix and not core_official_vuln and not core_official_fixed"
+      why:
+        ko: "판이 수정 판보다 낮습니다(8.1 이하는 수정 판이 없습니다) — 공식 빌드인지 확인하지 못했지만 패치되지 않았을 가능성이 큽니다. 8.2.35 · 8.3.36 · 8.4.27 · 8.5.12 이상으로 올리십시오"
+        en: "the version is below the fixed release (8.1 and older have no fix) - not confirmed as an official build, but most likely unpatched; upgrade to 8.2.35, 8.3.36, 8.4.27, 8.5.12 or later"
+    - when: "core and not core_below_fix and not core_official_vuln and not core_official_fixed"
+      why:
+        ko: "판은 수정 판 이상이지만 공식 빌드의 해시와 맞지 않아 패치 여부를 가리지 못했습니다 — 받은 곳(windows.php.net 공식 빌드인지)을 확인하십시오"
+        en: "the version is at or above the fixed release but does not match an official build hash, so its patch status cannot be told - check where it came from (an official windows.php.net build or not)"
