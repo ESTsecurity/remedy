@@ -48,9 +48,9 @@ name:
   en: "PHP2Shell check (CVE-2026-109618, 109619)"
 
 references:
+  - "https://www.php.net/archive/2026.php"
   - "CVE-2026-109618"
   - "CVE-2026-109619"
-  - "https://www.php.net/archive/2026.php"
   - "https://ubuntu.com/security/notices/USN-8948-1"
   - "https://ubuntu.com/security/notices/USN-8948-2"
   - "https://security-tracker.debian.org/tracker/CVE-2026-109618"

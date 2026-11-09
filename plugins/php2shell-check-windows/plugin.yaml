@@ -47,9 +47,9 @@ name:
   en: "PHP2Shell check (CVE-2026-109618, 109619)"
 
 references:
+  - "https://www.php.net/archive/2026.php"
   - "CVE-2026-109618"
   - "CVE-2026-109619"
-  - "https://www.php.net/archive/2026.php"
 
 # 흔한 설치 자리 — 수동 설치 · XAMPP · WampServer · Laragon · Chocolatey(`C:\tools\phpNN`).
 #

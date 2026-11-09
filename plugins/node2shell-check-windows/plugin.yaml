@@ -39,8 +39,8 @@ name:
   en: "Node2Shell check (CVE-2026-111497)"
 
 references:
-  - "CVE-2026-111497"
   - "https://nodejs.org/en/blog/vulnerability/october-2026-security-releases"
+  - "CVE-2026-111497"
   - "https://github.com/google/brotli/releases/tag/v1.2.1"
   - "https://downloads.php.net/~windows/releases/"
 

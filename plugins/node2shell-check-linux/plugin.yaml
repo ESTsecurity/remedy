@@ -43,8 +43,8 @@ name:
   en: "Node2Shell check (CVE-2026-111497)"
 
 references:
-  - "CVE-2026-111497"
   - "https://nodejs.org/en/blog/vulnerability/october-2026-security-releases"
+  - "CVE-2026-111497"
   - "https://github.com/google/brotli/releases/tag/v1.2.1"
   - "https://security-tracker.debian.org/tracker/CVE-2026-111497"
   - "https://linux.oracle.com/errata/ELSA-2026-500519.html"

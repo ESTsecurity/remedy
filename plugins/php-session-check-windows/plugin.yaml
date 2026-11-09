@@ -21,8 +21,8 @@ name:
   en: "PHP session upload progress setting check (CVE-2026-115560)"
 
 references:
-  - "CVE-2026-115560"
   - "https://www.php.net/archive/2026.php"
+  - "CVE-2026-115560"
 
 # PHP2Shell Windows 룰과 같은 설치 자리 + WampServer 의 Apache 가 읽는 `php.ini`
 # (`C:\wamp64\bin\apache\apache2.4.x\bin\php.ini`). 린트의 *깊이 2* 경고는 그 룰과 같은 까닭으로 남긴다

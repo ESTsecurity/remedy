@@ -21,8 +21,8 @@ name:
   en: "PHP session upload progress setting check (CVE-2026-115560)"
 
 references:
-  - "CVE-2026-115560"
   - "https://www.php.net/archive/2026.php"
+  - "CVE-2026-115560"
 
 # 설정은 배포판마다 자리가 다르다 — Debian 계열 `/etc/php/<판>/<SAPI>/` · RPM 계열 `/etc/php.ini` 와
 # `/etc/php.d` · Alpine `/etc/phpNN` · 공식 Docker 이미지 `/usr/local/etc/php`. RPM 계열의 주 설정은
