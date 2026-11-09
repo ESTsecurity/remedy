@@ -770,7 +770,10 @@ fn eval_predicate(
         // **`pkg_version_lt` 도 같은 사고를 당한다.** 그 연산자는 꼬리를 받지만
         // 따옴표 없이 적은 `8.10` 은 꼬리가 아니라 **이미 `8.1` 로 도착한 값**이고,
         // 그것은 `is_pkg_version` 이 참이라 비교를 그냥 지난다.
-        Operator::VersionLt | Operator::VersionGt | Operator::PkgVersionLt
+        Operator::VersionLt
+        | Operator::VersionGt
+        | Operator::PkgVersionLt
+        | Operator::RpmVersionLt
             if f.value
                 .as_ref()
                 .is_some_and(remedy_sdk::catalog::unquoted_version_number) =>
@@ -796,6 +799,17 @@ fn eval_predicate(
                 let rule_side = !remedy_sdk::catalog::is_pkg_version(&expected);
                 let bad = if rule_side { &expected } else { &actual };
                 let why = pkg_version_issue(&f.field, &actual, &expected, f.op.id());
+                return issues.unreadable_version(version_label(&f.field, bad), why, rule_side);
+            }
+        },
+        // RPM 이 적은 판 — rpm 의 규칙(`rpmvercmp`)으로 견준다. `_` 를 받는 것이 `pkg_version_lt` 와
+        // 갈리는 자리이고(RHEL 의 `el9_8`), 모양이 아니면 같은 레일로 *"재지 못했다"* 가 된다.
+        Operator::RpmVersionLt => match crate::compare::rpm_version_cmp(&actual, &expected) {
+            Some(ord) => ord == std::cmp::Ordering::Less,
+            None => {
+                let rule_side = !remedy_sdk::catalog::is_rpm_version(&expected);
+                let bad = if rule_side { &expected } else { &actual };
+                let why = rpm_version_issue(&f.field, &actual, &expected);
                 return issues.unreadable_version(version_label(&f.field, bad), why, rule_side);
             }
         },
@@ -879,6 +893,23 @@ fn pkg_version_issue(field: &str, actual: &str, expected: &str, op: &str) -> Str
         _ => format!(
             "'{field}' 의 값 '{actual}' 과 룰이 적은 '{expected}' {pe} \
              모두 판으로 읽지 못했습니다 — {how}"
+        ),
+    }
+}
+
+/// `rpm_version_lt` 가 못 읽었을 때의 사유 — 모양 규칙이 `pkg_version_lt` 와 달라(`_` 를 받는다) 문구를
+/// 따로 둔다.
+fn rpm_version_issue(field: &str, actual: &str, expected: &str) -> String {
+    use remedy_sdk::catalog::is_rpm_version;
+    use remedy_sdk::i18n::particle;
+    let how = "rpm_version_lt 는 RPM 이 적는 판을 비교합니다(예: 0:8.0.30-8.el9_8.1 · \
+               7.4.33-8.module+el8.10.0+25117+30337cca). 숫자로 시작해야 합니다";
+    let (pa, pe) = (particle(actual, "을", "를"), particle(expected, "을", "를"));
+    match (is_rpm_version(actual), is_rpm_version(expected)) {
+        (false, true) => format!("'{field}' 의 값 '{actual}' {pa} 판으로 읽지 못했습니다 — {how}"),
+        (true, false) => format!("룰이 적은 '{expected}' {pe} 판으로 읽지 못했습니다 — {how}"),
+        _ => format!(
+            "'{field}' 의 값 '{actual}' 과 룰이 적은 '{expected}' {pe} 모두 판으로 읽지 못했습니다 — {how}"
         ),
     }
 }

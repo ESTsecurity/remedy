@@ -59,7 +59,7 @@
 - **`cert_store`** — `store` · `subject` · `issuer` · `thumbprint` · `not_after` · `linux.path`
 - **`proxy_config`** — `scope` · `server` · `pac_url` · `bypass`
 - **`firewall_rule`** — `id` · `name` · `direction` · `action` · `enabled` · `protocol` · `local_port` · `remote_port` · `remote_address` · `application` · `service` · `profile` · `source`
-- **`package`** — `name` · `version` · `upstream_version` · `revision` · `arch` · `source` · `manager`
+- **`package`** — `name` · `version` · `upstream_version` · `revision` · `arch` · `source` · `manager` · `vendor`
 - **`unix_socket`** — `name` · `inode` · `listening` · `kind`
 
 ## 파괴·변경 동작 29종
@@ -116,7 +116,7 @@
 | `HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Windows\AppInit_DLLs` | (빈 값) |
 | `HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Windows\LoadAppInit_DLLs` | `0` (REG_DWORD) |
 
-## 연산자 15종
+## 연산자 16종
 
 | 연산자 | 구현 Phase | value 필요 |
 |---|---|---|
@@ -134,6 +134,7 @@
 | `version_lt` | P4 | O |
 | `version_gt` | P4 | O |
 | `pkg_version_lt` | P4 | O |
+| `rpm_version_lt` | P4 | O |
 | `yara` | P4 | O |
 
 ## capture 함수 9종

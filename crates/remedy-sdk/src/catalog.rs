@@ -739,6 +739,8 @@ impl Subject {
                 "arch",
                 "source",
                 "manager",
+                // RPM 의 `VENDOR` — 같은 판을 다시 지은 배포판(Rocky · Alma)을 가른다(코어 1.3.0).
+                "vendor",
             ],
             // `name` 은 `/proc/net/unix` 가 보여 주는 그대로다 — 추상 소켓은 `@` 로
             // 시작하고(커널이 앞의 NUL 을 `@` 로 적는다), 파일 소켓은 경로다. 이름 없는
@@ -1889,6 +1891,23 @@ pub enum Operator {
     /// 짝으로 있는 것은 그쪽이 먼저 생겼기 때문이고, 닫힌 집합은 **쓰이는
     /// 것만** 늘린다.
     PkgVersionLt,
+    /// **RPM 이 적은 판**끼리 견준다 (2026-11-09 · 코어 1.3.0).
+    ///
+    /// # 왜 `pkg_version_lt` 로 안 되는가
+    ///
+    /// RHEL 계열의 개정은 `8.el9_8.1` · `8.module+el8.10.0+25117+30337cca` 처럼 **`_` 를 담는다** —
+    /// `pkg_version_lt` 는 dpkg 와 apk 가 `_` 를 반대로 읽어 그것을 거절하므로 RPM 기계는 늘 *"재지
+    /// 못했다"*(6)가 된다. 규칙도 다르다 — rpm 의 `rpmvercmp` 는 글자 · 숫자가 아닌 문자를 **구분자로만**
+    /// 보고(dpkg 는 순서가 있는 문자로 본다), 숫자 조각이 글자 조각보다 언제나 높다. 같은 문자열의 순서가
+    /// 두 규칙에서 갈릴 수 있으므로 연산자를 나눈다 — 룰이 어느 매니저의 판인지 고른다.
+    ///
+    /// # 규칙 (rpm 의 `rpmvercmp` · `rpmverCmp`)
+    ///
+    /// `[epoch:]판[-개정]` 을 셋으로 갈라 **epoch → 판 → 개정** 순으로 견준다. epoch 이 없으면 `0`, 개정은
+    /// **둘 다 있을 때만** 견준다. 조각 안에서는 글자 · 숫자가 아닌 문자를 건너뛰고 숫자 덩어리와 글자
+    /// 덩어리를 번갈아 본다 — 숫자는 수로, `~` 는 무엇보다도 먼저, `^` 는 끝보다는 뒤이고 다른 무엇보다는
+    /// 먼저다. 구현과 시험은 `remedy_detect::compare::rpm_version_cmp` 에 있다.
+    RpmVersionLt,
     /// 파일 전용이 아니다. 바이트열을 제공하는 모든 필드에 적용된다.
     Yara,
 }
@@ -1902,7 +1921,7 @@ pub struct OperatorInfo {
 }
 
 impl Operator {
-    pub const ALL: [Operator; 15] = [
+    pub const ALL: [Operator; 16] = [
         Operator::Equals,
         Operator::NotEquals,
         Operator::Matches,
@@ -1917,6 +1936,7 @@ impl Operator {
         Operator::VersionLt,
         Operator::VersionGt,
         Operator::PkgVersionLt,
+        Operator::RpmVersionLt,
         Operator::Yara,
     ];
 
@@ -2001,6 +2021,12 @@ impl Operator {
                 implemented_in: Phase::P4,
                 takes_value: true,
             },
+            // 위 `VersionLt` 의 주석과 같은 규약 — 연산자는 탐지 표면(P4)의 몫이다.
+            Operator::RpmVersionLt => OperatorInfo {
+                id: "rpm_version_lt",
+                implemented_in: Phase::P4,
+                takes_value: true,
+            },
             Operator::Yara => OperatorInfo {
                 id: "yara",
                 implemented_in: Phase::P4,
@@ -2081,6 +2107,28 @@ pub fn is_pkg_version(s: &str) -> bool {
     }
     body.bytes()
         .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'+' | b'-' | b'~'))
+}
+
+/// `rpm_version_lt` 가 견줄 수 있는 모양인가 (2026-11-09).
+///
+/// `[epoch:]판[-개정]` — epoch 은 숫자, 판은 **숫자로 시작**하고(그래야 이름이 판으로 읽히지 않는다),
+/// 글자 · 숫자와 `.` `_` `+` `~` `^` `-` 만 담는다. [`is_pkg_version`] 과 달리 `_` 를 받는다 — rpm 에서는
+/// 구분자일 뿐이라 순서가 갈리지 않는다(RHEL 의 `el9_8`).
+pub fn is_rpm_version(s: &str) -> bool {
+    let s = s.trim();
+    let body = match s.split_once(':') {
+        Some((e, rest)) => {
+            if e.is_empty() || !e.bytes().all(|b| b.is_ascii_digit()) {
+                return false;
+            }
+            rest
+        }
+        None => s,
+    };
+    body.starts_with(|c: char| c.is_ascii_digit())
+        && body.bytes().all(|b| {
+            b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'+' | b'~' | b'^' | b'-')
+        })
 }
 
 /// 룰이 **따옴표 없이** 적어서 버전으로 읽을 수 없게 된 리터럴인가.

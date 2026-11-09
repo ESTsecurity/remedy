@@ -178,7 +178,7 @@ verdict:
 ## 패키지
 
 리눅스에서 **배포판이 깐 소프트웨어의 판**은 `package` 가 들고 있다. 수집기는
-DB 를 **파일로 직접 읽고**(`dpkg status` · `apk installed`) 매니저를 부르지 않는다.
+DB 를 **파일로 직접 읽고**(`dpkg status` · `apk installed` · rpm DB) 매니저를 부르지 않는다.
 판을 셋으로 나눠 담으므로 **꼬리 때문에 6으로 끝나지 않는다**:
 
 | 필드 | `1:2.38.1-5+deb12u3` |
@@ -211,7 +211,15 @@ dpkg 의 규칙은 높게 읽어 **순서가 반대**다. 그때는 추측하지
 > 공급사 공지에서 온다. 상류 판만 보는 룰(`upstream_version`)은 배포판 기계에서
 > **고친 것까지 취약으로 보고**한다.
 
-`manager` 는 `dpkg` · `apk` 둘뿐이다 — **`rpm` 은 없다**(그쪽 DB 는 sqlite 다).
+**RPM 판은 `rpm_version_lt`** 다(코어 1.3.0 · `manager: rpm`). RHEL 의 개정(`8.el9_8.1`)은
+`_` 를 담아 위 연산자가 거절하고, 순서도 rpm 의 규칙(`rpmvercmp`)이다. **같은 판을 여러
+공급사가 낸다** — Rocky · Alma 가 RHEL 의 판을 그대로 적으므로 `vendor` 로 가른다:
+
+```yaml
+- { field: vendor,  op: equals,         value: "Red Hat, Inc." }
+- { field: version, op: rpm_version_lt, value: "0:8.0.30-8.el9_8.1" }
+```
+
 `package` 에는 **치료 Op 이 없다**: 패키지를 올리는 것은 공급사의 일이다.
 `upstream_version` 은 읽지 못하면 **빈 문자열**이고 그 술어는 거짓이 된다.
 

@@ -483,7 +483,8 @@
         "revision",
         "arch",
         "source",
-        "manager"
+        "manager",
+        "vendor"
       ],
       "id": "package",
       "implemented_in": "P4",
