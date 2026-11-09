@@ -317,6 +317,9 @@ try {
     # **값을 괄호로 묶는다** — PowerShell 은 쉼표를 `+` 보다 먼저 묶어, 묶지 않으면 경로가
     # 두 인자로 갈라진다(2026-11-06 첫 회차: 떨어진 폴더 이름이 게스트의 `$Lead` 로 붙었다).
     if ($extraDir) { $guestArgs += @("-Extra", (Join-Path "$LabRoot\menu-extra" (Split-Path -Leaf $extraDir))) }
+    # 룰이 여럿인 꾸러미(1.3.0 부터 Windows 배포본 — EvilAI 와 점검 셋)는 고르는 화면부터 선다.
+    # 아래 작업은 EvilAI 감염을 다루므로 그 룰을 고른다 — 번호는 게스트가 화면에서 읽는다.
+    if ($shape.Plugin -gt 1) { $guestArgs += @("-Pick", "EvilAI") }
     $rc = Invoke-GuestScript -Session $session -Root $LabRoot -ScriptName "Verify-Menu.ps1" `
             -Arguments $guestArgs -PassThruExitCode
     if ($rc -ne 0) { Write-Warn "게스트 스크립트 종료 $rc" }
@@ -333,6 +336,11 @@ try {
     if ($r.error) { Write-Warn "게스트 사유: $($r.error)" }
     Add-Check "1" "게스트 스크립트가 끝까지 돌았다" (-not $r.error) `
               "작업 $(@($r.steps).Count)개"
+    if ($shape.Plugin -gt 1) {
+        Add-Check "1" "룰이 여럿이면 고르는 화면이 먼저 서고 EvilAI 를 고른다" `
+                  ($null -ne $r.chooser -and [int]$r.chooser.count -eq $shape.Plugin -and [int]$r.chooser.number -gt 1) `
+                  "룰 $($r.chooser.count)개 · EvilAI $($r.chooser.number)번 · plugin.yaml $($shape.Plugin)개"
+    }
     Add-Check "1" "메뉴가 떴다" ([bool]$r.probe.shown) "줄 $($r.probe.item_count)개"
     # 목표 remedy_사용자메뉴 기준 1 — 치료 기록이 없는 기계의 첫 화면은 **받은 사람의 일 둘(검사하고
     # 치료하기 · 검사만 하기) + 더 보기 한 줄**이고 까닭을 단 흐린 줄이 없다(v1.2.0 은 열넷 중 다섯이
