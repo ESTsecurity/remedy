@@ -7,7 +7,8 @@
 
 **remedy** 는 **ESTsecurity 가 만들고 관리하는 전용백신**입니다. 아래 표의 악성코드가 남긴
 파일 · 자동 실행 등록 · 보안 제품 예외를 찾아 치료하고, 치료한 것은 격리해 두어 **되돌릴 수
-있습니다.** 설치 없이, 받은 폴더에서 바로 실행합니다.
+있습니다.** 표의 *점검* 항목은 PHP · Node.js 의 알려진 취약점이 이 기계에 있는지 알려 드립니다 —
+아무것도 바꾸지 않습니다. 설치 없이, 받은 폴더에서 바로 실행합니다.
 
 ## 다루는 위협
 
@@ -17,9 +18,15 @@
 | 룰 | 하는 일 | OS | 폴더 · 버전 | 참고 |
 |---|---|---|---|---|
 | EvilAI(Locust) 제거 | 찾아서 치료합니다 (복원할 수 있습니다) | Windows | `evilai-locust` 0.2.0 | [www.virustotal.com](https://www.virustotal.com/gui/search/engines%3Ameadowlocust) |
+| Node2Shell 점검 (CVE-2026-111497) | 찾기만 합니다 | Windows | `node2shell-check-windows` 0.1.0 | [nodejs.org](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases) |
+| PHP 세션 업로드 진행 설정 점검 (CVE-2026-115560) | 찾기만 합니다 | Windows | `php-session-check-windows` 0.1.0 | [www.php.net](https://www.php.net/archive/2026.php) |
+| PHP2Shell 점검 (CVE-2026-109618 · 109619) | 찾기만 합니다 | Windows | `php2shell-check-windows` 0.1.0 | [www.php.net](https://www.php.net/archive/2026.php) |
 | CWPdoor 점검 (탐지만) | 찾기만 합니다 | Linux | `cwpdoor-1-check` 0.1.2 | [blog.xlab.qianxin.com](https://blog.xlab.qianxin.com/cwpdoor-the-invisible-backdoor-living-inside-control-web-panel/) |
 | CWPdoor 제거 | 찾아서 치료합니다 (복원할 수 있습니다) | Linux | `cwpdoor-2-clean` 0.1.2 | [blog.xlab.qianxin.com](https://blog.xlab.qianxin.com/cwpdoor-the-invisible-backdoor-living-inside-control-web-panel/) |
 | Ebury 점검 (탐지만) | 찾기만 합니다 | Linux | `ebury-check` 0.2.0 | [www.welivesecurity.com](https://www.welivesecurity.com/en/eset-research/ebury-alive-unseen-400k-linux-servers-compromised-cryptotheft-financial-gain/) |
+| Node2Shell 점검 (CVE-2026-111497) | 찾기만 합니다 | Linux | `node2shell-check-linux` 0.1.0 | [nodejs.org](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases) |
+| PHP 세션 업로드 진행 설정 점검 (CVE-2026-115560) | 찾기만 합니다 | Linux | `php-session-check-linux` 0.1.0 | [www.php.net](https://www.php.net/archive/2026.php) |
+| PHP2Shell 점검 (CVE-2026-109618 · 109619) | 찾기만 합니다 | Linux | `php2shell-check-linux` 0.1.0 | [www.php.net](https://www.php.net/archive/2026.php) |
 <!-- threats:end -->
 
 ## 처음 쓰시는 분 — 다섯 단계
@@ -96,12 +103,13 @@ sudo ./remedy
 
 ### 4. 무엇을 누르나
 
-- **Windows** — 메뉴가 바로 뜹니다. 바꾸기 전에 먼저 보려면 **2. 검사만 하기**, 바로 치료하려면
-  **1. 검사하고 치료하기** 를 고릅니다. 치료는 바꿀 것을 모두 보여 드린 뒤 `예` 를 받아야
-  시작합니다.
-- **리눅스** — 받은 파일에 검사 항목이 셋이라 먼저 무엇을 볼지 묻습니다. 어떤 위협인지 모르면
-  **1. 3개 모두 검사만 하기** 를 고릅니다 — 아무것도 바꾸지 않고 결과를 한 번에 보여 드립니다.
-  치료는 그 항목을 고른 뒤 **1. 검사하고 치료하기** 로 합니다.
+받은 파일에 검사 항목이 여럿이라(Windows 넷 · 리눅스 여섯) 먼저 무엇을 볼지 묻습니다.
+
+- 어떤 위협인지 모르면 **1. 모두 검사만 하기** 를 고릅니다(화면에는 *4개 모두* 처럼 항목 수가 붙습니다) —
+  아무것도 바꾸지 않고 결과를 한 번에 보여 드립니다.
+- 치료는 그 항목(예: Windows 의 *EvilAI(Locust) 제거*)을 고른 뒤 **1. 검사하고 치료하기** 로 합니다. 바꾸기
+  전에 먼저 보려면 **2. 검사만 하기** 입니다. 치료는 바꿀 것을 모두 보여 드린 뒤 `예` 를 받아야 시작합니다.
+- *점검* · *탐지만* 항목은 고르면 **1. 검사만 하기** 가 맨 위에 섭니다 — 바꾸는 것이 없습니다.
 
 치료한 뒤에는 *치료 전으로 복원하기 · 치료가 유지됐는지 다시 보기 · 신고에 붙일 것 모으기* 가 메뉴에
 나타납니다. 그 밖의 명령(프로그램 자체 점검 · 명령줄 사용법 · 룰 작성자 · 운영자 명령)은 메뉴 마지막의
@@ -116,6 +124,9 @@ sudo ./remedy
 | 일부 실패 (N건 수행 완료) | 몇 가지를 바꾸지 못했습니다 — 바로 위 *실패* 줄에 무엇을 왜 못 했는지 있습니다. 이미 바꾼 것은 그대로 두었으니, 까닭을 해결한 뒤 다시 검사하고 치료합니다. 다시 검사가 *위협이 발견되지 않았습니다* 로 끝나도 실패 줄의 항목은 남아 있습니다 — 직접 지우거나 담당자에게 알리십시오. |
 | 위협 발견, 치료하지 않았습니다. | 검사만 했거나 치료를 승인하지 않았습니다. 치료하려면 그 항목의 **1. 검사하고 치료하기** 를 고릅니다. *(탐지만)* 항목은 아래 [위협별 안내](#위협별-안내)를 따르십시오. |
 | 관측이 불완전해 '위협 없음' 을 말할 수 없습니다. | 다 보지 못했습니다 — 바로 위 *주의* 줄에 까닭이 있습니다. |
+| 취약합니다. 위에 적은 항목을 확인하십시오. | *점검* 항목이 취약한 버전을 찾았습니다 — 적힌 프로그램을 고친 버전으로 올리고 그것을 쓰는 서비스를 다시 시작합니다([위협별 안내](#위협별-안내)). |
+| 확인이 필요합니다. 위에 적은 항목은 '취약하지 않다' 를 가릴 근거가 없습니다. | *점검* 항목이 판정할 근거가 없는 설치본 · 설정입니다 — 위 *주의* 줄이 무엇을 확인할지(버전 · 받은 곳 · 설정) 말합니다. |
+| 취약한 곳을 찾지 못했습니다. | *점검* 항목이 본 자리에서 취약한 버전을 찾지 못했습니다 — 그 프로그램(PHP · Node.js)이 이 기계에 없을 때도 이렇게 나옵니다. |
 | 해당 없음 (검사할 경로가 이 기계에 없습니다) | *모두 검사만* 의 요약 줄입니다. 그 항목이 검사하는 제품이 이 서버에 없습니다 — Control Web Panel(CWP)을 쓰지 않는 서버의 CWPdoor 두 항목이 이렇게 나옵니다. |
 
 작업 뒤에는 결과에 맞는 **다음 할 일을 메뉴 번호로** 알려 드립니다.
@@ -127,8 +138,8 @@ sudo ./remedy
 
 ## 위협별 안내
 
-위협마다 세 줄로 먼저 적었습니다 — 치료하면 무엇이 바뀌는지 · 꼭 할 일 · 이 도구가 못 보는 것. 차례와 까닭은
-펼쳐서 보십시오.
+위협마다 세 줄로 먼저 적었습니다 — 치료하면 무엇이 바뀌는지(점검 항목은 무엇을 보는지) · 꼭 할 일 · 이 도구가 못
+보는 것. 차례와 까닭은 펼쳐서 보십시오.
 
 ### CWPdoor — Control Web Panel 을 쓰는 리눅스 서버
 
@@ -258,6 +269,69 @@ sudo bash detect_ebury.sh
 
 </details>
 
+### Node.js — Node2Shell (점검만 합니다)
+
+- **점검만 합니다** — `node` 실행 파일이 Node.js 공식 빌드의 어느 버전인지(파일 해시)와 배포판 패키지의 보안
+  공지로 Node2Shell(CVE-2026-111497 · Brotli 압축 해제)이 고쳐졌는지 봅니다. Windows 에서는 PHP 폴더의
+  `brotlidec.dll` 도 봅니다. 아무것도 바꾸지 않습니다.
+- **꼭 할 일** *취약* 이면 Node.js 를 고친 버전(22.23.4 · 24.22.1 · 26.12.1)으로 올리고 그것을 쓰는 서비스를
+  **다시 시작**합니다 — 18 · 20 은 지원이 끝나 고친 버전이 없으니 위의 고친 버전으로 옮깁니다. PHP for Windows 는
+  Brotli 를 고쳐 다시 지은 공식 빌드(2026-10-26 의 `8.x.y-1`) 이후의 것으로 바꿉니다.
+- **못 보는 것** 다른 제품 안에 든 Node.js(Electron 앱 · 단일 실행 파일 · 컨테이너 이미지) · 정해 둔 자리 밖의
+  `node` · 지금 돌고 있는 프로세스가 고친 버전을 실었는지.
+
+<details>
+<summary>자세히 — 판정 · 확인 필요가 나오는 경우 · 보는 자리</summary>
+
+- **판정** — 공식 빌드(nodejs.org 의 설치 관리자 · 압축 파일 · 공식 Docker 이미지 · nvm · fnm · Volta)는 파일
+  해시로 버전을 가려, 고친 버전보다 낮으면 *취약* 입니다. 리눅스의 배포판 패키지는 Debian 과 Oracle Linux 8.10 의
+  공지로 판정하고, Debian 은 Node.js 가 쓰는 시스템 Brotli(`libbrotli1`)도 봅니다.
+- **확인 필요가 나오는 경우** — 공식 빌드의 해시와 맞지 않는 `node`(기준에 없는 버전 · 다른 곳에서 지은 빌드),
+  공지로 판정할 수 없는 배포판 패키지(Ubuntu · RHEL · Rocky · Alpine · 다른 저장소), RHEL · Oracle Linux 의 시스템
+  Brotli 가 고친 버전보다 낮은데 RPM 의 Node.js 가 그것을 쓰는지 이 도구가 재지 못할 때. 화면의 *주의* 줄이
+  무엇을 확인할지 말합니다.
+- **보는 자리** — Windows: `Program Files\nodejs` · 모든 사용자의 nvm-windows · fnm · Volta · nvm, PHP 폴더(PHP
+  점검과 같은 자리). 리눅스: `/usr/bin` · `/usr/local/bin` 바로 아래의 `node` · `/opt/node` · `/opt/nodejs` ·
+  `/usr/local/lib/nodejs` · 모든 사용자의 nvm · fnm · Volta, 배포판 패키지 목록.
+
+판정 표와 근거(공지 번호)는 룰 폴더 `node2shell-check-windows` · `node2shell-check-linux` 의 `RELEASE.md` 에
+있습니다.
+
+</details>
+
+### PHP — PHP2Shell · 세션 업로드 진행 설정 (점검만 합니다)
+
+- **점검만 합니다** — PHP 의 버전 · 공식 빌드(파일 해시) · 배포판 패키지로 PHP2Shell(CVE-2026-109618 · 109619)이
+  고쳐졌는지, 설정 파일로 세션 업로드 진행 기능(CVE-2026-115560)이 켜졌는지 봅니다. 아무것도 바꾸지 않습니다.
+- **꼭 할 일** *취약* 이면 PHP 를 고친 버전(8.2.35 · 8.3.36 · 8.4.27 · 8.5.12, 또는 배포판의 보안 갱신)으로 올리고
+  PHP 를 쓰는 웹 서버 · PHP-FPM 을 **다시 시작**합니다. 세션 점검은 PHP 가 있으면 늘 *확인 필요* 입니다 — 앱이
+  실행 중에 `session.serialize_handler` 를 바꾸면 `session.upload_progress.enabled = 0` 으로 두고 다시 시작합니다.
+- **못 보는 것** 지금 돌고 있는 PHP 가 고친 버전을 실었는지 · 정해 둔 자리 밖의 PHP · 앱 코드가 실행 중에 바꾸는
+  설정(`ini_set()`).
+
+<details>
+<summary>자세히 — 판정 · 확인 필요가 나오는 경우 · 세션 설정 · 보는 자리</summary>
+
+- **판정** — 배포판 패키지(Ubuntu · Debian · RHEL · Oracle Linux · SLES)는 그 공급사의 보안 공지가 적은 고친
+  버전과 견주고, 패키지 밖의 PHP(공식 Docker 이미지 · PHP for Windows 공식 빌드)는 파일 해시로 버전을 가립니다.
+- **확인 필요가 나오는 경우** — 공지에 없는 공급사 · 저장소의 패키지(Rocky · Alma · Alpine · Remi 등)와 공식
+  빌드의 해시와 맞지 않는 PHP 입니다. 같은 버전 번호라도 고친 코드를 담았는지 이 도구가 가릴 근거가 없습니다 —
+  화면의 *주의* 줄이 버전을 올릴지(낮은 버전) 받은 곳을 확인할지(높은 버전) 말합니다. RHEL 7.9 는 공지가
+  CVE-2026-109619 만 고쳐 그 버전 이상도 *확인 필요* 입니다.
+- **세션 설정** — php.net 은 이 문제의 고친 버전을 내지 않았습니다(2026-10-23 공지). 위험은 세 조건이 겹칠 때
+  생깁니다: `session.upload_progress.enabled` 가 켜져 있고, `session.serialize_handler` 가 `php_binary` ·
+  `php_serialize` 이며, 앱이 `session_start()` 전에 `ini_set()` 으로 그것을 `php` 로 바꿉니다. 셋째는 앱 코드라
+  이 도구가 볼 수 없어 판정을 내리지 않고 *확인 필요* 로 알립니다 — *주의* 줄이 설정이 켜짐 · 꺼짐 · 없음(기본값은
+  켜짐) 가운데 무엇인지 적습니다.
+- **보는 자리** — Windows: `C:\php` · `Program Files\PHP` · XAMPP · WampServer · Laragon · Chocolatey
+  (`C:\tools\phpNN`). 리눅스: 배포판 패키지 목록(dpkg · apk · RPM) · `/usr/local` 의 PHP(공식 이미지) · 배포판마다의
+  설정 파일 자리.
+
+판정 표와 근거(공지 번호)는 룰 폴더 `php2shell-check-windows` · `php2shell-check-linux` ·
+`php-session-check-windows` · `php-session-check-linux` 의 `RELEASE.md` 에 있습니다.
+
+</details>
+
 ## 화면
 
 검사가 찾은 것과 할 일을 먼저 다 보여 드리고, 결과에 맞는 다음 할 일을 메뉴 번호로 알려
@@ -265,13 +339,13 @@ sudo bash detect_ebury.sh
 
 ![검사 결과와 다음 할 일 — Windows Terminal](docs/images/scan-result-windows-terminal.png)
 
-![remedy 의 첫 메뉴 — Windows Terminal](docs/images/menu-windows-terminal.png)
+받은 파일에 검사 항목이 여럿이라 먼저 무엇을 볼지 묻고, 1번이 *모두 검사만* 입니다.
 
-리눅스용 파일은 검사 항목이 셋이라 먼저 무엇을 볼지 묻고, 1번이 *모두 검사만* 입니다.
+![검사 항목을 고르는 첫 화면 — Windows Terminal](docs/images/menu-windows-terminal.png)
 
 ![검사 항목을 고르는 첫 화면 — 리눅스 xterm](docs/images/menu-linux-xterm.png)
 
-![모두 검사한 결과 — 리눅스 xterm (Control Web Panel 이 없는 서버)](docs/images/scan-all-linux-xterm.png)
+![모두 검사한 결과 — 리눅스 xterm (Control Web Panel · PHP · Node.js 가 없는 서버)](docs/images/scan-all-linux-xterm.png)
 
 ## 주요 기능
 
@@ -279,6 +353,9 @@ sudo bash detect_ebury.sh
   지운 것은 격리소에 보관해 두었다가 *치료 전으로 복원하기* 로 복원합니다.
 - **모두 검사만** — 받은 폴더에 검사 항목이 여럿이면 한 번에 전부 검사하고 결과를 한 덩어리로
   보여 드립니다. 아무것도 바꾸지 않습니다.
+- **취약점 점검** — PHP · Node.js 의 알려진 취약점을 버전 · 공식 빌드의 파일 해시 · 배포판의 보안 공지로 가려
+  *취약* 으로 알려 드립니다. 판정할 근거가 없는 설치본은 '괜찮다' 로 넘기지 않고 *확인 필요* 로 남기며, 무엇을
+  확인할지 함께 적습니다.
 - **메뉴 하나로 전부** — 첫 화면에는 그 기계에서 지금 할 일만 섭니다(검사 · 치료, 치료한 뒤에는 유지
   확인 · 복원 · 신고). 기록 · 프로그램 정보 · 관리자 · 룰 작성자 명령은 마지막 줄 **더 보기** 에 모여 있고,
   거기서 지금 고를 수 없는 줄에는 까닭이 붙습니다. 방향키 · 숫자로 고르고, Ctrl+C 를 두 번 누르면 끝납니다.

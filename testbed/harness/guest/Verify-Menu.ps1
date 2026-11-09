@@ -68,6 +68,11 @@ param(
     # 메뉴보다 먼저 *"어느 것을 검사할까요"* 를 묻는다 (`guided.rs` — `choose`
     # 가 `menu::run` 앞에 선다). 한 벌이면 묻지 않으므로 비워 둔다.
     [string[]] $Lead = @(),
+    # 룰이 여럿인 꾸러미에서 고를 룰 — 고르는 화면의 이름 일부(`EvilAI`). 주고 `$Lead` 가
+    # 비었으면 먼저 한 번 띄워 그 화면을 읽고, 이름이 든 줄의 번호를 `$Lead` 로 쓴다. 번호를
+    # 밖에서 정하지 않는 것은 그 차례가 꾸러미의 룰 수에 따라 바뀌기 때문이다(리눅스 하네스가
+    # Ebury 의 번호를 화면에서 읽는 것과 같다). 고르는 화면이 서지 않으면(룰 하나) 비운 채 간다.
+    [string] $Pick = "",
     # 재는 작업을 좁힌다. 비우면 전부. **비파괴로 확인할 때** `탐지` 만
     # 주면 기계를 감염 상태로 남긴 채 메뉴가 도는지 볼 수 있다. 어느 것과도
     # 맞지 않는 값(`없음` 등)을 주면 **첫 화면만** 띄우고 끝난다 — 콘솔 기준선
@@ -276,6 +281,12 @@ $OffRow = '^\s\s\d+\.\s+.+? (—|-) '
 function Get-MenuMap {
     param([string] $Text)
     $map = [ordered]@{}
+    # 룰이 여럿이면 고르는 화면의 줄(*모두 검사만* · 룰 이름)이 작업 메뉴보다 앞에 선다 — 작업
+    # 메뉴의 줄만 읽는다. 한 벌이면 그 앞에 번호 줄이 없어 그대로다.
+    if ($Lead.Count -gt 0) {
+        $at = $Text.IndexOf("무엇을 할까요")
+        if ($at -gt 0) { $Text = $Text.Substring($at) }
+    }
     foreach ($line in ($Text -split "`r?`n")) {
         if ($line -match $OffRow) { continue }
         if ($line -match '^\s\s(\d+)\.\s+(.+?)\s*$') {
@@ -413,9 +424,43 @@ if ($rc -ne 0) {
 # 전에는 2(발견·미치료)였다 — `NothingUsable`(도구가 검사하지 못했다)과 같은
 # 결로 묶여 있었는데, 여기는 **사람이** 검사하지 않기로 한 것이고 화면이 그렇게
 # 말한다. 치료 승인을 거절한 자리는 이 갈래가 아니라 `approved()` 를 지나 2 다.
+#
+# **룰이 여럿이면 고르는 화면부터 선다** — `$Pick` 의 이름이 든 줄을 거기서 읽어 `$Lead` 로 쓴다.
+# 그 화면의 `0` 은 그만두기라 아무것도 돌지 않는다.
+$chooser = $null
+if ($Pick -and $Lead.Count -eq 0) {
+    $cprobe = Invoke-MenuRun -Lines @("0") -TimeoutMs 30000
+    if ($cprobe.text -match "검사 항목 (\d+)개를 찾았습니다") {
+        $chooser = [ordered]@{ count = [int]$Matches[1]; pick = $Pick; number = 0; exit = $cprobe.exit }
+        foreach ($line in ($cprobe.text -split "`r?`n")) {
+            if ($line -match '^\s\s(\d+)\.\s+(.+?)\s*$' -and $Matches[2] -like "*$Pick*") {
+                $chooser.number = [int]$Matches[1]
+                break
+            }
+        }
+        # 못 찾으면 여기서 멈춘다 — 그대로 가면 작업 메뉴의 번호가 고르는 화면에 들어가 다른
+        # 룰(또는 모두 검사만)을 돌린다.
+        if ($chooser.number -le 0) {
+            $report.chooser = $chooser
+            $report.error = "고르는 화면에 '$Pick' 이 든 줄이 없다"
+            [System.IO.File]::WriteAllText($OutFile, ($report | ConvertTo-Json -Depth 8),
+                                           (New-Object System.Text.UTF8Encoding($false)))
+            exit 1
+        }
+        $Lead = @("$($chooser.number)")
+        $tr.Add("=== 고르는 화면 — 룰 $($chooser.count)개 · '$Pick' 은 $($chooser.number)번 (그만두기로 끝냈다) ===")
+        $tr.Add($cprobe.text.TrimEnd())
+        $tr.Add("")
+    }
+}
+$report.chooser = $chooser
+# 작업 뒤 다시 서는 첫 화면 — 룰이 하나면 작업 메뉴, 여럿이면 고르는 화면이다(`$Lead` 가 그 표지).
+$BackHead = $(if ($Lead.Count -gt 0) { "검사 항목 \d+개를 찾았습니다" } else { "무엇을 할까요" })
 $probe = Invoke-MenuRun -Lines (@() + $Lead + @("0")) -TimeoutMs 30000
 $pmap = Get-MenuMap -Text $probe.text
-# 더 보기 — 첫 화면의 마지막 줄을 눌러 열고, `0` 으로 돌아와 `0` 으로 그만둔다.
+# 더 보기 — 첫 화면의 마지막 줄을 눌러 열고, `0` 으로 돌아와 `0` 으로 그만둔다. 룰이 여럿이어도
+# 더 보기의 `0` 은 **같은 룰의 작업 메뉴**로 돌아온다 — 고르는 화면이 아니다(2026-11-09 실측: 룰
+# 넷인 꾸러미에서 고르는 화면의 번호를 한 번 더 넣었더니 작업 메뉴가 그것을 *검사만 하기* 로 받았다).
 $authorNo = Find-MenuNumber -Map $pmap -Needle $AuthorLine
 $aprobe = $null
 $atext = ""
@@ -657,7 +702,8 @@ foreach ($s in $steps) {
         menu_shown = $(if ($null -ne $run) { [bool]($run.text -match "무엇을 할까요") } else { $false })
         # 작업 뒤 메뉴로 돌아왔는가 — "메뉴로 돌아갑니다" 가 있고 메뉴가 두 번 떴다(기준 4(a)).
         # 마지막 빈 줄은 두 번째 메뉴에서 그만두기가 되어 회차를 끝낸다(그 앞 줄은 멈춤이 받는다).
-        back_menu  = $(if ($null -ne $run) { [bool]($run.text -match "메뉴로 돌아갑니다") -and ([regex]::Matches($run.text, "무엇을 할까요").Count -ge 2) } else { $false })
+        # 룰이 여럿이면 메뉴 고리가 고르는 화면부터 다시 세운다 — 그 화면이 두 번 떴는가를 본다.
+        back_menu  = $(if ($null -ne $run) { [bool]($run.text -match "메뉴로 돌아갑니다") -and ([regex]::Matches($run.text, $BackHead).Count -ge 2) } else { $false })
         asked_sub  = $sub_count
         approved   = $(if ($null -ne $run) { [bool]($run.text -match "진행하려면") } else { $false })
         before     = $before

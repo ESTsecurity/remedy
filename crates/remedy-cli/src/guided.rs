@@ -597,7 +597,7 @@ fn choose(ok: &[discover::Found]) -> Option<Choice> {
 /// 가리켜서, 리눅스에서 치료 뒤 안내대로 `6`(복원)을 누르면 이 화면이 범위 밖으로 읽고
 /// 끝냈고, 검사만 뒤 `1`(치료)은 *모두 검사만* 을 돌렸다(2026-11-08 적대적 검토 4바퀴 실측).
 /// 그래서 다음 할 일이 **먼저 고를 룰**을 이것으로 앞에 적는다(`back_to_menu`). 룰이 하나인
-/// 꾸러미(Windows)와 *모두 검사만* 뒤에는 비어 있다 — 그때의 화면은 지금 그대로다.
+/// 꾸러미와 *모두 검사만* 뒤에는 비어 있다 — 그때의 화면은 지금 그대로다.
 static PICKED: std::sync::Mutex<Option<(usize, String)>> = std::sync::Mutex::new(None);
 
 fn set_picked(v: Option<(usize, String)>) {

@@ -1,0 +1,311 @@
+# Node2Shell 점검 — Windows (CVE-2026-111497 · Brotli 디코더)
+#
+# **고치지 않는다.** Node.js · PHP 를 올리는 것은 운영자의 일이다.
+#
+# # 두 갈래로 본다 — 둘 다 공식 빌드의 해시로만 확정한다
+#
+# 1. **Node.js** — 공식 `node.exe` 의 SHA-256 으로 판을 안다(nodejs.org 가 서명한 SHASUMS256). 22 · 24 · 26
+#    계열은 고친 판(22.23.4 · 24.22.1 · 26.12.1) 미만이면 **취약**이고, 지원이 끝난 18.20.8 · 20.20.2 는 든
+#    Brotli(1.1.0)가 영향 범위라 **취약**이다. 해시가 맞지 않는 `node.exe`(기준에 없는 판 · 다른 빌드 · 읽지
+#    못한 것)는 **확인 필요**다. 공식 `node.exe` 는 83~90 MiB 라 `hash_large` 로 해시한다(코어 1.3.0).
+# 2. **PHP for Windows 의 Brotli** — PHP 는 `brotlidec.dll` 을 함께 낸다. 2026-10-26 에 PHP 판 번호는 그대로
+#    두고 Brotli 를 1.2.1 로 다시 지은 `-1` 재빌드가 나왔다 — 그 전 빌드의 `brotlidec.dll`(Brotli 1.2.0)은
+#    영향 범위다. 파일에 판 정보가 없어 **해시로만** 가린다. 맞지 않으면 **확인 필요**다.
+#
+# 공식 해시가 맞아야 판을 믿고, 기준에 없는 계열을 지원 종료 여부만으로 취약이라 하지 않는다.
+#
+# # 판정 기준의 출처 (공개)
+#
+# - CVE-2026-111497(CNA Google): Brotli 1.0.3~1.0.10 미만 · 1.1.0~1.1.1 미만 · 1.2.0~1.2.1 미만
+# - Node.js 2026-10 보안 릴리스: 22.23.4 · 24.22.1 · 26.12.1
+# - Node 공식 해시: nodejs.org 의 서명한 SHASUMS256 — win-x64 `node.exe` 89판(18.20.8 · 20.20.2 · 22.x · 24.x · 26.x)
+# - PHP for Windows: downloads.php.net 의 원래 빌드와 `-1` 재빌드 ZIP — 각 ZIP 의 SHA-256 을 같은 자리의
+#   SBOM(`.cdx.json`)과 맞췄고, SBOM 이 Brotli 판(1.2.0 → 1.2.1)을 적는다(2026-11-09)
+#
+# # 이 룰이 보지 않는 것
+#
+# - 다른 제품 안에 든 Node.js(Electron 앱 · 단일 실행 파일) · 선언한 자리 밖의 `node.exe` · `brotlidec.dll`
+# - 실행 중인 프로세스가 고친 판을 실었는가 — 고친 뒤에는 그 서비스를 다시 시작한다
+schema_version: 1
+id: node2shell-check-windows
+version: 0.1.0
+min_core: "1.3.0"   # verdict.unconfirmed · hash_large 가 1.3.0 부터 있다
+platforms: [windows]
+
+kind: check
+
+name:
+  ko: "Node2Shell 점검 (CVE-2026-111497)"
+  en: "Node2Shell check (CVE-2026-111497)"
+
+references:
+  - "https://nodejs.org/en/blog/vulnerability/october-2026-security-releases"
+  - "CVE-2026-111497"
+  - "https://github.com/google/brotli/releases/tag/v1.2.1"
+  - "https://downloads.php.net/~windows/releases/"
+
+# Node.js 의 설치 자리 — 공식 설치 관리자 · 사용자마다의 버전 관리자(nvm-windows · fnm · Volta · nvm).
+# 사용자 폴더는 `%ALLUSERPROFILES%` 로 모든 사용자를 본다. PHP 는 PHP2Shell 룰과 같은 자리다.
+#
+# 린트가 `C:\php` 를 *"사실상 전체를 훑는다(깊이 2)"* 로 경고한다 — PHP 의 수동 설치본은 그 디렉터리
+# **바로 아래**에 파일을 두므로 더 좁힐 자리가 없다(PHP2Shell 룰과 같은 사유).
+scan_roots:
+  - 'C:\Program Files\nodejs'
+  - 'C:\Program Files (x86)\nodejs'
+  - '%ALLUSERPROFILES%\AppData\Roaming\nvm'
+  - '%ALLUSERPROFILES%\AppData\Local\nvm'
+  - '%ALLUSERPROFILES%\AppData\Roaming\fnm\node-versions'
+  - '%ALLUSERPROFILES%\AppData\Local\fnm\node-versions'
+  - '%ALLUSERPROFILES%\AppData\Local\Volta\tools\image\node'
+  - '%ALLUSERPROFILES%\.nvm\versions\node'
+  - '%ALLUSERPROFILES%\.volta\tools\image\node'
+  - 'C:\php'
+  - 'C:\Program Files\PHP'
+  - 'C:\Program Files (x86)\PHP'
+  - 'C:\xampp\php'
+  - 'C:\wamp64\bin\php'
+  - 'C:\wamp\bin\php'
+  - 'C:\laragon\bin\php'
+  - 'C:\tools\php85'
+  - 'C:\tools\php84'
+  - 'C:\tools\php83'
+  - 'C:\tools\php82'
+
+subjects: [file]
+
+# 공식 `node.exe` 는 해시 상한(32 MiB)을 넘는다 — 이 이름만 흘려 읽어 해시한다.
+hash_large: ["node.exe"]
+
+detect:
+  # ── 1. Node.js — 공식 node.exe 의 해시 ───────────────────────────────────
+  - id: node_vuln
+    subject: file
+    where:
+      all:
+        - { field: path, op: matches, value: '(?i)\\node\.exe$' }
+        - field: sha256
+          op: in
+          value:
+            - "3bc28aab59b609a6f359f456641789d646081291fc6505d6df2335e6eac89ae3"   # 18.20.8 win-x64 node.exe (vulnerable)
+            - "56c1520ee33b801e8bdb92fb321cf2e98529735b6d12bd4a2a6dec0ac0bab937"   # 20.20.2 win-x64 node.exe (vulnerable)
+            - "db174445b3d28314772bc3918e39d8543cfbd18d542cf2a662f431f5cdc259ea"   # 22.0.0 win-x64 node.exe (vulnerable)
+            - "80db531026ff474745f03beb98f28c51914e0202e58cd87a1104f71ed0d8b118"   # 22.1.0 win-x64 node.exe (vulnerable)
+            - "9f281fc885999757b43ad229aec5b53206d1088abacb49cc5b3e830d39521a2f"   # 22.2.0 win-x64 node.exe (vulnerable)
+            - "b3e0d6bf8224d43d5c6e756c8ebaffe1daef0d5ed0eeba40eef0ca62f1c4232a"   # 22.3.0 win-x64 node.exe (vulnerable)
+            - "4e07f7a361170db55f9463fe5abfb39340f8f57849ee6839f1089fa095e5c430"   # 22.4.0 win-x64 node.exe (vulnerable)
+            - "9769486f6311f0e12583a4603f926053e0ab6a899126afd15cd2e7bb9184509f"   # 22.4.1 win-x64 node.exe (vulnerable)
+            - "26e7ac93a231cc04a2c93821d99455bd5ab5682ce0db3930ee4e33228b4750b5"   # 22.5.0 win-x64 node.exe (vulnerable)
+            - "c8d7b7260fa0659580362267e0634707cce855c6af7fef9a082bf03d6b9f19fd"   # 22.5.1 win-x64 node.exe (vulnerable)
+            - "59ceb9e78a1db169b4e05da49a4c7268c31ac994db7a4100cab76bb2897c82d5"   # 22.6.0 win-x64 node.exe (vulnerable)
+            - "4c727ff5d61083a5117062518207b18759c70bc903edcd89d69b4ff125d73914"   # 22.7.0 win-x64 node.exe (vulnerable)
+            - "693db8fce6bb56248b144a46f20c406c7b54a262e7514120c6cae85fd66e2c10"   # 22.8.0 win-x64 node.exe (vulnerable)
+            - "cf5c4dc82434c181171d6bef146d4374742ef2bb89ca31d2ab83ffff210ea1b1"   # 22.9.0 win-x64 node.exe (vulnerable)
+            - "741a6d3a636ccb3290fc3141e3604913d89e430e0c1bd098734cc3380a7c6b3b"   # 22.10.0 win-x64 node.exe (vulnerable)
+            - "7447c4ece014aa41fb2ff866c993c708e5a8213a00913cc2ac5049ea3ffc230d"   # 22.11.0 win-x64 node.exe (vulnerable)
+            - "b3b117a08ee61efee09e6fd523ab33c0c018da1b570bde08e4fd914dc1170ed6"   # 22.12.0 win-x64 node.exe (vulnerable)
+            - "364dbc8442f8d5c04fd4226bcfcf8e60d3268627eb1d7be214a91bb7d74cdbb9"   # 22.13.0 win-x64 node.exe (vulnerable)
+            - "8f6945c55a51c893691534e7163372e4cedb62c8ad80a2a975df3f14a19fba16"   # 22.13.1 win-x64 node.exe (vulnerable)
+            - "33b1bc1a8aca11fd5a4f2699e51019c63c0af30cf437701d07af69be7706771b"   # 22.14.0 win-x64 node.exe (vulnerable)
+            - "77bdff912b1c569b3e693fe126f619337c3e9d73dafbc4d0bf1d4f1f6a145761"   # 22.15.0 win-x64 node.exe (vulnerable)
+            - "b3191cc083480282f1edaa3324002c320704a00d7564cf1f7c48b610d1c060b6"   # 22.15.1 win-x64 node.exe (vulnerable)
+            - "c5ff4c736112dd483c750fd4149d30c8a116db1a49b8b3ec88be4b65e6c86c19"   # 22.16.0 win-x64 node.exe (vulnerable)
+            - "39d45b5933f339d3ebdebd76474893dab5d7da1038920f65cf5bbcf0f20f3636"   # 22.17.0 win-x64 node.exe (vulnerable)
+            - "0f1098a455c7058daaaccd660d3a71dfed1cc0ffe8bea826170a7807d36fcef2"   # 22.17.1 win-x64 node.exe (vulnerable)
+            - "c22d1c59a1f767a1ed0178445a027f2257d318c55430fc819d48f269586822b7"   # 22.18.0 win-x64 node.exe (vulnerable)
+            - "995a3fb3cefad590cd3f4b321532a4b9582fb9c6575320ed2e3e894caac3e362"   # 22.19.0 win-x64 node.exe (vulnerable)
+            - "fdddbf4581e046b8102815d56208d6a248950bb554570b81519a8a5dacfee95d"   # 22.20.0 win-x64 node.exe (vulnerable)
+            - "47cd67453da180a39cdf5daedb89862667b8e627e60c116607874633450cd30d"   # 22.21.0 win-x64 node.exe (vulnerable)
+            - "471961cb355311c9a9dd8ba417eca8269ead32a2231653084112554cda52e8b3"   # 22.21.1 win-x64 node.exe (vulnerable)
+            - "bae898add4643fcf890a83ad8ae56e20dce7e781cab161a53991ceba70c99ffb"   # 22.22.0 win-x64 node.exe (vulnerable)
+            - "923a41f268ab49ede2e3363fbdd9e790609e385c6f3ca880b4ee9a56a8133e5a"   # 22.22.1 win-x64 node.exe (vulnerable)
+            - "ae1a50511be58e987483fdbc12125407443926d2d394669ade2352776e920dd3"   # 22.22.2 win-x64 node.exe (vulnerable)
+            - "780f44f2c53c108bae261ada21a525b4bfe733c020ac85e41bfe94479090ac9b"   # 22.22.3 win-x64 node.exe (vulnerable)
+            - "17347995af08dadcc73a1a154f0942559fbc3f37b9ba57d4576b4d2bcb2834a2"   # 22.23.0 win-x64 node.exe (vulnerable)
+            - "f8d162c0641dcee512132f3bcf8a68169c7ecb852efd8e1a46c9fec5a0f469ed"   # 22.23.1 win-x64 node.exe (vulnerable)
+            - "0d0f5e39f9f3d9587bc19f73eab3c2c9c4903fd02d6dbf9c853dd81b3d95fad4"   # 22.23.2 win-x64 node.exe (vulnerable)
+            - "9c9245166b4a8e182e0b797da9c20136117ff24368eaff1fec8343a123c8db0e"   # 22.23.3 win-x64 node.exe (vulnerable)
+            - "ade7ce4d4ff97447aa4fdcf2ae9e9094cbfaca0b135475cac621349bc2d335ab"   # 24.0.0 win-x64 node.exe (vulnerable)
+            - "5303ddb655aa510d131bdfd07aeba0e598b03896effe2edc235b2a58369fc4a5"   # 24.0.1 win-x64 node.exe (vulnerable)
+            - "99713814015e536bb05675e2d41dbc36b1715a92db0e71a6876d4cd2865ba573"   # 24.0.2 win-x64 node.exe (vulnerable)
+            - "586ba24429b718a548ca76cef2414fc64a4755987ac907b5e98ca8d897edbb5d"   # 24.1.0 win-x64 node.exe (vulnerable)
+            - "4f4c2bbda03106699e49ef2e7914c03d597c355a99a6b9a1b63dca19fe092c01"   # 24.2.0 win-x64 node.exe (vulnerable)
+            - "f92545eb2742aff13dc8efe5b0ebcef77f789020ba15926252ed749b2cf0784d"   # 24.3.0 win-x64 node.exe (vulnerable)
+            - "0b0be4b64648e4f01803b9582aafce9d0f648b1115083abbdd55351cae38bde1"   # 24.4.0 win-x64 node.exe (vulnerable)
+            - "1b41336fc188453644a3986ddc508627e2c7288df74e7c86abfc46106bc603e3"   # 24.4.1 win-x64 node.exe (vulnerable)
+            - "56dbd529d1eaa0f59c8f015ea604fe3d505a77ef9592fc4aed8030dc79f1bc14"   # 24.5.0 win-x64 node.exe (vulnerable)
+            - "3428a3d055501883385d78b19128550d3e8be39a89e7edba683a9b06830257c7"   # 24.6.0 win-x64 node.exe (vulnerable)
+            - "c1b274a8d0a23e060fc42ce71c3cdfa1569b83d91ba82cc59fa907da97a425e9"   # 24.7.0 win-x64 node.exe (vulnerable)
+            - "3a9ac860c566b7aebf144be914f95e3ec36dc88040aa7acb5d9d1e6e0c7afd5e"   # 24.8.0 win-x64 node.exe (vulnerable)
+            - "5f364598aa3017130b22908ff7c3db0fd05bd42d39fd65b79fd6bd3f73c73da6"   # 24.9.0 win-x64 node.exe (vulnerable)
+            - "93d6b1a22733fb035b19649041c0574b1a890df75ebce9d5e6e1bbe35d12b4a8"   # 24.10.0 win-x64 node.exe (vulnerable)
+            - "b7d912484d42e7a0d0cb5b26a86410ec973a79ece7d61ad535e2d1a97a9026e1"   # 24.11.0 win-x64 node.exe (vulnerable)
+            - "f13ac3ca23248dc389507e8fe38c34489ab7edb3e6d6700eb6da6a0b7e128eaf"   # 24.11.1 win-x64 node.exe (vulnerable)
+            - "2ffe3acc0458fdde999f50d11809bbe7c9b7ef204dcf17094e325d26ace101d8"   # 24.12.0 win-x64 node.exe (vulnerable)
+            - "d14ba95cdce1ef7dc9ad3ac74949ca5db38b27378ee30f30a23cf26f9e875a11"   # 24.13.0 win-x64 node.exe (vulnerable)
+            - "e3be0545990c90995d7bf3a7af5d64af1f2e0fc1bbd9b79c27f7abc1e9676e50"   # 24.13.1 win-x64 node.exe (vulnerable)
+            - "63c259c81e5d472b5f11c8d506070130cb04a1ecf84b80377a34ed6ec9048088"   # 24.14.0 win-x64 node.exe (vulnerable)
+            - "58e74bf02fc5bbacc41dcb8bef089961cd5bddd37830b87784e4fc624d145d1f"   # 24.14.1 win-x64 node.exe (vulnerable)
+            - "3331e1ffe19874215472217c5e94f5a0c6d8e18c4ac7111d3937aa0ad5e9b4a5"   # 24.15.0 win-x64 node.exe (vulnerable)
+            - "b3094d0b49f9ad602262a9921551737bb97637c05dd357a06ae98188d7290aa3"   # 24.16.0 win-x64 node.exe (vulnerable)
+            - "c6335d08331c23d68b9f2b18adb102002d76ef150b47248e954c507e0d033664"   # 24.17.0 win-x64 node.exe (vulnerable)
+            - "9a4eb5f1c29c6a2e93852ead46b999e284a6a5ca8bab4d4e241d587d025a52de"   # 24.18.0 win-x64 node.exe (vulnerable)
+            - "ac51903c4c111815d52280b1fdcc8da067cbb37e2fe1a765097b85c3292c8582"   # 24.18.1 win-x64 node.exe (vulnerable)
+            - "3602f2bb1a10f2cbab4c36886218a33c1ab3db87290e73b033c46c77147d0237"   # 24.19.0 win-x64 node.exe (vulnerable)
+            - "5c976096e04e5c2c1f091938926234cc9fbebfe9787ddd149351b3b0ecc707b5"   # 24.20.0 win-x64 node.exe (vulnerable)
+            - "ba4e6d110e8c1592a1ecd390f6b05f3da124b13871a5be62b341a07a853c6c32"   # 24.21.0 win-x64 node.exe (vulnerable)
+            - "ba93f9a70bd86fce3ebbb39ec758501458453467aa92a34a0a3602d1e3fc2b9c"   # 24.22.0 win-x64 node.exe (vulnerable)
+            - "2d0458fa3dc95948f2101fa9ea0840321e14c117379f422ee4cec8bd802d08b2"   # 26.0.0 win-x64 node.exe (vulnerable)
+            - "35ebb74da6acb56fdf570de64f1ae510d6d18ca09da494a3e1ac87edd32d263b"   # 26.1.0 win-x64 node.exe (vulnerable)
+            - "96f768b95e8e9d443f5eead1cb2d199744923320bb8240d2c3129362e7ae2a5d"   # 26.2.0 win-x64 node.exe (vulnerable)
+            - "35d366f67382f0ba791dcabeded8f6a6d5c77efee4d833f38c1dd3a1e6f160f8"   # 26.3.0 win-x64 node.exe (vulnerable)
+            - "2e5b4362a7ea3478cb408a07189c19c16e487f188ac96db2e9e0f45ad8e21837"   # 26.3.1 win-x64 node.exe (vulnerable)
+            - "3193d7f751b8a07bd4acc70e81946ae9c6efdee83e07ad1c8d0e4089df7c5cef"   # 26.4.0 win-x64 node.exe (vulnerable)
+            - "119d6fa70e6ae1b15b90688ab6bcc8e3a2819acea021af196895cab1843645af"   # 26.5.0 win-x64 node.exe (vulnerable)
+            - "b48b0224081224cda1f49374e2fc63d143041ade51754f0cc6608fe8510ba29e"   # 26.5.1 win-x64 node.exe (vulnerable)
+            - "ad6a9ece5267535bc97bde5ee2d244ea69a2900e8405053f9782d382ce7b127b"   # 26.6.0 win-x64 node.exe (vulnerable)
+            - "e921fe5307e29bf6fd00000dd594356affd3a7b044e52720c7f10decbdc305b9"   # 26.7.0 win-x64 node.exe (vulnerable)
+            - "f75c008f6231c8d77c0bc5277e495e88447b65015fdb63ac966f11cf0e1106e5"   # 26.8.0 win-x64 node.exe (vulnerable)
+            - "5cba0ea928508c65ddadefc0681d2fb6d95f1f3beea4428f04397631140ee8e5"   # 26.8.1 win-x64 node.exe (vulnerable)
+            - "23062343ad39fc79f12ae39cfb324e93a20ced5f1d342e7b850c148c022ddbca"   # 26.8.2 win-x64 node.exe (vulnerable)
+            - "8490398f5e0082772dfb0ae5a6ebdff98a97696a20cb9778b4f82eec79b6d0a1"   # 26.9.0 win-x64 node.exe (vulnerable)
+            - "cea6ac365f9bb9586dafd2084d996e092e7d3e7d07ab52d1f76bf53d1fca9bc4"   # 26.10.0 win-x64 node.exe (vulnerable)
+            - "a4d0a5e97ef053be02dd200ba581d9ccf5233057a36c9b3dbe4f16c6cf586485"   # 26.11.0 win-x64 node.exe (vulnerable)
+            - "a619e2e09eb0d50ef4c733d678b4d22689d2afef138cd67fd3fa107b535f8819"   # 26.11.1 win-x64 node.exe (vulnerable)
+            - "1a14457b043fe82fd2fc027959595e91d138a8185c7ca6c02c15c16632b51aa4"   # 26.12.0 win-x64 node.exe (vulnerable)
+  - id: node_unknown
+    subject: file
+    where:
+      - { field: path, op: matches, value: '(?i)\\node\.exe$' }
+    exclude:
+      - field: sha256
+        op: in
+        value:
+          - "3bc28aab59b609a6f359f456641789d646081291fc6505d6df2335e6eac89ae3"   # 18.20.8 win-x64 node.exe (vulnerable)
+          - "56c1520ee33b801e8bdb92fb321cf2e98529735b6d12bd4a2a6dec0ac0bab937"   # 20.20.2 win-x64 node.exe (vulnerable)
+          - "db174445b3d28314772bc3918e39d8543cfbd18d542cf2a662f431f5cdc259ea"   # 22.0.0 win-x64 node.exe (vulnerable)
+          - "80db531026ff474745f03beb98f28c51914e0202e58cd87a1104f71ed0d8b118"   # 22.1.0 win-x64 node.exe (vulnerable)
+          - "9f281fc885999757b43ad229aec5b53206d1088abacb49cc5b3e830d39521a2f"   # 22.2.0 win-x64 node.exe (vulnerable)
+          - "b3e0d6bf8224d43d5c6e756c8ebaffe1daef0d5ed0eeba40eef0ca62f1c4232a"   # 22.3.0 win-x64 node.exe (vulnerable)
+          - "4e07f7a361170db55f9463fe5abfb39340f8f57849ee6839f1089fa095e5c430"   # 22.4.0 win-x64 node.exe (vulnerable)
+          - "9769486f6311f0e12583a4603f926053e0ab6a899126afd15cd2e7bb9184509f"   # 22.4.1 win-x64 node.exe (vulnerable)
+          - "26e7ac93a231cc04a2c93821d99455bd5ab5682ce0db3930ee4e33228b4750b5"   # 22.5.0 win-x64 node.exe (vulnerable)
+          - "c8d7b7260fa0659580362267e0634707cce855c6af7fef9a082bf03d6b9f19fd"   # 22.5.1 win-x64 node.exe (vulnerable)
+          - "59ceb9e78a1db169b4e05da49a4c7268c31ac994db7a4100cab76bb2897c82d5"   # 22.6.0 win-x64 node.exe (vulnerable)
+          - "4c727ff5d61083a5117062518207b18759c70bc903edcd89d69b4ff125d73914"   # 22.7.0 win-x64 node.exe (vulnerable)
+          - "693db8fce6bb56248b144a46f20c406c7b54a262e7514120c6cae85fd66e2c10"   # 22.8.0 win-x64 node.exe (vulnerable)
+          - "cf5c4dc82434c181171d6bef146d4374742ef2bb89ca31d2ab83ffff210ea1b1"   # 22.9.0 win-x64 node.exe (vulnerable)
+          - "741a6d3a636ccb3290fc3141e3604913d89e430e0c1bd098734cc3380a7c6b3b"   # 22.10.0 win-x64 node.exe (vulnerable)
+          - "7447c4ece014aa41fb2ff866c993c708e5a8213a00913cc2ac5049ea3ffc230d"   # 22.11.0 win-x64 node.exe (vulnerable)
+          - "b3b117a08ee61efee09e6fd523ab33c0c018da1b570bde08e4fd914dc1170ed6"   # 22.12.0 win-x64 node.exe (vulnerable)
+          - "364dbc8442f8d5c04fd4226bcfcf8e60d3268627eb1d7be214a91bb7d74cdbb9"   # 22.13.0 win-x64 node.exe (vulnerable)
+          - "8f6945c55a51c893691534e7163372e4cedb62c8ad80a2a975df3f14a19fba16"   # 22.13.1 win-x64 node.exe (vulnerable)
+          - "33b1bc1a8aca11fd5a4f2699e51019c63c0af30cf437701d07af69be7706771b"   # 22.14.0 win-x64 node.exe (vulnerable)
+          - "77bdff912b1c569b3e693fe126f619337c3e9d73dafbc4d0bf1d4f1f6a145761"   # 22.15.0 win-x64 node.exe (vulnerable)
+          - "b3191cc083480282f1edaa3324002c320704a00d7564cf1f7c48b610d1c060b6"   # 22.15.1 win-x64 node.exe (vulnerable)
+          - "c5ff4c736112dd483c750fd4149d30c8a116db1a49b8b3ec88be4b65e6c86c19"   # 22.16.0 win-x64 node.exe (vulnerable)
+          - "39d45b5933f339d3ebdebd76474893dab5d7da1038920f65cf5bbcf0f20f3636"   # 22.17.0 win-x64 node.exe (vulnerable)
+          - "0f1098a455c7058daaaccd660d3a71dfed1cc0ffe8bea826170a7807d36fcef2"   # 22.17.1 win-x64 node.exe (vulnerable)
+          - "c22d1c59a1f767a1ed0178445a027f2257d318c55430fc819d48f269586822b7"   # 22.18.0 win-x64 node.exe (vulnerable)
+          - "995a3fb3cefad590cd3f4b321532a4b9582fb9c6575320ed2e3e894caac3e362"   # 22.19.0 win-x64 node.exe (vulnerable)
+          - "fdddbf4581e046b8102815d56208d6a248950bb554570b81519a8a5dacfee95d"   # 22.20.0 win-x64 node.exe (vulnerable)
+          - "47cd67453da180a39cdf5daedb89862667b8e627e60c116607874633450cd30d"   # 22.21.0 win-x64 node.exe (vulnerable)
+          - "471961cb355311c9a9dd8ba417eca8269ead32a2231653084112554cda52e8b3"   # 22.21.1 win-x64 node.exe (vulnerable)
+          - "bae898add4643fcf890a83ad8ae56e20dce7e781cab161a53991ceba70c99ffb"   # 22.22.0 win-x64 node.exe (vulnerable)
+          - "923a41f268ab49ede2e3363fbdd9e790609e385c6f3ca880b4ee9a56a8133e5a"   # 22.22.1 win-x64 node.exe (vulnerable)
+          - "ae1a50511be58e987483fdbc12125407443926d2d394669ade2352776e920dd3"   # 22.22.2 win-x64 node.exe (vulnerable)
+          - "780f44f2c53c108bae261ada21a525b4bfe733c020ac85e41bfe94479090ac9b"   # 22.22.3 win-x64 node.exe (vulnerable)
+          - "17347995af08dadcc73a1a154f0942559fbc3f37b9ba57d4576b4d2bcb2834a2"   # 22.23.0 win-x64 node.exe (vulnerable)
+          - "f8d162c0641dcee512132f3bcf8a68169c7ecb852efd8e1a46c9fec5a0f469ed"   # 22.23.1 win-x64 node.exe (vulnerable)
+          - "0d0f5e39f9f3d9587bc19f73eab3c2c9c4903fd02d6dbf9c853dd81b3d95fad4"   # 22.23.2 win-x64 node.exe (vulnerable)
+          - "9c9245166b4a8e182e0b797da9c20136117ff24368eaff1fec8343a123c8db0e"   # 22.23.3 win-x64 node.exe (vulnerable)
+          - "dccc52de28d8df2ee22d2062424f8c563070d95d8ad70c54c4bf01d590dec14f"   # 22.23.4 win-x64 node.exe (fixed)
+          - "ade7ce4d4ff97447aa4fdcf2ae9e9094cbfaca0b135475cac621349bc2d335ab"   # 24.0.0 win-x64 node.exe (vulnerable)
+          - "5303ddb655aa510d131bdfd07aeba0e598b03896effe2edc235b2a58369fc4a5"   # 24.0.1 win-x64 node.exe (vulnerable)
+          - "99713814015e536bb05675e2d41dbc36b1715a92db0e71a6876d4cd2865ba573"   # 24.0.2 win-x64 node.exe (vulnerable)
+          - "586ba24429b718a548ca76cef2414fc64a4755987ac907b5e98ca8d897edbb5d"   # 24.1.0 win-x64 node.exe (vulnerable)
+          - "4f4c2bbda03106699e49ef2e7914c03d597c355a99a6b9a1b63dca19fe092c01"   # 24.2.0 win-x64 node.exe (vulnerable)
+          - "f92545eb2742aff13dc8efe5b0ebcef77f789020ba15926252ed749b2cf0784d"   # 24.3.0 win-x64 node.exe (vulnerable)
+          - "0b0be4b64648e4f01803b9582aafce9d0f648b1115083abbdd55351cae38bde1"   # 24.4.0 win-x64 node.exe (vulnerable)
+          - "1b41336fc188453644a3986ddc508627e2c7288df74e7c86abfc46106bc603e3"   # 24.4.1 win-x64 node.exe (vulnerable)
+          - "56dbd529d1eaa0f59c8f015ea604fe3d505a77ef9592fc4aed8030dc79f1bc14"   # 24.5.0 win-x64 node.exe (vulnerable)
+          - "3428a3d055501883385d78b19128550d3e8be39a89e7edba683a9b06830257c7"   # 24.6.0 win-x64 node.exe (vulnerable)
+          - "c1b274a8d0a23e060fc42ce71c3cdfa1569b83d91ba82cc59fa907da97a425e9"   # 24.7.0 win-x64 node.exe (vulnerable)
+          - "3a9ac860c566b7aebf144be914f95e3ec36dc88040aa7acb5d9d1e6e0c7afd5e"   # 24.8.0 win-x64 node.exe (vulnerable)
+          - "5f364598aa3017130b22908ff7c3db0fd05bd42d39fd65b79fd6bd3f73c73da6"   # 24.9.0 win-x64 node.exe (vulnerable)
+          - "93d6b1a22733fb035b19649041c0574b1a890df75ebce9d5e6e1bbe35d12b4a8"   # 24.10.0 win-x64 node.exe (vulnerable)
+          - "b7d912484d42e7a0d0cb5b26a86410ec973a79ece7d61ad535e2d1a97a9026e1"   # 24.11.0 win-x64 node.exe (vulnerable)
+          - "f13ac3ca23248dc389507e8fe38c34489ab7edb3e6d6700eb6da6a0b7e128eaf"   # 24.11.1 win-x64 node.exe (vulnerable)
+          - "2ffe3acc0458fdde999f50d11809bbe7c9b7ef204dcf17094e325d26ace101d8"   # 24.12.0 win-x64 node.exe (vulnerable)
+          - "d14ba95cdce1ef7dc9ad3ac74949ca5db38b27378ee30f30a23cf26f9e875a11"   # 24.13.0 win-x64 node.exe (vulnerable)
+          - "e3be0545990c90995d7bf3a7af5d64af1f2e0fc1bbd9b79c27f7abc1e9676e50"   # 24.13.1 win-x64 node.exe (vulnerable)
+          - "63c259c81e5d472b5f11c8d506070130cb04a1ecf84b80377a34ed6ec9048088"   # 24.14.0 win-x64 node.exe (vulnerable)
+          - "58e74bf02fc5bbacc41dcb8bef089961cd5bddd37830b87784e4fc624d145d1f"   # 24.14.1 win-x64 node.exe (vulnerable)
+          - "3331e1ffe19874215472217c5e94f5a0c6d8e18c4ac7111d3937aa0ad5e9b4a5"   # 24.15.0 win-x64 node.exe (vulnerable)
+          - "b3094d0b49f9ad602262a9921551737bb97637c05dd357a06ae98188d7290aa3"   # 24.16.0 win-x64 node.exe (vulnerable)
+          - "c6335d08331c23d68b9f2b18adb102002d76ef150b47248e954c507e0d033664"   # 24.17.0 win-x64 node.exe (vulnerable)
+          - "9a4eb5f1c29c6a2e93852ead46b999e284a6a5ca8bab4d4e241d587d025a52de"   # 24.18.0 win-x64 node.exe (vulnerable)
+          - "ac51903c4c111815d52280b1fdcc8da067cbb37e2fe1a765097b85c3292c8582"   # 24.18.1 win-x64 node.exe (vulnerable)
+          - "3602f2bb1a10f2cbab4c36886218a33c1ab3db87290e73b033c46c77147d0237"   # 24.19.0 win-x64 node.exe (vulnerable)
+          - "5c976096e04e5c2c1f091938926234cc9fbebfe9787ddd149351b3b0ecc707b5"   # 24.20.0 win-x64 node.exe (vulnerable)
+          - "ba4e6d110e8c1592a1ecd390f6b05f3da124b13871a5be62b341a07a853c6c32"   # 24.21.0 win-x64 node.exe (vulnerable)
+          - "ba93f9a70bd86fce3ebbb39ec758501458453467aa92a34a0a3602d1e3fc2b9c"   # 24.22.0 win-x64 node.exe (vulnerable)
+          - "d702daa815eabbff763c7d3808e235cf031cf2ca70211b56847bc72f51e240e5"   # 24.22.1 win-x64 node.exe (fixed)
+          - "2d0458fa3dc95948f2101fa9ea0840321e14c117379f422ee4cec8bd802d08b2"   # 26.0.0 win-x64 node.exe (vulnerable)
+          - "35ebb74da6acb56fdf570de64f1ae510d6d18ca09da494a3e1ac87edd32d263b"   # 26.1.0 win-x64 node.exe (vulnerable)
+          - "96f768b95e8e9d443f5eead1cb2d199744923320bb8240d2c3129362e7ae2a5d"   # 26.2.0 win-x64 node.exe (vulnerable)
+          - "35d366f67382f0ba791dcabeded8f6a6d5c77efee4d833f38c1dd3a1e6f160f8"   # 26.3.0 win-x64 node.exe (vulnerable)
+          - "2e5b4362a7ea3478cb408a07189c19c16e487f188ac96db2e9e0f45ad8e21837"   # 26.3.1 win-x64 node.exe (vulnerable)
+          - "3193d7f751b8a07bd4acc70e81946ae9c6efdee83e07ad1c8d0e4089df7c5cef"   # 26.4.0 win-x64 node.exe (vulnerable)
+          - "119d6fa70e6ae1b15b90688ab6bcc8e3a2819acea021af196895cab1843645af"   # 26.5.0 win-x64 node.exe (vulnerable)
+          - "b48b0224081224cda1f49374e2fc63d143041ade51754f0cc6608fe8510ba29e"   # 26.5.1 win-x64 node.exe (vulnerable)
+          - "ad6a9ece5267535bc97bde5ee2d244ea69a2900e8405053f9782d382ce7b127b"   # 26.6.0 win-x64 node.exe (vulnerable)
+          - "e921fe5307e29bf6fd00000dd594356affd3a7b044e52720c7f10decbdc305b9"   # 26.7.0 win-x64 node.exe (vulnerable)
+          - "f75c008f6231c8d77c0bc5277e495e88447b65015fdb63ac966f11cf0e1106e5"   # 26.8.0 win-x64 node.exe (vulnerable)
+          - "5cba0ea928508c65ddadefc0681d2fb6d95f1f3beea4428f04397631140ee8e5"   # 26.8.1 win-x64 node.exe (vulnerable)
+          - "23062343ad39fc79f12ae39cfb324e93a20ced5f1d342e7b850c148c022ddbca"   # 26.8.2 win-x64 node.exe (vulnerable)
+          - "8490398f5e0082772dfb0ae5a6ebdff98a97696a20cb9778b4f82eec79b6d0a1"   # 26.9.0 win-x64 node.exe (vulnerable)
+          - "cea6ac365f9bb9586dafd2084d996e092e7d3e7d07ab52d1f76bf53d1fca9bc4"   # 26.10.0 win-x64 node.exe (vulnerable)
+          - "a4d0a5e97ef053be02dd200ba581d9ccf5233057a36c9b3dbe4f16c6cf586485"   # 26.11.0 win-x64 node.exe (vulnerable)
+          - "a619e2e09eb0d50ef4c733d678b4d22689d2afef138cd67fd3fa107b535f8819"   # 26.11.1 win-x64 node.exe (vulnerable)
+          - "1a14457b043fe82fd2fc027959595e91d138a8185c7ca6c02c15c16632b51aa4"   # 26.12.0 win-x64 node.exe (vulnerable)
+          - "1c63f1417e2e26d83ca9a9ec1d548524ab1305bc7209d90ebca56257ff0d84ed"   # 26.12.1 win-x64 node.exe (fixed)
+
+  # ── 2. PHP for Windows 의 brotlidec.dll ──────────────────────────────────
+  #
+  # 같은 빌드 도구 묶음(vs16: 8.2 · 8.3 / vs17: 8.4 · 8.5)의 판들은 같은 `brotlidec.dll` 을 낸다.
+  - id: brotli_vuln
+    subject: file
+    where:
+      all:
+        - { field: path, op: matches, value: '(?i)\\brotlidec\.dll$' }
+        - field: sha256
+          op: in
+          value:
+            - "0bad9a53141114e30f37386733040d1c45ddde1ca6c5de7f5feeeb0063b9cc4f"   # brotlidec.dll Brotli 1.2.0 — PHP 8.2.35 · 8.3.36
+            - "d6aa2b6651696a66ef00e43921aa7629907ca4f2f1a35deeff25ff921bc2eeed"   # brotlidec.dll Brotli 1.2.0 — PHP 8.4.27 · 8.5.12
+  - id: brotli_unknown
+    subject: file
+    where:
+      - { field: path, op: matches, value: '(?i)\\brotlidec\.dll$' }
+    exclude:
+      - field: sha256
+        op: in
+        value:
+          - "0bad9a53141114e30f37386733040d1c45ddde1ca6c5de7f5feeeb0063b9cc4f"   # brotlidec.dll Brotli 1.2.0 — PHP 8.2.35 · 8.3.36
+          - "58bd479f8947c805033efd0b3d59481093a506282b792fe4dcea64d4572494e4"   # brotlidec.dll Brotli 1.2.1 (-1 재빌드) — PHP 8.2.35 · 8.3.36
+          - "d6aa2b6651696a66ef00e43921aa7629907ca4f2f1a35deeff25ff921bc2eeed"   # brotlidec.dll Brotli 1.2.0 — PHP 8.4.27 · 8.5.12
+          - "3ff248840797380f91573c26f072b1173de3ac29bc2565c96b73c68c8d9d386f"   # brotlidec.dll Brotli 1.2.1 (-1 재빌드) — PHP 8.4.27 · 8.5.12
+
+# 판정이 규칙 하나씩에 걸려 있다는 린트 경고는 치료 룰을 위한 것이다 — 이 룰은 아무것도 바꾸지 않고,
+# 공식 빌드의 해시가 맞는다는 것은 그 자체로 결정적인 근거다.
+verdict:
+  require: "node_vuln or brotli_vuln"
+  unconfirmed:
+    - when: "node_unknown"
+      why:
+        ko: "공식 Node.js 빌드의 해시와 맞지 않는 node.exe 입니다(기준에 없는 판 · 다른 빌드) — 판과 받은 곳을 확인하고 22.23.4 · 24.22.1 · 26.12.1 이상인지 보십시오"
+        en: "a node.exe that does not match an official Node.js build hash (an uncovered version or another build) - check its version and origin, and whether it is 22.23.4, 24.22.1, 26.12.1 or later"
+    - when: "brotli_unknown"
+      why:
+        ko: "PHP 폴더의 brotlidec.dll 이 공식 빌드의 해시와 맞지 않아 Brotli 판을 가리지 못했습니다 — 2026-10-26 이후의 공식 PHP for Windows(-1 재빌드)로 바꾸었는지 확인하십시오"
+        en: "the brotlidec.dll in a PHP folder does not match an official build hash, so its Brotli version cannot be told - check that it was replaced with an official PHP for Windows build from 2026-10-26 or later (the -1 rebuild)"
