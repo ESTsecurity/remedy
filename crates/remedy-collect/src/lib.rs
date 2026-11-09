@@ -109,12 +109,20 @@ impl<P: FsRead> FileCollector for Collector<P> {
                 // 해시로 기록하면 그 값이 무엇을 가리키는지 알 수 없게 된다.
                 // 걷기는 끝났고 여기부터가 시간을 쓴다 — 항목마다 읽기·해시·서명.
                 remedy_platform::progress::note_item(&e.path);
+                // 해시 상한을 넘었지만 룰이 이름을 적은 파일 — 본문을 들지 않고 흘려 읽어
+                // 해시만 구한다(`hash_large` · 코어 1.3.0). 판은 본문이 없으므로 빈다.
+                let large = !e.is_reparse
+                    && e.size > scope.max_hash_bytes
+                    && e.size <= scope.max_large_hash_bytes
+                    && hash_large_matches(&scope.hash_large, &e.path, scope.platform);
                 // **본문을 한 번만 읽는다.** 해시와 버전이 같은 바이트를 쓰므로
                 // 버전을 더하는 데 입출력이 늘지 않는다 (C-1b).
                 let body = if e.is_reparse {
                     None
                 } else if e.size > scope.max_hash_bytes {
-                    remedy_platform::progress::skip_big();
+                    if !large {
+                        remedy_platform::progress::skip_big();
+                    }
                     None
                 } else {
                     // 읽기와 해시를 따로 잰다 — 검사 시간이 디스크에 가는지 CPU 에
@@ -131,14 +139,20 @@ impl<P: FsRead> FileCollector for Collector<P> {
                     );
                     bytes
                 };
-                let sha256 = body.as_ref().map(|b| {
-                    let t = std::time::Instant::now();
-                    let mut hasher = Sha256::new();
-                    hasher.update(b);
-                    let out = format!("{:x}", hasher.finalize());
-                    remedy_platform::progress::add_hash(t.elapsed());
-                    out
-                });
+                let sha256 = match body.as_ref() {
+                    Some(b) => {
+                        let t = std::time::Instant::now();
+                        let mut hasher = Sha256::new();
+                        hasher.update(b);
+                        let out = format!("{:x}", hasher.finalize());
+                        remedy_platform::progress::add_hash(t.elapsed());
+                        Some(out)
+                    }
+                    None if large => {
+                        stream_sha256(&self.platform, &e.path, scope.max_large_hash_bytes)
+                    }
+                    None => None,
+                };
                 // 실행 파일에 박힌 버전. 상한을 넘어 읽지 못한 파일과 재파스
                 // 지점은 `body` 가 이미 `None` 이므로 여기서 다시 거르지 않는다 —
                 // `sha256` 이 `None` 인 것과 **같은 자리에서 같은 이유로** 빈다.
@@ -795,6 +809,41 @@ fn root_dir(root: &str) -> &str {
 /// (위 `root_look` 과 같은 이유).
 pub(crate) fn root_exists<P: FsRead>(p: &P, root: &str) -> bool {
     p.exists(root_dir(root))
+}
+
+/// 이 경로의 **파일 이름**이 `hash_large` 의 꼴 하나에 맞는가 — 글롭 뿌리와 같은 규칙이다
+/// (`*` · `?` · 대소문자는 플랫폼대로).
+fn hash_large_matches(
+    patterns: &[String],
+    path: &str,
+    platform: remedy_sdk::catalog::Platform,
+) -> bool {
+    if patterns.is_empty() {
+        return false;
+    }
+    let name = path.rsplit(['\\', '/']).next().unwrap_or(path);
+    let name = normalize::for_compare(name, platform);
+    patterns
+        .iter()
+        .any(|p| normalize::name_matches(&name, &normalize::for_compare(p.trim(), platform)))
+}
+
+/// 큰 파일을 흘려 읽어 SHA-256 을 구한다 — 본문을 들지 않는다.
+///
+/// 못 읽었거나 읽는 사이에 상한을 넘으면 `None` 이다. 해시가 비는 것은 상한을 넘은 파일과
+/// **같은 자리 · 같은 뜻**이다 — 룰은 그것을 *"재지 못했다"* 로 읽는다.
+fn stream_sha256<P: FsRead>(fs: &P, path: &str, max: u64) -> Option<String> {
+    let t = std::time::Instant::now();
+    let mut hasher = Sha256::new();
+    let mut read = 0u64;
+    let whole = fs
+        .read_stream(path, max, &mut |chunk| {
+            hasher.update(chunk);
+            read += chunk.len() as u64;
+        })
+        .ok()?;
+    remedy_platform::progress::add_read(t.elapsed(), read);
+    whole.then(|| format!("{:x}", hasher.finalize()))
 }
 
 pub fn collect_all<P: FsRead + RegistryRead + EnvRead + ProcessRead>(

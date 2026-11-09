@@ -18,7 +18,7 @@ pub use record::{
     ServiceRecord, ShortcutRecord, Signature, StructuredConfigRecord, TextConfigRecord,
     UnixSocketRecord, WinTask, Zone,
 };
-pub use scope::Scope;
+pub use scope::{Scope, MAX_LARGE_HASH_BYTES};
 
 use remedy_sdk::artifact::{
     ArtifactsBody, ArtifactsEnvelope, CollectScope, CollectorInfo, CoreInfo, Envelope, HostInfo,
