@@ -642,7 +642,7 @@ flowchart LR
 
 ---
 
-## 10. 저장소 구조 — 크레이트 17종
+## 10. 저장소 구조 — 크레이트 18종
 
 > **크레이트**는 Rust 에서 따로 컴파일되는 코드 묶음이다 — 다른 언어의
 > 모듈·패키지에 해당한다.
@@ -683,14 +683,18 @@ flowchart TB
 | `remedy-detect ↛ remedy-enrich` | **판정 코드가 조회를 호출할 수 없다.** 평가의 결정성 |
 | `remedy-apply ↛ remedy-enrich` | 변경 경로에 네트워크 코드가 링크되지 않는다 |
 | `remedy-collect ↛ remedy-apply` | **진단 모드에 파괴 코드가 링크되지 않는다** |
+| `remedy-cli ↛ remedy-net` | **본체는 동반 모듈을 링크하지 않는다** — 통신은 그 바이너리에만 |
+| `remedy-net ↛ remedy-apply` · `↛ remedy-platform` | 동반 모듈에 파괴 경로 · OS 원시 연산이 없다 |
+| `remedy-cli ↛` 네트워크 크레이트 | 본체 의존 트리 전체에 HTTP · TLS · 소켓 크레이트가 없다 |
 
 뒤의 셋은 한 문장이다 — **고객 PC 에서 도는 경로에는 네트워크를 말하는 코드가
 존재하지 않는다.**
 
-위 그림에 없는 둘: `remedy-enrich`(P13 · 사내 조회, **치료 경로에 링크되지
-않는다**) · `remedy-testkit`(시험 도우미).
+위 그림에 없는 셋: `remedy-enrich`(P13 · 사내 조회, **치료 경로에 링크되지
+않는다**) · `remedy-testkit`(시험 도우미) · `remedy-net`(동반 모듈 — 네트워크로 하는
+점검을 맡는 별도 바이너리, 본체와 파일로만 주고받는다).
 
-> `remedy-wintrust` 만 `unsafe` 를 쓴다. 나머지 16종은 `#![forbid(unsafe_code)]`.
+> `remedy-wintrust` 만 `unsafe` 를 쓴다. 나머지 17종은 `#![forbid(unsafe_code)]`.
 > 그 하나의 이유는 `WinVerifyTrust` 의 안전 래퍼가 crates.io 에 없기 때문이다.
 
 ### 규칙은 문서가 아니라 CI 가 지킨다
