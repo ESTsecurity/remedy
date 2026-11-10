@@ -10,13 +10,23 @@
 //! dl 바이트의 자료 — offset 은 이 자료 안의 자리
 //! ```
 //!
-//! 쓰는 꼬리표는 일곱뿐이다 — 이름 · epoch · 판 · 개정 · 아키텍처 · 공급사 · 원본 패키지. 문자열은
+//! [`parse`] 가 쓰는 꼬리표는 일곱뿐이다 — 이름 · epoch · 판 · 개정 · 아키텍처 · 공급사 · 원본 패키지. 문자열은
 //! 자료 안에서 NUL 로 끝난다.
 //!
 //! # 믿지 않는다
 //!
 //! 블롭은 디스크에서 온 바이트다. 모든 자리를 범위로 확인하고, 모르는 모양은 **그 패키지를 버린다**
 //! (`None`) — 엉뚱한 값으로 채운 기록이 판 비교에 들어가는 것보다 낫다.
+//!
+//! # 일곱 밖의 꼬리표 (2026-11-10)
+//!
+//! 동반 모듈의 이미지 점검은 같은 블롭에서 모듈 꼬리표 · 파일 경로 · 파일 다이제스트를 더 읽는다
+//! ([`modularity_label`] · [`file_paths`] · [`file_digests`] — `files` 모듈). 블롭을 받아 그때 읽는 함수들이라
+//! [`parse`] 와 [`RpmHeader`] 는 그대로이고, 수집기는 그것들을 부르지 않는다.
+
+mod files;
+
+pub use files::{file_digests, file_paths, modularity_label, DigestAlgorithm, FileDigests};
 
 /// 한 패키지의 꼬리표.
 #[derive(Debug, Clone, PartialEq, Eq)]

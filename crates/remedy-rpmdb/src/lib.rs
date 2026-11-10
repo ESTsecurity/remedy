@@ -3,7 +3,7 @@
 //!
 //! # rpm 을 부르지 않는다
 //!
-//! dpkg · apk 와 같은 까닭이다(`package.rs`) — 수집 중 자식 프로세스 0. 세 형식 모두 **읽는 쪽 일부만**
+//! dpkg · apk 와 같은 까닭이다(`remedy-collect` 의 `package.rs`) — 수집 중 자식 프로세스 0. 세 형식 모두 **읽는 쪽 일부만**
 //! 구현했고(형식마다 모듈 머리에 무엇을 읽는지 적었다), 쓰지 않는다. 디스크에서 온 바이트라 모든 자리를
 //! 범위로 확인하고, 모르는 모양은 오류로 돌려 부르는 쪽이 *잘렸다* 로 말하게 한다 — 조용히 0건이 되면
 //! 그 기계는 *"패키지가 없다"* 가 된다.
@@ -13,13 +13,20 @@
 //! 컨테이너에서 꺼낸 DB 넷을 같은 컨테이너의 `rpm -qa` 와 견줬다 — 이름 · `epoch:판-개정` · 아키텍처 · 공급사가
 //! 모두 같았다(`gpg-pubkey` 제외): Rocky 9(SQLite) 157 · CentOS 7(BDB) 148 · Oracle Linux 8(BDB) 200 ·
 //! openSUSE Leap 15.6(NDB) 140. DB 하나를 읽는 데 6~11 ms 였다(디버그 빌드).
+//!
+//! # 따로 선 크레이트다 (2026-11-10)
+//!
+//! `remedy-collect` 의 모듈이었다. 그 크레이트는 `remedy-platform` 에 기대므로 동반 모듈 `remedy-net` 이 쓸 수
+//! 없었다(설계-04 §1) — 이미지 안의 DB 도 같은 판독기로 읽도록 **의존 없는 크레이트**로 뺐다. 파일을 열고 읽는 양을
+//! 정하고 DB 자리를 고르는 것은 부르는 쪽의 일이다.
+#![forbid(unsafe_code)]
 
 mod bdb;
 pub mod header;
 mod ndb;
 mod sqlite;
 
-pub use header::RpmHeader;
+pub use header::{DigestAlgorithm, FileDigests, RpmHeader};
 
 /// 읽지 못한 까닭 — 사람이 아니라 부르는 쪽이 읽는다(관측의 *잘렸다* 로 바뀐다).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -49,15 +56,24 @@ pub fn detect(bytes: &[u8]) -> Option<Format> {
     (le == 0x0006_1561 || be == 0x0006_1561).then_some(Format::Bdb)
 }
 
+/// DB 하나의 헤더 블롭 전부 — 형식을 가려 꺼내기만 하고 헤더로 읽지는 않는다.
+///
+/// [`headers`] 가 담지 않는 꼬리표(모듈 꼬리표 · 파일 경로 · 파일 다이제스트)를 읽으려는 쪽이 이것으로 블롭을
+/// 받아 [`header`] 의 함수에 넘긴다. **패키지가 아닌 값도 섞여 나온다** — [`header::parse`] 가 `None` 을 내는
+/// 블롭은 패키지가 아니다(아래 [`headers`] 가 세는 그것이다).
+pub fn blobs(bytes: &[u8]) -> Result<Vec<Vec<u8>>, RpmDbError> {
+    match detect(bytes) {
+        Some(Format::Sqlite) => sqlite::blobs(bytes),
+        Some(Format::Bdb) => bdb::blobs(bytes),
+        Some(Format::Ndb) => ndb::blobs(bytes),
+        None => Err(RpmDbError::Format("RPM DB 형식을 모른다")),
+    }
+}
+
 /// DB 하나의 패키지 헤더 전부. 헤더로 읽히지 않는 블롭은 센다 — rpm 은 BDB 에 패키지가 아닌
 /// 값(다음 헤더 번호 등)을 함께 둔다.
 pub fn headers(bytes: &[u8]) -> Result<(Vec<RpmHeader>, usize), RpmDbError> {
-    let blobs = match detect(bytes) {
-        Some(Format::Sqlite) => sqlite::blobs(bytes)?,
-        Some(Format::Bdb) => bdb::blobs(bytes)?,
-        Some(Format::Ndb) => ndb::blobs(bytes)?,
-        None => return Err(RpmDbError::Format("RPM DB 형식을 모른다")),
-    };
+    let blobs = blobs(bytes)?;
     let mut out = Vec::with_capacity(blobs.len());
     let mut skipped = 0usize;
     for b in &blobs {
@@ -78,6 +94,10 @@ mod tests {
         assert_eq!(detect(b""), None);
         assert_eq!(
             headers(b"not a database at all"),
+            Err(RpmDbError::Format("RPM DB 형식을 모른다"))
+        );
+        assert_eq!(
+            blobs(b"not a database at all"),
             Err(RpmDbError::Format("RPM DB 형식을 모른다"))
         );
     }

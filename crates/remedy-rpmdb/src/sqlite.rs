@@ -260,7 +260,7 @@ pub fn blobs(bytes: &[u8]) -> Result<Vec<Vec<u8>>, RpmDbError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::rpmdb::header::{self, tests::php_header};
+    use crate::header::{self, tests::php_header};
 
     /// SQLite 가 직접 쓴 작은 DB — rpm 의 `CREATE TABLE` 문 그대로, 쪽 1 KiB, 합성 헤더 다섯(`php-cli` ·
     /// `gpg-pubkey` · 판이 다른 `kernel-core` 둘 · 한 쪽을 넘는 `php-fpm`). 다섯이 잎 하나에 들어가지 않아

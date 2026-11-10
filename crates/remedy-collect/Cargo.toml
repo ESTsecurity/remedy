@@ -10,6 +10,9 @@ publish = false
 remedy-sdk = { path = "../remedy-sdk" }
 remedy-artifacts = { path = "../remedy-artifacts" }
 remedy-platform = { path = "../remedy-platform" }
+# RPM 패키지 DB 판독기 (`package.rs` 가 쓴다). 이 크레이트의 모듈이었는데, 동반 모듈 `remedy-net` 도 이미지 안의
+# DB 를 같은 판독기로 읽어야 하고 그쪽은 `remedy-platform` 을 링크하지 못해(설계-04 §1) 의존 없는 크레이트로 뺐다.
+remedy-rpmdb = { path = "../remedy-rpmdb" }
 sha2.workspace = true
 # 인증서 지문. **보안 속성이 아니라 식별자다** — 루트 Cargo.toml 의 주석 참조.
 sha1.workspace = true

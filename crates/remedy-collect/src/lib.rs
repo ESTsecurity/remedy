@@ -20,7 +20,6 @@ pub mod extra;
 pub mod package;
 pub mod peversion;
 pub mod registry;
-pub mod rpmdb;
 pub mod shortcut;
 pub mod signature;
 pub mod systemd;

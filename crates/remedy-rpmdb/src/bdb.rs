@@ -171,7 +171,7 @@ pub fn blobs(bytes: &[u8]) -> Result<Vec<Vec<u8>>, RpmDbError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::rpmdb::header::tests::{build, php_header, s};
+    use crate::header::tests::{build, php_header, s};
 
     const PS: usize = 512;
 
@@ -294,7 +294,7 @@ mod tests {
                 "le={le}"
             );
             // 헤더가 아닌 값은 버리지 않고 센다.
-            let (hs, skipped) = crate::rpmdb::headers(&f).unwrap();
+            let (hs, skipped) = crate::headers(&f).unwrap();
             assert_eq!((hs.len(), skipped), (2, 1));
             assert_eq!(
                 (hs[0].name.as_str(), hs[1].name.as_str()),

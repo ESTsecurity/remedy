@@ -13,8 +13,8 @@
 //! | apk | `/lib/apk/db/installed` | `글자:값` 줄, 빈 줄로 끊음 | alpine:3.21 에 15개 · 15 KB |
 //!
 //! **`rpm` 도 파일로 읽는다** (2026-11-09 · 코어 1.3.0) — SQLite · Berkeley DB · NDB 판독기가
-//! [`crate::rpmdb`] 에 있다. DB 자리는 rpm 의 `%_dbpath`(매크로 파일)가 정하고, 읽지 못하면 **잘렸다**고
-//! 말한다 — 조용히 0건이면 그 기계는 *"패키지가 없다"* 가 된다.
+//! [`remedy_rpmdb`] 에 있다(동반 모듈도 쓰도록 따로 선 크레이트다). DB 자리는 rpm 의 `%_dbpath`(매크로 파일)가
+//! 정하고, 읽지 못하면 **잘렸다**고 말한다 — 조용히 0건이면 그 기계는 *"패키지가 없다"* 가 된다.
 
 use remedy_artifacts::{CollectError, Harvest, PackageRecord, Scope};
 use remedy_platform::read::{FsRead, Seen};
@@ -149,7 +149,7 @@ fn rpm_packages<P: FsRead>(fs: &P, h: &mut Harvest<PackageRecord>) {
         return;
     };
     match fs.read_file(&path, MAX_RPM_DB_BYTES) {
-        Ok(Some(bytes)) => match crate::rpmdb::headers(&bytes) {
+        Ok(Some(bytes)) => match remedy_rpmdb::headers(&bytes) {
             Ok((headers, _)) => {
                 h.records.extend(
                     headers
@@ -223,7 +223,7 @@ fn rpm_dbpath<P: FsRead>(fs: &P) -> Option<String> {
 }
 
 /// RPM 헤더 하나를 기록으로. 판은 rpm 이 적는 그대로 `[epoch:]판-개정` 이다(epoch 은 있을 때만).
-fn rpm_record(x: crate::rpmdb::RpmHeader) -> PackageRecord {
+fn rpm_record(x: remedy_rpmdb::RpmHeader) -> PackageRecord {
     let version = match x.epoch {
         Some(e) if e > 0 => format!("{e}:{}-{}", x.version, x.release),
         _ => format!("{}-{}", x.version, x.release),
@@ -661,8 +661,8 @@ R:php82
     // ───────────────────────────────────────────── rpm
 
     /// SQLite 가 직접 쓴 rpm DB — 합성 헤더 다섯(`php-cli` · `gpg-pubkey` · 판이 다른 `kernel-core` 둘 ·
-    /// `php-fpm`). 판독기 시험(`rpmdb::sqlite`)과 같은 파일이다.
-    const RPMDB: &[u8] = include_bytes!("rpmdb/testdata/tiny-rpmdb.sqlite");
+    /// `php-fpm`). 판독기 시험(`remedy-rpmdb` 의 `sqlite`)과 같은 파일이다 — 판독기를 따라 그 크레이트로 갔다.
+    const RPMDB: &[u8] = include_bytes!("../../remedy-rpmdb/src/testdata/tiny-rpmdb.sqlite");
     const VAR_SQLITE: &str = "/var/lib/rpm/rpmdb.sqlite";
     const SYSIMAGE_SQLITE: &str = "/usr/lib/sysimage/rpm/rpmdb.sqlite";
 
@@ -793,7 +793,7 @@ R:php82
 
     #[test]
     fn rpm_versions_show_the_epoch_only_when_it_is_set() {
-        let x = crate::rpmdb::RpmHeader {
+        let x = remedy_rpmdb::RpmHeader {
             name: "libmount".into(),
             epoch: Some(2),
             version: "2.37.4".into(),
@@ -811,7 +811,7 @@ R:php82
         assert_eq!(r.source, "util-linux");
         for epoch in [Some(0), None] {
             assert_eq!(
-                rpm_record(crate::rpmdb::RpmHeader { epoch, ..x.clone() }).version,
+                rpm_record(remedy_rpmdb::RpmHeader { epoch, ..x.clone() }).version,
                 "2.37.4-20.el9"
             );
         }

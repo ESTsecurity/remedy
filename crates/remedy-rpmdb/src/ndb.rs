@@ -85,7 +85,7 @@ pub fn blobs(bytes: &[u8]) -> Result<Vec<Vec<u8>>, RpmDbError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::rpmdb::header::tests::{build, php_header, s};
+    use crate::header::tests::{build, php_header, s};
 
     /// 슬롯 쪽 하나 뒤에 블롭을 잇는다 — 슬롯 차례대로, `None` 은 빈 슬롯. 빈 슬롯도 마법은 적혀 있다(rpm 이
     /// 슬롯 쪽을 그렇게 채운다).

@@ -553,6 +553,8 @@ mod tests {
             ("remedy-cli", "remedy-net"),
             ("remedy-net", "remedy-apply"),
             ("remedy-net", "remedy-platform"),
+            // 동반 모듈이 링크할 판독기 — 이 줄이 빠지면 판독기가 OS 의존을 들여도 동반 모듈이 그것을 쓰기 전에는 걸리지 않는다.
+            ("remedy-rpmdb", "remedy-platform"),
         ] {
             assert!(
                 pairs.contains(&(from.to_string(), to.to_string())),

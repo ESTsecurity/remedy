@@ -642,7 +642,7 @@ flowchart LR
 
 ---
 
-## 10. 저장소 구조 — 크레이트 18종
+## 10. 저장소 구조 — 크레이트 19종
 
 > **크레이트**는 Rust 에서 따로 컴파일되는 코드 묶음이다 — 다른 언어의
 > 모듈·패키지에 해당한다.
@@ -659,6 +659,7 @@ flowchart TB
     CORE --> APP[remedy-apply]
     CORE --> REP[remedy-report]
     COL --> PLAT[remedy-platform]
+    COL --> RPM[remedy-rpmdb<br/>RPM 패키지 DB 판독기]
     APP --> PLAT
     APP --> QUAR[remedy-quarantine]
     APP --> JOUR[remedy-journal]
@@ -683,6 +684,7 @@ flowchart TB
 | `remedy-detect ↛ remedy-enrich` | **판정 코드가 조회를 호출할 수 없다.** 평가의 결정성 |
 | `remedy-apply ↛ remedy-enrich` | 변경 경로에 네트워크 코드가 링크되지 않는다 |
 | `remedy-collect ↛ remedy-apply` | **진단 모드에 파괴 코드가 링크되지 않는다** |
+| `remedy-rpmdb ↛ remedy-platform` | **함께 쓰는 판독기는 받은 바이트만 읽는다** — 그래야 동반 모듈도 같은 판독기를 쓴다 |
 | `remedy-cli ↛ remedy-net` | **본체는 동반 모듈을 링크하지 않는다** — 통신은 그 바이너리에만 |
 | `remedy-net ↛ remedy-apply` · `↛ remedy-platform` | 동반 모듈에 파괴 경로 · OS 원시 연산이 없다 |
 | `remedy-cli ↛` 네트워크 크레이트 | 본체 의존 트리 전체에 HTTP · TLS · 소켓 크레이트가 없다 |
@@ -695,7 +697,7 @@ flowchart TB
 점검을 맡는 별도 바이너리. 본체는 링크하지 않고, 네트워크 점검 룰을 고르면 서명을 확인한 그 실행 파일을
 띄워 종료 코드만 받는다 — 설계-04 §1).
 
-> `remedy-wintrust` 만 `unsafe` 를 쓴다. 나머지 17종은 `#![forbid(unsafe_code)]`.
+> `remedy-wintrust` 만 `unsafe` 를 쓴다. 나머지 18종은 `#![forbid(unsafe_code)]`.
 > 그 하나의 이유는 `WinVerifyTrust` 의 안전 래퍼가 crates.io 에 없기 때문이다.
 
 ### 규칙은 문서가 아니라 CI 가 지킨다
@@ -710,8 +712,8 @@ cargo deny check
 
 | `xtask all` 이 보는 것 | 무엇을 |
 |---|---|
-| `arch` | 금지 의존 9건 · 본체 의존 트리에 HTTP · TLS · 소켓 크레이트 0 · 제품 바이너리 이름 |
-| `unsafe` | 18 중 17 이 `#![forbid(unsafe_code)]` |
+| `arch` | 금지 의존 10건 · 본체 의존 트리에 HTTP · TLS · 소켓 크레이트 0 · 제품 바이너리 이름 |
+| `unsafe` | 19 중 18 이 `#![forbid(unsafe_code)]` |
 | `trace` | 설계 인벤토리가 Phase 계획에 전부 반영됐는가 |
 | `schema` | 생성물 9개가 생성기(SDK · `remedy-net`)와 일치하는가 |
 | `가이드` | 문서 18개의 크기 예산과 헤더 |
