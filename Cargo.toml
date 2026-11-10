@@ -139,3 +139,11 @@ strip = true
 lto = "thin"
 codegen-units = 1
 panic = "abort"
+
+# 개발 · 시험 빌드에서 **의존 크레이트의 디버그 정보를 끈다** — 워크스페이스 크레이트는 그대로다(변수 · 줄 번호).
+# `target/debug` 는 `.pdb` 가 절반을 넘는다. 깨끗한 한 세대(`cargo test --no-run` + `cargo build`)를 잰 값
+# (Windows · 2026-11-10): 17.4 → 8.3 GB(`.pdb` 8.7 → 2.2) · 처음 빌드 271 → 191초. 시험 결과는 같다.
+# 의존 크레이트 안의 스택은 함수 이름까지만 나오고 파일 · 줄이 없다 — 그 안을 따라 들어가 볼 때만 이 칸을
+# 잠깐 지운다. 배포 빌드(`release`)는 이 칸과 상관없다.
+[profile.dev.package."*"]
+debug = false
