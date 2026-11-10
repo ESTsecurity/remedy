@@ -10,7 +10,7 @@
 //! rpm 의 표: `CREATE TABLE 'Packages' (hnum INTEGER PRIMARY KEY AUTOINCREMENT, blob BLOB NOT NULL)` —
 //! `hnum` 은 rowid 라 기록에는 NULL 로 담기고, 블롭이 둘째 열이다(실측 · Rocky 9).
 
-use super::RpmDbError;
+use super::{Copies, Limits, Read, RpmDbError, COPIED};
 use std::collections::HashSet;
 
 const MAGIC: &[u8; 16] = b"SQLite format 3\0";
@@ -20,16 +20,25 @@ const INTERIOR_TABLE: u8 = 0x05;
 const MAX_RECORD: u64 = 64 * 1024 * 1024;
 /// 기록 수 상한.
 const MAX_RECORDS: usize = 200_000;
+/// 이 기계의 DB 를 읽을 때([`blobs`])의 상한 — 복사한 양은 보지 않는다.
+const TRUSTED: Limits = Limits {
+    record: MAX_RECORD,
+    records: MAX_RECORDS,
+    copied: u64::MAX,
+};
 
 struct Db<'a> {
     bytes: &'a [u8],
     page_size: usize,
     usable: usize,
     pages: u32,
+    limits: Limits,
+    /// 스키마 표와 `Packages` 의 페이로드를 함께 센다.
+    copies: Copies,
 }
 
 impl<'a> Db<'a> {
-    fn new(bytes: &'a [u8]) -> Result<Self, RpmDbError> {
+    fn new(bytes: &'a [u8], limits: Limits) -> Result<Self, RpmDbError> {
         if bytes.len() < 100 || &bytes[..16] != MAGIC {
             return Err(RpmDbError::Format("SQLite 머리가 아니다"));
         }
@@ -50,6 +59,8 @@ impl<'a> Db<'a> {
             page_size,
             usable,
             pages,
+            limits,
+            copies: Copies::new(limits.copied),
         })
     }
 
@@ -61,8 +72,8 @@ impl<'a> Db<'a> {
         Ok(&self.bytes[start..start + self.page_size])
     }
 
-    /// 표 B-트리의 기록(페이로드 전체)을 rowid 차례로 모은다.
-    fn table(&self, root: u32) -> Result<Vec<Vec<u8>>, RpmDbError> {
+    /// 표 B-트리의 기록(페이로드 전체)을 rowid 차례로 모은다. 복사한 양이 상한에 닿으면 그 앞까지다.
+    fn table(&self, root: u32) -> Result<Read, RpmDbError> {
         let mut out = Vec::new();
         let mut seen = HashSet::new();
         let mut stack = vec![root];
@@ -78,8 +89,12 @@ impl<'a> Db<'a> {
                 LEAF_TABLE => {
                     for i in 0..cells {
                         let at = be16(page, h + 8 + 2 * i)? as usize;
-                        out.push(self.leaf_payload(page, at)?);
-                        if out.len() > MAX_RECORDS {
+                        match self.leaf_payload(page, at) {
+                            Ok(p) => out.push(p),
+                            Err(e) if e == COPIED => return Ok((out, Some(e))),
+                            Err(e) => return Err(e),
+                        }
+                        if out.len() > self.limits.records {
                             return Err(RpmDbError::Limit("SQLite 기록이 상한을 넘었다"));
                         }
                     }
@@ -95,7 +110,7 @@ impl<'a> Db<'a> {
                 _ => return Err(RpmDbError::Format("표 B-트리가 아닌 쪽이다")),
             }
         }
-        Ok(out)
+        Ok((out, None))
     }
 
     /// 잎 쪽의 셀 하나 — 페이로드 길이 · rowid · 페이로드(넘치면 넘침 쪽 사슬).
@@ -103,16 +118,18 @@ impl<'a> Db<'a> {
         let (total, n1) = varint(page, at).ok_or(RpmDbError::Format("셀 길이를 읽지 못했다"))?;
         let (_rowid, n2) =
             varint(page, at + n1).ok_or(RpmDbError::Format("rowid 를 읽지 못했다"))?;
-        if total > MAX_RECORD {
+        if total > self.limits.record {
             return Err(RpmDbError::Limit("SQLite 기록 하나가 상한을 넘었다"));
         }
-        let total = total as usize;
         let start = at + n1 + n2;
-        let local = self.local_size(total);
-        let mut out = page
+        let local = self.local_size(total as usize);
+        let first = page
             .get(start..start + local)
-            .ok_or(RpmDbError::Format("셀이 쪽 밖으로 나간다"))?
-            .to_vec();
+            .ok_or(RpmDbError::Format("셀이 쪽 밖으로 나간다"))?;
+        // 셀 여럿이 같은 넘침 사슬을 가리킬 수 있다 — 그때마다 복사하므로 복사하기 전에 센다.
+        self.copies.take(total)?;
+        let total = total as usize;
+        let mut out = first.to_vec();
         if local < total {
             let mut next = be32(page, start + local)?;
             let mut hops = 0u32;
@@ -230,12 +247,23 @@ fn be32(b: &[u8], at: usize) -> Result<u32, RpmDbError> {
         .ok_or(RpmDbError::Format("쪽이 짧다"))
 }
 
-/// `Packages` 표의 헤더 블롭 전부.
+/// `Packages` 표의 헤더 블롭 전부 — 이 기계의 DB.
 pub fn blobs(bytes: &[u8]) -> Result<Vec<Vec<u8>>, RpmDbError> {
-    let db = Db::new(bytes)?;
+    let (out, stop) = read(bytes, TRUSTED)?;
+    stop.map_or(Ok(out), Err)
+}
+
+/// `Packages` 표의 헤더 블롭을 `limits` 안에서. 복사한 양이 상한에 닿으면 그 앞의 블롭과 [`COPIED`] 다 — 스키마
+/// 표에서 닿으면 블롭이 없다. 블롭은 페이로드에서 한 번 더 복사하지만 센 것은 페이로드다(그것이 더 크다).
+pub(crate) fn read(bytes: &[u8], limits: Limits) -> Result<Read, RpmDbError> {
+    let db = Db::new(bytes, limits)?;
     // 스키마 표(첫 쪽): type · name · tbl_name · rootpage · sql.
+    let (schema, stop) = db.table(1)?;
+    if stop.is_some() {
+        return Ok((Vec::new(), stop));
+    }
     let mut root = None;
-    for rec in db.table(1)? {
+    for rec in schema {
         let is_table = matches!(column(&rec, 0), Some(Value::Bytes(b"table")));
         let named = matches!(column(&rec, 1), Some(Value::Bytes(b"Packages")));
         if is_table && named {
@@ -245,8 +273,9 @@ pub fn blobs(bytes: &[u8]) -> Result<Vec<Vec<u8>>, RpmDbError> {
         }
     }
     let root = root.ok_or(RpmDbError::Format("Packages 표가 없다"))?;
+    let (records, stop) = db.table(root)?;
     let mut out = Vec::new();
-    for rec in db.table(root)? {
+    for rec in records {
         match column(&rec, 1) {
             Some(Value::Bytes(b)) => out.push(b.to_vec()),
             Some(Value::Null) | Some(Value::Int(_)) | Some(Value::Other) | None => {
@@ -254,11 +283,11 @@ pub fn blobs(bytes: &[u8]) -> Result<Vec<Vec<u8>>, RpmDbError> {
             }
         }
     }
-    Ok(out)
+    Ok((out, stop))
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::header::{self, tests::php_header};
 
@@ -301,10 +330,11 @@ mod tests {
     #[test]
     fn the_fixture_walks_both_kinds_of_table_page() {
         // 시험이 내부 쪽 길을 정말 지나는지 — 자료를 다시 만들다 잎 하나로 줄면 이 시험이 먼저 깨진다.
-        let db = Db::new(TINY).unwrap();
+        let db = Db::new(TINY, TRUSTED).unwrap();
         let root = db
             .table(1)
             .unwrap()
+            .0
             .iter()
             .find_map(|r| match (column(r, 1), column(r, 3)) {
                 (Some(Value::Bytes(b"Packages")), Some(Value::Int(n))) => Some(n as u32),
@@ -348,5 +378,248 @@ mod tests {
             }
             b[i] = keep;
         }
+    }
+
+    // ───────────────────────────── 상한 — 같은 판독기, 다른 값
+
+    /// 시험용 DB 의 쪽 크기.
+    const P: usize = 4096;
+
+    /// 시험용 기록 — 제 블롭을 갖거나(`Own`), 앞의 `i` 번째 기록과 같은 페이로드를 담고 **넘침 사슬을 함께
+    /// 쓴다**(`Same`). 함께 쓰는 사슬은 SQLite 가 쓰지 않는 모양이다 — 손으로 만든 파일만 그렇다.
+    pub(crate) enum Rec {
+        Own(Vec<u8>),
+        Same(usize),
+    }
+
+    /// SQLite 의 가변 길이 정수 — 7비트씩, 큰 쪽이 먼저(이 시험의 값은 56비트 안이다).
+    fn put_varint(out: &mut Vec<u8>, v: u64) {
+        let mut groups = vec![(v & 0x7F) as u8];
+        let mut rest = v >> 7;
+        while rest > 0 {
+            groups.push((rest & 0x7F) as u8 | 0x80);
+            rest >>= 7;
+        }
+        out.extend(groups.iter().rev());
+    }
+
+    /// rpm 의 `Packages` 기록 — (NULL, 블롭). 머리는 길이 · NULL · 블롭의 직렬 형이다.
+    pub(crate) fn record(blob: &[u8]) -> Vec<u8> {
+        let mut serial = Vec::new();
+        put_varint(&mut serial, blob.len() as u64 * 2 + 12);
+        let mut r = vec![(2 + serial.len()) as u8, 0];
+        r.extend(serial);
+        r.extend_from_slice(blob);
+        r
+    }
+
+    /// 스키마 표의 기록 하나 — `Packages` 의 뿌리는 쪽 2 다.
+    fn schema_record() -> Vec<u8> {
+        let texts: [&[u8]; 3] = [b"table", b"Packages", b"Packages"];
+        let sql: &[u8] =
+            b"CREATE TABLE 'Packages' (hnum INTEGER PRIMARY KEY AUTOINCREMENT, blob BLOB NOT NULL)";
+        let mut serials = Vec::new();
+        for t in texts {
+            put_varint(&mut serials, t.len() as u64 * 2 + 13);
+        }
+        serials.push(1);
+        put_varint(&mut serials, sql.len() as u64 * 2 + 13);
+        let mut r = vec![(1 + serials.len()) as u8];
+        r.extend(serials);
+        for t in texts {
+            r.extend_from_slice(t);
+        }
+        r.push(2);
+        r.extend_from_slice(sql);
+        r
+    }
+
+    /// 판독기와 같은 식 — 표 잎 셀이 쪽 안에 두는 몫.
+    fn local(p: usize) -> usize {
+        let x = P - 35;
+        if p <= x {
+            return p;
+        }
+        let m = ((P - 12) * 32 / 255) - 23;
+        let k = m + ((p - m) % (P - 4));
+        if k <= x {
+            k
+        } else {
+            m
+        }
+    }
+
+    /// 넘친 몫을 파일 끝에 쪽 사슬로 잇는다 — 쪽마다 다음 쪽 번호와 자료. 넘치지 않으면 `None`.
+    fn overflow(f: &mut Vec<u8>, rest: &[u8]) -> Option<u32> {
+        if rest.is_empty() {
+            return None;
+        }
+        let first = (f.len() / P + 1) as u32;
+        let chunks: Vec<&[u8]> = rest.chunks(P - 4).collect();
+        for (i, chunk) in chunks.iter().enumerate() {
+            let pgno = first + i as u32;
+            let next = if i + 1 < chunks.len() { pgno + 1 } else { 0 };
+            let mut page = vec![0u8; P];
+            page[..4].copy_from_slice(&next.to_be_bytes());
+            page[4..4 + chunk.len()].copy_from_slice(chunk);
+            f.extend_from_slice(&page);
+        }
+        Some(first)
+    }
+
+    /// 셀 하나 — 페이로드 길이 · rowid · 쪽 안의 몫 · (넘치면) 사슬의 첫 쪽.
+    fn cell(payload: &[u8], rowid: u64, first: Option<u32>) -> Vec<u8> {
+        let mut c = Vec::new();
+        put_varint(&mut c, payload.len() as u64);
+        put_varint(&mut c, rowid);
+        c.extend_from_slice(&payload[..local(payload.len())]);
+        if let Some(pg) = first {
+            c.extend_from_slice(&pg.to_be_bytes());
+        }
+        c
+    }
+
+    /// 표 잎 쪽 — `base` 는 쪽의 자리, `h` 는 쪽 머리의 자리(첫 쪽은 파일 머리 100바이트 뒤).
+    fn leaf(f: &mut [u8], base: usize, h: usize, cells: &[Vec<u8>]) {
+        let page = &mut f[base..base + P];
+        page[h] = LEAF_TABLE;
+        page[h + 3..h + 5].copy_from_slice(&(cells.len() as u16).to_be_bytes());
+        let mut top = P;
+        for (i, c) in cells.iter().enumerate() {
+            top = top
+                .checked_sub(c.len())
+                .expect("시험 기록이 잎 쪽 하나를 넘었다");
+            page[top..top + c.len()].copy_from_slice(c);
+            page[h + 8 + 2 * i..h + 10 + 2 * i].copy_from_slice(&(top as u16).to_be_bytes());
+        }
+        assert!(
+            h + 8 + 2 * cells.len() <= top,
+            "시험 기록이 잎 쪽 하나를 넘었다"
+        );
+    }
+
+    /// 표 내부 쪽 — 왼쪽부터 자식 쪽 번호와 rowid, 오른쪽 끝 자식은 쪽 머리에.
+    fn interior(f: &mut [u8], base: usize, children: &[u32]) {
+        let page = &mut f[base..base + P];
+        page[0] = INTERIOR_TABLE;
+        let (last, rest) = children.split_last().expect("자식이 하나는 있다");
+        page[3..5].copy_from_slice(&(rest.len() as u16).to_be_bytes());
+        page[8..12].copy_from_slice(&last.to_be_bytes());
+        let mut top = P;
+        for (i, child) in rest.iter().enumerate() {
+            let mut c = child.to_be_bytes().to_vec();
+            put_varint(&mut c, i as u64 + 1);
+            top -= c.len();
+            page[top..top + c.len()].copy_from_slice(&c);
+            page[12 + 2 * i..14 + 2 * i].copy_from_slice(&(top as u16).to_be_bytes());
+        }
+        assert!(
+            12 + 2 * rest.len() <= top,
+            "시험 기록이 내부 쪽 하나를 넘었다"
+        );
+    }
+
+    /// 시험용 rpm SQLite DB — 쪽 4 KiB, 스키마 표(쪽 1)와 `Packages` 의 내부 뿌리 쪽(쪽 2). 기록마다 잎 쪽 하나를 두므로
+    /// 기록의 크기와 상관없이 들어가고, 넘친 몫은 넘침 쪽 사슬에 있다.
+    pub(crate) fn sqlite_db(recs: &[Rec]) -> Vec<u8> {
+        let mut f = vec![0u8; 2 * P];
+        f[..16].copy_from_slice(MAGIC);
+        f[16..18].copy_from_slice(&(P as u16).to_be_bytes());
+        leaf(&mut f, 0, 100, &[cell(&schema_record(), 1, None)]);
+        let mut built: Vec<Option<(Vec<u8>, Option<u32>)>> = Vec::new();
+        let mut leaves = Vec::new();
+        for (i, r) in recs.iter().enumerate() {
+            let rowid = i as u64 + 1;
+            let c = match r {
+                Rec::Own(blob) => {
+                    let payload = record(blob);
+                    let first = overflow(&mut f, &payload[local(payload.len())..]);
+                    let c = cell(&payload, rowid, first);
+                    built.push(Some((payload, first)));
+                    c
+                }
+                Rec::Same(k) => {
+                    let (payload, first) = built[*k].as_ref().expect("앞의 Own 기록");
+                    let c = cell(payload, rowid, *first);
+                    built.push(None);
+                    c
+                }
+            };
+            let base = f.len();
+            f.resize(base + P, 0);
+            leaf(&mut f, base, 0, &[c]);
+            leaves.push((base / P + 1) as u32);
+        }
+        if leaves.is_empty() {
+            leaf(&mut f, P, 0, &[]);
+        } else {
+            interior(&mut f, P, &leaves);
+        }
+        f
+    }
+
+    fn limits(records: usize, copied: u64) -> Limits {
+        Limits {
+            record: MAX_RECORD,
+            records,
+            copied,
+        }
+    }
+
+    #[test]
+    fn the_test_builder_writes_what_the_reader_reads() {
+        // 시험 DB 가 판독기의 길(스키마 · 잎 · 넘침 사슬)을 지나는지 — 아래 상한 시험의 전제다.
+        let big = vec![7u8; 3 * P];
+        let db = sqlite_db(&[Rec::Own(php_header()), Rec::Own(big.clone())]);
+        assert_eq!(blobs(&db).unwrap(), vec![php_header(), big.clone()]);
+        // 사슬을 함께 쓰는 기록도 판독기는 따로 복사한다 — 그것이 상한이 있어야 하는 까닭이다.
+        let shared = sqlite_db(&[Rec::Own(big.clone()), Rec::Same(0), Rec::Same(0)]);
+        assert_eq!(blobs(&shared).unwrap(), vec![big.clone(), big.clone(), big]);
+        assert_eq!(
+            shared.len(),
+            8 * P,
+            "쪽 1 · 2, 사슬 하나(쪽 셋), 잎 쪽 셋뿐이다"
+        );
+        // 기록이 없는 DB 도 판독기의 길을 지난다.
+        assert_eq!(blobs(&sqlite_db(&[])).unwrap(), Vec::<Vec<u8>>::new());
+    }
+
+    #[test]
+    fn copies_stop_at_the_limit_and_keep_the_records_before() {
+        let big = vec![7u8; 3 * P];
+        let db = sqlite_db(&[Rec::Own(php_header()), Rec::Own(big.clone())]);
+        let schema = schema_record().len() as u64;
+        let (a, b) = (
+            record(&php_header()).len() as u64,
+            record(&big).len() as u64,
+        );
+        // 꼭 닿으면 읽는다 · 한 바이트 모자라면 그 앞까지와 까닭.
+        assert_eq!(
+            read(&db, limits(10, schema + a + b)).unwrap(),
+            (vec![php_header(), big], None)
+        );
+        assert_eq!(
+            read(&db, limits(10, schema + a + b - 1)).unwrap(),
+            (vec![php_header()], Some(COPIED))
+        );
+        assert_eq!(
+            read(&db, limits(10, schema + a - 1)).unwrap(),
+            (Vec::new(), Some(COPIED))
+        );
+        // 스키마 표에서 닿으면 `Packages` 를 찾지 못한다 — 블롭이 없다.
+        assert_eq!(
+            read(&db, limits(10, schema - 1)).unwrap(),
+            (Vec::new(), Some(COPIED))
+        );
+    }
+
+    #[test]
+    fn more_records_than_the_limit_is_an_error_not_a_shorter_list() {
+        let db = sqlite_db(&[Rec::Own(php_header()), Rec::Own(php_header())]);
+        assert_eq!(read(&db, limits(2, u64::MAX)).unwrap().0.len(), 2);
+        assert_eq!(
+            read(&db, limits(1, u64::MAX)),
+            Err(RpmDbError::Limit("SQLite 기록이 상한을 넘었다"))
+        );
     }
 }

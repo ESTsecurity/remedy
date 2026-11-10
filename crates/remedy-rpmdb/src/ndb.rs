@@ -11,7 +11,7 @@
 //!
 //! 쓰지 않고, 블롭 꼬리의 검사합은 보지 않는다 — 머리의 마법 · 패키지 번호 · 길이가 슬롯과 맞는지만 본다.
 
-use super::RpmDbError;
+use super::{Copies, Limits, Read, RpmDbError, COPIED};
 
 const DB_MAGIC: &[u8; 4] = b"RpmP";
 const SLOT_MAGIC: &[u8; 4] = b"Slot";
@@ -25,6 +25,12 @@ const BLOB_TAIL: usize = 12;
 const FIRST_SLOT: usize = 32 / SLOT;
 const MAX_BLOB: u32 = 64 * 1024 * 1024;
 const MAX_SLOT_PAGES: u32 = 4096;
+/// 이 기계의 DB 를 읽을 때([`blobs`])의 상한 — 블롭 수와 복사한 양은 보지 않는다.
+const TRUSTED: Limits = Limits {
+    record: MAX_BLOB as u64,
+    records: usize::MAX,
+    copied: u64::MAX,
+};
 
 fn le32(b: &[u8], at: usize) -> Result<u32, RpmDbError> {
     b.get(at..at + 4)
@@ -32,8 +38,15 @@ fn le32(b: &[u8], at: usize) -> Result<u32, RpmDbError> {
         .ok_or(RpmDbError::Format("NDB 가 짧다"))
 }
 
-/// 쓰인 슬롯이 가리키는 헤더 블롭 전부.
+/// 쓰인 슬롯이 가리키는 헤더 블롭 전부 — 이 기계의 DB.
 pub fn blobs(bytes: &[u8]) -> Result<Vec<Vec<u8>>, RpmDbError> {
+    let (out, stop) = read(bytes, TRUSTED)?;
+    stop.map_or(Ok(out), Err)
+}
+
+/// 쓰인 슬롯이 가리키는 블롭을 `limits` 안에서. 슬롯 여럿이 한 블롭을 가리킬 수 있어 복사한 양을 센다 — 상한에
+/// 닿으면 그 앞의 블롭과 [`COPIED`] 다.
+pub(crate) fn read(bytes: &[u8], limits: Limits) -> Result<Read, RpmDbError> {
     if bytes.len() < PAGE || &bytes[..4] != DB_MAGIC {
         return Err(RpmDbError::Format("NDB 머리가 아니다"));
     }
@@ -47,6 +60,7 @@ pub fn blobs(bytes: &[u8]) -> Result<Vec<Vec<u8>>, RpmDbError> {
         .ok_or(RpmDbError::Format("NDB 슬롯 쪽이 파일 밖이다"))?;
     // 블롭은 슬롯 쪽 뒤에만 있다.
     let min_block = slots_end / BLOCK;
+    let copies = Copies::new(limits.copied);
     let mut out = Vec::new();
     for s in (FIRST_SLOT * SLOT..slots_end).step_by(SLOT) {
         if &bytes[s..s + 4] != SLOT_MAGIC {
@@ -74,22 +88,45 @@ pub fn blobs(bytes: &[u8]) -> Result<Vec<Vec<u8>>, RpmDbError> {
         if len > MAX_BLOB || (len as usize) + BLOB_HEAD + BLOB_TAIL > blkcnt.saturating_mul(BLOCK) {
             return Err(RpmDbError::Format("NDB 블롭 길이가 슬롯의 블록을 넘는다"));
         }
+        // 이 기계의 DB 에서는 위 줄과 같은 값이라 닿지 않는다.
+        if u64::from(len) > limits.record {
+            return Err(RpmDbError::Limit("NDB 블롭 하나가 상한을 넘었다"));
+        }
         let blob = bytes
             .get(at + BLOB_HEAD..at + BLOB_HEAD + len as usize)
             .ok_or(RpmDbError::Format("NDB 블롭이 파일 밖이다"))?;
+        if copies.take(blob.len() as u64).is_err() {
+            return Ok((out, Some(COPIED)));
+        }
         out.push(blob.to_vec());
+        if out.len() > limits.records {
+            return Err(RpmDbError::Limit("NDB 블롭이 상한을 넘었다"));
+        }
     }
-    Ok(out)
+    Ok((out, None))
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::header::tests::{build, php_header, s};
 
+    /// 슬롯 쪽 하나에 든 슬롯 수(첫 32바이트는 파일 머리다).
+    pub(crate) const SLOTS: usize = (PAGE - FIRST_SLOT * SLOT) / SLOT;
+
+    /// 슬롯 `i` 를 슬롯 `to` 들에 그대로 적는다 — 여럿이 한 블롭을 가리킨다(rpm 은 그렇게 쓰지 않는다).
+    pub(crate) fn share(f: &mut [u8], i: usize, to: std::ops::Range<usize>) {
+        let src = (FIRST_SLOT + i) * SLOT;
+        let slot = f[src..src + SLOT].to_vec();
+        for j in to {
+            let at = (FIRST_SLOT + j) * SLOT;
+            f[at..at + SLOT].copy_from_slice(&slot);
+        }
+    }
+
     /// 슬롯 쪽 하나 뒤에 블롭을 잇는다 — 슬롯 차례대로, `None` 은 빈 슬롯. 빈 슬롯도 마법은 적혀 있다(rpm 이
     /// 슬롯 쪽을 그렇게 채운다).
-    fn ndb(slots: &[Option<(u32, Vec<u8>)>]) -> Vec<u8> {
+    pub(crate) fn ndb(slots: &[Option<(u32, Vec<u8>)>]) -> Vec<u8> {
         let mut f = vec![0u8; PAGE];
         f[..4].copy_from_slice(DB_MAGIC);
         f[12..16].copy_from_slice(&1u32.to_le_bytes());
@@ -131,7 +168,7 @@ mod tests {
     }
 
     /// 첫 슬롯 · 빈 슬롯 · 셋째 슬롯.
-    fn sample() -> Vec<u8> {
+    pub(crate) fn sample() -> Vec<u8> {
         ndb(&[Some((1, php_header())), None, Some((7, other()))])
     }
 
@@ -202,5 +239,58 @@ mod tests {
             }
             b[i] = keep;
         }
+    }
+
+    // ───────────────────────────── 상한 — 같은 판독기, 다른 값
+
+    fn limits(record: u64, records: usize, copied: u64) -> Limits {
+        Limits {
+            record,
+            records,
+            copied,
+        }
+    }
+
+    #[test]
+    fn slots_sharing_one_blob_are_each_copied() {
+        // 2026-11-10 에 잰 모양 — 슬롯 쪽 하나를 첫 슬롯으로 채우면 4.5 KB 파일이 블롭 253개를 낸다.
+        let mut f = sample();
+        share(&mut f, 0, 3..SLOTS);
+        let got = blobs(&f).unwrap();
+        assert_eq!(got.len(), SLOTS - 1);
+        assert!(got.iter().map(Vec::len).sum::<usize>() > 10 * f.len());
+    }
+
+    #[test]
+    fn copies_stop_at_the_limit_and_keep_the_blobs_before() {
+        let f = sample();
+        let (a, b) = (php_header().len() as u64, other().len() as u64);
+        let wide = u64::from(MAX_BLOB);
+        assert_eq!(
+            read(&f, limits(wide, 10, a + b)).unwrap(),
+            (vec![php_header(), other()], None)
+        );
+        assert_eq!(
+            read(&f, limits(wide, 10, a + b - 1)).unwrap(),
+            (vec![php_header()], Some(COPIED))
+        );
+    }
+
+    #[test]
+    fn a_blob_or_a_count_over_the_limit_is_an_error() {
+        let f = sample();
+        let wide = u64::from(MAX_BLOB);
+        assert_eq!(read(&f, limits(wide, 2, u64::MAX)).unwrap().0.len(), 2);
+        assert_eq!(
+            read(&f, limits(wide, 1, u64::MAX)),
+            Err(RpmDbError::Limit("NDB 블롭이 상한을 넘었다"))
+        );
+        // 블롭 하나가 상한과 같으면 읽고, 한 바이트 넘으면 DB 가 틀렸다.
+        let a = php_header().len() as u64;
+        assert!(read(&f, limits(a.max(other().len() as u64), 10, u64::MAX)).is_ok());
+        assert_eq!(
+            read(&f, limits(a - 1, 10, u64::MAX)),
+            Err(RpmDbError::Limit("NDB 블롭 하나가 상한을 넘었다"))
+        );
     }
 }

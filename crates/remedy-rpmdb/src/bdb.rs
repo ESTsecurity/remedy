@@ -10,7 +10,7 @@
 //! 해시 쪽의 항목 i 의 길이는 `(i == 0 ? 쪽 크기 : inp[i-1]) - inp[i]` 다. 넘침 쪽은 `hf_offset` 이 그 쪽의
 //! 자료 길이다.
 
-use super::RpmDbError;
+use super::{Copies, Limits, Read, RpmDbError, COPIED};
 use std::collections::HashSet;
 
 const HASH_MAGIC: u32 = 0x0006_1561;
@@ -25,12 +25,21 @@ const PAGE_HEADER: usize = 26;
 /// 값 하나의 상한 — rpm 헤더 블롭은 크게 잡아도 수 MiB 다.
 const MAX_VALUE: u32 = 64 * 1024 * 1024;
 const MAX_VALUES: usize = 200_000;
+/// 이 기계의 DB 를 읽을 때([`blobs`])의 상한 — 복사한 양은 보지 않는다.
+const TRUSTED: Limits = Limits {
+    record: MAX_VALUE as u64,
+    records: MAX_VALUES,
+    copied: u64::MAX,
+};
 
 struct Db<'a> {
     bytes: &'a [u8],
     little: bool,
     page_size: usize,
     pages: u32,
+    limits: Limits,
+    /// 쪽 안의 값과 넘침 사슬의 값을 함께 센다.
+    copies: Copies,
 }
 
 impl<'a> Db<'a> {
@@ -63,9 +72,11 @@ impl<'a> Db<'a> {
 
     /// 넘침 쪽 사슬을 따라 `len` 바이트를 모은다.
     fn overflow(&self, mut pgno: u32, len: u32) -> Result<Vec<u8>, RpmDbError> {
-        if len > MAX_VALUE {
+        if u64::from(len) > self.limits.record {
             return Err(RpmDbError::Limit("BDB 값 하나가 상한을 넘었다"));
         }
+        // 항목 여럿이 같은 사슬을 가리킬 수 있다 — 그때마다 복사하므로 복사하기 전에 센다.
+        self.copies.take(u64::from(len))?;
         // 길이는 파일이 주장하는 값이다 — 미리 잡는 자리는 파일 크기를 넘지 않는다.
         let mut out = Vec::with_capacity((len as usize).min(self.bytes.len()));
         let mut seen = HashSet::new();
@@ -89,8 +100,14 @@ impl<'a> Db<'a> {
     }
 }
 
-/// 해시 DB 의 값 전부.
+/// 해시 DB 의 값 전부 — 이 기계의 DB.
 pub fn blobs(bytes: &[u8]) -> Result<Vec<Vec<u8>>, RpmDbError> {
+    let (out, stop) = read(bytes, TRUSTED)?;
+    stop.map_or(Ok(out), Err)
+}
+
+/// 해시 DB 의 값을 `limits` 안에서. 복사한 양이 상한에 닿으면 그 앞의 값과 [`COPIED`] 다.
+pub(crate) fn read(bytes: &[u8], limits: Limits) -> Result<Read, RpmDbError> {
     if bytes.len() < 512 {
         return Err(RpmDbError::Format("BDB 메타 쪽이 없다"));
     }
@@ -116,6 +133,8 @@ pub fn blobs(bytes: &[u8]) -> Result<Vec<Vec<u8>>, RpmDbError> {
         little,
         page_size: 0,
         pages: 0,
+        limits,
+        copies: Copies::new(limits.copied),
     };
     let page_size = db.u32_at(bytes, 20)? as usize;
     if !(512..=65536).contains(&page_size) || !page_size.is_power_of_two() {
@@ -154,22 +173,32 @@ pub fn blobs(bytes: &[u8]) -> Result<Vec<Vec<u8>>, RpmDbError> {
                 H_OFFPAGE => {
                     let first = db.u32_at(page, at + 4)?;
                     let len = db.u32_at(page, at + 8)?;
-                    out.push(db.overflow(first, len)?);
+                    match db.overflow(first, len) {
+                        Ok(v) => out.push(v),
+                        Err(e) if e == COPIED => return Ok((out, Some(e))),
+                        Err(e) => return Err(e),
+                    }
                 }
-                H_KEYDATA => out.push(page[at + 1..end].to_vec()),
+                H_KEYDATA => {
+                    let value = &page[at + 1..end];
+                    if db.copies.take(value.len() as u64).is_err() {
+                        return Ok((out, Some(COPIED)));
+                    }
+                    out.push(value.to_vec());
+                }
                 // 중복(H_DUPLICATE · H_OFFDUP)은 rpm 의 Packages 에 없다 — 있으면 모르는 모양이다.
                 _ => return Err(RpmDbError::Format("BDB 항목 종류를 모른다")),
             }
-            if out.len() > MAX_VALUES {
+            if out.len() > db.limits.records {
                 return Err(RpmDbError::Limit("BDB 값이 상한을 넘었다"));
             }
         }
     }
-    Ok(out)
+    Ok((out, None))
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::header::tests::{build, php_header, s};
 
@@ -183,20 +212,22 @@ mod tests {
         b[at..at + 4].copy_from_slice(&if le { v.to_le_bytes() } else { v.to_be_bytes() });
     }
 
-    /// 해시 쪽에 놓는 값 — 쪽 안(`H_KEYDATA`) 또는 넘침 쪽 사슬(`H_OFFPAGE`).
-    enum Val {
+    /// 해시 쪽에 놓는 값 — 쪽 안(`H_KEYDATA`) 또는 넘침 쪽 사슬(`H_OFFPAGE`). `Same(i)` 는 앞의 `i` 번째 값
+    /// (`Offpage`)의 사슬을 **함께 쓴다** — rpm 이 쓰지 않는 모양이고, 손으로 만든 파일만 그렇다.
+    pub(crate) enum Val {
         Inline(Vec<u8>),
         Offpage(Vec<u8>),
+        Same(usize),
     }
 
     /// 메타 쪽 · 해시 쪽 하나 · 넘침 쪽들. 키는 rpm 처럼 4바이트 정수(헤더 번호)다.
-    fn bdb(le: bool, values: &[Val]) -> Vec<u8> {
+    pub(crate) fn bdb(le: bool, values: &[Val]) -> Vec<u8> {
         let chunk = PS - PAGE_HEADER;
         let overflow: usize = values
             .iter()
             .map(|v| match v {
                 Val::Offpage(d) => d.len().div_ceil(chunk),
-                Val::Inline(_) => 0,
+                Val::Inline(_) | Val::Same(_) => 0,
             })
             .sum();
         let pages = 2 + overflow;
@@ -209,18 +240,32 @@ mod tests {
 
         let mut items: Vec<Vec<u8>> = Vec::new();
         let mut next_ov = 2usize;
+        // 값마다 사슬의 첫 쪽과 길이 — `Same` 이 가리킨다.
+        let mut chains: Vec<Option<(u32, u32)>> = Vec::new();
+        let offpage = |first: u32, len: u32| {
+            let mut item = vec![0u8; 12];
+            item[0] = H_OFFPAGE;
+            put32(&mut item, 4, first, le);
+            put32(&mut item, 8, len, le);
+            item
+        };
         for (k, v) in values.iter().enumerate() {
             let mut key = vec![H_KEYDATA];
             key.extend_from_slice(&(k as u32).to_le_bytes());
             items.push(key);
             match v {
-                Val::Inline(d) => items.push([&[H_KEYDATA][..], &d[..]].concat()),
+                Val::Inline(d) => {
+                    items.push([&[H_KEYDATA][..], &d[..]].concat());
+                    chains.push(None);
+                }
+                Val::Same(i) => {
+                    let (first, len) = chains[*i].expect("앞의 Offpage 값");
+                    items.push(offpage(first, len));
+                    chains.push(None);
+                }
                 Val::Offpage(d) => {
-                    let mut item = vec![0u8; 12];
-                    item[0] = H_OFFPAGE;
-                    put32(&mut item, 4, next_ov as u32, le);
-                    put32(&mut item, 8, d.len() as u32, le);
-                    items.push(item);
+                    items.push(offpage(next_ov as u32, d.len() as u32));
+                    chains.push(Some((next_ov as u32, d.len() as u32)));
                     let parts: Vec<&[u8]> = d.chunks(chunk).collect();
                     for (i, part) in parts.iter().enumerate() {
                         let pg = next_ov + i;
@@ -269,7 +314,7 @@ mod tests {
     }
 
     /// rpm 의 `Packages` 모양 — 키 0 의 값은 패키지가 아니라 다음 헤더 번호(4바이트)다.
-    fn sample(le: bool) -> Vec<u8> {
+    pub(crate) fn sample(le: bool) -> Vec<u8> {
         bdb(
             le,
             &[
@@ -345,5 +390,52 @@ mod tests {
             }
             b[i] = keep;
         }
+    }
+
+    // ───────────────────────────── 상한 — 같은 판독기, 다른 값
+
+    fn limits(records: usize, copied: u64) -> Limits {
+        Limits {
+            record: u64::from(MAX_VALUE),
+            records,
+            copied,
+        }
+    }
+
+    #[test]
+    fn values_sharing_one_chain_are_each_copied() {
+        // 항목 셋이 사슬 하나를 가리킨다 — 판독기는 셋을 따로 복사한다. 상한이 있어야 하는 까닭이다.
+        let f = bdb(true, &[Val::Offpage(big()), Val::Same(0), Val::Same(0)]);
+        assert_eq!(f.len(), (2 + big().len().div_ceil(PS - PAGE_HEADER)) * PS);
+        assert_eq!(blobs(&f).unwrap(), vec![big(), big(), big()]);
+    }
+
+    #[test]
+    fn copies_stop_at_the_limit_and_keep_the_values_before() {
+        // 쪽 안의 값도 복사한 양에 든다.
+        let f = sample(true);
+        let (a, b, c) = (4u64, php_header().len() as u64, big().len() as u64);
+        assert_eq!(
+            read(&f, limits(10, a + b + c)).unwrap(),
+            (vec![vec![5, 0, 0, 0], php_header(), big()], None)
+        );
+        assert_eq!(
+            read(&f, limits(10, a + b + c - 1)).unwrap(),
+            (vec![vec![5, 0, 0, 0], php_header()], Some(COPIED))
+        );
+        assert_eq!(
+            read(&f, limits(10, a + b - 1)).unwrap(),
+            (vec![vec![5, 0, 0, 0]], Some(COPIED))
+        );
+    }
+
+    #[test]
+    fn more_values_than_the_limit_is_an_error_not_a_shorter_list() {
+        let f = sample(true);
+        assert_eq!(read(&f, limits(3, u64::MAX)).unwrap().0.len(), 3);
+        assert_eq!(
+            read(&f, limits(2, u64::MAX)),
+            Err(RpmDbError::Limit("BDB 값이 상한을 넘었다"))
+        );
     }
 }

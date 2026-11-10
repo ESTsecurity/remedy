@@ -19,14 +19,26 @@
 //! `remedy-collect` 의 모듈이었다. 그 크레이트는 `remedy-platform` 에 기대므로 동반 모듈 `remedy-net` 이 쓸 수
 //! 없었다(설계-04 §1) — 이미지 안의 DB 도 같은 판독기로 읽도록 **의존 없는 크레이트**로 뺐다. 파일을 열고 읽는 양을
 //! 정하고 DB 자리를 고르는 것은 부르는 쪽의 일이다.
+//!
+//! # 입구가 둘이다 (2026-11-10)
+//!
+//! [`headers`] · [`blobs`] 는 **이 기계의 DB** 를 읽는다 — 본체의 수집기가 쓰고, root 만 쓸 수 있는 파일이라 상한이
+//! 넉넉하다(기록 하나 64 MiB · 복사한 양은 보지 않는다). 이미지 · 컨테이너에서 꺼낸 DB 처럼 **믿지 못할 입력**은
+//! [`read_untrusted`] 가 읽는다 — 같은 판독기를 사내 runtime-scanner 와 같은 상한으로 돌리고, 이미지 점검이 쓰는
+//! 꼬리표를 패키지마다 한 번에 꺼낸다(`untrusted` 모듈 머리에 상한과 그 자리가 있다). 판독기는 하나이고 상한만
+//! 다르다(`Limits`).
 #![forbid(unsafe_code)]
 
 mod bdb;
 pub mod header;
 mod ndb;
 mod sqlite;
+mod untrusted;
 
 pub use header::{DigestAlgorithm, FileDigests, RpmHeader};
+pub use untrusted::{read_untrusted, Package, Untrusted};
+
+use std::cell::Cell;
 
 /// 읽지 못한 까닭 — 사람이 아니라 부르는 쪽이 읽는다(관측의 *잘렸다* 로 바뀐다).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -56,11 +68,55 @@ pub fn detect(bytes: &[u8]) -> Option<Format> {
     (le == 0x0006_1561 || be == 0x0006_1561).then_some(Format::Bdb)
 }
 
+/// 판독기 하나가 DB 하나에 지키는 상한. 세 형식이 같은 셋을 보고, 믿는 입력과 믿지 못할 입력은 값만 다르다.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Limits {
+    /// 기록 하나 — SQLite 는 페이로드, BDB 는 값, NDB 는 블롭의 길이. 넘으면 DB 가 틀렸다(오류).
+    pub(crate) record: u64,
+    /// 기록 수. 넘으면 DB 가 틀렸다(오류).
+    pub(crate) records: usize,
+    /// DB 하나에서 복사하는 양의 합 — 닿기 전에 멈추고 그 앞의 기록을 돌려준다([`COPIED`]).
+    pub(crate) copied: u64,
+}
+
+/// 복사한 양이 [`Limits::copied`] 에 닿았다 — 그 앞의 기록은 온전하다. 슬롯 · 넘침 사슬 · 셀 여럿이 같은 자리를
+/// 가리키면 파일보다 큰 값이 나오는데, 그것을 막는 자리가 여기다.
+pub(crate) const COPIED: RpmDbError =
+    RpmDbError::Limit("RPM DB 에서 복사한 블롭이 상한(64 MiB)을 넘었다");
+
+/// DB 하나를 읽는 동안 복사한 양.
+pub(crate) struct Copies {
+    cap: u64,
+    used: Cell<u64>,
+}
+
+impl Copies {
+    pub(crate) fn new(cap: u64) -> Self {
+        Self {
+            cap,
+            used: Cell::new(0),
+        }
+    }
+
+    /// `n` 바이트를 복사해도 되면 세고, 안 되면 아무것도 세지 않고 [`COPIED`] 다. 복사하기 **전에** 부른다.
+    pub(crate) fn take(&self, n: u64) -> Result<(), RpmDbError> {
+        let used = self.used.get();
+        if n > self.cap - used {
+            return Err(COPIED);
+        }
+        self.used.set(used + n);
+        Ok(())
+    }
+}
+
+/// 판독기가 낸 블롭과, 복사한 양의 상한에 닿아 멈췄으면 그 까닭([`COPIED`]).
+pub(crate) type Read = (Vec<Vec<u8>>, Option<RpmDbError>);
+
 /// DB 하나의 헤더 블롭 전부 — 형식을 가려 꺼내기만 하고 헤더로 읽지는 않는다.
 ///
-/// [`headers`] 가 담지 않는 꼬리표(모듈 꼬리표 · 파일 경로 · 파일 다이제스트)를 읽으려는 쪽이 이것으로 블롭을
-/// 받아 [`header`] 의 함수에 넘긴다. **패키지가 아닌 값도 섞여 나온다** — [`header::parse`] 가 `None` 을 내는
-/// 블롭은 패키지가 아니다(아래 [`headers`] 가 세는 그것이다).
+/// **이 기계의 DB 용이다**(입구가 둘이다 — 크레이트 머리). 믿지 못할 입력은 [`read_untrusted`] 가 같은 블롭을
+/// 상한 안에서 읽는다. **패키지가 아닌 값도 섞여 나온다** — [`header::parse`] 가 `None` 을 내는 블롭은 패키지가
+/// 아니다(아래 [`headers`] 가 세는 그것이다).
 pub fn blobs(bytes: &[u8]) -> Result<Vec<Vec<u8>>, RpmDbError> {
     match detect(bytes) {
         Some(Format::Sqlite) => sqlite::blobs(bytes),
@@ -70,8 +126,18 @@ pub fn blobs(bytes: &[u8]) -> Result<Vec<Vec<u8>>, RpmDbError> {
     }
 }
 
+/// [`blobs`] 와 같은 판독기를 `limits` 로 돌린다 — [`read_untrusted`] 의 길.
+pub(crate) fn read_blobs(bytes: &[u8], limits: Limits) -> Result<Read, RpmDbError> {
+    match detect(bytes) {
+        Some(Format::Sqlite) => sqlite::read(bytes, limits),
+        Some(Format::Bdb) => bdb::read(bytes, limits),
+        Some(Format::Ndb) => ndb::read(bytes, limits),
+        None => Err(RpmDbError::Format("RPM DB 형식을 모른다")),
+    }
+}
+
 /// DB 하나의 패키지 헤더 전부. 헤더로 읽히지 않는 블롭은 센다 — rpm 은 BDB 에 패키지가 아닌
-/// 값(다음 헤더 번호 등)을 함께 둔다.
+/// 값(다음 헤더 번호 등)을 함께 둔다. [`blobs`] 처럼 이 기계의 DB 용이다.
 pub fn headers(bytes: &[u8]) -> Result<(Vec<RpmHeader>, usize), RpmDbError> {
     let blobs = blobs(bytes)?;
     let mut out = Vec::with_capacity(blobs.len());
@@ -100,5 +166,17 @@ mod tests {
             blobs(b"not a database at all"),
             Err(RpmDbError::Format("RPM DB 형식을 모른다"))
         );
+    }
+
+    #[test]
+    fn copies_reach_the_cap_exactly_and_a_refusal_counts_nothing() {
+        let c = Copies::new(10);
+        assert_eq!(c.take(4), Ok(()));
+        assert_eq!(c.take(7), Err(COPIED));
+        assert_eq!(c.take(6), Ok(()));
+        assert_eq!(c.take(1), Err(COPIED));
+        assert_eq!(c.take(0), Ok(()));
+        // 이 기계의 DB 를 읽는 쪽은 상한이 없는 것과 같다.
+        assert_eq!(Copies::new(u64::MAX).take(u64::MAX), Ok(()));
     }
 }
