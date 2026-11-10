@@ -12,6 +12,7 @@
 - `scan_roots` 는 성능이 아니라 **읽기 권한 상한**이다.
 - 판정은 `verdict.require` 의 불 대수식이 정한다. **점수 임계값 문법은 없다.**
 - 점검(`kind: check`)은 모르는 것을 `verdict.unconfirmed`(`when` · `why` ko·en · 코어 1.3.0)로 *확인 필요*(6) 라고 말한다 — 모르는데 판정을 세우지 않으면 0 이 나간다.
+- 바깥의 서버를 보는 점검은 `network: url`(코어 1.4.0 · `kind: check`) — `scan_roots` · `subjects` · `detect` 를 `[]` 로 비우고 `verdict` 는 적지 않는다. 본체는 통신하지 않고 서명된 `remedy-net` 을 띄운다.
 
 ## 최소 매니페스트
 

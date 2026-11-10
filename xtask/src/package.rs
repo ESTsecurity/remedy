@@ -87,7 +87,29 @@ pub fn run(root: &Path, args: &[String]) -> Result<(), String> {
             version,
             tree,
             treats: m.remediate.is_some(),
+            network: m.network.is_some(),
         });
+    }
+
+    // ── 동반 프로그램 (설계-04 §1 *동반 모듈*) ──────────────────
+    //
+    // 네트워크 점검 룰은 본체가 돌리지 않고 실행 파일 옆의 `remedy-net` 을 띄워 맡긴다. 그 폴더가
+    // 빠진 꾸러미에서는 그 항목이 꺼진 채로 나간다 — 받는 사람이 고를 수 없는 줄을 받는다. 그래서
+    // 그런 룰을 담으면서 동반 프로그램을 주지 않으면 여기서 멈춘다.
+    let companion = match all_of(args, "--companion")?.as_slice() {
+        [] => None,
+        [dir] => Some(verified_companion(dir, &pubkey, &bin)?),
+        _ => return Err(format!("--companion 은 하나만 준다\n{}", usage_line())),
+    };
+    if companion.is_none() {
+        if let Some(p) = plugins.iter().find(|p| p.network) {
+            return Err(format!(
+                "{} 는 네트워크 점검 룰인데 --companion 이 없다 — 동반 프로그램 없이 내면 받는 \
+                 사람의 화면에서 그 항목이 꺼진다.\n  \
+                 cargo xtask sign companion --dir <remedy-net 폴더> … 로 서명한 폴더를 줄 것",
+                p.dir.display()
+            ));
+        }
     }
 
     // **부딪히는 것을 먼저 거부한다.** 폴더 이름이 같으면 `plugins/<이름>/` 에서
@@ -182,12 +204,27 @@ pub fn run(root: &Path, args: &[String]) -> Result<(), String> {
         }
     }
 
+    // 동반 프로그램도 **검증이 쓴 그 목록**으로 붓는다 — 룰과 같은 까닭이다.
+    if let Some(c) = &companion {
+        let nest = PathBuf::from(crate::sign::COMPANION);
+        let names = c
+            .tree
+            .keys()
+            .map(String::as_str)
+            .chain([remedy_trust::MANIFEST_NAME, remedy_trust::SIGNATURE_NAME]);
+        for rel in names {
+            copy(&c.dir.join(rel), &out.join(nest.join(rel)))?;
+            files.push(nest.join(rel).to_string_lossy().to_string());
+        }
+    }
+
     let readme = readme(
         root,
         &plugins,
         exe_name.to_string_lossy().as_ref(),
         &files,
         std::env::var("REMEDY_TRUST_ANCHOR").is_ok(),
+        companion.is_some(),
     );
     std::fs::write(out.join("README.txt"), readme.as_bytes())
         .map_err(|e| format!("README.txt 를 쓰지 못했다: {e}"))?;
@@ -195,6 +232,12 @@ pub fn run(root: &Path, args: &[String]) -> Result<(), String> {
     println!("꾸러미: {}", out.display());
     for p in &plugins {
         println!("  위협  {} {}", p.id, p.version);
+    }
+    if companion.is_some() {
+        println!(
+            "  동반 프로그램  {} (네트워크 점검)",
+            crate::sign::COMPANION
+        );
     }
     println!("  담은 것  {} 개 + README.txt", files.len() + 1);
     println!();
@@ -215,6 +258,61 @@ struct Packed {
     /// 치료하는 룰인가(`remediate` 가 있다). 찾기만 하는 룰에는 *"계획을 보여 주고 승인을
     /// 기다립니다"* 가 틀린 말이다 — 계획이 없다(2026-11-08 적대적 검토 4바퀴).
     treats: bool,
+    /// 네트워크로 점검하는 룰인가(`network`) — 이 기계를 보지 않고 동반 프로그램이 맡는다. 쓰는
+    /// 법이 다르다(관리자 권한이 필요 없고 주소를 준다).
+    network: bool,
+}
+
+/// 꾸러미에 담기로 확인된 동반 프로그램 폴더.
+struct Companion {
+    dir: PathBuf,
+    /// 서명과 대조가 끝난 파일 목록 — 붓는 것은 이 목록이다([`Packed::tree`] 와 같다).
+    tree: BTreeMap<String, String>,
+}
+
+/// 동반 프로그램 폴더의 서명을 확인한다 — **본체가 띄우기 전에 보는 것과 같은 것**을 담기 전에 본다.
+///
+/// 서명이 이 키의 것인가 · 파일이 서명한 그대로인가(`verified_identity`) · 서명 주석의 이름이
+/// `remedy-net` 이고 버전이 코어 버전인가 · 담는 실행 파일(`--bin`)과 같은 플랫폼의 것인가. 하나라도
+/// 어긋난 것을 담으면 받는 사람의 화면에서 *"실행하지 않았습니다"* 로 드러난다 — 그 전에 여기서 막는다.
+fn verified_companion(dir: &Path, pubkey: &Path, bin: &Path) -> Result<Companion, String> {
+    let (id, version, tree) = verified_identity(dir, pubkey)?;
+    let name = crate::sign::COMPANION;
+    if id != name {
+        return Err(format!(
+            "{} 의 서명은 '{id}' 의 것이다 — 동반 프로그램({name})에 한 서명이 아니다.\n  \
+             cargo xtask sign companion --dir {} … 로 서명할 것",
+            dir.display(),
+            dir.display()
+        ));
+    }
+    let core = env!("CARGO_PKG_VERSION");
+    if version != core {
+        return Err(format!(
+            "{} 는 버전 {version} 으로 서명됐는데 코어는 {core} 다 — 본체는 같은 버전의 동반 \
+             프로그램만 띄운다. 이 판으로 다시 짓고 서명할 것",
+            dir.display()
+        ));
+    }
+    let win = bin
+        .file_name()
+        .is_some_and(|n| n.to_string_lossy().to_ascii_lowercase().ends_with(".exe"));
+    let program = if win {
+        format!("{name}.exe")
+    } else {
+        name.to_string()
+    };
+    if !tree.contains_key(&program) {
+        return Err(format!(
+            "{} 에 {program} 이 없다 — 담는 실행 파일({})과 같은 플랫폼의 동반 프로그램이어야 한다",
+            dir.display(),
+            bin.display()
+        ));
+    }
+    Ok(Companion {
+        dir: dir.to_path_buf(),
+        tree,
+    })
 }
 
 /// 서명을 확인하고 (id, version, 확인된 파일 목록) 을 돌려준다.
@@ -279,6 +377,7 @@ fn readme(
     exe: &str,
     files: &[String],
     anchored_ok: bool,
+    companion: bool,
 ) -> String {
     // 받는 사람의 말로 적는다 — '신뢰 앵커' 는 내부 낱말이다(v1.1.0 적대적 검토). 배포 잡의
     // `ci/release.sh readme` 가 이 문장으로 앵커 판인지 잰다 — 고치면 함께 고친다.
@@ -375,16 +474,24 @@ fn readme(
         // 돌아오므로 *"한 번 더 실행해 고릅니다"* 는 이제 틀린 말이다.
         if plugins.len() > 1 {
             let n = plugins.len();
+            // 화면의 그 줄은 **이 기계를 보는 항목**만 센다(`guided::choose`) — 네트워크 점검은
+            // 주소를 적어야 돌아서 한꺼번에 돌리지 않는다. 글이 화면과 같은 수를 말해야 한다.
+            let local = plugins.iter().filter(|p| !p.network).count();
             s.push_str(&format!(
                 "   이 폴더에는 검사 항목이 {n}개 들어 있어, 먼저 어느 것을 볼지\r\n"
             ));
             s.push_str("   번호로 묻습니다.\r\n");
             s.push_str(&format!(
-                "     1번 '{n}개 모두 검사만 하기' 는 전부 검사하고 결과를 한 번에\r\n"
+                "     1번 '{local}개 모두 검사만 하기' 는 전부 검사하고 결과를 한 번에\r\n"
             ));
             s.push_str(
                 "     보여 줍니다(아무것도 바꾸지 않습니다). 치료는 항목을 골라서 합니다.\r\n",
             );
+            if local != n {
+                s.push_str(
+                    "     '네트워크 사용' 이 붙은 항목은 주소를 적어야 해서 거기에 들지 않습니다.\r\n",
+                );
+            }
             s.push_str("   항목을 고르면 무엇을 할지 번호로 묻습니다.\r\n");
         } else {
             s.push_str("   그다음 무엇을 할지 번호로 묻습니다.\r\n");
@@ -424,14 +531,22 @@ fn readme(
     // **여럿이면 줄도 여럿이다.** 한 줄에 둘을 적으면 받는 사람이 그것을 한 번에
     // 돌리는 명령으로 읽는다 — `run` 은 `--plugin` 하나를 받는다. 우클릭으로 띄우면
     // 안내 모드가 *"여럿이면 고르게 한다"* 로 번호를 묻는다(2026-09-08 결정).
-    for p in plugins {
+    //
+    // 네트워크 점검 룰은 여기 적지 않는다 — 쓰는 법이 달라(관리자 권한이 필요 없고 주소를 준다)
+    // 아래 *네트워크를 쓰는 점검* 절이 따로 적는다.
+    let local: Vec<&Packed> = plugins.iter().filter(|p| !p.network).collect();
+    for p in &local {
         s.push_str(&format!(
             "     {sudo}{here}{exe} run --plugin {here}plugins{sep}{}{sep}plugin.yaml\r\n",
             p.name
         ));
     }
     s.push_str("\r\n");
-    if plugins.iter().all(|p| p.treats) {
+    if local.is_empty() {
+        s.push_str(
+            "   (이 폴더에는 이 기계를 검사하는 항목이 없습니다 — 아래 절을 보십시오.)\r\n\r\n",
+        );
+    } else if local.iter().all(|p| p.treats) {
         s.push_str("   계획을 보여 주고 승인을 기다립니다. --yes 를 붙이면 묻지 않습니다.\r\n\r\n");
     } else {
         s.push_str("   치료하는 항목은 계획을 보여 주고 승인을 기다립니다(--yes 를 붙이면\r\n");
@@ -505,6 +620,38 @@ fn readme(
     }
     s.push_str("\r\n");
 
+    // **네트워크를 쓰는 항목은 따로 적는다** (코어 1.4.0 · 설계-04 §1 *동반 모듈*). 받는 사람이 알아야
+    // 하는 것은 셋이다 — 그 항목이 무엇을 보는가 · 누가 통신하는가 · 끄는 법. 본체가 통신하지 않는다는
+    // 것은 이 도구가 폐쇄망에 들어가는 근거라, 폴더에 통신하는 프로그램이 함께 있는 까닭을 여기서 말한다.
+    let remote: Vec<&Packed> = plugins.iter().filter(|p| p.network).collect();
+    if companion && !remote.is_empty() {
+        let net = crate::sign::COMPANION;
+        s.push_str("네트워크를 쓰는 점검\r\n");
+        s.push_str("----------------------\r\n");
+        s.push_str(
+            "'네트워크 사용' 이 붙은 항목은 이 기계가 아니라, 적어 주신 주소의 웹서버를\r\n",
+        );
+        s.push_str(&format!(
+            "바깥에서 봅니다. {exe} 는 통신하지 않습니다 — 그 항목을 고르면 그렇다고\r\n"
+        ));
+        s.push_str(&format!(
+            "알린 뒤 {net} 폴더의 프로그램을 실행해 맡기고, 그 프로그램이 약관 동의를\r\n"
+        ));
+        s.push_str("받습니다. 관리자 권한이 없어도 됩니다.\r\n");
+        s.push_str(&format!(
+            "네트워크를 쓰지 않으려면 {net} 폴더를 지우십시오. 그 항목만 꺼지고\r\n"
+        ));
+        s.push_str("나머지는 그대로 씁니다.\r\n\r\n");
+        s.push_str("   명령으로 돌리려면 (--url 은 여러 번 줄 수 있습니다):\r\n\r\n");
+        for p in &remote {
+            s.push_str(&format!(
+                "     {here}{exe} scan --plugin {here}plugins{sep}{}{sep}plugin.yaml --out-dir {here}out --url https://<주소>\r\n",
+                p.name
+            ));
+        }
+        s.push_str("\r\n");
+    }
+
     s.push_str("룰의 서명을 확인하려면\r\n");
     s.push_str("------------------------\r\n");
     // **폴더 이름으로 적는다.** 전에는 `id` 로 적었는데 꾸러미의 폴더는 원본
@@ -514,6 +661,19 @@ fn readme(
         s.push_str(&format!(
             "     {sudo}{here}{exe} plugin verify --dir {here}plugins{sep}{}\r\n",
             p.name
+        ));
+    }
+    // **통신하는 프로그램도 받는 사람이 같은 명령으로 볼 수 있다** — 룰과 같은 사슬 · 같은 키라
+    // 그 명령이 그대로 통한다(드라이런 꾸러미에서 잰 값: 종료 0 · *서명 remedy-net 1.4.0 · 파일 1 개*).
+    // 본체가 띄우기 전에 보는 것과 같은 서명이다.
+    if companion {
+        let net = crate::sign::COMPANION;
+        s.push_str(&format!(
+            "     {sudo}{here}{exe} plugin verify --dir {here}{net}\r\n"
+        ));
+        s.push_str("\r\n");
+        s.push_str(&format!(
+            "마지막 줄은 {net} 폴더(네트워크를 쓰는 프로그램)의 서명입니다.\r\n"
         ));
     }
     s.push_str("\r\n");
@@ -636,7 +796,8 @@ fn usage(name: &str) -> String {
 
 fn usage_line() -> String {
     "사용법: cargo xtask package --plugin <플러그인 디렉터리> [--plugin <또 하나> …] \
-     --bin <실행 파일> --out <꾸러미 폴더> --public-key <공개키>"
+     --bin <실행 파일> --out <꾸러미 폴더> --public-key <공개키> \
+     [--companion <서명된 remedy-net 폴더>]"
         .to_string()
 }
 
@@ -663,6 +824,16 @@ mod tests {
             version: "1.0.0".into(),
             tree: BTreeMap::new(),
             treats: true,
+            network: false,
+        }
+    }
+
+    /// 네트워크 점검 룰 하나 — 찾기만 하고(치료 없음) 이 기계를 보지 않는다.
+    fn remote(name: &str) -> Packed {
+        Packed {
+            treats: false,
+            network: true,
+            ..packed(name)
         }
     }
 
@@ -677,7 +848,7 @@ mod tests {
             format!("plugins{BSLASH}rule0{BSLASH}plugin.yaml"),
             format!("plugins{BSLASH}rule0{BSLASH}rules/evilai.yar"),
         ];
-        readme(Path::new("."), &ps, exe, &files, anchored)
+        readme(Path::new("."), &ps, exe, &files, anchored, false)
     }
 
     fn make(plugins: usize, anchored: bool) -> String {
@@ -827,7 +998,7 @@ mod tests {
         );
         let mut ps = vec![packed("rule0"), packed("rule1")];
         ps[1].treats = false;
-        let mixed = readme(Path::new("."), &ps, "remedy", &[], true);
+        let mixed = readme(Path::new("."), &ps, "remedy", &[], true, false);
         assert!(
             mixed.contains("치료하는 항목은 계획을 보여 주고"),
             "{mixed}"
@@ -838,6 +1009,59 @@ mod tests {
         );
     }
 
+    /// 네트워크 점검 룰이 든 꾸러미 — 안내문이 **화면과 같은 수**를 말하고, 그 항목이 무엇을 보는지 ·
+    /// 누가 통신하는지 · 끄는 법을 따로 적는다. 이 기계를 보는 룰의 명령 줄에는 섞이지 않는다.
+    #[test]
+    fn a_network_rule_is_explained_apart_from_the_rules_that_scan_this_machine() {
+        let ps = vec![
+            packed("evilai"),
+            packed("php2shell"),
+            remote("php2shell-url"),
+        ];
+        for (exe, here, sep) in [("remedy.exe", ".\\", "\\"), ("remedy", "./", "/")] {
+            let r = readme(Path::new("."), &ps, exe, &[], true, true);
+            // 화면의 첫 줄은 이 기계를 보는 둘만 센다 — 글도 그 수다.
+            assert!(r.contains("검사 항목이 3개 들어 있어"), "{r}");
+            assert!(r.contains("1번 '2개 모두 검사만 하기'"), "{r}");
+            assert!(
+                r.contains("'네트워크 사용' 이 붙은 항목은 주소를 적어야 해서"),
+                "{r}"
+            );
+            // 따로 적은 절 — 본체가 통신하지 않는다는 것 · 끄는 법 · 관리자 권한이 필요 없다는 것.
+            assert!(r.contains("네트워크를 쓰는 점검"), "{r}");
+            assert!(r.contains(&format!("{exe} 는 통신하지 않습니다")), "{r}");
+            assert!(r.contains("remedy-net 폴더를 지우십시오"), "{r}");
+            assert!(r.contains("관리자 권한이 없어도 됩니다"), "{r}");
+            // 그 룰의 명령은 `scan … --url` 이고 sudo 가 붙지 않는다. `run` 줄에는 없다.
+            let scan = format!(
+                "     {here}{exe} scan --plugin {here}plugins{sep}php2shell-url{sep}plugin.yaml --out-dir {here}out --url https://<주소>"
+            );
+            assert!(r.contains(&scan), "{r}");
+            assert!(
+                !r.contains(&format!("run --plugin {here}plugins{sep}php2shell-url")),
+                "{r}"
+            );
+            // 통신하는 프로그램의 서명도 같은 명령으로 본다 — 룰 줄들 뒤에 한 줄.
+            assert!(
+                r.contains(&format!("{exe} plugin verify --dir {here}remedy-net\r\n"))
+                    || r.contains(&format!("{exe} plugin verify --dir {here}remedy-net\n")),
+                "{r}"
+            );
+        }
+        // 그 룰이 없으면 절도 없다 — 이 기계를 보는 룰만 든 꾸러미의 글은 그대로다.
+        let plain = readme(
+            Path::new("."),
+            &[packed("a"), packed("b")],
+            "remedy",
+            &[],
+            true,
+            false,
+        );
+        assert!(!plain.contains("네트워크"), "{plain}");
+        assert!(!plain.contains("remedy-net"), "{plain}");
+        assert!(plain.contains("1번 '2개 모두 검사만 하기'"), "{plain}");
+    }
+
     /// 인터넷이 막힌 기계에서도 위협별 차례를 볼 곳 — 서명과 대조한 목록에 RELEASE.md 가 든
     /// 룰만, 그 OS 의 꼴로 적는다(2026-11-07 적대적 검토).
     #[test]
@@ -845,14 +1069,14 @@ mod tests {
         let mut with = packed("ebury-check");
         with.tree.insert("RELEASE.md".into(), "h".into());
         let ps = vec![with, packed("bare")];
-        let nix = readme(Path::new("."), &ps, "remedy", &[], true);
+        let nix = readme(Path::new("."), &ps, "remedy", &[], true, false);
         // 리눅스 판은 줄 끝이 LF 다.
         assert!(
             nix.contains("  ./plugins/ebury-check/RELEASE.md\n"),
             "{nix}"
         );
         assert!(!nix.contains("plugins/bare/RELEASE.md"), "{nix}");
-        let win = readme(Path::new("."), &ps, "remedy.exe", &[], true);
+        let win = readme(Path::new("."), &ps, "remedy.exe", &[], true, false);
         assert!(
             win.contains(&format!(
                 "  .{BSLASH}plugins{BSLASH}ebury-check{BSLASH}RELEASE.md{CR}\n"

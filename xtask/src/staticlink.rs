@@ -53,8 +53,34 @@ fn matches(lib: &str, needles: &[&str]) -> bool {
     needles.iter().any(|n| l.contains(n))
 }
 
+/// 동반 프로그램(`remedy-net`)에서 막는 네트워크 임포트 — **OS 의 HTTP 스택**이다.
+///
+/// 그 프로그램은 통신이 일이라 소켓(`ws2_32`)을 쓴다. 그러나 HTTP 는 스스로 짠다 — 리다이렉트 ·
+/// 프록시 · 재시도 · 연결 재사용이 처음부터 없게(워크스페이스 `Cargo.toml` 의 통신 절). `wininet` ·
+/// `winhttp` 가 임포트에 나타나면 의존 하나가 OS 의 HTTP 스택을 끌어온 것이고, 그 스택은 시스템
+/// 프록시와 자동 설정을 따른다 — 사용자가 적지 않은 곳으로 요청이 돌아갈 길이 생긴다.
+const COMPANION_NETWORK: [&str; 2] = ["wininet", "winhttp"];
+
+/// 무엇을 검사하는가 — 본체인가 동반 프로그램인가.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Target {
+    /// 본체 `remedy` — 네트워크 임포트가 하나도 없어야 한다(설계-01 D9).
+    Core,
+    /// 동반 프로그램 `remedy-net` — 소켓은 그 프로그램의 일이고, OS 의 HTTP 스택만 막는다.
+    Companion,
+}
+
+impl Target {
+    fn network(self) -> &'static [&'static str] {
+        match self {
+            Target::Core => &NETWORK,
+            Target::Companion => &COMPANION_NETWORK,
+        }
+    }
+}
+
 /// 바이너리 하나를 검사한다. 사람이 읽을 결과를 찍고 위반 목록을 돌려준다.
-fn check_one(path: &Path) -> Result<Vec<String>, String> {
+fn check_one(path: &Path, target: Target) -> Result<Vec<String>, String> {
     let libs = imports(path)?;
     let size = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
     println!(
@@ -69,7 +95,7 @@ fn check_one(path: &Path) -> Result<Vec<String>, String> {
         let mark = if matches(lib, &CRT) {
             bad.push(format!("{lib} (CRT 동적 링크)"));
             " <-- CRT"
-        } else if matches(lib, &NETWORK) {
+        } else if matches(lib, target.network()) {
             bad.push(format!("{lib} (네트워크)"));
             " <-- 네트워크"
         } else {
@@ -83,13 +109,37 @@ fn check_one(path: &Path) -> Result<Vec<String>, String> {
     Ok(bad)
 }
 
-pub fn run(root: &Path, paths: &[String]) -> Result<(), String> {
+pub fn run(root: &Path, args: &[String]) -> Result<(), String> {
+    // `--companion` 은 뒤따르는 경로 전부를 동반 프로그램으로 본다 — 한 번에 한 종류만 검사한다.
+    // 섞어 주면 본체에 느슨한 규칙이 걸릴 수 있어, 깃발 하나가 호출 전체를 정한다.
+    let target = if args.iter().any(|a| a == "--companion") {
+        Target::Companion
+    } else {
+        Target::Core
+    };
+    let paths: Vec<&String> = args.iter().filter(|a| *a != "--companion").collect();
     if paths.is_empty() {
         return Err(
-            "검사할 바이너리를 지정할 것: cargo xtask static <경로>...\n\
-             예: cargo xtask static target/x86_64-pc-windows-msvc/release/remedy.exe"
+            "검사할 바이너리를 지정할 것: cargo xtask static [--companion] <경로>...\n\
+             예: cargo xtask static target/x86_64-pc-windows-msvc/release/remedy.exe\n\
+             동반 프로그램: cargo xtask static --companion target/x86_64-pc-windows-msvc/release/remedy-net.exe"
                 .to_string(),
         );
+    }
+    // **이름으로 한 번 더 막는다.** 본체를 `--companion` 으로 검사하면 소켓 임포트가 통과한다 —
+    // 배포 잡의 줄 하나를 잘못 붙이는 것으로 본체의 검사가 조용히 느슨해지지 않게.
+    for p in &paths {
+        let stem = Path::new(p.as_str())
+            .file_stem()
+            .map(|s| s.to_string_lossy().to_ascii_lowercase())
+            .unwrap_or_default();
+        let is_companion = stem == crate::sign::COMPANION;
+        if is_companion != (target == Target::Companion) {
+            return Err(format!(
+                "{p}: 이름과 검사 종류가 맞지 않는다 — remedy-net 은 --companion 으로, 그 밖의 \
+                 바이너리는 깃발 없이 검사한다"
+            ));
+        }
     }
 
     let mut violations = Vec::new();
@@ -104,13 +154,19 @@ pub fn run(root: &Path, paths: &[String]) -> Result<(), String> {
         if !path.exists() {
             return Err(format!("{} 가 없다. 먼저 빌드할 것.", path.display()));
         }
-        for v in check_one(&path)? {
+        for v in check_one(&path, target)? {
             violations.push(format!("  {} : {v}", path.display()));
         }
     }
 
     if violations.is_empty() {
-        println!("static OK — CRT·네트워크 임포트 없음");
+        match target {
+            Target::Core => println!("static OK — CRT·네트워크 임포트 없음"),
+            Target::Companion => println!(
+                "static OK — CRT 임포트 없음 · OS 의 HTTP 스택(wininet · winhttp) 없음 \
+                 (동반 프로그램 — 소켓은 그 프로그램의 일이다)"
+            ),
+        }
         return Ok(());
     }
     Err(format!(
@@ -126,6 +182,34 @@ pub fn run(root: &Path, paths: &[String]) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// 동반 프로그램은 소켓을 쓴다 — 막는 것은 OS 의 HTTP 스택이고, CRT 는 본체와 똑같이 막는다.
+    #[test]
+    fn the_companion_may_use_sockets_but_not_the_os_http_stack() {
+        for lib in ["WS2_32.dll", "crypt32.dll", "bcrypt.dll", "IPHLPAPI.DLL"] {
+            assert!(
+                !matches(lib, Target::Companion.network()),
+                "{lib} 는 동반 프로그램에서 막지 않는다"
+            );
+        }
+        for lib in ["WININET.dll", "winhttp.dll"] {
+            assert!(matches(lib, Target::Companion.network()), "{lib}");
+        }
+        // 본체의 목록은 그대로다 — 소켓 하나도 위반이다.
+        assert!(matches("WS2_32.dll", Target::Core.network()));
+    }
+
+    /// 이름과 검사 종류가 엇갈리면 멈춘다 — 본체를 느슨한 규칙으로 검사하는 줄이 조용히 통과하지 않게.
+    #[test]
+    fn the_flag_and_the_file_name_must_agree() {
+        let root = Path::new(".");
+        let e = run(root, &["--companion".into(), "remedy.exe".into()]).unwrap_err();
+        assert!(e.contains("이름과 검사 종류가 맞지 않는다"), "{e}");
+        let e = run(root, &["remedy-net.exe".into()]).unwrap_err();
+        assert!(e.contains("이름과 검사 종류가 맞지 않는다"), "{e}");
+        // 깃발만 주고 경로가 없으면 검사할 것이 없다 — 통과가 아니다.
+        assert!(run(root, &["--companion".into()]).is_err());
+    }
 
     #[test]
     fn crt_names_are_recognized() {

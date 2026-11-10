@@ -428,9 +428,11 @@ if ($rc -ne 0) {
 # **룰이 여럿이면 고르는 화면부터 선다** — `$Pick` 의 이름이 든 줄을 거기서 읽어 `$Lead` 로 쓴다.
 # 그 화면의 `0` 은 그만두기라 아무것도 돌지 않는다.
 $chooser = $null
+$chooserText = ""
 if ($Pick -and $Lead.Count -eq 0) {
     $cprobe = Invoke-MenuRun -Lines @("0") -TimeoutMs 30000
     if ($cprobe.text -match "검사 항목 (\d+)개를 찾았습니다") {
+        $chooserText = $cprobe.text
         $chooser = [ordered]@{ count = [int]$Matches[1]; pick = $Pick; number = 0; exit = $cprobe.exit }
         foreach ($line in ($cprobe.text -split "`r?`n")) {
             if ($line -match '^\s\s(\d+)\.\s+(.+?)\s*$' -and $Matches[2] -like "*$Pick*") {
@@ -454,6 +456,53 @@ if ($Pick -and $Lead.Count -eq 0) {
     }
 }
 $report.chooser = $chooser
+
+# ── 원격 점검 — 네트워크 점검 룰이 든 꾸러미에서만 (코어 1.4.0) ──────────────────
+#
+# 고르는 화면에서 *네트워크 사용* 이 붙은 줄을 읽어 고르고, 작업 메뉴의 1 번(원격 점검하기)을 누른다.
+# 본체는 통신하지 않는다 — 그렇다고 알린 뒤 서명을 확인한 `remedy-net` 을 띄우고, 약관 동의와 주소는
+# 그 프로그램이 같은 콘솔에서 묻는다. 주소는 이 기계의 닫힌 포트다(밖으로 나가는 요청이 없다) —
+# 연결이 거부되어 *확인 필요*(6)로 끝나는 것이 정상이다. 기계를 바꾸지 않으므로 다른 작업보다 먼저 돈다.
+$report.network = $null
+if ($chooserText -and (($Keys.Count -eq 0) -or ($Keys -contains "원격 점검"))) {
+    $nno = 0
+    $nname = ""
+    foreach ($line in ($chooserText -split "`r?`n")) {
+        if ($line -match '^\s\s(\d+)\.\s+(.+?) \[네트워크 사용\]\s*$') {
+            $nno = [int]$Matches[1]
+            $nname = $Matches[2]
+            break
+        }
+    }
+    if ($nno -gt 0) {
+        # 룰 번호 · 1 = 원격 점검하기 · y = 약관 동의 · 주소 · 빈 줄 = 주소 끝 · 빈 줄 = 작업 뒤의 멈춤 ·
+        # 0 = 고르는 화면에서 그만두기.
+        $nlines = @("$nno", "1", "y", "http://127.0.0.1:9/", "", "", "0")
+        $nr = Invoke-MenuRun -Lines $nlines -TimeoutMs 120000
+        $nt = $nr.text
+        $told = $nt.IndexOf("이 점검은 네트워크를 씁니다")
+        $terms = $nt.IndexOf("이용 조건")
+        $net = [ordered]@{
+            name = $nname; number = $nno; lines = $nlines; exit = $nr.exit; expect = 6; timed_out = $nr.timed_out
+            # 작업 메뉴의 1 번이 원격 점검이고, 네트워크를 쓴다는 것이 그 줄에 적혀 있다.
+            menu_line = [bool]($nt -match '  1\. 원격 점검하기 \(remedy-net 을 실행해 네트워크를 씁니다\)')
+            # 띄우기 전에 알린다 — 알림이 약관(동반 프로그램의 첫 출력)보다 앞이다.
+            told_first = ($told -ge 0) -and ($terms -gt $told)
+            launched = [bool]($nt -match "remedy-net 을 실행해 맡깁니다")
+            asked = $nt.Contains("주소 1: ")
+            result = [bool]($nt -match "확인이 필요합니다\.")
+            saved = [bool]($nt -match "결과 파일: \S*remedy-net-url-\S+\.json")
+            back_menu = [bool]($nt -match "메뉴로 돌아갑니다")
+            ok = $false
+        }
+        $net.ok = (-not $net.timed_out) -and ($net.exit -eq 6) -and $net.menu_line -and $net.told_first -and
+                  $net.launched -and $net.asked -and $net.result -and $net.saved -and $net.back_menu
+        $report.network = $net
+        $tr.Add("=== 원격 점검 — 고르는 화면 $nno 번 ($nname) · 닫힌 포트 127.0.0.1:9 ===")
+        $tr.Add($nt.TrimEnd())
+        $tr.Add("")
+    }
+}
 # 작업 뒤 다시 서는 첫 화면 — 룰이 하나면 작업 메뉴, 여럿이면 고르는 화면이다(`$Lead` 가 그 표지).
 $BackHead = $(if ($Lead.Count -gt 0) { "검사 항목 \d+개를 찾았습니다" } else { "무엇을 할까요" })
 $probe = Invoke-MenuRun -Lines (@() + $Lead + @("0")) -TimeoutMs 30000

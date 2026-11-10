@@ -121,6 +121,54 @@ Enter 를 누르십시오.` 에서 기다린다.
 > 예약할 때 이 회차의 언어를 실어 보내므로(§6) 한 회차의 로그가 두 언어로
 > 갈리지 않는다.
 
+### 네트워크로 하는 점검 — `remedy` 가 `remedy-net` 을 띄운다
+
+룰 가운데 **이 기계가 아니라 적어 준 주소의 서버를 바깥에서 보는** 것이 있다(지금은
+`php2shell-url-check` 하나 — 웹서버 응답 헤더의 PHP 버전). 고르는 화면에서 이름 뒤에
+`[네트워크 사용]` 이 붙고, *모두 검사만* 에는 들지 않는다(그 요약에 *돌리지 않았습니다* 로 선다).
+
+**`remedy` 는 통신하지 않는다.** 그 룰을 고르면 그렇다고 알린 뒤 실행 파일 옆 `remedy-net`
+폴더의 프로그램을 띄워 맡기고, 종료 코드만 받는다. 띄우기 전에 그 폴더의 서명을 룰과 같은
+방식으로 확인한다 — 맞지 않으면 띄우지 않고 `5` 로 끝난다. 약관 동의와 주소는 `remedy-net`
+이 묻는다.
+
+```powershell
+# 관리자 권한이 없어도 된다 — 이 기계를 만지지 않는다
+.\remedy.exe scan --plugin .\plugins\php2shell-url-check\plugin.yaml --out-dir .\out `
+    --url https://www.example.com/ --url https://shop.example.com/ --consent y
+```
+
+| | |
+|---|---|
+| `--url <주소>` | 점검할 주소. 여러 번 준다(50개까지). `http://` · `https://` 만 |
+| `--consent y\|n` | 이용 조건에 미리 답한다(무인 실행). 빼면 묻는다 |
+| `--cacert <파일>` | 이 실행에만 더 믿을 CA 인증서(PEM). 인증서 검증은 끌 수 없다 |
+
+종료 코드는 §3 의 표 그대로이고, 이 점검에서는 넷이 나온다.
+
+| 코드 | 이 점검에서의 뜻 |
+|---|---|
+| `2` | **취약** — 헤더가 알리는 버전이 영향 버전이다(실제 설치 · 백포트는 확인하지 못했다) |
+| `6` | **확인 필요** — 헤더로는 패치 여부를 가릴 수 없다. **양호(0)는 내지 않는다** |
+| `4` | 주소가 잘못됐거나 이용 조건에 동의하지 않았다 |
+| `5` | `remedy-net` 이 없거나 서명 · 버전이 맞지 않아 띄우지 않았다 |
+
+결과는 `--out-dir` 의 `remedy-net-url-<실행 번호>.json` 에 남는다(형식은
+[`docs/remedy-net/url-report.schema.json`](remedy-net/url-report.schema.json)). 메뉴로 고른
+점검의 결과는 실행 파일 옆 `out/<시각>/remedy-net/` 에 남는다 — `remedy` 가 쓰는 결과 폴더와
+나눈 자리다. 요청은 직렬이고 2초 간격이며 리다이렉트를 따르지 않고 프록시를 쓰지 않는다.
+
+> **네트워크를 쓰지 않으려면 `remedy-net` 폴더를 지운다.** 그 항목만 꺼지고 나머지는
+> 그대로다 — 그 폴더가 없는 자리에서 `remedy` 에는 통신할 길이 없다(배포본의 임포트에
+> 네트워크 라이브러리가 없다 · `cargo xtask static`).
+>
+> 리눅스에서 `sudo ./remedy` 의 메뉴로 고르면 `remedy-net` 은 **sudo 를 건 사용자의
+> 권한으로** 돈다. 그 사용자에게 넘기는 것은 결과 폴더 안의 `remedy-net/` 한 칸뿐이다.
+> 그 사용자가 그 칸이나 실행 파일에 닿지 못하면(꾸러미를 root 의 홈에 풀었다 · root 의
+> umask 가 077 이다) 그렇다고 알리고 root 로 띄운다. root 로 바로 들어온 세션(`SUDO_UID`
+> 없음)과 명령줄 호출은 내리지 않는다. Windows 에서는 `remedy` 와 같은 권한으로 돈다 —
+> 관리자 권한 없이 돌리려면 위 명령을 일반 창에서 쓴다.
+
 ## 3. 종료 코드로 판단한다
 
 **무인 배포에서는 이것이 전부다.** 화면의 문구는 사람이 읽는 것이고, 스크립트는
@@ -353,7 +401,9 @@ remedy support-bundle --run <run_id> --state-dir <받은 폴더>\state --out .\b
 
 ## 8. 이 도구가 하지 않는 것
 
-- **네트워크로 나가지 않는다.** 조회도 제출도 없다.
+- **`remedy` 는 네트워크로 나가지 않는다.** 조회도 제출도 없다. 바깥의 서버를 보는
+  점검은 따로 든 프로그램 `remedy-net` 이 맡고(§2), 그것이 하는 일은 적어 준 주소에
+  헤더를 묻는 것뿐이다 — 그 결과로 이 기계를 바꾸지 않는다.
 - **실시간 감시를 끄지 않는다.** 치료 도구가 백신을 무력화하는 기능을 가지면
   그 기능 자체가 표적이 된다. 대신 실패를 정확히 진단한다.
 - **부팅 구성을 고치지 않는다.** 손상을 알리는 데까지 한다.
@@ -416,7 +466,22 @@ cargo xtask package --plugin plugins\evilai-locust `
 cargo xtask package --plugin <점검 플러그인> --plugin <치료 플러그인> `
     --bin target\x86_64-pc-windows-msvc\release\remedy.exe `
     --out dist\remedy-windows-x64 --public-key <공개키 파일>
+
+# 네트워크 점검 룰을 담으면 동반 프로그램도 짓고 서명해 함께 준다(없으면 package 가 멈춘다)
+cargo build --release --target x86_64-pc-windows-msvc -p remedy-net
+mkdir companion\remedy-net
+copy target\x86_64-pc-windows-msvc\release\remedy-net.exe companion\remedy-net\
+cargo xtask sign companion --dir companion\remedy-net `
+    --secret-key <키> --signed-at 2026-11-10T00:00:00Z
+cargo xtask package --plugin <룰> --plugin plugins\php2shell-url-check `
+    --companion companion\remedy-net `
+    --bin target\x86_64-pc-windows-msvc\release\remedy.exe `
+    --out dist\remedy-windows-x64 --public-key <공개키 파일>
 ```
+
+**동반 프로그램은 본체와 따로 짓는다**(`-p remedy-net`). 서명은 룰과 같은 키 · 같은 형식이고,
+서명에 적히는 이름은 `remedy-net`, 버전은 코어 버전이다 — 본체는 그 둘이 자기와 같을 때만
+띄운다. 다른 릴리스의 `remedy-net` 을 섞어 담으면 `package` 가 거부한다.
 
 공식 배포는 OS 마다 파일 하나에 그 OS 의 룰을 **모두** 담는다(`remedy-windows-x64.zip` ·
 `remedy-linux-x64.tar.gz` + `SHA256SUMS`) — 그 OS 의 룰은 `cargo xtask threats --dirs <os>` 가
@@ -444,6 +509,10 @@ remedy-windows-x64\
     plugin.yaml
     rules\evilai.yar
     RELEASE.md
+    MANIFEST
+    MANIFEST.minisig
+  remedy-net\                  (네트워크 점검 룰을 담았을 때)
+    remedy-net.exe
     MANIFEST
     MANIFEST.minisig
 ```

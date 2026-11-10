@@ -877,6 +877,13 @@ fn norm_tokens(line: &str) -> String {
             i += n;
             continue;
         }
+        // 동반 프로그램의 결과 파일 — 이름에 그 실행 번호(스탬프와 난수)가 든다. 아래 스탬프 규칙보다
+        // 먼저 본다: 난수가 숫자로 시작하면 스탬프의 꼬리(`-N`)로 앞머리만 먹히고 나머지가 남는다.
+        if let Some(n) = net_report_len(rest) {
+            out.push_str("remedy-net-url-X");
+            i += n;
+            continue;
+        }
         // 메뉴가 짓는 결과 폴더의 스탬프 — 같은 초에 둘째면 꼬리 `-2` 가 붙는다(`fresh_dir`).
         // 꼬리도 지운다 — 앞 작업과 같은 초였는지는 캡처마다 다르다.
         if let Some(n) = stamp_len(rest) {
@@ -934,6 +941,19 @@ fn run_id_len(s: &str) -> Option<usize> {
         return None;
     }
     Some(4 + d + 1 + h1 + 1 + h2)
+}
+
+/// `remedy-net-url-<YYYYMMDDTHHMMSSZ>-<hex 8+>` 의 길이 — 동반 프로그램(`remedy-net url`)의 결과 파일
+/// 이름에 든 실행 번호다(코어 1.4.0). 뒤의 `.json` 은 남긴다.
+fn net_report_len(s: &str) -> Option<usize> {
+    const HEAD: &str = "remedy-net-url-";
+    let rest = s.strip_prefix(HEAD)?;
+    if stamp_len(rest.get(..16)?) != Some(16) {
+        return None;
+    }
+    let tail = rest[16..].strip_prefix('-')?;
+    let h = count_while(tail, |b| b.is_ascii_hexdigit());
+    (h >= 8).then_some(HEAD.len() + 16 + 1 + h)
 }
 
 /// `YYYY-MM-DD[T ]HH[:-]MM[:-]SS[Z]` 의 길이. 크래시 파일 이름의 `15-46-37Z` 도 든다.
@@ -1150,6 +1170,27 @@ mod tests {
         );
         // 꼴이 덜 찬 것은 그대로다.
         assert_eq!(one("20261106T1236Z"), "20261106T1236Z");
+    }
+
+    /// 동반 프로그램의 결과 파일 이름 — 스탬프 뒤의 난수까지 한 덩어리로 가린다. 메뉴로 돌리면 그 파일은
+    /// 결과 폴더 안의 `remedy-net/` 에 있고, 그 폴더의 스탬프는 지금까지의 규칙이 가린다.
+    #[test]
+    fn companion_report_names_become_placeholders() {
+        assert_eq!(
+            one("결과 파일: /tmp/c/net-out/remedy-net-url-20261110T031626Z-020e6a6db2c6e114.json"),
+            "결과 파일: /tmp/c/net-out/remedy-net-url-X.json"
+        );
+        // 난수가 숫자로 시작해도 스탬프의 꼬리(`-N`)로 앞머리만 먹히지 않는다.
+        assert_eq!(
+            one("결과 파일: C:\\lab\\out\\20261110T025435Z\\remedy-net\\remedy-net-url-20261110T025435Z-151e7a97b9345b5e.json"),
+            "결과 파일: C:\\lab\\out\\<T>\\remedy-net\\remedy-net-url-X.json"
+        );
+        // 꼴이 덜 찬 것은 그대로다.
+        assert_eq!(one("remedy-net-url-report"), "remedy-net-url-report");
+        assert_eq!(
+            one("remedy-net-url-20261110T031626Z.json"),
+            "remedy-net-url-<T>.json"
+        );
     }
 
     #[test]

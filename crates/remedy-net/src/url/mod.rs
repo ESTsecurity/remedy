@@ -3,10 +3,14 @@
 //! 사내 runtime-scanner 의 `url` 을 옮겼다(동작 · 상한 · 시험). 헤더는 남이 적은 글자라 **양호를 내지
 //! 않는다** — 영향 버전이면 *취약*(2), 그 밖은 *확인 필요*(6)다. 확인은 그 서버에서 remedy 의 점검 룰로 한다.
 //!
-//! 차례: 명령줄 검사 → CA 파일 → 약관 → 결과 폴더 → 점검(따로 도는 스레드) → 화면 · 결과 파일. 앞 단계에서
-//! 멈추면 요청도 결과 폴더도 없다.
+//! 차례: 명령줄 검사 → CA 파일 → 약관 → (`--ask` 면 주소 묻기) → 결과 폴더 → 점검(따로 도는 스레드) →
+//! 화면 · 결과 파일. 앞 단계에서 멈추면 요청도 결과 폴더도 없다.
+//!
+//! 본체(`remedy`)의 메뉴는 이 명령을 `--ask` 로 띄운다 — 주소를 묻는 것부터 결과까지 이 프로그램이 하고,
+//! 본체는 종료 코드만 받는다(설계-04 §1 *동반 모듈*).
 
 mod args;
+mod ask;
 mod consent;
 mod criteria;
 mod headers;
@@ -72,6 +76,25 @@ pub fn run(args: &[String], lang: Lang) -> Outcome {
         return Outcome::BadInput;
     };
     let accepted_at = SystemTime::now();
+    // 약관에 동의한 뒤에 묻는다 — 거절할 사람에게 주소부터 적게 하지 않는다.
+    let urls = if opts.ask {
+        let stdin = std::io::stdin();
+        let mut out = std::io::stdout();
+        let typed = ask::urls(lang, &mut stdin.lock(), &mut out);
+        if typed.is_empty() {
+            println!(
+                "{}",
+                lang.t(
+                    "점검할 주소를 받지 못해 아무것도 점검하지 않았습니다.",
+                    "No address was given, so nothing was checked."
+                )
+            );
+            return Outcome::BadInput;
+        }
+        typed
+    } else {
+        opts.urls
+    };
     let dir = match prepare_dir(Path::new(&opts.out_dir), lang) {
         Ok(d) => d,
         Err(why) => return fail(lang, why),
@@ -83,7 +106,7 @@ pub fn run(args: &[String], lang: Lang) -> Outcome {
     }
     let net = Arc::new(wire::Net::new(tls));
     let ctx = Run {
-        urls: opts.urls,
+        urls,
         cacert: !extra.is_empty(),
         via,
         accepted_at,
@@ -418,7 +441,8 @@ pub fn help(lang: Lang) -> String {
              109619) 수정 버전과 견준다. 헤더만 읽으므로 '양호' 는 내지 않는다 — 취약(2) 또는 확인 필요(6).\n\n\
              옵션:\n\
              \x20 --url URL          점검할 URL. 자리 인자와 함께 모두 50개까지\n\
-             \x20 --cacert 파일      이 실행에만 더 믿을 CA 인증서(PEM). 기본 신뢰 목록은 그대로이고 검증을 끄지 않는다\n\
+             \x20 --ask              점검할 URL 을 명령줄 대신 물어서 받는다 (remedy 의 메뉴가 이렇게 띄운다)\n\
+             \x20 --cacert 파일     이 실행에만 더 믿을 CA 인증서(PEM). 기본 신뢰 목록은 그대로이고 검증을 끄지 않는다\n\
              \x20 --consent y|n      약관에 미리 답한다(무인 실행). 빼면 묻는다\n\
              \x20 --out-dir 폴더     결과 JSON 을 쓸 폴더 (기본: results)\n\n\
              지키는 것: 직렬 · 요청 사이 2초 · URL 하나에 HEAD 한 번(405 · 501 이면 GET 한 번) · 실행 전체 100회 ·\n\
@@ -433,7 +457,8 @@ pub fn help(lang: Lang) -> String {
              read, so the result is never \"clear\" — vulnerable (2) or needs review (6).\n\n\
              Options:\n\
              \x20 --url URL          a URL to check; up to 50 together with positional URLs\n\
-             \x20 --cacert FILE      a CA certificate (PEM) to trust for this run only; the default trust list stays and verification is never turned off\n\
+             \x20 --ask              ask for the URLs instead of taking them from the command line (how remedy's menu starts it)\n\
+             \x20 --cacert FILE     a CA certificate (PEM) to trust for this run only; the default trust list stays and verification is never turned off\n\
              \x20 --consent y|n      answer the terms in advance (unattended runs); asked if omitted\n\
              \x20 --out-dir DIR      folder for the JSON result (default: results)\n\n\
              Limits: serial · 2 seconds between requests · one HEAD per URL (one GET on 405 · 501) · 100 requests\n\

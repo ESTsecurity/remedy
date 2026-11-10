@@ -31,3 +31,6 @@ serde_json.workspace = true
 # 통합 시험이 컨테이너를 **만들어야** 한다. 격리물 생성은 P6 의 몫이라 제품
 # CLI 에는 없고, 그래서 시험 쪽에서만 라이브러리를 직접 쓴다.
 remedy-quarantine = { path = "../remedy-quarantine" }
+# 동반 프로그램 폴더를 시험이 스스로 서명한다(`tests/net_launch.rs`). **dev 이므로 배포 바이너리에
+# 링크되지 않는다** — 제품이 서명 능력을 갖지 않는다는 성질(루트 Cargo.toml 의 `minisign` 주석)은 그대로다.
+minisign = { workspace = true }

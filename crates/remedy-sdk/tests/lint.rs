@@ -164,6 +164,104 @@ fn an_unconfirmed_line_needs_core_1_3_0() {
     );
 }
 
+// ───────────────────────────── 네트워크 점검 (`network` · 2026-11-10 · 코어 1.4.0)
+
+/// 네트워크 점검 룰의 온전한 모양 — 이 기계를 읽는 칸이 전부 비어 있다. 각 시험이 한 곳만 비튼다.
+const NETWORK: &str = r#"
+schema_version: 1
+id: lint-network
+version: 1.0.0
+min_core: '1.4.0'
+platforms: [windows, linux]
+name: { ko: '원격 점검', en: 'remote check' }
+kind: check
+network: url
+scan_roots: []
+subjects: []
+detect: []
+"#;
+
+#[test]
+fn a_network_check_rule_is_clean() {
+    let issues = lint(&parse(NETWORK));
+    assert_eq!(blocking(&issues), 0, "오류가 나오면 안 된다: {issues:#?}");
+    assert_eq!(
+        parse(NETWORK).network.map(|n| n.id()),
+        Some("url"),
+        "값이 동반 프로그램의 명령 이름이다"
+    );
+}
+
+#[test]
+fn a_network_check_must_be_a_check() {
+    // 본체는 그 결과로 아무것도 바꾸지 않는다 — 치료 룰이 네트워크를 말하면 그 약속이 깨진다.
+    let e = errors(&NETWORK.replace("kind: check\n", ""));
+    assert!(e.iter().any(|x| x.starts_with("network ::")), "{e:?}");
+}
+
+#[test]
+fn a_network_check_reads_nothing_on_this_machine() {
+    // 채워 두면 서명된 룰이 '이 자리를 읽는다' 고 적어 놓고 실제로는 읽지 않는다.
+    for (from, to, at) in [
+        ("scan_roots: []", "scan_roots: ['/etc']", "scan_roots"),
+        ("subjects: []", "subjects: [file]", "subjects"),
+        (
+            "detect: []",
+            "detect: []\nverdict: { require: 'x' }",
+            "verdict",
+        ),
+        (
+            "detect: []",
+            "detect: []\nhash_large: ['node.exe']",
+            "hash_large",
+        ),
+        (
+            "detect: []",
+            "detect: []\ntext_config_dirs: ['/etc/php']",
+            "text_config_dirs",
+        ),
+    ] {
+        let e = errors(&NETWORK.replace(from, to));
+        assert!(
+            e.iter()
+                .any(|x| x.starts_with(&format!("{at} ::")) && x.contains("이 기계를 보지 않는다")),
+            "{at}: {e:?}"
+        );
+    }
+}
+
+#[test]
+fn a_network_check_needs_core_1_4_0() {
+    let e = errors(&NETWORK.replace("min_core: '1.4.0'", "min_core: '1.3.0'"));
+    assert!(
+        e.iter()
+            .any(|x| x.starts_with("min_core ::") && x.contains("1.4.0")),
+        "{e:?}"
+    );
+}
+
+#[test]
+fn the_network_value_is_a_closed_set() {
+    // 룰이 프로그램 이름 · 인자를 고르는 문이 되지 않게 — 아는 값만, 값 없는 키도 거부.
+    for bad in ["network: curl", "network:", "network: ~", "network: [url]"] {
+        let y = NETWORK.replace("network: url", bad);
+        assert!(
+            serde_yaml_ng::from_str::<PluginManifest>(&y).is_err(),
+            "{bad:?} 를 받았다"
+        );
+    }
+}
+
+#[test]
+fn an_ordinary_rule_still_needs_a_verdict() {
+    // `verdict` 가 빠져도 읽히게 된 것은 네트워크 점검 룰 때문이다 — 그 밖의 룰에서는 오류로 남는다.
+    let e = errors(&BASE.replace("verdict: { require: 'task and payload' }", ""));
+    assert!(
+        e.iter().any(|x| x.starts_with("verdict.require ::")),
+        "{e:?}"
+    );
+}
+
 // ───────────────────────────── 큰 파일 해시 (`hash_large` · 2026-11-09 · 코어 1.3.0)
 
 /// 기본 모양에 `hash_large` 한 줄을 끼운다.

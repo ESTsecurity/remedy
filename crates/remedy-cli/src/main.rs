@@ -31,6 +31,9 @@ mod guided;
 // 화면 공통 층 — 그리는 자리의 판정 · 방향키 + 숫자로 고르기 · Ctrl+C 두 번.
 mod term;
 
+// 네트워크 점검 — 본체는 통신하지 않고, 서명이 맞는 동반 프로그램(`remedy-net`)을 띄워 맡긴다.
+mod net;
+
 /// 화면 전체에 걸리는 설정. 시작할 때 한 번 정하고 어디서든 읽는다.
 ///
 /// `--lang`·`--ascii`·`--verbose` 는 어느 자리에 와도 된다 — 사용자는
@@ -150,14 +153,22 @@ fn main() -> ExitCode {
         Some("collect") => admin_gate().and_then(|()| cmd_collect(rest)),
         Some("evaluate") => cmd_evaluate(rest),
         Some("plan") => cmd_plan(rest),
-        Some("scan") => admin_gate().and_then(|()| cmd_scan(rest)),
+        // 네트워크 점검 룰이면 이 기계를 만지지 않는다 — 관리자 문을 지나지 않고 동반 프로그램에 맡긴다.
+        Some("scan") => match network_rule(rest) {
+            Some(kind) => cmd_net(kind, rest),
+            None => admin_gate().and_then(|()| cmd_scan(rest)),
+        },
         Some("restore") => admin_gate().and_then(|()| cmd_restore(rest)),
         Some("apply") => admin_gate()
             .and_then(|()| integrity_gate(&integrity))
             .and_then(|()| cmd_apply(rest, &integrity)),
-        Some("run") => admin_gate()
-            .and_then(|()| integrity_gate(&integrity))
-            .and_then(|()| cmd_run(rest, &integrity)),
+        // 점검 룰의 `run` 은 점검이다 — 네트워크 점검 룰도 같은 자리로 간다(`scan` 과 같다).
+        Some("run") => match network_rule(rest) {
+            Some(kind) => cmd_net(kind, rest),
+            None => admin_gate()
+                .and_then(|()| integrity_gate(&integrity))
+                .and_then(|()| cmd_run(rest, &integrity)),
+        },
         Some("verify") => admin_gate().and_then(|()| cmd_verify(rest)),
         Some("resume") => admin_gate()
             .and_then(|()| integrity_gate(&integrity))
@@ -346,14 +357,36 @@ fn main() -> ExitCode {
                     guided::Outcome::RunWith(plugin) => {
                         let args =
                             vec!["--plugin".to_string(), plugin.to_string_lossy().to_string()];
-                        admin_gate()
-                            .and_then(|()| integrity_gate(&integrity))
-                            .and_then(|()| cmd_run(&args, &integrity))
+                        match network_rule(&args) {
+                            // **네트워크 점검 룰은 이 길에서 돌지 않는다.** 여기는 물어볼 수 없는
+                            // 자리(터미널이 아니다)인데 그 점검은 주소를 받아야 돈다. 관리자 문을
+                            // 먼저 세우지 않는다 — 그 문에 막히면 권한이 모자란 것으로 읽히는데
+                            // 이 점검에는 권한이 필요 없다. 명령줄에서 `--url` 을 빠뜨린 것과 같은 4 다.
+                            Some(_) => Err(Failure::from(ui().lang.pick(
+                                format!(
+                                    "이 점검은 네트워크로 합니다 — 점검할 주소를 받아야 해서 여기서는 \
+                                     돌리지 않았습니다 (터미널이 아닙니다).\n  \
+                                     터미널에서 remedy 를 띄워 메뉴에서 고르거나, \
+                                     remedy scan --plugin {} --out-dir <폴더> --url <주소> 로 실행하십시오.",
+                                    args[1]
+                                ),
+                                format!(
+                                    "This check uses the network — it needs the addresses to check, so it \
+                                     was not run here (not a terminal).\n  \
+                                     Start remedy in a terminal and pick it from the menu, or run \
+                                     remedy scan --plugin {} --out-dir <folder> --url <address>.",
+                                    args[1]
+                                ),
+                            ))),
+                            None => admin_gate()
+                                .and_then(|()| integrity_gate(&integrity))
+                                .and_then(|()| cmd_run(&args, &integrity)),
+                        }
                     }
                     // **모두 검사만** — 관리자 문을 한 번 지나고, 룰마다 메뉴의 *검사만 하기* 와
                     // 같은 `scan` 을 부른다(`scan_all`).
-                    guided::Outcome::ScanAll(list) => admin_gate().map(|()| {
-                        let (code, treatable, found) = scan_all(&list);
+                    guided::Outcome::ScanAll(list, skipped) => admin_gate().map(|()| {
+                        let (code, treatable, found) = scan_all(&list, &skipped);
                         treats = treatable;
                         notes = found;
                         code
@@ -455,6 +488,22 @@ fn main() -> ExitCode {
                             let args = vec!["--dir".to_string(), dir.to_string_lossy().to_string()];
                             cmd_plugin_verify(&args)
                         }
+                        // **네트워크 점검 — 관리자 문을 지나지 않는다.** 이 기계를 만지지 않고, 본체가
+                        // 하는 일은 서명을 확인한 동반 프로그램을 띄우고 그 종료 코드를 받는 것이다.
+                        // 주소는 그 프로그램이 묻는다. 결과 폴더는 다른 메뉴 작업과 같은 자리다.
+                        menu::WithPlugin::NetCheck(p) => load_manifest(&p.to_string_lossy())
+                            .map_err(Failure::from)
+                            .and_then(|m| {
+                                m.network.ok_or_else(|| {
+                                    Failure::from(ui().lang.t(
+                                        "이 룰은 네트워크 점검 룰이 아닙니다",
+                                        "this rule is not a network check",
+                                    ))
+                                })
+                            })
+                            .and_then(|kind| {
+                                net::check(kind, &menu_out(), net::Targets::Ask, EMBEDDED_ANCHOR)
+                            }),
                     },
                     // **수집만** — 입력이 없고 결과 파일은 여기서 정한다.
                     // `collect` 는 `--out <파일>` 이 필수다(폴더가 아니다). 무엇을 볼지는
@@ -987,7 +1036,7 @@ fn notes_of(p: &guided::Outcome) -> Vec<std::path::PathBuf> {
 fn flow_of(p: &guided::Outcome) -> Flow {
     match p {
         guided::Outcome::WithPlugin(menu::WithPlugin::Scan(_)) => Flow::Scan,
-        guided::Outcome::ScanAll(_) => Flow::ScanAll,
+        guided::Outcome::ScanAll(..) => Flow::ScanAll,
         guided::Outcome::WithPlugin(menu::WithPlugin::Run(_))
         | guided::Outcome::RunWith(..)
         | guided::Outcome::WithFile(menu::WithFile::Apply(_), _) => Flow::Treat,
@@ -1177,7 +1226,13 @@ fn notes_beside(plugin: &std::path::Path) -> Option<std::path::PathBuf> {
 /// 아무것도 바꾸지 않으므로 치료는 지금처럼 룰을 골라서 한다. 둘째 값은 *치료하는 룰이 무언가를
 /// 찾았는가* 이고, 다음 할 일이 그것으로 갈린다. 셋째 값은 *찾기만 하는 룰이 찾았을 때* 그 룰
 /// 폴더의 기록이다(`guidance`).
-fn scan_all(list: &[(String, std::path::PathBuf)]) -> (Code, bool, Vec<std::path::PathBuf>) {
+///
+/// `skipped` 는 **빼 둔 네트워크 점검 룰의 이름**이다(코어 1.4.0) — 주소를 적어야 돌아 여기서 돌리지
+/// 않는다. 끝의 요약에 그 항목도 한 줄씩 적는다.
+fn scan_all(
+    list: &[(String, std::path::PathBuf)],
+    skipped: &[String],
+) -> (Code, bool, Vec<std::path::PathBuf>) {
     let lang = ui().lang;
     let d = remedy_sdk::i18n::deco();
     outln!(
@@ -1279,6 +1334,19 @@ fn scan_all(list: &[(String, std::path::PathBuf)]) -> (Code, bool, Vec<std::path
             remedy_core::report::result_line_for(row.code, 0, lang, row.kind, row.review)
         };
         outln!("  {}{}{result}", row.label, d.dash());
+    }
+    // **빼 둔 네트워크 점검도 한 줄씩 적는다** — 적지 않으면 *모두* 가 그것까지 본 것으로 읽힌다.
+    // 검사 앞이 아니라 여기 적는 까닭은 이 요약이 있는 까닭과 같다: 앞에 적은 줄은 룰마다의 화면에
+    // 밀려 창 밖으로 나간다. 종료 코드에는 들지 않는다 — 돌리지 않은 것은 결과가 아니다.
+    for label in skipped {
+        outln!(
+            "  {label}{}{}",
+            d.dash(),
+            lang.t(
+                "돌리지 않았습니다 (네트워크 점검은 그 항목을 골라 주소를 적어야 합니다)",
+                "not run (a network check: pick that item and enter the addresses)",
+            )
+        );
     }
     let codes: Vec<Code> = done.iter().map(|r| r.code).collect();
     let treatable = done
@@ -1534,6 +1602,10 @@ fn usage_all() {
     say!("           --extract-to 는 원래 경로가 아니라 지정한 폴더로 내보낸다.");
     say!("           제자리 복원은 원래 머신에서만 보장된다.");
     say!("  scan     --plugin <plugin.yaml> --out-dir <디렉터리> [--config <설정.yaml>]");
+    say!("  scan     --plugin <네트워크 점검 룰> --out-dir <디렉터리> --url <주소>...");
+    say!("           [--consent y|n] [--cacert <파일>]");
+    say!("           바깥의 서버를 본다(network: url). remedy 는 통신하지 않는다 — 서명을");
+    say!("           확인한 remedy-net 을 띄워 맡기고 종료 코드만 받는다. 권한이 필요 없다.");
     say!("  apply    --plan <파일> [--yes] [--dry-run] [--events <파일|->]");
     say!(
         "           [--state-dir <디렉터리>] [--passphrase-file <파일>] [--org-public-file <파일>]"
@@ -1746,6 +1818,73 @@ fn load_manifest(path: &str) -> Result<PluginManifest, String> {
     Ok(m)
 }
 
+/// **이 기계를 보는 룰**을 읽는다 — `collect` · `evaluate` · `plan` · `scan` · `run` · `verify` 가 쓴다.
+///
+/// 네트워크 점검 룰(`network`)은 이 기계에서 모으고 판정할 것이 없다. 그 룰로 이 명령들을 돌리면 빈
+/// 결과가 *깨끗함* 으로 읽히므로, 어떻게 돌리는지 말하고 멈춘다(`scan` · `run` 은 `main` 이 먼저
+/// 동반 프로그램 쪽으로 보낸다 — 여기 닿는 것은 그 길을 지나지 않은 호출이다).
+fn load_local(path: &str) -> Result<PluginManifest, String> {
+    let m = load_manifest(path)?;
+    if m.network.is_some() {
+        return Err(ui().lang.pick(
+            format!(
+                "이 룰은 네트워크로 점검합니다 — 이 명령으로는 돌릴 수 없습니다.\n  \
+                 remedy scan --plugin {path} --out-dir <폴더> --url <주소> 로 실행하거나, \
+                 인자 없이 띄워 메뉴에서 고르십시오."
+            ),
+            format!(
+                "This rule checks over the network — this command cannot run it.\n  \
+                 Use remedy scan --plugin {path} --out-dir <folder> --url <address>, \
+                 or start remedy without arguments and pick it from the menu."
+            ),
+        ));
+    }
+    Ok(m)
+}
+
+/// 이 호출의 `--plugin` 이 네트워크 점검 룰이면 그 종류 — `scan` · `run` 의 갈림길이다.
+///
+/// 읽지 못하는 것은 여기서 말하지 않는다. 그 까닭은 명령 자신이 지금까지처럼 말한다.
+fn network_rule(raw: &[String]) -> Option<remedy_sdk::manifest::NetworkCheck> {
+    let a = parse_args(raw).ok()?;
+    let text = std::fs::read_to_string(a.get("plugin")?).ok()?;
+    serde_yaml_ng::from_str::<PluginManifest>(&text)
+        .ok()?
+        .network
+}
+
+/// 네트워크 점검 룰을 명령줄로 — `scan --plugin <룰> --out-dir <폴더> --url <주소> [--url …]`.
+///
+/// **관리자 문을 지나지 않는다** — 이 기계를 만지지 않는다. 주소 · 동의(`--consent y|n`) · CA 파일
+/// (`--cacert`)은 풀이하지 않고 동반 프로그램에 그대로 넘긴다: 그 꼴을 보는 것은 그 프로그램이다.
+fn cmd_net(kind: remedy_sdk::manifest::NetworkCheck, raw: &[String]) -> Result<Code, Failure> {
+    let a = parse_args(raw)?;
+    let m = load_manifest(a.need("plugin")?)?;
+    let dir = a.need("out-dir")?;
+    let urls: Vec<String> = a
+        .list("url")
+        .into_iter()
+        .filter(|u| !u.is_empty())
+        .collect();
+    if urls.is_empty() {
+        return Err(Failure::from(ui().lang.t(
+            "점검할 주소가 필요합니다 — --url <주소> 를 하나 이상 적으십시오 (여러 번 줄 수 있습니다).",
+            "an address to check is required — give --url <address> at least once (it can be repeated).",
+        )));
+    }
+    banner(Some(&m));
+    net::check(
+        kind,
+        std::path::Path::new(dir),
+        net::Targets::Given {
+            urls: &urls,
+            consent: a.get("consent"),
+            cacert: a.get("cacert"),
+        },
+        EMBEDDED_ANCHOR,
+    )
+}
+
 fn write_json<T: serde::Serialize>(path: &str, value: &T) -> Result<(), String> {
     let mut s = serde_json::to_string_pretty(value).map_err(|e| e.to_string())?;
     s.push('\n');
@@ -1884,7 +2023,7 @@ fn cmd_collect(raw: &[String]) -> Result<Code, Failure> {
     let mut kind = None;
     let env = match a.single.get("plugin") {
         Some(p) => {
-            let m = load_manifest(p)?;
+            let m = load_local(p)?;
             kind = m.kind;
             warn_unsupported(&m);
             // `collect` 단독에는 증거가 없다. `ref` 형은 여기서 풀리지 않으므로
@@ -1940,7 +2079,7 @@ fn cmd_collect(raw: &[String]) -> Result<Code, Failure> {
 fn cmd_evaluate(raw: &[String]) -> Result<Code, Failure> {
     let a = parse_args(raw)?;
     let artifacts = read_json(a.need("artifacts")?)?;
-    let m = load_manifest(a.need("plugin")?)?;
+    let m = load_local(a.need("plugin")?)?;
     let out = a.need("out")?;
 
     let rules = load_rules(a.need("plugin")?)?;
@@ -1972,7 +2111,7 @@ fn cmd_plan(raw: &[String]) -> Result<Code, Failure> {
     // `remediate` 는 매니페스트에 있고 scan.json 에는 없다 (설계-03 §2).
     // 주지 않으면 가드만 돌고 Action 은 도출되지 않는다 — 그 사실을 말한다.
     let m = match a.get("plugin") {
-        Some(p) => Some(load_manifest(p)?),
+        Some(p) => Some(load_local(p)?),
         None => {
             errln!("  주의 --plugin 이 없습니다. remediate 를 읽을 수 없어 Action 을 도출하지 않습니다");
             None
@@ -2043,7 +2182,7 @@ fn cmd_scan(raw: &[String]) -> Result<Code, Failure> {
     // 설정 검증을 **가장 먼저** 한다. 수집을 다 끝낸 뒤 설정이 틀렸다고
     // 말하면 그 시간이 통째로 버려진다.
     let limits = load_limits(&a)?;
-    let m = load_manifest(a.need("plugin")?)?;
+    let m = load_local(a.need("plugin")?)?;
     let dir = a.need("out-dir")?;
     std::fs::create_dir_all(dir).map_err(|e| format!("{dir}: {e}"))?;
     let meta = RunMeta::now();
@@ -2364,7 +2503,7 @@ fn cmd_run(
 ) -> Result<Code, Failure> {
     let a = parse_args(raw)?;
     let limits = load_limits(&a)?;
-    let m = load_manifest(a.need("plugin")?)?;
+    let m = load_local(a.need("plugin")?)?;
     let started = std::time::Instant::now();
     tee::open(&state_dir(&a), &format!("run-{}", std::process::id()));
     banner(Some(&m));
@@ -2956,7 +3095,7 @@ fn cmd_verify(raw: &[String]) -> Result<Code, Failure> {
             .unwrap_or_else(|| format!("verify-{}", std::process::id())),
     );
     banner(None);
-    let m = load_manifest(a.need("plugin")?)?;
+    let m = load_local(a.need("plugin")?)?;
     warn_unsupported(&m);
     let rules = load_rules(a.need("plugin")?)?;
 

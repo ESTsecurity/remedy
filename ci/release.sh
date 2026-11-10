@@ -4,7 +4,9 @@
 #
 #   ci/release.sh pubkey                         공개키를 준비하고 REMEDY_TRUST_ANCHOR 를 잡의 환경에
 #   ci/release.sh sign <플러그인 폴더>             그 키로 서명한다(서명 시각은 이 커밋의 시각)
+#   ci/release.sh sign-companion <remedy-net 폴더> 동반 프로그램의 폴더를 같은 키로 서명한다
 #   ci/release.sh verify <remedy> <플러그인 폴더>  박힌 앵커로 확인하고, 거부할 것을 거부하는가
+#   ci/release.sh verify-companion <remedy>      꾸러미에서 본체가 동반 프로그램을 띄우는가 · 바뀐 것은 안 띄우는가
 #   ci/release.sh readme <README.txt>            꾸러미의 안내문이 앵커 판인가
 #
 # # 키는 어디서 오는가
@@ -56,8 +58,9 @@ pubkey() {
     echo "앵커(공개키): $anchor"
 }
 
-sign() {
-    local dir=${1:?플러그인 폴더}
+# 폴더 하나를 서명한다 — <무엇>은 `cargo xtask sign` 의 하위 명령(plugin · companion)이다.
+sign_as() {
+    local what=${1:?plugin|companion} dir=${2:?서명할 폴더}
     local at
     at=$(date -u -d "@$(git log -1 --format=%ct)" +%Y-%m-%dT%H:%M:%SZ)
     if tagged; then
@@ -67,13 +70,18 @@ sign() {
         fi
         trap 'rm -f "$SIGN_KEY"' EXIT
         printf '%s\n' "$SECRET_KEY" >"$SIGN_KEY"
-        REMEDY_SIGN_PASSWORD=$SECRET_PASSWORD cargo xtask sign plugin \
+        REMEDY_SIGN_PASSWORD=$SECRET_PASSWORD cargo xtask sign "$what" \
             --dir "$dir" --secret-key "$SIGN_KEY" --signed-at "$at"
     else
-        REMEDY_SIGN_PASSWORD=$(cat "$KEYS/sign.pass") cargo xtask sign plugin \
+        REMEDY_SIGN_PASSWORD=$(cat "$KEYS/sign.pass") cargo xtask sign "$what" \
             --dir "$dir" --secret-key "$SIGN_KEY" --signed-at "$at"
     fi
 }
+
+sign() { sign_as plugin "${1:?플러그인 폴더}"; }
+
+# 동반 프로그램(remedy-net)의 폴더 — 본체가 띄우기 전에 확인하는 서명이다. 룰과 같은 키 · 같은 형식.
+sign_companion() { sign_as companion "${1:?remedy-net 폴더}"; }
 
 # 거부해야 하는 것을 **거부(종료 5)** 로 끝내는가. 종료 코드까지 댄다 — 앵커가 없을 때의
 # 4 처럼 다른 이유로 실패해도 '거부했다' 로 보이면 이 확인은 아무것도 재지 않는다.
@@ -114,6 +122,82 @@ verify() {
     expect_rejected "$exe" "$KEYS/other/$name" "다른 키로 서명한 룰"
 }
 
+# 네트워크 점검 룰 하나로 본체를 띄워 종료 코드를 받는다 — 주소는 이 기계의 닫힌 포트다(밖으로 나가는
+# 요청이 없다). 룰은 그 자리에서 만든다: 명령줄은 룰의 서명을 묻지 않고, 여기서 재는 것은 **동반
+# 프로그램의 서명**이다.
+net_check() {
+    local exe=$1 out=$2 rc=0
+    mkdir -p "$KEYS/netrule"
+    cat >"$KEYS/netrule/plugin.yaml" <<'EOF'
+schema_version: 1
+id: release-net-probe
+version: 0.0.1
+min_core: "1.4.0"
+platforms: [windows, linux]
+name: { ko: "배포 확인", en: "release probe" }
+kind: check
+network: url
+scan_roots: []
+subjects: []
+detect: []
+EOF
+    rm -rf "$out"
+    "$exe" scan --plugin "$KEYS/netrule/plugin.yaml" --out-dir "$out" \
+        --url http://127.0.0.1:9/ --consent y >"$KEYS/net.txt" 2>&1 || rc=$?
+    tr -d '\r' <"$KEYS/net.txt" | tail -n 6
+    return "$rc"
+}
+
+# 받는 사람이 푸는 그 폴더에서 — 본체가 **서명이 맞는 동반 프로그램을 띄우고, 다른 것은 띄우지 않는가.**
+verify_companion() {
+    local exe=${1:?꾸러미 안의 remedy 실행 파일}
+    local pkg name rc
+    pkg=$(dirname "$exe")
+    name=$(basename "$exe")
+
+    # 1) 띄운다 — 닫힌 포트라 '연결 거부 → 확인 필요(6)' 가 정상이다. 6 은 동반 프로그램이 낸 코드를
+    #    본체가 그대로 돌려준 것이다(띄우지 못했으면 5 다). 결과 파일도 그 프로그램이 쓴다.
+    rc=0
+    net_check "$exe" "$KEYS/netout" || rc=$?
+    if [ "$rc" -ne 6 ]; then
+        echo "::error::네트워크 점검: 종료 $rc — 6(확인 필요)이어야 한다"
+        exit 1
+    fi
+    if ! ls "$KEYS/netout"/remedy-net-url-*.json >/dev/null 2>&1; then
+        echo "::error::동반 프로그램이 결과 파일을 쓰지 않았다"
+        exit 1
+    fi
+    echo "동반 프로그램: 띄웠다(종료 6 · 결과 파일)"
+
+    # 2) 반대 확인 — 꾸러미의 사본에서 동반 프로그램만 바꾼다. 띄우지 않고 5 로 끝나야 한다.
+    local case
+    for case in tampered otherkey absent; do
+        rm -rf "$KEYS/pkg-$case"
+        mkdir -p "$KEYS/pkg-$case"
+        cp "$exe" "$KEYS/pkg-$case/$name"
+        cp -R "$pkg/remedy-net" "$KEYS/pkg-$case/remedy-net"
+    done
+    printf 'x' >>"$KEYS/pkg-tampered/remedy-net/$(ls "$pkg/remedy-net" | grep -E '^remedy-net(\.exe)?$')"
+    throwaway other
+    REMEDY_SIGN_PASSWORD=$(cat "$KEYS/other.pass") cargo xtask sign companion \
+        --dir "$KEYS/pkg-otherkey/remedy-net" --secret-key "$KEYS/other.key" \
+        --signed-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >/dev/null
+    rm -rf "$KEYS/pkg-absent/remedy-net"
+    for case in tampered otherkey absent; do
+        rc=0
+        net_check "$KEYS/pkg-$case/$name" "$KEYS/netout-$case" >/dev/null || rc=$?
+        if [ "$rc" -ne 5 ]; then
+            echo "::error::동반 프로그램($case): 종료 $rc — 5(띄우지 않음)여야 한다"
+            exit 1
+        fi
+        if [ -e "$KEYS/netout-$case" ]; then
+            echo "::error::동반 프로그램($case): 띄우지 않았는데 결과 폴더가 생겼다"
+            exit 1
+        fi
+        echo "동반 프로그램($case): 띄우지 않았다(종료 5)"
+    done
+}
+
 readme() {
     local f=${1:?README.txt}
     if ! grep -qF '이 실행 파일에는 룰 서명을 확인하는 ESTsecurity 공개키가 들어 있습니다.' "$f"; then
@@ -132,10 +216,12 @@ cmd=${1:-}
 case "$cmd" in
 pubkey) pubkey ;;
 sign) sign "$@" ;;
+sign-companion) sign_companion "$@" ;;
 verify) verify "$@" ;;
+verify-companion) verify_companion "$@" ;;
 readme) readme "$@" ;;
 *)
-    echo "쓰는 법: ci/release.sh pubkey | sign <폴더> | verify <remedy> <폴더> | readme <README.txt>" >&2
+    echo "쓰는 법: ci/release.sh pubkey | sign <폴더> | sign-companion <폴더> | verify <remedy> <폴더> | verify-companion <remedy> | readme <README.txt>" >&2
     exit 2
     ;;
 esac

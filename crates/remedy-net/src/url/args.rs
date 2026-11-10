@@ -13,6 +13,8 @@ pub(crate) struct Options {
     pub(crate) cacert: Option<String>,
     pub(crate) consent: Option<Answer>,
     pub(crate) out_dir: String,
+    /// 점검할 주소를 명령줄이 아니라 **물어서** 받는다(`--ask`) — 본체의 메뉴가 띄울 때 쓴다.
+    pub(crate) ask: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -30,6 +32,7 @@ pub(crate) fn parse(args: &[String], lang: Lang) -> Result<Parsed, String> {
         cacert: None,
         consent: None,
         out_dir: DEFAULT_OUT_DIR.to_string(),
+        ask: false,
     };
     let mut positional_only = false;
     let mut it = args.iter();
@@ -44,6 +47,10 @@ pub(crate) fn parse(args: &[String], lang: Lang) -> Result<Parsed, String> {
         }
         if matches!(arg.as_str(), "-h" | "--help") {
             return Ok(Parsed::Help);
+        }
+        if arg == "--ask" {
+            o.ask = true;
+            continue;
         }
         let (name, inline) = match arg.split_once('=') {
             Some((n, v)) => (n, Some(v.to_string())),
@@ -90,6 +97,18 @@ pub(crate) fn parse(args: &[String], lang: Lang) -> Result<Parsed, String> {
                 })
             }
         }
+    }
+    if o.ask {
+        // 묻기로 했으면 명령줄의 주소와 섞지 않는다 — 어느 쪽이 대상인지 한 가지로 남게.
+        if !o.urls.is_empty() {
+            return Err(lang
+                .t(
+                    "--ask 는 주소를 물어 받습니다 — 명령줄의 URL 과 함께 쓸 수 없습니다.",
+                    "--ask reads the URLs interactively — it cannot be combined with URLs on the command line.",
+                )
+                .to_string());
+        }
+        return Ok(Parsed::Run(o));
     }
     if o.urls.is_empty() {
         return Err(lang
@@ -138,6 +157,17 @@ mod tests {
     fn p(args: &[&str]) -> Result<Parsed, String> {
         let v: Vec<String> = args.iter().map(|s| s.to_string()).collect();
         parse(&v, Lang::Ko)
+    }
+
+    #[test]
+    fn ask_takes_no_urls_from_the_command_line() {
+        let Ok(Parsed::Run(o)) = p(&["--ask", "--out-dir", "out"]) else {
+            panic!("거절됐다");
+        };
+        assert!(o.ask && o.urls.is_empty());
+        // 묻기와 명령줄의 주소를 섞지 않는다 — 어느 쪽이 대상인지 한 가지로 남게.
+        assert!(p(&["--ask", "http://a.example/"]).is_err());
+        assert!(p(&["--url", "http://a.example/", "--ask"]).is_err());
     }
 
     #[test]

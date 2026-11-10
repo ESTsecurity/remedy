@@ -4,14 +4,22 @@
 //!
 //! 본체 `remedy` 는 관리자 권한으로 지우고 되돌리는 바이너리라, **통신하지 못한다는 것을 남이 확인할 수
 //! 있게** 해 두었다 — 배포본의 임포트를 `cargo xtask static` 이 전수 검사한다(설계-01 D9). 원격 확인 ·
-//! 이미지 · 컨테이너처럼 네트워크가 필요한 점검은 그 성질을 건드리지 않도록 이 바이너리에 둔다. 둘은
-//! 서로 링크하지도 실행하지도 않고 파일로만 주고받는다. 그 선은 설계-04 §1 의 금지 표를
-//! `cargo xtask arch` 가 지킨다 — 본체 → 이 크레이트 · 이 크레이트 → 파괴 경로 · 본체 → 네트워크 크레이트.
+//! 이미지 · 컨테이너처럼 네트워크가 필요한 점검은 그 성질을 건드리지 않도록 이 바이너리에 둔다. 본체는
+//! 이 크레이트를 **링크하지 않는다.** 그 선은 설계-04 §1 의 금지 표를 `cargo xtask arch` 가 지킨다 —
+//! 본체 → 이 크레이트 · 이 크레이트 → 파괴 경로 · 본체 → 네트워크 크레이트.
+//!
+//! # 누가 띄우는가 (2026-11-10)
+//!
+//! 사용자는 `remedy` 하나만 실행한다. 고른 룰이 네트워크 점검이면(`network: url`) 본체가 **서명을 확인한 뒤**
+//! 이 프로그램을 띄우고, 네트워크를 쓴다는 것을 먼저 알린다. 이 프로그램은 약관을 보이고 동의를 받고,
+//! 주소를 묻고(`--ask`), 점검하고, 결과를 화면과 파일에 남긴다. 본체는 종료 코드만 받는다 — 여기서 나온
+//! 것으로 본체가 무엇을 바꾸는 길은 없다. 이 프로그램을 따로 띄워도 같은 일을 한다.
 //!
 //! # 결과 계약
 //!
-//! 종료 코드는 **본체의 표**(`docs/operator.md` §3 · [`ExitCode`])를 그대로 쓴다 — 무인 배포 스크립트가 두
-//! 바이너리를 같은 코드로 읽는다. 판정 어휘는 *양호 · 취약 · 확인 필요* 이고 [`Outcome`] 이 그 대응이다.
+//! 종료 코드는 **본체의 표**(`docs/operator.md` §3 · [`ExitCode`])를 그대로 쓴다 — 본체가 그 코드를 자기
+//! 것으로 돌려주고, 무인 배포 스크립트가 두 바이너리를 같은 코드로 읽는다. 판정 어휘는 *양호 · 취약 ·
+//! 확인 필요* 이고 [`Outcome`] 이 그 대응이다.
 //!
 //! 점검 명령은 `url` 하나다(`image` · `container` 는 다음 판). 명령의 코드는 라이브러리 쪽(`src/lib.rs`)에 있다.
 //!
@@ -120,9 +128,11 @@ fn help(lang: Lang) -> String {
         ),
     ));
     s.push_str(lang.t(
-        "네트워크가 필요한 점검을 맡는 프로그램이다. 본체 remedy 와 따로 돌고, 둘은 파일로만 주고받는다.\n\n",
-        "Runs the checks that need the network. It runs apart from the main program (remedy); the two\n\
-         exchange files only.\n\n",
+        "네트워크가 필요한 점검을 맡는 프로그램이다. 본체 remedy 는 통신하지 않는다 — 네트워크 점검 항목을\n\
+         고르면 remedy 가 이 프로그램을 실행해 맡기고, 종료 코드만 받는다. 따로 실행해도 된다.\n\n",
+        "Runs the checks that need the network. The main program (remedy) does not communicate — when a\n\
+         network check is picked, remedy starts this program and takes only its exit code. It can also\n\
+         be run on its own.\n\n",
     ));
     s.push_str(lang.t("쓰는 법:\n", "Usage:\n"));
     s.push_str(lang.t(

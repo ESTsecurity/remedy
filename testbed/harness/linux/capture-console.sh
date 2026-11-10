@@ -763,6 +763,9 @@ ls "$W/orgout" 2>&1
 # 화면에서 그만두기다. 깨끗한 컨테이너라 CWP 가 없다: CWPdoor 둘은 6(검사할 경로가 없다 —
 # 설계대로), Ebury 는 0 이고 모두 검사만의 끝 코드는 6 이다. PHP · Node.js 도 없어 점검 셋은
 # 0 이다(1.3.0). 룰 수는 제목에 적지 않는다 — 목록이 늘 때마다 제목이 낡았다(셋 → 여섯).
+# 네트워크 점검 하나(1.4.0)는 고르는 화면에 *네트워크 사용* 이 붙어 서고, 모두 검사만에는 들지
+# 않는다 — 끝의 요약에 *돌리지 않았습니다* 로 한 줄 선다. 이 절은 그 항목을 고르지 않는다(밖으로
+# 나가는 요청이 없다 — 고르는 것은 A12 다).
 #
 # **앵커를 박은 빌드라 맨 끝에 둔다** — 앞 절들이 쓰는 릴리스 바이너리가 이 빌드로 바뀐다.
 # 다음 회차의 `build 릴리스` 는 앵커 없는 판으로 다시 짓는다(환경 변수가 바뀌면 cargo 가
@@ -787,7 +790,15 @@ if command -v script >/dev/null 2>&1 && (
     done
     REMEDY_TRUST_ANCHOR="$(sed -n 2p "$AW/pub.key")" \
         cargo build -q --release --offline -p remedy-cli >"$BUILD_LOG" 2>&1 || exit 1
-    cargo run -q --offline -p xtask -- package "${args[@]}" --bin "$REL" --out "$AW/pkg" \
+    # 룰 목록에 네트워크 점검이 하나 있다(1.4.0) — 동반 프로그램을 따로 짓고 같은 키로 서명해
+    # 함께 담는다(배포 잡과 같은 차례). 없으면 `package` 가 멈춘다.
+    cargo build -q --release --offline -p remedy-net >>"$BUILD_LOG" 2>&1 || exit 1
+    mkdir -p "$AW/companion/remedy-net"
+    cp "$(dirname "$REL")/remedy-net" "$AW/companion/remedy-net/" || exit 1
+    cargo run -q --offline -p xtask -- sign companion --dir "$AW/companion/remedy-net" \
+        --secret-key "$AW/sec.key" --signed-at 2026-11-06T00:00:00Z >/dev/null || exit 1
+    cargo run -q --offline -p xtask -- package "${args[@]}" --bin "$REL" \
+        --companion "$AW/companion/remedy-net" --out "$AW/pkg" \
         --public-key "$AW/pub.key" >/dev/null || exit 1
 ); then
     (cd "$AW/pkg" && { printf '1\n\n0\n'; sleep 20; } | timeout 120 script -qec \
@@ -796,6 +807,35 @@ if command -v script >/dev/null 2>&1 && (
     tr -d "\r" < "$AW/out.txt"
 else
     echo "[통합 꾸러미를 짓지 못해 이 절은 비었다 — $BUILD_LOG]"
+fi
+
+# ── 원격 점검 — 본체가 동반 프로그램을 띄운다 (코어 1.4.0 · 설계-04 §1 *동반 모듈*) ──────────
+#
+# A11 의 꾸러미를 그대로 쓴다 — 동반 프로그램 `remedy-net` 이 같은 일회용 키로 서명돼 들어 있다.
+# 주소는 **닫힌 포트**(127.0.0.1:9)다: 컨테이너 밖으로 나가는 요청이 없고, 응답이 없어 판정은
+# *확인 필요*(6)다. 6 이 돌아오면 서명을 확인하고 띄워 결과 파일까지 쓴 것이다. 이용 조건에는
+# `--consent y` 로 미리 답한다(무인 실행의 꼴 — 메뉴에서 고르는 흐름은 `menu-verify.sh` 가 pty 로 잰다).
+#
+# 이어서 **서명 파일을 지운 사본**에서 한 번 더 부른다 — 띄우지 않고 가드 중단(5)이어야 하고,
+# 결과 폴더도 생기지 않아야 한다. 본체가 통신하는 프로그램을 띄우는 조건이 서명이라는 것이
+# 이 화면이다.
+sep "A12. 원격 점검 — 서명을 확인한 remedy-net 을 띄운다 (닫힌 포트) · 서명이 없으면 띄우지 않는다"
+if [ -x "$AW/pkg/remedy" ] && [ -d "$AW/pkg/remedy-net" ]; then
+    (cd "$AW/pkg" && LANG=C.UTF-8 REMEDY_LANG=$L ./remedy scan \
+        --plugin plugins/php2shell-url-check/plugin.yaml --out-dir "$AW/net-out" \
+        --url http://127.0.0.1:9/ --consent y 2>&1)
+    ec
+    echo "--- 서명 파일(MANIFEST.minisig)을 지운 remedy-net ---"
+    cp -a "$AW/pkg" "$AW/pkg-unsigned"
+    rm -f "$AW/pkg-unsigned/remedy-net/MANIFEST.minisig"
+    (cd "$AW/pkg-unsigned" && LANG=C.UTF-8 REMEDY_LANG=$L ./remedy scan \
+        --plugin plugins/php2shell-url-check/plugin.yaml --out-dir "$AW/net-out-unsigned" \
+        --url http://127.0.0.1:9/ --consent y 2>&1)
+    ec
+    echo "--- 띄우지 않았는가 (결과 폴더가 없어야 한다) ---"
+    if [ -e "$AW/net-out-unsigned" ]; then echo "  [만들었다 — 서명 확인보다 먼저 손을 댔다]"; else echo "  없다"; fi
+else
+    echo "[통합 꾸러미가 없어 이 절은 비었다]"
 fi
 
 sep "끝"
@@ -814,7 +854,8 @@ sep "끝"
 # 46 → 47: 물어보지 못한 자리를 더했다 (L6 · B-9 · 2026-10-27).
 # 47 → 48: `--help-all` 본문 절을 더했다 (A9 · 2026-10-28).
 # 48 → 49: 모두 검사만 절을 더했다 (A11 · 목표 remedy_출시_20261111 기준 3 · 2026-11-06).
-EXPECT_SECTIONS=49
+# 49 → 50: 원격 점검 절을 더했다 (A12 · 본체가 동반 프로그램을 띄운다 · 2026-11-10).
+EXPECT_SECTIONS=50
 EXPECT_CODES="0 1 2 3 4 5 6 7"
 got_codes=$(echo $CODES | tr ' ' '\n' | grep -v '^$' | sort -u | tr '\n' ' ' | sed 's/ $//')
 {

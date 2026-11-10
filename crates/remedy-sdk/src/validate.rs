@@ -77,6 +77,9 @@ impl std::fmt::Display for SchemaIssue {
     }
 }
 
+/// 동반 프로그램의 이름 — 본체가 띄우는 폴더이자 그 서명 주석의 이름이다. 룰의 `id` 로는 쓰지 못한다.
+pub const COMPANION_ID: &str = "remedy-net";
+
 /// 매니페스트의 의미 검증. 형태 검증은 역직렬화가 이미 끝냈다.
 ///
 /// 여기서 보는 것은 P1 범위에 한정된다. 참조 무결성·정규식 유효성·범위 검사는
@@ -99,6 +102,34 @@ pub fn validate(m: &PluginManifest) -> Vec<SchemaIssue> {
     }
 
     check_min_core(m, &mut issues);
+
+    // 동반 프로그램의 이름은 룰이 쓰지 못한다 — 본체는 그 이름으로 서명된 폴더의 실행 파일을 띄운다
+    // (설계-04 §1 *동반 모듈*). 룰에 그 이름의 서명이 생기는 길을 문법에서 닫는다.
+    if m.id == COMPANION_ID {
+        issues.push(SchemaIssue::new(
+            "id",
+            format!("'{COMPANION_ID}' 은 동반 프로그램의 이름이다 — 룰의 id 로 쓸 수 없다"),
+            "설계-04 §1",
+        ));
+    }
+
+    // **네트워크 점검 룰은 이 기계를 보지 않는다** — 아래의 "비어 있다" 검사가 전부 뒤집힌다
+    // (있어야 할 것이 없어야 할 것이 된다). 그 룰의 검사는 따로 하고 여기서 끝낸다.
+    if m.network.is_some() {
+        check_network(m, &mut issues);
+        return issues;
+    }
+
+    if m.verdict.require.trim().is_empty() {
+        issues.push(
+            SchemaIssue::new(
+                "verdict.require",
+                "비어 있다. 무엇이 서야 판정이 서는지 적어야 한다",
+                "설계-02 §5",
+            )
+            .with_valid(rule_ids(m)),
+        );
+    }
 
     if m.scan_roots.is_empty() {
         issues.push(SchemaIssue::new(
@@ -263,6 +294,77 @@ fn check_unconfirmed(m: &PluginManifest, issues: &mut Vec<SchemaIssue>) {
                 "설계-02 §10",
             )
             .with_valid("min_core: \"1.3.0\" 이상".to_string()),
+        );
+    }
+}
+
+/// 네트워크 점검 룰(`network`)의 모양 (2026-11-10 · 코어 1.4.0).
+///
+/// - **점검(`kind: check`)이다.** 본체는 `remedy-net` 의 종료 코드만 받고, 그것으로 아무것도 바꾸지
+///   않는다 — 치료 경로에 네트워크가 없다는 것(설계-01 D9)이 이 줄에서 지켜진다.
+/// - **이 기계를 읽는 칸은 전부 비어 있다.** 채워 두면 서명된 룰이 *"이 자리를 읽는다"* 고 적어 놓고
+///   실제로는 읽지 않는다 — 받는 사람이 룰을 읽어 아는 것과 도구가 하는 것이 갈린다.
+/// - **`min_core` 는 1.4.0 이상.** 낮은 코어는 이 칸을 모른다(매니페스트를 읽다 멈춘다).
+fn check_network(m: &PluginManifest, issues: &mut Vec<SchemaIssue>) {
+    const DOC: &str = "docs/plugin-guide/24-check-plugins.md";
+    if m.kind != Some(crate::manifest::PluginKind::Check) {
+        issues.push(
+            SchemaIssue::new(
+                "network",
+                "네트워크 점검은 kind: check 여야 한다 — 본체는 그 결과로 아무것도 바꾸지 않는다",
+                DOC,
+            )
+            .with_valid("kind: check".to_string()),
+        );
+    }
+    let filled: [(&str, bool); 11] = [
+        ("scan_roots", !m.scan_roots.is_empty()),
+        ("subjects", !m.subjects.is_empty()),
+        ("subject_roots", !m.subject_roots.is_empty()),
+        ("text_config_dirs", !m.text_config_dirs.is_empty()),
+        ("hash_large", !m.hash_large.is_empty()),
+        ("allow_removable", m.allow_removable),
+        ("signed_malware", !m.signed_malware.is_empty()),
+        ("detect", !m.detect.is_empty()),
+        (
+            "verdict",
+            !m.verdict.require.trim().is_empty() || !m.verdict.unconfirmed.is_empty(),
+        ),
+        ("collect_extra", !m.collect_extra.is_empty()),
+        ("submit_hint", m.submit_hint.is_some()),
+    ];
+    for (at, _) in filled.iter().filter(|(_, on)| *on) {
+        issues.push(
+            SchemaIssue::new(
+                *at,
+                "네트워크 점검 룰은 이 기계를 보지 않는다 — 이 칸은 비워야 한다",
+                DOC,
+            )
+            .with_valid(
+                "비우거나 지울 것 (scan_roots · subjects · detect 는 [] 로 적는다)".to_string(),
+            ),
+        );
+    }
+    // remediate 는 위 `kind: check` 와 함께면 모순이고, kind 가 빠졌으면 여기서 따로 말한다.
+    if m.remediate.is_some() {
+        issues.push(SchemaIssue::new(
+            "remediate",
+            "네트워크 점검 룰은 치료하지 않는다 — remediate 를 뺄 것",
+            DOC,
+        ));
+    }
+    const SINCE: (u64, u64, u64) = (1, 4, 0);
+    if semver3(&m.min_core).is_some_and(|v| v < SINCE) {
+        issues.push(
+            SchemaIssue::new(
+                "min_core",
+                format!(
+                    "network 는 코어 1.4.0 부터 있다 — min_core '{}' 로는 낮은 코어가 이 룰을 읽다 멈춘다",
+                    m.min_core
+                ),
+                "설계-02 §10",
+            )
+            .with_valid("min_core: \"1.4.0\" 이상".to_string()),
         );
     }
 }
