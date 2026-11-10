@@ -2,7 +2,7 @@
 //!
 //! 칸과 JSON 이름은 스캐너의 Go 구조체 그대로이고, 읽는 규칙은 [`super::json`] 이 Go 의 판독기를 따른다.
 
-use super::json::{self, fields, record, Decode, JResult, Json, JsonError, KeySet, Raw, StrMap};
+use super::json::{self, fields, record, Decode, JResult, Json, JsonError, KeySet, StrMap};
 use super::source::Source;
 use remedy_sdk::i18n::Lang;
 use sha2::{Digest, Sha256};
@@ -177,39 +177,6 @@ impl Decode for Layout {
             j,
             |j, k| fields!(j, k, "imageLayoutVersion" => self.version),
         )
-    }
-}
-
-/// in-toto 문서 가운데 보는 칸.
-#[derive(Debug, Clone, Default)]
-pub(super) struct Statement {
-    pub(super) kind: String,
-    pub(super) predicate_type: String,
-    pub(super) predicate: Raw,
-    pub(super) subjects: Vec<Subject>,
-}
-
-#[derive(Debug, Clone, Default)]
-pub(super) struct Subject {
-    pub(super) digest: StrMap,
-}
-
-impl Decode for Statement {
-    fn decode(&mut self, j: &mut Json<'_>) -> JResult<()> {
-        record(j, |j, k| {
-            fields!(j, k,
-                "_type" => self.kind,
-                "predicateType" => self.predicate_type,
-                "predicate" => self.predicate,
-                "subject" => self.subjects,
-            )
-        })
-    }
-}
-
-impl Decode for Subject {
-    fn decode(&mut self, j: &mut Json<'_>) -> JResult<()> {
-        record(j, |j, k| fields!(j, k, "digest" => self.digest))
     }
 }
 

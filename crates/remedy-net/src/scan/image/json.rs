@@ -525,17 +525,6 @@ impl Decode for KeySet {
     }
 }
 
-/// `json.RawMessage` — 값의 원문(`null` 도 그대로).
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub(super) struct Raw(pub(super) Vec<u8>);
-
-impl Decode for Raw {
-    fn decode(&mut self, j: &mut Json<'_>) -> JResult<()> {
-        self.0 = j.raw()?.to_vec();
-        Ok(())
-    }
-}
-
 /// 구조체의 칸 표 — `record` 안에서 쓴다. 맞는 칸이 있으면 그 칸에 읽고 참을 준다.
 macro_rules! fields {
     ($j:ident, $key:ident, $($name:literal => $field:expr),+ $(,)?) => {{

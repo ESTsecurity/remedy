@@ -57,15 +57,20 @@ pub(super) fn scan(src: &Source<'_>, input: &str, cx: &Cx<'_>) -> Vec<Target> {
         excluded: 0,
         limited: false,
         active: BTreeSet::new(),
-        claims: BTreeMap::new(),
     };
+    let siblings = by_digest(&index.manifests);
     for d in &index.manifests {
-        walk.claims.insert(d.digest.clone(), d.clone());
-    }
-    for d in &index.manifests {
-        walk.visit(d, 0);
+        walk.visit(d, 0, &siblings);
     }
     walk.finish()
+}
+
+/// 한 인덱스가 서술한 매니페스트 — attestation 이 가리키는 대상을 같은 인덱스에서 찾을 때 쓴다.
+fn by_digest(manifests: &[Descriptor]) -> BTreeMap<String, Descriptor> {
+    manifests
+        .iter()
+        .map(|d| (d.digest.clone(), d.clone()))
+        .collect()
 }
 
 struct Walk<'s, 'b> {
@@ -77,8 +82,6 @@ struct Walk<'s, 'b> {
     limited: bool,
     /// 지금 따라가는 하위 인덱스(순환 검사).
     active: BTreeSet<String>,
-    /// 인덱스들이 서술한 매니페스트 — attestation 의 대상을 확인할 때 쓴다.
-    claims: BTreeMap<String, Descriptor>,
 }
 
 impl Walk<'_, '_> {
@@ -87,7 +90,8 @@ impl Walk<'_, '_> {
             .push(failed_target(self.input, digest, why, self.cx.lang));
     }
 
-    fn visit(&mut self, d: &Descriptor, depth: usize) {
+    /// 서술자 하나. `siblings` 는 그것을 서술한 인덱스의 매니페스트들.
+    fn visit(&mut self, d: &Descriptor, depth: usize, siblings: &BTreeMap<String, Descriptor>) {
         let lang = self.cx.lang;
         if self.targets.len() + self.excluded >= MAX_MANIFESTS {
             self.limited = true;
@@ -110,7 +114,9 @@ impl Walk<'_, '_> {
                 self.sub_index(d, &data, depth)
             }
             "application/vnd.oci.image.manifest.v1+json"
-            | "application/vnd.docker.distribution.manifest.v2+json" => self.manifest(d, &data),
+            | "application/vnd.docker.distribution.manifest.v2+json" => {
+                self.manifest(d, &data, siblings)
+            }
             other => {
                 let why = lang.pick(
                     format!("지원하지 않는 OCI 매니페스트 형식입니다: {other}"),
@@ -134,16 +140,14 @@ impl Walk<'_, '_> {
             }
         };
         self.active.insert(d.digest.clone());
+        let siblings = by_digest(&sub.manifests);
         for child in &sub.manifests {
-            self.claims.insert(child.digest.clone(), child.clone());
-        }
-        for child in &sub.manifests {
-            self.visit(child, depth + 1);
+            self.visit(child, depth + 1, &siblings);
         }
         self.active.remove(&d.digest);
     }
 
-    fn manifest(&mut self, d: &Descriptor, data: &[u8]) {
+    fn manifest(&mut self, d: &Descriptor, data: &[u8], siblings: &BTreeMap<String, Descriptor>) {
         let lang = self.cx.lang;
         let m = match decode::<Manifest>(data, lang) {
             Ok(m) if m.schema_version == 2 => m,
@@ -156,7 +160,7 @@ impl Walk<'_, '_> {
             }
         };
         if attest::candidate(d, &m) {
-            match attest::verify(self.src, d, &m, &self.claims, lang) {
+            match attest::verify(self.src, d, &m, siblings, lang) {
                 Ok(()) => self.excluded += 1,
                 Err(why) => {
                     let why = lang.pick(
@@ -234,8 +238,8 @@ impl Walk<'_, '_> {
         }
         if self.excluded > 0 {
             let reason = lang.t(
-                "해시와 in-toto 내용, 실행하지 않는 설정을 확인한 SBOM · 빌드 증명 자료는 런타임 점검 대상에서 뺐습니다",
-                "SBOM and build provenance data whose digests, in-toto content and non-runtime config were checked were left out of the runtime check",
+                "실행할 플랫폼과 파일 시스템 레이어가 없는 SBOM · 빌드 증명 자료(in-toto)는 런타임 점검 대상에서 뺐습니다",
+                "SBOM and build provenance data (in-toto) with no runnable platform or filesystem layers were left out of the runtime check",
             );
             for t in &mut self.targets {
                 t.metadata

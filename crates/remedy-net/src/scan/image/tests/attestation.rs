@@ -1,4 +1,5 @@
-//! 스캐너 `attestation_test.go` — SBOM · 빌드 증명 매니페스트를 확인하고 뺀다.
+//! 스캐너 `attestation_test.go` — SBOM · 빌드 증명 매니페스트를 구조로 확인하고 뺀다(2026-11-11 부터 in-toto
+//! 내용은 읽지 않는다).
 
 use super::fixtures::*;
 use crate::scan::model::{aggregate, Product, Status, Target};
@@ -173,7 +174,8 @@ fn attestation_does_not_hide_missing_platform_files() {
     assert_eq!(excluded(&targets[0]), Some("1"));
 }
 
-/// `TestAttestationOnlyInputRetainsReviewProductCoverage`
+/// `TestAttestationOnlyInputRetainsReviewProductCoverage` — 스캐너는 attestation 을 빼고 *실행 이미지가 없다* 고
+/// 했다. 지금은 대상이 같은 인덱스에 없으면 빼지 않으므로 그 attestation 이 *확인 필요* 대상으로 남는다.
 #[test]
 fn attestation_only_input_retains_review_product_coverage() {
     for format in ["legacy", "docker-save", "modern"] {
@@ -187,9 +189,9 @@ fn attestation_only_input_retains_review_product_coverage() {
             !coverage.complete && coverage.status == Review,
             "{format}: {coverage:#?}"
         );
-        assert_eq!(excluded(t), Some("1"), "{format}");
+        assert_eq!(excluded(t), None, "{format}");
         assert!(
-            coverage.gaps.join(" ").contains("실행 이미지가 없습니다"),
+            coverage.gaps.join(" ").contains("같은 인덱스에 없습니다"),
             "{format}: {:?}",
             coverage.gaps
         );
@@ -204,55 +206,80 @@ fn flip_last(dir: &Path, digest: &str) {
     std::fs::write(path, data).unwrap();
 }
 
-/// 문제 하나를 심는다(스캐너 시험의 `switch problem`).
+/// 인덱스의 attestation 서술자 주석을 바꾼다 — 매니페스트 블롭은 그대로.
+fn annotate(f: &mut Fixture, annotations: Value) {
+    f.attestation["annotations"] = annotations;
+    write_index(f.dir.path(), &[f.runtime.clone(), f.attestation.clone()]);
+}
+
+/// in-toto 자료 하나를 새로 싣고 설정의 diffID 도 맞춘다.
+fn replace_payload(f: &mut Fixture, statement: &Value) {
+    let dir = f.dir.path().to_path_buf();
+    let layer = blob(&dir, &bytes(statement), ATTESTATION_LAYER);
+    f.manifest["config"] = unknown_config(&dir, json!({}), &layer);
+    f.manifest["layers"] = json!([layer]);
+}
+
+/// 문제 하나를 심는다(스캐너 시험의 `switch problem`). 구조로만 빼므로 in-toto 내용의 문제는 여기 없다.
 fn spoil(f: &mut Fixture, problem: &str) {
     let dir = f.dir.path().to_path_buf();
+    let own = f.attestation["digest"].clone();
     match problem {
         "manifest-hash" => return flip_last(&dir, f.attestation["digest"].as_str().unwrap()),
         "config-hash" => return flip_last(&dir, f.manifest["config"]["digest"].as_str().unwrap()),
-        "payload-hash" => {
-            return flip_last(&dir, f.manifest["layers"][0]["digest"].as_str().unwrap())
-        }
         "runtime-layer" => f.manifest["layers"][0]["mediaType"] = json!(RAW_LAYER),
         "runtime-config" => {
             let layer = f.manifest["layers"][0].clone();
             f.manifest["config"] = unknown_config(&dir, json!({"Entrypoint": ["node"]}), &layer);
         }
+        "no-layers" => f.manifest["layers"] = json!([]),
         "runtime-platform" => {
             f.attestation["platform"] = json!({"os": "linux", "architecture": "amd64"});
             return write_index(&dir, &[f.runtime.clone(), f.attestation.clone()]);
         }
+        "missing-subject" => {
+            return annotate(
+                f,
+                json!({"vnd.docker.reference.type": "attestation-manifest"}),
+            )
+        }
+        "self-subject" => return annotate(f, json!({"io.containerd.manifest.subject": own})),
+        "invalid-subject" => {
+            return annotate(
+                f,
+                json!({"io.containerd.manifest.subject": "sha256:runtime"}),
+            )
+        }
+        "subject-not-in-index" => {
+            let other = format!("sha256:{}", "c".repeat(64));
+            return annotate(f, json!({"io.containerd.manifest.subject": other}));
+        }
         _ => {
-            let kind = if problem == "invalid-statement" {
-                "runtime-image"
-            } else {
-                "https://in-toto.io/Statement/v1"
-            };
-            let statement = json!({
-                "_type": kind, "subject": [{"digest": {"sha256": "c".repeat(64)}}],
-                "predicateType": "https://spdx.dev/Document", "predicate": {},
-            });
-            let layer = blob(&dir, &bytes(&statement), ATTESTATION_LAYER);
-            f.manifest["config"] = unknown_config(&dir, json!({}), &layer);
-            f.manifest["layers"] = json!([layer]);
+            let other = json!({"mediaType": OCI_MANIFEST, "digest": format!("sha256:{}", "d".repeat(64)), "size": 10});
+            f.manifest["subject"] = other;
         }
     }
     f.attestation = rewritten(&dir, &f.attestation, &f.manifest);
     write_index(&dir, &[f.runtime.clone(), f.attestation.clone()]);
 }
 
-/// `TestAttestationCorruptionAndRuntimeDisguiseRequireReview`
+/// `TestAttestationCorruptionAndRuntimeDisguiseRequireReview` — 스캐너의 `payload-hash` · `wrong-subject` ·
+/// `invalid-statement` 는 in-toto 내용의 문제라 구조로만 빼는 지금은 빠지는 쪽이다(아래
+/// `attestation_contents_are_not_read`). 그 자리에 대상 · 레이어의 구조 문제를 더했다.
 #[test]
 fn attestation_corruption_and_runtime_disguise_require_review() {
     let problems = [
         "manifest-hash",
         "config-hash",
-        "payload-hash",
         "runtime-layer",
         "runtime-config",
+        "no-layers",
         "runtime-platform",
-        "wrong-subject",
-        "invalid-statement",
+        "missing-subject",
+        "self-subject",
+        "invalid-subject",
+        "subject-not-in-index",
+        "subjects-disagree",
     ];
     for problem in problems {
         let mut f = fixture("docker-save");
@@ -264,8 +291,57 @@ fn attestation_corruption_and_runtime_disguise_require_review() {
         assert_eq!(
             excluded(&targets[0]),
             None,
-            "{problem}: 확인하지 못한 attestation 을 뺐다"
+            "{problem}: 구조를 확인하지 못한 attestation 을 뺐다"
         );
+    }
+}
+
+/// 대상이 실행 이미지가 아니고 다른 attestation 이면 빼지 않는다 — 빼는 것은 실행 이미지를 가리키는 쪽뿐이다.
+#[test]
+fn attestation_pointing_at_another_attestation_stays_for_review() {
+    let f = fixture("docker-save");
+    // 같은 바이트면 다이제스트가 같아지므로 주석 하나로 다른 매니페스트를 만든다.
+    let manifest = json!({
+        "schemaVersion": 2, "mediaType": OCI_MANIFEST, "annotations": {"note": "second"},
+        "config": f.manifest["config"], "layers": f.manifest["layers"],
+    });
+    let mut second = rewritten(f.dir.path(), &f.attestation, &manifest);
+    second["annotations"] = json!({"io.containerd.manifest.subject": f.attestation["digest"]});
+    write_index(
+        f.dir.path(),
+        &[f.runtime.clone(), f.attestation.clone(), second],
+    );
+    let targets = scan_fixture(f.dir.path());
+    let statuses: Vec<Status> = targets.iter().map(|t| t.status).collect();
+    assert_eq!(statuses, [Clear, Review], "{targets:#?}");
+    assert_eq!(excluded(&targets[0]), Some("1"));
+}
+
+/// 구조로만 뺀다 — in-toto 자료가 메타데이터 한도 4 MiB 를 넘고 대상(`subject`)이 비어 있어도(실제 BuildKit
+/// 이미지의 꼴), 자료 블롭이 손상돼도 뺀다. 자료는 읽지 않는다.
+#[test]
+fn attestation_contents_are_not_read() {
+    for case in ["oversized-empty-subject", "unreadable-payload"] {
+        let mut f = fixture("docker-save");
+        if case == "oversized-empty-subject" {
+            let statement = json!({
+                "_type": "https://in-toto.io/Statement/v0.1", "subject": [],
+                "predicateType": "https://spdx.dev/Document",
+                "predicate": {"spdxVersion": "SPDX-2.3", "packages": "x".repeat(5 << 20)},
+            });
+            replace_payload(&mut f, &statement);
+            let dir = f.dir.path().to_path_buf();
+            f.attestation = rewritten(&dir, &f.attestation, &f.manifest);
+            write_index(&dir, &[f.runtime.clone(), f.attestation.clone()]);
+        } else {
+            flip_last(
+                f.dir.path(),
+                f.manifest["layers"][0]["digest"].as_str().unwrap(),
+            );
+        }
+        let targets = scan_fixture(f.dir.path());
+        single(&targets, Clear);
+        assert_eq!(excluded(&targets[0]), Some("1"), "{case}");
     }
 }
 
