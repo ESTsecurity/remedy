@@ -277,6 +277,84 @@ pub fn help(lang: Lang) -> String {
 mod tests {
     use super::*;
 
+    const A: &str = "0123456789ab";
+    const B: &str = "fedcba987654";
+    const FULL: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+
+    fn p(args: &[&str]) -> Result<Parsed, String> {
+        let v: Vec<String> = args.iter().map(|s| s.to_string()).collect();
+        parse(&v, Lang::Ko)
+    }
+
+    #[test]
+    fn ids_come_from_positionals_and_id_options_in_order() {
+        let id_eq = format!("--id={FULL}");
+        let Ok(Parsed::Run(o)) = p(&[
+            A,
+            "--runtime",
+            "node",
+            "--id",
+            B,
+            &id_eq,
+            "--consent",
+            "y",
+            "--out-dir",
+            "out",
+        ]) else {
+            panic!("거절됐다");
+        };
+        assert_eq!(o.ids, vec![A, B, FULL]);
+        assert_eq!(o.products, vec![Product::Node]);
+        assert_eq!(o.consent, Some(Answer::Yes));
+        assert_eq!(o.out_dir, "out");
+        assert_eq!(o.endpoint, crate::scan::container::default_endpoint());
+        assert!(!o.list);
+        let Ok(Parsed::Run(d)) = p(&[A]) else {
+            panic!("거절됐다");
+        };
+        assert_eq!(d.products, vec![Product::Php, Product::Node]);
+        assert_eq!(d.out_dir, DEFAULT_OUT_DIR);
+        let endpoint = crate::scan::container::default_endpoint();
+        let Ok(Parsed::Run(l)) = p(&["--list", "--endpoint", endpoint]) else {
+            panic!("--list 를 거절했다");
+        };
+        assert!(l.list && l.ids.is_empty());
+        assert_eq!(p(&[A, "--help"]), Ok(Parsed::Help));
+    }
+
+    /// 엔진에 닿기 전, 약관을 묻기 전에 거절한다 — `parse` 는 엔진도 파일도 건드리지 않는다.
+    #[test]
+    fn bad_selections_are_refused_before_the_terms() {
+        for bad in [
+            &[][..],
+            &["--list", A][..],
+            &["--list", "--id", A][..],
+            &[""][..],
+            &["--id", ""][..],
+            &["NOT-A-CONTAINER-ID"][..],
+            &["0123456789a"][..],
+            &["0123456789AB"][..],
+            &[A, "--endpoint", "tcp://localhost:2375"][..],
+            &[A, "--endpoint", "ssh://user@host"][..],
+            &[A, "--endpoint", r"\\remote\pipe\docker_engine"][..],
+            &[A, "--endpoint", "unix:///var/run/../docker.sock"][..],
+            &[A, "--runtime", "python"][..],
+            &[A, "--consent", "Y"][..],
+            &[A, "--bogus"][..],
+            &[A, "--out-dir", "//server/share"][..],
+        ] {
+            assert!(p(bad).is_err(), "{bad:?} 를 받았다");
+        }
+        let many: Vec<String> = (0..51).map(|i| format!("{i:012x}")).collect();
+        let many: Vec<&str> = many.iter().map(String::as_str).collect();
+        assert!(p(&many).is_err(), "51개를 받았다");
+        assert!(p(&many[..50]).is_ok());
+        let why = p(&["0123456789AB"]).unwrap_err();
+        assert!(why.contains("12자리"), "{why}");
+        let english = parse(&["--list".to_string(), A.to_string()], Lang::En).unwrap_err();
+        assert!(english.starts_with("--list only lists"), "{english}");
+    }
+
     #[test]
     fn help_and_terms_are_bilingual_and_separate() {
         for lang in [Lang::Ko, Lang::En] {
