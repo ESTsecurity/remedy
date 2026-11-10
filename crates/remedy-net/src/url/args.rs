@@ -5,6 +5,8 @@
 use super::consent::Answer;
 use super::input::Input;
 use super::policy::MAX_URLS;
+use crate::output::local_path;
+pub(crate) use crate::output::DEFAULT_OUT_DIR;
 use remedy_sdk::i18n::Lang;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -22,9 +24,6 @@ pub(crate) enum Parsed {
     Help,
     Run(Options),
 }
-
-/// 결과 폴더의 기본값 — 스캐너와 같다.
-pub(crate) const DEFAULT_OUT_DIR: &str = "results";
 
 pub(crate) fn parse(args: &[String], lang: Lang) -> Result<Parsed, String> {
     let mut o = Options {
@@ -82,20 +81,7 @@ pub(crate) fn parse(args: &[String], lang: Lang) -> Result<Parsed, String> {
             "url" => push_url(&mut o.urls, &value, lang)?,
             "cacert" => o.cacert = Some(local_path(value, lang)?),
             "out-dir" => o.out_dir = local_path(value, lang)?,
-            _ => {
-                o.consent = Some(match value.as_str() {
-                    "y" => Answer::Yes,
-                    "n" => Answer::No,
-                    _ => {
-                        return Err(lang
-                            .t(
-                                "--consent 에는 y 또는 n 만 적을 수 있습니다.",
-                                "--consent takes only y or n.",
-                            )
-                            .to_string())
-                    }
-                })
-            }
+            _ => o.consent = Some(Answer::parse(&value, lang)?),
         }
     }
     if o.ask {
@@ -135,19 +121,6 @@ fn push_url(urls: &mut Vec<String>, raw: &str, lang: Lang) -> Result<(), String>
     }
     urls.push(raw.to_string());
     Ok(())
-}
-
-/// 이 기계의 경로만 — 네트워크 경로(`\\` · `//`)와 제어 문자는 받지 않는다.
-fn local_path(value: String, lang: Lang) -> Result<String, String> {
-    if value.chars().any(char::is_control) || value.starts_with("\\\\") || value.starts_with("//") {
-        return Err(lang
-            .t(
-                "이 기계의 경로를 적으십시오(네트워크 경로는 받지 않습니다).",
-                "give a local path (network paths are not accepted).",
-            )
-            .to_string());
-    }
-    Ok(value)
 }
 
 #[cfg(test)]

@@ -1,37 +1,12 @@
-//! 약관 동의 — 요청을 보내기 전에 한 번(결정 7 · 문구는 2026-11-10 카드).
-//!
-//! 무인 실행은 `--consent y|n` 으로 미리 답한다 — 그래도 약관은 화면에 낸다(무엇에 답했는지 기록에 남게).
-//! 거절 · 입력 없음(EOF)은 동의가 아니다.
+//! `url` 의 약관 — 요청을 보내기 전에 한 번(결정 7 · 문구는 2026-11-10 카드). 묻고 받는 일은
+//! [`crate::consent`] 가 한다.
 
-use crate::text::ascii_safe;
+pub(crate) use crate::consent::{Answer, Via};
 use remedy_sdk::i18n::Lang;
-use std::io::{BufRead, Read, Write};
+use std::io::{BufRead, Write};
 
 /// 결과 파일에 싣는 약관 판.
 pub(crate) const TERMS_VERSION: &str = "2026-11-10.1";
-
-/// 미리 준 답(`--consent`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Answer {
-    Yes,
-    No,
-}
-
-/// 어떻게 동의했나 — 결과 파일의 `consent.via`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Via {
-    Prompt,
-    Flag,
-}
-
-impl Via {
-    pub(crate) fn as_str(self) -> &'static str {
-        match self {
-            Via::Prompt => "prompt",
-            Via::Flag => "flag",
-        }
-    }
-}
 
 pub(crate) fn terms(lang: Lang) -> &'static str {
     lang.t(
@@ -63,9 +38,6 @@ pub(crate) fn prompt(lang: Lang) -> &'static str {
     )
 }
 
-/// 한 줄의 상한 — 넘는 입력은 답이 아니다(동의하지 않음).
-const MAX_LINE: u64 = 128;
-
 /// 약관을 내고 답을 받는다. 동의했으면 `Some`.
 pub(crate) fn ask(
     preset: Option<Answer>,
@@ -73,39 +45,7 @@ pub(crate) fn ask(
     input: &mut dyn BufRead,
     out: &mut dyn Write,
 ) -> Option<Via> {
-    write!(out, "{}", ascii_safe(terms(lang).to_string())).ok()?;
-    if let Some(answer) = preset {
-        let v = match answer {
-            Answer::Yes => "y",
-            Answer::No => "n",
-        };
-        writeln!(out, "{} --consent {v}", lang.t("약관 동의:", "Terms:")).ok()?;
-        return (answer == Answer::Yes).then_some(Via::Flag);
-    }
-    loop {
-        write!(out, "{}", prompt(lang)).ok()?;
-        out.flush().ok()?;
-        let mut line = String::new();
-        let n = (&mut *input)
-            .take(MAX_LINE + 1)
-            .read_line(&mut line)
-            .unwrap_or(0);
-        if n == 0 || (n as u64 > MAX_LINE && !line.ends_with('\n')) {
-            let _ = writeln!(out);
-            return None;
-        }
-        match line.trim().to_ascii_lowercase().as_str() {
-            "y" => return Some(Via::Prompt),
-            "n" | "" => return None,
-            _ => {
-                let _ = writeln!(
-                    out,
-                    "{}",
-                    lang.t("y 또는 n 을 입력하십시오.", "Type y or n.")
-                );
-            }
-        }
-    }
+    crate::consent::ask(terms(lang), prompt(lang), preset, lang, input, out)
 }
 
 #[cfg(test)]

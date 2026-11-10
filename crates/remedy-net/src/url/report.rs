@@ -7,13 +7,10 @@ use super::wire::Method;
 use remedy_sdk::i18n::Lang;
 use schemars::JsonSchema;
 use serde::Serialize;
-use std::io::Write;
 use std::path::{Path, PathBuf};
 
 /// 이 파일의 꼴 번호 — 칸의 뜻이 바뀌면 오른다.
 pub const SCHEMA_VERSION: u32 = 1;
-/// 결과 파일의 상한 — 넘으면 쓰지 않고 처리 실패로 끝낸다.
-const MAX_REPORT_BYTES: usize = 16 << 20;
 
 /// 판정. URL 점검은 헤더만 보므로 *양호* 가 없다.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
@@ -225,21 +222,5 @@ pub(crate) fn header_caveat(lang: Lang) -> &'static str {
 
 /// 결과 파일을 쓴다 — 같은 이름이 있으면 덮지 않는다.
 pub(crate) fn save(dir: &Path, report: &Report) -> std::io::Result<PathBuf> {
-    let bytes = serde_json::to_vec_pretty(report)?;
-    if bytes.len() > MAX_REPORT_BYTES {
-        return Err(std::io::Error::other("결과가 16 MiB 를 넘는다"));
-    }
-    let path = dir.join(format!("remedy-net-url-{}.json", report.run_id));
-    let mut open = std::fs::OpenOptions::new();
-    open.write(true).create_new(true);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::OpenOptionsExt;
-        open.mode(0o600);
-    }
-    let mut f = open.open(&path)?;
-    f.write_all(&bytes)?;
-    f.write_all(b"\n")?;
-    f.sync_all()?;
-    Ok(path)
+    crate::output::save_json(dir, "url", &report.run_id, report)
 }

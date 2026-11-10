@@ -1,0 +1,493 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Report",
+  "description": "`remedy-net image` · `remedy-net container` 한 번의 결과.",
+  "type": "object",
+  "required": [
+    "command",
+    "consent",
+    "criteria",
+    "exit_code",
+    "finished_at",
+    "interrupted",
+    "language",
+    "limitations",
+    "products",
+    "run_id",
+    "schema_version",
+    "started_at",
+    "targets",
+    "tool",
+    "usage",
+    "verdict"
+  ],
+  "properties": {
+    "command": {
+      "description": "`image` · `container`.",
+      "type": "string"
+    },
+    "consent": {
+      "$ref": "#/definitions/Consent"
+    },
+    "criteria": {
+      "$ref": "#/definitions/Criteria"
+    },
+    "exit_code": {
+      "description": "이 실행의 종료 코드 — 양호 0 · 취약 2 · 확인 필요 6(본체 표).",
+      "type": "integer",
+      "format": "uint8",
+      "minimum": 0.0
+    },
+    "finished_at": {
+      "type": "string"
+    },
+    "interrupted": {
+      "description": "Ctrl+C 나 실행 시한으로 다 돌지 못했다.",
+      "type": "boolean"
+    },
+    "language": {
+      "description": "사람이 읽는 칸의 언어 — `ko` · `en`.",
+      "type": "string"
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "products": {
+      "description": "고른 제품(`--runtime`).",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Product"
+      }
+    },
+    "run_id": {
+      "description": "`20261110T031000Z-<16자리 16진수>` — 파일 이름에도 들어간다.",
+      "type": "string"
+    },
+    "schema_version": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0.0
+    },
+    "started_at": {
+      "description": "RFC 3339 UTC.",
+      "type": "string"
+    },
+    "targets": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Target"
+      }
+    },
+    "tool": {
+      "$ref": "#/definitions/Tool"
+    },
+    "usage": {
+      "$ref": "#/definitions/Usage"
+    },
+    "verdict": {
+      "description": "대상 중 하나라도 취약이면 취약, 하나라도 다 보지 못했거나 확인 필요면 확인 필요, 그 밖에는 양호. 대상이 없으면 확인 필요다.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Status"
+        }
+      ]
+    }
+  },
+  "definitions": {
+    "Consent": {
+      "type": "object",
+      "required": [
+        "accepted_at",
+        "terms_version",
+        "via"
+      ],
+      "properties": {
+        "accepted_at": {
+          "description": "RFC 3339 UTC.",
+          "type": "string"
+        },
+        "terms_version": {
+          "type": "string"
+        },
+        "via": {
+          "description": "`prompt`(물어서) · `flag`(`--consent y`).",
+          "type": "string"
+        }
+      }
+    },
+    "Coverage": {
+      "description": "한 제품을 어디까지 보았나.",
+      "type": "object",
+      "required": [
+        "action",
+        "complete",
+        "gaps",
+        "reason",
+        "scope",
+        "status"
+      ],
+      "properties": {
+        "action": {
+          "type": "string"
+        },
+        "complete": {
+          "description": "`gaps` 가 없을 때만 참.",
+          "type": "boolean"
+        },
+        "gaps": {
+          "description": "보지 못한 것과 그 까닭.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "reason": {
+          "type": "string"
+        },
+        "scope": {
+          "description": "읽은 자리.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "status": {
+          "$ref": "#/definitions/Status"
+        }
+      }
+    },
+    "Criteria": {
+      "description": "견준 기준 — 만료를 두지 않는 대신 무엇을 언제 낸 것인지 적는다.",
+      "type": "object",
+      "required": [
+        "cves",
+        "issued_at",
+        "sha256",
+        "version"
+      ],
+      "properties": {
+        "cves": {
+          "description": "고른 제품마다 보는 CVE. PHP 에는 세션 설정(CVE-2026-115560)도 든다.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "issued_at": {
+          "description": "기준을 낸 시각(RFC 3339 UTC).",
+          "type": "string"
+        },
+        "sha256": {
+          "description": "내장 기준 데이터의 SHA-256 — 사내 runtime-scanner 가 같은 기준에 적는 값과 같다.",
+          "type": "string"
+        },
+        "version": {
+          "description": "기준 데이터의 판(발행일 · 기준 번호).",
+          "type": "string"
+        }
+      }
+    },
+    "Evidence": {
+      "description": "근거 한 줄 — 어디서(`source`) 무엇을(`detail`) 보았나.",
+      "type": "object",
+      "required": [
+        "detail",
+        "source"
+      ],
+      "properties": {
+        "detail": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        }
+      }
+    },
+    "Finding": {
+      "description": "발견 하나 — 파일 · 패키지 · 설정 가운데 판정이 붙은 것.",
+      "type": "object",
+      "required": [
+        "action",
+        "cves",
+        "evidence",
+        "id",
+        "name",
+        "product",
+        "reason",
+        "status"
+      ],
+      "properties": {
+        "action": {
+          "type": "string"
+        },
+        "cves": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Evidence"
+          }
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "package": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "product": {
+          "$ref": "#/definitions/Product"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "runtime": {
+          "description": "`cli` · `fpm` · `cgi` · `apache-module` · `node` 처럼 어떤 실행 꼴인가.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "status": {
+          "$ref": "#/definitions/Status"
+        },
+        "vendor": {
+          "description": "배포판 식별자 또는 `upstream`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "Product": {
+      "description": "판정하는 제품. Brotli 는 따로 고르는 제품이 아니라 Node.js 가 연결한 디코더로만 나온다.",
+      "type": "string",
+      "enum": [
+        "php",
+        "node",
+        "brotli"
+      ]
+    },
+    "Status": {
+      "description": "판정. 뒤에 선 것이 더 나쁘다 — 올림은 가장 나쁜 값을 고른다.",
+      "oneOf": [
+        {
+          "description": "양호 — 본 범위에서 고친 버전임을 확인했거나 그 제품이 없다.",
+          "type": "string",
+          "enum": [
+            "clear"
+          ]
+        },
+        {
+          "description": "확인 필요 — 근거가 모자라거나 다 보지 못했다.",
+          "type": "string",
+          "enum": [
+            "review_required"
+          ]
+        },
+        {
+          "description": "취약 — 고치기 전 버전임을 확인했다.",
+          "type": "string",
+          "enum": [
+            "vulnerable"
+          ]
+        }
+      ]
+    },
+    "Target": {
+      "description": "대상 하나 — 이미지의 플랫폼 하나 또는 컨테이너 하나.",
+      "type": "object",
+      "required": [
+        "action",
+        "complete",
+        "findings",
+        "gaps",
+        "id",
+        "kind",
+        "metadata",
+        "name",
+        "products",
+        "reason",
+        "scope",
+        "status"
+      ],
+      "properties": {
+        "action": {
+          "type": "string"
+        },
+        "complete": {
+          "description": "모든 제품이 `complete` 일 때만 참.",
+          "type": "boolean"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Finding"
+          }
+        },
+        "gaps": {
+          "description": "대상 전체에 걸린 *보지 못한 것* — 올릴 때 모든 제품에 복사된다.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/definitions/TargetKind"
+        },
+        "metadata": {
+          "description": "플랫폼 · 배포판 · 다이제스트처럼 대상을 알아보는 값.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "products": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/Coverage"
+          }
+        },
+        "reason": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "status": {
+          "$ref": "#/definitions/Status"
+        }
+      }
+    },
+    "TargetKind": {
+      "description": "대상의 종류.",
+      "oneOf": [
+        {
+          "description": "이미지 파일 안의 실행 이미지 하나(플랫폼마다 하나).",
+          "type": "string",
+          "enum": [
+            "image"
+          ]
+        },
+        {
+          "description": "실행 중인 컨테이너 하나.",
+          "type": "string",
+          "enum": [
+            "container"
+          ]
+        }
+      ]
+    },
+    "Tool": {
+      "type": "object",
+      "required": [
+        "name",
+        "version"
+      ],
+      "properties": {
+        "name": {
+          "description": "`remedy-net`.",
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      }
+    },
+    "Usage": {
+      "description": "이 실행이 쓴 양 — 결과 파일의 `usage`.",
+      "type": "object",
+      "required": [
+        "container_bytes",
+        "container_requests",
+        "entries",
+        "image_expanded_bytes",
+        "image_input_bytes",
+        "layers",
+        "stops"
+      ],
+      "properties": {
+        "container_bytes": {
+          "description": "컨테이너 엔진에서 받은 바이트.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "container_requests": {
+          "description": "맡은 컨테이너 엔진 API 요청 수.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        },
+        "entries": {
+          "description": "센 파일 항목.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        },
+        "image_expanded_bytes": {
+          "description": "압축을 푼 뒤의 바이트.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "image_input_bytes": {
+          "description": "이미지 파일에서 읽은 바이트(압축을 풀기 전).",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "layers": {
+          "description": "센 이미지 레이어.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        },
+        "stops": {
+          "description": "걸린 상한과, 중단했으면 그 까닭.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
