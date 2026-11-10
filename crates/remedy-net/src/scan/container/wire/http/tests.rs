@@ -371,7 +371,7 @@ fn a_pump_link_reports_a_failed_write_and_reads_to_the_close() {
 mod unix {
     use super::*;
     use crate::scan::container::wire::link::UnixLink;
-    use std::io::{Read as _, Write as _};
+    use std::io::Write as _;
     use std::os::unix::net::UnixListener;
 
     fn socket_path(name: &str) -> std::path::PathBuf {
