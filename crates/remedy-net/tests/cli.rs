@@ -1,7 +1,8 @@
 //! 지은 `remedy-net` 을 띄워 종료 코드와 화면을 잰다 — 무인 배포가 읽는 것이 이 둘이다.
 //!
-//! 언어는 `REMEDY_LANG` 으로 고정한다. 시험하는 기계의 로케일(Windows 는 사용자 로케일)에 따라 답이
-//! 달라지면 같은 시험이 기계마다 다르게 돈다.
+//! 언어는 `REMEDY_LANG` 으로, 기호는 `REMEDY_ASCII=0`(UTF-8)으로 고정한다. 시험하는 기계의 로케일
+//! (Windows 는 사용자 로케일 · 리눅스는 `LANG` — 비어 있으면 ASCII 로 접힌다)에 따라 답이 달라지면 같은
+//! 시험이 기계마다 다르게 돈다.
 
 use std::process::{Command, Output};
 
@@ -9,7 +10,7 @@ fn run(lang: &str, args: &[&str]) -> Output {
     Command::new(env!("CARGO_BIN_EXE_remedy-net"))
         .args(args)
         .env("REMEDY_LANG", lang)
-        .env_remove("REMEDY_ASCII")
+        .env("REMEDY_ASCII", "0")
         .output()
         .expect("remedy-net 을 띄우지 못했다")
 }
@@ -68,12 +69,12 @@ fn version_names_the_product_and_the_workspace_version() {
 
 #[test]
 fn an_unknown_command_is_an_input_error() {
-    // 점검 명령은 아직 없다 — 있는 척 0 으로 끝내지 않는다.
-    let o = run("en", &["url", "https://example.invalid"]);
+    // `image` · `container` 는 아직 없다 — 있는 척 0 으로 끝내지 않는다.
+    let o = run("en", &["image", "app.tar"]);
     assert_eq!(o.status.code(), Some(4));
     assert!(stdout(&o).is_empty());
     assert!(
-        stderr(&o).contains("unknown command: url"),
+        stderr(&o).contains("unknown command: image"),
         "{}",
         stderr(&o)
     );

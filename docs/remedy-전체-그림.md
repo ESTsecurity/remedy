@@ -709,10 +709,10 @@ cargo deny check
 
 | `xtask all` 이 보는 것 | 무엇을 |
 |---|---|
-| `arch` | 금지 의존 6건 · 제품 바이너리 이름 |
-| `unsafe` | 17 중 16 이 `#![forbid(unsafe_code)]` |
+| `arch` | 금지 의존 9건 · 본체 의존 트리에 HTTP · TLS · 소켓 크레이트 0 · 제품 바이너리 이름 |
+| `unsafe` | 18 중 17 이 `#![forbid(unsafe_code)]` |
 | `trace` | 설계 인벤토리가 Phase 계획에 전부 반영됐는가 |
-| `schema` | 생성물 8개가 SDK 와 일치하는가 |
+| `schema` | 생성물 9개가 생성기(SDK · `remedy-net`)와 일치하는가 |
 | `가이드` | 문서 18개의 크기 예산과 헤더 |
 | `console-doc` | `콘솔은-이렇게-보인다.md` 가 인용한 화면이 **기준선에 실제로 있는가** |
 | `screens` | 고객이 읽는 화면에 쓰지 않기로 한 말이 돌아왔는가 |

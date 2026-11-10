@@ -1,0 +1,374 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Report",
+  "description": "`remedy-net url` 한 번의 결과.",
+  "type": "object",
+  "required": [
+    "command",
+    "consent",
+    "criteria",
+    "exit_code",
+    "finished_at",
+    "interrupted",
+    "language",
+    "limitations",
+    "run_id",
+    "schema_version",
+    "started_at",
+    "targets",
+    "tool",
+    "usage",
+    "verdict"
+  ],
+  "properties": {
+    "command": {
+      "description": "`url`.",
+      "type": "string"
+    },
+    "consent": {
+      "$ref": "#/definitions/Consent"
+    },
+    "criteria": {
+      "$ref": "#/definitions/Criteria"
+    },
+    "exit_code": {
+      "description": "이 실행의 종료 코드 — 취약 2 · 확인 필요 6(본체 표).",
+      "type": "integer",
+      "format": "uint8",
+      "minimum": 0.0
+    },
+    "finished_at": {
+      "type": "string"
+    },
+    "interrupted": {
+      "description": "Ctrl+C 나 실행 시한으로 다 돌지 못했다.",
+      "type": "boolean"
+    },
+    "language": {
+      "description": "사람이 읽는 칸의 언어 — `ko` · `en`.",
+      "type": "string"
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "run_id": {
+      "description": "`20261110T031000Z-<16자리 16진수>` — 파일 이름에도 들어간다.",
+      "type": "string"
+    },
+    "schema_version": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0.0
+    },
+    "started_at": {
+      "description": "RFC 3339 UTC.",
+      "type": "string"
+    },
+    "targets": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Target"
+      }
+    },
+    "tool": {
+      "$ref": "#/definitions/Tool"
+    },
+    "usage": {
+      "$ref": "#/definitions/Usage"
+    },
+    "verdict": {
+      "description": "대상 중 하나라도 취약이면 취약, 아니면 확인 필요.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Verdict"
+        }
+      ]
+    }
+  },
+  "definitions": {
+    "Consent": {
+      "type": "object",
+      "required": [
+        "accepted_at",
+        "terms_version",
+        "via"
+      ],
+      "properties": {
+        "accepted_at": {
+          "description": "RFC 3339 UTC.",
+          "type": "string"
+        },
+        "terms_version": {
+          "type": "string"
+        },
+        "via": {
+          "description": "`prompt`(물어서) · `flag`(`--consent y`).",
+          "type": "string"
+        }
+      }
+    },
+    "Criteria": {
+      "description": "견준 기준 — 만료를 두지 않는 대신 무엇과 언제를 적는다.",
+      "type": "object",
+      "required": [
+        "checked",
+        "cves",
+        "name",
+        "same_as",
+        "sources"
+      ],
+      "properties": {
+        "checked": {
+          "description": "기준을 다시 확인한 날(YYYY-MM-DD).",
+          "type": "string"
+        },
+        "cves": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "same_as": {
+          "description": "같은 수정 버전을 쓰는 본체의 점검 룰.",
+          "type": "string"
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "Finding": {
+      "type": "object",
+      "required": [
+        "evidence",
+        "id",
+        "kind",
+        "method",
+        "reason",
+        "verdict"
+      ],
+      "properties": {
+        "evidence": {
+          "description": "`X-Powered-By: PHP/8.3.6` 처럼 받은 그대로, 또는 단서의 이름.",
+          "type": "string"
+        },
+        "id": {
+          "description": "`header:<head|get>:<헤더 이름>:<차례>` · `php-presence`.",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/definitions/FindingKind"
+        },
+        "method": {
+          "description": "`HEAD` · `GET` — 어느 응답에서 읽었나.",
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "verdict": {
+          "$ref": "#/definitions/Verdict"
+        },
+        "version": {
+          "description": "헤더에서 읽은 PHP 버전.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "FindingKind": {
+      "oneOf": [
+        {
+          "description": "`Server` · `X-Powered-By` 헤더 한 줄.",
+          "type": "string",
+          "enum": [
+            "header"
+          ]
+        },
+        {
+          "description": "버전 없이 PHP 를 쓴다고 짐작할 단서.",
+          "type": "string",
+          "enum": [
+            "php_presence"
+          ]
+        }
+      ]
+    },
+    "Requests": {
+      "description": "보낸 요청 — 0 또는 1. 상대 IP 가 멈춘 서버라 연결만 하고 닫은 시도는 0 이다.",
+      "type": "object",
+      "required": [
+        "get",
+        "head"
+      ],
+      "properties": {
+        "get": {
+          "type": "integer",
+          "format": "uint8",
+          "minimum": 0.0
+        },
+        "head": {
+          "type": "integer",
+          "format": "uint8",
+          "minimum": 0.0
+        }
+      }
+    },
+    "Statuses": {
+      "description": "받은 상태 코드.",
+      "type": "object",
+      "properties": {
+        "get": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint16",
+          "minimum": 0.0
+        },
+        "head": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint16",
+          "minimum": 0.0
+        }
+      }
+    },
+    "Target": {
+      "description": "URL 하나.",
+      "type": "object",
+      "required": [
+        "action",
+        "addresses",
+        "findings",
+        "gaps",
+        "id",
+        "php_presence",
+        "reason",
+        "requests",
+        "status",
+        "url",
+        "verdict"
+      ],
+      "properties": {
+        "action": {
+          "type": "string"
+        },
+        "addresses": {
+          "description": "실제로 연결한 상대 IP(차례대로).",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Finding"
+          }
+        },
+        "gaps": {
+          "description": "보지 못한 것과 그 까닭.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "id": {
+          "description": "`url:` + 정규화한 URL 의 SHA-256 — 쿼리를 담은 원문은 싣지 않는다.",
+          "type": "string"
+        },
+        "php_presence": {
+          "description": "버전은 몰라도 PHP 를 쓴다고 짐작할 단서가 있었다.",
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "requests": {
+          "$ref": "#/definitions/Requests"
+        },
+        "status": {
+          "$ref": "#/definitions/Statuses"
+        },
+        "url": {
+          "description": "쿼리를 가린 URL.",
+          "type": "string"
+        },
+        "verdict": {
+          "$ref": "#/definitions/Verdict"
+        }
+      }
+    },
+    "Tool": {
+      "type": "object",
+      "required": [
+        "name",
+        "version"
+      ],
+      "properties": {
+        "name": {
+          "description": "`remedy-net`.",
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      }
+    },
+    "Usage": {
+      "type": "object",
+      "required": [
+        "http_requests",
+        "stops"
+      ],
+      "properties": {
+        "http_requests": {
+          "description": "맡은 HTTP 요청 수 — TLS 거절처럼 서버에 닿지 못한 시도도 센다.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        },
+        "stops": {
+          "description": "상한에 걸린 것.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "Verdict": {
+      "description": "판정. URL 점검은 헤더만 보므로 *양호* 가 없다.",
+      "oneOf": [
+        {
+          "description": "헤더가 알리는 버전이 영향 버전이다(설치 · 백포트는 확인하지 못했다).",
+          "type": "string",
+          "enum": [
+            "vulnerable"
+          ]
+        },
+        {
+          "description": "헤더로는 가릴 수 없다 — 그 서버에서 직접 점검해야 한다.",
+          "type": "string",
+          "enum": [
+            "review_required"
+          ]
+        }
+      ]
+    }
+  }
+}

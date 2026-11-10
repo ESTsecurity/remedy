@@ -9,6 +9,8 @@ publish = false
 # 동반 모듈 — 네트워크가 필요한 점검(url · image · container)을 본체 밖의 바이너리에 둔다. 본체(`remedy`)는
 # 이 크레이트를 링크하지도 실행하지도 않고 둘은 파일로만 주고받는다. 그 선과, 이 크레이트가 파괴 경로를
 # 링크하지 않는다는 것은 설계-04 §1 의 금지 표를 `cargo xtask arch` 가 지킨다.
+#
+# 라이브러리 쪽(`src/lib.rs`)은 실행 파일과 `xtask`(결과 JSON 스키마 생성)가 함께 쓴다.
 [[bin]]
 name = "remedy-net"
 path = "src/main.rs"
@@ -18,8 +20,24 @@ remedy-sdk = { path = "../remedy-sdk" }
 # 제품 이름의 한 자리(`brand`). 문자열만 만드는 크레이트라(`remedy-sdk` 말고 내부 의존이 없다) 파괴
 # 경로도 통신도 들이지 않는다. 점검 결과 줄을 본체의 점검 룰과 같은 문장으로 낼 때도 이것을 쓴다.
 remedy-report = { path = "../remedy-report" }
+serde.workspace = true
+serde_json.workspace = true
+schemars.workspace = true
+sha2.workspace = true
+regex.workspace = true
+# 줄 입력 중의 Ctrl+C — 받지 않으면 OS 가 프로세스를 끝내 결과 파일이 남지 않는다.
+ctrlc.workspace = true
+# 통신 — 고른 까닭은 워크스페이스 `Cargo.toml` 의 "동반 모듈 remedy-net 의 통신" 절.
+rustls.workspace = true
+httparse.workspace = true
+rustls-native-certs.workspace = true
+webpki-roots.workspace = true
 
 # 사용자 로케일(언어 판단의 Windows 갈래). 본체는 `remedy-platform` 으로 읽지만 동반 모듈은 그
 # 크레이트를 링크하지 않는다(금지 줄) — 같은 값을 같은 자리에서 읽기만 한다. 새 의존이 아니다.
 [target.'cfg(windows)'.dependencies]
 winreg.workspace = true
+
+[dev-dependencies]
+rcgen.workspace = true
+socket2.workspace = true
