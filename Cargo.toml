@@ -110,6 +110,29 @@ minisign-verify = "0.2"
 # 자기 갱신 채널을 갖지 않는 것과 같은 이유다 (설계-01 D7).
 minisign = "0.9"
 
+# ── 동반 모듈 remedy-net 의 통신 (2026-11-10 · 설계-04 §1) ───────────────
+# **본체는 이것들을 링크하지 않는다** — `cargo xtask arch` 가 본체의 의존 트리 전체를 본다.
+#
+# HTTP 는 손으로 짠 HTTP/1.1 이다. 리다이렉트 · 프록시 · 재시도 · 연결 재사용 · 압축이 처음부터
+# 없고, 연결 직후 상대 IP 를 보고 TLS 바이트를 보내기 전에 닫는 검사가 한 자리에 선다. 범용
+# 클라이언트 ureq 3 은 기본값이 환경 변수 프록시를 읽고(`Proxy::try_from_env`) 리다이렉트 10 ·
+# 유휴 연결 10 · 헤더 64 KiB 이며, 그 검사는 semver 밖(unversioned) 전송 API 로만 들어간다
+# (2026-11-10 조사). 암호 구현은 ring 이다 — rustls 기본(aws-lc-rs)은 cmake · NASM 을 요구하고,
+# 배포 빌드의 MSVC · musl-tools 로 ring 이 선다.
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+# 응답 머리(상태 줄 · 헤더)만 읽는다 — hyper 가 쓰는 파서.
+httparse = "1"
+# 믿을 루트 = OS 저장소 ∪ Mozilla 목록 ∪ `--cacert`. 검증은 로컬(webpki)이다. OS 검증기
+# (rustls-platform-verifier 0.7)는 Windows 에서 폐기 확인(OCSP · CRL)을 켜고 URL 내려받기를
+# 막지 않아, 사용자가 적지 않은 주소로 요청이 나간다. 새 Windows 서버는 루트를 처음 쓸 때
+# 내려받아 저장소가 덜 차 있으므로(ISRG Root X1 등) 내장 목록이 그 틈을 메운다.
+rustls-native-certs = "0.8"
+webpki-roots = "1"
+# 시험의 TLS 서버 인증서를 그 자리에서 만든다 — 비밀키를 저장소에 두지 않는다.
+rcgen = "0.14"
+# 시험 서버가 RST 로 끊는다(SO_LINGER 0). std 에는 안정판 API 가 없다.
+socket2 = "0.6"
+
 [profile.release]
 # 배포 바이너리는 단일 정적 산출물이다 (설계-01 D3).
 strip = true

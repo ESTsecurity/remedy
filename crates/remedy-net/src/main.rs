@@ -13,63 +13,15 @@
 //! 종료 코드는 **본체의 표**(`docs/operator.md` §3 · [`ExitCode`])를 그대로 쓴다 — 무인 배포 스크립트가 두
 //! 바이너리를 같은 코드로 읽는다. 판정 어휘는 *양호 · 취약 · 확인 필요* 이고 [`Outcome`] 이 그 대응이다.
 //!
-//! 이 버전에는 점검 명령이 아직 없다 — 도움말 · 버전 · 언어 · 종료 코드만 선다. 점검은 `url` → `image` →
-//! `container` 차례로 더한다.
+//! 점검 명령은 `url` 하나다(`image` · `container` 는 다음 판). 명령의 코드는 라이브러리 쪽(`src/lib.rs`)에 있다.
+//!
+//! [`ExitCode`]: remedy_sdk::artifact::ExitCode
 #![forbid(unsafe_code)]
 
+use remedy_net::text::ascii_safe;
+use remedy_net::Outcome;
 use remedy_report::brand;
-use remedy_sdk::artifact::ExitCode;
 use remedy_sdk::i18n::{self, Lang};
-
-/// 한 번의 실행이 끝난 모양. 숫자는 본체의 종료 코드 표([`ExitCode`])에서 온다 — 여기서 새로 정하지 않는다.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Outcome {
-    /// 양호 — 확인한 대상이 전부 고친 버전이다. 도움말 · 버전도 이것으로 끝난다.
-    Clear,
-    /// 취약 — 한 항목이라도 취약이면 전체가 취약이다.
-    Vulnerable,
-    /// 확인 필요 — 확인하지 못한 것을 양호로 내지 않는다.
-    Review,
-    /// 입력 오류 · 동의하지 않음.
-    BadInput,
-    /// 처리 실패 — 도구가 일을 끝내지 못했다.
-    Failed,
-}
-
-impl Outcome {
-    /// 도움말의 종료 코드 표가 이 차례로 선다.
-    const ALL: [Outcome; 5] = [
-        Outcome::Clear,
-        Outcome::Vulnerable,
-        Outcome::Review,
-        Outcome::BadInput,
-        Outcome::Failed,
-    ];
-
-    /// 본체 표의 그 칸.
-    fn exit(self) -> ExitCode {
-        match self {
-            Outcome::Clear => ExitCode::NoThreat,
-            Outcome::Vulnerable => ExitCode::FoundNotRemediated,
-            Outcome::Review => ExitCode::IncompleteObservation,
-            Outcome::BadInput => ExitCode::UsageError,
-            Outcome::Failed => ExitCode::InternalError,
-        }
-    }
-
-    fn meaning(self, lang: Lang) -> &'static str {
-        match self {
-            Outcome::Clear => lang.t("양호 · 도움말", "clear · help"),
-            Outcome::Vulnerable => lang.t("취약", "vulnerable"),
-            Outcome::Review => lang.t("확인 필요", "needs review"),
-            Outcome::BadInput => lang.t(
-                "입력 오류 · 동의하지 않음",
-                "input error · consent declined",
-            ),
-            Outcome::Failed => lang.t("처리 실패", "processing failure"),
-        }
-    }
-}
 
 /// 명령줄 어디에 와도 되는 것 — 본체(`remedy`)와 같은 규칙이다.
 struct Global {
@@ -134,6 +86,7 @@ fn run(args: &[String], lang: Lang) -> Outcome {
             println!("{}", ascii_safe(version_line(lang)));
             Outcome::Clear
         }
+        Some("url") => remedy_net::url::run(&args[1..], lang),
         Some(other) => {
             let why = lang.pick(
                 format!(
@@ -167,18 +120,22 @@ fn help(lang: Lang) -> String {
         ),
     ));
     s.push_str(lang.t(
-        "네트워크가 필요한 점검을 맡는 프로그램이다. 본체 remedy 와 따로 돌고, 둘은 파일로만 주고받는다.\n\
-         이 버전에는 아직 점검 명령이 없다.\n\n",
+        "네트워크가 필요한 점검을 맡는 프로그램이다. 본체 remedy 와 따로 돌고, 둘은 파일로만 주고받는다.\n\n",
         "Runs the checks that need the network. It runs apart from the main program (remedy); the two\n\
-         exchange files only. This version has no check command yet.\n\n",
+         exchange files only.\n\n",
     ));
     s.push_str(lang.t("쓰는 법:\n", "Usage:\n"));
     s.push_str(lang.t(
-        "  remedy-net --help       이 도움말\n\
+        "  remedy-net url URL ...  웹서버 응답 헤더의 PHP 버전을 PHP2Shell 수정 버전과 견준다\n\
+         \x20 remedy-net url --help   url 의 옵션\n\
+         \x20 remedy-net --help       이 도움말\n\
          \x20 remedy-net --version    버전\n\
          \x20 --lang ko|en            출력 언어 (REMEDY_LANG 으로도)\n\
          \x20 --ascii                 기호를 ASCII 로\n\n",
-        "  remedy-net --help       this help\n\
+        "  remedy-net url URL ...  compare the PHP version in a web server's response headers with the\n\
+         \x20                         PHP2Shell fixed versions\n\
+         \x20 remedy-net url --help   options of url\n\
+         \x20 remedy-net --help       this help\n\
          \x20 remedy-net --version    version\n\
          \x20 --lang ko|en            output language (REMEDY_LANG also works)\n\
          \x20 --ascii                 ASCII symbols only\n\n",
@@ -191,17 +148,6 @@ fn help(lang: Lang) -> String {
         s.push_str(&format!("  {}  {}\n", o.exit().code(), o.meaning(lang)));
     }
     s
-}
-
-/// ASCII 모드면 문장에 박힌 기호(`—` · `·`)까지 접는다 — 본체의 `ascii_safe` 와 같다.
-fn ascii_safe(text: String) -> String {
-    if !i18n::deco().ascii {
-        return text;
-    }
-    match i18n::ascii_fold(&text) {
-        std::borrow::Cow::Owned(s) => s,
-        std::borrow::Cow::Borrowed(_) => text,
-    }
 }
 
 /// 사용자 로케일 이름 — `HKCU\Control Panel\International\LocaleName`, 예: `ko-KR`. 본체가
@@ -266,6 +212,15 @@ mod tests {
                 let line = format!("  {}  {}\n", o.exit().code(), o.meaning(lang));
                 assert!(h.contains(&line), "{lang:?} 도움말에 '{line}' 가 없다");
             }
+        }
+    }
+
+    /// 도움말은 약관을 내지 않는다 — 약관은 점검을 시작할 때 한 번이다(스캐너 시험 bare-help · explicit-help).
+    #[test]
+    fn help_never_shows_the_terms() {
+        for lang in [Lang::Ko, Lang::En] {
+            let h = help(lang);
+            assert!(!h.contains("약관") && !h.contains("이용 조건") && !h.contains("Terms"));
         }
     }
 }

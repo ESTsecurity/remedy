@@ -36,6 +36,9 @@ flate2 = { workspace = true }
 minisign = { workspace = true }
 sha2 = { workspace = true }
 remedy-trust = { path = "../crates/remedy-trust" }
+# 동반 모듈의 결과 JSON 스키마(`schema`). 타입에서 내야 손으로 쓴 표와 갈라지지 않는다. 검사기가
+# 의존할 뿐이라 본체의 의존 트리(설계-04 §1 · `arch`)에는 들어가지 않는다.
+remedy-net = { path = "../crates/remedy-net" }
 serde_yaml_ng = { workspace = true }
 # 공개 전 누출 검사(`leaks`). 일반 꼴만 여기 적고, 정확한 값은 로컬 전용 목록에 둔다.
 regex = { workspace = true }
