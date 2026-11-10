@@ -2303,6 +2303,7 @@ dependencies = [
  "quick-xml",
  "remedy-artifacts",
  "remedy-platform",
+ "remedy-rpmdb",
  "remedy-sdk",
  "remedy-wintrust",
  "serde_json",
@@ -2442,6 +2443,10 @@ dependencies = [
  "remedy-sdk",
  "serde_json",
 ]
+
+[[package]]
+name = "remedy-rpmdb"
+version = "1.4.0"
 
 [[package]]
 name = "remedy-sdk"

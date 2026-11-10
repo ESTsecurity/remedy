@@ -1,0 +1,13 @@
+[package]
+name = "remedy-rpmdb"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+# RPM 패키지 DB 판독기 — 바이트를 받아 헤더를 돌려주는 순수 함수다. 본체의 수집기(`remedy-collect`)와 동반
+# 모듈(`remedy-net` — 이미지 안의 DB)이 함께 쓴다. 동반 모듈은 `remedy-platform` 을 링크하지 못하므로(설계-04 §1)
+# 이 크레이트는 **워크스페이스 안팎 어느 것에도 의존하지 않는다** — std 뿐이다. 그 선은 설계-04 §1 의 금지 표를
+# `cargo xtask arch` 가 지킨다.
+[dependencies]

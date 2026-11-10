@@ -4,6 +4,7 @@
 //! `cargo xtask arch`).
 #![forbid(unsafe_code)]
 
+pub mod scan;
 pub mod schema;
 pub mod text;
 pub mod url;
