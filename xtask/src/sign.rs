@@ -26,6 +26,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
     match args.first().map(String::as_str) {
         Some("keygen") => keygen(&args[1..]),
         Some("plugin") => sign_plugin(&args[1..]),
+        Some("companion") => sign_companion(&args[1..]),
         Some("revocations") => sign_revocations(&args[1..]),
         Some("allowlist") => sign_allowlist(&args[1..]),
         Some(other) => Err(format!("알 수 없는 하위 명령: {other}")),
@@ -36,6 +37,8 @@ pub fn run(args: &[String]) -> Result<(), String> {
 const USAGE: &str = "사용법:\n  \
     cargo xtask sign keygen --public-key <파일> --secret-key <파일>\n  \
     cargo xtask sign plugin --dir <플러그인 디렉터리> --secret-key <파일> \
+    --signed-at <RFC3339>\n  \
+    cargo xtask sign companion --dir <remedy-net 폴더> --secret-key <파일> \
     --signed-at <RFC3339>\n  \
     cargo xtask sign revocations --entries <JSON 파일> --serial <수> \
     --issued <RFC3339> --secret-key <파일> --out <파일>\n  \
@@ -101,17 +104,63 @@ fn sign_plugin(args: &[String]) -> Result<(), String> {
     check_rfc3339(&signed_at)?;
 
     let (id, version) = read_plugin_identity(&dir)?;
+    sign_tree(&dir, &id, &version, &sk_path, &signed_at)
+}
 
-    let files = remedy_trust::collect(&dir).map_err(|e| format!("{e}"))?;
+/// 동반 프로그램(`remedy-net`)의 폴더를 서명한다 — 본체가 그 프로그램을 띄우기 전에 확인하는 서명이다
+/// (설계-04 §1 *동반 모듈*).
+///
+/// 룰과 **같은 형식**이다(매니페스트 + minisign · 같은 키). 다른 것은 서명 주석의 이름과 버전이 어디서
+/// 오는가다 — 룰은 `plugin.yaml` 에서 읽고, 동반 프로그램은 이름이 `remedy-net` 으로 고정이고 버전이
+/// 코어 버전이다. 본체는 그 둘이 자기와 같은지 본다: 서명된 룰 폴더를 그 자리에 옮겨 놓거나 다른 릴리스의
+/// 동반 프로그램을 섞어 놓은 것을 띄우지 않는다.
+fn sign_companion(args: &[String]) -> Result<(), String> {
+    let dir = PathBuf::from(need(args, "--dir")?);
+    let sk_path = PathBuf::from(need(args, "--secret-key")?);
+    let signed_at = need(args, "--signed-at")?;
+
+    check_rfc3339(&signed_at)?;
+
+    // 실행 파일이 그 이름으로 들어 있어야 한다 — 빈 폴더나 엉뚱한 폴더에 서명하지 않는다.
+    let has_program = [COMPANION, &format!("{COMPANION}.exe")]
+        .iter()
+        .any(|n| dir.join(n).is_file());
+    if !has_program {
+        return Err(format!(
+            "{} 에 {COMPANION}(.exe) 가 없다 — 지은 동반 프로그램을 그 폴더에 먼저 둘 것",
+            dir.display()
+        ));
+    }
+    sign_tree(
+        &dir,
+        COMPANION,
+        env!("CARGO_PKG_VERSION"),
+        &sk_path,
+        &signed_at,
+    )
+}
+
+/// 동반 프로그램의 이름 — 폴더 이름이자 서명 주석의 이름이다(본체의 `net::NAME` 과 같은 값).
+pub const COMPANION: &str = "remedy-net";
+
+/// 폴더를 통째로 서명한다 — 매니페스트(파일마다 해시)를 만들고 그것에 서명한다.
+fn sign_tree(
+    dir: &Path,
+    id: &str,
+    version: &str,
+    sk_path: &Path,
+    signed_at: &str,
+) -> Result<(), String> {
+    let files = remedy_trust::collect(dir).map_err(|e| format!("{e}"))?;
     if files.is_empty() {
         return Err(format!("{} 에 서명할 파일이 없다", dir.display()));
     }
     let manifest = remedy_trust::Manifest::render(&files);
 
-    let sk = minisign::SecretKey::from_file(&sk_path, password())
+    let sk = minisign::SecretKey::from_file(sk_path, password())
         .map_err(|e| format!("{} 를 열지 못했다: {e}", sk_path.display()))?;
 
-    let comment = remedy_trust::TrustedComment::render(&id, &version, &signed_at);
+    let comment = remedy_trust::TrustedComment::render(id, version, signed_at);
     let sig = minisign::sign(
         None,
         &sk,

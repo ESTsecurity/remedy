@@ -57,9 +57,12 @@ pub enum Outcome {
     WithFile(crate::menu::WithFile, Option<std::path::PathBuf>),
     /// 메뉴에서 고른 **수집만** (묶음 A 성격 — 입력이 없다)과 그때 고른 플러그인.
     Collect(std::path::PathBuf),
-    /// 룰을 고르는 화면의 첫 줄 — 찾은 룰 **전부로 검사만** 한다(목표 remedy_출시_20261111
+    /// 룰을 고르는 화면의 첫 줄 — 이 기계를 보는 룰 **전부로 검사만** 한다(목표 remedy_출시_20261111
     /// 기준 3). 화면에 쓸 이름과 경로를 고르는 화면의 차례대로 든다.
-    ScanAll(Vec<(String, std::path::PathBuf)>),
+    ///
+    /// 둘째는 **빼 둔 네트워크 점검 룰의 이름**이다(코어 1.4.0) — 주소를 적어야 돌아 여기 들지 않는다.
+    /// 끝의 요약이 그 항목을 *돌리지 않았다* 고 함께 적는다: 적지 않으면 *모두* 가 그것까지 한 것으로 읽힌다.
+    ScanAll(Vec<(String, std::path::PathBuf)>, Vec<String>),
 }
 
 /// 이 룰이 치료하는가 — `remediate` 가 없으면 **찾기만 한다.** 메뉴가 치료를 약속하는 줄을
@@ -271,6 +274,9 @@ pub(crate) fn next_offer() -> crate::menu::Offer {
     crate::menu::Offer {
         plugin: plugin.then(std::path::PathBuf::new),
         detect_only,
+        // 네트워크 점검 뒤에는 가리킬 줄이 없다(`next_steps` 가 비어 있다) — 번호를 셀 일이 없다.
+        network: false,
+        companion_missing: false,
         name: None,
         runs_locked: runs.is_empty() && runs_locked(),
         runs,
@@ -322,6 +328,8 @@ pub fn run(anchor: Option<&str>) -> Outcome {
                 return to_outcome(crate::menu::run(&crate::menu::Offer {
                     plugin: None,
                     detect_only: false,
+                    network: false,
+                    companion_missing: false,
                     name: None,
                     runs_locked: runs.is_empty() && runs_locked(),
                     runs,
@@ -410,9 +418,14 @@ pub fn run(anchor: Option<&str>) -> Outcome {
     };
     let chosen = match choice {
         Choice::One(c) => c,
-        Choice::All(all) => {
+        Choice::All(all, skipped) => {
             set_menu_shape(true, false);
-            return Outcome::ScanAll(all.into_iter().map(|c| (c.label, c.path)).collect());
+            // 빼 둔 네트워크 점검은 **끝의 요약**이 적는다(`main` 의 `scan_all`) — 검사 앞에 적으면
+            // 룰마다의 화면에 밀려 결과를 읽는 자리에서는 보이지 않는다.
+            return Outcome::ScanAll(
+                all.into_iter().map(|c| (c.label, c.path)).collect(),
+                skipped,
+            );
         }
     };
 
@@ -435,6 +448,9 @@ pub fn run(anchor: Option<&str>) -> Outcome {
         let pick = crate::menu::run(&crate::menu::Offer {
             plugin: Some(chosen.path.clone()),
             detect_only,
+            network: chosen.network,
+            // 있는지만 본다 — 서명은 띄울 때 확인한다(`net::locate`). 없으면 그 줄이 까닭과 함께 꺼진다.
+            companion_missing: chosen.network && !crate::net::present(),
             name: Some(chosen.label.clone()),
             runs_locked: runs.is_empty() && runs_locked(),
             runs,
@@ -444,32 +460,41 @@ pub fn run(anchor: Option<&str>) -> Outcome {
         return to_outcome(pick);
     }
 
-    outln!();
-    outln!(
-        "{}",
-        lang.pick(
-            format!(
-                "{} 검사합니다.",
-                remedy_sdk::i18n::with_particle(&chosen.label, "을", "를")
-            ),
-            format!("Checking for {}.", chosen.label)
-        )
-    );
+    // 네트워크 점검 룰은 이 길에서 돌지 않는다(주소를 물어볼 수 없다 — `main` 이 까닭을 말한다).
+    // 돌리지 않을 것을 *검사합니다* 라고 적지 않는다.
+    if !chosen.network {
+        outln!();
+        outln!(
+            "{}",
+            lang.pick(
+                format!(
+                    "{} 검사합니다.",
+                    remedy_sdk::i18n::with_particle(&chosen.label, "을", "를")
+                ),
+                format!("Checking for {}.", chosen.label)
+            )
+        );
+    }
     // **권한 문은 `main` 이 연다.** 여기서 따로 보면 `run` 과 두 벌이 되고,
     // 갈라지면 안내 모드로 들어온 사람만 다른 판정을 받는다.
     Outcome::RunWith(chosen.path)
 }
 
 /// 고른 것 하나 — 화면에 쓸 이름과 넘길 경로.
+#[derive(Clone)]
 struct Chosen {
     label: String,
     path: std::path::PathBuf,
+    /// 네트워크로 점검하는 룰인가(`network`) — 이 기계를 보지 않고 동반 프로그램이 맡는다.
+    network: bool,
 }
 
 /// 고르는 화면의 답 — 룰 하나, 또는 **전부로 검사만**.
 enum Choice {
     One(Chosen),
-    All(Vec<Chosen>),
+    /// 이 기계를 보는 룰 전부와, **빼 둔 네트워크 점검 룰의 이름** — 그 룰은 주소를 적어야 돌아서
+    /// 한꺼번에 돌릴 수 없다. 빼 두었다는 것을 말해야 *모두* 가 거짓이 되지 않는다.
+    All(Vec<Chosen>, Vec<String>),
 }
 
 /// 거절된 것을 화면에 적는다. **왜 못 쓰는지가 사용자의 다음 행동을 정한다.**
@@ -505,11 +530,12 @@ fn report_rejections(rejected: &[(discover::Found, Unusable)]) {
 /// 1 이다. 치료는 지금처럼 룰을 골라서 한다.
 fn choose(ok: &[discover::Found]) -> Option<Choice> {
     let lang = ui().lang;
-    let label = |f: &discover::Found| -> String {
+    let chosen = |f: &discover::Found| -> Chosen {
         // 사람이 읽는 이름은 매니페스트에 있다. 못 읽으면 폴더 이름으로 간다 —
         // 여기서 실패해 전체를 세우지 않는다.
-        load_manifest(&f.path.to_string_lossy())
-            .ok()
+        let m = load_manifest(&f.path.to_string_lossy()).ok();
+        let network = m.as_ref().is_some_and(|m| m.network.is_some());
+        let label = m
             .and_then(|m| {
                 m.name
                     .get(lang.id())
@@ -523,17 +549,42 @@ fn choose(ok: &[discover::Found]) -> Option<Choice> {
                     .unwrap_or_default()
                     .to_string_lossy()
                     .into()
-            })
+            });
+        Chosen {
+            label,
+            path: f.path.clone(),
+            network,
+        }
     };
-
-    let chosen = |f: &discover::Found| Chosen {
-        label: label(f),
-        path: f.path.clone(),
+    // 한 번만 읽는다 — 줄을 그릴 때와 고른 뒤가 같은 것을 본다.
+    let all: Vec<Chosen> = ok.iter().map(chosen).collect();
+    // **네트워크를 쓰는 항목은 고르기 전에 그렇다고 보인다** — 이름 뒤에 꼬리표로 붙인다.
+    //
+    // 대시로 잇지 않는다: 이 화면들에서 `이름 — 까닭` 은 **지금 고를 수 없는 줄**의 꼴이다(`Row::Off`).
+    // 색이 없는 줄 입력 화면에서는 그 둘이 똑같이 보여 꺼진 항목으로 읽힌다 — 메뉴 하네스도 그 줄을
+    // 꺼진 줄로 셌다(2026-11-10 랩 실측). 대괄호는 그 꼴과 겹치지 않는다.
+    let shown = |c: &Chosen| -> String {
+        if c.network {
+            format!(
+                "{} [{}]",
+                c.label,
+                lang.t("네트워크 사용", "uses the network")
+            )
+        } else {
+            c.label.clone()
+        }
     };
-    if ok.len() == 1 {
+    if all.len() == 1 {
         set_picked(None);
-        return Some(Choice::One(chosen(&ok[0])));
+        return all.into_iter().next().map(Choice::One);
     }
+    // *모두 검사만* 은 이 기계를 보는 항목의 것이다 — 네트워크 점검은 주소를 적어야 돈다.
+    let local: Vec<Chosen> = all.iter().filter(|c| !c.network).cloned().collect();
+    let remote: Vec<String> = all
+        .iter()
+        .filter(|c| c.network)
+        .map(|c| c.label.clone())
+        .collect();
 
     use crate::term::{Answer, Row};
     use std::io::IsTerminal;
@@ -554,8 +605,8 @@ fn choose(ok: &[discover::Found]) -> Option<Choice> {
                 Row::Item(_) | Row::Off(..) => {}
             }
         }
-        for (i, f) in ok.iter().enumerate() {
-            outln!("  {}. {}", i + 1, label(f));
+        for (i, c) in all.iter().enumerate() {
+            outln!("  {}. {}", i + 1, shown(c));
         }
         return None;
     }
@@ -572,11 +623,28 @@ fn choose(ok: &[discover::Found]) -> Option<Choice> {
     }
     head.push(Row::Blank);
     rows.splice(1..1, head);
-    rows.push(Row::Item(lang.pick(
-        format!("{}개 모두 검사만 하기 (아무것도 바꾸지 않습니다)", ok.len()),
-        format!("Scan with all {} (changes nothing)", ok.len()),
-    )));
-    rows.extend(ok.iter().map(|f| Row::Item(label(f))));
+    // 첫 줄의 수는 **이 기계를 보는 항목**의 수다. 네트워크 점검만 든 폴더에서는 돌릴 것이 없어 꺼진다 —
+    // 줄을 빼지 않는 것은 항목의 번호가 2 부터라는 것이 안내문 · 하네스에 적혀 있어서다.
+    let all_label = lang.pick(
+        format!(
+            "{}개 모두 검사만 하기 (아무것도 바꾸지 않습니다)",
+            local.len()
+        ),
+        format!("Scan with all {} (changes nothing)", local.len()),
+    );
+    rows.push(if local.is_empty() {
+        Row::Off(
+            all_label,
+            lang.t(
+                "이 기계를 검사하는 항목이 없습니다",
+                "nothing here scans this machine",
+            )
+            .to_string(),
+        )
+    } else {
+        Row::Item(all_label)
+    });
+    rows.extend(all.iter().map(|c| Row::Item(shown(c))));
     // 작업 뒤에도 이 화면으로 돌아오므로 끝내는 줄이 보여야 한다 — 전에는 번호가 아닌 것을
     // 쳐야 끝났다.
     let Answer::Num(n) = crate::term::choose(&rows, Some(lang.t("그만두기", "Quit"))) else {
@@ -584,11 +652,11 @@ fn choose(ok: &[discover::Found]) -> Option<Choice> {
     };
     if n == 1 {
         set_picked(None);
-        return Some(Choice::All(ok.iter().map(chosen).collect()));
+        return Some(Choice::All(local, remote));
     }
-    let f = ok.get(n.checked_sub(2)?)?;
-    set_picked(Some((n, label(f))));
-    Some(Choice::One(chosen(f)))
+    let c = all.get(n.checked_sub(2)?)?;
+    set_picked(Some((n, c.label.clone())));
+    Some(Choice::One(c.clone()))
 }
 
 /// 룰이 여럿인 화면에서 고른 룰 — **그 화면의 번호와 이름.**

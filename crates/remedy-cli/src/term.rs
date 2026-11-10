@@ -55,6 +55,7 @@ static LAST_CODE: AtomicI32 = AtomicI32::new(-1);
 /// 하나를 주는 데 쓴다(`main::menu_out`).
 static TASK_SEQ: AtomicU64 = AtomicU64::new(0);
 static ARMED: AtomicBool = AtomicBool::new(false);
+static COMPANION: AtomicBool = AtomicBool::new(false);
 static FANCY: OnceLock<bool> = OnceLock::new();
 
 /// 이 층이 그리는가. 한 번 정하면 프로세스 끝까지 같다.
@@ -135,6 +136,10 @@ pub fn arm() {
     }
     remedy_core::platform::shield_from_ctrl_c(true);
     let _ = ctrlc::set_handler(|| {
+        // 동반 프로그램이 도는 동안에는 그 프로그램이 받아 스스로 멈춘다 — [`companion`].
+        if COMPANION.load(Ordering::SeqCst) {
+            return;
+        }
         if press() {
             let _ = crossterm::terminal::disable_raw_mode();
             if fancy() {
@@ -147,6 +152,24 @@ pub fn arm() {
         let hint = hint_again(TASK.load(Ordering::SeqCst) != TASK_NONE);
         eprintln!("{}", crate::tee::ascii_safe(hint));
     });
+}
+
+/// 동반 프로그램(`remedy-net`)이 도는 동안인가 — 그동안 Ctrl+C 는 **그 프로그램의 것**이다.
+///
+/// 콘솔의 Ctrl+C 는 같은 콘솔의 프로세스 전부에 간다. 동반 프로그램은 그것을 받아 요청을 멈추고
+/// 그때까지 본 것을 결과 파일로 남긴 뒤 끝난다. 본체가 같은 신호에 먼저 끝나면 그 프로그램이 주인
+/// 없이 남고 종료 코드도 본체의 것이 된다 — 그래서 본체는 그동안 말하지도 끝내지도 않고 기다린다.
+///
+/// 메뉴 세션이 아니면(인자를 준 호출) 처리기가 걸려 있지 않아 OS 가 본체를 바로 끝낸다. 그때는 여기서
+/// 아무것도 하지 않는 처리기를 건다 — 그 호출은 동반 프로그램이 끝나면 곧 끝난다.
+pub fn companion(running: bool) {
+    if running && !ARMED.load(Ordering::SeqCst) {
+        static QUIET: std::sync::Once = std::sync::Once::new();
+        QUIET.call_once(|| {
+            let _ = ctrlc::set_handler(|| {});
+        });
+    }
+    COMPANION.store(running, Ordering::SeqCst);
 }
 
 /// 사람이 앞에 있는 메뉴 세션인가 — 신호 처리기를 건 세션이 곧 그것이다([`arm`]).

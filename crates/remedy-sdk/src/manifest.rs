@@ -196,7 +196,36 @@ pub struct PluginManifest {
     #[serde(default)]
     pub signed_malware: Vec<SignerRef>,
 
+    /// **네트워크로 하는 점검** — 이 기계가 아니라 바깥(원격 서버)을 본다 (코어 1.4.0).
+    ///
+    /// 본체(`remedy`)에는 통신 코드가 없다(설계-01 D9 · 배포본 임포트 검사). 그래서 이 칸이 있는
+    /// 룰은 본체가 스스로 돌리지 않고 **동반 프로그램 `remedy-net` 을 띄워 맡긴다** — 서명이 맞는
+    /// 것만, 무엇을 하는지 알린 뒤에(설계-04 §1 *동반 모듈*).
+    ///
+    /// # 값이 닫혀 있는 이유
+    ///
+    /// 룰이 적는 것은 **어느 점검인가** 하나다([`NetworkCheck`]). 프로그램 이름 · 인자 · 대상은 룰이
+    /// 정하지 못한다 — 띄울 프로그램은 본체가 아는 한 자리의 한 이름이고, 대상(주소)은 사람이
+    /// 적는다. 열린 문자열이면 서명된 룰 하나가 *무엇을 실행할지* 를 고르는 문이 된다.
+    ///
+    /// # 이 기계를 보지 않는다
+    ///
+    /// 이 칸이 있으면 `kind: check` 여야 하고, 이 기계를 읽는 칸(`scan_roots` · `subjects` · `detect` ·
+    /// `verdict` · 수집 칸)은 **비어 있어야** 한다(`validate`). 판정은 `remedy-net` 이 내고 본체는
+    /// 그 종료 코드만 받는다 — 네트워크에서 온 것으로 본체가 무엇을 바꾸는 길이 없다.
+    ///
+    /// 키가 있으면 값이 있어야 한다 — [`PluginManifest::kind`] 와 같은 까닭이다.
+    #[serde(
+        default,
+        deserialize_with = "network_if_present",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[schemars(with = "NetworkCheck")]
+    pub network: Option<NetworkCheck>,
+
     pub detect: Vec<DetectRule>,
+    /// 네트워크 점검 룰(`network`)은 적지 않는다 — 그 밖의 룰은 `validate` 가 `require` 를 요구한다.
+    #[serde(default)]
     pub verdict: Verdict,
 
     #[serde(default)]
@@ -219,6 +248,33 @@ where
     D: serde::Deserializer<'de>,
 {
     PluginKind::deserialize(d).map(Some)
+}
+
+/// `network:` 가 있으면 값이 열거값이어야 한다 — [`kind_if_present`] 와 같다.
+fn network_if_present<'de, D>(d: D) -> Result<Option<NetworkCheck>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    NetworkCheck::deserialize(d).map(Some)
+}
+
+/// 네트워크로 하는 점검의 종류. [`PluginManifest::network`] 를 보라.
+///
+/// 값 하나가 동반 프로그램의 명령 하나다 — 본체가 그 대응을 안다(`remedy-net <명령>`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum NetworkCheck {
+    /// 웹서버의 응답 헤더를 본다 — 사람이 적은 주소(URL)에 HEAD 요청을 보낸다.
+    Url,
+}
+
+impl NetworkCheck {
+    /// 매니페스트에 적는 값이자 동반 프로그램의 명령 이름.
+    pub const fn id(self) -> &'static str {
+        match self {
+            NetworkCheck::Url => "url",
+        }
+    }
 }
 
 /// 플러그인의 종류. [`PluginManifest::kind`] 를 보라.
@@ -325,7 +381,10 @@ pub struct YaraPredicate {
 ///
 /// **점수 임계값을 게이트로 쓸 수 없다.** 서로 독립적인 근거의 논리곱을 명시하게
 /// 하면 룰 하나의 오탐이 곧바로 삭제로 이어지지 않는다 (설계-02 §5).
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+///
+/// 기본값(빈 `require`)은 **네트워크 점검 룰의 것**이다 — 그 룰은 이 기계에서 판정하지 않는다. 그 밖의
+/// 룰이 `require` 를 비우면 `validate` 가 막는다.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Verdict {
     /// `and` `or` `not` `(...)` 과 `<rule-id>`, `count(<rule-id>) >= N` 만 지원한다.

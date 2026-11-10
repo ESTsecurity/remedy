@@ -692,7 +692,8 @@ flowchart TB
 
 위 그림에 없는 셋: `remedy-enrich`(P13 · 사내 조회, **치료 경로에 링크되지
 않는다**) · `remedy-testkit`(시험 도우미) · `remedy-net`(동반 모듈 — 네트워크로 하는
-점검을 맡는 별도 바이너리, 본체와 파일로만 주고받는다).
+점검을 맡는 별도 바이너리. 본체는 링크하지 않고, 네트워크 점검 룰을 고르면 서명을 확인한 그 실행 파일을
+띄워 종료 코드만 받는다 — 설계-04 §1).
 
 > `remedy-wintrust` 만 `unsafe` 를 쓴다. 나머지 17종은 `#![forbid(unsafe_code)]`.
 > 그 하나의 이유는 `WinVerifyTrust` 의 안전 래퍼가 crates.io 에 없기 때문이다.

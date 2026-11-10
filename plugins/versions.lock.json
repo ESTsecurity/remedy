@@ -106,6 +106,12 @@
       "plugin.yaml": "7a800b0149ff0a06e0cc2109fb5bbe2476a09a673de457a74a7b19cb341113e0"
     }
   },
+  "php2shell-url-check": {
+    "version": "0.1.0",
+    "files": {
+      "plugin.yaml": "c5895ac5be66c74f512006d5fb22bfc198f05c0978497057d9e611a469910f36"
+    }
+  },
   "proxy-dns-hijack": {
     "version": "1.0.0",
     "files": {

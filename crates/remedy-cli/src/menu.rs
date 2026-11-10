@@ -104,6 +104,8 @@ pub enum WithPlugin {
     Lint(std::path::PathBuf),
     /// `plugin verify --dir <폴더>` — 이 꾸러미가 우리 것인지 확인한다.
     VerifyBundle(std::path::PathBuf),
+    /// 네트워크 점검 룰 — 본체가 돌리지 않고 동반 프로그램(`remedy-net`)을 띄워 맡긴다(`crate::net`).
+    NetCheck(std::path::PathBuf),
 }
 
 /// 입력 **파일** 하나가 드는 명령 — 묶음 D·E. 번호로 고른 경로를 들고 간다.
@@ -239,6 +241,11 @@ pub struct Offer {
     pub plugin: Option<std::path::PathBuf>,
     /// 그 플러그인이 **찾기만 하는가**(`remediate` 가 없다) — 치료를 약속하는 줄을 끈다.
     pub detect_only: bool,
+    /// 그 플러그인이 **네트워크로 점검하는가**(`network`) — 이 기계를 보는 줄(검사 · 수집 · 평가)을 끄고
+    /// *원격 점검하기* 한 줄을 세운다. 그 줄은 동반 프로그램을 띄운다.
+    pub network: bool,
+    /// 동반 프로그램(`remedy-net`)이 이 폴더에 없다 — *원격 점검하기* 가 까닭과 함께 꺼진다.
+    pub companion_missing: bool,
     /// 그 플러그인의 이름 — 머리말에 적는다. 항목이 여럿인 꾸러미에서 고른 뒤 메뉴만 보면
     /// 어느 것을 골랐는지 알 수 없었다(2026-11-06 리눅스 통합 꾸러미 화면).
     pub name: Option<String>,
@@ -420,6 +427,16 @@ const MAIN_ITEMS: &[(&str, &str, Main)] = &[
     ),
 ];
 
+/// 네트워크 점검 룰의 기본 화면 첫 줄 — (한국어 · 영어). [`MAIN_ITEMS`] 에 넣지 않는다: 그 표의 차례가
+/// 이 기계를 보는 룰의 번호이고(README · 피드백 문안이 적는다), 이 줄은 그 룰들에서는 서지 않는다.
+///
+/// **대시를 쓰지 않는다** — `줄 — 까닭` 은 지금 고를 수 없는 줄의 꼴이고, 이 줄이 꺼질 때(동반 프로그램이
+/// 없는 폴더) 그 까닭이 대시 뒤에 붙는다. 줄 안에도 대시가 있으면 어디부터가 까닭인지 읽기 어렵다.
+const NET_ITEM: (&str, &str) = (
+    "원격 점검하기 (remedy-net 을 실행해 네트워크를 씁니다)",
+    "Check remotely (runs remedy-net, which uses the network)",
+);
+
 /// 더 보기의 묶음 제목 넷 — (한국어 · 영어). 차례가 화면의 차례다.
 const GROUPS: [(&str, &str); 4] = [
     ("기록", "Records"),
@@ -508,7 +525,9 @@ fn screens(offer: &Offer, lang: remedy_sdk::i18n::Lang) -> Screens {
         }
     };
     let plugin = offer.plugin.is_some();
-    let treats = plugin && !offer.detect_only;
+    // 네트워크 점검 룰은 이 기계를 보지 않는다 — 검사 · 치료 줄이 서지 않고 그 자리에 한 줄이 선다.
+    let net = plugin && offer.network;
+    let treats = plugin && !offer.detect_only && !net;
     let runs = offer.has_runs();
     // 기록이 있을지 모르는데 이 권한으로 못 읽었다 — 그때만 복원 한 줄이 그 까닭과 함께 선다.
     // 숨기면 관리자(root)로 치료한 뒤 권한 없이 다시 띄운 사람이 기록이 사라진 것으로 읽는다.
@@ -516,10 +535,26 @@ fn screens(offer: &Offer, lang: remedy_sdk::i18n::Lang) -> Screens {
 
     // ── 기본 화면 — 받은 사람의 일 ──────────────────────────────────
     let mut main = Vec::new();
+    if net {
+        // **네트워크를 쓴다는 것을 줄에 적는다** — 고르기 전에 알아야 한다. 동반 프로그램이 없는 폴더
+        // (네트워크를 쓰지 않으려고 지운 자리)에서는 까닭과 함께 꺼진다.
+        let (k, e) = NET_ITEM;
+        main.push(Item {
+            label: pick(k, e),
+            tag: Tag::NeedsPlugin(WithPlugin::NetCheck),
+            off: offer.companion_missing.then(|| {
+                lang.t(
+                    "이 폴더에 remedy-net 이 없습니다",
+                    "remedy-net is not in this folder",
+                )
+            }),
+            main: None,
+        });
+    }
     for (k, e, m) in MAIN_ITEMS {
         let (shown, off) = match m {
             Main::Treat => (treats, None),
-            Main::Scan => (plugin, None),
+            Main::Scan => (plugin && !net, None),
             // 치료가 유지됐는지는 **치료한 기록이 있어야** 묻는다 — 없을 때 고르면 치료한 적 없는
             // 기계에 *"치료 성공"* 이 떴다(v1.1.0 적대적 검토 · 2026-11-07 실측).
             Main::Verify => (treats && runs, None),
@@ -554,6 +589,14 @@ fn screens(offer: &Offer, lang: remedy_sdk::i18n::Lang) -> Screens {
             "this rule only detects; it does not treat",
         )
     });
+    // 네트워크 점검 룰 — 이 기계에서 모으고 평가하는 줄은 까닭을 단다. 까닭 안에 대시를 쓰지 않는다:
+    // 꺼진 줄은 `줄 — 까닭` 으로 서므로 대시가 둘이 되면 어디부터가 까닭인지 읽기 어렵다.
+    let net_only = net.then(|| {
+        lang.t(
+            "이 룰은 네트워크로 점검하고 이 기계를 검사하지 않습니다",
+            "this rule checks over the network; it does not scan this machine",
+        )
+    });
     let more_item = |label: &'static str, tag: Tag, off: Option<&'static str>| Item {
         label,
         tag,
@@ -577,7 +620,7 @@ fn screens(offer: &Offer, lang: remedy_sdk::i18n::Lang) -> Screens {
             "Collect only (evaluate in-house)",
         ),
         Tag::Collect,
-        no_plugin,
+        no_plugin.or(net_only),
     )];
     for (k, e, cand, mk) in FILE_ITEMS {
         // 계획·평가는 플러그인이 함께 들어야 한다 — 그 까닭이 먼저다.
@@ -587,6 +630,8 @@ fn screens(offer: &Offer, lang: remedy_sdk::i18n::Lang) -> Screens {
         );
         let off = if needs_plugin && no_plugin.is_some() {
             no_plugin
+        } else if needs_plugin && net_only.is_some() {
+            net_only
         } else if detect_only.is_some() && matches!(mk(p.clone()), WithFile::Apply(_)) {
             detect_only
         } else if offer.files_of(*cand).is_empty() {
@@ -892,7 +937,8 @@ fn two_parts(p: &std::path::Path) -> String {
 mod tests {
     use super::{
         line, screens, Candidates, Line, Main, Offer, Plain, Run, Tag, WithFile, WithPlugin,
-        WithRun, AUTHOR_ITEMS, FILE_ITEMS, GROUPS, MAIN_ITEMS, PROGRAM_ITEMS, RECORD_ITEM,
+        WithRun, AUTHOR_ITEMS, FILE_ITEMS, GROUPS, MAIN_ITEMS, NET_ITEM, PROGRAM_ITEMS,
+        RECORD_ITEM,
     };
     use remedy_sdk::i18n::Lang;
 
@@ -908,6 +954,8 @@ mod tests {
         Offer {
             plugin: plugin.then(|| std::path::PathBuf::from("p.yaml")),
             detect_only: false,
+            network: false,
+            companion_missing: false,
             name: None,
             runs: if runs {
                 vec![a_run("run-1")]
@@ -1224,6 +1272,49 @@ mod tests {
         assert_eq!(apply(&none), Some("쓸 수 있는 플러그인 번들이 없습니다"));
     }
 
+    /// 네트워크 점검 룰 — 기본 화면의 첫 줄은 *원격 점검하기* 이고 **네트워크를 쓴다는 것이 그 줄에
+    /// 적혀 있다.** 이 기계를 보는 줄(검사 · 치료 · 유지 확인)은 서지 않는다. 동반 프로그램이 없는 폴더
+    /// (네트워크를 쓰지 않으려고 지운 자리)에서는 그 줄이 까닭과 함께 꺼진다.
+    #[test]
+    fn a_network_rule_offers_the_remote_check_and_nothing_local() {
+        let mut o = offer(true, true);
+        o.detect_only = true;
+        o.network = true;
+        let s = screens(&o, Lang::Ko);
+        assert_eq!(s.main[0].label, NET_ITEM.0);
+        assert!(s.main[0].label.contains("네트워크") && s.main[0].label.contains("remedy-net"));
+        assert!(s.main[0].off.is_none());
+        assert_eq!(command(&s.main[0].tag), "remedy-net");
+        let labels = main_labels(&o);
+        assert!(
+            !labels.contains(&TREAT) && !labels.contains(&SCAN) && !labels.contains(&VERIFY),
+            "{labels:?}"
+        );
+        // 치료한 기록의 줄(복원 · 신고)은 고른 룰과 상관없이 선다.
+        assert!(labels.contains(&UNDO) && labels.contains(&REPORT));
+
+        o.companion_missing = true;
+        assert_eq!(
+            screens(&o, Lang::Ko).main[0].off,
+            Some("이 폴더에 remedy-net 이 없습니다")
+        );
+
+        // 더 보기 — 이 기계에서 모으고 평가하는 줄은 까닭을 단다.
+        let collect = screens(&o, Lang::Ko)
+            .more
+            .into_iter()
+            .flat_map(|g| g.items)
+            .find(|i| matches!(i.tag, Tag::Collect))
+            .expect("수집만 하기 줄");
+        assert_eq!(
+            collect.off,
+            Some("이 룰은 네트워크로 점검하고 이 기계를 검사하지 않습니다")
+        );
+
+        // 이 기계를 보는 룰의 화면은 그대로다 — 그 줄은 서지 않는다.
+        assert!(!main_labels(&offer(true, false)).contains(&NET_ITEM.0));
+    }
+
     /// 치료가 유지됐는지는 **치료한 기록이 있어야** 묻는다 — 없을 때 고르면 치료한 적 없는
     /// 기계에 *"치료 성공"* 이 떴다(v1.1.0 적대적 검토 · 2026-11-07 실측). 이제는 그 줄이 서지 않는다.
     #[test]
@@ -1242,6 +1333,8 @@ mod tests {
                 WithPlugin::Verify(_) => "verify",
                 WithPlugin::Lint(_) => "plugin lint",
                 WithPlugin::VerifyBundle(_) => "plugin verify",
+                // 본체의 명령이 아니다 — 동반 프로그램을 띄운다(`crate::net`).
+                WithPlugin::NetCheck(_) => "remedy-net",
             },
             Tag::NeedsRun(mk) | Tag::NeedsUnfinished(mk) => match mk(a_run("r")) {
                 WithRun::Restore(_) => "restore",

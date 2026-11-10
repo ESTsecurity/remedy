@@ -364,6 +364,17 @@ try {
     # `NothingUsable` 은 그대로 5 이고, 치료 승인을 거절한 자리는 그대로 2 다.
     Add-Check "1" "그만두기가 0 으로 끝난다 (사람이 고르지 않았다)" ($r.probe.exit -eq 0) "exit=$($r.probe.exit)"
 
+    # 동반 프로그램이 든 꾸러미(1.4.0 부터 배포본)면 메뉴의 원격 점검이 그것을 띄워야 한다 — 단계가
+    # 조용히 빠지는 것도 실패다(고르는 화면에 *네트워크 사용* 줄이 서지 않았다는 뜻이다).
+    if (Test-Path (Join-Path $pkgSource "remedy-net")) {
+        $n = $r.network
+        $nev = $(if ($n) {
+            "고르는 화면 $($n.number)번 · exit=$($n.exit) (기대 6) · 알림이 먼저 $($n.told_first) · 주소 물음 $($n.asked) · 결과 파일 $($n.saved) · 메뉴로 돌아옴 $($n.back_menu)"
+        } else { "원격 점검 단계가 돌지 않았다" })
+        Add-Check "2" "원격 점검이 메뉴에서 remedy-net 을 띄워 끝까지 돈다 (닫힌 포트 → 확인 필요)" `
+                  ($null -ne $n -and [bool]$n.ok) $nev
+    }
+
     foreach ($s in $r.steps) {
         $ev = "메뉴 $($s.number)번 · exit=$($s.exit) (기대 $($s.expect)) · 메뉴로 돌아옴 $($s.back_menu)"
         if ($s.timed_out) { $ev += " · 시간 초과" }

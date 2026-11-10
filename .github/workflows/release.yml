@@ -12,6 +12,10 @@
 #   자산은 늘지 않는다(GitHub 은 릴리스 하나에 자산 1,000 이 상한이다). 그 OS 의 룰은
 #   `cargo xtask threats --dirs <os>` 가 매니페스트의 `platforms` 로 고른다.
 #   리눅스는 musl 정적이다(설계-01 · `rust-toolchain.toml`).
+# - 꾸러미 안에 **동반 프로그램 `remedy-net`** 이 함께 들어간다(설계-04 §1 *동반 모듈*) — 네트워크로
+#   하는 점검을 맡는 별도 실행 파일이고, 본체는 서명이 맞는 것만 띄운다. 그래서 그 폴더도 룰과 같은
+#   키로 서명하고, 잡 안에서 **본체가 실제로 띄우는지 · 바뀐 것은 띄우지 않는지**를 잰다. 본체와 따로
+#   짓는다 — 한 번에 지으면 두 크레이트의 기능이 합쳐져 본체가 혼자 지은 것과 달라질 수 있다.
 # - 시험판은 `v<코어 버전>-rc.<N>` 태그다. 같은 차례를 돌고 초안을 **시험판**으로
 #   표시한다. 엔진과 README 의 '코어' 줄은 코어 버전 그대로다 — 그 버전의 후보다.
 # - 산출물을 잡 사이에 넘기지 않는다. 공개 저장소의 Actions 산출물은 로그인한 누구나
@@ -38,6 +42,9 @@ on:
       - xtask/src/sign.rs
       - xtask/src/staticlink.rs
       - xtask/src/threats.rs
+      # 동반 프로그램 — 정적 빌드(musl · 정적 CRT)가 깨지는 것을 태그가 아니라 PR 에서 본다.
+      - crates/remedy-net/**
+      - crates/remedy-cli/src/net.rs
 
 permissions:
   contents: read
@@ -123,6 +130,7 @@ jobs:
           | 리눅스 서버 (64비트) | `remedy-linux-x64.tar.gz` |
 
           파일 하나에 프로그램과 그 OS 용 룰이 모두 들어 있습니다. 풀면 나오는 폴더의 `README.txt` 에 사용 방법이 있습니다.
+          네트워크를 쓰는 *원격 점검* 항목은 함께 든 `remedy-net` 이 맡습니다 — 네트워크를 쓰지 않으려면 풀린 폴더에서 `remedy-net` 폴더를 지우면 됩니다.
           맨 아래 *Source code* 두 개와 *Release attestation (json)* 은 개발 · 검증용입니다 — 받지 않으셔도 됩니다.
           EOF
             printf '\n처음이시면 저장소 첫 화면의 설명부터 읽으십시오 — %s/%s\n\n## 다루는 위협\n\n%s\n' \
@@ -164,6 +172,7 @@ jobs:
     env:
       TARGET: x86_64-pc-windows-msvc
       PKG: dist/remedy-windows-x64
+      COMPANION: companion/remedy-net
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -179,28 +188,37 @@ jobs:
         run: bash ci/release.sh pubkey
       - name: build (anchored)
         run: cargo build --release --locked --target "$TARGET" -p remedy-cli
-      # 정적 CRT · 네트워크 임포트 — 설정이 무시되면 조용히 동적 링크가 나온다.
+      - name: build companion
+        run: cargo build --release --locked --target "$TARGET" -p remedy-net
+      # 정적 CRT · 네트워크 임포트 — 설정이 무시되면 조용히 동적 링크가 나온다. 본체는 네트워크
+      # 임포트가 하나도 없어야 하고, 동반 프로그램은 소켓만 쓴다(OS 의 HTTP 스택은 막는다).
       - name: static
-        run: cargo xtask static "target/$TARGET/release/remedy.exe"
+        run: |
+          cargo xtask static "target/$TARGET/release/remedy.exe"
+          cargo xtask static --companion "target/$TARGET/release/remedy-net.exe"
       - name: sign
         env:
           SECRET_KEY: ${{ secrets.REMEDY_SIGN_SECRET_KEY }}
           SECRET_PASSWORD: ${{ secrets.REMEDY_SIGN_PASSWORD }}
         run: |
           for d in $(cargo xtask threats --dirs windows); do bash ci/release.sh sign "$d"; done
+          mkdir -p "$COMPANION"
+          cp "target/$TARGET/release/remedy-net.exe" "$COMPANION/"
+          bash ci/release.sh sign-companion "$COMPANION"
       - name: package
         run: |
           args=()
           for d in $(cargo xtask threats --dirs windows); do args+=(--plugin "$d"); done
           cargo xtask package "${args[@]}" --bin "target/$TARGET/release/remedy.exe" \
-            --out "$PKG" --public-key "$RELEASE_PUBKEY"
-      # 기준 5(b) — 받는 사람이 푸는 그 폴더에서 룰마다 잰다.
+            --companion "$COMPANION" --out "$PKG" --public-key "$RELEASE_PUBKEY"
+      # 기준 5(b) — 받는 사람이 푸는 그 폴더에서 룰마다 잰다. 동반 프로그램은 본체가 실제로 띄워 본다.
       - name: verify (5b)
         run: |
           bash ci/release.sh readme "$PKG/README.txt"
           for d in $(cargo xtask threats --dirs windows); do
             bash ci/release.sh verify "$PKG/remedy.exe" "$PKG/plugins/$(basename "$d")"
           done
+          bash ci/release.sh verify-companion "$PKG/remedy.exe"
       - name: upload to draft
         if: github.event_name == 'push'
         env:
@@ -220,6 +238,7 @@ jobs:
     env:
       TARGET: x86_64-unknown-linux-musl
       PKG: dist/remedy-linux-x64
+      COMPANION: companion/remedy-net
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -244,32 +263,42 @@ jobs:
         run: bash ci/release.sh pubkey
       - name: build (anchored)
         run: cargo build --release --locked --target "$TARGET" -p remedy-cli
-      # 정적인가 — 동적 로더(INTERP)와 NEEDED 가 없어야 한다.
+      - name: build companion
+        run: cargo build --release --locked --target "$TARGET" -p remedy-net
+      # 정적인가 — 동적 로더(INTERP)와 NEEDED 가 없어야 한다. 동반 프로그램도 같다.
       - name: static
         run: |
-          file "target/$TARGET/release/remedy" | tee "$RUNNER_TEMP/file.txt"
-          grep -qE 'statically linked|static-pie' "$RUNNER_TEMP/file.txt"
+          for bin in remedy remedy-net; do
+            file "target/$TARGET/release/$bin" | tee "$RUNNER_TEMP/file-$bin.txt"
+            grep -qE 'statically linked|static-pie' "$RUNNER_TEMP/file-$bin.txt"
+          done
       - name: sign
         env:
           SECRET_KEY: ${{ secrets.REMEDY_SIGN_SECRET_KEY }}
           SECRET_PASSWORD: ${{ secrets.REMEDY_SIGN_PASSWORD }}
         run: |
           for d in $(cargo xtask threats --dirs linux); do bash ci/release.sh sign "$d"; done
+          mkdir -p "$COMPANION"
+          cp "target/$TARGET/release/remedy-net" "$COMPANION/"
+          bash ci/release.sh sign-companion "$COMPANION"
       # 사고 하나에 룰이 둘일 수 있다(CWPdoor — 점검과 치료). 폴더 이름의 숫자가 안내 모드의 차례다.
       - name: package
         run: |
           args=()
           for d in $(cargo xtask threats --dirs linux); do args+=(--plugin "$d"); done
           cargo xtask package "${args[@]}" --bin "target/$TARGET/release/remedy" \
-            --out "$PKG" --public-key "$RELEASE_PUBKEY"
-      # 기준 5(b) — 받는 사람이 푸는 그 폴더에서 룰마다 잰다.
+            --companion "$COMPANION" --out "$PKG" --public-key "$RELEASE_PUBKEY"
+      # 기준 5(b) — 받는 사람이 푸는 그 폴더에서 룰마다 잰다. 동반 프로그램은 본체가 실제로 띄워 본다.
       - name: verify (5b)
         run: |
           bash ci/release.sh readme "$PKG/README.txt"
           for d in $(cargo xtask threats --dirs linux); do
             bash ci/release.sh verify "$PKG/remedy" "$PKG/plugins/$(basename "$d")"
           done
+          bash ci/release.sh verify-companion "$PKG/remedy"
           cmp "$PKG/remedy" "target/$TARGET/release/remedy"
+          cmp "$PKG/remedy-net/remedy-net" "target/$TARGET/release/remedy-net"
+          test -x "$PKG/remedy-net/remedy-net"
       # root 가 풀면 tar 에 적힌 소유자가 그대로 남는다 — 러너 사용자(uid 1001)로 담으면 그 uid 의
       # 계정이 실행 파일을 바꿔 다음 `sudo ./remedy` 로 root 를 얻는다(v1.1.0 이 그렇게 나갔다).
       # 소유자를 root 로 적고, 시험 실행에서도 재도록 올리기와 나눈다.

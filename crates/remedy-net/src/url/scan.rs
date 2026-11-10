@@ -7,7 +7,7 @@
 use super::criteria;
 use super::headers::{php_hints, php_version, values};
 use super::input::Input;
-use super::policy::{Cancel, Gate, MAX_URLS};
+use super::policy::{Cancel, Gate, Halt, MAX_URLS};
 use super::report::{header_caveat, Finding, FindingKind, Requests, Statuses, Target, Verdict};
 use super::stop::Stopped;
 use super::wire::{Failure, Method, Transport};
@@ -116,10 +116,21 @@ impl Scan<'_> {
         let mut method = Method::Head;
         for _ in 0..2 {
             if let Err(halt) = self.gate.before_request(deadline, self.cancel) {
-                t.gaps.push(lang.pick(
-                    format!("요청 제한으로 중단했습니다: {}", halt.message(lang)),
-                    format!("Stopped by the request limits: {}", halt.message(lang)),
-                ));
+                t.gaps.push(match halt {
+                    // 취소는 요청 상한 탓이 아니다 — 사람이 멈췄거나(Ctrl+C) 실행 시한이 지났다. 상한의
+                    // 말머리를 달면 *요청 제한으로 중단했습니다: 취소했습니다* 가 되어, 누른 사람이 도구가
+                    // 무슨 한도에 걸린 것으로 읽는다(2026-11-10 메뉴에서 Ctrl+C 를 눌러 본 화면).
+                    Halt::Cancelled => lang
+                        .t(
+                            "점검을 취소했거나 실행 시한이 지나 요청을 멈췄습니다.",
+                            "Stopped: the run was cancelled or its time limit passed.",
+                        )
+                        .to_string(),
+                    _ => lang.pick(
+                        format!("요청 제한으로 중단했습니다: {}", halt.message(lang)),
+                        format!("Stopped by the request limits: {}", halt.message(lang)),
+                    ),
+                });
                 if halt.stops_server() {
                     stopped.stop(&host, closed_reason(lang));
                 }

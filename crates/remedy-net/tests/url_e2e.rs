@@ -1193,3 +1193,82 @@ fn ctrl_c_keeps_the_head_warning_and_the_report() {
     assert_eq!(r["targets"][0]["verdict"], "vulnerable");
     assert_eq!(r["targets"][1]["requests"]["head"], 0);
 }
+
+// ── 시나리오 밖 — 주소를 물어서 받기(`--ask`) ─────────────────────────────────
+
+/// 본체(`remedy`)의 메뉴가 띄우는 꼴 — 약관에 동의한 뒤 주소를 한 줄씩 받고, 잘못 적은 줄은 까닭을
+/// 말하고 다시 묻는다. 받은 주소만 점검한다.
+#[test]
+fn ask_mode_reads_the_addresses_after_consent() {
+    let scratch = Scratch::new("ask");
+    let m = Mock::start(&scratch.0);
+    let out_dir = scratch.0.join("reports");
+    let mut child = Command::new(env!("CARGO_BIN_EXE_remedy-net"))
+        .args(["url", "--ask", "--out-dir"])
+        .arg(&out_dir)
+        .env("REMEDY_LANG", "ko")
+        .env("REMEDY_ASCII", "0")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let typed = format!(
+        "y\n{}\nnot-a-url\n{}\n\n",
+        url(m.base, "/vulnerable"),
+        url(m.base, "/fixed")
+    );
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(typed.as_bytes())
+        .unwrap();
+    let out = child.wait_with_output().unwrap();
+    let stdout = String::from_utf8_lossy(&out.stdout).into_owned();
+    assert_eq!(out.status.code(), Some(2), "{stdout}");
+    // 약관 → 동의 → 주소 차례다.
+    let terms = stdout.find(TERMS_HEADER).expect("약관이 없다");
+    let asked = stdout.find("주소 1: ").expect("주소를 묻지 않았다");
+    assert!(terms < stdout.find(PROMPT).unwrap() && stdout.find(PROMPT).unwrap() < asked);
+    // 잘못 적은 줄은 번호를 먹지 않는다 — 주소 2 를 두 번 묻는다.
+    assert_eq!(stdout.matches("주소 2: ").count(), 2, "{stdout}");
+    let seen: Vec<String> = m
+        .events()
+        .iter()
+        .map(|e| format!("{} {}", e.method, e.path))
+        .collect();
+    assert_eq!(seen, vec!["HEAD /vulnerable", "HEAD /fixed"]);
+    let file = std::fs::read_dir(&out_dir)
+        .unwrap()
+        .next()
+        .expect("결과 파일이 없다")
+        .unwrap()
+        .path();
+    let r: Value = serde_json::from_str(&std::fs::read_to_string(file).unwrap()).unwrap();
+    assert_eq!(r["targets"].as_array().unwrap().len(), 2);
+    assert_eq!(r["consent"]["via"], "prompt");
+}
+
+/// 주소를 하나도 적지 않으면 점검하지 않는다 — 요청도 결과 폴더도 없다.
+#[test]
+fn ask_mode_with_no_address_checks_nothing() {
+    let scratch = Scratch::new("ask_none");
+    let m = Mock::start(&scratch.0);
+    let out_dir = scratch.0.join("reports");
+    let mut child = Command::new(env!("CARGO_BIN_EXE_remedy-net"))
+        .args(["url", "--ask", "--out-dir"])
+        .arg(&out_dir)
+        .env("REMEDY_LANG", "ko")
+        .env("REMEDY_ASCII", "0")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child.stdin.take().unwrap().write_all(b"y\n\n").unwrap();
+    let out = child.wait_with_output().unwrap();
+    assert_eq!(out.status.code(), Some(4));
+    assert!(m.events().is_empty());
+    assert!(!out_dir.exists());
+}
