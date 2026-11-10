@@ -2377,6 +2377,7 @@ dependencies = [
  "rcgen",
  "regex",
  "remedy-report",
+ "remedy-rpmdb",
  "remedy-sdk",
  "rustls",
  "rustls-native-certs",

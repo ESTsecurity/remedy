@@ -21,6 +21,9 @@ remedy-sdk = { path = "../remedy-sdk" }
 # 제품 이름의 한 자리(`brand`). 문자열만 만드는 크레이트라(`remedy-sdk` 말고 내부 의존이 없다) 파괴
 # 경로도 통신도 들이지 않는다. 점검 결과 줄을 본체의 점검 룰과 같은 문장으로 낼 때도 이것을 쓴다.
 remedy-report = { path = "../remedy-report" }
+# RPM 패키지 DB 판독기 — 이미지 · 컨테이너에서 꺼낸 DB 를 `read_untrusted` 로 읽는다. std 뿐인 잎 크레이트라
+# OS 에도 통신에도 닿지 않는다(설계-04 §1 의 `remedy-rpmdb ↛ remedy-platform`).
+remedy-rpmdb = { path = "../remedy-rpmdb" }
 serde.workspace = true
 serde_json.workspace = true
 schemars.workspace = true
