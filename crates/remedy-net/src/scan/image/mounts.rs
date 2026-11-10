@@ -34,6 +34,11 @@ pub(super) fn read(lang: Lang) -> Res<Vec<Mount>> {
 }
 
 /// `mountinfo` 의 줄들 — 꼴이 하나라도 어긋나면 `None`.
+///
+/// ` - ` 뒤는 파일 시스템 종류 · 마운트 원본 · 슈퍼 옵션이다. 앞의 둘은 커널이 공백을 `\040` 으로 적지만 슈퍼
+/// 옵션은 파일 시스템마다 그대로 적기도 해서, 셋째부터 끝까지를 슈퍼 옵션 하나로 읽는다(2026-11-11 — Docker
+/// Desktop 이 WSL 에 붙이는 9p 마운트는 `path=C:\Program Files\…` 를 공백째 적는다). 스캐너는 정확히 세 칸을 요구해
+/// 그런 기계에서 모든 입력을 거절했다. 슈퍼 옵션은 판정에 쓰지 않는다.
 fn parse(data: &[u8]) -> Option<Vec<Mount>> {
     if data.is_empty() || data.len() as u64 > SNAPSHOT_LIMIT || data.last() != Some(&b'\n') {
         return None;
@@ -44,7 +49,7 @@ fn parse(data: &[u8]) -> Option<Vec<Mount>> {
         let (left, right) = line.split_once(" - ")?;
         let before: Vec<&str> = left.split_whitespace().collect();
         let after: Vec<&str> = right.split_whitespace().collect();
-        if before.len() < 6 || after.len() != 3 {
+        if before.len() < 6 || after.len() < 3 {
             return None;
         }
         let name = decode_name(before[4])?;
@@ -174,6 +179,24 @@ mod tests {
         let twin = b"1 0 8:1 / / rw - ext4 /dev/sda1 rw\n2 0 0:5 / / rw - cifs //s/x rw\n";
         assert!(check("/x", &parse(twin).unwrap(), Lang::Ko).is_err());
         assert!(parse(b"1 0 8:1 / / rw - ext4\n").is_none());
+        assert!(parse(b"1 0 8:1 / / rw - ext4 /dev/sda1\n").is_none());
         assert!(parse(b"1 0 8:1 / /\\999 rw - ext4 a b\n").is_none());
+    }
+
+    /// Docker Desktop 이 WSL 에 붙이는 마운트 — 슈퍼 옵션에 공백이 그대로 들어 있다(2026-11-11 에 본 줄).
+    #[test]
+    fn super_options_may_hold_spaces() {
+        let info = concat!(
+            "1 0 8:1 / / rw - ext4 /dev/sda1 rw\n",
+            r"539 418 0:138 / /Docker/host rw,noatime - 9p C:\134Program\040Files\134Docker\134Docker\134resources rw,dirsync,aname=drvfs;path=C:\Program Files\Docker\Docker\resources;symlinkroot=/mnt/,mmap,access=client,msize=65536,trans=fd,rfd=3,wfd=3",
+            "\n",
+        );
+        let mounts = parse(info.as_bytes()).expect("슈퍼 옵션의 공백 때문에 목록을 버렸다");
+        assert_eq!(mounts.len(), 2);
+        assert!(check("/tmp/image.tar", &mounts, Lang::Ko).is_ok());
+        assert!(
+            check("/Docker/host/x", &mounts, Lang::Ko).is_err(),
+            "9p 는 로컬이 아니다"
+        );
     }
 }
