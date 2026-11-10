@@ -693,9 +693,10 @@ flowchart TB
 존재하지 않는다.**
 
 위 그림에 없는 셋: `remedy-enrich`(P13 · 사내 조회, **치료 경로에 링크되지
-않는다**) · `remedy-testkit`(시험 도우미) · `remedy-net`(동반 모듈 — 네트워크로 하는
-점검을 맡는 별도 바이너리. 본체는 링크하지 않고, 네트워크 점검 룰을 고르면 서명을 확인한 그 실행 파일을
-띄워 종료 코드만 받는다 — 설계-04 §1).
+않는다**) · `remedy-testkit`(시험 도우미) · `remedy-net`(동반 모듈 — 본체가 하지 않는
+점검을 맡는 별도 바이너리: 웹서버 원격 확인 `url` · 이미지 파일 `image` · 컨테이너 `container`. 본체는 링크하지
+않고, 네트워크 점검 룰을 고르면 서명을 확인한 그 실행 파일을 띄워 종료 코드만 받는다 — 설계-04 §1. `image` ·
+`container` 는 사람이 직접 실행한다).
 
 > `remedy-wintrust` 만 `unsafe` 를 쓴다. 나머지 18종은 `#![forbid(unsafe_code)]`.
 > 그 하나의 이유는 `WinVerifyTrust` 의 안전 래퍼가 crates.io 에 없기 때문이다.
@@ -715,7 +716,7 @@ cargo deny check
 | `arch` | 금지 의존 10건 · 본체 의존 트리에 HTTP · TLS · 소켓 크레이트 0 · 제품 바이너리 이름 |
 | `unsafe` | 19 중 18 이 `#![forbid(unsafe_code)]` |
 | `trace` | 설계 인벤토리가 Phase 계획에 전부 반영됐는가 |
-| `schema` | 생성물 9개가 생성기(SDK · `remedy-net`)와 일치하는가 |
+| `schema` | 생성물 10개가 생성기(SDK · `remedy-net`)와 일치하는가 |
 | `가이드` | 문서 18개의 크기 예산과 헤더 |
 | `console-doc` | `콘솔은-이렇게-보인다.md` 가 인용한 화면이 **기준선에 실제로 있는가** |
 | `screens` | 고객이 읽는 화면에 쓰지 않기로 한 말이 돌아왔는가 |

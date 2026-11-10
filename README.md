@@ -369,6 +369,34 @@ sudo bash detect_ebury.sh
 
 </details>
 
+### 이미지 파일 · 컨테이너 — PHP · Node.js (점검만 합니다)
+
+- **이미지와 컨테이너를 봅니다** — 메뉴에는 없고, 받은 폴더의 `remedy-net` 을 직접 실행합니다. 이미지
+  파일(`docker save` · OCI)이나 이 기계에서 실행 중인 컨테이너의 PHP · Node.js 를 위와 같은 기준(PHP2Shell ·
+  세션 업로드 진행 설정 · Node2Shell)으로 봅니다. 아무것도 바꾸지 않고, 시작할 때 이용 조건에 동의를 받습니다.
+- **꼭 할 일** *취약* 이면 고친 버전으로 이미지를 다시 짓고 컨테이너를 새로 띄웁니다. 컨테이너 점검은 엔진에서
+  읽을 수 있는 파일만 보므로 '괜찮다' 를 말하지 않습니다 — *취약* 이 나오지 않아도 안전하다는 뜻이 아닙니다.
+- **못 보는 것** 지금 도는 프로세스가 실제로 실은 것 · 바깥에서 붙인 폴더(마운트) 안 · 기준(2026-10-30 버전) 뒤에
+  다시 지어진 공식 이미지(그 파일은 *확인 필요* 로 나옵니다).
+
+<details>
+<summary>자세히 — 명령 · 받는 형식 · 권한 · 결과 파일</summary>
+
+- **명령** — Windows: `.\remedy-net\remedy-net.exe image app.tar` · `.\remedy-net\remedy-net.exe container --list`
+  · `.\remedy-net\remedy-net.exe container <컨테이너 ID>`. 리눅스: `./remedy-net/remedy-net image app.tar` ·
+  `sudo ./remedy-net/remedy-net container <컨테이너 ID>`. 옵션은 `--help` 로 봅니다.
+- **받는 형식** — `docker save` 로 저장한 파일 · OCI 아카이브 · OCI 레이아웃 폴더(gzip · zstd 레이어도). 여러
+  플랫폼이 든 이미지는 플랫폼마다 결과가 나오고, 저장되지 않은 플랫폼은 *확인 필요* 로 남습니다 — `docker save
+  --platform linux/amd64 …` 처럼 하나만 저장하면 깔끔합니다. 이미지 하나로 된 파일은 결과 폴더 아래에 잠시
+  풀었다가 지우므로 그만큼 디스크가 필요합니다.
+- **권한** — 이미지 점검은 관리자 권한이 필요 없습니다. 컨테이너 점검은 리눅스에서 root 로 실행합니다 — 엔진
+  (dockerd · podman)이 정말 떠 있는지 확인하고, 꺼져 있으면 접속하지 않습니다(접속이 엔진을 띄울 수 있어서입니다).
+  Windows 에서는 Docker Desktop 이 떠 있어야 합니다.
+- **결과 파일** — `--out-dir`(기본 `results`) 폴더의 `remedy-net-image-….json` · `remedy-net-container-….json`.
+  종료 코드는 remedy 와 같은 표입니다(0 양호 · 2 취약 · 6 확인 필요 · 4 입력 오류나 동의하지 않음).
+
+</details>
+
 ## 화면
 
 검사가 찾은 것과 할 일을 먼저 다 보여 드리고, 결과에 맞는 다음 할 일을 메뉴 번호로 알려
