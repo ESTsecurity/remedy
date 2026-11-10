@@ -103,7 +103,8 @@ fn databases(fs: &RootFs, t: &mut Target, cx: &Cx<'_>) -> Vec<Record> {
     let mut found = false;
     let mut out = Vec::new();
     for db in dbs {
-        let Some(e) = fs.entries.get(&db) else {
+        // 내용 없는 장치 · FIFO 는 패키지 DB 후보가 아니다 — 없는 것과 같다.
+        let Some(e) = fs.entries.get(&db).filter(|e| !e.special()) else {
             continue;
         };
         found = true;
@@ -142,7 +143,7 @@ fn rpm_database(fs: &RootFs) -> Option<String> {
     for root in ["usr/lib/sysimage/rpm", "var/lib/rpm"] {
         for base in ["rpmdb.sqlite", "Packages", "Packages.db"] {
             let name = format!("{root}/{base}");
-            if fs.entries.contains_key(&name) {
+            if fs.entries.get(&name).is_some_and(|e| !e.special()) {
                 return Some(name);
             }
         }
@@ -425,6 +426,9 @@ impl<'a> DpkgInfo<'a> {
         {
             if !name.starts_with(DPKG_INFO) {
                 break;
+            }
+            if e.special() {
+                continue;
             }
             let base = slashpath::base(name);
             let (index, stem) = if let Some(stem) = base.strip_suffix(".list") {

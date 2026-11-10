@@ -293,7 +293,8 @@ fn unowned_files(
     let lang = cx.lang;
     let mut count = 0usize;
     for (name, e) in &fs.entries {
-        if !is_php_runtime(name) || e.kind == TYPE_DIR || fs.runtime_data_file(name) {
+        let skip = e.kind == TYPE_DIR || fs.special(name) || fs.runtime_data_file(name);
+        if !is_php_runtime(name) || skip {
             continue;
         }
         count += 1;

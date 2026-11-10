@@ -179,7 +179,8 @@ fn candidates(fs: &RootFs, t: &mut Target, cx: &Cx<'_>, links: &Links<'_>) -> us
     let mut count = 0usize;
     let mut seen = BTreeSet::new();
     for (name, e) in &fs.entries {
-        if !is_node_runtime(name) || e.kind == TYPE_DIR || fs.runtime_data_file(name) {
+        let skip = e.kind == TYPE_DIR || fs.special(name) || fs.runtime_data_file(name);
+        if !is_node_runtime(name) || skip {
             continue;
         }
         count += 1;
@@ -396,14 +397,15 @@ impl Links<'_> {
     }
 
     /// DT_NEEDED 의 SONAME 을 표준 라이브러리 폴더의 파일 하나로(스캐너의 `linkedLibrary`). 같은 ABI 의 다른 파일이
-    /// 둘 이상이거나, 하나라도 읽히지 않으면 `None`.
+    /// 둘 이상이거나, 하나라도 읽히지 않으면 `None`. 내용 없는 장치 · FIFO 는 후보가 아니다.
     fn linked_library(&self, soname: &str, identity: &ElfIdentity) -> Option<(String, &Entry)> {
         if !identity.valid() {
             return None;
         }
         let mut found: Option<(String, &Entry)> = None;
         for candidate in self.fs.entries.keys() {
-            if slashpath::base(candidate) != soname || !standard_library_path(candidate) {
+            let named = slashpath::base(candidate) == soname && standard_library_path(candidate);
+            if !named || self.fs.special(candidate) {
                 continue;
             }
             let (name, entry) = self.fs.resolve(candidate).ok()?;

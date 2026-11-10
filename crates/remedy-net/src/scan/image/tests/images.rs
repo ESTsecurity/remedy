@@ -185,7 +185,8 @@ fn collect(root: &std::path::Path, dir: &std::path::Path, items: &mut Vec<Item>)
     }
 }
 
-/// `TestUnsafeAndMalformedLayersAreRejected`
+/// `TestUnsafeAndMalformedLayersAreRejected` — 스캐너의 `device` 는 2026-11-11 부터 받는 쪽이다(아래
+/// `device_and_fifo_entries_are_accepted_without_content`). 그 자리에 남은 거절을 더했다.
 #[test]
 fn unsafe_and_malformed_layers_are_rejected() {
     let mut huge = reg("huge", "");
@@ -194,16 +195,24 @@ fn unsafe_and_malformed_layers_are_rejected() {
         ("traversal", vec![reg("../escape", "x")]),
         ("absolute", vec![reg("/escape", "x")]),
         ("drive", vec![reg("C:/escape", "x")]),
+        ("backslash", vec![reg("dir\\php", "x")]),
         ("symlink_escape", vec![kind("link", b'2', "../escape")]),
         (
             "hardlink_cycle",
             vec![kind("a", b'1', "b"), kind("b", b'1', "a")],
         ),
-        ("device", vec![kind("dev/example", b'3', "")]),
+        ("hardlink_missing", vec![kind("a", b'1', "missing")]),
+        ("sparse", vec![kind("sparse", b'S', "")]),
+        ("global_pax", vec![kind("pax_global_header", b'g', "")]),
+        ("contiguous", vec![kind("contiguous", b'7', "")]),
         ("malformed_size", vec![huge]),
         (
             "symlink_parent",
             vec![kind("dir", b'2', "other"), reg("dir/php", "x")],
+        ),
+        (
+            "device_parent",
+            vec![kind("dev", b'3', ""), reg("dev/php", "x")],
         ),
     ];
     for (name, items) in cases {
@@ -216,6 +225,45 @@ fn unsafe_and_malformed_layers_are_rejected() {
             targets[0].gaps
         );
     }
+}
+
+/// 장치 · FIFO 는 내용 없는 항목으로 받는다(2026-11-11) — 기본 이미지가 담는 `dev/console` 같은 장치가 있어도
+/// 나머지를 그대로 점검한다.
+#[test]
+fn device_and_fifo_entries_are_accepted_without_content() {
+    let mut items = php_entries(FIXED);
+    items.extend([
+        kind("dev", b'5', ""),
+        kind("dev/console", b'3', ""),
+        kind("dev/sda", b'4', ""),
+        kind("run/initctl", b'6', ""),
+    ]);
+    let (dir, _) = oci(&[tar(&items)], Raw, &[]);
+    let targets = php_scan(dir.path());
+    single(&targets, Review);
+    assert!(targets[0].gaps.is_empty(), "{:?}", targets[0].gaps);
+    let found = runtime(&targets[0]);
+    assert_eq!(found.len(), 1, "{found:#?}");
+    assert_eq!(
+        (found[0].path.as_deref(), found[0].status),
+        (Some("/usr/bin/php8.3"), Clear)
+    );
+}
+
+/// 위 레이어의 장치가 아래 레이어의 취약한 PHP 를 덮는다 — 그 자리에서는 아무 판정도 나오지 않고, 패키지 기록만
+/// 남아 *확인 필요* 다.
+#[test]
+fn upper_device_node_hides_lower_php() {
+    let upper = [kind("usr/bin/php8.3", b'3', "")];
+    let (dir, _) = oci(&[tar(&php_entries(BEFORE)), tar(&upper)], Raw, &[]);
+    let targets = php_scan(dir.path());
+    single(&targets, Review);
+    assert!(
+        runtime(&targets[0]).is_empty(),
+        "{:#?}",
+        targets[0].findings
+    );
+    assert!(gaps(&targets[0], Product::Php).contains("PHP 실행 파일을 확인하지 못했습니다"));
 }
 
 /// `TestLimitsAndCancellationCannotBecomeClear`

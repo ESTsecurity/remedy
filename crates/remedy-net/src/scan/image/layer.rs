@@ -11,7 +11,10 @@ use super::meta::{digest_path, hex};
 use super::names;
 use super::rootfs::{capture_limit, is_selected_binary, Entry, RootFs, SELECTED_DATA_LIMIT};
 use super::source::{archive_path, drive_path, reject_sparse, Source};
-use super::tarball::{Header, TarReader, TYPE_DIR, TYPE_LINK, TYPE_REG, TYPE_SYMLINK};
+use super::tarball::{
+    Header, TarReader, TYPE_BLOCK, TYPE_CHAR, TYPE_DIR, TYPE_FIFO, TYPE_LINK, TYPE_REG,
+    TYPE_SYMLINK,
+};
 use super::Cx;
 use crate::scan::budget::IMAGE_LIMIT;
 use crate::scan::slashpath;
@@ -160,6 +163,19 @@ fn entry<R: Read>(
     ch: &mut Changes,
 ) -> Res<()> {
     let lang = cx.lang;
+    let Some(name) = entry_name(h, fs, lang)? else {
+        return Ok(());
+    };
+    if let Some(removed) = slashpath::base(&name).strip_prefix(".wh.") {
+        return whiteout(h, &name, removed, ch, lang);
+    }
+    let e = content(tar, h, &name, fs, cx, ch)?;
+    ch.added.insert(name, e);
+    Ok(())
+}
+
+/// 항목의 이름 — 크기 · 희소 파일을 거르고, 뿌리 폴더 자체(`.`)면 `None`.
+fn entry_name(h: &Header, fs: &RootFs, lang: Lang) -> Res<Option<String>> {
     let name = fs.key(&archive_path(&names::from_bytes(&h.name), lang)?);
     if h.size < 0 || h.size as u64 > IMAGE_LIMIT {
         return Err(lang
@@ -170,21 +186,30 @@ fn entry<R: Read>(
             .to_string());
     }
     reject_sparse(h, lang)?;
-    if name == "." {
-        if h.typeflag == TYPE_DIR {
-            return Ok(());
-        }
-        return Err(lang
-            .t(
-                "레이어의 뿌리가 폴더가 아닙니다",
-                "the layer root is not a folder",
-            )
-            .to_string());
+    if name != "." {
+        return Ok(Some(name));
     }
-    let base = slashpath::base(&name);
-    if let Some(removed) = base.strip_prefix(".wh.") {
-        return whiteout(h, &name, removed, ch, lang);
+    if h.typeflag == TYPE_DIR {
+        return Ok(None);
     }
+    Err(lang
+        .t(
+            "레이어의 뿌리가 폴더가 아닙니다",
+            "the layer root is not a folder",
+        )
+        .to_string())
+}
+
+/// 종류마다 담을 것 — 일반 파일은 앞부분과 해시, 링크는 대상, 폴더 · 장치 · FIFO 는 자료 없이.
+fn content<R: Read>(
+    tar: &mut TarReader<R>,
+    h: &Header,
+    name: &str,
+    fs: &RootFs,
+    cx: &Cx<'_>,
+    ch: &mut Changes,
+) -> Res<Entry> {
+    let lang = cx.lang;
     let mut e = Entry {
         kind: h.typeflag,
         size: h.size,
@@ -192,8 +217,11 @@ fn entry<R: Read>(
         ..Entry::default()
     };
     match h.typeflag {
-        TYPE_REG => e = capture(tar, h, &name, fs, cx, ch)?,
+        TYPE_REG => return capture(tar, h, name, fs, cx, ch),
         TYPE_DIR => no_data(h, "디렉터리", "directory", lang)?,
+        // 장치 · FIFO 는 내용 없는 항목으로 둔다 — 덮고 지워지는 것은 다른 항목과 같고, 후보가 되지 않는다
+        // (`rootfs` 머리말).
+        TYPE_CHAR | TYPE_BLOCK | TYPE_FIFO => no_data(h, "장치 · FIFO", "device or FIFO", lang)?,
         TYPE_SYMLINK | TYPE_LINK => {
             let hard = h.typeflag == TYPE_LINK;
             let what = if hard {
@@ -203,17 +231,16 @@ fn entry<R: Read>(
             };
             no_data(h, what.0, what.1, lang)?;
             let target = names::from_bytes(&h.linkname);
-            e.link = fs.key(&virtual_link(&name, &target, hard, lang)?);
+            e.link = fs.key(&virtual_link(name, &target, hard, lang)?);
         }
         _ => {
             return Err(lang.pick(
-                format!("장치이거나 지원하지 않는 레이어 항목입니다: {name}"),
-                format!("a device or unsupported layer entry: {name}"),
+                format!("지원하지 않는 종류의 레이어 항목입니다: {name}"),
+                format!("a layer entry of an unsupported type: {name}"),
             ))
         }
     }
-    ch.added.insert(name, e);
-    Ok(())
+    Ok(e)
 }
 
 fn no_data(h: &Header, ko: &str, en: &str, lang: Lang) -> Res<()> {

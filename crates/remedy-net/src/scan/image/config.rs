@@ -117,7 +117,7 @@ pub(super) fn inspect(fs: &RootFs, t: &mut Target, cx: &Cx<'_>, packages: &[Reco
     }
 }
 
-/// 다 담은 설정 파일들 — 64개까지.
+/// 다 담은 설정 파일들 — 64개까지. 내용 없는 장치 · FIFO 는 설정 파일 후보가 아니다.
 fn documents(fs: &RootFs, t: &mut Target, issues: &mut Vec<String>, lang: Lang) -> Vec<Document> {
     let limit = lang.t(
         "설정 파일 판독은 이미지당 64개로 제한했습니다.",
@@ -126,7 +126,7 @@ fn documents(fs: &RootFs, t: &mut Target, issues: &mut Vec<String>, lang: Lang) 
     let mut docs = Vec::new();
     let mut checked = 0usize;
     for name in fs.entries.keys() {
-        if !selected_config(fs, name, &[Product::Php]) {
+        if !selected_config(fs, name, &[Product::Php]) || fs.special(name) {
             continue;
         }
         checked += 1;

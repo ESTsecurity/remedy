@@ -4,10 +4,16 @@
 //! 이 기계에는 아무것도 풀지 않는다. 항목마다 종류 · 링크 대상 · 크기 · 권한과, 판정에 쓰는 파일만 앞부분을 담는다
 //! (배포판 기록 · 패키지 DB · 실행 파일 · PHP 설정). 링크는 가상 뿌리 안에서만 따라간다 — 절대 경로 링크도 이
 //! 기계가 아니라 이미지의 뿌리를 가리킨다.
+//!
+//! 장치(문자 · 블록)와 FIFO 는 내용 없는 항목으로 둔다(2026-11-11). 다른 항목처럼 아래 레이어의 같은 경로를 덮고
+//! 화이트아웃으로 지워지지만, 실행 파일 · 설정 · 패키지 DB 의 후보가 되지 않는다 — 이미지에 내용이 없고 일반
+//! 파일이 아니다.
 
 use super::config::selected_config;
 use super::php::is_php_runtime;
-use super::tarball::{TYPE_DIR, TYPE_LINK, TYPE_REG, TYPE_SYMLINK};
+use super::tarball::{
+    TYPE_BLOCK, TYPE_CHAR, TYPE_DIR, TYPE_FIFO, TYPE_LINK, TYPE_REG, TYPE_SYMLINK,
+};
 use crate::scan::binary::{binary_magic, is_brotli_decoder, is_node_runtime};
 use crate::scan::linuxmeta::RELEASE_FILES;
 use crate::scan::model::Product;
@@ -23,7 +29,7 @@ const RESOLVE_DEPTH: usize = 64;
 /// 항목 하나.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(super) struct Entry {
-    /// tar 의 종류 글자(`0` · `1` · `2` · `5`).
+    /// tar 의 종류 글자(`0` · `1` · `2` · `5`, 내용 없는 `3` · `4` · `6`).
     pub(super) kind: u8,
     /// 링크면 가상 뿌리 안의 대상.
     pub(super) link: String,
@@ -54,6 +60,13 @@ pub(super) struct RootFs {
     pub(super) config_bytes: i64,
     pub(super) config_files: usize,
     pub(super) config_limited: bool,
+}
+
+impl Entry {
+    /// 내용 없는 장치 · FIFO 인가.
+    pub(super) fn special(&self) -> bool {
+        matches!(self.kind, TYPE_CHAR | TYPE_BLOCK | TYPE_FIFO)
+    }
 }
 
 /// 가상 경로를 풀지 못한 까닭.
@@ -114,6 +127,14 @@ impl RootFs {
             }
         }
         Err((String::new(), Unresolved::Loop))
+    }
+
+    /// 그 이름이, 또는 링크를 푼 대상이 내용 없는 장치 · FIFO 인가 — 실행 파일 · 설정 · 패키지 DB 의 후보에서 뺀다.
+    pub(super) fn special(&self, name: &str) -> bool {
+        self.entries
+            .get(&self.key(name))
+            .is_some_and(Entry::special)
+            || self.resolve(name).is_ok_and(|(_, e)| e.special())
     }
 
     /// 앞머리부터 차례로 — 처음 만나는 심볼릭 링크를 풀어 다음 이름을 준다.

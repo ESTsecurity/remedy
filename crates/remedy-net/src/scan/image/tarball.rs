@@ -25,7 +25,10 @@ const MAX_SPECIAL: u64 = 1 << 20;
 pub(super) const TYPE_REG: u8 = b'0';
 pub(super) const TYPE_LINK: u8 = b'1';
 pub(super) const TYPE_SYMLINK: u8 = b'2';
+pub(super) const TYPE_CHAR: u8 = b'3';
+pub(super) const TYPE_BLOCK: u8 = b'4';
 pub(super) const TYPE_DIR: u8 = b'5';
+pub(super) const TYPE_FIFO: u8 = b'6';
 pub(super) const TYPE_GNU_SPARSE: u8 = b'S';
 
 /// 항목 하나의 머리 — Go 의 `tar.Header` 가운데 이 점검이 보는 칸.
