@@ -267,8 +267,14 @@ function Connect-LabVm {
     Write-Host "    ping=$($alive.Ping)  winrm=$($alive.WinRM)"
 
     # 주어진 주소가 죽어 있을 때만 vmrun 에게 묻는다. 살아 있으면 손대지 않는다.
+    #
+    # **랩 VM 의 vmx 를 넘긴다** (2026-11-11). 넘기지 않으면 `Get-LabVmAddress` 는 떠 있는 VM 이
+    # 하나일 때만 답하는데, 이 기계에는 다른 세션의 VM 도 떠 있어 이 대체가 한 번도 듣지 않았다 —
+    # 되돌린 게스트가 DHCP 로 주소를 바꿔 받자 메뉴 하네스가 곧바로 멈췄다.
     if (-not $alive.WinRM) {
-        $found = Get-LabVmAddress
+        $labVmx = $null
+        try { $labVmx = Resolve-LabValue $null 'windows_lab' 'windows_lab.identity.vmx' 'Vmx' } catch { }
+        $found = Get-LabVmAddress -Vmx $labVmx
         if ($found -and $found -ne $VmAddress) {
             $alt = Test-VmAlive $found
             if ($alt.WinRM) {
