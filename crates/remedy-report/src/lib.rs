@@ -185,9 +185,12 @@ pub fn op_effect(op: remedy_sdk::catalog::Op, lang: Lang) -> &'static str {
             "파일에 숨어 있던 여분의 데이터를 지웁니다. 파일 자체는 남습니다",
             "removes hidden extra data; the file itself stays",
         ),
+        // **되돌릴 수 있다는 것을 적는다** (2026-11-12) — 바로 위 줄이 *"파일 격리 — 되돌릴 수
+        // 있습니다"* 라, 이 줄만 말하지 않으면 폴더는 못 되돌린다고 읽힌다. 이 Op 은 백업 단계를
+        // 반드시 지나 격리소에 담긴 뒤 지워지고(`remedy-apply` 의 `refusal_before_backup`) 복원된다.
         DirDeleteRecursive => lang.t(
-            "폴더와 그 안의 것을 통째로 지웁니다",
-            "deletes the folder and everything in it",
+            "폴더와 그 안의 것을 통째로 지웁니다 — 격리소에 담아 두어 되돌릴 수 있습니다",
+            "deletes the folder and everything in it — kept in quarantine, so reversible",
         ),
         ShortcutStripArgs => lang.t(
             "바로가기에 덧붙은 인자만 뗍니다. 바로가기는 그대로 씁니다",
@@ -217,9 +220,12 @@ pub fn op_effect(op: remedy_sdk::catalog::Op, lang: Lang) -> &'static str {
             "예약 실행 등록을 없앱니다. 정해진 때에 자동으로 실행되지 않게 됩니다",
             "removes the scheduled entry so it no longer runs on its own",
         ),
+        // **부팅이 아니라 로그온이다** (2026-11-12) — 이 subject 의 자리(Run/RunOnce · 시작 폴더 · 셸
+        // 프로필 · XDG autostart)는 모두 사용자가 로그온할 때 돈다. 부팅 때 도는 것은 서비스 · 예약
+        // 작업이고 그쪽은 다른 Op 이다.
         AutorunRemove => lang.t(
-            "부팅할 때 자동으로 실행되지 않게 됩니다",
-            "it will no longer start automatically at boot",
+            "로그온할 때 자동으로 실행되지 않게 됩니다",
+            "it will no longer start automatically when a user signs in",
         ),
         // 위 이름과 같은 이유로 "설정 파일" 을 빼고 **그 파일**로 적는다. 뜻은
         // 그대로다 — 덧붙은 줄만 빠지고 파일은 남는다.
@@ -590,10 +596,22 @@ fn finding_body(e: &remedy_sdk::artifact::Evidence, lang: Lang) -> String {
         .matched
         .iter()
         .any(|m| m.field == "version" || m.field == "upstream_version");
-    let why = if matched_version {
-        text_at(&e.target, "version")
+    // **패키지는 늘 버전을 적는다** (2026-11-12) — 판정식이 이름 · 관리자만 견준 줄(*"기준 없는 PHP
+    // 패키지"*)이 `php-cli  (manager dpkg)` 로 나왔다. 사람이 공급사에 물을 때 필요한 것은 버전이고,
+    // RPM 이면 그 버전을 낸 공급사다(같은 버전 문자열을 여러 공급사가 낸다).
+    let why = if matched_version || e.subject == remedy_sdk::catalog::Subject::Package {
+        let version = text_at(&e.target, "version")
             .or_else(|| text_at(&e.target, "upstream_version"))
-            .map(|v| lang.pick(format!("버전 {v}"), format!("version {v}")))
+            .map(|v| lang.pick(format!("버전 {v}"), format!("version {v}")));
+        let vendor = (e.subject == remedy_sdk::catalog::Subject::Package)
+            .then(|| text_at(&e.target, "vendor"))
+            .flatten()
+            .filter(|v| !v.is_empty())
+            .map(|v| lang.pick(format!("공급사 {v}"), format!("vendor {v}")));
+        match (version, vendor) {
+            (Some(a), Some(b)) => Some(format!("{a} · {b}")),
+            (a, b) => a.or(b),
+        }
     } else {
         e.matched
             .iter()
@@ -601,12 +619,35 @@ fn finding_body(e: &remedy_sdk::artifact::Evidence, lang: Lang) -> String {
             .filter(|m| !unreadable.contains(&m.field.as_str()))
             .filter(|m| !locator.contains(&m.field.as_str()))
             .filter(|m| !same_as_label(m))
-            .find_map(|m| text_at(&e.target, &m.field).map(|v| format!("{} {v}", m.field)))
+            .find_map(|m| {
+                let word = field_word(&m.field, lang)?;
+                text_at(&e.target, &m.field).map(|v| format!("{word} {v}"))
+            })
     };
     match why {
         Some(w) => format!("{label}  ({w})"),
         None => label,
     }
+}
+
+/// 항목 줄에서 **값 앞에 붙는 낱말** — 엔진의 칸 이름을 받는 사람의 말로 (2026-11-12).
+///
+/// 시연 전 검토에서 `applicationHost.config  (value C:\…\php-cgi.exe)` · `php-cli  (manager dpkg)` 가
+/// 고객 화면에 섰다. 칸 이름은 매니페스트의 말이라 화면에서 읽히지 않는다. **`None` 이면 그 칸은
+/// 적지 않는다** — `manager`(어느 DB 에서 읽었나)는 사람이 할 일을 바꾸지 않는다. 표에 없는 칸은 원래
+/// 이름 그대로다 — 낱말을 지어내는 것보다 낫다.
+fn field_word(field: &str, lang: Lang) -> Option<String> {
+    let (ko, en) = match field {
+        "manager" | "package_match" => return None,
+        "value" | "data" => ("값", "value"),
+        "vendor" => ("공급사", "vendor"),
+        "package" => ("패키지", "package"),
+        "image_path" => ("실행 파일", "image"),
+        "command_line" | "command" => ("명령", "command"),
+        "source" => ("원본 패키지", "source package"),
+        other => (other, other),
+    };
+    Some(lang.pick(ko.to_string(), en.to_string()))
 }
 
 /// 점검 룰이 **확인 필요만** 남겼을 때의 결과 줄(`verdict.unconfirmed` · 2026-11-09).
@@ -1062,10 +1103,27 @@ pub fn render_plan(p: &PlanEnvelope, lang: Lang, after_reboot: AfterReboot<'_>) 
     if treating && p.body.verify_after_reboot {
         out.push('\n');
         match after_reboot {
-            AfterReboot::Schedulable => out.push_str(lang.t(
-                "  * 치료를 마친 뒤 이 PC 를 재시작하면 자동으로 한 번 더 검사합니다.\n",
-                "  * After you restart this PC, one more check runs automatically.\n",
-            )),
+            // **Windows 에서는 관리자 로그온이 조건이다** (2026-11-12) — 예약은 HKLM RunOnce 라 표준
+            // 사용자로 로그온하면 돌지 않는다(EvilAI RELEASE.md 의 2026-11-08 랩 실측). 화면만 본 사람은
+            // 검사가 됐다고 믿는다. 리눅스는 systemd 유닛이라 로그온과 무관하다 — 그 줄은 그대로다.
+            // 하네스가 읽는 앞 구절(`재시작하면 자동으로 한 번 더 검사`)은 둘 다 그대로 둔다.
+            AfterReboot::Schedulable => {
+                let windows = p.host.os.eq_ignore_ascii_case("windows");
+                out.push_str(match (lang, windows) {
+                    (Lang::Ko, true) => {
+                        "  * 치료를 마친 뒤 이 PC 를 재시작하면 자동으로 한 번 더 검사합니다(관리자 계정으로 로그온했을 때).\n"
+                    }
+                    (Lang::Ko, false) => {
+                        "  * 치료를 마친 뒤 이 PC 를 재시작하면 자동으로 한 번 더 검사합니다.\n"
+                    }
+                    (Lang::En, true) => {
+                        "  * After you restart this PC, one more check runs automatically (when an administrator signs in).\n"
+                    }
+                    (Lang::En, false) => {
+                        "  * After you restart this PC, one more check runs automatically.\n"
+                    }
+                })
+            }
             AfterReboot::Unavailable(why) => out.push_str(&match lang {
                 Lang::Ko => format!(
                     "  * 재시작 뒤 자동 재검사를 걸 수 없습니다 ({why}).\n    \

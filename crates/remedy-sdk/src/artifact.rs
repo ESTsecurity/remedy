@@ -425,8 +425,11 @@ impl Observation {
             // 로는 할 일이 없다. 실측: php:8.3.36-fpm 의 www-data 작업자 둘이 막혔고(실행 파일
             // 경로 · 실린 모듈 둘 다), `docker exec --privileged` 로 들어가면 둘 다 읽혔다.
             //
-            // **앞 문장은 그대로 둔다.** 하네스가 `접근이 거부된 디렉터리` 를 읽는다
-            // (`Invoke-ObsVerify.ps1`) — 그래서 바꾸지 않고 덧붙인다.
+            // **폴더 쪽 문장은 그대로 둔다.** Windows 하네스가 `접근이 거부된 디렉터리` 를 읽는다
+            // (`Invoke-ObsVerify.ps1`). 프로세스 쪽은 리눅스에서만 서고(`/proc/<pid>`) 그 하네스가
+            // 보지 않는다 — 그래서 이 사람에게 맞게 쓴다(2026-11-12 · 시연 전 검토): 이미 root 라
+            // *"관리자 권한으로 다시"* 는 할 일이 아니고, 막힌 것은 `/proc/<pid>/maps` 같은 **파일**이라
+            // *"디렉터리 열기"* 도 틀린 말이다.
             let process = self.denied_paths.iter().any(|p| is_process_path(p));
             // 문장 구조가 언어마다 다르므로 조각을 이어 붙이지 않는다 —
             // 이어 붙이면 어느 한쪽이 반드시 어색해진다.
@@ -435,16 +438,19 @@ impl Observation {
                     format!("접근이 거부된 디렉터리 열기 {n}회 (관리자 권한으로 다시 돌리십시오)")
                 }
                 (Lang::Ko, true) => format!(
-                    "접근이 거부된 디렉터리 열기 {n}회 (관리자 권한으로 다시 돌리십시오 · \
-                     컨테이너 안이면 docker exec --privileged 로 들어가 다시 돌리십시오)"
+                    "접근이 거부된 경로 {n}곳 — 다른 사용자의 프로세스를 들여다보지 못했습니다 \
+                     (컨테이너 안이면 docker exec --privileged 로 들어가 다시 돌리십시오)"
                 ),
                 (Lang::En, false) => {
                     format!("access was denied opening {n} {dirs} (run again as Administrator)")
                 }
-                (Lang::En, true) => format!(
-                    "access was denied opening {n} {dirs} (run again as Administrator · \
-                     inside a container, enter with docker exec --privileged and run again)"
-                ),
+                (Lang::En, true) => {
+                    let paths = if n == 1 { "path" } else { "paths" };
+                    format!(
+                        "access was denied at {n} {paths} - other users' processes could not be \
+                         read (inside a container, enter with docker exec --privileged and run again)"
+                    )
+                }
             });
         }
         for s in &self.uncollected_subjects {
