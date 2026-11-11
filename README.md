@@ -19,16 +19,16 @@
 | 룰 | 하는 일 | OS | 폴더 · 버전 | 참고 |
 |---|---|---|---|---|
 | EvilAI(Locust) 제거 | 찾아서 치료합니다 (복원할 수 있습니다) | Windows | `evilai-locust` 0.2.0 | [www.virustotal.com](https://www.virustotal.com/gui/search/engines%3Ameadowlocust) |
-| Node2Shell 점검 (CVE-2026-111497) | 찾기만 합니다 | Windows | `node2shell-check-windows` 0.1.0 | [nodejs.org](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases) |
-| PHP 세션 업로드 진행 설정 점검 (CVE-2026-115560) | 찾기만 합니다 | Windows | `php-session-check-windows` 0.1.0 | [www.php.net](https://www.php.net/archive/2026.php) |
-| PHP2Shell 점검 (CVE-2026-109618 · 109619) | 찾기만 합니다 | Windows | `php2shell-check-windows` 0.1.0 | [www.php.net](https://www.php.net/archive/2026.php) |
+| Node2Shell 점검 (CVE-2026-111497) | 찾기만 합니다 | Windows | `node2shell-check-windows` 0.2.0 | [nodejs.org](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases) |
+| PHP 세션 업로드 진행 설정 점검 (CVE-2026-115560) | 찾기만 합니다 | Windows | `php-session-check-windows` 0.2.0 | [www.php.net](https://www.php.net/archive/2026.php) |
+| PHP2Shell 점검 (CVE-2026-109618 · 109619) | 찾기만 합니다 | Windows | `php2shell-check-windows` 0.2.0 | [www.php.net](https://www.php.net/archive/2026.php) |
 | PHP2Shell 원격 점검 (웹서버 응답 헤더) | 적어 준 주소의 서버를 바깥에서 봅니다 (네트워크 사용) | Windows · Linux | `php2shell-url-check` 0.1.0 | [www.php.net](https://www.php.net/archive/2026.php) |
 | CWPdoor 점검 (탐지만) | 찾기만 합니다 | Linux | `cwpdoor-1-check` 0.1.2 | [blog.xlab.qianxin.com](https://blog.xlab.qianxin.com/cwpdoor-the-invisible-backdoor-living-inside-control-web-panel/) |
 | CWPdoor 제거 | 찾아서 치료합니다 (복원할 수 있습니다) | Linux | `cwpdoor-2-clean` 0.1.2 | [blog.xlab.qianxin.com](https://blog.xlab.qianxin.com/cwpdoor-the-invisible-backdoor-living-inside-control-web-panel/) |
 | Ebury 점검 (탐지만) | 찾기만 합니다 | Linux | `ebury-check` 0.2.0 | [www.welivesecurity.com](https://www.welivesecurity.com/en/eset-research/ebury-alive-unseen-400k-linux-servers-compromised-cryptotheft-financial-gain/) |
-| Node2Shell 점검 (CVE-2026-111497) | 찾기만 합니다 | Linux | `node2shell-check-linux` 0.1.0 | [nodejs.org](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases) |
-| PHP 세션 업로드 진행 설정 점검 (CVE-2026-115560) | 찾기만 합니다 | Linux | `php-session-check-linux` 0.1.0 | [www.php.net](https://www.php.net/archive/2026.php) |
-| PHP2Shell 점검 (CVE-2026-109618 · 109619) | 찾기만 합니다 | Linux | `php2shell-check-linux` 0.1.0 | [www.php.net](https://www.php.net/archive/2026.php) |
+| Node2Shell 점검 (CVE-2026-111497) | 찾기만 합니다 | Linux | `node2shell-check-linux` 0.2.0 | [nodejs.org](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases) |
+| PHP 세션 업로드 진행 설정 점검 (CVE-2026-115560) | 찾기만 합니다 | Linux | `php-session-check-linux` 0.2.0 | [www.php.net](https://www.php.net/archive/2026.php) |
+| PHP2Shell 점검 (CVE-2026-109618 · 109619) | 찾기만 합니다 | Linux | `php2shell-check-linux` 0.2.0 | [www.php.net](https://www.php.net/archive/2026.php) |
 <!-- threats:end -->
 
 ## 처음 쓰시는 분 — 다섯 단계
@@ -283,8 +283,9 @@ sudo bash detect_ebury.sh
 - **꼭 할 일** *취약* 이면 Node.js 를 고친 버전(22.23.4 · 24.22.1 · 26.12.1)으로 올리고 그것을 쓰는 서비스를
   **다시 시작**합니다 — 18 · 20 은 지원이 끝나 고친 버전이 없으니 위의 고친 버전으로 옮깁니다. PHP for Windows 는
   Brotli 를 고쳐 다시 지은 공식 빌드(2026-10-26 의 `8.x.y-1`) 이후의 것으로 바꿉니다.
-- **못 보는 것** 다른 제품 안에 든 Node.js(Electron 앱 · 단일 실행 파일 · 컨테이너 이미지) · 정해 둔 자리 밖의
-  `node` · 지금 돌고 있는 프로세스가 고친 버전을 실었는지.
+- **못 보는 것** 다른 제품 안에 든 Node.js(Electron 앱 · 단일 실행 파일 · 컨테이너 이미지) · 정해 둔 자리 밖에
+  놓였을 뿐 실행 중이 아닌 `node` · 지금 돌고 있는 프로세스가 고친 버전을 실었는지. 정해 둔 자리 밖에서 **실행 중인**
+  `node` 는 경로를 적어 *확인 필요* 로 알립니다 — 그 `node` 는 판정하지 않습니다.
 
 <details>
 <summary>자세히 — 판정 · 확인 필요가 나오는 경우 · 보는 자리</summary>
@@ -294,11 +295,14 @@ sudo bash detect_ebury.sh
   공지로 판정하고, Debian 은 Node.js 가 쓰는 시스템 Brotli(`libbrotli1`)도 봅니다.
 - **확인 필요가 나오는 경우** — 공식 빌드의 해시와 맞지 않는 `node`(기준에 없는 버전 · 다른 곳에서 지은 빌드),
   공지로 판정할 수 없는 배포판 패키지(Ubuntu · RHEL · Rocky · Alpine · 다른 저장소), RHEL · Oracle Linux 의 시스템
-  Brotli 가 고친 버전보다 낮은데 RPM 의 Node.js 가 그것을 쓰는지 이 도구가 재지 못할 때. 화면의 *주의* 줄이
-  무엇을 확인할지 말합니다.
+  Brotli 가 고친 버전보다 낮은데 RPM 의 Node.js 가 그것을 쓰는지 이 도구가 재지 못할 때, 정해 둔 자리 밖에서
+  실행 중인 `node`(Windows 는 IIS 가 쓰거나 실행 중인 정해 둔 자리 밖의 PHP 도 — 그 PHP 의 Brotli 를 보지
+  않았습니다). 화면의 *주의* 줄이 무엇을 확인할지 말합니다. 컨테이너 안에서 실행해 다른 사용자로 도는 프로세스를
+  들여다보지 못하면 *확인 필요* 입니다 — *주의* 줄대로 `docker exec --privileged` 로 들어가 다시 실행하십시오.
 - **보는 자리** — Windows: `Program Files\nodejs` · 모든 사용자의 nvm-windows · fnm · Volta · nvm, PHP 폴더(PHP
   점검과 같은 자리). 리눅스: `/usr/bin` · `/usr/local/bin` 바로 아래의 `node` · `/opt/node` · `/opt/nodejs` ·
-  `/usr/local/lib/nodejs` · 모든 사용자의 nvm · fnm · Volta, 배포판 패키지 목록.
+  `/usr/local/lib/nodejs` · 모든 사용자의 nvm · fnm · Volta, 배포판 패키지 목록. 정해 둔 자리 밖을 찾을 때만
+  실행 중인 프로세스와 IIS 설정(`C:\Windows\System32\inetsrv\config`)을 봅니다.
 
 판정 표와 근거(공지 번호)는 룰 폴더 `node2shell-check-windows` · `node2shell-check-linux` 의 `RELEASE.md` 에
 있습니다.
@@ -312,8 +316,9 @@ sudo bash detect_ebury.sh
 - **꼭 할 일** *취약* 이면 PHP 를 고친 버전(8.2.35 · 8.3.36 · 8.4.27 · 8.5.12, 또는 배포판의 보안 갱신)으로 올리고
   PHP 를 쓰는 웹 서버 · PHP-FPM 을 **다시 시작**합니다. 세션 점검은 PHP 가 있으면 늘 *확인 필요* 입니다 — 앱이
   실행 중에 `session.serialize_handler` 를 바꾸면 `session.upload_progress.enabled = 0` 으로 두고 다시 시작합니다.
-- **못 보는 것** 지금 돌고 있는 PHP 가 고친 버전을 실었는지 · 정해 둔 자리 밖의 PHP · 앱 코드가 실행 중에 바꾸는
-  설정(`ini_set()`).
+- **못 보는 것** 지금 돌고 있는 PHP 가 고친 버전을 실었는지 · 정해 둔 자리 밖에 놓였을 뿐 쓰이지 않는 PHP · 앱
+  코드가 실행 중에 바꾸는 설정(`ini_set()`). 정해 둔 자리 밖의 PHP 를 IIS 가 쓰거나 그 PHP 가 **실행 중이면** 경로를
+  적어 *확인 필요* 로 알립니다 — 그 PHP 는 판정하지 않습니다.
 
 <details>
 <summary>자세히 — 판정 · 확인 필요가 나오는 경우 · 세션 설정 · 보는 자리</summary>
@@ -323,7 +328,12 @@ sudo bash detect_ebury.sh
 - **확인 필요가 나오는 경우** — 공지에 없는 공급사 · 저장소의 패키지(Rocky · Alma · Alpine · Remi 등)와 공식
   빌드의 해시와 맞지 않는 PHP 입니다. 같은 버전 번호라도 고친 코드를 담았는지 이 도구가 가릴 근거가 없습니다 —
   화면의 *주의* 줄이 버전을 올릴지(낮은 버전) 받은 곳을 확인할지(높은 버전) 말합니다. RHEL 7.9 는 공지가
-  CVE-2026-109619 만 고쳐 그 버전 이상도 *확인 필요* 입니다.
+  CVE-2026-109619 만 고쳐 그 버전 이상도 *확인 필요* 입니다. 정해 둔 자리 밖의 PHP(IIS 가 쓰는 것 · 실행 중인 것)와
+  IIS 의 공유 설정도 *확인 필요* 입니다 — 정해 둔 자리의 PHP 가 모두 *취약* 이면 그 회차에는 나오지 않고, 고친 뒤
+  다시 검사하면 나옵니다.
+- **컨테이너 안에서 실행하면** 다른 사용자로 도는 프로세스(php-fpm 의 작업자 등)를 들여다보지 못해 *확인 필요*
+  가 됩니다 — *주의* 줄대로 `docker exec --privileged` 로 들어가 다시 실행하십시오. 서버(호스트)에서 관리자(root)로
+  실행하면 이 일이 없습니다.
 - **세션 설정** — php.net 은 이 문제의 고친 버전을 내지 않았습니다(2026-10-23 공지). 위험은 세 조건이 겹칠 때
   생깁니다: `session.upload_progress.enabled` 가 켜져 있고, `session.serialize_handler` 가 `php_binary` ·
   `php_serialize` 이며, 앱이 `session_start()` 전에 `ini_set()` 으로 그것을 `php` 로 바꿉니다. 셋째는 앱 코드라
@@ -331,7 +341,8 @@ sudo bash detect_ebury.sh
   켜짐) 가운데 무엇인지 적습니다.
 - **보는 자리** — Windows: `C:\php` · `Program Files\PHP` · XAMPP · WampServer · Laragon · Chocolatey
   (`C:\tools\phpNN`). 리눅스: 배포판 패키지 목록(dpkg · apk · RPM) · `/usr/local` 의 PHP(공식 이미지) · 배포판마다의
-  설정 파일 자리.
+  설정 파일 자리. 정해 둔 자리 밖을 찾을 때만 실행 중인 프로세스와 IIS 설정(`C:\Windows\System32\inetsrv\config`)을
+  봅니다.
 
 판정 표와 근거(공지 번호)는 룰 폴더 `php2shell-check-windows` · `php2shell-check-linux` ·
 `php-session-check-windows` · `php-session-check-linux` 의 `RELEASE.md` 에 있습니다.
