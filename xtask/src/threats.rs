@@ -56,9 +56,21 @@ fn host_of(url: &str) -> &str {
     rest.split('/').next().unwrap_or(rest)
 }
 
-/// README 와 릴리스 본문에 같은 꼴로 들어가는 표. OS 차례(Windows → Linux), 그 안은 폴더 이름순.
+/// 표의 한 줄 — **같은 점검은 OS 가 달라도 한 줄이다** (2026-11-11 결정 · 목표 remedy_PHP스캐너통합 결정 26).
+///
+/// 같은 점검의 Windows 룰과 리눅스 룰이 줄을 따로 쓰면 같은 이름이 두 번 읽히고, 어느 OS 에 있는지는 줄을
+/// 견줘야 안다. 이름 · 하는 일 · 참고가 같으면 한 줄로 모으고, OS 마다 칸을 두어 그 OS 의 폴더 · 버전을 적는다.
+struct Row {
+    name: String,
+    does: &'static str,
+    refs: String,
+    windows: Vec<String>,
+    linux: Vec<String>,
+}
+
+/// README 와 릴리스 본문에 같은 꼴로 들어가는 표. Windows 에 있는 줄이 먼저, 그 안은 폴더 이름순(처음 나온 차례).
 fn table(plugins: &[(PathBuf, PluginManifest)]) -> String {
-    let mut rows: Vec<(usize, String)> = Vec::new();
+    let mut rows: Vec<Row> = Vec::new();
     for (dir, m) in plugins {
         let name = m
             .name
@@ -74,33 +86,59 @@ fn table(plugins: &[(PathBuf, PluginManifest)]) -> String {
         } else {
             "찾기만 합니다"
         };
-        let os: Vec<&str> = m.platforms.iter().map(|p| os_label(*p)).collect();
-        let order = if m.platforms.contains(&Platform::Windows) {
-            0
-        } else {
-            1
-        };
         let refs = m
             .references
             .first()
             .map(|u| format!("[{}]({u})", host_of(u)))
             .unwrap_or_else(|| "—".into());
         let folder = dir.file_name().unwrap_or_default().to_string_lossy();
-        rows.push((
-            order,
-            format!(
-                "| {name} | {does} | {} | `{folder}` {} | {refs} |",
-                os.join(" · "),
-                m.version
-            ),
-        ));
+        let cell = format!("`{folder}` {}", m.version);
+        let i = match rows
+            .iter()
+            .position(|r| r.name == name && r.does == does && r.refs == refs)
+        {
+            Some(i) => i,
+            None => {
+                rows.push(Row {
+                    name,
+                    does,
+                    refs,
+                    windows: Vec::new(),
+                    linux: Vec::new(),
+                });
+                rows.len() - 1
+            }
+        };
+        if m.platforms.contains(&Platform::Windows) {
+            rows[i].windows.push(cell.clone());
+        }
+        if m.platforms.contains(&Platform::Linux) {
+            rows[i].linux.push(cell);
+        }
     }
-    rows.sort_by_key(|(o, _)| *o);
-    let mut out =
-        String::from("| 룰 | 하는 일 | OS | 폴더 · 버전 | 참고 |\n|---|---|---|---|---|\n");
-    for (_, r) in rows {
-        out.push_str(&r);
-        out.push('\n');
+    // 안정 정렬 — Windows 에 있는 줄이 먼저, 같은 쪽 안에서는 처음 나온 차례(폴더 이름순) 그대로.
+    rows.sort_by_key(|r| r.windows.is_empty());
+    let cell = |v: &[String]| {
+        if v.is_empty() {
+            "—".to_string()
+        } else {
+            v.join(" · ")
+        }
+    };
+    let mut out = format!(
+        "| 룰 | 하는 일 | {} | {} | 참고 |\n|---|---|---|---|---|\n",
+        os_label(Platform::Windows),
+        os_label(Platform::Linux)
+    );
+    for r in rows {
+        out.push_str(&format!(
+            "| {} | {} | {} | {} | {} |\n",
+            r.name,
+            r.does,
+            cell(&r.windows),
+            cell(&r.linux),
+            r.refs
+        ));
     }
     out
 }
@@ -169,6 +207,53 @@ mod tests {
     fn link_text_is_the_host() {
         assert_eq!(host_of("https://blog.example.com/a/b"), "blog.example.com");
         assert_eq!(host_of("example.com/x"), "example.com");
+    }
+
+    /// 시험용 룰 하나 — 폴더 · 이름 · OS 만 다르게.
+    fn rule(folder: &str, name: &str, platforms: &str) -> (PathBuf, PluginManifest) {
+        let yaml = format!(
+            "schema_version: 1\nid: {folder}\nversion: 0.2.0\nmin_core: \"1.0.0\"\n\
+             platforms: [{platforms}]\nname: {{ ko: \"{name}\", en: \"x\" }}\n\
+             references: [\"https://www.php.net/archive/2026.php\"]\n\
+             scan_roots: [\"/opt\"]\nsubjects: [file]\ndetect:\n  - id: r\n    subject: file\n\
+             \x20   where:\n      - {{ field: path, op: equals, value: \"/opt/x\" }}\n\
+             verdict:\n  require: \"r\"\n"
+        );
+        let m: PluginManifest = serde_yaml_ng::from_str(&yaml).expect("시험 매니페스트");
+        (PathBuf::from(folder), m)
+    }
+
+    /// 같은 점검의 OS 짝은 **한 줄**이고, 그 OS 의 칸에 폴더가 선다 (2026-11-11 결정 26).
+    #[test]
+    fn one_check_on_two_systems_is_one_row() {
+        let t = table(&[
+            rule("a-check-linux", "가 점검", "linux"),
+            rule("a-check-windows", "가 점검", "windows"),
+            rule("b-only-linux", "나 점검", "linux"),
+            rule("c-both", "다 점검", "windows, linux"),
+            rule("d-only-windows", "라 점검", "windows"),
+        ]);
+        let lines: Vec<&str> = t.lines().collect();
+        assert_eq!(lines[0], "| 룰 | 하는 일 | Windows | Linux | 참고 |", "{t}");
+        // 머리 두 줄 + 점검 넷 — 다섯 룰이 넷이 된다.
+        assert_eq!(lines.len(), 2 + 4, "{t}");
+        assert!(
+            lines[2].starts_with(
+                "| 가 점검 | 찾기만 합니다 | `a-check-windows` 0.2.0 | `a-check-linux` 0.2.0 |"
+            ),
+            "{t}"
+        );
+        // 매니페스트 하나가 두 OS 를 선언하면 두 칸에 같은 폴더다.
+        assert!(
+            lines[3].contains("| `c-both` 0.2.0 | `c-both` 0.2.0 |"),
+            "{t}"
+        );
+        assert!(lines[4].contains("| `d-only-windows` 0.2.0 | — |"), "{t}");
+        // Windows 에 없는 줄은 뒤로 — 그 안은 처음 나온 차례.
+        assert!(
+            lines[5].contains("| 나 점검 | 찾기만 합니다 | — | `b-only-linux` 0.2.0 |"),
+            "{t}"
+        );
     }
 
     #[test]
