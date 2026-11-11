@@ -1,12 +1,12 @@
 
-########## 0. 바이너리 배포 · 잔재 정리   [160초]
+########## 0. 바이너리 배포 · 잔재 정리   [207초]
 
 보안 제품 예외 : 랩 경로 2건으로 고정
-배포·정리 완료 · 21025280 bytes
+배포·정리 완료 · 21064704 bytes
 
-########## A1. 사용법 — 기본 언어   [165초]
+########## A1. 사용법 — 기본 언어   [213초]
 
-ESTsecurity 전용백신 1.6.0
+ESTsecurity 전용백신 1.7.0
 ────────────────────────────────────────────────────────
 
 사용법
@@ -30,9 +30,9 @@ Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
 알림: 코드서명이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 [exit=0]
 
-########## A2. 사용법 — 한국어   [165초]
+########## A2. 사용법 — 한국어   [214초]
 
-ESTsecurity 전용백신 1.6.0
+ESTsecurity 전용백신 1.7.0
 ────────────────────────────────────────────────────────
 
 사용법
@@ -56,13 +56,13 @@ Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
 알림: 코드서명이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 [exit=0]
 
-########## A3. 버전   [165초]
+########## A3. 버전   [214초]
 
-ESTsecurity Dedicated Cleaner 1.6.0 (remedy)
+ESTsecurity Dedicated Cleaner 1.7.0 (remedy)
 Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
 [exit=0]
 
-########## A6. 안내 모드 — 꾸러미 옆에서 인자 없이 부르면   [165초]
+########## A6. 안내 모드 — 꾸러미 옆에서 인자 없이 부르면   [214초]
 
 꾸러미: remedy.exe · plugins\demo\{plugin.yaml, rules\d.yar} — 서명 없음
 
@@ -73,7 +73,7 @@ Notice: unsigned, so this binary cannot verify that it is the official release. 
 [exit=5]
 
 [꾸러미가 아예 없는 자리 — 지금까지의 동작 그대로여야 한다]
-ESTsecurity Dedicated Cleaner 1.6.0
+ESTsecurity Dedicated Cleaner 1.7.0
 ────────────────────────────────────────────────────────
 
 Usage
@@ -97,7 +97,7 @@ Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
 Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
 [exit=0]
 
-########## A0. 인자 없이 부르면 창을 붙잡는가 (진짜 콘솔)   [166초]
+########## A0. 인자 없이 부르면 창을 붙잡는가 (진짜 콘솔)   [215초]
 
 인자 없이 (더블클릭과 같은 조건)
   Enter 전에 기다렸는가   True
@@ -108,7 +108,7 @@ Notice: unsigned, so this binary cannot verify that it is the official release. 
   프롬프트가 나왔는가      False
 판정: True
 
-########## A7. 권한이 없을 때 (비관리자)   [169초]
+########## A7. 권한이 없을 때 (비관리자)   [219초]
 
 --- 한국어 ---
 알림: 코드서명이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
@@ -134,7 +134,7 @@ Error: Administrator rights are required. This tool reads and fixes scheduled ta
 --- 문 앞에서 섰는가 (산출·상태 폴더가 없어야 한다) ---
   없다
 
-########## A8. 안내 모드 — 서명된 꾸러미 (비관리자 · 관리자)   [171초]
+########## A8. 안내 모드 — 서명된 꾸러미 (비관리자 · 관리자)   [221초]
 
 꾸러미: remedy.exe · plugins\evilai-locust — 임시 키로 서명, 그 앵커를 박은 빌드
 
@@ -157,30 +157,29 @@ Notice: unsigned, so this binary cannot verify that it is the official release. 
 
 Checking for EvilAI (Locust) Removal.
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.6.0
+ ESTsecurity Dedicated Cleaner 1.7.0
  EvilAI (Locust) Removal  (evilai-locust 0.2.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-11 05:51:28 UTC
+ Started    : 2026-11-11 10:19:32 UTC
  Machine    : DESKTOP-2GQIRP1 (windows)
 
 Starting scan.
-Scanning · files · 1155 folders · 9104 entries · 2411/7949 processed · root 1/3 · 5s elapsed · …sers\test\AppData\Local\Programs\Microsoft VS Code\Code.exe
-Scanning · files · 1155 folders · 9104 entries · 5710/7949 processed · root 1/3 · 10s elapsed · …ta\Local\Programs\Python\Python312\Lib\test\test_iterlen.py
+Scanning · files · 1155 folders · 9104 entries · 3243/7949 processed · root 1/3 · 5s elapsed · …Python312\Lib\email\__pycache__\_policybase.cpython-312.pyc
 Scan done : 0 trace(s) · 0 threat(s)
 
 Nothing to do.
 ────────────────────────────────────────────────────────
  Result     : No threat was found.
- Elapsed    : 13s
+ Elapsed    : 8s
 ────────────────────────────────────────────────────────
  Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
 [exit=0]
 
-########## A10. 작업 메뉴 — 진짜 콘솔에서 무엇을 할지 묻는다 (그만두기로 끝낸다)   [377초]
+########## A10. 작업 메뉴 — 진짜 콘솔에서 무엇을 할지 묻는다 (그만두기로 끝낸다)   [461초]
 
 === 0. 인자 없이 띄웠다 — 메뉴 (그만두기로 끝냈다) ===
 
-ESTsecurity Dedicated Cleaner 1.6.0
+ESTsecurity Dedicated Cleaner 1.7.0
 Rule: EvilAI (Locust) Removal
 Running with administrator rights.
 
@@ -196,11 +195,11 @@ Notice: unsigned, so this binary cannot verify that it is the official release. 
 
 Choose a number (0-3):
 
-########## A11. 모두 검사만 — 항목이 둘인 꾸러미 (진짜 콘솔)   [380초]
+########## A11. 모두 검사만 — 항목이 둘인 꾸러미 (진짜 콘솔)   [464초]
 
 === 모두 검사 — 고르는 화면 1 번 (2개 모두 검사만 하기) ===
 
-ESTsecurity Dedicated Cleaner 1.6.0
+ESTsecurity Dedicated Cleaner 1.7.0
 Running with administrator rights.
 
 Found 2 things to check:
@@ -213,15 +212,14 @@ Scanning with all 2 rules — nothing is changed.
 ────────────────────────────────────────────────────────
 [1/2] EvilAI (Locust) Removal
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.6.0
+ ESTsecurity Dedicated Cleaner 1.7.0
  EvilAI (Locust) Removal  (evilai-locust 0.2.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-11 05:51:54 UTC
+ Started    : 2026-11-11 10:19:50 UTC
  Machine    : DESKTOP-2GQIRP1 (windows)
 
 Starting scan.
-Scanning · files · 1155 folders · 9104 entries · 3941/7949 processed · root 1/3 · 5s elapsed · …p\_internal\distributions\__pycache__\sdist.cpython-312.pyc
-Output    : C:\remedy-lab\pkg-signed\out\20261111T055154Z  (artifacts.json · scan.json · plan.json)
+Output    : C:\remedy-lab\pkg-signed\out\20261111T101950Z  (artifacts.json · scan.json · plan.json)
 Scan done : 0 trace(s) · 0 threat(s)
 
 No threat was found.
@@ -229,15 +227,14 @@ No threat was found.
 ────────────────────────────────────────────────────────
 [2/2] EvilAI (Locust) check (lab, detect only)
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.6.0
+ ESTsecurity Dedicated Cleaner 1.7.0
  EvilAI (Locust) check (lab, detect only)  (remedy-lab-evilai-check 0.2.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-11 05:52:01 UTC
+ Started    : 2026-11-11 10:19:55 UTC
  Machine    : DESKTOP-2GQIRP1 (windows)
 
 Starting scan.
-Scanning · files · 2438 folders · 18567 entries · 5801/7949 processed · root 1/3 · 5s elapsed · …12\Lib\test\test_multiprocessing_forkserver\test_manager.py
-Output    : C:\remedy-lab\pkg-signed\out\20261111T055201Z  (artifacts.json · scan.json · plan.json)
+Output    : C:\remedy-lab\pkg-signed\out\20261111T101955Z  (artifacts.json · scan.json · plan.json)
 Scan done : 0 trace(s) · 0 threat(s)
 
 No threat was found.
@@ -253,7 +250,7 @@ Next
     https://github.com/ESTsecurity/remedy#위협별-안내
 
 
-ESTsecurity Dedicated Cleaner 1.6.0
+ESTsecurity Dedicated Cleaner 1.7.0
 Running with administrator rights.
 
 Found 2 things to check:
@@ -269,7 +266,7 @@ Choose a number (0-3):
 
 === 탐지만 메뉴 — 고르는 화면 0 번 (EvilAI(Locust) 점검 (실험 · 탐지만)) ===
 
-########## A4. 사용법이 어느 스트림으로 나가는가   [404초]
+########## A4. 사용법이 어느 스트림으로 나가는가   [482초]
 
 일부러 부른 사용법 — stdout 만 남긴다 (여러 줄이어야 한다)
   --help          stdout 16줄
@@ -279,9 +276,9 @@ Choose a number (0-3):
   없는 명령        stdout 0줄
   없는 명령        stderr 18줄
 
-########## A9. --help-all 본문 — 낱말까지 대조한다   [404초]
+########## A9. --help-all 본문 — 낱말까지 대조한다   [482초]
 
-ESTsecurity Dedicated Cleaner 1.6.0 (remedy)
+ESTsecurity Dedicated Cleaner 1.7.0 (remedy)
 
   시스템을 변경하는 명령(collect·scan·run·apply·resume·restore·verify)은
   관리자 권한을 요구한다. 없으면 시작하지 않고 종료 코드 5 를 낸다.
@@ -361,25 +358,24 @@ ESTsecurity Dedicated Cleaner 1.6.0 (remedy)
 Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
 [exit=0]
 
-########## B. 감염   [405초]
+########## B. 감염   [482초]
 
 감염 완료 · 페이로드 254 B
 
-########## B2. 안내 모드 — 감염된 기계에서 서명된 꾸러미로   [410초]
+########## B2. 안내 모드 — 감염된 기계에서 서명된 꾸러미로   [488초]
 
 Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
 
 Checking for EvilAI (Locust) Removal.
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.6.0
+ ESTsecurity Dedicated Cleaner 1.7.0
  EvilAI (Locust) Removal  (evilai-locust 0.2.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-11 05:52:15 UTC
+ Started    : 2026-11-11 10:20:08 UTC
  Machine    : DESKTOP-2GQIRP1 (windows)
 
 Starting scan.
-Scanning · files · 1156 folders · 9106 entries · 2477/7950 processed · root 1/3 · 5s elapsed · …a\Local\Programs\Python\Python312\Doc\html\_static\file.png
-Scanning · evaluating · 1284 folders · 9466 entries · 7951 processed · 10s elapsed
+Scanning · files · 1156 folders · 9106 entries · 2983/7950 processed · root 1/3 · 5s elapsed · …s\Python\Python312\Doc\html\reference\lexical_analysis.html
 Scan done : 6 trace(s) · 1 threat(s)
 
 Side effects of this treatment:
@@ -393,31 +389,31 @@ Side effects of this treatment:
    3. Delete persistence entry  \Microsoft\Windows\Locust
       removes the scheduled entry so it no longer runs on its own
    4. Remove autorun entry  HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run\SystemSoftwareUpdater
-      it will no longer start automatically at boot
+      it will no longer start automatically when a user signs in
    5. Quarantine file  C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12\preload.js
       moves the file into quarantine — not deleted, and reversible
    6. Delete folder  C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12
-      deletes the folder and everything in it
+      deletes the folder and everything in it — kept in quarantine, so reversible
    7. Restore AV exclusions  HKLM\SOFTWARE\Microsoft\Windows Defender\Exclusions\Paths\C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12
       puts the excluded places back under scanning
 
-  * After you restart this PC, one more check runs automatically.
+  * After you restart this PC, one more check runs automatically (when an administrator signs in).
 
   Note: nobody is here to approve (not a terminal).
      Pass --yes for unattended deployment. Nothing was done.
 [exit=2]
 
-########## C1. scan — 한국어   [420초]
+########## C1. scan — 한국어   [497초]
 
 ────────────────────────────────────────────────────────
- ESTsecurity 전용백신 1.6.0
+ ESTsecurity 전용백신 1.7.0
  EvilAI(Locust) 제거  (evilai-locust 0.2.0)
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-11 05:52:25 UTC
+ 시작 시각  : 2026-11-11 10:20:17 UTC
  실행 기계  : DESKTOP-2GQIRP1 (windows)
 
 검사를 시작합니다.
-검사 중 · 파일 검사 · 폴더 1156개 · 항목 9106개 · 처리 6216/7950개 · 루트 1/3 · 경과 5초 · …Programs\Python\Python312\Lib\test\tracedmodules\testmod.py
+검사 중 · 파일 검사 · 폴더 1156개 · 항목 9106개 · 처리 6961/7950개 · 루트 1/3 · 경과 5초 · …\Programs\Python\Python312\tcl\tcl8.6\tzdata\Africa\Tripoli
 결과 폴더 : C:\remedy-lab\out-console-scan  (artifacts.json · scan.json · plan.json)
 검사 완료 : 흔적 6건 · 위협 1건
 이 치료의 부작용:
@@ -431,31 +427,31 @@ Side effects of this treatment:
    3. 자동 실행 등록 삭제  \Microsoft\Windows\Locust
       예약 실행 등록을 없앱니다. 정해진 때에 자동으로 실행되지 않게 됩니다
    4. 시작 프로그램 항목 제거  HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run\SystemSoftwareUpdater
-      부팅할 때 자동으로 실행되지 않게 됩니다
+      로그온할 때 자동으로 실행되지 않게 됩니다
    5. 파일 격리  C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12\preload.js
       파일을 격리소로 옮깁니다. 지우는 것이 아니라 되돌릴 수 있습니다
    6. 폴더 삭제  C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12
-      폴더와 그 안의 것을 통째로 지웁니다
+      폴더와 그 안의 것을 통째로 지웁니다 — 격리소에 담아 두어 되돌릴 수 있습니다
    7. 보안 제품 예외 목록 원복  HKLM\SOFTWARE\Microsoft\Windows Defender\Exclusions\Paths\C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12
       검사에서 빠져 있던 자리를 다시 검사 대상으로 되돌립니다
 
-  * 치료를 마친 뒤 이 PC 를 재시작하면 자동으로 한 번 더 검사합니다.
+  * 치료를 마친 뒤 이 PC 를 재시작하면 자동으로 한 번 더 검사합니다(관리자 계정으로 로그온했을 때).
 
 위협 발견, 치료하지 않았습니다.
 알림: 코드서명이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 [exit=2]
 
-########## C2. scan — 영어   [426초]
+########## C2. scan — 영어   [503초]
 
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.6.0
+ ESTsecurity Dedicated Cleaner 1.7.0
  EvilAI (Locust) Removal  (evilai-locust 0.2.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-11 05:52:32 UTC
+ Started    : 2026-11-11 10:20:23 UTC
  Machine    : DESKTOP-2GQIRP1 (windows)
 
 Starting scan.
-Scanning · files · 1156 folders · 9106 entries · 6946/7950 processed · root 1/3 · 5s elapsed · …l\Programs\Python\Python312\tcl\tcl8.6\tzdata\Africa\Lusaka
+Scanning · files · 1156 folders · 9106 entries · 3069/7950 processed · root 1/3 · 5s elapsed · …ams\Python\Python312\Lib\__pycache__\getopt.cpython-312.pyc
 Output    : C:\remedy-lab\out-console-scan-en  (artifacts.json · scan.json · plan.json)
 Scan done : 6 trace(s) · 1 threat(s)
 Side effects of this treatment:
@@ -469,32 +465,32 @@ Side effects of this treatment:
    3. Delete persistence entry  \Microsoft\Windows\Locust
       removes the scheduled entry so it no longer runs on its own
    4. Remove autorun entry  HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run\SystemSoftwareUpdater
-      it will no longer start automatically at boot
+      it will no longer start automatically when a user signs in
    5. Quarantine file  C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12\preload.js
       moves the file into quarantine — not deleted, and reversible
    6. Delete folder  C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12
-      deletes the folder and everything in it
+      deletes the folder and everything in it — kept in quarantine, so reversible
    7. Restore AV exclusions  HKLM\SOFTWARE\Microsoft\Windows Defender\Exclusions\Paths\C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12
       puts the excluded places back under scanning
 
-  * After you restart this PC, one more check runs automatically.
+  * After you restart this PC, one more check runs automatically (when an administrator signs in).
 
 Threat found, not treated.
 Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
 [exit=2]
 
-########## C3. scan — 플래그로 준 --ascii · --verbose · --lang   [432초]
+########## C3. scan — 플래그로 준 --ascii · --verbose · --lang   [510초]
 
 --ascii — 장식이 ASCII 로 (C1 과 견준다)
 --------------------------------------------------------
- ESTsecurity 전용백신 1.6.0
+ ESTsecurity 전용백신 1.7.0
  EvilAI(Locust) 제거  (evilai-locust 0.2.0)
 --------------------------------------------------------
- 시작 시각  : 2026-11-11 05:52:38 UTC
+ 시작 시각  : 2026-11-11 10:20:30 UTC
  실행 기계  : DESKTOP-2GQIRP1 (windows)
 
 검사를 시작합니다.
-검사 중 | 파일 검사 | 폴더 1156개 | 항목 9106개 | 처리 7737/7950개 | 루트 1/3 | 경과 5초 | ...ocal\Programs\Python\Python312\tcl\tix8.4.3\pref\12Point.fs
+검사 중 | 자동실행|서비스|작업 | 폴더 1284개 | 항목 9466개 | 처리 7951개 | 경과 5초
 결과 폴더 : C:\remedy-lab\out-console-ascii  (artifacts.json | scan.json | plan.json)
 검사 완료 : 흔적 6건 | 위협 1건
 이 치료의 부작용:
@@ -508,30 +504,30 @@ Notice: unsigned, so this binary cannot verify that it is the official release. 
    3. 자동 실행 등록 삭제  \Microsoft\Windows\Locust
       예약 실행 등록을 없앱니다. 정해진 때에 자동으로 실행되지 않게 됩니다
    4. 시작 프로그램 항목 제거  HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run\SystemSoftwareUpdater
-      부팅할 때 자동으로 실행되지 않게 됩니다
+      로그온할 때 자동으로 실행되지 않게 됩니다
    5. 파일 격리  C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12\preload.js
       파일을 격리소로 옮깁니다. 지우는 것이 아니라 되돌릴 수 있습니다
    6. 폴더 삭제  C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12
-      폴더와 그 안의 것을 통째로 지웁니다
+      폴더와 그 안의 것을 통째로 지웁니다 - 격리소에 담아 두어 되돌릴 수 있습니다
    7. 보안 제품 예외 목록 원복  HKLM\SOFTWARE\Microsoft\Windows Defender\Exclusions\Paths\C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12
       검사에서 빠져 있던 자리를 다시 검사 대상으로 되돌립니다
 
-  * 치료를 마친 뒤 이 PC 를 재시작하면 자동으로 한 번 더 검사합니다.
+  * 치료를 마친 뒤 이 PC 를 재시작하면 자동으로 한 번 더 검사합니다(관리자 계정으로 로그온했을 때).
 
 위협 발견, 치료하지 않았습니다.
 알림: 코드서명이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 [exit=2]
 --verbose — 검사 결과에 evidence·groups·verdicts 가 붙는다
 ────────────────────────────────────────────────────────
- ESTsecurity 전용백신 1.6.0
+ ESTsecurity 전용백신 1.7.0
  EvilAI(Locust) 제거  (evilai-locust 0.2.0)
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-11 05:52:44 UTC
+ 시작 시각  : 2026-11-11 10:20:36 UTC
  실행 기계  : DESKTOP-2GQIRP1 (windows)
 
 검사를 시작합니다.
-검사 중 · 파일 검사 · 폴더 1156개 · 항목 9106개 · 처리 5580/7950개 · 루트 1/3 · 경과 5초 · …on\Python312\Lib\test\test_import\data\package\submodule.py
-검사 시간 6.6초 · 걷기 0.3초 · 읽기 3.0초 (670.3 MB · 7947개) · 해시 0.6초 · 서명 2.0초 (90개) · 큰 파일 건너뜀 4개 · 그 밖 0.7초
+검사 중 · 파일 검사 · 폴더 1156개 · 항목 9106개 · 처리 7335/7950개 · 루트 1/3 · 경과 5초 · …\Local\Programs\Python\Python312\tcl\tcl8.6\tzdata\Etc\Zulu
+검사 시간 5.6초 · 걷기 0.2초 · 읽기 2.6초 (670.3 MB · 7947개) · 해시 0.5초 · 서명 1.7초 (90개) · 큰 파일 건너뜀 4개 · 그 밖 0.6초
 결과 폴더 : C:\remedy-lab\out-console-verbose  (artifacts.json · scan.json · plan.json)
 검사 완료 : 흔적 6건 · 위협 1건
   자세히: evidence 6 · groups 1 · verdicts 1
@@ -546,35 +542,35 @@ Notice: unsigned, so this binary cannot verify that it is the official release. 
    3. 자동 실행 등록 삭제  \Microsoft\Windows\Locust
       예약 실행 등록을 없앱니다. 정해진 때에 자동으로 실행되지 않게 됩니다
    4. 시작 프로그램 항목 제거  HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run\SystemSoftwareUpdater
-      부팅할 때 자동으로 실행되지 않게 됩니다
+      로그온할 때 자동으로 실행되지 않게 됩니다
    5. 파일 격리  C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12\preload.js
       파일을 격리소로 옮깁니다. 지우는 것이 아니라 되돌릴 수 있습니다
    6. 폴더 삭제  C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12
-      폴더와 그 안의 것을 통째로 지웁니다
+      폴더와 그 안의 것을 통째로 지웁니다 — 격리소에 담아 두어 되돌릴 수 있습니다
    7. 보안 제품 예외 목록 원복  HKLM\SOFTWARE\Microsoft\Windows Defender\Exclusions\Paths\C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12
       검사에서 빠져 있던 자리를 다시 검사 대상으로 되돌립니다
 
-  * 치료를 마친 뒤 이 PC 를 재시작하면 자동으로 한 번 더 검사합니다.
+  * 치료를 마친 뒤 이 PC 를 재시작하면 자동으로 한 번 더 검사합니다(관리자 계정으로 로그온했을 때).
 
 위협 발견, 치료하지 않았습니다.
 알림: 코드서명이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 [exit=2]
 --lang — 플래그가 REMEDY_LANG 을 이긴다 (REMEDY_LANG=ko 인데 영어여야 한다)
-ESTsecurity Dedicated Cleaner 1.6.0 (remedy)
+ESTsecurity Dedicated Cleaner 1.7.0 (remedy)
 Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
 [exit=0]
 
-########## D1. run — 승인할 사람이 없다   [445초]
+########## D1. run — 승인할 사람이 없다   [522초]
 
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.6.0
+ ESTsecurity Dedicated Cleaner 1.7.0
  EvilAI (Locust) Removal  (evilai-locust 0.2.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-11 05:52:51 UTC
+ Started    : 2026-11-11 10:20:42 UTC
  Machine    : DESKTOP-2GQIRP1 (windows)
 
 Starting scan.
-Scanning · files · 1156 folders · 9106 entries · 3771/7950 processed · root 1/3 · 5s elapsed · …ms\Python\Python312\Lib\multiprocessing\popen_forkserver.py
+Scanning · persistence · 1284 folders · 9466 entries · 7951 processed · 5s elapsed
 Scan done : 6 trace(s) · 1 threat(s)
 
 Side effects of this treatment:
@@ -588,32 +584,32 @@ Side effects of this treatment:
    3. Delete persistence entry  \Microsoft\Windows\Locust
       removes the scheduled entry so it no longer runs on its own
    4. Remove autorun entry  HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run\SystemSoftwareUpdater
-      it will no longer start automatically at boot
+      it will no longer start automatically when a user signs in
    5. Quarantine file  C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12\preload.js
       moves the file into quarantine — not deleted, and reversible
    6. Delete folder  C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12
-      deletes the folder and everything in it
+      deletes the folder and everything in it — kept in quarantine, so reversible
    7. Restore AV exclusions  HKLM\SOFTWARE\Microsoft\Windows Defender\Exclusions\Paths\C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12
       puts the excluded places back under scanning
 
-  * After you restart this PC, one more check runs automatically.
+  * After you restart this PC, one more check runs automatically (when an administrator signs in).
 Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
 
   Note: nobody is here to approve (not a terminal).
      Pass --yes for unattended deployment. Nothing was done.
 [exit=2]
 
-########## D2. run --dry-run   [453초]
+########## D2. run --dry-run   [528초]
 
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.6.0
+ ESTsecurity Dedicated Cleaner 1.7.0
  EvilAI (Locust) Removal  (evilai-locust 0.2.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-11 05:52:59 UTC
+ Started    : 2026-11-11 10:20:48 UTC
  Machine    : DESKTOP-2GQIRP1 (windows)
 
 Starting scan.
-Scanning · files · 1156 folders · 9106 entries · 2411/7950 processed · root 1/3 · 5s elapsed · …sers\test\AppData\Local\Programs\Microsoft VS Code\Code.exe
+Scanning · files · 1156 folders · 9106 entries · 7484/7950 processed · root 1/3 · 5s elapsed · …pData\Local\Programs\Python\Python312\tcl\tcl8.6\tzdata\ROC
 Scan done : 6 trace(s) · 1 threat(s)
 
 Side effects of this treatment:
@@ -627,31 +623,31 @@ Side effects of this treatment:
    3. Delete persistence entry  \Microsoft\Windows\Locust
       removes the scheduled entry so it no longer runs on its own
    4. Remove autorun entry  HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run\SystemSoftwareUpdater
-      it will no longer start automatically at boot
+      it will no longer start automatically when a user signs in
    5. Quarantine file  C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12\preload.js
       moves the file into quarantine — not deleted, and reversible
    6. Delete folder  C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12
-      deletes the folder and everything in it
+      deletes the folder and everything in it — kept in quarantine, so reversible
    7. Restore AV exclusions  HKLM\SOFTWARE\Microsoft\Windows Defender\Exclusions\Paths\C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12
       puts the excluded places back under scanning
 
-  * After you restart this PC, one more check runs automatically.
+  * After you restart this PC, one more check runs automatically (when an administrator signs in).
 
 --dry-run — nothing was changed.
 Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
 [exit=2]
 
-########## D3. run --yes — 치료   [462초]
+########## D3. run --yes — 치료   [533초]
 
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.6.0
+ ESTsecurity Dedicated Cleaner 1.7.0
  EvilAI (Locust) Removal  (evilai-locust 0.2.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-11 05:53:07 UTC
+ Started    : 2026-11-11 10:20:53 UTC
  Machine    : DESKTOP-2GQIRP1 (windows)
 
 Starting scan.
-Scanning · files · 1156 folders · 9106 entries · 3225/7950 processed · root 1/3 · 5s elapsed · …AppData\Local\Programs\Python\Python312\Lib\curses\ascii.py
+Scanning · persistence · 1284 folders · 9466 entries · 7951 processed · 5s elapsed
 Scan done : 6 trace(s) · 1 threat(s)
 
 Side effects of this treatment:
@@ -665,15 +661,15 @@ Side effects of this treatment:
    3. Delete persistence entry  \Microsoft\Windows\Locust
       removes the scheduled entry so it no longer runs on its own
    4. Remove autorun entry  HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run\SystemSoftwareUpdater
-      it will no longer start automatically at boot
+      it will no longer start automatically when a user signs in
    5. Quarantine file  C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12\preload.js
       moves the file into quarantine — not deleted, and reversible
    6. Delete folder  C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12
-      deletes the folder and everything in it
+      deletes the folder and everything in it — kept in quarantine, so reversible
    7. Restore AV exclusions  HKLM\SOFTWARE\Microsoft\Windows Defender\Exclusions\Paths\C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12
       puts the excluded places back under scanning
 
-  * After you restart this PC, one more check runs automatically.
+  * After you restart this PC, one more check runs automatically (when an administrator signs in).
 
 Starting treatment.
   done [1/7] Terminate process  (matched at run time)
@@ -688,68 +684,67 @@ Re-evaluation scheduled after reboot: HKLM\SOFTWARE\Microsoft\Windows\CurrentVer
 
 ────────────────────────────────────────────────────────
  Result     : Threat found, treated (7 action(s) done)
- Elapsed    : 12s
- Quarantine : C:\remedy-lab\state-console\quarantine\run-1794376387-2c50-39d2d9b0.rq
- Journal    : C:\remedy-lab\state-console\journal\run-1794376387-2c50-39d2d9b0.jsonl
- To undo    : remedy restore --run run-1794376387-2c50-39d2d9b0 --state-dir C:\remedy-lab\state-console
- Report FP  : remedy support-bundle --run run-1794376387-2c50-39d2d9b0 --state-dir C:\remedy-lab\state-console
+ Elapsed    : 9s
+ Quarantine : C:\remedy-lab\state-console\quarantine\run-1794392453-2404-3a6c4898.rq
+ Journal    : C:\remedy-lab\state-console\journal\run-1794392453-2404-3a6c4898.jsonl
+ To undo    : remedy restore --run run-1794392453-2404-3a6c4898 --state-dir C:\remedy-lab\state-console
+ Report FP  : remedy support-bundle --run run-1794392453-2404-3a6c4898 --state-dir C:\remedy-lab\state-console
 ────────────────────────────────────────────────────────
  Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
 Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
 [exit=1]
-[run_id=run-1794376387-2c50-39d2d9b0]
+[run_id=run-1794392453-2404-3a6c4898]
 
-########## E. 예약된 재평가 명령 (RunOnce)   [475초]
+########## E. 예약된 재평가 명령 (RunOnce)   [544초]
 
-"C:\remedy-lab\bin\remedy.exe" verify --run run-1794376387-2c50-39d2d9b0 --plugin "C:\remedy-lab\plugins\evilai-locust\plugin.yaml" --lang en --state-dir "C:\remedy-lab\state-console"
+"C:\remedy-lab\bin\remedy.exe" verify --run run-1794392453-2404-3a6c4898 --plugin "C:\remedy-lab\plugins\evilai-locust\plugin.yaml" --lang en --state-dir "C:\remedy-lab\state-console"
 
-########## F. verify   [475초]
+########## F. verify   [544초]
 
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.6.0
+ ESTsecurity Dedicated Cleaner 1.7.0
 ────────────────────────────────────────────────────────
- Started    : 2026-11-11 05:53:21 UTC
+ Started    : 2026-11-11 10:21:04 UTC
  Machine    : DESKTOP-2GQIRP1 (windows)
 
 Starting scan.
-Scanning · files · 1155 folders · 9104 entries · 2317/7949 processed · root 1/3 · 5s elapsed · …dline\netstd\Microsoft.PowerShell.PSReadLine.Polyfiller.dll
-Scanning · files · 1155 folders · 9104 entries · 7419/7949 processed · root 1/3 · 10s elapsed · …\Programs\Python\Python312\tcl\tcl8.6\tzdata\Indian\Reunion
+Scanning · files · 1155 folders · 9104 entries · 3365/7949 processed · root 1/3 · 5s elapsed · …Local\Programs\Python\Python312\Lib\encodings\iso8859_16.py
 Scan done : 0 trace(s) · 0 threat(s)
-Re-evaluation record -> C:\remedy-lab\state-console\verify\run-1794376387-2c50-39d2d9b0.jsonl
+Re-evaluation record -> C:\remedy-lab\state-console\verify\run-1794392453-2404-3a6c4898.jsonl
 
-Treatment succeeded. The same plugin no longer reports a threat.
+Treatment succeeded. The same check no longer finds the threat.
 Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
 [exit=0]
 
-########## G0. restore --list — 창을 닫아도 회차를 찾는다   [487초]
+########## G0. restore --list — 창을 닫아도 회차를 찾는다   [553초]
 
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.6.0
+ ESTsecurity Dedicated Cleaner 1.7.0
 ────────────────────────────────────────────────────────
- Started    : 2026-11-11 05:53:32 UTC
+ Started    : 2026-11-11 10:21:14 UTC
  Machine    : DESKTOP-2GQIRP1 (windows)
 
 Quarantine : C:\remedy-lab\state-console\quarantine
 
 1 run(s) can be undone
-  2026-11-11 05:53:07 UTC  run-1794376387-2c50-39d2d9b0 · 11383 bytes
+  2026-11-11 10:20:53 UTC  run-1794392453-2404-3a6c4898 · 11383 bytes
 
-To undo : remedy restore --run run-1794376387-2c50-39d2d9b0 --state-dir C:\remedy-lab\state-console
+To undo : remedy restore --run run-1794392453-2404-3a6c4898 --state-dir C:\remedy-lab\state-console
 Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
 [exit=0]
 
-########## G1. restore — 계획만   [487초]
+########## G1. restore — 계획만   [554초]
 
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.6.0
+ ESTsecurity Dedicated Cleaner 1.7.0
 ────────────────────────────────────────────────────────
- Started    : 2026-11-11 05:53:32 UTC
+ Started    : 2026-11-11 10:21:14 UTC
  Machine    : DESKTOP-2GQIRP1 (windows)
 
-Quarantine : C:\remedy-lab\state-console\quarantine\run-1794376387-2c50-39d2d9b0.rq
-Run id     : run-1794376387-2c50-39d2d9b0
-Created    : 2026-11-11 05:53:07 UTC
-Keys       : local(5bb1f2ab)
+Quarantine : C:\remedy-lab\state-console\quarantine\run-1794392453-2404-3a6c4898.rq
+Run id     : run-1794392453-2404-3a6c4898
+Created    : 2026-11-11 10:20:53 UTC
+Keys       : local(d0d8855d)
 
 6 item(s) to restore · 7442 bytes
   [e0] \Microsoft\Windows\Locust
@@ -761,25 +756,25 @@ Keys       : local(5bb1f2ab)
         not restorable  ctime: the operating system owns this value; it cannot be restored
         not restorable  btime: the creation time was not captured at quarantine
   [e5] av_exclusions
-  Volume C:  needs 508 · free 21709271040 bytes
+  Volume C:  needs 508 · free 21611868160 bytes
 
 Nothing was done. Check the list above and run again with --yes.
 Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
   Note: this quarantine opens only with this machine's key. Reinstalling this machine makes it unopenable, so if it needs restoring, do it before that.
 [exit=2]
 
-########## G2. restore --yes   [487초]
+########## G2. restore --yes   [554초]
 
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.6.0
+ ESTsecurity Dedicated Cleaner 1.7.0
 ────────────────────────────────────────────────────────
- Started    : 2026-11-11 05:53:33 UTC
+ Started    : 2026-11-11 10:21:14 UTC
  Machine    : DESKTOP-2GQIRP1 (windows)
 
-Quarantine : C:\remedy-lab\state-console\quarantine\run-1794376387-2c50-39d2d9b0.rq
-Run id     : run-1794376387-2c50-39d2d9b0
-Created    : 2026-11-11 05:53:07 UTC
-Keys       : local(5bb1f2ab)
+Quarantine : C:\remedy-lab\state-console\quarantine\run-1794392453-2404-3a6c4898.rq
+Run id     : run-1794392453-2404-3a6c4898
+Created    : 2026-11-11 10:20:53 UTC
+Keys       : local(d0d8855d)
 
 6 item(s) to restore · 7442 bytes
   [e0] \Microsoft\Windows\Locust
@@ -791,7 +786,7 @@ Keys       : local(5bb1f2ab)
         not restorable  ctime: the operating system owns this value; it cannot be restored
         not restorable  btime: the creation time was not captured at quarantine
   [e5] av_exclusions
-  Volume C:  needs 508 · free 21710422016 bytes
+  Volume C:  needs 508 · free 21611868160 bytes
 
   restored [e0] \Microsoft\Windows\Locust
   restored [e1] \Microsoft\Windows\Locust
@@ -808,12 +803,12 @@ Notice: unsigned, so this binary cannot verify that it is the official release. 
   Note: this quarantine opens only with this machine's key. Reinstalling this machine makes it unopenable, so if it needs restoring, do it before that.
 [exit=0]
 
-########## D5. 치료 심장박동 — 도구가 도는 중   [490초]
+########## D5. 치료 심장박동 — 도구가 도는 중   [556초]
 
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.6.0
+ ESTsecurity Dedicated Cleaner 1.7.0
 ────────────────────────────────────────────────────────
- Started    : 2026-11-11 05:53:36 UTC
+ Started    : 2026-11-11 10:21:16 UTC
  Machine    : DESKTOP-2GQIRP1 (windows)
 
 
@@ -828,11 +823,11 @@ Side effects of this treatment:
    3. Delete persistence entry  \Microsoft\Windows\Locust
       removes the scheduled entry so it no longer runs on its own
    4. Remove autorun entry  HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run\SystemSoftwareUpdater
-      it will no longer start automatically at boot
+      it will no longer start automatically when a user signs in
    5. Quarantine file  C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12\preload.js
       moves the file into quarantine — not deleted, and reversible
    6. Delete folder  C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12
-      deletes the folder and everything in it
+      deletes the folder and everything in it — kept in quarantine, so reversible
    7. Restore AV exclusions  HKLM\SOFTWARE\Microsoft\Windows Defender\Exclusions\Paths\C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12
       puts the excluded places back under scanning
 
@@ -840,9 +835,9 @@ Side effects of this treatment:
     When the treatment ends you will be shown the command to run yourself.
 
 Starting treatment.
-Treating · tool powershell.exe -NoProfile 0s · 1s elapsed
-Treating · 2s elapsed
-Treating · tool powershell.exe -NoProfile 0s · 3s elapsed
+Treating · tool powershell.exe -NoProfile 1s · 1s elapsed
+Treating · tool powershell.exe -NoProfile 0s · 2s elapsed
+Treating · tool powershell.exe -NoProfile 1s · 3s elapsed
   done [1/7] Terminate process  (matched at run time)
   done [2/7] Disable persistence entry  \Microsoft\Windows\Locust
   done [3/7] Delete persistence entry  \Microsoft\Windows\Locust
@@ -853,32 +848,32 @@ Treating · tool powershell.exe -NoProfile 0s · 3s elapsed
 
 ────────────────────────────────────────────────────────
  Result     : Threat found, treated (7 action(s) done)
- Elapsed    : 4s
- Quarantine : C:\remedy-lab\state-console-beat\quarantine\run-1794376379-292c-1494af98.rq
- Journal    : C:\remedy-lab\state-console-beat\journal\run-1794376379-292c-1494af98.jsonl
- To undo    : remedy restore --run run-1794376379-292c-1494af98 --state-dir C:\remedy-lab\state-console-beat
- Report FP  : remedy support-bundle --run run-1794376379-292c-1494af98 --state-dir C:\remedy-lab\state-console-beat
+ Elapsed    : 3s
+ Quarantine : C:\remedy-lab\state-console-beat\quarantine\run-1794392448-0620-a32f12c.rq
+ Journal    : C:\remedy-lab\state-console-beat\journal\run-1794392448-0620-a32f12c.jsonl
+ To undo    : remedy restore --run run-1794392448-0620-a32f12c --state-dir C:\remedy-lab\state-console-beat
+ Report FP  : remedy support-bundle --run run-1794392448-0620-a32f12c --state-dir C:\remedy-lab\state-console-beat
 ────────────────────────────────────────────────────────
  Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
 Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
 
-Note: re-evaluation was not scheduled (this command does not know the plugin path; `remedy run --plugin ...` does). after the reboot, run `remedy verify --run run-1794376379-292c-1494af98 --plugin <plugin.yaml>` yourself
+Note: re-evaluation was not scheduled (this command does not know the plugin path; `remedy run --plugin ...` does). after the reboot, run `remedy verify --run run-1794392448-0620-a32f12c --plugin <plugin.yaml>` yourself
 [exit=1]
 [도구 칸이 붙은 심장박동을 받지 못했다 — 외부 도구가 박동 간격보다 빨리 끝났다]
 
-########## H. support-bundle   [494초]
+########## H. support-bundle   [559초]
 
-Support bundle folder : C:\remedy-lab\bundle-console\remedy-support-run-1794376387-2c50-39d2d9b0
+Support bundle folder : C:\remedy-lab\bundle-console\remedy-support-run-1794392453-2404-3a6c4898
 
 Included
   plan.json               3001 bytes  what was going to happen: the approved plan in full
   journal.jsonl           3488 bytes  what was done: the audit log
   verify.jsonl             155 bytes  whether the treatment held: the re-evaluation record
-  run.log                 6835 bytes  what the operator saw: banner, plan, warnings, failures, closing table, each line timed
+  run.log                 6647 bytes  what the operator saw: banner, plan, warnings, failures, closing table, each line timed
   environment.json         405 bytes  which core ran: version, target, self-integrity, engine state
 
 Deliberately left out
-  C:\remedy-lab\state-console\quarantine\run-1794376387-2c50-39d2d9b0.rq
+  C:\remedy-lab\state-console\quarantine\run-1794392453-2404-3a6c4898.rq
     quarantine container: holds the sample and user file contents. Do not send it; a false-positive is undone on this machine with `remedy restore --run <id>`
   C:\remedy-lab\state-console\machine.key
     the sealing key that opens the quarantine container. Sending it lets anyone open the container. Never attach it
@@ -892,12 +887,12 @@ Open it before sending. Paths, host name and user name are not redacted.
 Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
 [exit=0]
 
-########## I1. 오류 — 인자 빠짐   [495초]
+########## I1. 오류 — 인자 빠짐   [559초]
 
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.6.0
+ ESTsecurity Dedicated Cleaner 1.7.0
 ────────────────────────────────────────────────────────
- Started    : 2026-11-11 05:53:40 UTC
+ Started    : 2026-11-11 10:21:19 UTC
  Machine    : DESKTOP-2GQIRP1 (windows)
 
 Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
@@ -905,14 +900,14 @@ Error: --plan is required
   (exit code 4: usage or input error)
 [exit=4]
 
-########## I2. 오류 — 모르는 하위 명령   [495초]
+########## I2. 오류 — 모르는 하위 명령   [560초]
 
 Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
 unknown subcommand: plugin 없는것
 available: lint · verify
 [exit=4]
 
-########## J. selftest   [495초]
+########## J. selftest   [560초]
 
 링크된 크레이트 12종
   remedy-sdk
@@ -933,64 +928,64 @@ selftest OK
 Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
 [exit=0]
 
-########## K. 회차 로그 (심장박동 줄 제외)   [495초]
+########## K. 회차 로그 (심장박동 줄 제외)   [560초]
 
-restore-run-1794376387-2c50-39d2d9b0.log  5612 bytes
-run-1794376345-1060-36ba97b8.log  3477 bytes
-run-1794376352-12c4-19cd6928.log  3135 bytes
-run-1794376358-23fc-168f607c.log  3244 bytes
-run-1794376364-2374-a3cac30.log  3566 bytes
-run-1794376371-25a0-c803a34.log  3210 bytes
-run-1794376379-292c-1494af98.log  3119 bytes
-run-1794376387-2c50-39d2d9b0.log  6835 bytes
---- run-1794376387-2c50-39d2d9b0.log 의 머리부터 치료 시작까지 ---
-2026-11-11T05:53:07Z # remedy 1.6.0 pid 11344 · run --plugin C:\remedy-lab\plugins\evilai-locust\plugin.yaml --out-dir C:\remedy-lab\out-console-run --yes --state-dir C:\remedy-lab\state-console
-2026-11-11T05:53:07Z | ────────────────────────────────────────────────────────
-2026-11-11T05:53:07Z |  ESTsecurity Dedicated Cleaner 1.6.0
-2026-11-11T05:53:07Z |  EvilAI (Locust) Removal  (evilai-locust 0.2.0)
-2026-11-11T05:53:07Z | ────────────────────────────────────────────────────────
-2026-11-11T05:53:07Z |  Started    : 2026-11-11 05:53:07 UTC
-2026-11-11T05:53:07Z |  Machine    : DESKTOP-2GQIRP1 (windows)
-2026-11-11T05:53:07Z | 
-2026-11-11T05:53:07Z # run_id run-1794376387-2c50-39d2d9b0
-2026-11-11T05:53:07Z | Starting scan.
-2026-11-11T05:53:15Z # scan time 7.6s · walk 0.4s · read 3.8s (670.3 MB · 7947 files) · hash 0.6s · signatures 2.0s (90 files) · 4 too big to hash · other 0.8s
-2026-11-11T05:53:15Z | Scan done : 6 trace(s) · 1 threat(s)
-2026-11-11T05:53:15Z | 
-2026-11-11T05:53:15Z | Side effects of this treatment:
-2026-11-11T05:53:15Z |   ! [1] node.exe will be terminated — any unsaved work is lost
-2026-11-11T05:53:15Z | 
-2026-11-11T05:53:15Z | 7 action(s) will run:
-2026-11-11T05:53:15Z |    1. Terminate process  (matched at run time)
-2026-11-11T05:53:15Z |       stops that program while it is running
-2026-11-11T05:53:15Z |    2. Disable persistence entry  \Microsoft\Windows\Locust
-2026-11-11T05:53:15Z |       turns it off first so it cannot run while being removed
-2026-11-11T05:53:15Z |    3. Delete persistence entry  \Microsoft\Windows\Locust
-2026-11-11T05:53:15Z |       removes the scheduled entry so it no longer runs on its own
-2026-11-11T05:53:15Z |    4. Remove autorun entry  HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run\SystemSoftwareUpdater
-2026-11-11T05:53:15Z |       it will no longer start automatically at boot
-2026-11-11T05:53:15Z |    5. Quarantine file  C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12\preload.js
-2026-11-11T05:53:15Z |       moves the file into quarantine — not deleted, and reversible
-2026-11-11T05:53:15Z |    6. Delete folder  C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12
-2026-11-11T05:53:15Z |       deletes the folder and everything in it
-2026-11-11T05:53:15Z |    7. Restore AV exclusions  HKLM\SOFTWARE\Microsoft\Windows Defender\Exclusions\Paths\C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12
-2026-11-11T05:53:15Z | 
-2026-11-11T05:53:15Z |   * After you restart this PC, one more check runs automatically.
-2026-11-11T05:53:15Z | 
-2026-11-11T05:53:15Z | Starting treatment.
+restore-run-1794392453-2404-3a6c4898.log  5610 bytes
+run-1794392417-0190-34e0e8d4.log  3581 bytes
+run-1794392423-0b70-301bee20.log  3219 bytes
+run-1794392430-2f44-3b158a48.log  3281 bytes
+run-1794392436-13a0-27fa2180.log  3671 bytes
+run-1794392442-1b64-22d5f224.log  3218 bytes
+run-1794392448-0620-a32f12c.log  3201 bytes
+run-1794392453-2404-3a6c4898.log  6647 bytes
+--- run-1794392453-2404-3a6c4898.log 의 머리부터 치료 시작까지 ---
+2026-11-11T10:20:53Z # remedy 1.7.0 pid 9220 · run --plugin C:\remedy-lab\plugins\evilai-locust\plugin.yaml --out-dir C:\remedy-lab\out-console-run --yes --state-dir C:\remedy-lab\state-console
+2026-11-11T10:20:53Z | ────────────────────────────────────────────────────────
+2026-11-11T10:20:53Z |  ESTsecurity Dedicated Cleaner 1.7.0
+2026-11-11T10:20:53Z |  EvilAI (Locust) Removal  (evilai-locust 0.2.0)
+2026-11-11T10:20:53Z | ────────────────────────────────────────────────────────
+2026-11-11T10:20:53Z |  Started    : 2026-11-11 10:20:53 UTC
+2026-11-11T10:20:53Z |  Machine    : DESKTOP-2GQIRP1 (windows)
+2026-11-11T10:20:53Z | 
+2026-11-11T10:20:53Z # run_id run-1794392453-2404-3a6c4898
+2026-11-11T10:20:53Z | Starting scan.
+2026-11-11T10:20:59Z # scan time 5.4s · walk 0.2s · read 2.4s (670.3 MB · 7947 files) · hash 0.5s · signatures 1.7s (90 files) · 4 too big to hash · other 0.6s
+2026-11-11T10:20:59Z | Scan done : 6 trace(s) · 1 threat(s)
+2026-11-11T10:20:59Z | 
+2026-11-11T10:20:59Z | Side effects of this treatment:
+2026-11-11T10:20:59Z |   ! [1] node.exe will be terminated — any unsaved work is lost
+2026-11-11T10:20:59Z | 
+2026-11-11T10:20:59Z | 7 action(s) will run:
+2026-11-11T10:20:59Z |    1. Terminate process  (matched at run time)
+2026-11-11T10:20:59Z |       stops that program while it is running
+2026-11-11T10:20:59Z |    2. Disable persistence entry  \Microsoft\Windows\Locust
+2026-11-11T10:20:59Z |       turns it off first so it cannot run while being removed
+2026-11-11T10:20:59Z |    3. Delete persistence entry  \Microsoft\Windows\Locust
+2026-11-11T10:20:59Z |       removes the scheduled entry so it no longer runs on its own
+2026-11-11T10:20:59Z |    4. Remove autorun entry  HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run\SystemSoftwareUpdater
+2026-11-11T10:20:59Z |       it will no longer start automatically when a user signs in
+2026-11-11T10:20:59Z |    5. Quarantine file  C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12\preload.js
+2026-11-11T10:20:59Z |       moves the file into quarantine — not deleted, and reversible
+2026-11-11T10:20:59Z |    6. Delete folder  C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12
+2026-11-11T10:20:59Z |       deletes the folder and everything in it — kept in quarantine, so reversible
+2026-11-11T10:20:59Z |    7. Restore AV exclusions  HKLM\SOFTWARE\Microsoft\Windows Defender\Exclusions\Paths\C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12
+2026-11-11T10:20:59Z | 
+2026-11-11T10:20:59Z |   * After you restart this PC, one more check runs automatically (when an administrator signs in).
+2026-11-11T10:20:59Z | 
+2026-11-11T10:20:59Z | Starting treatment.
 --- 검사 시간 줄 ---
-2026-11-11T05:53:15Z # scan time 7.6s · walk 0.4s · read 3.8s (670.3 MB · 7947 files) · hash 0.6s · signatures 2.0s (90 files) · 4 too big to hash · other 0.8s
-2026-11-11T05:53:32Z # scan time 11.2s · walk 0.4s · read 7.5s (670.3 MB · 7946 files) · hash 0.6s · signatures 2.1s (90 files) · 4 too big to hash · other 0.7s
+2026-11-11T10:20:59Z # scan time 5.4s · walk 0.2s · read 2.4s (670.3 MB · 7947 files) · hash 0.5s · signatures 1.7s (90 files) · 4 too big to hash · other 0.6s
+2026-11-11T10:21:13Z # scan time 9.7s · walk 0.2s · read 6.6s (670.3 MB · 7946 files) · hash 0.5s · signatures 1.6s (90 files) · 4 too big to hash · other 0.7s
 
-########## M. 조직 복구 키 — apply 가 싣고 restore 가 연다   [496초]
+########## M. 조직 복구 키 — apply 가 싣고 restore 가 연다   [560초]
 
 org 키쌍 생성 OK — 공개키 32 바이트
 검체 2개 · 룰 생성 완료
 ────────────────────────────────────────────────────────
- ESTsecurity 전용백신 1.6.0
+ ESTsecurity 전용백신 1.7.0
  조직 복구 키 시험  (force-orgwrap 1.0.0)
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-11 05:53:43 UTC
+ 시작 시각  : 2026-11-11 10:21:22 UTC
  실행 기계  : DESKTOP-2GQIRP1 (windows)
 
 검사를 시작합니다.
@@ -1009,25 +1004,25 @@ org 키쌍 생성 OK — 공개키 32 바이트
 ────────────────────────────────────────────────────────
  결과       : 위협 발견, 치료 완료 (2건 수행 완료)
  소요 시간  : 1초 미만
- 격리소     : C:\remedy-lab\state-org\quarantine\run-1794376423-0070-16dae100.rq
- 저널       : C:\remedy-lab\state-org\journal\run-1794376423-0070-16dae100.jsonl
- 되돌리려면 : remedy restore --run run-1794376423-0070-16dae100 --state-dir C:\remedy-lab\state-org
- 오탐 신고  : remedy support-bundle --run run-1794376423-0070-16dae100 --state-dir C:\remedy-lab\state-org
+ 격리소     : C:\remedy-lab\state-org\quarantine\run-1794392482-29e4-88bd58c.rq
+ 저널       : C:\remedy-lab\state-org\journal\run-1794392482-29e4-88bd58c.jsonl
+ 되돌리려면 : remedy restore --run run-1794392482-29e4-88bd58c --state-dir C:\remedy-lab\state-org
+ 오탐 신고  : remedy support-bundle --run run-1794392482-29e4-88bd58c --state-dir C:\remedy-lab\state-org
 ────────────────────────────────────────────────────────
  Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
 알림: 코드서명이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 [exit=1]
 --- 조직 키로 연다 (제자리가 아니라 꺼내기) ---
 ────────────────────────────────────────────────────────
- ESTsecurity 전용백신 1.6.0
+ ESTsecurity 전용백신 1.7.0
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-11 05:53:43 UTC
+ 시작 시각  : 2026-11-11 10:21:22 UTC
  실행 기계  : DESKTOP-2GQIRP1 (windows)
 
-격리소     : C:\remedy-lab\state-org\quarantine\run-1794376423-0070-16dae100.rq
-실행 번호  : run-1794376423-0070-16dae100
-만든 시각  : 2026-11-11 05:53:43 UTC
-키         : local(6a01a3b4) · org(2d1b5d10)
+격리소     : C:\remedy-lab\state-org\quarantine\run-1794392482-29e4-88bd58c.rq
+실행 번호  : run-1794392482-29e4-88bd58c
+만든 시각  : 2026-11-11 10:21:22 UTC
+키         : local(7bbf54c2) · org(58f2ed03)
 꺼내기 모드입니다. 원본 자리가 아니라 C:\remedy-lab\orgout 로 꺼냅니다.
   제자리 복원은 원래 머신에서만 보장됩니다.
 
@@ -1036,7 +1031,7 @@ org 키쌍 생성 OK — 공개키 32 바이트
         복원 불가  ctime: 운영체제가 관리하는 값이라 복원할 수 없습니다
   [e1] C:\remedy-lab\orgout\C__remedy-lab_orgsrc_g2.evil
         복원 불가  ctime: 운영체제가 관리하는 값이라 복원할 수 없습니다
-  볼륨 C:  필요 28 · 여유 21588074496 바이트
+  볼륨 C:  필요 28 · 여유 21611802624 바이트
 
   복원 [e0] C:\remedy-lab\orgout\C__remedy-lab_orgsrc_g1.evil  (content · mtime · btime · readonly · sddl)
   복원 [e1] C:\remedy-lab\orgout\C__remedy-lab_orgsrc_g2.evil  (content · mtime · btime · readonly · sddl)
@@ -1051,10 +1046,10 @@ org 키쌍 생성 OK — 공개키 32 바이트
 C__remedy-lab_orgsrc_g1.evil
 C__remedy-lab_orgsrc_g2.evil
 
-########## L. 정리   [498초]
+########## L. 정리   [562초]
 
 예외 복원 완료
 정리 완료
 
-########## 끝   [504초]
+########## 끝   [566초]
 
