@@ -138,14 +138,33 @@ Write-Step "WinRM 응답 대기 (최대 ${TimeoutSec}초)"
 $deadline = (Get-Date).AddSeconds($TimeoutSec)
 $ready = $false
 $lastPing = $false
-while ((Get-Date) -lt $deadline) {
-    $lastPing = Test-Connection -ComputerName $VmAddress -Count 1 -Quiet -ErrorAction SilentlyContinue
+function Test-WinRmPort {
+    param([string] $Address)
+    $open = $false
     try {
         $c = New-Object Net.Sockets.TcpClient
-        if ($c.ConnectAsync($VmAddress, 5985).Wait(1500)) { $ready = $true }
+        if ($c.ConnectAsync($Address, 5985).Wait(1500)) { $open = $true }
         $c.Close()
     } catch { }
-    if ($ready) { break }
+    $open
+}
+while ((Get-Date) -lt $deadline) {
+    $lastPing = Test-Connection -ComputerName $VmAddress -Count 1 -Quiet -ErrorAction SilentlyContinue
+    if (Test-WinRmPort $VmAddress) { $ready = $true; break }
+    # **되돌린 게스트가 다른 주소를 받을 수 있다** (2026-11-11). 스냅샷 속 게스트는 찍을 때의
+    # DHCP 주소를 다시 청하는데, 그 주소의 임대가 아직 남아 있으면 다른 주소를 받는다 — 한
+    # 시간 안에 주소가 두 번 바뀌었고, 그때마다 이 대기가 240초를 채우고 멈췄다.
+    # 주어진 주소가 응답하지 않으면 **이 VM(-Vmx)** 의 게스트 주소를 VMware Tools 에 묻고,
+    # 그 주소가 응답하면 그쪽으로 간다 — `Connect-LabVm` 과 같은 규칙이다. 다른 VM 의 주소는
+    # 보지 않는다(이 기계에는 다른 세션의 VM 도 떠 있다).
+    $seen = @(& $VmRun -T ws getGuestIPAddress $Vmx 2>$null)[0]
+    if ($seen) { $seen = "$seen".Trim() }
+    if ($seen -match '^\d{1,3}(\.\d{1,3}){3}$' -and $seen -ne $VmAddress -and (Test-WinRmPort $seen)) {
+        Write-Warn "게스트 주소가 $VmAddress 가 아니라 $seen 이다(DHCP) — 이 회차는 $seen 으로 간다"
+        $VmAddress = $seen
+        $ready = $true
+        break
+    }
     Start-Sleep -Seconds 2
 }
 
