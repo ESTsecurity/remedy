@@ -528,6 +528,12 @@ fn finding_body(e: &remedy_sdk::artifact::Evidence, lang: Lang) -> String {
     // 판정하는 점검 룰(`sha256 in […]` · `sha256 exists`)에서 경로 뒤에 그대로 찍혔다. 위협 룰 화면
     // ([`threat_findings`])이 이름만 적는 것과 같은 까닭이다.
     let unreadable = ["sha256", "content_ref", "streams"];
+    // **설정 안의 자리도 적지 않는다** (2026-11-11) — `structured_config` 의 `key_path`
+    // (`configuration[0]/system.webServer[0]/fastCgi[0]/application[0]/@fullPath`)는 엔진이 지은 경로라
+    // 그 파일에서 그대로 찾을 수 없고, 사람이 볼 것은 그 자리의 **값**이다. 실측(Windows 랩 · IIS 가
+    // 선언 밖의 PHP 를 쓰는 기계): `applicationHost.config  (key_path …/@fullPath)` 로 나와 사유가 말한
+    // *"아래 경로"* (PHP 경로)가 화면 어디에도 없었다.
+    let locator = ["key_path"];
     let matched_version = e
         .matched
         .iter()
@@ -541,6 +547,7 @@ fn finding_body(e: &remedy_sdk::artifact::Evidence, lang: Lang) -> String {
             .iter()
             .filter(|m| !in_label.contains(&m.field.as_str()))
             .filter(|m| !unreadable.contains(&m.field.as_str()))
+            .filter(|m| !locator.contains(&m.field.as_str()))
             .find_map(|m| text_at(&e.target, &m.field).map(|v| format!("{} {v}", m.field)))
     };
     match why {

@@ -684,6 +684,54 @@ fn a_hash_that_decided_a_finding_is_not_printed() {
     assert_eq!(lines, vec!["   1. /usr/local/bin/php".to_string()]);
 }
 
+/// 설정에서 찾은 항목은 **그 자리의 값**을 적는다 — `key_path` 는 엔진이 지은 경로라 사람이 그
+/// 파일에서 찾아갈 수 없다(2026-11-11 · Windows 랩: IIS 가 선언 밖의 PHP 를 쓰는 기계).
+#[test]
+fn a_config_finding_shows_the_value_not_the_key_path() {
+    use remedy_sdk::artifact::{Evidence, EvidenceGroup, MatchedPredicate, UnconfirmedNote};
+    let key = "configuration[0]/system.webServer[0]/fastCgi[0]/application[0]/@fullPath";
+    let pred = |field: &str| MatchedPredicate {
+        field: field.into(),
+        op: "matches".into(),
+        value: Some(serde_json::json!("x")),
+    };
+    let e = Evidence {
+        id: "e0".into(),
+        rule: "iis_php".into(),
+        subject: remedy_sdk::catalog::Subject::StructuredConfig,
+        score: None,
+        target: serde_json::json!({
+            "path": "C:\\Windows\\System32\\inetsrv\\config\\applicationHost.config",
+            "key_path": key,
+            "value": "C:\\inetpub\\php83\\php-cgi.exe",
+        }),
+        captures: Default::default(),
+        // 룰이 적은 차례 그대로 — 자리(`key_path`)가 먼저다.
+        matched: vec![pred("key_path"), pred("value")],
+    };
+    let g = EvidenceGroup {
+        id: "g0".into(),
+        evidence: vec!["e0".into()],
+        captures: Default::default(),
+        verdict: false,
+        excluded_reason: None,
+    };
+    let note = UnconfirmedNote {
+        why: [("ko".to_string(), "까닭".to_string())].into(),
+        groups: vec!["g0".to_string()],
+    };
+    let lines = unconfirmed_findings(&[e], &[g], &[note], Lang::Ko, 10);
+    assert_eq!(
+        lines,
+        vec![
+            "   1. C:\\Windows\\System32\\inetsrv\\config\\applicationHost.config  \
+             (value C:\\inetpub\\php83\\php-cgi.exe)"
+                .to_string()
+        ]
+    );
+    assert!(!lines[0].contains(key), "{lines:?}");
+}
+
 #[test]
 fn a_check_plugin_says_vulnerable_not_threat() {
     use remedy_sdk::artifact::ExitCode as C;
