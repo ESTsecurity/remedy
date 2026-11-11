@@ -247,6 +247,13 @@ pub struct UnconfirmedNote {
     pub why: BTreeMap<String, String>,
     /// 그 식이 선 증거 그룹(`g0` …). 정렬 · 중복 없음.
     pub groups: Vec<String>,
+    /// 그 식(`when`)이 짚는 규칙 id — 식에 적힌 차례 · 중복 없음 (2026-11-11).
+    ///
+    /// 화면은 짚은 그룹에서 **이 규칙들의 증거만** 적는다. 그룹에는 `from` 없이 기계 전체를 보는
+    /// 규칙의 증거도 함께 들어 있어, 그룹의 증거를 다 적으면 이 사유와 상관없는 줄이 섞인다. 비어
+    /// 있으면(이 칸이 생기기 전의 산출물) 그룹의 증거를 다 적는다.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub rules: Vec<String>,
 }
 
 impl UnconfirmedNote {
@@ -278,6 +285,14 @@ fn clip(s: &str, max: usize) -> String {
     }
     let head: String = s.chars().take(max).collect();
     format!("{head}…")
+}
+
+/// 프로세스 하나를 들여다보다 막힌 자리인가 — `/proc/<pid>/maps` 처럼 `/proc/` 다음이 수다.
+/// `/proc/net/unix` 같은 커널 표는 아니다.
+fn is_process_path(p: &str) -> bool {
+    p.strip_prefix("/proc/")
+        .and_then(|rest| rest.split('/').next())
+        .is_some_and(|pid| !pid.is_empty() && pid.bytes().all(|b| b.is_ascii_digit()))
 }
 
 impl Observation {
@@ -403,15 +418,32 @@ impl Observation {
         }
         if self.denied_dirs > 0 {
             let n = self.denied_dirs;
+            let dirs = if n == 1 { "directory" } else { "directories" };
+            // **프로세스가 막혔으면 안내를 덧붙인다** (2026-11-11 · 목표 remedy_PHP스캐너통합 결정 23).
+            // 리눅스는 root 로만 검사하므로 `/proc/<pid>/…` 가 막히는 것은 거의 언제나
+            // `CAP_SYS_PTRACE` 를 뗀 컨테이너다 — 그 사람은 이미 root 라 *"관리자 권한으로 다시"*
+            // 로는 할 일이 없다. 실측: php:8.3.36-fpm 의 www-data 작업자 둘이 막혔고(실행 파일
+            // 경로 · 실린 모듈 둘 다), `docker exec --privileged` 로 들어가면 둘 다 읽혔다.
+            //
+            // **앞 문장은 그대로 둔다.** 하네스가 `접근이 거부된 디렉터리` 를 읽는다
+            // (`Invoke-ObsVerify.ps1`) — 그래서 바꾸지 않고 덧붙인다.
+            let process = self.denied_paths.iter().any(|p| is_process_path(p));
             // 문장 구조가 언어마다 다르므로 조각을 이어 붙이지 않는다 —
             // 이어 붙이면 어느 한쪽이 반드시 어색해진다.
-            out.push(match lang {
-                Lang::Ko => {
+            out.push(match (lang, process) {
+                (Lang::Ko, false) => {
                     format!("접근이 거부된 디렉터리 열기 {n}회 (관리자 권한으로 다시 돌리십시오)")
                 }
-                Lang::En => format!(
-                    "access was denied opening {n} director{} (run again as Administrator)",
-                    if n == 1 { "y" } else { "ies" }
+                (Lang::Ko, true) => format!(
+                    "접근이 거부된 디렉터리 열기 {n}회 (관리자 권한으로 다시 돌리십시오 · \
+                     컨테이너 안이면 docker exec --privileged 로 들어가 다시 돌리십시오)"
+                ),
+                (Lang::En, false) => {
+                    format!("access was denied opening {n} {dirs} (run again as Administrator)")
+                }
+                (Lang::En, true) => format!(
+                    "access was denied opening {n} {dirs} (run again as Administrator · \
+                     inside a container, enter with docker exec --privileged and run again)"
                 ),
             });
         }
@@ -830,6 +862,14 @@ pub struct ScanBody {
     /// 판정을 통과한 증거 그룹 식별자.
     #[serde(default)]
     pub verdicts: Vec<String>,
+    /// 판정식(`verdict.require`)이 짚는 규칙 id — 식에 적힌 차례 · 중복 없음 (2026-11-11).
+    ///
+    /// 점검 화면은 판정이 선 그룹에서 **이 규칙들의 증거만** 적는다. 그룹에는 `from` 없이 기계 전체를
+    /// 보는 규칙(예: IIS 설정 · 실행 중인 프로세스에서 찾은 선언 밖의 PHP)의 증거도 함께 들어 있어,
+    /// 다 적으면 판정과 상관없는 줄이 `취약` 아래에 선다(Windows 랩 실측). 비어 있으면(이 칸이 생기기
+    /// 전의 산출물) 그룹의 증거를 다 적는다.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub verdict_rules: Vec<String>,
     /// 평가 중 발생한 문제. 룰이 아직 구현되지 않은 기능을 쓴 경우 등.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub issues: Vec<String>,

@@ -384,15 +384,29 @@ pub fn evidence_label(subject: remedy_sdk::catalog::Subject, target: &serde_json
 /// **판정이 선 그룹의 증거만** 적는다. 흔적 전부가 아니다 — 제외된 그룹의
 /// 증거까지 적으면 *"이것도 취약한가"* 를 사람이 가려야 한다.
 ///
+/// 그 그룹 안에서도 **판정식이 짚는 규칙(`rules` = `ScanBody::verdict_rules`)의 증거만** 적는다
+/// (2026-11-11). 그룹에는 `from` 없이 기계 전체를 보는 규칙의 증거도 들어 있다 — Windows 랩에서
+/// 선언한 자리의 취약한 `node.exe` 와 함께 IIS 가 쓰는 선언 밖의 PHP 줄 둘이 `취약 1건` 아래에
+/// 섰다. 그 PHP 는 판정하지 않았다. `rules` 가 비었거나(낡은 산출물) 걸러서 남는 것이 없으면
+/// 전처럼 그룹의 증거를 다 적는다.
+///
 /// `limit` 을 넘으면 뒤는 `그 외 M건` 한 줄로 접는다. `--verbose` 는
 /// `usize::MAX` 를 주어 전부 본다.
 pub fn check_findings(
     evidence: &[remedy_sdk::artifact::Evidence],
     groups: &[remedy_sdk::artifact::EvidenceGroup],
+    rules: &[String],
     lang: Lang,
     limit: usize,
 ) -> Vec<String> {
-    numbered_findings(evidence, groups, lang, limit, |e| finding_body(e, lang))
+    numbered_findings(
+        evidence,
+        groups,
+        lang,
+        limit,
+        |e| rules.is_empty() || rules.contains(&e.rule),
+        |e| finding_body(e, lang),
+    )
 }
 
 /// **찾기만 하는 위협 룰**이 찾은 것 — 이름(경로)만 적는 줄들 (2026-11-08 적대적 검토 4바퀴).
@@ -407,15 +421,25 @@ pub fn threat_findings(
     lang: Lang,
     limit: usize,
 ) -> Vec<String> {
-    numbered_findings(evidence, groups, lang, limit, |e| {
-        evidence_label(e.subject, &e.target)
-    })
+    // 위협 룰은 그룹의 증거가 다 **치료할 것**이라 거르지 않는다.
+    numbered_findings(
+        evidence,
+        groups,
+        lang,
+        limit,
+        |_| true,
+        |e| evidence_label(e.subject, &e.target),
+    )
 }
 
 /// 점검 룰이 **확인 필요**로 남긴 항목(`verdict.unconfirmed` · 2026-11-09) — [`check_findings`] 와 같은 꼴.
 ///
 /// 판정이 선 그룹이 아니라 **사유가 짚은 그룹**의 증거를 적는다. 짚은 증거가 없으면 아무것도 적지
 /// 않는다 — 판정 쪽처럼 흔적 전부로 대신하면 확인할 것과 상관없는 줄이 섞인다.
+///
+/// 같은 까닭으로 그룹마다 **그 그룹을 짚은 사유의 식이 짚는 규칙(`UnconfirmedNote::rules`)의 증거만**
+/// 적는다(2026-11-11 — [`check_findings`] 의 같은 절). 사유가 규칙을 적지 않았거나(낡은 산출물) 걸러서
+/// 그 그룹에 남는 것이 없으면 그 그룹의 증거를 다 적는다.
 pub fn unconfirmed_findings(
     evidence: &[remedy_sdk::artifact::Evidence],
     groups: &[remedy_sdk::artifact::EvidenceGroup],
@@ -423,9 +447,25 @@ pub fn unconfirmed_findings(
     lang: Lang,
     limit: usize,
 ) -> Vec<String> {
-    let noted =
-        |g: &remedy_sdk::artifact::EvidenceGroup| notes.iter().any(|n| n.groups.contains(&g.id));
-    let picked = picked_evidence(evidence, groups, noted);
+    let mut picked: Vec<&remedy_sdk::artifact::Evidence> = Vec::new();
+    for g in groups {
+        let noting: Vec<_> = notes.iter().filter(|n| n.groups.contains(&g.id)).collect();
+        if noting.is_empty() {
+            continue;
+        }
+        let mine = picked_evidence(evidence, std::slice::from_ref(g), |_| true);
+        let wanted = |e: &&remedy_sdk::artifact::Evidence| {
+            noting
+                .iter()
+                .any(|n| n.rules.is_empty() || n.rules.contains(&e.rule))
+        };
+        let kept: Vec<_> = mine.iter().copied().filter(wanted).collect();
+        for e in if kept.is_empty() { mine } else { kept } {
+            if !picked.iter().any(|p| p.id == e.id) {
+                picked.push(e);
+            }
+        }
+    }
     numbered(&picked, lang, limit, |e| finding_body(e, lang))
 }
 
@@ -455,6 +495,7 @@ fn numbered_findings(
     groups: &[remedy_sdk::artifact::EvidenceGroup],
     lang: Lang,
     limit: usize,
+    keep: impl Fn(&remedy_sdk::artifact::Evidence) -> bool,
     body: impl Fn(&remedy_sdk::artifact::Evidence) -> String,
 ) -> Vec<String> {
     let mut picked = picked_evidence(evidence, groups, |g| g.verdict);
@@ -462,6 +503,11 @@ fn numbered_findings(
     // 흔적을 그대로 쓴다 — 빈 목록보다 낫다.
     if picked.is_empty() {
         picked = evidence.iter().collect();
+    }
+    // 거른 뒤 남는 것이 없으면(판정식이 `not` 만으로 서는 모양) 거르지 않는다 — 같은 까닭이다.
+    let kept: Vec<_> = picked.iter().copied().filter(|e| keep(e)).collect();
+    if !kept.is_empty() {
+        picked = kept;
     }
     numbered(&picked, lang, limit, body)
 }
@@ -528,6 +574,18 @@ fn finding_body(e: &remedy_sdk::artifact::Evidence, lang: Lang) -> String {
     // 판정하는 점검 룰(`sha256 in […]` · `sha256 exists`)에서 경로 뒤에 그대로 찍혔다. 위협 룰 화면
     // ([`threat_findings`])이 이름만 적는 것과 같은 까닭이다.
     let unreadable = ["sha256", "content_ref", "streams"];
+    // **설정 안의 자리도 적지 않는다** (2026-11-11) — `structured_config` 의 `key_path`
+    // (`configuration[0]/system.webServer[0]/fastCgi[0]/application[0]/@fullPath`)는 엔진이 지은 경로라
+    // 그 파일에서 그대로 찾을 수 없고, 사람이 볼 것은 그 자리의 **값**이다. 실측(Windows 랩 · IIS 가
+    // 선언 밖의 PHP 를 쓰는 기계): `applicationHost.config  (key_path …/@fullPath)` 로 나와 사유가 말한
+    // *"아래 경로"* (PHP 경로)가 화면 어디에도 없었다.
+    let locator = ["key_path"];
+    // **이름에 쓴 값도 다시 적지 않는다** (2026-11-11) — 프로세스의 이름은 `image_path` 라, 그 칸으로
+    // 판정한 줄이 `C:\apps\node\node.exe  (image_path C:\apps\node\node.exe)` 로 나왔다(Windows 랩).
+    // 칸 이름이 아니라 값으로 견준다 — `service` 처럼 `image_path` 가 이름이 아닌 subject 에서는 남는다.
+    let same_as_label = |m: &remedy_sdk::artifact::MatchedPredicate| {
+        text_at(&e.target, &m.field).is_some_and(|v| v == label)
+    };
     let matched_version = e
         .matched
         .iter()
@@ -541,6 +599,8 @@ fn finding_body(e: &remedy_sdk::artifact::Evidence, lang: Lang) -> String {
             .iter()
             .filter(|m| !in_label.contains(&m.field.as_str()))
             .filter(|m| !unreadable.contains(&m.field.as_str()))
+            .filter(|m| !locator.contains(&m.field.as_str()))
+            .filter(|m| !same_as_label(m))
             .find_map(|m| text_at(&e.target, &m.field).map(|v| format!("{} {v}", m.field)))
     };
     match why {

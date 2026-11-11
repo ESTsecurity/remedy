@@ -314,6 +314,7 @@ mod tests {
                 groups: Vec::new(),
                 removable_roots: Vec::new(),
                 verdicts,
+                verdict_rules: Vec::new(),
                 issues: Vec::new(),
                 observation: Default::default(),
                 scan_roots: Vec::new(),

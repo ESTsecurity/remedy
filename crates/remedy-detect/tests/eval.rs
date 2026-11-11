@@ -310,6 +310,9 @@ fn an_unconfirmed_line_stands_only_where_no_verdict_does() {
         notes[0].why_in(remedy_sdk::i18n::Lang::En),
         "no basis to tell a fixed build"
     );
+    // 식이 짚는 규칙이 산출물에 실린다 — 화면이 그 규칙의 증거만 고른다(2026-11-11).
+    assert_eq!(notes[0].rules, vec!["present".to_string()]);
+    assert_eq!(body.verdict_rules, vec!["old".to_string()]);
     assert!(!body.observation.is_complete_for_check());
 
     // **찾은 것이 모르는 것보다 앞선다** — 판정이 선 그룹은 확인 필요로 세지 않는다.

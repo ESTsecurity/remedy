@@ -4296,7 +4296,8 @@ fn report_scan(
     let (evidence, groups) = (&scan.body.evidence, &scan.body.groups);
     if listed && !scan.body.verdicts.is_empty() {
         let lines = if check {
-            remedy_core::report::check_findings(evidence, groups, lang, limit)
+            let rules = &scan.body.verdict_rules;
+            remedy_core::report::check_findings(evidence, groups, rules, lang, limit)
         } else {
             remedy_core::report::threat_findings(evidence, groups, lang, limit)
         };

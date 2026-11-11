@@ -1161,6 +1161,7 @@ mod verify_tests {
                     excluded_reason: None,
                 }],
                 verdicts,
+                verdict_rules: Vec::new(),
                 issues: Vec::new(),
                 observation: Observation::default(),
                 scan_roots: vec![r"C:".into()],
