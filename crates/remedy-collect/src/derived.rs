@@ -13,11 +13,18 @@ use std::collections::BTreeSet;
 
 // ─────────────────────────────────────────────────────────── process
 
-/// 돌고 있는 프로세스.
-pub fn processes<P: ProcessRead>(p: &P) -> Result<Harvest<ProcessRecord>, CollectError> {
-    let raw = p
-        .processes()
-        .map_err(|e| CollectError::Other(e.to_string()))?;
+/// 돌고 있는 프로세스. `modules` 가 거짓이면 모듈 목록을 열지 않는다 — 룰이 모듈 칸을 보지 않을 때다
+/// (`Scope::process_modules` · `ProcessRead::processes_without_modules`).
+pub fn processes<P: ProcessRead>(
+    p: &P,
+    modules: bool,
+) -> Result<Harvest<ProcessRecord>, CollectError> {
+    let raw = if modules {
+        p.processes()
+    } else {
+        p.processes_without_modules()
+    }
+    .map_err(|e| CollectError::Other(e.to_string()))?;
     let mut h = Harvest::default();
     for r in raw {
         // **못 읽은 것을 빈 목록으로 흘려보내지 않는다.** 그러면 모듈을 겨눈
@@ -317,7 +324,7 @@ mod tests {
             }
         }
 
-        let h = processes(&Refused).expect("수집");
+        let h = processes(&Refused, true).expect("수집");
         assert_eq!(h.denied_dirs, 1, "못 본 것을 없는 것으로 보고했다");
         assert_eq!(h.denied_paths, vec![denied_place(9)]);
         assert_eq!(
@@ -331,6 +338,47 @@ mod tests {
             "거부가 레코드에 남아야 룰이 본다"
         );
         assert!(!h.records[0].modules_denied);
+    }
+
+    /// 룰이 모듈 칸을 보지 않으면 **모듈 없는 길**을 부른다 — Windows 에서 프로세스마다 목록을 여는 값을 그
+    /// 룰이 치르지 않게(`Scope::process_modules`). 보면 모듈까지 연다.
+    #[test]
+    fn the_module_list_is_read_only_when_a_rule_asks_for_it() {
+        use remedy_platform::read::RawProcess;
+
+        struct Both;
+        impl ProcessRead for Both {
+            fn processes(&self) -> Result<Vec<RawProcess>, remedy_platform::PlatformError> {
+                Ok(vec![RawProcess {
+                    pid: 7,
+                    image_path: "C:\\Apache24\\bin\\httpd.exe".into(),
+                    modules: vec!["C:\\Apache24\\bin\\httpd.exe".into()],
+                    ..Default::default()
+                }])
+            }
+            fn processes_without_modules(
+                &self,
+            ) -> Result<Vec<RawProcess>, remedy_platform::PlatformError> {
+                Ok(vec![RawProcess {
+                    pid: 7,
+                    image_path: "C:\\Apache24\\bin\\httpd.exe".into(),
+                    ..Default::default()
+                }])
+            }
+        }
+
+        let with = processes(&Both, true).expect("수집");
+        let without = processes(&Both, false).expect("수집");
+        assert_eq!(
+            with.records[0].modules.len(),
+            1,
+            "모듈을 보는 룰에 목록이 없다"
+        );
+        assert!(
+            without.records[0].modules.is_empty(),
+            "보지 않는 룰에 목록을 열었다"
+        );
+        assert_eq!(with.records[0].image_path, without.records[0].image_path);
     }
 
     /// 실행 파일 경로는 보이는데 **목록만 막힌** 프로세스는 관측 불완전으로 세지 않고 레코드에만
@@ -354,7 +402,7 @@ mod tests {
             }
         }
 
-        let h = processes(&SelfProtected).expect("수집");
+        let h = processes(&SelfProtected, true).expect("수집");
         assert_eq!(
             h.denied_dirs, 0,
             "경로가 보이는 거부를 관측 불완전으로 셌다"

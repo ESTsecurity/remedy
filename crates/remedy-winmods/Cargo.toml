@@ -9,7 +9,9 @@ publish = false
 [target.'cfg(windows)'.dependencies]
 windows-sys = { workspace = true, features = [
     "Win32_Foundation",
-    # K32EnumProcessModulesEx · K32GetModuleFileNameExW — kernel32 판이라 임포트에 DLL 이 늘지 않는다.
+    # 모듈 목록 — Toolhelp 스냅숏(CreateToolhelp32Snapshot · Module32FirstW/NextW)으로 한 번에 받는다.
+    "Win32_System_Diagnostics_ToolHelp",
+    # K32GetModuleFileNameExW — 260 글자를 넘는 경로만 다시 묻는다. kernel32 판이라 임포트에 DLL 이 늘지 않는다.
     "Win32_System_ProcessStatus",
     # OpenProcess · GetProcessInformation(보호 수준) · GetExitCodeProcess
     "Win32_System_Threading",

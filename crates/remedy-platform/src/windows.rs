@@ -1677,6 +1677,11 @@ impl ProcessRead for Live {
         }
         Ok(out)
     }
+
+    fn processes_without_modules(&self) -> Result<Vec<RawProcess>, PlatformError> {
+        // 1.8.0 까지의 길 그대로 — 모듈 칸은 빈다(`Scope::process_modules` 가 거짓인 룰).
+        crate::local::processes(self)
+    }
 }
 
 /// 프로필·하이브 수 상한.

@@ -306,6 +306,12 @@ pub fn scope_from_manifest(
             hash_large: m.hash_large.clone(),
             max_large_hash_bytes: remedy_artifacts::MAX_LARGE_HASH_BYTES,
             max_files: 500_000,
+            // 룰이 모듈 칸을 볼 때만 프로세스마다 모듈을 연다 — Windows 에서 값이 크다(`Scope::process_modules`).
+            process_modules: remedy_sdk::lint::uses_field(
+                m,
+                remedy_sdk::catalog::Subject::Process,
+                &["modules", "modules_denied"],
+            ),
         },
         notes,
     ))
@@ -486,6 +492,8 @@ pub fn scope_of(artifacts: &ArtifactsEnvelope) -> Scope {
         hash_large: Vec::new(),
         max_large_hash_bytes: 0,
         max_files: 0,
+        // 평가는 프로세스를 다시 모으지 않는다.
+        process_modules: false,
     }
 }
 

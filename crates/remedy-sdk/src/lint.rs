@@ -985,6 +985,24 @@ fn field_target(
     Some((s, tail.trim_start_matches('.')))
 }
 
+/// 이 매니페스트의 규칙이 `subject` 의 칸 `fields` 가운데 하나라도 쓰는가 — `where` 와 `exclude` 의 술어를
+/// 본다(건너뛰는 참조 `process(...).modules` 도). 수집기가 값이 큰 칸을 **룰이 쓸 때만** 모으는 데 쓴다 —
+/// Windows 의 프로세스 모듈 목록이 그렇다(`Scope::process_modules` · 2026-11-12).
+pub fn uses_field(m: &PluginManifest, subject: crate::catalog::Subject, fields: &[&str]) -> bool {
+    m.detect.iter().any(|rule| {
+        let mut preds = Vec::new();
+        flatten_condition(&rule.condition, "", &mut preds);
+        preds.extend(rule.exclude.iter().map(|p| (String::new(), p)));
+        preds.into_iter().any(|(_, p)| {
+            let Predicate::Field(f) = p else {
+                return false;
+            };
+            field_target(rule.subject, &f.field)
+                .is_some_and(|(s, path)| s == subject && fields.contains(&path))
+        })
+    })
+}
+
 /// **선언한 subject 를 실제로 모을 수 있는가.**
 ///
 /// `subjects` 에 적는 것과 그것이 모이는 것은 다르다. `scan_roots` 를 보는

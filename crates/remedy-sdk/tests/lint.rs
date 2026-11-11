@@ -960,6 +960,48 @@ fn a_rule_that_reads_a_field_the_core_never_fills_is_warned() {
     assert!(errors(&y).is_empty(), "{:#?}", errors(&y));
 }
 
+/// 수집기는 룰이 모듈 칸을 쓸 때만 Windows 의 모듈 목록을 연다(`Scope::process_modules`) — 그 물음에 답하는
+/// 함수가 `where` 와 `exclude` 를 둘 다 보는가. 하나라도 놓치면 모듈을 겨눈 룰이 빈 목록을 받아 조용히 미탐이
+/// 된다.
+#[test]
+fn uses_field_sees_where_and_exclude() {
+    use remedy_sdk::catalog::Subject;
+    let mods = ["modules", "modules_denied"];
+    // 쓰지 않는다 — BASE 는 지속성 · 파일만 본다.
+    assert!(!remedy_sdk::lint::uses_field(
+        &parse(BASE),
+        Subject::Process,
+        &mods
+    ));
+    let with = |rule: &str| {
+        BASE.replace(
+            "verdict: { require: 'task and payload' }",
+            &format!("{rule}\nverdict: {{ require: 'task and payload' }}"),
+        )
+    };
+    let in_where = with(
+        "  - id: mods\n    subject: process\n    where:\n      - { field: modules, op: contains, value: php8ts }",
+    );
+    let in_exclude = with(
+        "  - id: mods\n    subject: process\n    where:\n      - { field: image_path, op: ends_with, value: httpd.exe }\n    exclude:\n      - { field: modules_denied, op: equals, value: 'true' }",
+    );
+    let other_field = with(
+        "  - id: mods\n    subject: process\n    where:\n      - { field: image_path, op: ends_with, value: httpd.exe }",
+    );
+    for (name, y, want) in [
+        ("where", &in_where, true),
+        ("exclude", &in_exclude, true),
+        ("다른 칸", &other_field, false),
+    ] {
+        assert_ne!(y.as_str(), BASE, "{name}: 치환이 걸리지 않았다");
+        assert_eq!(
+            remedy_sdk::lint::uses_field(&parse(y), Subject::Process, &mods),
+            want,
+            "{name}"
+        );
+    }
+}
+
 #[test]
 fn a_rule_that_reads_process_modules_on_windows_is_not_warned() {
     // 2026-10-27 부터 이 자리는 *"Windows 에서 `modules` 를 쓰면 경고한다"* 를 쟀다 —

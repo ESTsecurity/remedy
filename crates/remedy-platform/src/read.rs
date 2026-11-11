@@ -488,6 +488,15 @@ pub trait ProcessRead {
     /// | Linux | `/proc/<pid>/maps` 의 실행 가능한 파일 매핑 — 읽기 하나라 unsafe 가 없다 | 컨테이너의 다른 uid 프로세스(실행 파일 경로도 함께 빈다) |
     /// | Windows | `remedy-winmods` 가 연다(`K32EnumProcessModulesEx` — unsafe 를 그 크레이트에 가둔다) | 스스로를 지키는 보안 제품(실행 파일 경로는 보인다). 보호 프로세스(PPL)는 거부로 세지 않는다 |
     fn processes(&self) -> Result<Vec<RawProcess>, PlatformError>;
+
+    /// 모듈 목록 **없이** — 룰이 모듈 칸을 보지 않으면 수집기가 이쪽을 부른다(`Scope::process_modules`).
+    ///
+    /// 기본은 [`Self::processes`] 와 같다. Windows 만 덮어쓴다 — 프로세스마다 목록을 열어 이름을 묻는 값이
+    /// 커서(랩 VM 에서 검사 하나에 5초쯤) 모듈을 보지 않는 룰이 그 값을 치르지 않게. Linux 는 덮어쓰지 않는다 —
+    /// `/proc/<pid>/maps` 읽기는 싸고, 컨테이너에서 못 본 프로세스를 세는 것이 그 읽기에 걸려 있다.
+    fn processes_without_modules(&self) -> Result<Vec<RawProcess>, PlatformError> {
+        self.processes()
+    }
 }
 
 /// 환경변수 전개. 수집 시점의 것이며, **평가기는 이것을 쓰지 않는다.**

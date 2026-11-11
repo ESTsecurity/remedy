@@ -47,6 +47,14 @@ pub struct Scope {
     pub max_large_hash_bytes: u64,
     /// 수집할 파일 개수 상한. 넘으면 `truncated` 가 선다.
     pub max_files: usize,
+    /// 프로세스마다 **실린 모듈을 열 것인가** — 룰이 `process.modules` · `process.modules_denied` 를 쓸 때만
+    /// 참이다(2026-11-12).
+    ///
+    /// Windows 는 프로세스마다 목록을 열고 모듈 이름을 하나씩 묻는다. 랩 VM(프로세스 160여 개)에서 검사 하나에
+    /// 5초쯤 더 들었고, 모듈을 보지 않는 룰(출하 룰 EvilAI)까지 그 값을 치렀다. **Linux 는 이 값을 보지 않고 늘
+    /// 읽는다** — `/proc/<pid>/maps` 읽기는 싸고, 컨테이너에서 들여다보지 못한 프로세스를 관측 불완전으로 세는
+    /// 것(목표 결정 23)이 그 읽기에 걸려 있다.
+    pub process_modules: bool,
 }
 
 /// `hash_large` 로 흘려 읽는 상한 — 공식 `node.exe` 가 83.0 MiB(22.23.4) · 89.6 MiB(24.22.1)다(2026-11-09
@@ -72,6 +80,8 @@ impl Scope {
             hash_large: Vec::new(),
             max_large_hash_bytes: MAX_LARGE_HASH_BYTES,
             max_files: 500_000,
+            // 진단 모드는 프로세스를 모으지 않는다(`subjects` 가 파일 · 지속성 둘이다).
+            process_modules: false,
         }
     }
 

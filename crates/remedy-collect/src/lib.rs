@@ -1024,7 +1024,10 @@ where
         }?
     );
     remedy_platform::progress::set_stage("process");
-    harvest!(Subject::Process, derived::processes(p)?);
+    harvest!(
+        Subject::Process,
+        derived::processes(p, scope.process_modules)?
+    );
     // 패키지 DB 도 자리가 정해져 있다 — **파일로 직접 읽는다.** 매니저를
     // 부르면 수집 중 자식 프로세스 0 이 깨진다 (C-2).
     remedy_platform::progress::set_stage("package");
