@@ -489,6 +489,57 @@ fn every_reason_speaks_both_languages() {
     );
 }
 
+/// 막힌 자리가 **프로세스**면 컨테이너 안내가 붙는다 (2026-11-11 · 목표 remedy_PHP스캐너통합 결정 23).
+///
+/// 리눅스 검사는 root 로만 돌므로 `/proc/<pid>/…` 가 막혔다면 그 사람은 이미 root 다 —
+/// *"관리자 권한으로 다시"* 만 보이면 할 일이 없다. 실측: 기본 권한 컨테이너(php:8.3.36-fpm)에서
+/// www-data 작업자 둘이 막혔고 `docker exec --privileged` 로 들어가면 읽혔다.
+#[test]
+fn a_blocked_process_adds_the_container_hint() {
+    use remedy_sdk::artifact::Observation;
+    use remedy_sdk::i18n::Lang;
+
+    let procs = Observation {
+        denied_dirs: 2,
+        denied_paths: vec!["/proc/10/maps".into(), "/proc/11/maps".into()],
+        ..Default::default()
+    };
+    for lang in [Lang::Ko, Lang::En] {
+        let r = procs.reasons_in(lang);
+        // **덧붙이지 갈래를 늘리지 않는다** — 이유는 막힌 일 하나에 한 줄이다.
+        assert_eq!(r.len(), 1, "{lang:?}: {r:?}");
+        assert!(r[0].contains("docker exec --privileged"), "{lang:?}: {r:?}");
+    }
+    // 앞 문장은 그대로다 — 하네스(`Invoke-ObsVerify`)가 이 꼴을 읽는다.
+    let ko = &procs.reasons_in(Lang::Ko)[0];
+    assert!(
+        ko.starts_with("접근이 거부된 디렉터리 열기 2회 (관리자 권한으로 다시 돌리십시오"),
+        "{ko}"
+    );
+    assert!(procs.reasons_in(Lang::En)[0].contains("2 directories"));
+
+    // 폴더 · 커널 표에는 붙이지 않는다 — 그 사람에게 컨테이너는 틀린 안내다.
+    for path in ["c:\\locked", "/etc/ssl/private", "/proc/net/unix", "/proc/"] {
+        let one = Observation {
+            denied_dirs: 1,
+            denied_paths: vec![path.into()],
+            ..Default::default()
+        };
+        for lang in [Lang::Ko, Lang::En] {
+            let r = &one.reasons_in(lang)[0];
+            assert!(!r.contains("docker"), "{path} · {lang:?}: {r}");
+        }
+    }
+
+    // 섞여 있으면 붙인다 — 막힌 프로세스가 하나라도 있으면 그 안내가 필요하다.
+    let mixed = Observation {
+        denied_dirs: 3,
+        denied_paths: vec!["/etc/ssl/private".into(), "/proc/7/maps".into()],
+        ..Default::default()
+    };
+    assert!(mixed.reasons_in(Lang::Ko)[0].contains("docker exec --privileged"));
+}
+
 // ───────────────────────────────────────────── 스키마에 없는 필드 거부
 
 const MINIMAL: &str = r#"
