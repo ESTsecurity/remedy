@@ -30,14 +30,24 @@
 #   PHP 판 번호는 같고 파일은 전부 다시 지어졌다). 각 ZIP 의 SHA-256 을 같은 자리의 SBOM(`.cdx.json`)
 #   과 맞춘 뒤 코어 DLL 을 쟀다(2026-11-09)
 #
+# # 선언한 자리 밖의 PHP 는 찾아서 알린다 (0.2.0)
+#
+# 흔한 자리만 적었으므로(`scan_roots`) 그 밖의 설치본은 판정하지 못한다. 그런데 그 자리를 알려 주는
+# 곳이 둘 있다 — **IIS 설정**(FastCGI 의 `fullPath` · 핸들러의 `scriptProcessor`)과 **실행 중
+# 프로세스**. 거기서 선언한 자리 밖의 PHP 를 찾으면 *확인 필요* 로 그 경로를 알린다. 그 파일은 열지
+# 않는다 — 룰은 선언한 자리만 읽는다(목표 결정 22). 실측(v1.5.0): 같은 취약 PHP 8.3.35 가 `C:\php`
+# 면 2, `C:\inetpub\php83` 이면 0 이었다.
+#
 # # 이 룰이 보지 않는 것
 #
-# - 선언한 자리 밖에 둔 PHP — 흔한 자리만 적었다(`scan_roots`).
+# - 선언한 자리 밖에 놓였을 뿐 IIS 설정에도 없고 실행 중도 아닌 PHP.
+# - IIS 의 공유 설정(다른 기계 · 다른 폴더의 `applicationHost.config`) — 쓰고 있으면 *확인 필요* 다.
+# - Apache 의 모듈로 실린 PHP(`php8apache2_4.dll`)가 선언한 자리 밖에 있는 경우.
 # - 실행 중인 PHP 가 고친 판을 실었는가 — 고친 뒤에는 IIS · Apache · PHP 를 다시 시작한다.
 schema_version: 1
 id: php2shell-check-windows
-version: 0.1.0
-min_core: "1.3.0"   # verdict.unconfirmed 가 1.3.0 부터 있다
+version: 0.2.0
+min_core: "1.6.0"   # IIS 설정(XML 구조적 설정)을 1.6.0 부터 편다 · verdict.unconfirmed 는 1.3.0
 platforms: [windows]
 
 kind: check
@@ -74,8 +84,14 @@ scan_roots:
   - 'C:\tools\php81'
   - 'C:\tools\php80'
   - 'C:\tools\php74'
+  # IIS 가 PHP 를 어디서 띄우는지 적힌 자리 — 판정할 PHP 가 아니라 **선언 밖 PHP 를 찾는 곳**이다.
+  - 'C:\Windows\System32\inetsrv\config'
 
-subjects: [file]
+# 구조적 설정은 IIS 설정만 읽는다 — PHP 폴더의 JSON · XML 은 이 룰이 볼 것이 아니다.
+subject_roots:
+  structured_config: ['C:\Windows\System32\inetsrv\config']
+
+subjects: [file, structured_config, process]
 
 detect:
   # 설치본 하나 = 코어 DLL 하나. 아래 규칙은 모두 이 폴더 안에서만 본다.
@@ -148,6 +164,34 @@ detect:
                 - { field: version, op: version_lt, value: "8.5.12" }
             - { field: version, op: matches, value: '^(5\.[4-6]|7\.[0-4]|8\.[01])\.' }
 
+  # ── 선언한 자리 밖의 PHP (0.2.0) ──────────────────────────────────────────────
+  #
+  # `exclude` 의 정규식이 위 `scan_roots` 의 PHP 자리다(그 아래는 이 룰이 판정한다). IIS 는 값에
+  # 환경 변수를 그대로 둘 수 있어(`%SystemDrive%` · `%ProgramFiles%`) 그 꼴도 같은 자리로 친다.
+  # 그룹을 가르지 않는다(`from` 없음) — 설치본마다가 아니라 기계에 하나인 사실이다.
+  - id: iis_php
+    subject: structured_config
+    where:
+      - { field: key_path, op: matches, value: '(?i)/(fastCgi\[\d+\]/application\[\d+\]/@fullPath|handlers\[\d+\]/add\[\d+\]/@scriptProcessor)$' }
+      - { field: value, op: matches, value: '(?i)\\php(-cgi)?\.exe(\|.*)?$' }
+    exclude:
+      - { field: value, op: matches, value: '(?i)^((c:|%systemdrive%)\\(php|xampp\\php|wamp64\\bin\\php|wamp\\bin\\php|laragon\\bin\\php|tools\\php(85|84|83|82|81|80|74))|(c:\\program files( \(x86\))?|%programfiles%|%programfiles\(x86\)%|%programw6432%)\\php)\\' }
+
+  # 공유 설정을 쓰는 IIS 는 그 설정이 다른 자리에 있다 — 이 룰은 그것을 읽지 않는다.
+  - id: iis_shared
+    subject: structured_config
+    where:
+      - { field: key_path, op: matches, value: '(?i)/configurationRedirection\[\d+\]/@enabled$' }
+      - { field: value, op: matches, value: '(?i)^true$' }
+
+  # 실행 중인 PHP — 요청이 없어 떠 있지 않은 FastCGI 는 여기 없다(위 IIS 설정이 맡는다).
+  - id: running_php
+    subject: process
+    where:
+      - { field: image_path, op: matches, value: '(?i)\\php(-cgi|-win)?\.exe$' }
+    exclude:
+      - { field: image_path, op: matches, value: '(?i)^(c:\\(php|xampp\\php|wamp64\\bin\\php|wamp\\bin\\php|laragon\\bin\\php|tools\\php(85|84|83|82|81|80|74))|c:\\program files( \(x86\))?\\php)\\' }
+
 # 판정이 규칙 하나(`core_official_vuln`)에 걸려 있다는 린트 경고도 남긴다 — 그 경고는 **룰 하나의 오탐이
 # 곧바로 삭제로 이어지는** 치료 룰을 위한 것이다. 이 룰은 아무것도 바꾸지 않고, 공식 빌드의 해시가
 # 맞는다는 것은 그 자체로 결정적인 근거다(판 문자열과 달리 다른 빌드가 같은 값을 낼 수 없다).
@@ -162,3 +206,15 @@ verdict:
       why:
         ko: "판은 수정 판 이상이지만 공식 빌드의 해시와 맞지 않아 패치 여부를 가리지 못했습니다 — 받은 곳(windows.php.net 공식 빌드인지)을 확인하십시오"
         en: "the version is at or above the fixed release but does not match an official build hash, so its patch status cannot be told - check where it came from (an official windows.php.net build or not)"
+    - when: "iis_php"
+      why:
+        ko: "IIS 가 이 점검이 보는 자리 밖의 PHP 를 씁니다(아래 경로) — 그 PHP 는 판정하지 않았습니다. 그 PHP 의 판이 8.2.35 · 8.3.36 · 8.4.27 · 8.5.12 이상인 공식 빌드인지 확인하십시오"
+        en: "IIS uses a PHP outside the places this check reads (path below) - that PHP was not judged; check that it is an official build of 8.2.35, 8.3.36, 8.4.27, 8.5.12 or later"
+    - when: "running_php"
+      why:
+        ko: "이 점검이 보는 자리 밖에서 PHP 가 실행 중입니다(아래 경로) — 그 PHP 는 판정하지 않았습니다. 그 PHP 의 판이 8.2.35 · 8.3.36 · 8.4.27 · 8.5.12 이상인 공식 빌드인지 확인하십시오"
+        en: "a PHP is running outside the places this check reads (path below) - that PHP was not judged; check that it is an official build of 8.2.35, 8.3.36, 8.4.27, 8.5.12 or later"
+    - when: "iis_shared"
+      why:
+        ko: "IIS 가 공유 설정을 씁니다 — 다른 자리에 있는 그 설정이 가리키는 PHP 는 보지 않았습니다"
+        en: "IIS uses a shared configuration - PHP referenced from that configuration elsewhere was not read"

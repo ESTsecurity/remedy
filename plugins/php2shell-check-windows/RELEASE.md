@@ -1,6 +1,22 @@
 # php2shell-check-windows — 릴리스 기록
 
-**버전 0.1.0** · 대상: PHP2Shell(CVE-2026-109618 · CVE-2026-109619) — Windows 의 PHP · **점검**(바꾸지 않는다)
+**버전 0.2.0** · 대상: PHP2Shell(CVE-2026-109618 · CVE-2026-109619) — Windows 의 PHP · **점검**(바꾸지 않는다)
+
+## 0.2.0 — 선언한 자리 밖의 PHP 를 알린다 (2026-11)
+
+선언한 자리 밖에서 PHP 를 찾으면 그 경로를 적고 **확인 필요(6)** 로 낸다. 그 PHP 는 판정하지 않는다 — 룰은
+선언한 자리만 읽는다(목표 결정 22). 찾는 곳은 둘이다.
+
+- **IIS 설정** — `C:\Windows\System32\inetsrv\config\applicationHost.config` 의 FastCGI 응용(`fastCgi/application`
+  의 `fullPath`)과 처리기(`handlers/add` 의 `scriptProcessor`). 값의 환경 변수 꼴(`%SystemDrive%` ·
+  `%ProgramFiles%`)도 선언한 자리로 친다. IIS 가 공유 설정을 쓰면(`configurationRedirection` 의
+  `enabled="true"`) 그 설정은 다른 자리에 있어 확인 필요다.
+- **실행 중인 프로세스** — 실행 파일이 `php.exe` · `php-cgi.exe` · `php-win.exe` 인 것.
+
+선언한 자리의 설치본이 **모두** 취약(2)으로 판정된 회차에는 자리 밖의 PHP 가 화면에 나오지 않는다(찾은 것이
+모르는 것보다 앞선다 — 코어의 규칙) — 고친 뒤 다시 검사하면 확인 필요로 나온다.
+
+코어 1.6.0 이 필요하다(`structured_config` 가 `.config` 를 XML 로 편다). 공식 빌드 해시 · 판 판정은 0.1.0 과 같다.
 
 ## 0.1.0 — 처음 (2026-11)
 
@@ -23,11 +39,13 @@
 |---|---|
 | 2 | **취약** — 공식 8.3.35 빌드다. 8.3.36 이상으로 올리고 IIS · Apache · PHP 를 다시 시작한다 |
 | 0 | 취약한 곳을 찾지 못했다 — 공식 고친 빌드이거나, 선언한 자리에 PHP 가 없다 |
-| 6 | **확인 필요** — `주의:` 아래 줄이 판을 올릴지(낮은 판) 받은 곳을 확인할지(높은 판) 말한다 |
+| 6 | **확인 필요** — `주의:` 아래 줄이 판을 올릴지(낮은 판) 받은 곳을 확인할지(높은 판) 말한다. 선언한 자리 밖의 PHP 면 항목 줄에 그 경로가 있다(IIS 설정에서 찾은 것은 `applicationHost.config  (value <PHP 경로>)`) |
 
 ## 이 룰이 보지 않는 것
 
-- 선언한 자리(`C:\php` · `Program Files\PHP` · XAMPP · WampServer · Laragon · Chocolatey 의 `C:\tools\phpNN`) 밖의 PHP.
+- 선언한 자리(`C:\php` · `Program Files\PHP` · XAMPP · WampServer · Laragon · Chocolatey 의 `C:\tools\phpNN`) 밖의
+  PHP 의 판 — IIS 설정에도 없고 실행 중도 아니면 그 PHP 가 있다는 것도 모른다(랩 S1).
+- IIS 의 공유 설정이 가리키는 다른 자리의 설정 · Apache(`httpd.conf`)가 싣는 PHP 모듈.
 - 실행 중인 PHP 가 고친 판을 실었는가 — 고친 뒤에는 IIS · Apache · PHP 를 다시 시작한다.
 - php.net 의 2026-10-26 Windows 재빌드(`8.x.y-1`)가 바꾼 Brotli(CVE-2026-111497)는 이 룰의 판정이 아니다 —
   `node2shell-check-windows` 가 PHP 폴더의 `brotlidec.dll` 로 본다. 재빌드의 코어 DLL 해시는 이 룰의 고친 판
@@ -46,7 +64,8 @@
 |---|---|---|---|
 | G1 | 청정 환경 무해성 | **통과** | 청정 스냅샷에서 판정 0 — 청정 코퍼스에는 PHP 가 깔린 기계가 없다 |
 | G2~G4 | 복원 · 계획 · 치료 | **미해당** | 바꾸는 것이 없다 |
-| 모양 | 판정 규칙 | **34/34** | 손으로 지은 기계 모양을 `remedy evaluate` 로 — 공식 해시 · 낮은 판 · 높은 판 · 지원 종료 · RC · 다음 계열 · 판 없음 · 설치본 둘, 그리고 고친 네 계열의 원래 빌드와 `-1` 재빌드(TS · NTS 16) |
+| 모양 | 판정 규칙 | **34/34** | 손으로 지은 기계 모양을 `remedy evaluate` 로 — 공식 해시 · 낮은 판 · 높은 판 · 지원 종료 · RC · 다음 계열 · 판 없음 · 설치본 둘, 그리고 고친 네 계열의 원래 빌드와 `-1` 재빌드(TS · NTS 16) — 0.1.0 |
+| 실기계 · 자리 밖 | 수집 → 판정 | **7/7** | 2026-11-11 · Windows 랩 VM 에서 0.1.0(코어 1.5.0 공개본)과 0.2.0(1.6.0 개발 빌드)을 같은 상태에서 나란히 — 취약한 공식 8.3.35 를 선언 밖(`C:\inetpub\php83`)에 둠 **0 → 0** (실행 중도 IIS 설정도 아니다) · 거기서 `php.exe` 실행 **0 → 6** · IIS FastCGI · 처리기가 그 `php-cgi.exe` 를 가리킴 **0 → 6** · 요청 하나로 IIS 아래 `php-cgi.exe` 가 뜸 **0 → 6** · 같은 PHP 를 `C:\php` 로 옮기고 IIS 도 그리로 **2 → 2** · 랩 스냅숏(PHP 없음)과 PHP 를 지운 뒤 **0 → 0** 둘 |
 
 린트 경고 둘(`C:\php` 깊이 2 · 판정이 규칙 하나)은 룰 머리에 까닭을 적었다.
 
