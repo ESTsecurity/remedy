@@ -39,7 +39,22 @@ const TEXT_EXT: [&str; 7] = [
     ".env",
     ".htaccess",
 ];
-const STRUCTURED_EXT: [&str; 1] = [".json"];
+/// 구조적으로 펴서 읽을 확장자 — JSON 과 XML(`.xml` · `.config`).
+///
+/// # `.config` 가 XML 인 이유 (2026-11-11)
+///
+/// Windows 의 IIS · .NET 설정(`applicationHost.config` · `web.config`)이 그 이름이다. IIS 가 PHP 를
+/// 어디서 띄우는지(FastCGI 의 `fullPath` · 핸들러의 `scriptProcessor`)가 거기 있고, 그것을 모르면
+/// 룰이 선언한 자리 밖의 PHP 를 *"점검 대상이 없다"* 로 넘긴다 — 실측: 같은 취약 PHP 8.3.35 가
+/// `C:\php` 면 2, `C:\inetpub\php83` 이면 0.
+///
+/// `text_config` 의 `.conf` 와 겹치지 않는다 — 접미사를 `ends_with` 로 보므로 `x.config` 는
+/// `.conf` 로 걸리지 않는다.
+const STRUCTURED_EXT: [&str; 3] = [".json", ".xml", ".config"];
+
+/// XML 요소 깊이의 상한. 설정 파일이 이만큼 깊을 까닭이 없다 — 넘으면 그 문서를 펴지 않고
+/// **잘렸다고 말한다**(조용히 넘기면 그 아래를 겨눈 룰이 왜 안 맞는지 알 수 없다).
+const MAX_XML_DEPTH: usize = 64;
 
 /// 파일 하나에서 담을 줄 수 상한.
 ///
@@ -185,7 +200,7 @@ pub fn text_configs<P: FsRead>(
     Ok(h)
 }
 
-/// JSON 설정의 잎.
+/// 구조적 설정(JSON · XML)의 잎. 형식은 확장자가 정한다 — `.json` 은 JSON, 나머지는 XML.
 pub fn structured_configs<P: FsRead>(
     fs: &P,
     scope: &Scope,
@@ -201,14 +216,28 @@ pub fn structured_configs<P: FsRead>(
         let Some(bytes) = read_config(fs, &path, &mut h) else {
             continue;
         };
-        let Ok(v) = serde_json::from_str::<serde_json::Value>(&to_text(&bytes)) else {
-            // 파싱 실패는 잡음이 아니다 — 깨진 JSON 을 심어 두는 것도 수법이다.
-            // 다만 잎이 없으므로 담을 것도 없다. `file` subject 가 그 파일의
-            // 존재와 해시를 이미 담고 있다.
-            continue;
+        let (format, leaves) = if path.to_ascii_lowercase().ends_with(".json") {
+            let Ok(v) = serde_json::from_str::<serde_json::Value>(&to_text(&bytes)) else {
+                // 파싱 실패는 잡음이 아니다 — 깨진 JSON 을 심어 두는 것도 수법이다.
+                // 다만 잎이 없으므로 담을 것도 없다. `file` subject 가 그 파일의
+                // 존재와 해시를 이미 담고 있다.
+                continue;
+            };
+            let mut leaves = Vec::new();
+            flatten(&v, "", &mut leaves);
+            ("json", leaves)
+        } else {
+            match xml_leaves(&bytes) {
+                Ok(leaves) => ("xml", leaves),
+                // 깨진 XML 도 JSON 과 같다 — 잎이 없다.
+                Err(XmlStop::Malformed) => continue,
+                // 깊이 상한은 **못 본 것**이다.
+                Err(XmlStop::TooDeep) => {
+                    h.truncated = true;
+                    continue;
+                }
+            }
         };
-        let mut leaves = Vec::new();
-        flatten(&v, "", &mut leaves);
         for (key_path, value) in leaves {
             if h.records.len() >= scope.max_files {
                 h.truncated = true;
@@ -216,7 +245,7 @@ pub fn structured_configs<P: FsRead>(
             }
             h.records.push(StructuredConfigRecord {
                 path: path.clone(),
-                format: "json".into(),
+                format: format.into(),
                 key_path,
                 value,
             });
@@ -250,6 +279,178 @@ fn flatten(v: &serde_json::Value, prefix: &str, out: &mut Vec<(String, String)>)
         serde_json::Value::String(s) => out.push((prefix.to_string(), normalize::nfc(s))),
         serde_json::Value::Null => out.push((prefix.to_string(), String::new())),
         other => out.push((prefix.to_string(), other.to_string())),
+    }
+}
+
+/// XML 을 펴지 못한 까닭.
+#[derive(Debug, PartialEq, Eq)]
+enum XmlStop {
+    /// 문서가 아니다 — 문법 오류 · 닫히지 않은 요소 · 풀지 않는 엔티티 · UTF-8/16 이 아님.
+    Malformed,
+    /// [`MAX_XML_DEPTH`] 를 넘었다.
+    TooDeep,
+}
+
+/// 펴는 중인 요소 하나.
+#[derive(Default)]
+struct XmlLevel {
+    path: String,
+    /// 자식 이름마다 지금까지 센 수 — 같은 이름 형제의 `[n]` 이 여기서 나온다.
+    children: std::collections::BTreeMap<String, usize>,
+    /// 이 요소의 본문 조각을 모은 것. 끝 태그에서 한 번 깎아 담는다.
+    text: String,
+}
+
+/// XML 의 잎.
+///
+/// 키 경로는 요소의 이름을 `/` 로 잇고, 같은 부모 아래 같은 이름의 형제를 `[n]`(0부터)으로
+/// 가른다 — 형제가 하나여도 `[0]` 을 붙여, 둘째가 생겨도 첫째의 경로가 바뀌지 않게 한다.
+/// 속성은 `<요소 경로>/@<이름>`, 본문은 요소 경로 그대로다.
+///
+/// ```text
+/// <configuration><system.webServer><fastCgi>
+///   <application fullPath="C:\php83\php-cgi.exe" />
+///
+/// configuration[0]/system.webServer[0]/fastCgi[0]/application[0]/@fullPath = C:\php83\php-cgi.exe
+/// ```
+///
+/// JSON 의 `.` 을 쓰지 않는 이유: XML 요소 이름에는 `.` 이 들어간다(`system.webServer`).
+///
+/// # 문서 전체가 읽혀야 잎을 낸다
+///
+/// 앞부분만 읽고 낸 잎은 뒤에서 깨진 문서의 조각이라 그 위에 선 판정을 믿을 수 없다. 깨진
+/// 문서는 JSON 과 같이 잎이 없다.
+///
+/// # 엔티티를 펴지 않는다
+///
+/// XML 이 정해 둔 다섯(`&lt;` `&gt;` `&amp;` `&apos;` `&quot;`)과 문자 참조(`&#65;`)만 푼다.
+/// 문서의 DTD 가 정의한 엔티티는 풀지 않고 그 문서를 깨진 것으로 본다 — 펴 주면 몇 KB 문서가
+/// 수 GB 로 불어날 수 있다(billion laughs). 외부 DTD · 외부 엔티티는 읽지 않는다.
+///
+/// # 이름공간
+///
+/// 접두어는 뗀다(`x:add` → `add`). 선언(`xmlns` · `xmlns:*`)은 값이 아니라 문서의 문법이라
+/// 담지 않는다.
+fn xml_leaves(bytes: &[u8]) -> Result<Vec<(String, String)>, XmlStop> {
+    use quick_xml::events::Event;
+    let text = crate::task::to_text(bytes).ok_or(XmlStop::Malformed)?;
+    let mut r = quick_xml::Reader::from_str(&text);
+    // 공백을 이벤트마다 깎지 않는다 — 참조가 본문을 여러 이벤트로 나누므로(`a &amp; b`),
+    // 조각마다 깎으면 `a&b` 가 된다. 요소의 본문을 다 모은 뒤 한 번 깎는다.
+    r.config_mut().trim_text(false);
+    // 맨 아래 칸은 문서 자신이다 — 요소가 아니라 경로가 비어 있다.
+    let mut stack: Vec<XmlLevel> = vec![XmlLevel::default()];
+    let mut out = Vec::new();
+    loop {
+        match r.read_event().map_err(|_| XmlStop::Malformed)? {
+            Event::Eof => break,
+            Event::Start(e) => {
+                let path = xml_open(&mut stack, &e, &mut out)?;
+                stack.push(XmlLevel {
+                    path,
+                    ..XmlLevel::default()
+                });
+            }
+            Event::Empty(e) => {
+                xml_open(&mut stack, &e, &mut out)?;
+            }
+            Event::End(_) => {
+                if stack.len() < 2 {
+                    return Err(XmlStop::Malformed);
+                }
+                if let Some(done) = stack.pop() {
+                    let body = done.text.trim();
+                    if !body.is_empty() {
+                        out.push((done.path, normalize::nfc(body)));
+                    }
+                }
+            }
+            Event::Text(t) => {
+                let raw = t
+                    .xml_content(quick_xml::XmlVersion::Implicit1_0)
+                    .map_err(|_| XmlStop::Malformed)?;
+                let v = quick_xml::escape::unescape(&raw).map_err(|_| XmlStop::Malformed)?;
+                if let Some(top) = stack.last_mut() {
+                    top.text.push_str(&v);
+                }
+            }
+            Event::GeneralRef(g) => {
+                let c = xml_reference(&g)?;
+                if let Some(top) = stack.last_mut() {
+                    top.text.push(c);
+                }
+            }
+            Event::CData(c) => {
+                let v = c.decode().map_err(|_| XmlStop::Malformed)?;
+                if let Some(top) = stack.last_mut() {
+                    top.text.push_str(&v);
+                }
+            }
+            // 선언 · 처리 지시 · 주석 · DOCTYPE 은 값이 아니다.
+            _ => {}
+        }
+    }
+    if stack.len() != 1 {
+        return Err(XmlStop::Malformed);
+    }
+    Ok(out)
+}
+
+/// 요소 하나를 연다 — 경로를 정하고 속성을 담은 뒤 그 경로를 돌려준다.
+fn xml_open(
+    stack: &mut [XmlLevel],
+    e: &quick_xml::events::BytesStart,
+    out: &mut Vec<(String, String)>,
+) -> Result<String, XmlStop> {
+    if stack.len() > MAX_XML_DEPTH {
+        return Err(XmlStop::TooDeep);
+    }
+    let name =
+        String::from_utf8(e.local_name().as_ref().to_vec()).map_err(|_| XmlStop::Malformed)?;
+    let Some(parent) = stack.last_mut() else {
+        return Err(XmlStop::Malformed);
+    };
+    let index = {
+        let n = parent.children.entry(name.clone()).or_insert(0);
+        let i = *n;
+        *n += 1;
+        i
+    };
+    let path = if parent.path.is_empty() {
+        format!("{name}[{index}]")
+    } else {
+        format!("{}/{name}[{index}]", parent.path)
+    };
+    for a in e.attributes() {
+        let a = a.map_err(|_| XmlStop::Malformed)?;
+        let key = a.key.as_ref();
+        if key == b"xmlns" || key.starts_with(b"xmlns:") {
+            continue;
+        }
+        let attr = String::from_utf8(a.key.local_name().as_ref().to_vec())
+            .map_err(|_| XmlStop::Malformed)?;
+        // 속성값 정규화(XML 1.0 §3.3.3 — 줄바꿈 · 탭은 공백)까지 한 값이다. 파서가 속성을 읽는
+        // 방식 그대로이고, 엔티티는 본문과 같이 정해 둔 다섯과 문자 참조만 푼다.
+        let value = a
+            .normalized_value(quick_xml::XmlVersion::Implicit1_0)
+            .map_err(|_| XmlStop::Malformed)?;
+        out.push((format!("{path}/@{attr}"), normalize::nfc(&value)));
+    }
+    Ok(path)
+}
+
+/// 본문 속 참조 하나를 푼다 — XML 이 정해 둔 다섯과 문자 참조만, 그 밖은 [`XmlStop::Malformed`].
+fn xml_reference(g: &quick_xml::events::BytesRef) -> Result<char, XmlStop> {
+    if let Some(c) = g.resolve_char_ref().map_err(|_| XmlStop::Malformed)? {
+        return Ok(c);
+    }
+    match g.decode().map_err(|_| XmlStop::Malformed)?.as_ref() {
+        "lt" => Ok('<'),
+        "gt" => Ok('>'),
+        "amp" => Ok('&'),
+        "apos" => Ok('\''),
+        "quot" => Ok('"'),
+        _ => Err(XmlStop::Malformed),
     }
 }
 
@@ -825,5 +1026,205 @@ mod tests {
         let h = text_configs(&fs, &scope(&["HKLM\\SOFTWARE\\X", "c:\\app"])).unwrap();
         assert_eq!(h.records.len(), 1);
         assert_eq!(h.denied_dirs, 0);
+    }
+
+    /// IIS 가 PHP 를 띄우는 자리 둘 — FastCGI 의 `fullPath` 와 핸들러의 `scriptProcessor`
+    /// (`applicationHost.config` 의 모양을 줄인 것).
+    const IIS: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
+<!-- applicationHost.config -->
+<configuration>
+  <system.webServer>
+    <fastCgi>
+      <application fullPath="C:\php83\php-cgi.exe" arguments="-d x=1" />
+      <application fullPath="%SystemDrive%\php\php-cgi.exe" />
+    </fastCgi>
+    <handlers accessPolicy="Read, Script">
+      <add name="PHP_via_FastCGI" path="*.php" verb="*" modules="FastCgiModule" scriptProcessor="C:\php83\php-cgi.exe|-d open_basedir=C:\inetpub" />
+    </handlers>
+  </system.webServer>
+</configuration>
+"#;
+
+    fn leaf<'a>(leaves: &'a [(String, String)], key: &str) -> Option<&'a str> {
+        leaves
+            .iter()
+            .find(|(k, _)| k == key)
+            .map(|(_, v)| v.as_str())
+    }
+
+    #[test]
+    fn iis_php_paths_come_out_as_attribute_leaves() {
+        let l = xml_leaves(IIS.as_bytes()).unwrap();
+        let p = "configuration[0]/system.webServer[0]";
+        assert_eq!(
+            leaf(&l, &format!("{p}/fastCgi[0]/application[0]/@fullPath")),
+            Some(r"C:\php83\php-cgi.exe")
+        );
+        assert_eq!(
+            leaf(&l, &format!("{p}/fastCgi[0]/application[1]/@fullPath")),
+            Some(r"%SystemDrive%\php\php-cgi.exe")
+        );
+        assert_eq!(
+            leaf(&l, &format!("{p}/handlers[0]/add[0]/@scriptProcessor")),
+            Some(r"C:\php83\php-cgi.exe|-d open_basedir=C:\inetpub")
+        );
+        assert_eq!(
+            leaf(&l, &format!("{p}/handlers[0]/@accessPolicy")),
+            Some("Read, Script")
+        );
+        // 주석 · 선언은 값이 아니고, 공백뿐인 본문도 잎이 아니다.
+        assert!(
+            l.iter().all(|(k, _)| k.contains("/@")),
+            "속성 말고 다른 잎이 나왔다: {l:?}"
+        );
+    }
+
+    #[test]
+    fn same_name_siblings_are_counted_per_name() {
+        // 다른 이름이 사이에 끼어도 같은 이름의 번호는 이어진다.
+        let l = xml_leaves(br#"<a><b x="1"/><c x="2"/><b x="3"/></a>"#).unwrap();
+        assert_eq!(leaf(&l, "a[0]/b[0]/@x"), Some("1"));
+        assert_eq!(leaf(&l, "a[0]/c[0]/@x"), Some("2"));
+        assert_eq!(leaf(&l, "a[0]/b[1]/@x"), Some("3"));
+    }
+
+    #[test]
+    fn body_text_joins_references_and_cdata_before_trimming() {
+        // 참조가 본문을 여러 이벤트로 나눈다 — 조각마다 깎으면 "x&yA" 가 된다.
+        let l = xml_leaves(b"<a>\n  x &amp; y &#65;<b> t </b><![CDATA[<raw>]]>\n</a>").unwrap();
+        assert_eq!(leaf(&l, "a[0]/b[0]"), Some("t"));
+        assert_eq!(leaf(&l, "a[0]"), Some("x & y A<raw>"));
+    }
+
+    #[test]
+    fn namespace_prefixes_are_dropped_and_declarations_are_not_leaves() {
+        let l = xml_leaves(
+            br#"<x:root xmlns:x="urn:x" xmlns="urn:d" x:mode="on"><x:add v="1"/></x:root>"#,
+        )
+        .unwrap();
+        assert_eq!(leaf(&l, "root[0]/@mode"), Some("on"));
+        assert_eq!(leaf(&l, "root[0]/add[0]/@v"), Some("1"));
+        assert!(
+            l.iter().all(|(k, _)| !k.contains("xmlns")),
+            "선언이 잎으로 나왔다: {l:?}"
+        );
+    }
+
+    #[test]
+    fn a_broken_document_gives_no_leaves() {
+        // 닫는 태그가 다름 · 닫히지 않음 · 같은 속성 둘 · UTF-8/16 이 아님
+        for doc in [
+            &b"<a></b>"[..],
+            b"<a>",
+            br#"<a x="1" x="2"/>"#,
+            b"\xff\xff\xff",
+        ] {
+            assert_eq!(
+                xml_leaves(doc),
+                Err(XmlStop::Malformed),
+                "{:?}",
+                String::from_utf8_lossy(doc)
+            );
+        }
+    }
+
+    #[test]
+    fn entities_a_document_defines_are_not_expanded() {
+        // 펴 주면 몇 KB 가 수 GB 가 된다(billion laughs). 정해 둔 다섯과 문자 참조만 푼다.
+        let laughs = br#"<?xml version="1.0"?>
+<!DOCTYPE lolz [
+ <!ENTITY lol "lol">
+ <!ENTITY lol2 "&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;">
+ <!ENTITY lol3 "&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;">
+]>
+<lolz>&lol3;</lolz>"#;
+        assert_eq!(xml_leaves(laughs), Err(XmlStop::Malformed));
+        assert_eq!(
+            xml_leaves(br#"<!DOCTYPE a [<!ENTITY e "x">]><a v="&e;"/>"#),
+            Err(XmlStop::Malformed)
+        );
+    }
+
+    #[test]
+    fn depth_over_the_limit_is_reported_not_silently_cut() {
+        let deep = |n: usize| format!("{}{}", "<a>".repeat(n), "</a>".repeat(n));
+        assert!(xml_leaves(deep(MAX_XML_DEPTH).as_bytes()).is_ok());
+        assert_eq!(
+            xml_leaves(deep(MAX_XML_DEPTH + 1).as_bytes()),
+            Err(XmlStop::TooDeep)
+        );
+    }
+
+    #[test]
+    fn a_utf16_document_is_read() {
+        let mut bytes = vec![0xFF, 0xFE];
+        for u in IIS.encode_utf16() {
+            bytes.extend_from_slice(&u.to_le_bytes());
+        }
+        let l = xml_leaves(&bytes).unwrap();
+        assert_eq!(
+            leaf(
+                &l,
+                "configuration[0]/system.webServer[0]/fastCgi[0]/application[0]/@fullPath"
+            ),
+            Some(r"C:\php83\php-cgi.exe")
+        );
+    }
+
+    /// 수집 — `.config` · `.xml` 은 XML 로 펴고, `.json` 은 지금처럼 JSON 으로 편다.
+    #[test]
+    fn config_and_xml_files_are_collected_as_xml() {
+        let dir = "c:\\windows\\system32\\inetsrv\\config";
+        let fs = FakeFs::with(&[
+            (
+                "c:\\windows\\system32\\inetsrv\\config\\applicationHost.config",
+                IIS,
+            ),
+            (
+                "c:\\windows\\system32\\inetsrv\\config\\redirection.config",
+                r#"<configuration><configurationRedirection enabled="false" path="" /></configuration>"#,
+            ),
+            ("c:\\windows\\system32\\inetsrv\\config\\broken.xml", "<a>"),
+            (
+                "c:\\windows\\system32\\inetsrv\\config\\x.json",
+                "{\"a\":{\"b\":1}}",
+            ),
+        ]);
+        let h = structured_configs(&fs, &scope(&[dir])).unwrap();
+        assert!(h
+            .records
+            .iter()
+            .any(|r| r.path.ends_with("applicationHost.config")
+                && r.format == "xml"
+                && r.key_path.ends_with("/fastCgi[0]/application[0]/@fullPath")
+                && r.value == r"C:\php83\php-cgi.exe"));
+        assert!(h
+            .records
+            .iter()
+            .any(|r| r.path.ends_with("redirection.config")
+                && r.key_path == "configuration[0]/configurationRedirection[0]/@enabled"
+                && r.value == "false"));
+        assert!(
+            h.records.iter().all(|r| !r.path.ends_with("broken.xml")),
+            "깨진 XML 에서 잎이 나왔다"
+        );
+        assert!(h.records.iter().any(|r| r.path.ends_with("x.json")
+            && r.format == "json"
+            && r.key_path == "a.b"
+            && r.value == "1"));
+        assert!(!h.truncated, "깨진 문서를 잘림으로 셌다");
+    }
+
+    #[test]
+    fn a_too_deep_xml_file_marks_the_harvest_truncated() {
+        let deep = format!(
+            "{}{}",
+            "<a>".repeat(MAX_XML_DEPTH + 1),
+            "</a>".repeat(MAX_XML_DEPTH + 1)
+        );
+        let fs = FakeFs::with(&[("c:\\cfg\\deep.xml", deep.as_str())]);
+        let h = structured_configs(&fs, &scope(&["c:\\cfg"])).unwrap();
+        assert!(h.records.is_empty());
+        assert!(h.truncated, "깊이 상한을 넘긴 문서를 조용히 넘겼다");
     }
 }
