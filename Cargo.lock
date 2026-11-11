@@ -2309,6 +2309,7 @@ name = "remedy-collect"
 version = "1.6.0"
 dependencies = [
  "base64 0.22.1",
+ "md-5",
  "object",
  "quick-xml",
  "remedy-artifacts",

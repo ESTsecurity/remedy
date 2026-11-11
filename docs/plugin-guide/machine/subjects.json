@@ -116,7 +116,18 @@
       "windows": true
     },
     {
-      "enumerated": {},
+      "enumerated": {
+        "package_match": {
+          "defined": true,
+          "values": [
+            "same",
+            "different",
+            "unrecorded",
+            "unreadable"
+          ],
+          "why": "이 파일을 깐 패키지(dpkg · RPM)의 기록과 내용이 같은가 — `same` 같다 · `different` 다르다 · `unrecorded` 목록에는 있는데 다이제스트가 없다 · `unreadable` 크기 상한이나 읽기 오류로 끝까지 못 읽었다(코어 1.7.0). 패키지가 소유하지 않은 파일은 칸이 없다. **`package` subject 를 함께 선언한 리눅스 룰에서만 채운다** — 패키지 판으로 판정하는 룰은 `same` 이 아닐 때 그 판을 믿지 않는다"
+        }
+      },
       "fields": [
         "path",
         "size",
@@ -131,7 +142,9 @@
         "signature.thumbprint",
         "zone.zone_id",
         "zone.referrer_url",
-        "zone.host_url"
+        "zone.host_url",
+        "package",
+        "package_match"
       ],
       "id": "file",
       "implemented_in": "P2",

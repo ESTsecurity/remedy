@@ -7,8 +7,8 @@
 
 **remedy** 는 **ESTsecurity 가 만들고 관리하는 전용백신**입니다. 아래 표의 악성코드가 남긴
 파일 · 자동 실행 등록 · 보안 제품 예외를 찾아 치료하고, 치료한 것은 격리해 두어 **되돌릴 수
-있습니다.** 표의 *점검* 항목은 PHP · Node.js 의 알려진 취약점이 이 기계에 있는지 알려 드립니다 —
-아무것도 바꾸지 않습니다. *원격 점검* 항목은 적어 주신 주소의 웹서버를 바깥에서 봅니다 — 네트워크를
+있습니다.** 표의 *점검* 항목 가운데 PHP · Node.js 는 알려진 취약점이 이 기계에 있는지 알려 드리고,
+*(탐지만)* 항목은 악성코드를 찾기만 합니다 — 둘 다 아무것도 바꾸지 않습니다. *원격 점검* 항목은 적어 주신 주소의 웹서버를 바깥에서 봅니다 — 네트워크를
 쓰는 것은 이 항목뿐이고, 고르기 전에 그렇다고 알려 드립니다. 설치 없이, 받은 폴더에서 바로 실행합니다.
 
 ## 다루는 위협
@@ -16,19 +16,16 @@
 받기 전에 확인하십시오 — 아래 룰이 그 OS 용 파일 하나에 모두 들어 있습니다.
 
 <!-- threats:begin — `cargo xtask threats --write` 가 룰에서 만든다. 손으로 고치지 않는다 -->
-| 룰 | 하는 일 | OS | 폴더 · 버전 | 참고 |
+| 룰 | 하는 일 | Windows | Linux | 참고 |
 |---|---|---|---|---|
-| EvilAI(Locust) 제거 | 찾아서 치료합니다 (복원할 수 있습니다) | Windows | `evilai-locust` 0.2.0 | [www.virustotal.com](https://www.virustotal.com/gui/search/engines%3Ameadowlocust) |
-| Node2Shell 점검 (CVE-2026-111497) | 찾기만 합니다 | Windows | `node2shell-check-windows` 0.2.0 | [nodejs.org](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases) |
-| PHP 세션 업로드 진행 설정 점검 (CVE-2026-115560) | 찾기만 합니다 | Windows | `php-session-check-windows` 0.2.0 | [www.php.net](https://www.php.net/archive/2026.php) |
-| PHP2Shell 점검 (CVE-2026-109618 · 109619) | 찾기만 합니다 | Windows | `php2shell-check-windows` 0.2.0 | [www.php.net](https://www.php.net/archive/2026.php) |
-| PHP2Shell 원격 점검 (웹서버 응답 헤더) | 적어 준 주소의 서버를 바깥에서 봅니다 (네트워크 사용) | Windows · Linux | `php2shell-url-check` 0.1.0 | [www.php.net](https://www.php.net/archive/2026.php) |
-| CWPdoor 점검 (탐지만) | 찾기만 합니다 | Linux | `cwpdoor-1-check` 0.1.2 | [blog.xlab.qianxin.com](https://blog.xlab.qianxin.com/cwpdoor-the-invisible-backdoor-living-inside-control-web-panel/) |
-| CWPdoor 제거 | 찾아서 치료합니다 (복원할 수 있습니다) | Linux | `cwpdoor-2-clean` 0.1.2 | [blog.xlab.qianxin.com](https://blog.xlab.qianxin.com/cwpdoor-the-invisible-backdoor-living-inside-control-web-panel/) |
-| Ebury 점검 (탐지만) | 찾기만 합니다 | Linux | `ebury-check` 0.2.0 | [www.welivesecurity.com](https://www.welivesecurity.com/en/eset-research/ebury-alive-unseen-400k-linux-servers-compromised-cryptotheft-financial-gain/) |
-| Node2Shell 점검 (CVE-2026-111497) | 찾기만 합니다 | Linux | `node2shell-check-linux` 0.2.0 | [nodejs.org](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases) |
-| PHP 세션 업로드 진행 설정 점검 (CVE-2026-115560) | 찾기만 합니다 | Linux | `php-session-check-linux` 0.2.0 | [www.php.net](https://www.php.net/archive/2026.php) |
-| PHP2Shell 점검 (CVE-2026-109618 · 109619) | 찾기만 합니다 | Linux | `php2shell-check-linux` 0.2.0 | [www.php.net](https://www.php.net/archive/2026.php) |
+| EvilAI(Locust) 제거 | 찾아서 치료합니다 (복원할 수 있습니다) | `evilai-locust` 0.2.0 | — | [www.virustotal.com](https://www.virustotal.com/gui/search/engines%3Ameadowlocust) |
+| Node2Shell 점검 (CVE-2026-111497) | 찾기만 합니다 | `node2shell-check-windows` 0.2.0 | `node2shell-check-linux` 0.2.0 | [nodejs.org](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases) |
+| PHP 세션 업로드 진행 설정 점검 (CVE-2026-115560) | 찾기만 합니다 | `php-session-check-windows` 0.2.0 | `php-session-check-linux` 0.2.0 | [www.php.net](https://www.php.net/archive/2026.php) |
+| PHP2Shell 점검 (CVE-2026-109618 · 109619) | 찾기만 합니다 | `php2shell-check-windows` 0.2.0 | `php2shell-check-linux` 0.2.0 | [www.php.net](https://www.php.net/archive/2026.php) |
+| PHP2Shell 원격 점검 (웹서버 응답 헤더) | 적어 주신 주소의 서버를 바깥에서 봅니다 (네트워크 사용) | `php2shell-url-check` 0.1.0 | `php2shell-url-check` 0.1.0 | [www.php.net](https://www.php.net/archive/2026.php) |
+| CWPdoor 점검 (탐지만) | 찾기만 합니다 | — | `cwpdoor-1-check` 0.1.2 | [blog.xlab.qianxin.com](https://blog.xlab.qianxin.com/cwpdoor-the-invisible-backdoor-living-inside-control-web-panel/) |
+| CWPdoor 제거 | 찾아서 치료합니다 (복원할 수 있습니다) | — | `cwpdoor-2-clean` 0.1.2 | [blog.xlab.qianxin.com](https://blog.xlab.qianxin.com/cwpdoor-the-invisible-backdoor-living-inside-control-web-panel/) |
+| Ebury 점검 (탐지만) | 찾기만 합니다 | — | `ebury-check` 0.2.0 | [www.welivesecurity.com](https://www.welivesecurity.com/en/eset-research/ebury-alive-unseen-400k-linux-servers-compromised-cryptotheft-financial-gain/) |
 <!-- threats:end -->
 
 ## 처음 쓰시는 분 — 다섯 단계
@@ -131,6 +128,7 @@ sudo ./remedy
 | 관측이 불완전해 '위협 없음' 을 말할 수 없습니다. | 다 보지 못했습니다 — 바로 위 *주의* 줄에 까닭이 있습니다. |
 | 취약합니다. 위에 적은 항목을 확인하십시오. | *점검* 항목이 취약한 버전을 찾았습니다 — 적힌 프로그램을 고친 버전으로 올리고 그것을 쓰는 서비스를 다시 시작합니다([위협별 안내](#위협별-안내)). |
 | 확인이 필요합니다. 위에 적은 항목은 '취약하지 않다' 를 가릴 근거가 없습니다. | *점검* 항목이 판정할 근거가 없는 설치본 · 설정입니다 — 위 *주의* 줄이 무엇을 확인할지(버전 · 받은 곳 · 설정) 말합니다. |
+| 다 보지 못해 '취약하지 않다' 를 말할 수 없습니다. | *점검* 항목이 볼 자리를 다 보지 못했습니다 — 바로 위 *주의* 줄에 까닭과 할 일이 있습니다(컨테이너 안이면 `docker exec --privileged` 로 들어가 다시 실행합니다). |
 | 취약한 곳을 찾지 못했습니다. | *점검* 항목이 본 자리에서 취약한 버전을 찾지 못했습니다 — 그 프로그램(PHP · Node.js)이 이 기계에 없을 때도 이렇게 나옵니다. |
 | 해당 없음 (검사할 경로가 이 기계에 없습니다) | *모두 검사만* 의 요약 줄입니다. 그 항목이 검사하는 제품이 이 서버에 없습니다 — Control Web Panel(CWP)을 쓰지 않는 서버의 CWPdoor 두 항목이 이렇게 나옵니다. |
 | 돌리지 않았습니다 (네트워크 점검은 그 항목을 골라 주소를 적어야 합니다) | *모두 검사만* 의 요약 줄입니다. *네트워크 사용* 이 붙은 항목은 점검할 주소를 적어야 해서 한꺼번에 돌리지 않습니다 — 그 항목을 골라 실행합니다. |
@@ -150,8 +148,8 @@ sudo ./remedy
 ### CWPdoor — Control Web Panel 을 쓰는 리눅스 서버
 
 - **치료하면** 백도어가 든 `cwpsrv` 를 **격리**하고, 그것을 띄우는 `cwpsrv.service` 를 **멈추고 지웁니다.**
-- **꼭 할 일** 공급사의 **최신 버전**으로 패널을 다시 설치해 켜고(`yum install cwpsrv` →
-  `systemctl enable --now cwpsrv`), **패널 자격 증명을 모두 바꿉니다.**
+- **꼭 할 일** 공급사의 **최신 버전**으로 패널을 다시 설치해 켜고(`yum install cwpsrv` — 이미 최신이면
+  `yum reinstall cwpsrv` → `systemctl enable --now cwpsrv`), **패널 자격 증명을 모두 바꿉니다.**
 - **못 보는 것** 서명 키가 다른 배포 · 지금 돌고 있는 창구 — 패널을 되살린 뒤 `ss -axp | grep integrity`
   가 아무것도 내지 않는지 보십시오.
 
@@ -197,8 +195,9 @@ sudo ./remedy
 
 Ebury 는 `libkeyutils.so.1` 자리에 가짜 라이브러리를 둡니다 — 그것을 옮기면 그 라이브러리를
 싣는 `sshd` · `sudo` 가 뜨지 못해 원격 접속이 끊기므로 remedy 가 손대지 않습니다. 발견되면 메뉴
-화면의 *검사 완료* 줄 아래에 찾은 파일이 번호와 함께 나옵니다(명령으로 돌렸으면 결과 폴더의
-`scan.json` 에 있습니다) — 아래에서 *결과에 나온 파일* 은 그것입니다. 아래 차례대로 합니다.
+화면의 *검사 완료* 줄 아래에 찾은 파일이 번호와 함께 나옵니다(명령으로 돌리면 화면에 경로가 나오지
+않습니다 — `--out-dir <폴더>` 를 주면 그 폴더의 `scan.json` 에 남습니다) — 아래에서 *결과에 나온 파일* 은
+그것입니다. 아래 차례대로 합니다.
 
 1. **콘솔(가상 콘솔 · IPMI 등)에서 합니다.** SSH 로 들어가면 그 접속의 자격 증명이 다시 넘어갑니다.
 2. **정상 버전을 다시 설치합니다.** RHEL 계열은 `yum reinstall keyutils-libs`(또는 `dnf`), Debian ·
@@ -240,16 +239,17 @@ sudo bash detect_ebury.sh
   그 폴더를 **격리**합니다 — 이 PC 의 **모든 사용자 계정**을 봅니다.
 - **꼭 할 일** PC 를 **다시 시작해 관리자로 로그온**하고(한 번 더 자동 검사), 가짜 앱(`PDF Editor` 등)을
   *설정 → 앱* 에서 지우고, 비밀번호를 **다른 기기에서** 바꿉니다.
-- **못 보는 것** 확보한 꼴 밖의 페이로드와 EvilAI 가 내려받은 다른 악성 코드 — **백신으로 PC 전체를
+- **못 보는 것** 확보한 유형 밖의 페이로드와 EvilAI 가 내려받은 다른 악성코드 — **백신으로 PC 전체를
   검사**하십시오.
 
 <details>
-<summary>자세히 — 무엇을 지우고 남기나 · 다시 시작 · 관측 불완전 · 찾는 꼴 · 가짜 앱 서명자</summary>
+<summary>자세히 — 무엇을 지우고 남기나 · 다시 시작 · 찾는 유형 · 가짜 앱 서명자</summary>
 
 - **EvilAI(Locust) 제거** 는 페이로드를 돌리던 `node.exe` 프로세스를 멈추고, 예약 작업과 시작
   프로그램(Run) 항목을 지우고, 페이로드(`.js`)와 그 폴더를 **격리**합니다. 페이로드가 임시
-  폴더(`TEMP`) 바로 아래에 있으면 **그 파일만** 격리하고 임시 폴더는 건드리지 않습니다. 그 폴더를
-  백신 검사 예외에 넣어 두었다면 그 예외도 지웁니다. Node.js 자체는 정상 프로그램이라 손대지 않습니다.
+  폴더(`TEMP`) 바로 아래에 있으면 **그 파일만** 격리하고 임시 폴더는 건드리지 않습니다. 페이로드
+  폴더(`AppData\Local\Programs\<이름>`)를 백신 검사 예외에 넣어 두었다면 그 예외도 지웁니다. Node.js
+  자체는 정상 프로그램이라 손대지 않습니다.
 - **이 PC 의 모든 사용자 계정을 검사합니다** — 담당자가 자기 관리자 계정이나 배포 도구(SYSTEM)로
   실행해도 감염된 사용자의 것을 찾고, 그 사용자가 **로그온해 있으면** 그 사용자의 시작 프로그램
   항목까지 지웁니다. 로그오프한 사용자의 항목은 남을 수 있습니다 — 그 항목이 가리키는 파일은
@@ -257,20 +257,19 @@ sudo bash detect_ebury.sh
 - 치료한 뒤 **PC 를 다시 시작하고 관리자 계정으로 로그온하십시오** — 그때 한 번 더 자동으로
   검사합니다. 표준 사용자로 로그온하면 이 검사는 돌지 않으므로, 관리자가 메뉴의 *3. 치료가
   유지됐는지 다시 보기* 로 확인합니다.
-- 어느 계정에도 `AppData\Local\Programs` 폴더가 없는 PC 는 *관측이 불완전* 으로 끝납니다 — EvilAI 가
-  자리 잡는 폴더가 그 PC 에 없다는 뜻입니다.
-- **'위협 없음' 이 이 PC 가 깨끗하다는 뜻은 아닙니다.** 이 항목은 확보한 검체의 꼴과 공개 보고(Trend
-  Micro)가 적은 꼴을 찾습니다 — 페이로드가 `AppData\Local\Programs` 아래 폴더나 임시 폴더(`TEMP`)
-  바로 아래에 있고, 예약 작업이 그것을 `node.exe` 로 직접 또는 `cmd.exe` 를 거쳐 띄우는 꼴입니다
-  (작업이 어느 폴더에 등록됐는지는 묻지 않습니다). 보고가 이름을 밝힌 시작 메뉴 바로 가기
-  (`PDF Editor`)와 시작 프로그램 항목(`PDFEditorUpdater`)도 감염이 확인된 PC 에서 함께 격리합니다.
-  임시 폴더 안의 하위 폴더에 둔 페이로드처럼 그 밖의 꼴은 찾지 못합니다. 감염이 의심되면 백신으로
-  PC 전체를 검사하고 담당자에게 알리십시오.
+- **'위협 없음' 이 이 PC 가 깨끗하다는 뜻은 아닙니다.** 이 항목은 확보한 검체의 유형과 공개 보고(Trend
+  Micro)가 적은 유형을 찾습니다 — 페이로드가 `AppData\Local\Programs` 아래 폴더나 임시 폴더(`TEMP`)
+  바로 아래에 있고, 예약 작업이 그것을 `node.exe` 로 직접 또는 `cmd.exe` 를 거쳐 띄우는 유형입니다
+  (작업이 어느 폴더에 등록됐는지는 묻지 않습니다). 보고가 이름을 밝힌 시작 프로그램 항목
+  (`PDFEditorUpdater`)은 감염이 확인된 PC 에서, 시작 메뉴 바로 가기(`PDF Editor`)는 페이로드가 임시 폴더에
+  있는 유형에서 그 사용자의 것만 함께 치료합니다(둘 다 복원할 수 있습니다). 임시 폴더 안의 하위 폴더에 둔
+  페이로드처럼 그 밖의 유형은 찾지 못합니다. 감염이 의심되면 백신으로 PC 전체를 검사하고 담당자에게
+  알리십시오.
 - **가짜 앱 자체는 지우지 않습니다.** EvilAI 는 'PDF Editor' 같은 정상처럼 보이는 앱을 깔게 해서
   들어옵니다 — *설정 → 앱* 에서 그 앱을 제거하십시오. 공개 보고가 밝힌 서명자는 App Interplace LLC ·
   Byte Media Sdn Bhd · Echo Infini Sdn. Bhd. · GLINT SOFTWARE SDN. BHD. · Global Tech Allies ltd ·
   Pixel Catalyst Media LLC 입니다.
-- EvilAI 는 다른 악성 코드를 풀어 실행하는 로더입니다. 이 도구는 EvilAI 가 남기는 항목만 보므로
+- EvilAI 는 다른 악성코드를 풀어 실행하는 로더입니다. 이 도구는 EvilAI 가 남기는 항목만 보므로
   **백신으로 PC 전체를 검사**하고, 이 PC 에서 쓰던 비밀번호는 **다른 기기에서** 바꾸십시오.
 
 </details>
@@ -297,10 +296,12 @@ sudo bash detect_ebury.sh
   공지로 판정할 수 없는 배포판 패키지(Ubuntu · RHEL · Rocky · Alpine · 다른 저장소), RHEL · Oracle Linux 의 시스템
   Brotli 가 고친 버전보다 낮은데 RPM 의 Node.js 가 그것을 쓰는지 이 도구가 재지 못할 때, 정해 둔 자리 밖에서
   실행 중인 `node`(Windows 는 IIS 가 쓰거나 실행 중인 정해 둔 자리 밖의 PHP 도 — 그 PHP 의 Brotli 를 보지
-  않았습니다). 화면의 *주의* 줄이 무엇을 확인할지 말합니다. 컨테이너 안에서 실행해 다른 사용자로 도는 프로세스를
-  들여다보지 못하면 *확인 필요* 입니다 — *주의* 줄대로 `docker exec --privileged` 로 들어가 다시 실행하십시오.
+  않았습니다). 화면의 *주의* 줄이 무엇을 확인할지 말합니다. *취약* 한 Node.js 가 나온 회차에는 이 항목들이 나오지
+  않을 수 있습니다 — 고친 뒤 다시 검사하면 나옵니다. 컨테이너 안에서 실행해 다른 사용자로 도는 프로세스를
+  들여다보지 못하면 *다 보지 못해 '취약하지 않다' 를 말할 수 없습니다* 로 끝납니다(종료 코드 6) — *주의* 줄대로
+  `docker exec --privileged` 로 들어가 다시 실행하십시오.
 - **보는 자리** — Windows: `Program Files\nodejs` · 모든 사용자의 nvm-windows · fnm · Volta · nvm, PHP 폴더(PHP
-  점검과 같은 자리). 리눅스: `/usr/bin` · `/usr/local/bin` 바로 아래의 `node` · `/opt/node` · `/opt/nodejs` ·
+  점검과 같은 자리 — Chocolatey 는 `C:\tools\php82` ~ `php85` 만). 리눅스: `/usr/bin` · `/usr/local/bin` 바로 아래의 `node` · `/opt/node` · `/opt/nodejs` ·
   `/usr/local/lib/nodejs` · 모든 사용자의 nvm · fnm · Volta, 배포판 패키지 목록. 정해 둔 자리 밖을 찾을 때만
   실행 중인 프로세스와 IIS 설정(`C:\Windows\System32\inetsrv\config`)을 봅니다.
 
@@ -313,27 +314,29 @@ sudo bash detect_ebury.sh
 
 - **점검만 합니다** — PHP 의 버전 · 공식 빌드(파일 해시) · 배포판 패키지로 PHP2Shell(CVE-2026-109618 · 109619)이
   고쳐졌는지, 설정 파일로 세션 업로드 진행 기능(CVE-2026-115560)이 켜졌는지 봅니다. 아무것도 바꾸지 않습니다.
-- **꼭 할 일** *취약* 이면 PHP 를 고친 버전(8.2.35 · 8.3.36 · 8.4.27 · 8.5.12, 또는 배포판의 보안 갱신)으로 올리고
-  PHP 를 쓰는 웹 서버 · PHP-FPM 을 **다시 시작**합니다. 세션 점검은 PHP 가 있으면 늘 *확인 필요* 입니다 — 앱이
+- **꼭 할 일** *취약* 이면 PHP 를 쓰는 계열의 고친 버전(8.2 는 8.2.35 · 8.3 은 8.3.36 · 8.4 는 8.4.27 · 8.5 는
+  8.5.12, 또는 배포판의 보안 갱신)으로 올리고 PHP 를 쓰는 웹 서버 · PHP-FPM 을 **다시 시작**합니다 — 8.1 이하는
+  고친 버전이 없어 이 가운데 하나로 옮깁니다. 세션 점검은 PHP 가 있으면 늘 *확인 필요* 입니다 — 앱이
   실행 중에 `session.serialize_handler` 를 바꾸면 `session.upload_progress.enabled = 0` 으로 두고 다시 시작합니다.
-- **못 보는 것** 지금 돌고 있는 PHP 가 고친 버전을 실었는지 · 정해 둔 자리 밖에 놓였을 뿐 쓰이지 않는 PHP · 앱
-  코드가 실행 중에 바꾸는 설정(`ini_set()`). 정해 둔 자리 밖의 PHP 를 IIS 가 쓰거나 그 PHP 가 **실행 중이면** 경로를
+- **못 보는 것** 지금 돌고 있는 PHP 가 고친 버전을 실었는지 · 정해 둔 자리 밖에 놓였을 뿐 쓰이지 않는 PHP · 정해
+  둔 자리 밖에서 Apache 모듈로 실린 PHP · 앱 코드가 실행 중에 바꾸는 설정(`ini_set()`). 정해 둔 자리 밖의 PHP 를 IIS 가 쓰거나 그 PHP 가 **실행 중이면** 경로를
   적어 *확인 필요* 로 알립니다 — 그 PHP 는 판정하지 않습니다.
 
 <details>
 <summary>자세히 — 판정 · 확인 필요가 나오는 경우 · 세션 설정 · 보는 자리</summary>
 
 - **판정** — 배포판 패키지(Ubuntu · Debian · RHEL · Oracle Linux · SLES)는 그 공급사의 보안 공지가 적은 고친
-  버전과 견주고, 패키지 밖의 PHP(공식 Docker 이미지 · PHP for Windows 공식 빌드)는 파일 해시로 버전을 가립니다.
+  버전과 견주고, 패키지 밖의 PHP(공식 Docker 이미지 · PHP for Windows 공식 빌드)는 파일 해시로 버전을 가립니다
+  (리눅스의 공식 Docker 이미지는 기준에 든 8.3.35 · 8.3.36 등만 — 그 밖의 태그는 *확인 필요* 입니다).
 - **확인 필요가 나오는 경우** — 공지에 없는 공급사 · 저장소의 패키지(Rocky · Alma · Alpine · Remi 등)와 공식
   빌드의 해시와 맞지 않는 PHP 입니다. 같은 버전 번호라도 고친 코드를 담았는지 이 도구가 가릴 근거가 없습니다 —
-  화면의 *주의* 줄이 버전을 올릴지(낮은 버전) 받은 곳을 확인할지(높은 버전) 말합니다. RHEL 7.9 는 공지가
-  CVE-2026-109619 만 고쳐 그 버전 이상도 *확인 필요* 입니다. 정해 둔 자리 밖의 PHP(IIS 가 쓰는 것 · 실행 중인 것)와
-  IIS 의 공유 설정도 *확인 필요* 입니다 — 정해 둔 자리의 PHP 가 모두 *취약* 이면 그 회차에는 나오지 않고, 고친 뒤
-  다시 검사하면 나옵니다.
-- **컨테이너 안에서 실행하면** 다른 사용자로 도는 프로세스(php-fpm 의 작업자 등)를 들여다보지 못해 *확인 필요*
-  가 됩니다 — *주의* 줄대로 `docker exec --privileged` 로 들어가 다시 실행하십시오. 서버(호스트)에서 관리자(root)로
-  실행하면 이 일이 없습니다.
+  Windows 에서는 화면의 *주의* 줄이 버전을 올릴지(낮은 버전) 받은 곳을 확인할지(높은 버전) 말합니다. RHEL 7.9 는
+  공지가 CVE-2026-109619 만 고쳐 그 버전 이상도 *확인 필요* 입니다. 정해 둔 자리 밖의 PHP(IIS 가 쓰는 것 · 실행
+  중인 것)와 IIS 의 공유 설정도 *확인 필요* 입니다 — *취약* 한 PHP 가 나온 회차에는 이 항목들이 나오지 않을 수
+  있고, 고친 뒤 다시 검사하면 나옵니다.
+- **컨테이너 안에서 실행하면** 다른 사용자로 도는 프로세스(php-fpm 의 작업자 등)를 들여다보지 못해 *다 보지 못해
+  '취약하지 않다' 를 말할 수 없습니다* 로 끝납니다(종료 코드 6) — *주의* 줄대로 `docker exec --privileged` 로
+  들어가 다시 실행하십시오. 서버(호스트)에서 관리자(root)로 실행하면 이 일이 없습니다.
 - **세션 설정** — php.net 은 이 문제의 고친 버전을 내지 않았습니다(2026-10-23 공지). 위험은 세 조건이 겹칠 때
   생깁니다: `session.upload_progress.enabled` 가 켜져 있고, `session.serialize_handler` 가 `php_binary` ·
   `php_serialize` 이며, 앱이 `session_start()` 전에 `ini_set()` 으로 그것을 `php` 로 바꿉니다. 셋째는 앱 코드라
@@ -373,10 +376,11 @@ sudo bash detect_ebury.sh
   root 가 아니라 sudo 를 건 사용자의 권한으로 실행됩니다. 그 사용자가 받은 폴더에 닿지 못하면(root 의 홈에
   풀었을 때 등) 그렇다고 알리고 root 로 실행합니다.
 - **결과 파일** — 메뉴에서 고르면 받은 폴더의 `out/<시각>/remedy-net/` 에 남고, 화면 끝에 그 경로가 적힙니다.
-- **네트워크를 쓰지 않으려면** — 받은 폴더의 `remedy-net` 폴더를 지우십시오. 이 항목만 꺼지고 나머지 검사 ·
-  치료는 그대로 씁니다.
-- **명령으로 돌리기** — `remedy scan --plugin plugins/php2shell-url-check/plugin.yaml --out-dir out --url
-  https://<주소>` (`--url` 은 여러 번 줄 수 있습니다). 결과는 화면과 `out` 폴더의 JSON 파일에 남습니다.
+- **네트워크를 쓰지 않으려면** — 받은 폴더의 `remedy-net` 폴더를 지우십시오. *원격 점검* 항목과 아래 이미지 ·
+  컨테이너 점검이 빠지고, `remedy` 의 검사 · 치료는 그대로 씁니다.
+- **명령으로 돌리기** — Windows: `.\remedy.exe scan --plugin .\plugins\php2shell-url-check\plugin.yaml --out-dir
+  .\out --url https://<주소>` · 리눅스: `./remedy scan --plugin ./plugins/php2shell-url-check/plugin.yaml --out-dir
+  ./out --url https://<주소>` (`--url` 은 여러 번 줄 수 있습니다). 결과는 화면과 `out` 폴더의 JSON 파일에 남습니다.
 
 </details>
 
@@ -452,7 +456,7 @@ sudo bash detect_ebury.sh
 | Linux x86_64 — RHEL 계열 · Debian · Ubuntu (정적 링크라 배포판 버전에 매이지 않습니다) | `remedy-linux-x64.tar.gz` |
 
 - **관리자 권한이 있어야 합니다** — Windows 는 관리자, 리눅스는 root(`sudo`). 메뉴 맨 위에서
-  지금 권한을 먼저 알려 드립니다. *원격 점검* 항목만은 권한이 없어도 됩니다.
+  지금 권한을 먼저 알려 드립니다. *원격 점검* 항목과 이미지 파일 점검은 권한이 없어도 됩니다.
 - 설치가 없습니다 — 받은 폴더를 풀어 그 자리에서 실행합니다.
 - **받은 폴더에 쓸 수 있어야 합니다** — 메뉴는 결과(`out`)와 치료 기록(`state`)을 그 폴더에
   남깁니다. 읽기 전용 자리(읽기 전용으로 붙인 공유 폴더 등)에서는 검사가 결과를 쓰지 못해
@@ -481,10 +485,13 @@ sudo bash detect_ebury.sh
 ```
 
 ```sh
-sudo ./remedy run --plugin ./plugins/cwpdoor-1-check/plugin.yaml          # 점검만 — 2 면 발견 · CWP 가 없는 서버는 6
-sudo ./remedy run --plugin ./plugins/cwpdoor-2-clean/plugin.yaml --yes    # 치료
-sudo ./remedy run --plugin ./plugins/ebury-check/plugin.yaml              # 2 면 발견 · 0 이면 없음
+sudo ./remedy run --plugin ./plugins/cwpdoor-1-check/plugin.yaml --out-dir ./out   # 점검만 — 2 면 발견 · CWP 가 없는 서버는 6
+sudo ./remedy run --plugin ./plugins/cwpdoor-2-clean/plugin.yaml --yes             # 치료
+sudo ./remedy run --plugin ./plugins/ebury-check/plugin.yaml --out-dir ./out       # 2 면 발견 · 0 이면 찾지 못함 · 6 이면 다 보지 못함
 ```
+
+찾기만 하는 항목을 명령으로 돌리면 찾은 파일의 경로는 화면에 나오지 않고 `--out-dir` 로 준 폴더의
+`scan.json` 에 남습니다 — 주지 않으면 남지 않습니다.
 
 | 종료 코드 | 뜻 |
 |---|---|
@@ -496,6 +503,9 @@ sudo ./remedy run --plugin ./plugins/ebury-check/plugin.yaml              # 2 �
 | 5 | 안전 가드 중단 |
 | 6 | 관측 불완전 — '위협 없음' 을 말할 수 없음 |
 | 7 | 내부 오류 |
+
+*점검* 항목에서는 2 가 *취약*, 6 이 *확인 필요*(또는 다 보지 못함), 0 이 *취약한 곳을 찾지 못함* 입니다.
+*원격 점검* 은 0 을 내지 않습니다.
 
 - **룰의 서명 확인** — 룰이 실행 파일에 든 공개키로 서명한 그대로인지 봅니다. 서명이 맞고 파일이
   하나도 바뀌지 않았으면 통과하고, 한 글자라도 다르면 어느 파일인지 알려 드립니다. 명령줄에서

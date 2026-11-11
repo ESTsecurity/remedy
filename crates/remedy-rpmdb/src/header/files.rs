@@ -58,6 +58,11 @@ const COUNT_MISMATCH: RpmDbError = RpmDbError::Format("파일 수와 다이제�
 /// DB 하나가 헤더에서 꺼내 남기는 양의 상한 — 바이트와 항목.
 const MAX_DERIVED_BYTES: u64 = 16 * 1024 * 1024;
 const MAX_DERIVED_ENTRIES: u64 = 100_000;
+/// **이 기계의 DB** 에서 꺼내는 양의 상한 — 본체 수집기의 패키지 파일 대조(코어 1.7.0)가 쓴다. 실제 서버는 패키지가
+/// 천 개를 넘고 파일이 그 수백 배라 이미지 예산(100,000 항목)에 닿는다. 같은 꼴로 세고 값만 크게 둔다 — 그래도
+/// 끝은 있어야 한다(DB 가 주장하는 수를 믿지 않는 까닭은 모듈 머리와 같다).
+const HOST_DERIVED_BYTES: u64 = 256 * 1024 * 1024;
+const HOST_DERIVED_ENTRIES: u64 = 2_000_000;
 /// 예산에서 더 세는 그릇 몫 — 패키지 하나 · 문자열 하나 · 경로 하나.
 const PACKAGE_COST: u64 = 512;
 const STRING_COST: u64 = 32;
@@ -78,6 +83,14 @@ impl Derived {
         Self {
             bytes: MAX_DERIVED_BYTES,
             entries: MAX_DERIVED_ENTRIES,
+        }
+    }
+
+    /// 이 기계의 DB 용 예산([`HOST_DERIVED_BYTES`] · [`HOST_DERIVED_ENTRIES`]).
+    pub(crate) fn host() -> Self {
+        Self {
+            bytes: HOST_DERIVED_BYTES,
+            entries: HOST_DERIVED_ENTRIES,
         }
     }
 

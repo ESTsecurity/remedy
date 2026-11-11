@@ -317,7 +317,7 @@ try {
     $ver = D "verify --plugin .\evilai\plugin.yaml --run $runId2 --state-dir .\state"
     Add-Check "7 verify 가 0 으로 끝난다 (치료 성공)" ($ver.Code -eq 0) "exit=$($ver.Code)"
     Add-Check "7 경로가 빈 게 아니라 판정이 재현되지 않았다고 말한다" `
-    ($ver.Text -match "같은 플러그인이 더 이상 판정하지 않습니다") "문구"
+    ($ver.Text -match "같은 검사에서 위협이 다시 나오지 않았습니다") "문구"
 
     # ══════════════════════════════════ 8. support-bundle
     Write-Step "8. support-bundle — 신고 첨부물"

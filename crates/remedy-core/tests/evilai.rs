@@ -155,6 +155,8 @@ fn infected() -> (ArtifactsEnvelope, Scope) {
             zone: None,
             streams: Vec::new(),
             content_ref: Some(key.into()),
+            package: String::new(),
+            package_match: String::new(),
         }],
     );
     {

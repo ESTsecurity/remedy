@@ -1193,7 +1193,7 @@ const CLEAN_OFFLINE: (&str, &str) = (
     "Without internet, it is written in this file in the downloaded folder:",
 );
 const CLEAN_SCOPE: (&str, &str) = (
-    "'위협 없음' 은 이 항목이 보는 꼴이 없다는 뜻입니다 — 무엇을 보는지:",
+    "'위협 없음' 은 이 항목이 아는 유형을 찾지 못했다는 뜻입니다 — 무엇을 보는지:",
     "'No threat' means this item's known shapes were not found. What it checks:",
 );
 const SIGNED_OK: (&str, &str) = (
@@ -3182,9 +3182,12 @@ fn cmd_verify(raw: &[String]) -> Result<Code, Failure> {
                         "Re-checked: no vulnerability was found.",
                     )
                 } else {
+                    // **받는 사람의 말로** (2026-11-12) — 전에는 *"같은 플러그인이 더 이상 판정하지
+                    // 않습니다"* 라 '플러그인' · '판정' 이 고객 화면에 섰다. 하네스(`Invoke-ObsVerify`)가
+                    // 읽는 앞 구절 `치료 성공. ` 은 그대로 둔다.
                     lang.t(
-                        "치료 성공. 같은 플러그인이 더 이상 판정하지 않습니다.",
-                        "Treatment succeeded. The same plugin no longer reports a threat.",
+                        "치료 성공. 같은 검사에서 위협이 다시 나오지 않았습니다.",
+                        "Treatment succeeded. The same check no longer finds the threat.",
                     )
                 }
             );
@@ -4464,10 +4467,30 @@ fn warn_incomplete(obs: &Observation, kind: Option<PluginKind>) {
             )
         }
     );
-    for r in obs.reasons() {
-        errln!("     - {r}");
+    for l in reason_lines(obs, lang) {
+        errln!("{l}");
     }
-    denied_sample(obs, lang);
+}
+
+/// 사유 줄과 **그 사유 바로 아래의** 거부된 자리 표본.
+///
+/// 표본을 사유 줄 맨 끝에 붙이면, 사유가 둘일 때(접근 거부 + 룰의 확인 필요) 목록이 둘째 사유 밑에
+/// 서서 그 사유의 경로로 읽혔다(2026-11-12 · 리눅스 컨테이너의 PHP 세션 점검). 거부 사유는 잘림
+/// 사유 다음 자리다 — [`Observation::reasons_in`] 의 차례이고, 시험이 그것을 붙잡는다.
+fn reason_lines(obs: &Observation, lang: remedy_core::report::Lang) -> Vec<String> {
+    let reasons = obs.reasons_in(lang);
+    let denied_at = (obs.denied_dirs > 0).then_some(usize::from(obs.truncated));
+    let mut out = Vec::new();
+    for (i, r) in reasons.iter().enumerate() {
+        out.push(format!("     - {r}"));
+        if denied_at == Some(i) {
+            out.extend(denied_lines(obs, lang));
+        }
+    }
+    if denied_at.is_none_or(|i| i >= reasons.len()) {
+        out.extend(denied_lines(obs, lang));
+    }
+    out
 }
 
 /// 거부된 자리 **몇 곳**을 화면에 적는다.
@@ -4488,13 +4511,7 @@ fn warn_incomplete(obs: &Observation, kind: Option<PluginKind>) {
 ///
 /// 그래서 **화면에 적는다.** `run.log` 는 화면에 나간 줄을 그대로 복사하므로
 /// (`tee.rs`) 한 자리를 고치면 `scan` · `--dry-run` · 치료 회차가 전부 덮인다.
-fn denied_sample(obs: &Observation, lang: remedy_core::report::Lang) {
-    for l in denied_lines(obs, lang) {
-        errln!("{l}");
-    }
-}
-
-/// 화면에 낼 줄을 짓는다.
+/// 거부 사유 바로 아래에 붙이는 것은 [`reason_lines`] 다.
 ///
 /// **출력과 나눈 이유**는 시험이 문자열을 그대로 보게 하려는 것이다. `errln!`
 /// 을 가로채려면 전역 상태를 건드려야 하고, 그러면 병렬로 도는 다른 시험과
@@ -5646,6 +5663,39 @@ collect_extra:
         assert_eq!(one.len(), 2, "{one:?}");
         assert!(one[0].contains("거부된 자리"), "{one:?}");
         assert!(one[1].contains("C:\\d0"), "{one:?}");
+    }
+
+    /// 거부된 자리 표본은 **거부 사유 바로 아래**에 선다 — 사유가 여럿이어도(2026-11-12 · 리눅스
+    /// 컨테이너: 접근 거부 다음에 룰의 확인 필요 사유가 섰고, 목록이 그 밑에 붙어 그 사유의 경로로
+    /// 읽혔다). 잘림 사유가 앞에 있으면 그 다음 자리다.
+    #[test]
+    fn the_denied_sample_follows_the_denial_reason() {
+        use remedy_core::report::Lang;
+        use remedy_sdk::artifact::UnconfirmedNote;
+
+        let note = UnconfirmedNote {
+            why: [("ko".to_string(), "룰의 사유".to_string())].into(),
+            groups: vec!["g0".into()],
+            rules: vec!["r".into()],
+        };
+        for truncated in [false, true] {
+            let obs = Observation {
+                truncated,
+                unconfirmed: vec![note.clone()],
+                ..denied(1, 1)
+            };
+            let lines = reason_lines(&obs, Lang::Ko);
+            let at = |needle: &str| {
+                lines
+                    .iter()
+                    .position(|l| l.contains(needle))
+                    .unwrap_or_else(|| panic!("'{needle}' 이 없다: {lines:?}"))
+            };
+            let denial = at("접근이 거부된");
+            assert_eq!(at("거부된 자리:"), denial + 1, "{lines:?}");
+            assert_eq!(at("C:\\d0"), denial + 2, "{lines:?}");
+            assert!(at("룰의 사유") > denial + 2, "{lines:?}");
+        }
     }
 
     #[test]

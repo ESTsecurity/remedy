@@ -520,6 +520,14 @@ fn append(title: &'static str, what: &'static str, fix: &'static str, extra: &st
 pub(crate) fn lint_cases() -> Vec<Case> {
     vec![
         case(
+            "패키지가 깐 파일인지 본다",
+            "`file.package` · `file.package_match` 를 `package` subject 없이, 또는 Windows 도 대상인 룰에서 썼다 — \
+             그 칸은 `package` subject 를 함께 선언한 리눅스 룰에서만 채워져 이 술어는 늘 거짓이다",
+            "리눅스 룰이면 `subjects` 에 `package` 를 더한다. Windows 에는 패키지 DB 가 없으니 그 룰에서는 쓰지 않는다",
+            r"- { field: path, op: ends_with, value: '\main.js' }",
+            "- { field: package_match, op: equals, value: different }",
+        ),
+        case(
             "표시명에 두 언어를 다 적는다",
             "`name` 에 한 언어만 있다. 고객 화면의 첫 줄이 다른 언어에서 비거나 엉뚱한 언어로 나온다",
             "`name: { ko: …, en: … }` 둘 다 채운다. 룰만 고쳤어도 `version` 을 올린다",

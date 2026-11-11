@@ -444,6 +444,8 @@ fn attach(files: &mut Vec<FileRecord>, path: &str, key: &str, bytes: &[u8]) {
         zone: None,
         streams: Vec::new(),
         content_ref: Some(key.to_string()),
+        package: String::new(),
+        package_match: String::new(),
     });
 }
 
@@ -680,6 +682,8 @@ collect_extra:
                 zone: None,
                 streams: Vec::new(),
                 content_ref: None,
+                package: String::new(),
+                package_match: String::new(),
             })
             .collect();
         let mut obs = Observations::default();
@@ -1175,6 +1179,8 @@ collect_extra:
                 zone: None,
                 streams: Vec::new(),
                 content_ref: None,
+                package: String::new(),
+                package_match: String::new(),
             }],
         );
         collect_extra(&f, &m, &scope(), &mut obs, RefPolicy::ReportNow);
@@ -1222,6 +1228,8 @@ collect_extra:
                 zone: None,
                 streams: Vec::new(),
                 content_ref: None,
+                package: String::new(),
+                package_match: String::new(),
             }],
         );
         collect_extra(&f, &m, &scope(), &mut obs, RefPolicy::ReportNow);

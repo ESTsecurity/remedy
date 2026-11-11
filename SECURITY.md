@@ -22,7 +22,7 @@ remedy는 파일을 삭제하고 프로세스를 종료하는 도구다. 이 도
 
 가능하면 아래를 함께 보내 주면 대응이 빨라진다.
 
-- `remedy support-bundle` 산출물 (P10 이후)
+- `remedy support-bundle` 산출물
 - 재현에 사용한 `plugin.yaml` · `plan.json`
 - 코어 버전 (`remedy --version`) 과 빌드 타깃
 
@@ -30,7 +30,8 @@ remedy는 파일을 삭제하고 프로세스를 종료하는 도구다. 이 도
 
 접수 후 영업일 기준 3일 안에 회신한다. 확인되면 다음 순서로 대응한다.
 
-1. 온라인 폐기 목록으로 영향 버전 무효화
+1. 서명한 폐기 목록을 내 영향 버전을 막는다 — 받는 쪽이 `remedy revocation import --file <목록>`
+   으로 반입한다(remedy 는 목록을 받아 오지 않는다)
 2. 수정본 배포 + `min_plugin_version` 상향
 3. 재발 방지 조건을 출시 게이트(G 항목)로 승격
 

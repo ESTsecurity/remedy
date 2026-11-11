@@ -53,6 +53,43 @@ fn warnings(yaml: &str) -> Vec<String> {
         .collect()
 }
 
+/// `file.package` · `package_match` 는 `package` subject 를 함께 선언한 **리눅스** 룰에서만 채운다(코어 1.7.0) —
+/// 그 밖에서 그 칸을 보는 술어는 늘 거짓이라 경고한다. 맞게 쓴 룰에는 말하지 않는다.
+#[test]
+fn package_fields_need_the_package_subject_on_linux() {
+    let yaml = |platforms: &str, subjects: &str| {
+        [
+            "schema_version: 1",
+            "id: pkg-fields",
+            "version: 1.0.0",
+            "min_core: '1.0.0'",
+            &format!("platforms: [{platforms}]"),
+            "name: { ko: '시험', en: 'pkg fields' }",
+            "scan_roots: ['/usr/bin']",
+            &format!("subjects: [{subjects}]"),
+            "detect:",
+            "  - id: changed",
+            "    subject: file",
+            "    where:",
+            "      - { field: package_match, op: equals, value: different }",
+            "verdict: { require: 'changed' }",
+        ]
+        .join("\n")
+    };
+    let about = |w: &[String]| w.iter().filter(|s| s.contains("'package_match'")).count();
+    let ok = warnings(&yaml("linux", "file, package"));
+    assert_eq!(about(&ok), 0, "{ok:?}");
+    let w = warnings(&yaml("linux", "file"));
+    assert_eq!(about(&w), 1, "{w:?}");
+    assert!(w.iter().any(|s| s.contains("선언하지 않았다")), "{w:?}");
+    let w = warnings(&yaml("windows, linux", "file, package"));
+    assert!(
+        w.iter()
+            .any(|s| s.contains("Windows 에는 패키지 DB 가 없다")),
+        "{w:?}"
+    );
+}
+
 #[test]
 fn the_base_manifest_is_clean() {
     // **이것이 먼저다.** 정상 매니페스트를 막는 린터는 아무도 안 쓴다.

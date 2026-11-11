@@ -69,6 +69,21 @@ pub struct FileRecord {
     /// (설계-03 §1). 미평가 규칙이 있는 판정은 감염 확정에 쓸 수 없다.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub content_ref: Option<String>,
+    /// 이 파일을 깐 패키지(dpkg · RPM)의 이름 — 패키지 DB 의 파일 목록에 이 경로가 있을 때만 (코어 1.7.0 · 목표
+    /// remedy_PHP스캐너통합 결정 24).
+    ///
+    /// **`package` subject 를 함께 선언한 룰에서만 채운다** — 패키지 DB 는 그 subject 의 고정 자리라, 선언하지 않은
+    /// 룰이 그것을 읽으면 선언한 범위 밖을 읽게 된다. 비어 있으면 패키지가 소유하지 않았거나 보지 않은 것이다.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub package: String,
+    /// 그 패키지 기록(dpkg `.md5sums` · RPM 파일 다이제스트)과 이 파일의 내용이 같은가 —
+    /// [`remedy_sdk::catalog::PACKAGE_MATCH`] 의 넷. `package` 가 비면 빈다.
+    ///
+    /// 패키지 판으로 판정하는 룰은 이 값이 `same` 일 때만 그 판을 믿는다 — 패키지가 깐 실행 파일을 다른 파일로
+    /// 바꾸면 패키지 DB 의 판은 그 파일을 말하지 않는다(실측: Oracle Linux 8 에서 `/usr/bin/php` 를 바꿔도 `rpm -qa`
+    /// 는 같고 `rpm -V` 만 `S.5....T.` 를 냈다).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub package_match: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

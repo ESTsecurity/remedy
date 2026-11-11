@@ -16,6 +16,9 @@ remedy-rpmdb = { path = "../remedy-rpmdb" }
 sha2.workspace = true
 # 인증서 지문. **보안 속성이 아니라 식별자다** — 루트 Cargo.toml 의 주석 참조.
 sha1.workspace = true
+# 패키지 파일 대조(`owner.rs`) — dpkg 의 `.md5sums` 와 옛 RPM 의 MD5 다이제스트가 그 값이다. 출처 인증이 아니라
+# 기록과 파일이 같은지만 본다. 동반 모듈의 이미지 점검과 같은 크레이트 · 판이라 의존이 늘지 않는다.
+md-5.workspace = true
 quick-xml.workspace = true
 serde_json.workspace = true
 base64.workspace = true

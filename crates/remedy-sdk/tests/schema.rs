@@ -511,13 +511,30 @@ fn a_blocked_process_adds_the_container_hint() {
         assert_eq!(r.len(), 1, "{lang:?}: {r:?}");
         assert!(r[0].contains("docker exec --privileged"), "{lang:?}: {r:?}");
     }
-    // 앞 문장은 그대로다 — 하네스(`Invoke-ObsVerify`)가 이 꼴을 읽는다.
+    // 이미 root 인 사람에게 *"관리자 권한으로"* 를 말하지 않고, 막힌 것이 파일(`/proc/<pid>/maps`)이라
+    // *"디렉터리"* 라고 부르지 않는다(2026-11-12). Windows 하네스(`Invoke-ObsVerify`)가 읽는 폴더 쪽
+    // 문장은 아래 `c:\locked` 에서 그대로다.
     let ko = &procs.reasons_in(Lang::Ko)[0];
     assert!(
-        ko.starts_with("접근이 거부된 디렉터리 열기 2회 (관리자 권한으로 다시 돌리십시오"),
+        ko.starts_with("접근이 거부된 경로 2곳 — 다른 사용자의 프로세스를 들여다보지 못했습니다"),
         "{ko}"
     );
-    assert!(procs.reasons_in(Lang::En)[0].contains("2 directories"));
+    let en = &procs.reasons_in(Lang::En)[0];
+    assert!(en.contains("2 paths"), "{en}");
+    for r in [ko, en] {
+        assert!(!r.contains("관리자") && !r.contains("Administrator"), "{r}");
+    }
+    let folder = Observation {
+        denied_dirs: 1,
+        denied_paths: vec!["c:\\locked".into()],
+        ..Default::default()
+    };
+    assert!(
+        folder.reasons_in(Lang::Ko)[0]
+            .starts_with("접근이 거부된 디렉터리 열기 1회 (관리자 권한으로 다시 돌리십시오)"),
+        "{:?}",
+        folder.reasons_in(Lang::Ko)
+    );
 
     // 폴더 · 커널 표에는 붙이지 않는다 — 그 사람에게 컨테이너는 틀린 안내다.
     for path in ["c:\\locked", "/etc/ssl/private", "/proc/net/unix", "/proc/"] {

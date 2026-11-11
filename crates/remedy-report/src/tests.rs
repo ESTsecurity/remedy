@@ -333,17 +333,31 @@ fn the_after_reboot_check_is_promised_only_where_it_can_be_kept() {
     let mut p = plan(vec![action(1, Op::FileDelete, r"C:\a")], Vec::new());
     p.body.verify_after_reboot = true;
 
-    // 걸 수 있으면 약속한다 — **Windows 화면 그대로다** (화면 기준선의 네 자리).
+    // 걸 수 있으면 약속한다 — **Windows 화면 그대로다** (화면 기준선의 네 자리). Windows 의 예약은 HKLM
+    // RunOnce 라 관리자 로그온이 조건이고(2026-11-12), 그 조건을 함께 적는다.
     let ko = render_plan(&p, Lang::Ko, AfterReboot::Schedulable);
     assert!(
-        ko.contains("\n  * 치료를 마친 뒤 이 PC 를 재시작하면 자동으로 한 번 더 검사합니다.\n"),
+        ko.contains(
+            "\n  * 치료를 마친 뒤 이 PC 를 재시작하면 자동으로 한 번 더 검사합니다(관리자 계정으로 로그온했을 때).\n"
+        ),
         "{ko}"
     );
     let en = render_plan(&p, Lang::En, AfterReboot::Schedulable);
     assert!(
-        en.contains("\n  * After you restart this PC, one more check runs automatically.\n"),
+        en.contains(
+            "\n  * After you restart this PC, one more check runs automatically (when an administrator signs in).\n"
+        ),
         "{en}"
     );
+    // 리눅스(systemd 유닛)는 로그온과 무관하다 — 조건을 붙이지 않는다.
+    let mut linux = p.clone();
+    linux.host.os = "linux".into();
+    let ko = render_plan(&linux, Lang::Ko, AfterReboot::Schedulable);
+    assert!(
+        ko.contains("\n  * 치료를 마친 뒤 이 PC 를 재시작하면 자동으로 한 번 더 검사합니다.\n"),
+        "{ko}"
+    );
+    assert!(!ko.contains("로그온"), "{ko}");
 
     // 걸 수 없으면 약속하지 않고 이유와 할 일을 말한다. **문구는 이유를 가리지
     // 않는다** — 기계의 사실(systemd)일 수도, 부른 명령이 플러그인 경로를 몰라
@@ -728,11 +742,68 @@ fn a_config_finding_shows_the_value_not_the_key_path() {
         lines,
         vec![
             "   1. C:\\Windows\\System32\\inetsrv\\config\\applicationHost.config  \
-             (value C:\\inetpub\\php83\\php-cgi.exe)"
+             (값 C:\\inetpub\\php83\\php-cgi.exe)"
                 .to_string()
         ]
     );
     assert!(!lines[0].contains(key), "{lines:?}");
+}
+
+/// 패키지 항목은 **판정식이 버전을 보지 않았어도 버전을** 적고, 엔진 칸 이름(`manager`)은 적지 않는다
+/// (2026-11-12 · 시연 전 검토: *"기준 없는 PHP 패키지"* 줄이 `php-cli  (manager dpkg)` 로 섰다). RPM 이면
+/// 공급사도 — 같은 버전 문자열을 여러 공급사가 낸다.
+#[test]
+fn a_package_line_shows_its_version_not_the_manager() {
+    use remedy_sdk::artifact::{Evidence, EvidenceGroup, MatchedPredicate, UnconfirmedNote};
+    let pred = |field: &str| MatchedPredicate {
+        field: field.into(),
+        op: "matches".into(),
+        value: Some(serde_json::json!("x")),
+    };
+    let pkg = |id: &str, target: serde_json::Value| Evidence {
+        id: id.into(),
+        rule: "pkg_unknown".into(),
+        subject: remedy_sdk::catalog::Subject::Package,
+        score: None,
+        target,
+        captures: Default::default(),
+        matched: vec![pred("manager"), pred("name")],
+    };
+    let evidence = [
+        pkg(
+            "e0",
+            serde_json::json!({ "name": "php83", "version": "8.3.27-r0", "manager": "apk" }),
+        ),
+        pkg(
+            "e1",
+            serde_json::json!({
+                "name": "php-cli", "version": "8.0.30-1.el9_2", "manager": "rpm",
+                "vendor": "Rocky Enterprise Software Foundation",
+            }),
+        ),
+    ];
+    let g = EvidenceGroup {
+        id: "g0".into(),
+        evidence: vec!["e0".into(), "e1".into()],
+        captures: Default::default(),
+        verdict: false,
+        excluded_reason: None,
+    };
+    let note = UnconfirmedNote {
+        why: [("ko".to_string(), "까닭".to_string())].into(),
+        groups: vec!["g0".to_string()],
+        rules: vec!["pkg_unknown".to_string()],
+    };
+    let lines = unconfirmed_findings(&evidence, &[g], &[note], Lang::Ko, 10);
+    assert_eq!(
+        lines,
+        vec![
+            "   1. php83  (버전 8.3.27-r0)".to_string(),
+            "   2. php-cli  (버전 8.0.30-1.el9_2 · 공급사 Rocky Enterprise Software Foundation)"
+                .to_string(),
+        ]
+    );
+    assert!(lines.iter().all(|l| !l.contains("manager")), "{lines:?}");
 }
 
 /// 한 그룹에 **기계 전체를 보는 규칙**의 증거가 함께 들면, 판정 목록은 판정식이 짚는 규칙의 증거만,

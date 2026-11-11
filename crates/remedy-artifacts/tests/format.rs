@@ -32,6 +32,8 @@ fn sample_file() -> FileRecord {
         zone: None,
         streams: Vec::new(),
         content_ref: None,
+        package: String::new(),
+        package_match: String::new(),
     }
 }
 

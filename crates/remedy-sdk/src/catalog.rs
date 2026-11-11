@@ -218,6 +218,10 @@ pub fn is_registry_root(root: &str) -> bool {
     REGISTRY_HIVES.iter().any(|h| head.eq_ignore_ascii_case(h))
 }
 
+/// `file.package_match` 의 값 — 같다 · 다르다 · 기록이 없다(목록에는 있는데 다이제스트가 없거나 알고리즘을 모른다) ·
+/// 이 파일을 끝까지 읽지 못했다(크기 상한 · 읽기 오류). 수집기(`remedy-collect` 의 `owner`)가 이 차례로 쓴다.
+pub const PACKAGE_MATCH: [&str; 4] = ["same", "different", "unrecorded", "unreadable"];
+
 /// 값이 닫힌 필드 하나 (`Subject::ENUMERATED_FIELDS`).
 #[derive(Debug, Clone, Copy, Serialize, JsonSchema)]
 pub struct EnumeratedField {
@@ -614,6 +618,17 @@ impl Subject {
             why: "`/proc/net/unix` 의 `Type` 열(1 · 2 · 5)을 이름으로 옮긴다. 그 밖의 값은 \
                 `type-<16진>` 그대로 담아 지어내지 않는다",
         },
+        EnumeratedField {
+            subject: Subject::File,
+            field: "package_match",
+            values: &PACKAGE_MATCH,
+            defined: true,
+            why: "이 파일을 깐 패키지(dpkg · RPM)의 기록과 내용이 같은가 — `same` 같다 · \
+                `different` 다르다 · `unrecorded` 목록에는 있는데 다이제스트가 없다 · \
+                `unreadable` 크기 상한이나 읽기 오류로 끝까지 못 읽었다(코어 1.7.0). 패키지가 \
+                소유하지 않은 파일은 칸이 없다. **`package` subject 를 함께 선언한 리눅스 룰에서만 \
+                채운다** — 패키지 판으로 판정하는 룰은 `same` 이 아닐 때 그 판을 믿지 않는다",
+        },
     ];
 
     /// 이 subject 의 레코드가 가진 필드 (설계-02 §3). **닫힌 집합이다.**
@@ -670,6 +685,10 @@ impl Subject {
                 "zone.zone_id",
                 "zone.referrer_url",
                 "zone.host_url",
+                // 이 파일을 깐 패키지와, 그 패키지 기록과 내용이 같은가(코어 1.7.0) — `package` subject 를 함께
+                // 선언한 리눅스 룰에서만 채운다(`remedy-collect` 의 `owner` · 린트가 그 조건을 본다).
+                "package",
+                "package_match",
             ],
             Subject::Autorun => &["id", "scope", "name", "command", "source"],
             Subject::Service => &["id", "name", "state", "start_type", "image_path"],

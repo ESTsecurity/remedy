@@ -217,7 +217,7 @@ fn an_incomplete_re_evaluation_is_not_treatment_success() {
     ]);
     assert_eq!(code, 6, "다 보지 못했는데 6 이 아니다\n{text}");
     assert!(
-        !text.contains("치료 성공. 같은 플러그인이"),
+        !text.contains("치료 성공. "),
         "다 보지 못했는데 치료 성공을 말한다\n{text}"
     );
     assert!(
