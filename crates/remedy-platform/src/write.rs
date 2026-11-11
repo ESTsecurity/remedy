@@ -2750,6 +2750,16 @@ mod p7_tests {
     }
 
     #[test]
+    fn an_xml_config_is_refused_not_rewritten() {
+        // 구조적 설정은 XML 도 편다(2026-11-11) — 그 잎을 겨눈 치료 계획이 와도 **고치는 Op 은
+        // JSON 만**이다. XML 을 JSON 으로 읽다 실패하므로 아무것도 쓰지 않는다.
+        let xml = r#"<configuration><system.webServer><fastCgi><application fullPath="C:\php83\php-cgi.exe" /></fastCgi></system.webServer></configuration>"#;
+        let key = "configuration[0]/system.webServer[0]/fastCgi[0]/application[0]/@fullPath";
+        assert!(json_remove_key(xml, key).is_none());
+        assert!(json_set_key(xml, key, "x").is_none());
+    }
+
+    #[test]
     fn setting_a_key_does_not_create_it() {
         // **만들지 않는다.** 없는 자리를 만들어 쓰면 그것은 복원이 아니라 생성이다.
         assert!(json_set_key(r#"{"a":1}"#, "b", "x").is_none());

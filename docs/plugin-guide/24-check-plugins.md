@@ -249,6 +249,27 @@ dpkg 의 규칙은 높게 읽어 **순서가 반대**다. 그때는 추측하지
 모르는 설치본이 그 자리다. 찾은 것이 앞선다(2). 이것 없이 판정을 세우지 않으면
 0 이 나가고, 0 은 *"이 기계는 괜찮다"* 로 읽힌다.
 
+## 선언한 자리 밖의 런타임 — 찾으면 확인 필요
+
+`scan_roots` 밖의 설치본은 수집되지 않아 0 으로 끝난다(실측: 같은 취약 PHP 가 `C:\php` 면 2,
+`C:\inetpub\php83` 이면 0). 그 자리를 알려 주는 곳을 함께 읽고 **선언한 자리는 `exclude` 로
+뺀다** — 남은 것이 자리 밖이다. 그 파일은 열지 않고 `unconfirmed` 로 낸다.
+
+- **IIS 설정** — `structured_config` 는 XML(`.xml` · `.config`)도 편다(코어 1.6.0). 요소는 `/`,
+  같은 이름 형제는 `[n]`, 속성은 `/@이름` 이다: `…/fastCgi[0]/application[0]/@fullPath`.
+  `subject_roots` 로 `C:\Windows\System32\inetsrv\config` 만 읽는다
+- **실행 중 프로세스** — `process.image_path`. 요청이 없어 떠 있지 않은 FastCGI 는 못 본다
+
+```yaml
+- id: iis_php
+  subject: structured_config
+  where:
+    - { field: key_path, op: matches, value: '(?i)/(application\[\d+\]/@fullPath|add\[\d+\]/@scriptProcessor)$' }
+    - { field: value, op: matches, value: '(?i)\\php-cgi\.exe(\|.*)?$' }
+  exclude:
+    - { field: value, op: matches, value: '(?i)^(c:|%systemdrive%)\\php\\' }
+```
+
 ## 바깥을 보는 점검 — `network`
 
 이 기계가 아니라 **적어 준 주소의 서버**를 보는 점검은 `network: url` 을 적는다(코어 1.4.0).

@@ -505,11 +505,14 @@ impl Subject {
         EnumeratedField {
             subject: Subject::StructuredConfig,
             field: "format",
-            values: &["json"],
+            values: &["json", "xml"],
             defined: true,
-            why: "지금 구조적 설정으로 펴는 형식은 JSON 뿐이다. `yaml`·`xml`·`toml` 로 \
-                비교하는 술어는 언제나 거짓이다 — 그 형식의 파일은 이 subject 로 오지 \
-                않는다",
+            why: "구조적 설정으로 펴는 형식은 둘이다 — `.json` 은 JSON, `.xml` · `.config` 는 XML \
+                (코어 1.6.0). `yaml`·`toml` 로 비교하는 술어는 언제나 거짓이다. **키 경로의 꼴이 \
+                다르다** — JSON 은 `a.b.0.c`, XML 은 요소를 `/` 로 잇고 같은 이름 형제를 `[n]` \
+                (0부터)으로 가르며 속성은 `/@이름` 이다(`configuration[0]/system.webServer[0]/\
+                fastCgi[0]/application[0]/@fullPath`). 고치는 Op(`structured_config.*`)은 JSON 만 \
+                고치고 XML 은 아무것도 쓰지 않고 거부한다",
         },
         EnumeratedField {
             subject: Subject::Package,

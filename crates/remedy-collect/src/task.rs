@@ -31,7 +31,10 @@ pub struct ParsedTask {
 }
 
 /// 바이트열을 UTF-8 문자열로. UTF-16LE/BE BOM 을 처리한다.
-fn to_text(bytes: &[u8]) -> Option<String> {
+///
+/// 구조적 설정의 XML(`config.rs`)도 이것으로 읽는다 — `.config` · `.xml` 도 UTF-16 으로
+/// 저장되는 일이 있고, 그대로 파서에 넣으면 깨진 문서로 보여 잎이 하나도 나오지 않는다.
+pub(crate) fn to_text(bytes: &[u8]) -> Option<String> {
     if bytes.len() >= 2 && bytes[0] == 0xFF && bytes[1] == 0xFE {
         let units: Vec<u16> = bytes[2..]
             .chunks_exact(2)
