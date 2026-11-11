@@ -46,7 +46,7 @@
 # `/opt/php` 도 선언한 자리로 읽는다(0.4.0 — 사내 runtime-scanner 의 기본 자리와 같다).
 schema_version: 1
 id: php2shell-check-linux
-version: 0.4.0
+version: 0.5.0
 min_core: "1.7.0"   # 패키지 파일 대조(file.package · package_match)가 1.7.0 · verdict.unconfirmed 는 1.3.0
 platforms: [linux]
 
@@ -85,7 +85,7 @@ scan_roots:
   - "/usr/local/php"
   - "/opt/php"
 
-subjects: [package, file, process]
+subjects: [package, file, process, service]
 
 detect:
   # ── 1. 배포판 패키지 — 줄마다 계열 → 판 ─────────────────────────────────
@@ -430,6 +430,15 @@ detect:
     exclude:
       - { field: image_path, op: matches, value: '^(/usr/(local/)?s?bin/[^/]+|/(usr/local|opt)/php/.+)$' }
 
+  # 서비스로 등록된 선언 밖의 PHP (0.5.0) — systemd 유닛의 `ExecStart` 첫 낱말이다. 돌고 있지 않아도
+  # 유닛 파일이 남는다(목표 결정 28). 셸로 감싼 `ExecStart=/bin/sh -c …` 는 그 셸이 첫 낱말이라 보지 못한다.
+  - id: service_php
+    subject: service
+    where:
+      - { field: image_path, op: matches, value: '/(php|php-cgi|php-fpm|lsphp)[0-9.]*$' }
+    exclude:
+      - { field: image_path, op: matches, value: '^(/usr/(local/)?s?bin/[^/]+|/(usr/local|opt)/php/.+)$' }
+
   # ── 고친 뒤 다시 시작하지 않은 PHP (0.4.0) ────────────────────────────────────
   #
   # 커널은 지워진 파일을 실은 프로세스의 실행 파일 · 실린 모듈 경로 끝에 ` (deleted)` 를 붙인다. 패키지를 올리면
@@ -487,6 +496,10 @@ verdict:
       why:
         ko: "이 점검이 보는 자리 밖에서 PHP 가 실행 중입니다(위 경로) — 그 PHP 는 판정하지 않았습니다. 그 PHP 의 버전과 받은 곳(패키지 · 공급사 · 직접 빌드)을 확인하십시오"
         en: "a PHP is running outside the places this check reads (path above) - that PHP was not judged; check its version and origin (package, vendor or own build)"
+    - when: "service_php"
+      why:
+        ko: "이 점검이 보는 자리 밖의 PHP 를 띄우는 서비스가 있습니다(위 유닛 · 괄호 안이 그 실행 파일) — 그 PHP 는 판정하지 않았습니다. 그 PHP 의 버전과 받은 곳(패키지 · 공급사 · 직접 빌드)을 확인하십시오"
+        en: "a service starts a PHP outside the places this check reads (unit above; the executable is in brackets) - that PHP was not judged; check its version and origin (package, vendor or own build)"
     - when: "pkg_bin_changed"
       why:
         ko: "패키지가 깐 PHP 실행 파일이 패키지 기록과 같은지 확인되지 않습니다(위 경로) — 내용이 다르거나 기록이 없어 그 패키지의 버전으로 판정하지 않았습니다. 누가 그 파일을 바꿨는지 확인하고, 패키지를 다시 설치한 뒤 다시 검사하십시오"

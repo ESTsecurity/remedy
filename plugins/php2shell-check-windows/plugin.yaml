@@ -38,16 +38,26 @@
 # 않는다 — 룰은 선언한 자리만 읽는다(목표 결정 22). 실측(v1.5.0): 같은 취약 PHP 8.3.35 가 `C:\php`
 # 면 2, `C:\inetpub\php83` 이면 0 이었다.
 #
+# # 다른 프로그램에 모듈로 실린 PHP 도 알린다 (0.3.0)
+#
+# 실행 중인 프로세스의 **실린 모듈**(코어 1.9.0 부터 Windows 도 모은다)에 선언한 자리 밖의 PHP 코어
+# DLL 이 있으면 그 프로세스를 *확인 필요* 로 알린다 — Apache 의 `php8apache2_4.dll` 이 PHP 코어 DLL 을
+# 함께 싣는다. 화면은 걸린 DLL 의 경로를 적는다. 모듈 목록을 읽지 못한 Apache(`httpd.exe`)도 *확인
+# 필요* 다. 보호 프로세스(PPL)는 서명된 모듈만 실어 PHP 가 들어갈 수 없고, 목록을 거부하는 보안 제품은
+# PHP 를 싣는 프로그램이 아니므로 Apache 만 묻는다(랩 VM 실측: 프로세스 158개 중 거부 2 가 nProtect).
+#
+# 멈춰 있어도 남는 자리 둘도 같은 *확인 필요* 로 본다(0.3.0) — **서비스**의 실행 파일 자리(`ImagePath`)와
+# **Apache 설정**의 `LoadModule php_module` 줄. 그 PHP 의 파일은 열지 않는다(목표 결정 28).
+#
 # # 이 룰이 보지 않는 것
 #
-# - 선언한 자리 밖에 놓였을 뿐 IIS 설정에도 없고 실행 중도 아닌 PHP.
+# - 선언한 자리 밖에 놓였을 뿐 IIS 설정에도 없고 실행 중도 아니며 어디에도 실리지 않은 PHP.
 # - IIS 의 공유 설정(다른 기계 · 다른 폴더의 `applicationHost.config`) — 쓰고 있으면 *확인 필요* 다.
-# - Apache 의 모듈로 실린 PHP(`php8apache2_4.dll`)가 선언한 자리 밖에 있는 경우.
 # - 실행 중인 PHP 가 고친 판을 실었는가 — 고친 뒤에는 IIS · Apache · PHP 를 다시 시작한다.
 schema_version: 1
 id: php2shell-check-windows
-version: 0.2.1
-min_core: "1.6.0"   # IIS 설정(XML 구조적 설정)을 1.6.0 부터 편다 · verdict.unconfirmed 는 1.3.0
+version: 0.3.0
+min_core: "1.9.0"   # Windows 의 실린 모듈과 `modules_denied` 는 1.9.0 부터 · IIS 설정(XML)은 1.6.0
 platforms: [windows]
 
 kind: check
@@ -86,12 +96,28 @@ scan_roots:
   - 'C:\tools\php74'
   # IIS 가 PHP 를 어디서 띄우는지 적힌 자리 — 판정할 PHP 가 아니라 **선언 밖 PHP 를 찾는 곳**이다.
   - 'C:\Windows\System32\inetsrv\config'
+  # Apache 가 어느 PHP 를 싣는지 적힌 자리(0.3.0) — 위 IIS 설정과 같이 **선언 밖 PHP 를 찾는 곳**이다.
+  # Apache Lounge(`C:\Apache24`) · Apache 설치 프로그램 · XAMPP · WampServer · Laragon 의 설정 폴더.
+  - 'C:\Apache24\conf'
+  - 'C:\Program Files\Apache Software Foundation\Apache2.4\conf'
+  - 'C:\xampp\apache\conf'
+  - 'C:\wamp64\bin\apache'
+  - 'C:\wamp\bin\apache'
+  - 'C:\laragon\bin\apache'
 
-# 구조적 설정은 IIS 설정만 읽는다 — PHP 폴더의 JSON · XML 은 이 룰이 볼 것이 아니다.
+# 구조적 설정은 IIS 설정만, 줄 단위 설정은 Apache 설정만 읽는다 — PHP 폴더의 JSON · XML · `php.ini` 는
+# 이 룰이 볼 것이 아니다.
 subject_roots:
   structured_config: ['C:\Windows\System32\inetsrv\config']
+  text_config:
+    - 'C:\Apache24\conf'
+    - 'C:\Program Files\Apache Software Foundation\Apache2.4\conf'
+    - 'C:\xampp\apache\conf'
+    - 'C:\wamp64\bin\apache'
+    - 'C:\wamp\bin\apache'
+    - 'C:\laragon\bin\apache'
 
-subjects: [file, structured_config, process]
+subjects: [file, structured_config, process, service, text_config]
 
 detect:
   # 설치본 하나 = 코어 DLL 하나. 아래 규칙은 모두 이 폴더 안에서만 본다.
@@ -192,6 +218,45 @@ detect:
     exclude:
       - { field: image_path, op: matches, value: '(?i)^(c:\\(php|xampp\\php|wamp64\\bin\\php|wamp\\bin\\php|laragon\\bin\\php|tools\\php(85|84|83|82|81|80|74))|c:\\program files( \(x86\))?\\php)\\' }
 
+  # 다른 프로그램에 모듈로 실린 선언 밖의 PHP (0.3.0). 모듈 목록은 JSON 글자로 견준다(평가기가 목록을
+  # 그렇게 꺼낸다) — 경로의 `\` 하나가 그 글자에서 `\\` 라 정규식에서는 `\\\\` 다. 첫 `exclude` 는 PHP
+  # 자신이다(위 `running_php` 가 본다). 둘째는 선언한 자리의 코어 DLL 이다 — 그것은 위 파일 규칙이 판정한다.
+  - id: module_php
+    subject: process
+    where:
+      - { field: modules, op: matches, value: '(?i)\\\\php[578](ts)?\.dll"' }
+    exclude:
+      - { field: image_path, op: matches, value: '(?i)\\php(-cgi|-win)?\.exe$' }
+      - { field: modules, op: matches, value: '(?i)"(c:\\\\(php|xampp\\\\php|wamp64\\\\bin\\\\php|wamp\\\\bin\\\\php|laragon\\\\bin\\\\php|tools\\\\php(85|84|83|82|81|80|74))|c:\\\\program files( \(x86\))?\\\\php)\\\\([^"]*\\\\)?php[578](ts)?\.dll"' }
+
+  # 모듈 목록을 읽지 못한 Apache (0.3.0) — 실행 파일은 보이는데 목록을 내주지 않았다. 그 Apache 가 PHP 를
+  # 싣는지 보지 못했다.
+  - id: apache_unread
+    subject: process
+    where:
+      - { field: modules_denied, op: equals, value: "true" }
+      - { field: image_path, op: matches, value: '(?i)\\httpd\.exe$' }
+
+  # 서비스로 등록된 선언 밖의 PHP (0.3.0) — 멈춰 있어도 레지스트리의 실행 파일 자리(`ImagePath`)가 남는다.
+  # 그 칸은 원문이라 따옴표 · 인자 · 펴지 않은 환경 변수가 그대로다(청정 코퍼스: `"C:\…\x.exe"` ·
+  # `%SystemRoot%\…\svchost.exe -k …`).
+  - id: service_php
+    subject: service
+    where:
+      - { field: image_path, op: matches, value: '(?i)\\php(-cgi|-win)?\.exe("|\s|$)' }
+    exclude:
+      - { field: image_path, op: matches, value: '(?i)^"?((c:|%systemdrive%)\\(php|xampp\\php|wamp64\\bin\\php|wamp\\bin\\php|laragon\\bin\\php|tools\\php(85|84|83|82|81|80|74))|(c:\\program files( \(x86\))?|%programfiles%|%programfiles\(x86\)%|%programw6432%)\\php)\\' }
+
+  # Apache 설정이 싣는 선언 밖의 PHP 모듈 (0.3.0) — Apache 가 멈춰 있어도 설정의 `LoadModule` 줄이 남는다.
+  # 경로는 `/` 로도 `\` 로도, 따옴표 없이도 적힌다. XAMPP 는 드라이브 없이(`/xampp/php/…`), WampServer 는
+  # 변수로(`${INSTALL_DIR}/bin/php/…`) 적는다 — 둘 다 그 제품의 PHP 자리라 선언한 자리로 친다.
+  - id: apache_php
+    subject: text_config
+    where:
+      - { field: line, op: matches, value: '(?i)^\s*LoadModule\s+php\d*_module\s' }
+    exclude:
+      - { field: line, op: matches, value: '(?i)^\s*LoadModule\s+php\d*_module\s+"?((c:)?[\\/](php|xampp[\\/]php|wamp64[\\/]bin[\\/]php|wamp[\\/]bin[\\/]php|laragon[\\/]bin[\\/]php|tools[\\/]php(85|84|83|82|81|80|74)|program files( \(x86\))?[\\/]php)|\$\{install_dir\}[\\/]bin[\\/]php)[\\/]' }
+
 # 판정이 규칙 하나(`core_official_vuln`)에 걸려 있다는 린트 경고도 남긴다 — 그 경고는 **룰 하나의 오탐이
 # 곧바로 삭제로 이어지는** 치료 룰을 위한 것이다. 이 룰은 아무것도 바꾸지 않고, 공식 빌드의 해시가
 # 맞는다는 것은 그 자체로 결정적인 근거다(판 문자열과 달리 다른 빌드가 같은 값을 낼 수 없다).
@@ -218,3 +283,16 @@ verdict:
       why:
         ko: "IIS 가 공유 설정을 씁니다 — 다른 자리에 있는 그 설정이 가리키는 PHP 는 보지 않았습니다. 그 설정이 가리키는 PHP 의 버전을 확인하십시오"
         en: "IIS uses a shared configuration - PHP referenced from that configuration elsewhere was not read; check the version of the PHP it points to"
+    - when: "module_php"
+      why:
+        ko: "이 점검이 보는 자리 밖의 PHP 가 다른 프로그램(위 경로)에 모듈로 실려 있습니다(괄호 안이 그 PHP) — 그 PHP 는 판정하지 않았습니다. 쓰는 계열의 고친 버전(8.2 는 8.2.35 · 8.3 은 8.3.36 · 8.4 는 8.4.27 · 8.5 는 8.5.12 — 8.1 이하는 고친 버전이 없습니다) 이상인 공식 빌드인지 확인하십시오"
+        en: "a PHP outside the places this check reads is loaded as a module into another program (path above; the PHP is in brackets) - that PHP was not judged; check that it is an official build at or above the fixed release of its line (8.2.35 for 8.2, 8.3.36 for 8.3, 8.4.27 for 8.4, 8.5.12 for 8.5 - 8.1 and older have no fix)"
+    - when: "apache_unread"
+      why:
+        ko: "Apache(위 경로)에 실린 모듈 목록을 읽지 못해 그 Apache 가 PHP 를 싣는지 보지 못했습니다 — Apache 설정(httpd.conf)의 LoadModule php_module 줄이 가리키는 PHP 의 버전을 확인하십시오"
+        en: "the list of modules loaded into Apache (path above) could not be read, so whether it loads PHP was not seen - check the version of the PHP named by the LoadModule php_module line of its configuration (httpd.conf)"
+    # 서비스와 Apache 설정은 멈춰 있어도 남는 자리라 같은 PHP 가 실행 중 줄과 함께 설 수 있다 — 한 칸으로 둔다.
+    - when: "service_php or apache_php"
+      why:
+        ko: "이 점검이 보는 자리 밖의 PHP 를 서비스가 띄우거나 Apache 설정이 싣습니다(위 서비스 · 설정 줄의 경로) — 그 PHP 는 판정하지 않았습니다. 쓰는 계열의 고친 버전(8.2 는 8.2.35 · 8.3 은 8.3.36 · 8.4 는 8.4.27 · 8.5 는 8.5.12 — 8.1 이하는 고친 버전이 없습니다) 이상인 공식 빌드인지 확인하십시오"
+        en: "a service starts, or the Apache configuration loads, a PHP outside the places this check reads (the path in the service or configuration line above) - that PHP was not judged; check that it is an official build at or above the fixed release of its line (8.2.35 for 8.2, 8.3.36 for 8.3, 8.4.27 for 8.4, 8.5.12 for 8.5 - 8.1 and older have no fix)"

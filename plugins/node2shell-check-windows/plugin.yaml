@@ -28,15 +28,21 @@
 # 로 그 경로를 적는다(PHP 쪽은 그 PHP 의 `brotlidec.dll` 을 보지 않았다는 뜻이다). 그 파일은 열지 않는다
 # — 룰은 선언한 자리만 읽는다(목표 결정 22).
 #
+# 0.3.0 부터 그 자리를 알려 주는 곳이 넷 늘었다(목표 결정 28 · 29) — 다른 프로그램(Apache)에 **모듈로
+# 실린** PHP(코어 1.9.0 부터 Windows 도 실린 모듈을 모은다) · 모듈 목록을 읽지 못한 Apache · **서비스**의
+# 실행 파일 자리(`ImagePath`, `node.exe` · PHP) · **Apache 설정**의 `LoadModule php_module` 줄, 그리고
+# Node.js 설치 프로그램이 적은 자리(`HKLM\SOFTWARE\Node.js` 의 `InstallPath` — 설치 목록의
+# `InstallLocation` 은 비어 있다, 랩 VM 실측).
+#
 # # 이 룰이 보지 않는 것
 #
-# - 선언한 자리 밖에 놓였을 뿐 실행 중도 아니고 IIS 설정에도 없는 `node.exe` · `brotlidec.dll`
+# - 선언한 자리 밖에 놓였을 뿐 실행 중도 아니고 어디에도 적히지 않은 `node.exe` · `brotlidec.dll`
 # - 다른 제품 안에 든 Node.js(Electron 앱 · 단일 실행 파일 — 실행 파일 이름이 `node.exe` 가 아니다)
 # - 실행 중인 프로세스가 고친 판을 실었는가 — 고친 뒤에는 그 서비스를 다시 시작한다
 schema_version: 1
 id: node2shell-check-windows
-version: 0.2.1
-min_core: "1.6.0"   # IIS 설정(XML 구조적 설정)이 1.6.0 · verdict.unconfirmed · hash_large 는 1.3.0
+version: 0.3.0
+min_core: "1.9.0"   # Windows 의 실린 모듈 · `modules_denied` 는 1.9.0 · IIS 설정(XML)은 1.6.0 · hash_large 는 1.3.0
 platforms: [windows]
 
 kind: check
@@ -79,11 +85,29 @@ scan_roots:
   - 'C:\tools\php82'
   # IIS 가 PHP 를 어디서 띄우는지 적힌 자리 — 선언 밖 PHP 를 찾는 곳이다.
   - 'C:\Windows\System32\inetsrv\config'
+  # Apache 가 어느 PHP 를 싣는지 적힌 자리(0.3.0) — 위 IIS 설정과 같이 선언 밖 PHP 를 찾는 곳이다.
+  - 'C:\Apache24\conf'
+  - 'C:\Program Files\Apache Software Foundation\Apache2.4\conf'
+  - 'C:\xampp\apache\conf'
+  - 'C:\wamp64\bin\apache'
+  - 'C:\wamp\bin\apache'
+  - 'C:\laragon\bin\apache'
+  # Node.js 설치 프로그램(MSI)이 설치 자리를 적는 키(0.3.0) — 64비트 · 32비트 설치본.
+  - 'HKLM\SOFTWARE\Node.js'
+  - 'HKLM\SOFTWARE\WOW6432Node\Node.js'
 
+# 구조적 설정은 IIS 설정만, 줄 단위 설정은 Apache 설정만 읽는다.
 subject_roots:
   structured_config: ['C:\Windows\System32\inetsrv\config']
+  text_config:
+    - 'C:\Apache24\conf'
+    - 'C:\Program Files\Apache Software Foundation\Apache2.4\conf'
+    - 'C:\xampp\apache\conf'
+    - 'C:\wamp64\bin\apache'
+    - 'C:\wamp\bin\apache'
+    - 'C:\laragon\bin\apache'
 
-subjects: [file, structured_config, process]
+subjects: [file, structured_config, process, service, text_config, registry_value]
 
 # 공식 `node.exe` 는 해시 상한(32 MiB)을 넘는다 — 이 이름만 흘려 읽어 해시한다.
 hash_large: ["node.exe"]
@@ -341,6 +365,55 @@ detect:
     exclude:
       - { field: image_path, op: matches, value: '(?i)^(c:\\(php|xampp\\php|wamp64\\bin\\php|wamp\\bin\\php|laragon\\bin\\php|tools\\php(85|84|83|82))|c:\\program files( \(x86\))?\\php)\\' }
 
+  # ── 4. 선언 밖을 알려 주는 자리 넷 더 (0.3.0) ───────────────────────────────────
+  #
+  # PHP2Shell Windows 룰 0.3.0 의 같은 이름 규칙과 같은 식이다 — 이 룰의 PHP 자리(`tools\php85~82`)만 다르다.
+  # 모듈 목록은 JSON 글자로 견주어 경로의 `\` 하나가 정규식에서 `\\\\` 다.
+  - id: module_php
+    subject: process
+    where:
+      - { field: modules, op: matches, value: '(?i)\\\\php[578](ts)?\.dll"' }
+    exclude:
+      - { field: image_path, op: matches, value: '(?i)\\php(-cgi|-win)?\.exe$' }
+      - { field: modules, op: matches, value: '(?i)"(c:\\\\(php|xampp\\\\php|wamp64\\\\bin\\\\php|wamp\\\\bin\\\\php|laragon\\\\bin\\\\php|tools\\\\php(85|84|83|82))|c:\\\\program files( \(x86\))?\\\\php)\\\\([^"]*\\\\)?php[578](ts)?\.dll"' }
+  - id: apache_unread
+    subject: process
+    where:
+      - { field: modules_denied, op: equals, value: "true" }
+      - { field: image_path, op: matches, value: '(?i)\\httpd\.exe$' }
+  - id: service_php
+    subject: service
+    where:
+      - { field: image_path, op: matches, value: '(?i)\\php(-cgi|-win)?\.exe("|\s|$)' }
+    exclude:
+      - { field: image_path, op: matches, value: '(?i)^"?((c:|%systemdrive%)\\(php|xampp\\php|wamp64\\bin\\php|wamp\\bin\\php|laragon\\bin\\php|tools\\php(85|84|83|82))|(c:\\program files( \(x86\))?|%programfiles%|%programfiles\(x86\)%|%programw6432%)\\php)\\' }
+  - id: apache_php
+    subject: text_config
+    where:
+      - { field: line, op: matches, value: '(?i)^\s*LoadModule\s+php\d*_module\s' }
+    exclude:
+      - { field: line, op: matches, value: '(?i)^\s*LoadModule\s+php\d*_module\s+"?((c:)?[\\/](php|xampp[\\/]php|wamp64[\\/]bin[\\/]php|wamp[\\/]bin[\\/]php|laragon[\\/]bin[\\/]php|tools[\\/]php(85|84|83|82)|program files( \(x86\))?[\\/]php)|\$\{install_dir\}[\\/]bin[\\/]php)[\\/]' }
+
+  # 서비스로 등록된 선언 밖의 `node.exe` — pm2 · NSSM 이 아니라 `node.exe` 를 바로 띄우는 서비스의 자리.
+  - id: service_node
+    subject: service
+    where:
+      - { field: image_path, op: matches, value: '(?i)\\node\.exe("|\s|$)' }
+    exclude:
+      - { field: image_path, op: matches, value: '(?i)^"?((c:\\program files( \(x86\))?|%programfiles%|%programfiles\(x86\)%|%programw6432%)\\nodejs|c:\\users(?:\\[^\\]+)\\(appdata\\(roaming|local)\\(nvm|fnm\\node-versions)|appdata\\local\\volta\\tools\\image\\node|\.nvm\\versions\\node|\.volta\\tools\\image\\node))\\' }
+
+  # Node.js 설치 프로그램(MSI)이 적은 설치 자리가 기본 자리가 아니다 — 멈춰 있어도 남는다. 셋째 조건은 값이
+  # 비지 않았다는 것이고, 그 칸이 판정에 쓰인 칸이라 화면이 그 자리(`(값 D:\nodejs\)`)를 적는다.
+  - id: installed_node
+    subject: registry_value
+    where:
+      all:
+        - { field: key, op: matches, value: '(?i)\\node\.js$' }
+        - { field: name, op: equals, value: "InstallPath" }
+        - { field: data, op: matches, value: '\S' }
+    exclude:
+      - { field: data, op: matches, value: '(?i)^c:\\program files( \(x86\))?\\nodejs\\?$' }
+
 # 판정이 규칙 하나씩에 걸려 있다는 린트 경고는 치료 룰을 위한 것이다 — 이 룰은 아무것도 바꾸지 않고,
 # 공식 빌드의 해시가 맞는다는 것은 그 자체로 결정적인 근거다.
 verdict:
@@ -366,3 +439,19 @@ verdict:
       why:
         ko: "IIS 가 공유 설정을 씁니다 — 다른 자리에 있는 그 설정이 가리키는 PHP 는 보지 않았습니다. 그 설정이 가리키는 PHP 가 2026-10-26 이후의 공식 빌드인지 확인하십시오"
         en: "IIS uses a shared configuration - PHP referenced from that configuration elsewhere was not read; check that the PHP it points to is an official build from 2026-10-26 or later"
+    - when: "module_php"
+      why:
+        ko: "이 점검이 보는 자리 밖의 PHP 가 다른 프로그램(위 경로)에 모듈로 실려 있습니다(괄호 안이 그 PHP) — 그 PHP 의 brotlidec.dll 은 보지 않았습니다. 8.2 이상이면 2026-10-26 이후의 공식 PHP for Windows(-1 재빌드)인지 확인하십시오(8.1 이하는 고친 버전이 없습니다)"
+        en: "a PHP outside the places this check reads is loaded as a module into another program (path above; the PHP is in brackets) - its brotlidec.dll was not read; for 8.2 or later, check that it is an official PHP for Windows build from 2026-10-26 or later (the -1 rebuild; 8.1 and older have no fix)"
+    - when: "apache_unread"
+      why:
+        ko: "Apache(위 경로)에 실린 모듈 목록을 읽지 못해 그 Apache 가 PHP 를 싣는지 보지 못했습니다 — Apache 설정(httpd.conf)의 LoadModule php_module 줄이 가리키는 PHP 가 2026-10-26 이후의 공식 빌드인지 확인하십시오"
+        en: "the list of modules loaded into Apache (path above) could not be read, so whether it loads PHP was not seen - check that the PHP named by the LoadModule php_module line of its configuration (httpd.conf) is an official build from 2026-10-26 or later"
+    - when: "service_php or apache_php"
+      why:
+        ko: "이 점검이 보는 자리 밖의 PHP 를 서비스가 띄우거나 Apache 설정이 싣습니다(위 서비스 · 설정 줄의 경로) — 그 PHP 의 brotlidec.dll 은 보지 않았습니다. 8.2 이상이면 2026-10-26 이후의 공식 PHP for Windows(-1 재빌드)인지 확인하십시오(8.1 이하는 고친 버전이 없습니다)"
+        en: "a service starts, or the Apache configuration loads, a PHP outside the places this check reads (the path in the service or configuration line above) - its brotlidec.dll was not read; for 8.2 or later, check that it is an official PHP for Windows build from 2026-10-26 or later (the -1 rebuild; 8.1 and older have no fix)"
+    - when: "service_node or installed_node"
+      why:
+        ko: "이 점검이 보는 자리 밖의 Node.js 를 서비스가 띄우거나 Node.js 설치 프로그램이 그 자리에 깔았습니다(위 서비스 · 값의 경로) — 그 Node.js 는 판정하지 않았습니다. 쓰는 계열의 고친 버전(22 는 22.23.4 · 24 는 24.22.1 · 26 은 26.12.1 — 그 밖의 계열은 고친 버전이 없습니다) 이상인 공식 빌드인지 확인하십시오"
+        en: "a service starts, or the Node.js installer placed, a Node.js outside the places this check reads (the path in the service or value above) - that Node.js was not judged; check that it is an official build at or above the fixed release of its line (22.23.4 for 22, 24.22.1 for 24, 26.12.1 for 26 - other lines have no fix)"
