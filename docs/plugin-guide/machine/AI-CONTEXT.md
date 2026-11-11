@@ -53,7 +53,7 @@ remediate:
 - `autorun`: id scope name command source
 - `service`: id name state start_type image_path
 - `process`: pid ppid image_path cmdline cmdline_decoded args user start_time modules
-- `file`: path size mtime ctime sha256 streams content_ref version signature.trusted signature.subject signature.thumbprint zone.zone_id zone.referrer_url zone.host_url
+- `file`: path size mtime ctime sha256 streams content_ref version signature.trusted signature.subject signature.thumbprint zone.zone_id zone.referrer_url zone.host_url package package_match
 - `indicator`: kind value source_ref
 - `registry_value`: hive key name type data
 - `registry_key`: hive key subkeys values

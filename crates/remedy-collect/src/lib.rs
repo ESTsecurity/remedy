@@ -17,6 +17,7 @@ pub mod cron;
 pub mod derived;
 pub mod desktop;
 pub mod extra;
+mod owner;
 pub mod package;
 pub mod peversion;
 pub mod registry;
@@ -177,6 +178,8 @@ impl<P: FsRead> FileCollector for Collector<P> {
                     zone: None,
                     streams: Vec::new(),
                     content_ref: None,
+                    package: String::new(),
+                    package_match: String::new(),
                 });
             }
         }
@@ -911,7 +914,14 @@ where
 
     if scope.subjects.contains(&Subject::File) {
         remedy_platform::progress::set_stage("file");
-        let h = collector.collect_files(scope)?;
+        let mut h = collector.collect_files(scope)?;
+        // **패키지를 보는 룰이면** 모은 파일이 패키지가 깐 그대로인지 적는다(코어 1.7.0 · `owner`). 패키지 DB 는
+        // `package` subject 의 고정 자리라, 그것을 선언하지 않은 룰에서는 읽지 않는다.
+        if scope.platform == remedy_sdk::catalog::Platform::Linux
+            && scope.subjects.contains(&Subject::Package)
+        {
+            owner::annotate(&collector.platform, scope, &mut h);
+        }
         obs.absorb(&h);
         obs.put(Subject::File, &h.records);
     }

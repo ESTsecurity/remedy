@@ -36,7 +36,7 @@ mod sqlite;
 mod untrusted;
 
 pub use header::{DigestAlgorithm, FileDigests, RpmHeader};
-pub use untrusted::{read_untrusted, Package, Untrusted};
+pub use untrusted::{read_host, read_untrusted, Package, Untrusted};
 
 use std::cell::Cell;
 

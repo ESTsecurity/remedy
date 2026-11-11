@@ -105,6 +105,51 @@ pub fn read_untrusted(bytes: &[u8]) -> Result<Untrusted, RpmDbError> {
     Ok(out)
 }
 
+/// **이 기계의** RPM DB 에서 패키지마다 소유한 파일과 다이제스트 — 본체 수집기의 패키지 파일 대조가 쓴다(코어
+/// 1.7.0 · 목표 remedy_PHP스캐너통합 결정 24).
+///
+/// 판독기는 같다. 블롭은 이 기계의 DB 입구([`crate::blobs`] — 파일 상한은 부르는 쪽의 DB 상한)로 읽고, 꺼낸 정보는
+/// 호스트 예산(`Derived::host`)에서 덜어 낸다. **`keep` 이 고른 경로만 남긴다** — 대조할 것은 룰이 모은 파일
+/// 몇 개라, 나머지 경로 · 다이제스트는 패키지마다 읽는 대로 놓아준다(예산은 만든 것을 다 센다).
+///
+/// 반환 꼴은 [`read_untrusted`] 와 같다 — [`Untrusted::limit`] 가 있으면 그 앞의 패키지까지만 읽은 것이다.
+pub fn read_host(bytes: &[u8], keep: impl Fn(&str) -> bool) -> Result<Untrusted, RpmDbError> {
+    let blobs = crate::blobs(bytes)?;
+    let mut budget = Derived::host();
+    let mut out = Untrusted {
+        packages: Vec::new(),
+        skipped: 0,
+        limit: None,
+    };
+    for blob in blobs {
+        match package(&blob, &mut budget) {
+            Ok(Some(mut p)) => {
+                let kept: Vec<bool> = p.files.iter().map(|f| keep(f)).collect();
+                if let Ok(d) = &mut p.digests {
+                    let mut i = 0;
+                    d.digests.retain(|_| {
+                        i += 1;
+                        kept[i - 1]
+                    });
+                }
+                let mut i = 0;
+                p.files.retain(|_| {
+                    i += 1;
+                    kept[i - 1]
+                });
+                out.packages.push(p);
+            }
+            Ok(None) => out.skipped += 1,
+            Err(e) if e == DERIVED => {
+                out.limit = Some(e);
+                return Ok(out);
+            }
+            Err(e) => return Err(e),
+        }
+    }
+    Ok(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -184,6 +229,39 @@ mod tests {
                 digests: vec![SHA256_HEX.to_string(), String::new()],
             })
         );
+    }
+
+    /// 이 기계의 DB 입구는 **고른 경로만** 남기고, 남긴 경로와 다이제스트의 차례를 함께 지킨다 — 이미지 입구와 같은
+    /// 판독기다(코어 1.7.0).
+    #[test]
+    fn the_host_reader_keeps_only_the_paths_asked_for() {
+        let mut tags = files_in("/usr/bin/", &["php", "phar"]);
+        tags.extend(digests(&[SHA256_HEX, ""], Some(8)));
+        let db = ndb(&[Some((1, pkg(&tags)))]);
+        let got = read_host(&db, |p| p == "/usr/bin/phar").unwrap();
+        assert_eq!((got.packages.len(), got.skipped, got.limit), (1, 0, None));
+        let p = &got.packages[0];
+        assert_eq!(p.files, ["/usr/bin/phar"]);
+        assert_eq!(
+            p.digests,
+            Ok(FileDigests {
+                algorithm: DigestAlgorithm::Sha256,
+                digests: vec![String::new()],
+            })
+        );
+        // 아무것도 고르지 않으면 패키지는 남고 파일은 빈다 — 헤더는 이미지 입구와 같다.
+        let none = read_host(&db, |_| false).unwrap();
+        assert_eq!(none.packages[0].files, Vec::<String>::new());
+        assert_eq!(
+            none.packages[0].header,
+            read_untrusted(&db).unwrap().packages[0].header
+        );
+        // 세 형식의 시험 DB 모두 이미지 입구와 같은 헤더 · 경로를 낸다.
+        for db in [TINY.to_vec(), bdb_sample(true), ndb_sample()] {
+            let host = read_host(&db, |_| true).unwrap();
+            let image = read_untrusted(&db).unwrap();
+            assert_eq!(host.packages, image.packages);
+        }
     }
 
     #[test]

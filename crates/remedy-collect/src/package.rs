@@ -131,7 +131,17 @@ const RPM_DIRS: [&str; 2] = ["/var/lib/rpm", "/usr/lib/sysimage/rpm"];
 const RPM_FILES: [&str; 3] = ["rpmdb.sqlite", "Packages.db", "Packages"];
 /// RPM DB 하나를 읽는 상한. 패키지마다 파일 목록을 담아 dpkg 보다 훨씬 크다(실측: CentOS 7 의 148개가
 /// 19 MB · Oracle Linux 9 의 193개가 18.6 MB).
-const MAX_RPM_DB_BYTES: u64 = 256 * 1024 * 1024;
+pub(crate) const MAX_RPM_DB_BYTES: u64 = 256 * 1024 * 1024;
+
+/// 읽을 RPM DB 파일 — 매크로의 `%_dbpath` 가 가리키는 자리, 못 읽으면 DB 가 있는 첫 자리 하나. 못 물은 자리는
+/// `h` 에 거부로 남긴다. 패키지 수집과 패키지 파일 대조([`crate::owner`])가 같은 규칙으로 고른다.
+pub(crate) fn rpm_db_path<P: FsRead, T>(fs: &P, h: &mut Harvest<T>) -> Option<String> {
+    let dirs = match rpm_dbpath(fs) {
+        Some(d) => vec![d],
+        None => RPM_DIRS.iter().map(|d| d.to_string()).collect(),
+    };
+    rpm_db_file(fs, &dirs, h)
+}
 
 /// RPM 의 패키지 — `%_dbpath` 의 DB 하나를 읽는다.
 ///
@@ -141,11 +151,7 @@ const MAX_RPM_DB_BYTES: u64 = 256 * 1024 * 1024;
 /// 0개). 둘을 합치면 남은 옛 DB 의 **지운 패키지가 '깔려 있다'** 로 읽힐 수 있다. 그래서 매크로가 가리키는
 /// 자리 하나만, 못 읽으면 DB 가 있는 첫 자리 하나만 읽는다.
 fn rpm_packages<P: FsRead>(fs: &P, h: &mut Harvest<PackageRecord>) {
-    let dirs = match rpm_dbpath(fs) {
-        Some(d) => vec![d],
-        None => RPM_DIRS.iter().map(|d| d.to_string()).collect(),
-    };
-    let Some(path) = rpm_db_file(fs, &dirs, h) else {
+    let Some(path) = rpm_db_path(fs, h) else {
         return;
     };
     match fs.read_file(&path, MAX_RPM_DB_BYTES) {
@@ -172,11 +178,7 @@ fn rpm_packages<P: FsRead>(fs: &P, h: &mut Harvest<PackageRecord>) {
 
 /// 자리마다 새 형식부터, 처음 **있는** DB 파일. 못 물은 자리(열리지 않음 · 부모를 못 읽음)에서는 **거부로 남기고
 /// 멈춘다** — 거기 DB 가 있는지 모르는 채 다음 자리로 넘어가면 옛 DB 를 읽거나 조용히 0건이 된다.
-fn rpm_db_file<P: FsRead>(
-    fs: &P,
-    dirs: &[String],
-    h: &mut Harvest<PackageRecord>,
-) -> Option<String> {
+fn rpm_db_file<P: FsRead, T>(fs: &P, dirs: &[String], h: &mut Harvest<T>) -> Option<String> {
     for d in dirs {
         for f in RPM_FILES {
             let p = format!("{d}/{f}");
@@ -196,7 +198,7 @@ fn rpm_db_file<P: FsRead>(
 /// SQLite 의 WAL 이 비었는가. 비어 있지 않으면 **아직 DB 에 반영되지 않은 바뀜**이 있다 — 이 판독기는 WAL 을
 /// 읽지 않으므로 그때는 본 것이 전부가 아니다. rpm 은 DB 를 닫을 때 WAL 을 DB 에 합쳐 0바이트로 둔다(실측
 /// Rocky 9 — 이미지 · `rpm -qa` 뒤 · `dnf install` 뒤 모두 0바이트). 못 물으면 비었다고 말할 수 없다.
-fn wal_is_settled<P: FsRead>(fs: &P, db: &str) -> bool {
+pub(crate) fn wal_is_settled<P: FsRead>(fs: &P, db: &str) -> bool {
     let wal = format!("{db}-wal");
     match fs.look(&wal) {
         Seen::Absent => true,

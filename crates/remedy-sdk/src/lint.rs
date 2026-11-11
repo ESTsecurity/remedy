@@ -96,6 +96,7 @@ pub fn lint(m: &PluginManifest) -> Vec<LintIssue> {
     check_references(m, &ids, &mut out);
     check_fields(m, &mut out);
     check_unpopulated_fields(m, &mut out);
+    check_package_fields(m, &mut out);
     check_enumerated_values(m, &mut out);
     check_sha256_literals(m, &mut out);
     check_version_literals(m, &mut out);
@@ -859,25 +860,10 @@ pub fn unpopulated_field_uses(
         }
         for (at, p) in preds {
             let Predicate::Field(f) = p else { continue };
-            // `file(command).signature.subject` → subject 는 `file`, 경로는
-            // `signature.subject`. 괄호가 없으면 이 규칙의 subject 다.
-            //
             // **건너뛰는 참조도 본다.** `check_fields` 는 그것을 건너뛰지만,
             // 채워지지 않는다는 사실은 건너뛴 자리에서도 그대로다.
-            let (subject, path) = match f.field.split_once('(') {
-                Some((head, rest)) => {
-                    let Some((_, tail)) = rest.split_once(')') else {
-                        continue;
-                    };
-                    let Some(s) = crate::catalog::Subject::ALL
-                        .into_iter()
-                        .find(|s| s.id() == head)
-                    else {
-                        continue;
-                    };
-                    (s, tail.trim_start_matches('.'))
-                }
-                None => (rule.subject, f.field.as_str()),
+            let Some((subject, path)) = field_target(rule.subject, &f.field) else {
+                continue;
             };
             for (s, field, only_on, why) in crate::catalog::Subject::NOT_POPULATED_YET {
                 // `signature` 는 `signature.subject` 도 덮는다.
@@ -936,6 +922,67 @@ fn check_unpopulated_fields(m: &PluginManifest, out: &mut Vec<LintIssue>) {
             doc: Some("설계-02 §3"),
         });
     }
+}
+
+/// `file.package` · `file.package_match` 는 **`package` subject 를 함께 선언한 리눅스 룰에서만** 채운다(코어 1.7.0).
+///
+/// 패키지 DB 는 그 subject 의 고정 자리라 선언하지 않은 룰에서는 읽지 않고, Windows 에는 패키지 DB 가 없다. 그
+/// 자리에서 두 칸을 보는 술어는 늘 거짓이라 — 바뀐 파일을 잡으려던 규칙이 조용히 서지 않는다.
+fn check_package_fields(m: &PluginManifest, out: &mut Vec<LintIssue>) {
+    use crate::catalog::{Platform, Subject};
+    let declared = m.subjects.contains(&Subject::Package);
+    let linux_only = m.platforms.iter().all(|p| *p == Platform::Linux);
+    if declared && linux_only {
+        return;
+    }
+    for (i, rule) in m.detect.iter().enumerate() {
+        let mut preds = Vec::new();
+        flatten_condition(&rule.condition, &format!("detect[{i}].where"), &mut preds);
+        for p in &rule.exclude {
+            preds.push((format!("detect[{i}].exclude"), p));
+        }
+        for (at, p) in preds {
+            let Predicate::Field(f) = p else { continue };
+            let Some((s, path)) = field_target(rule.subject, &f.field) else {
+                continue;
+            };
+            if s != Subject::File || !matches!(path, "package" | "package_match") {
+                continue;
+            }
+            let why = if declared {
+                "이 룰은 Windows 도 대상인데 Windows 에는 패키지 DB 가 없다"
+            } else {
+                "이 룰은 `package` subject 를 선언하지 않았다 — 패키지 DB 는 그 subject 의 고정 자리라 읽지 않는다"
+            };
+            out.push(LintIssue {
+                severity: Severity::Warning,
+                at: format!("{at}.field"),
+                message: format!(
+                    "'{}' 는 `package` subject 를 함께 선언한 리눅스 룰에서만 채운다 — {why}. 이 술어는 \
+                     언제나 거짓이다",
+                    f.field
+                ),
+                valid: None,
+                doc: Some("설계-02 §3"),
+            });
+        }
+    }
+}
+
+/// 술어의 필드 표기가 **어느 subject 의 어느 경로**를 가리키는가 — `file(command).signature.subject` 는
+/// `(file, "signature.subject")`, 괄호가 없으면 그 규칙의 subject 다. 괄호 안이 모르는 subject 면 `None`.
+fn field_target(
+    rule_subject: crate::catalog::Subject,
+    field: &str,
+) -> Option<(crate::catalog::Subject, &str)> {
+    let Some((head, rest)) = field.split_once('(') else {
+        return Some((rule_subject, field));
+    };
+    let (_, tail) = rest.split_once(')')?;
+    let s = crate::catalog::Subject::ALL
+        .into_iter()
+        .find(|s| s.id() == head)?;
+    Some((s, tail.trim_start_matches('.')))
 }
 
 /// **선언한 subject 를 실제로 모을 수 있는가.**
@@ -2940,6 +2987,7 @@ mod doc_coverage_tests {
                 "check_unpopulated_fields",
                 Box::new(check_unpopulated_fields),
             ),
+            ("check_package_fields", Box::new(check_package_fields)),
             ("check_enumerated_values", Box::new(check_enumerated_values)),
             ("check_sha256_literals", Box::new(check_sha256_literals)),
             ("check_version_literals", Box::new(check_version_literals)),

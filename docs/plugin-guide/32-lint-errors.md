@@ -6,6 +6,17 @@
 
 **오류는 로드를 막고, 경고는 막지 않는다.** 경고가 남은 채로 서명하려면 각각의 이유를 설명해야 한다 (설계-06 §8).
 
+## 패키지가 깐 파일인지 본다
+
+**무엇이 잘못됐나.** `file.package` · `file.package_match` 를 `package` subject 없이, 또는 Windows 도 대상인 룰에서 썼다 — 그 칸은 `package` subject 를 함께 선언한 리눅스 룰에서만 채워져 이 술어는 늘 거짓이다
+
+```
+경고 detect[1].where[0].field: 'package_match' 는 `package` subject 를 함께 선언한 리눅스 룰에서만 채운다 — 이 룰은 `package` subject 를 선언하지 않았다 — 패키지 DB 는 그 subject 의 고정 자리라 읽지 않는다. 이 술어는 언제나 거짓이다
+      근거: 설계-02 §3
+```
+
+**고치는 법.** 리눅스 룰이면 `subjects` 에 `package` 를 더한다. Windows 에는 패키지 DB 가 없으니 그 룰에서는 쓰지 않는다
+
 ## 표시명에 두 언어를 다 적는다
 
 **무엇이 잘못됐나.** `name` 에 한 언어만 있다. 고객 화면의 첫 줄이 다른 언어에서 비거나 엉뚱한 언어로 나온다

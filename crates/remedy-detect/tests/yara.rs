@@ -259,6 +259,8 @@ fn file(path: &str, content_ref: Option<&str>) -> remedy_artifacts::FileRecord {
         zone: None,
         streams: Vec::new(),
         content_ref: content_ref.map(Into::into),
+        package: String::new(),
+        package_match: String::new(),
     }
 }
 
