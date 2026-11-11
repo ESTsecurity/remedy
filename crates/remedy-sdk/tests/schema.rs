@@ -20,6 +20,7 @@ fn note(ko: &str, en: &str) -> remedy_sdk::artifact::UnconfirmedNote {
         ]
         .into(),
         groups: vec!["g0".to_string()],
+        rules: Vec::new(),
     }
 }
 

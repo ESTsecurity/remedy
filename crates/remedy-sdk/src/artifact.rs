@@ -247,6 +247,13 @@ pub struct UnconfirmedNote {
     pub why: BTreeMap<String, String>,
     /// 그 식이 선 증거 그룹(`g0` …). 정렬 · 중복 없음.
     pub groups: Vec<String>,
+    /// 그 식(`when`)이 짚는 규칙 id — 식에 적힌 차례 · 중복 없음 (2026-11-11).
+    ///
+    /// 화면은 짚은 그룹에서 **이 규칙들의 증거만** 적는다. 그룹에는 `from` 없이 기계 전체를 보는
+    /// 규칙의 증거도 함께 들어 있어, 그룹의 증거를 다 적으면 이 사유와 상관없는 줄이 섞인다. 비어
+    /// 있으면(이 칸이 생기기 전의 산출물) 그룹의 증거를 다 적는다.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub rules: Vec<String>,
 }
 
 impl UnconfirmedNote {
@@ -855,6 +862,14 @@ pub struct ScanBody {
     /// 판정을 통과한 증거 그룹 식별자.
     #[serde(default)]
     pub verdicts: Vec<String>,
+    /// 판정식(`verdict.require`)이 짚는 규칙 id — 식에 적힌 차례 · 중복 없음 (2026-11-11).
+    ///
+    /// 점검 화면은 판정이 선 그룹에서 **이 규칙들의 증거만** 적는다. 그룹에는 `from` 없이 기계 전체를
+    /// 보는 규칙(예: IIS 설정 · 실행 중인 프로세스에서 찾은 선언 밖의 PHP)의 증거도 함께 들어 있어,
+    /// 다 적으면 판정과 상관없는 줄이 `취약` 아래에 선다(Windows 랩 실측). 비어 있으면(이 칸이 생기기
+    /// 전의 산출물) 그룹의 증거를 다 적는다.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub verdict_rules: Vec<String>,
     /// 평가 중 발생한 문제. 룰이 아직 구현되지 않은 기능을 쓴 경우 등.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub issues: Vec<String>,

@@ -716,6 +716,13 @@
             },
             "type": "array"
           },
+          "rules": {
+            "description": "그 식(`when`)이 짚는 규칙 id — 식에 적힌 차례 · 중복 없음 (2026-11-11).\n\n화면은 짚은 그룹에서 **이 규칙들의 증거만** 적는다. 그룹에는 `from` 없이 기계 전체를 보는 규칙의 증거도 함께 들어 있어, 그룹의 증거를 다 적으면 이 사유와 상관없는 줄이 섞인다. 비어 있으면(이 칸이 생기기 전의 산출물) 그룹의 증거를 다 적는다.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "why": {
             "additionalProperties": {
               "type": "string"
@@ -1364,6 +1371,13 @@
             },
             "type": "array"
           },
+          "rules": {
+            "description": "그 식(`when`)이 짚는 규칙 id — 식에 적힌 차례 · 중복 없음 (2026-11-11).\n\n화면은 짚은 그룹에서 **이 규칙들의 증거만** 적는다. 그룹에는 `from` 없이 기계 전체를 보는 규칙의 증거도 함께 들어 있어, 그룹의 증거를 다 적으면 이 사유와 상관없는 줄이 섞인다. 비어 있으면(이 칸이 생기기 전의 산출물) 그룹의 증거를 다 적는다.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "why": {
             "additionalProperties": {
               "type": "string"
@@ -1457,6 +1471,13 @@
         "format": "uint32",
         "minimum": 0.0,
         "type": "integer"
+      },
+      "verdict_rules": {
+        "description": "판정식(`verdict.require`)이 짚는 규칙 id — 식에 적힌 차례 · 중복 없음 (2026-11-11).\n\n점검 화면은 판정이 선 그룹에서 **이 규칙들의 증거만** 적는다. 그룹에는 `from` 없이 기계 전체를 보는 규칙(예: IIS 설정 · 실행 중인 프로세스에서 찾은 선언 밖의 PHP)의 증거도 함께 들어 있어, 다 적으면 판정과 상관없는 줄이 `취약` 아래에 선다(Windows 랩 실측). 비어 있으면(이 칸이 생기기 전의 산출물) 그룹의 증거를 다 적는다.",
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
       },
       "verdicts": {
         "default": [],

@@ -169,6 +169,19 @@ fn collect_predicate_refs(p: &Predicate, out: &mut Vec<String>) {
     }
 }
 
+/// 판정식이 짚는 규칙 id — 식에 적힌 차례, 중복 없이. `a or (a and b)` 는 `[a, b]` 다.
+fn rules_named(e: &verdict::Expr) -> Vec<String> {
+    let mut all = Vec::new();
+    verdict::referenced_rules(e, &mut all);
+    let mut out: Vec<String> = Vec::with_capacity(all.len());
+    for r in all {
+        if !out.contains(&r) {
+            out.push(r);
+        }
+    }
+    out
+}
+
 /// 위상 정렬. 순환 참조는 거부한다 — **평가 순서를 플러그인 작성자가 적지 않는다.**
 fn topo_order(rules: &[DetectRule]) -> Result<Vec<usize>, EvalError> {
     let index: BTreeMap<&str, usize> = rules
@@ -1259,8 +1272,7 @@ pub fn evaluate(
 
     // 판정식이 없는 규칙을 참조하면 영원히 성립하지 않는다. 조용히 두면
     // "왜 안 잡히는가" 의 원인이 보이지 않는다.
-    let mut wanted = Vec::new();
-    verdict::referenced_rules(&require, &mut wanted);
+    let wanted = rules_named(&require);
     for w in &wanted {
         if !manifest.detect.iter().any(|r| &r.id == w) {
             return Err(EvalError(format!(
@@ -1269,9 +1281,7 @@ pub fn evaluate(
         }
     }
     for expr in &unconfirmed {
-        let mut wanted = Vec::new();
-        verdict::referenced_rules(expr, &mut wanted);
-        if let Some(w) = wanted
+        if let Some(w) = rules_named(expr)
             .iter()
             .find(|w| !manifest.detect.iter().any(|r| r.id == **w))
         {
@@ -1461,6 +1471,8 @@ pub fn evaluate(
         evidence: all_evidence,
         groups: out_groups,
         verdicts: passed,
+        // 화면이 판정 그룹에서 이 규칙들의 증거만 적는다(`ScanBody::verdict_rules`).
+        verdict_rules: wanted,
         issues: messages,
         // 평가기는 **스냅샷의** 완전성과 범위를 판단할 위치가 아니다 — 둘 다 수집
         // 범위의 사실이고, 봉투를 조립하는 쪽(remedy-core)이 실어 온다.
@@ -1476,12 +1488,17 @@ pub fn evaluate(
                 .verdict
                 .unconfirmed
                 .iter()
+                .zip(&unconfirmed)
                 .zip(unconfirmed_at)
                 .filter(|(_, groups)| !groups.is_empty())
-                .map(|(u, groups)| remedy_sdk::artifact::UnconfirmedNote {
-                    why: u.why.clone(),
-                    groups,
-                })
+                .map(
+                    |((u, expr), groups)| remedy_sdk::artifact::UnconfirmedNote {
+                        why: u.why.clone(),
+                        groups,
+                        // 화면이 짚은 그룹에서 이 규칙들의 증거만 적는다(`UnconfirmedNote::rules`).
+                        rules: rules_named(expr),
+                    },
+                )
                 .collect(),
             ..Default::default()
         },

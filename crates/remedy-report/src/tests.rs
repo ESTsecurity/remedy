@@ -637,6 +637,7 @@ fn unconfirmed_items_list_only_the_noted_groups() {
     let note = UnconfirmedNote {
         why: [("ko".to_string(), "까닭".to_string())].into(),
         groups: vec!["g0".to_string()],
+        rules: Vec::new(),
     };
     let lines = unconfirmed_findings(&evidence, &groups, &[note], Lang::Ko, 10);
     assert_eq!(lines.len(), 1, "{lines:?}");
@@ -645,6 +646,7 @@ fn unconfirmed_items_list_only_the_noted_groups() {
     let none = UnconfirmedNote {
         why: Default::default(),
         groups: vec!["g9".to_string()],
+        rules: Vec::new(),
     };
     assert!(unconfirmed_findings(&evidence, &groups, &[none], Lang::Ko, 10).is_empty());
 }
@@ -680,7 +682,7 @@ fn a_hash_that_decided_a_finding_is_not_printed() {
         verdict: true,
         excluded_reason: None,
     };
-    let lines = check_findings(&[e], &[g], Lang::Ko, 10);
+    let lines = check_findings(&[e], &[g], &[], Lang::Ko, 10);
     assert_eq!(lines, vec!["   1. /usr/local/bin/php".to_string()]);
 }
 
@@ -719,6 +721,7 @@ fn a_config_finding_shows_the_value_not_the_key_path() {
     let note = UnconfirmedNote {
         why: [("ko".to_string(), "까닭".to_string())].into(),
         groups: vec!["g0".to_string()],
+        rules: vec!["iis_php".to_string()],
     };
     let lines = unconfirmed_findings(&[e], &[g], &[note], Lang::Ko, 10);
     assert_eq!(
@@ -730,6 +733,74 @@ fn a_config_finding_shows_the_value_not_the_key_path() {
         ]
     );
     assert!(!lines[0].contains(key), "{lines:?}");
+}
+
+/// 한 그룹에 **기계 전체를 보는 규칙**의 증거가 함께 들면, 판정 목록은 판정식이 짚는 규칙의 증거만,
+/// 확인 필요 목록은 사유의 식이 짚는 규칙의 증거만 적는다 (2026-11-11 · Windows 랩: 선언한 자리의
+/// 취약한 `node.exe` 와 함께 IIS 가 쓰는 선언 밖의 PHP 줄 둘이 `취약 1건` 아래에 섰다).
+#[test]
+fn each_list_shows_only_the_rules_its_expression_names() {
+    use remedy_sdk::artifact::{Evidence, EvidenceGroup, MatchedPredicate, UnconfirmedNote};
+    let pred = |field: &str| MatchedPredicate {
+        field: field.into(),
+        op: "matches".into(),
+        value: Some(serde_json::json!("x")),
+    };
+    let ev = |id: &str, rule: &str, subject, target, field: &str| Evidence {
+        id: id.into(),
+        rule: rule.into(),
+        subject,
+        score: None,
+        target,
+        captures: Default::default(),
+        matched: vec![pred(field)],
+    };
+    use remedy_sdk::catalog::Subject;
+    let node = "C:\\Program Files\\nodejs\\node.exe";
+    let evidence = vec![
+        ev(
+            "e0",
+            "node_vuln",
+            Subject::File,
+            serde_json::json!({ "path": node }),
+            "path",
+        ),
+        ev(
+            "e1",
+            "running_php",
+            Subject::Process,
+            serde_json::json!({ "image_path": "C:\\inetpub\\php83\\php-cgi.exe", "pid": 7 }),
+            "image_path",
+        ),
+    ];
+    let g = vec![EvidenceGroup {
+        id: "g0".into(),
+        evidence: vec!["e0".into(), "e1".into()],
+        captures: Default::default(),
+        verdict: true,
+        excluded_reason: None,
+    }];
+
+    // 판정 목록 — 판정식이 짚는 `node_vuln` 의 증거만.
+    let rules = vec!["node_vuln".to_string(), "brotli_vuln".to_string()];
+    let vuln = check_findings(&evidence, &g, &rules, Lang::Ko, 10);
+    assert_eq!(vuln, vec![format!("   1. {node}")], "{vuln:?}");
+    // 규칙을 모르는 낡은 산출물은 전처럼 다 적는다.
+    assert_eq!(check_findings(&evidence, &g, &[], Lang::Ko, 10).len(), 2);
+
+    // 확인 필요 목록 — 사유의 식이 짚는 `running_php` 의 증거만. **이름에 쓴 값은 다시 적지 않는다** —
+    // 프로세스의 이름이 `image_path` 다.
+    let note = UnconfirmedNote {
+        why: [("ko".to_string(), "까닭".to_string())].into(),
+        groups: vec!["g0".to_string()],
+        rules: vec!["iis_php".to_string(), "running_php".to_string()],
+    };
+    let review = unconfirmed_findings(&evidence, &g, &[note], Lang::Ko, 10);
+    assert_eq!(
+        review,
+        vec!["   1. C:\\inetpub\\php83\\php-cgi.exe".to_string()],
+        "{review:?}"
+    );
 }
 
 #[test]
@@ -1116,7 +1187,7 @@ fn only_evidence_behind_a_verdict_is_listed() {
         ),
     ];
     let g = vec![group("g0", &["e0"], true), group("g1", &["e1"], false)];
-    let out = check_findings(&e, &g, Lang::Ko, FINDINGS_SHOWN);
+    let out = check_findings(&e, &g, &[], Lang::Ko, FINDINGS_SHOWN);
     assert_eq!(out.len(), 1);
     assert!(out[0].contains("C:\\php\\php.exe"));
     assert!(!out[0].contains("other.exe"));
@@ -1157,7 +1228,7 @@ fn a_threat_finding_names_only_the_thing() {
     // **점검도 해시는 적지 않는다**(2026-11-09) — 공식 빌드 해시로 판정하는 점검 룰에서 64자리 값이
     // 경로 뒤에 찍혔다. 판처럼 사람이 읽는 값은 그대로 적는다(`the_value_that_decided_it_is_shown`).
     assert_eq!(
-        check_findings(&e, &g, Lang::Ko, FINDINGS_SHOWN),
+        check_findings(&e, &g, &[], Lang::Ko, FINDINGS_SHOWN),
         vec!["   1. /usr/lib64/libkeyutils.so.1.5.2".to_string()]
     );
 }
@@ -1185,6 +1256,7 @@ fn the_value_that_decided_it_is_shown() {
     let out = check_findings(
         &[x],
         &[group("g0", &["e0"], true)],
+        &[],
         Lang::Ko,
         FINDINGS_SHOWN,
     );
@@ -1225,16 +1297,16 @@ fn the_overflow_line_appears_and_verbose_shows_all() {
         verdict: true,
         excluded_reason: None,
     }];
-    let cut = check_findings(&e, &g, Lang::Ko, FINDINGS_SHOWN);
+    let cut = check_findings(&e, &g, &[], Lang::Ko, FINDINGS_SHOWN);
     assert_eq!(cut.len(), FINDINGS_SHOWN + 1, "접은 줄이 없다");
     assert!(cut.last().unwrap().contains("그 외 3건"));
     assert!(cut.last().unwrap().contains("--verbose"));
 
-    let all = check_findings(&e, &g, Lang::Ko, usize::MAX);
+    let all = check_findings(&e, &g, &[], Lang::Ko, usize::MAX);
     assert_eq!(all.len(), n, "--verbose 가 전부 보이지 않는다");
     assert!(!all.last().unwrap().contains("그 외"));
 
-    let en = check_findings(&e, &g, Lang::En, FINDINGS_SHOWN);
+    let en = check_findings(&e, &g, &[], Lang::En, FINDINGS_SHOWN);
     assert!(en.last().unwrap().contains("and 3 more"));
 }
 
@@ -1257,7 +1329,7 @@ fn the_same_finding_is_listed_once() {
     );
     c.id = "e2".into();
     let g = vec![group("g0", &["e0", "e1", "e2"], true)];
-    let out = check_findings(&[a, b, c], &g, Lang::Ko, FINDINGS_SHOWN);
+    let out = check_findings(&[a, b, c], &g, &[], Lang::Ko, FINDINGS_SHOWN);
     assert_eq!(out.len(), 2, "중복이 남았다: {out:?}");
     assert!(out[0].contains("php8.1-cli"));
     assert!(out[1].contains("php8.1-common"));
@@ -1282,6 +1354,7 @@ fn the_same_finding_is_listed_once() {
     let out2 = check_findings(
         &[v1, v2],
         &[group("g0", &["e0", "e1"], true)],
+        &[],
         Lang::Ko,
         FINDINGS_SHOWN,
     );
@@ -1296,7 +1369,7 @@ fn no_groups_falls_back_to_evidence() {
         Subject::Package,
         serde_json::json!({"name": "php8.1-cli"}),
     )];
-    let out = check_findings(&e, &[], Lang::Ko, FINDINGS_SHOWN);
+    let out = check_findings(&e, &[], &[], Lang::Ko, FINDINGS_SHOWN);
     assert_eq!(out.len(), 1);
     assert!(out[0].contains("php8.1-cli"));
 }
