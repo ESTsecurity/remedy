@@ -6,7 +6,7 @@
 
 ########## A1. 사용법 — 기본 언어   [N초]
 
-ESTsecurity 전용백신 1.6.0
+ESTsecurity 전용백신 1.7.0
 ────────────────────────────────────────────────────────
 
 사용법
@@ -32,7 +32,7 @@ Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
 
 ########## A2. 사용법 — 한국어   [N초]
 
-ESTsecurity 전용백신 1.6.0
+ESTsecurity 전용백신 1.7.0
 ────────────────────────────────────────────────────────
 
 사용법
@@ -58,7 +58,7 @@ Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
 
 ########## A3. 버전   [N초]
 
-ESTsecurity Dedicated Cleaner 1.6.0 (remedy)
+ESTsecurity Dedicated Cleaner 1.7.0 (remedy)
 Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
 [exit=0]
 
@@ -73,7 +73,7 @@ Notice: unsigned, so this binary cannot verify that it is the official release. 
 [exit=5]
 
 [꾸러미가 아예 없는 자리 — 지금까지의 동작 그대로여야 한다]
-ESTsecurity Dedicated Cleaner 1.6.0
+ESTsecurity Dedicated Cleaner 1.7.0
 ────────────────────────────────────────────────────────
 
 Usage
@@ -157,7 +157,7 @@ Notice: unsigned, so this binary cannot verify that it is the official release. 
 
 Checking for EvilAI (Locust) Removal.
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.6.0
+ ESTsecurity Dedicated Cleaner 1.7.0
  EvilAI (Locust) Removal  (evilai-locust 0.2.0)
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
@@ -178,7 +178,7 @@ Nothing to do.
 
 === 0. 인자 없이 띄웠다 — 메뉴 (그만두기로 끝냈다) ===
 
-ESTsecurity Dedicated Cleaner 1.6.0
+ESTsecurity Dedicated Cleaner 1.7.0
 Rule: EvilAI (Locust) Removal
 Running with administrator rights.
 
@@ -198,7 +198,7 @@ Choose a number (0-3):
 
 === 모두 검사 — 고르는 화면 1 번 (2개 모두 검사만 하기) ===
 
-ESTsecurity Dedicated Cleaner 1.6.0
+ESTsecurity Dedicated Cleaner 1.7.0
 Running with administrator rights.
 
 Found 2 things to check:
@@ -210,7 +210,7 @@ Found 2 things to check:
 ────────────────────────────────────────────────────────
 [1/2] EvilAI (Locust) Removal
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.6.0
+ ESTsecurity Dedicated Cleaner 1.7.0
  EvilAI (Locust) Removal  (evilai-locust 0.2.0)
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
@@ -225,7 +225,7 @@ No threat was found.
 ────────────────────────────────────────────────────────
 [2/2] EvilAI (Locust) check (lab, detect only)
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.6.0
+ ESTsecurity Dedicated Cleaner 1.7.0
  EvilAI (Locust) check (lab, detect only)  (remedy-lab-evilai-check 0.2.0)
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
@@ -248,7 +248,7 @@ Next
     https://github.com/ESTsecurity/remedy#위협별-안내
 
 
-ESTsecurity Dedicated Cleaner 1.6.0
+ESTsecurity Dedicated Cleaner 1.7.0
 Running with administrator rights.
 
 Found 2 things to check:
@@ -276,7 +276,7 @@ Choose a number (0-3):
 
 ########## A9. --help-all 본문 — 낱말까지 대조한다   [N초]
 
-ESTsecurity Dedicated Cleaner 1.6.0 (remedy)
+ESTsecurity Dedicated Cleaner 1.7.0 (remedy)
 
   시스템을 변경하는 명령(collect·scan·run·apply·resume·restore·verify)은
   관리자 권한을 요구한다. 없으면 시작하지 않고 종료 코드 5 를 낸다.
@@ -366,7 +366,7 @@ Notice: unsigned, so this binary cannot verify that it is the official release. 
 
 Checking for EvilAI (Locust) Removal.
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.6.0
+ ESTsecurity Dedicated Cleaner 1.7.0
  EvilAI (Locust) Removal  (evilai-locust 0.2.0)
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
@@ -386,15 +386,15 @@ Side effects of this treatment:
    3. Delete persistence entry  \Microsoft\Windows\Locust
       removes the scheduled entry so it no longer runs on its own
    4. Remove autorun entry  HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run\SystemSoftwareUpdater
-      it will no longer start automatically at boot
+      it will no longer start automatically when a user signs in
    5. Quarantine file  C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12\preload.js
       moves the file into quarantine — not deleted, and reversible
    6. Delete folder  C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12
-      deletes the folder and everything in it
+      deletes the folder and everything in it — kept in quarantine, so reversible
    7. Restore AV exclusions  HKLM\SOFTWARE\Microsoft\Windows Defender\Exclusions\Paths\C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12
       puts the excluded places back under scanning
 
-  * After you restart this PC, one more check runs automatically.
+  * After you restart this PC, one more check runs automatically (when an administrator signs in).
 
   Note: nobody is here to approve (not a terminal).
      Pass --yes for unattended deployment. Nothing was done.
@@ -403,7 +403,7 @@ Side effects of this treatment:
 ########## C1. scan — 한국어   [N초]
 
 ────────────────────────────────────────────────────────
- ESTsecurity 전용백신 1.6.0
+ ESTsecurity 전용백신 1.7.0
  EvilAI(Locust) 제거  (evilai-locust 0.2.0)
 ────────────────────────────────────────────────────────
  시작 시각  : <T> UTC
@@ -423,15 +423,15 @@ Side effects of this treatment:
    3. 자동 실행 등록 삭제  \Microsoft\Windows\Locust
       예약 실행 등록을 없앱니다. 정해진 때에 자동으로 실행되지 않게 됩니다
    4. 시작 프로그램 항목 제거  HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run\SystemSoftwareUpdater
-      부팅할 때 자동으로 실행되지 않게 됩니다
+      로그온할 때 자동으로 실행되지 않게 됩니다
    5. 파일 격리  C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12\preload.js
       파일을 격리소로 옮깁니다. 지우는 것이 아니라 되돌릴 수 있습니다
    6. 폴더 삭제  C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12
-      폴더와 그 안의 것을 통째로 지웁니다
+      폴더와 그 안의 것을 통째로 지웁니다 — 격리소에 담아 두어 되돌릴 수 있습니다
    7. 보안 제품 예외 목록 원복  HKLM\SOFTWARE\Microsoft\Windows Defender\Exclusions\Paths\C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12
       검사에서 빠져 있던 자리를 다시 검사 대상으로 되돌립니다
 
-  * 치료를 마친 뒤 이 PC 를 재시작하면 자동으로 한 번 더 검사합니다.
+  * 치료를 마친 뒤 이 PC 를 재시작하면 자동으로 한 번 더 검사합니다(관리자 계정으로 로그온했을 때).
 
 위협 발견, 치료하지 않았습니다.
 알림: 코드서명이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
@@ -440,7 +440,7 @@ Side effects of this treatment:
 ########## C2. scan — 영어   [N초]
 
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.6.0
+ ESTsecurity Dedicated Cleaner 1.7.0
  EvilAI (Locust) Removal  (evilai-locust 0.2.0)
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
@@ -460,15 +460,15 @@ Side effects of this treatment:
    3. Delete persistence entry  \Microsoft\Windows\Locust
       removes the scheduled entry so it no longer runs on its own
    4. Remove autorun entry  HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run\SystemSoftwareUpdater
-      it will no longer start automatically at boot
+      it will no longer start automatically when a user signs in
    5. Quarantine file  C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12\preload.js
       moves the file into quarantine — not deleted, and reversible
    6. Delete folder  C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12
-      deletes the folder and everything in it
+      deletes the folder and everything in it — kept in quarantine, so reversible
    7. Restore AV exclusions  HKLM\SOFTWARE\Microsoft\Windows Defender\Exclusions\Paths\C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12
       puts the excluded places back under scanning
 
-  * After you restart this PC, one more check runs automatically.
+  * After you restart this PC, one more check runs automatically (when an administrator signs in).
 
 Threat found, not treated.
 Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
@@ -478,7 +478,7 @@ Notice: unsigned, so this binary cannot verify that it is the official release. 
 
 --ascii — 장식이 ASCII 로 (C1 과 견준다)
 --------------------------------------------------------
- ESTsecurity 전용백신 1.6.0
+ ESTsecurity 전용백신 1.7.0
  EvilAI(Locust) 제거  (evilai-locust 0.2.0)
 --------------------------------------------------------
  시작 시각  : <T> UTC
@@ -498,22 +498,22 @@ Notice: unsigned, so this binary cannot verify that it is the official release. 
    3. 자동 실행 등록 삭제  \Microsoft\Windows\Locust
       예약 실행 등록을 없앱니다. 정해진 때에 자동으로 실행되지 않게 됩니다
    4. 시작 프로그램 항목 제거  HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run\SystemSoftwareUpdater
-      부팅할 때 자동으로 실행되지 않게 됩니다
+      로그온할 때 자동으로 실행되지 않게 됩니다
    5. 파일 격리  C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12\preload.js
       파일을 격리소로 옮깁니다. 지우는 것이 아니라 되돌릴 수 있습니다
    6. 폴더 삭제  C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12
-      폴더와 그 안의 것을 통째로 지웁니다
+      폴더와 그 안의 것을 통째로 지웁니다 - 격리소에 담아 두어 되돌릴 수 있습니다
    7. 보안 제품 예외 목록 원복  HKLM\SOFTWARE\Microsoft\Windows Defender\Exclusions\Paths\C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12
       검사에서 빠져 있던 자리를 다시 검사 대상으로 되돌립니다
 
-  * 치료를 마친 뒤 이 PC 를 재시작하면 자동으로 한 번 더 검사합니다.
+  * 치료를 마친 뒤 이 PC 를 재시작하면 자동으로 한 번 더 검사합니다(관리자 계정으로 로그온했을 때).
 
 위협 발견, 치료하지 않았습니다.
 알림: 코드서명이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 [exit=2]
 --verbose — 검사 결과에 evidence·groups·verdicts 가 붙는다
 ────────────────────────────────────────────────────────
- ESTsecurity 전용백신 1.6.0
+ ESTsecurity 전용백신 1.7.0
  EvilAI(Locust) 제거  (evilai-locust 0.2.0)
 ────────────────────────────────────────────────────────
  시작 시각  : <T> UTC
@@ -535,28 +535,28 @@ Notice: unsigned, so this binary cannot verify that it is the official release. 
    3. 자동 실행 등록 삭제  \Microsoft\Windows\Locust
       예약 실행 등록을 없앱니다. 정해진 때에 자동으로 실행되지 않게 됩니다
    4. 시작 프로그램 항목 제거  HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run\SystemSoftwareUpdater
-      부팅할 때 자동으로 실행되지 않게 됩니다
+      로그온할 때 자동으로 실행되지 않게 됩니다
    5. 파일 격리  C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12\preload.js
       파일을 격리소로 옮깁니다. 지우는 것이 아니라 되돌릴 수 있습니다
    6. 폴더 삭제  C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12
-      폴더와 그 안의 것을 통째로 지웁니다
+      폴더와 그 안의 것을 통째로 지웁니다 — 격리소에 담아 두어 되돌릴 수 있습니다
    7. 보안 제품 예외 목록 원복  HKLM\SOFTWARE\Microsoft\Windows Defender\Exclusions\Paths\C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12
       검사에서 빠져 있던 자리를 다시 검사 대상으로 되돌립니다
 
-  * 치료를 마친 뒤 이 PC 를 재시작하면 자동으로 한 번 더 검사합니다.
+  * 치료를 마친 뒤 이 PC 를 재시작하면 자동으로 한 번 더 검사합니다(관리자 계정으로 로그온했을 때).
 
 위협 발견, 치료하지 않았습니다.
 알림: 코드서명이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 [exit=2]
 --lang — 플래그가 REMEDY_LANG 을 이긴다 (REMEDY_LANG=ko 인데 영어여야 한다)
-ESTsecurity Dedicated Cleaner 1.6.0 (remedy)
+ESTsecurity Dedicated Cleaner 1.7.0 (remedy)
 Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
 [exit=0]
 
 ########## D1. run — 승인할 사람이 없다   [N초]
 
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.6.0
+ ESTsecurity Dedicated Cleaner 1.7.0
  EvilAI (Locust) Removal  (evilai-locust 0.2.0)
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
@@ -576,15 +576,15 @@ Side effects of this treatment:
    3. Delete persistence entry  \Microsoft\Windows\Locust
       removes the scheduled entry so it no longer runs on its own
    4. Remove autorun entry  HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run\SystemSoftwareUpdater
-      it will no longer start automatically at boot
+      it will no longer start automatically when a user signs in
    5. Quarantine file  C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12\preload.js
       moves the file into quarantine — not deleted, and reversible
    6. Delete folder  C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12
-      deletes the folder and everything in it
+      deletes the folder and everything in it — kept in quarantine, so reversible
    7. Restore AV exclusions  HKLM\SOFTWARE\Microsoft\Windows Defender\Exclusions\Paths\C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12
       puts the excluded places back under scanning
 
-  * After you restart this PC, one more check runs automatically.
+  * After you restart this PC, one more check runs automatically (when an administrator signs in).
 Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
 
   Note: nobody is here to approve (not a terminal).
@@ -594,7 +594,7 @@ Notice: unsigned, so this binary cannot verify that it is the official release. 
 ########## D2. run --dry-run   [N초]
 
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.6.0
+ ESTsecurity Dedicated Cleaner 1.7.0
  EvilAI (Locust) Removal  (evilai-locust 0.2.0)
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
@@ -614,15 +614,15 @@ Side effects of this treatment:
    3. Delete persistence entry  \Microsoft\Windows\Locust
       removes the scheduled entry so it no longer runs on its own
    4. Remove autorun entry  HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run\SystemSoftwareUpdater
-      it will no longer start automatically at boot
+      it will no longer start automatically when a user signs in
    5. Quarantine file  C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12\preload.js
       moves the file into quarantine — not deleted, and reversible
    6. Delete folder  C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12
-      deletes the folder and everything in it
+      deletes the folder and everything in it — kept in quarantine, so reversible
    7. Restore AV exclusions  HKLM\SOFTWARE\Microsoft\Windows Defender\Exclusions\Paths\C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12
       puts the excluded places back under scanning
 
-  * After you restart this PC, one more check runs automatically.
+  * After you restart this PC, one more check runs automatically (when an administrator signs in).
 
 --dry-run — nothing was changed.
 Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
@@ -631,7 +631,7 @@ Notice: unsigned, so this binary cannot verify that it is the official release. 
 ########## D3. run --yes — 치료   [N초]
 
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.6.0
+ ESTsecurity Dedicated Cleaner 1.7.0
  EvilAI (Locust) Removal  (evilai-locust 0.2.0)
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
@@ -651,15 +651,15 @@ Side effects of this treatment:
    3. Delete persistence entry  \Microsoft\Windows\Locust
       removes the scheduled entry so it no longer runs on its own
    4. Remove autorun entry  HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run\SystemSoftwareUpdater
-      it will no longer start automatically at boot
+      it will no longer start automatically when a user signs in
    5. Quarantine file  C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12\preload.js
       moves the file into quarantine — not deleted, and reversible
    6. Delete folder  C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12
-      deletes the folder and everything in it
+      deletes the folder and everything in it — kept in quarantine, so reversible
    7. Restore AV exclusions  HKLM\SOFTWARE\Microsoft\Windows Defender\Exclusions\Paths\C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12
       puts the excluded places back under scanning
 
-  * After you restart this PC, one more check runs automatically.
+  * After you restart this PC, one more check runs automatically (when an administrator signs in).
 
 Starting treatment.
   done [1/7] Terminate process  (matched at run time)
@@ -692,7 +692,7 @@ Notice: unsigned, so this binary cannot verify that it is the official release. 
 ########## F. verify   [N초]
 
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.6.0
+ ESTsecurity Dedicated Cleaner 1.7.0
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
  Machine    : <host> (windows)
@@ -701,14 +701,14 @@ Starting scan.
 Scan done : 0 trace(s) · 0 threat(s)
 Re-evaluation record -> C:\remedy-lab\state-console\verify\run-X.jsonl
 
-Treatment succeeded. The same plugin no longer reports a threat.
+Treatment succeeded. The same check no longer finds the threat.
 Notice: unsigned, so this binary cannot verify that it is the official release. Check the downloaded file's checksum
 [exit=0]
 
 ########## G0. restore --list — 창을 닫아도 회차를 찾는다   [N초]
 
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.6.0
+ ESTsecurity Dedicated Cleaner 1.7.0
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
  Machine    : <host> (windows)
@@ -725,7 +725,7 @@ Notice: unsigned, so this binary cannot verify that it is the official release. 
 ########## G1. restore — 계획만   [N초]
 
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.6.0
+ ESTsecurity Dedicated Cleaner 1.7.0
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
  Machine    : <host> (windows)
@@ -755,7 +755,7 @@ Notice: unsigned, so this binary cannot verify that it is the official release. 
 ########## G2. restore --yes   [N초]
 
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.6.0
+ ESTsecurity Dedicated Cleaner 1.7.0
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
  Machine    : <host> (windows)
@@ -795,7 +795,7 @@ Notice: unsigned, so this binary cannot verify that it is the official release. 
 ########## D5. 치료 심장박동 — 도구가 도는 중   [N초]
 
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.6.0
+ ESTsecurity Dedicated Cleaner 1.7.0
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
  Machine    : <host> (windows)
@@ -812,11 +812,11 @@ Side effects of this treatment:
    3. Delete persistence entry  \Microsoft\Windows\Locust
       removes the scheduled entry so it no longer runs on its own
    4. Remove autorun entry  HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run\SystemSoftwareUpdater
-      it will no longer start automatically at boot
+      it will no longer start automatically when a user signs in
    5. Quarantine file  C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12\preload.js
       moves the file into quarantine — not deleted, and reversible
    6. Delete folder  C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12
-      deletes the folder and everything in it
+      deletes the folder and everything in it — kept in quarantine, so reversible
    7. Restore AV exclusions  HKLM\SOFTWARE\Microsoft\Windows Defender\Exclusions\Paths\C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12
       puts the excluded places back under scanning
 
@@ -876,7 +876,7 @@ Notice: unsigned, so this binary cannot verify that it is the official release. 
 ########## I1. 오류 — 인자 빠짐   [N초]
 
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.6.0
+ ESTsecurity Dedicated Cleaner 1.7.0
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
  Machine    : <host> (windows)
@@ -925,9 +925,9 @@ run-X.log  N bytes
 run-X.log  N bytes
 run-X.log  N bytes
 --- run-X.log 의 머리부터 치료 시작까지 ---
-<T> # remedy 1.6.0 pid N · run --plugin C:\remedy-lab\plugins\evilai-locust\plugin.yaml --out-dir C:\remedy-lab\out-console-run --yes --state-dir C:\remedy-lab\state-console
+<T> # remedy 1.7.0 pid N · run --plugin C:\remedy-lab\plugins\evilai-locust\plugin.yaml --out-dir C:\remedy-lab\out-console-run --yes --state-dir C:\remedy-lab\state-console
 <T> | ────────────────────────────────────────────────────────
-<T> |  ESTsecurity Dedicated Cleaner 1.6.0
+<T> |  ESTsecurity Dedicated Cleaner 1.7.0
 <T> |  EvilAI (Locust) Removal  (evilai-locust 0.2.0)
 <T> | ────────────────────────────────────────────────────────
 <T> |  Started    : <T> UTC
@@ -949,14 +949,14 @@ run-X.log  N bytes
 <T> |    3. Delete persistence entry  \Microsoft\Windows\Locust
 <T> |       removes the scheduled entry so it no longer runs on its own
 <T> |    4. Remove autorun entry  HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run\SystemSoftwareUpdater
-<T> |       it will no longer start automatically at boot
+<T> |       it will no longer start automatically when a user signs in
 <T> |    5. Quarantine file  C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12\preload.js
 <T> |       moves the file into quarantine — not deleted, and reversible
 <T> |    6. Delete folder  C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12
-<T> |       deletes the folder and everything in it
+<T> |       deletes the folder and everything in it — kept in quarantine, so reversible
 <T> |    7. Restore AV exclusions  HKLM\SOFTWARE\Microsoft\Windows Defender\Exclusions\Paths\C:\Users\test\AppData\Local\Programs\MicrosoftResourcesAgentV12
 <T> | 
-<T> |   * After you restart this PC, one more check runs automatically.
+<T> |   * After you restart this PC, one more check runs automatically (when an administrator signs in).
 <T> | 
 <T> | Starting treatment.
 --- 검사 시간 줄 ---
@@ -968,7 +968,7 @@ run-X.log  N bytes
 org 키쌍 생성 OK — 공개키 N 바이트
 검체 2개 · 룰 생성 완료
 ────────────────────────────────────────────────────────
- ESTsecurity 전용백신 1.6.0
+ ESTsecurity 전용백신 1.7.0
  조직 복구 키 시험  (force-orgwrap 1.0.0)
 ────────────────────────────────────────────────────────
  시작 시각  : <T> UTC
@@ -1000,7 +1000,7 @@ org 키쌍 생성 OK — 공개키 N 바이트
 [exit=1]
 --- 조직 키로 연다 (제자리가 아니라 꺼내기) ---
 ────────────────────────────────────────────────────────
- ESTsecurity 전용백신 1.6.0
+ ESTsecurity 전용백신 1.7.0
 ────────────────────────────────────────────────────────
  시작 시각  : <T> UTC
  실행 기계  : <host> (windows)
