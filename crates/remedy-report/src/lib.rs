@@ -638,7 +638,9 @@ fn finding_body(e: &remedy_sdk::artifact::Evidence, lang: Lang) -> String {
 /// 이름 그대로다 — 낱말을 지어내는 것보다 낫다.
 fn field_word(field: &str, lang: Lang) -> Option<String> {
     let (ko, en) = match field {
-        "manager" | "package_match" => return None,
+        // `modules` 는 그 프로세스가 실은 파일 **전부**의 목록이라(아파치 72개 실측) 적으면 한 줄이 목록 하나가
+        // 된다 — 어느 모듈인지는 룰의 사유 줄이 말한다(2026-11-12 · 다시 시작하지 않은 PHP · Node 규칙).
+        "manager" | "package_match" | "modules" => return None,
         "value" | "data" => ("값", "value"),
         "vendor" => ("공급사", "vendor"),
         "package" => ("패키지", "package"),

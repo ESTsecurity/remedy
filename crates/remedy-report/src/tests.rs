@@ -806,6 +806,44 @@ fn a_package_line_shows_its_version_not_the_manager() {
     assert!(lines.iter().all(|l| !l.contains("manager")), "{lines:?}");
 }
 
+/// 실린 모듈로 선 프로세스 항목은 **프로세스 경로만** 적는다 — `modules` 는 그 프로세스가 실은 파일 전부의
+/// 목록이라 적으면 한 줄이 JSON 목록이 된다(2026-11-12 · 다시 시작하지 않은 PHP 규칙 · 아파치 모듈 72개 실측).
+#[test]
+fn a_process_line_does_not_spill_its_module_list() {
+    use remedy_sdk::artifact::{Evidence, EvidenceGroup, MatchedPredicate, UnconfirmedNote};
+    let e = Evidence {
+        id: "e0".into(),
+        rule: "stale_php".into(),
+        subject: remedy_sdk::catalog::Subject::Process,
+        score: None,
+        target: serde_json::json!({
+            "pid": 7,
+            "image_path": "/usr/sbin/apache2",
+            "modules": ["/usr/lib/apache2/modules/libphp.so (deleted)", "/usr/lib/x86_64-linux-gnu/libc.so.6"],
+        }),
+        captures: Default::default(),
+        matched: vec![MatchedPredicate {
+            field: "modules".into(),
+            op: "matches".into(),
+            value: Some(serde_json::json!("x")),
+        }],
+    };
+    let g = EvidenceGroup {
+        id: "g0".into(),
+        evidence: vec!["e0".into()],
+        captures: Default::default(),
+        verdict: false,
+        excluded_reason: None,
+    };
+    let note = UnconfirmedNote {
+        why: [("ko".to_string(), "까닭".to_string())].into(),
+        groups: vec!["g0".to_string()],
+        rules: vec!["stale_php".to_string()],
+    };
+    let lines = unconfirmed_findings(&[e], &[g], &[note], Lang::Ko, 10);
+    assert_eq!(lines, vec!["   1. /usr/sbin/apache2".to_string()]);
+}
+
 /// 한 그룹에 **기계 전체를 보는 규칙**의 증거가 함께 들면, 판정 목록은 판정식이 짚는 규칙의 증거만,
 /// 확인 필요 목록은 사유의 식이 짚는 규칙의 증거만 적는다 (2026-11-11 · Windows 랩: 선언한 자리의
 /// 취약한 `node.exe` 와 함께 IIS 가 쓰는 선언 밖의 PHP 줄 둘이 `취약 1건` 아래에 섰다).
