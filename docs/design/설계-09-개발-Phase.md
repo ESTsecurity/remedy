@@ -96,7 +96,8 @@
 | `remedy-quarantine` | P0 | **P5** |
 | `remedy-journal` | P0 | **P5** |
 | `remedy-platform` | P0 | P2(trait 경계 + 읽기) → **P5(복원 쓰기)** → P6~P8(파괴 쓰기) |
-| `remedy-wintrust` | **P10-B** | **P10-B** — Windows 코드 서명 검증 (설계-03 §3 2층). **저장소에서 유일하게 `unsafe` 를 쓴다** |
+| `remedy-wintrust` | **P10-B** | **P10-B** — Windows 코드 서명 검증 (설계-03 §3 2층). **저장소에서 `unsafe` 를 쓰는 둘 중 하나다** |
+| `remedy-winmods` | 2026-11-12 | Windows 프로세스에 실린 모듈 (목표 기준 7 의 마지막 항목 · 설계-04 §1). **`unsafe` 를 쓰는 둘째 크레이트다** |
 | `remedy-trust` | P0 | **P10** |
 | `remedy-report` | P0 | **P9** (계획 렌더러 · 결과 리포트 · i18n) |
 | `remedy-testkit` | P0 | **P2** (코퍼스 로더 · 계획 비교기) |

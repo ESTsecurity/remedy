@@ -388,7 +388,13 @@ impl Subject {
     /// 수집기만 고치고 이 축을 그대로 두면 `the_unpopulated_table_matches_the_corpus`
     /// 가 *"비었다고 적었는데 33건에 값이 있다"* 로 막는다 — 실제로 그 순서로
     /// 밟았고, 그것이 이 표가 낡지 않는 이유다.
-    pub const NOT_POPULATED_YET: [(Subject, &'static str, Option<Platform>, &'static str); 4] = [
+    ///
+    /// **2026-11-12 에 이 표에서 뺐다.** Windows 도 채운다 — `remedy-winmods` 가
+    /// `K32EnumProcessModulesEx` 를 그 크레이트 하나에 가두고 연다(목표 결정 29). 랩 VM
+    /// 실측: 프로세스 158개 중 139개의 목록을 읽었고, 나머지는 보호 프로세스(PPL) 16 ·
+    /// `Idle` · 스스로 목록을 거부하는 보안 제품 둘이다. 그 둘은 레코드의
+    /// `modules_denied` 로 남는다(룰이 본다).
+    pub const NOT_POPULATED_YET: [(Subject, &'static str, Option<Platform>, &'static str); 3] = [
         (
             Subject::File,
             "signature",
@@ -417,20 +423,6 @@ impl Subject {
              알고 있으므로 열거 없이 읽을 수 있으나 수집기가 아직 읽지 않는다. \
              `referrer_url`·`host_url` 은 개인정보라 수집 범위와 제출 범위를 \
              따로 잡아야 하고(설계-02 §3), 그 결정이 아직이다",
-        ),
-        (
-            Subject::Process,
-            "modules",
-            // **Windows 에서만 빈다.** Linux 는 `/proc/<pid>/maps` 를 읽는다
-            // (`remedy_platform::linux` 의 `modules_of`). 위 doc 의
-            // `process.modules` 절이 그 축과 실측을 적어 두었다.
-            Some(Platform::Windows),
-            "모듈 열거는 `EnumProcessModules` 를 요구하고 그것은 unsafe 다 — \
-             이 저장소는 크레이트 전부에 `forbid(unsafe_code)` 를 걸고, \
-             `sysinfo` 도 그 목록을 주지 않는다. **Linux 는 \
-             `/proc/<pid>/maps` 의 실행 가능한 파일 매핑으로 채운다.** 여기서는 \
-             실린 모듈 대신 **그 모듈 파일 자체를 겨눈다** — `file` 과 `yara:` \
-             가 같은 것을 본다",
         ),
     ];
 
@@ -702,6 +694,10 @@ impl Subject {
                 "user",
                 "start_time",
                 "modules",
+                // 모듈 목록을 묻고 거부당했는가(`"true"` · `"false"`). 실행 파일 경로는 보이는데 목록만
+                // 막힌 프로세스(Windows 의 스스로를 지키는 보안 제품)는 관측 불완전으로 세지 않고 이 칸으로
+                // 남긴다 — 그 프로세스가 룰이 볼 자리(웹 서버 · PHP)인지는 룰이 안다.
+                "modules_denied",
             ],
             Subject::Indicator => &["kind", "value", "source_ref"],
             Subject::RegistryValue => &["hive", "key", "name", "type", "data"],

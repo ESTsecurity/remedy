@@ -22,9 +22,13 @@ pub fn processes<P: ProcessRead>(p: &P) -> Result<Harvest<ProcessRecord>, Collec
     for r in raw {
         // **못 읽은 것을 빈 목록으로 흘려보내지 않는다.** 그러면 모듈을 겨눈
         // 룰이 조용히 미탐이 된다 — 끝난 프로세스는 여기 오지 않는다
-        // (`ProcessRead::processes` · `RawProcess::modules_denied`).
-        if r.modules_denied {
-            h.absorb_denied(1, vec![format!("/proc/{}/maps", r.pid)]);
+        // (`ProcessRead::processes` · `RawProcess::modules_denied`). 레코드의
+        // `modules_denied` 가 늘 말하고, 그 프로세스를 **통째로 못 봤으면**(실행 파일
+        // 경로도 비었으면) 관측 불완전으로도 센다 — 무엇이 도는지조차 모르는 프로세스다.
+        // 경로가 보이는 거부(Windows 의 스스로를 지키는 보안 제품)까지 세면 그 제품이 깔린
+        // 기계에서 프로세스를 보는 룰이 전부 6 이 된다(랩 VM 실측 · `remedy-winmods`).
+        if r.modules_denied && r.image_path.is_empty() {
+            h.absorb_denied(1, vec![denied_place(r.pid)]);
         }
         h.records.push(ProcessRecord {
             pid: r.pid,
@@ -35,12 +39,23 @@ pub fn processes<P: ProcessRead>(p: &P) -> Result<Harvest<ProcessRecord>, Collec
             args: r.args,
             user: r.user,
             start_time: r.start_time,
-            // 플랫폼이 준 그대로다. Linux 는 `/proc/<pid>/maps` 로 채우고
-            // Windows 는 열거가 unsafe 라 빈 채로 온다.
+            // 플랫폼이 준 그대로다. Linux 는 `/proc/<pid>/maps` 로, Windows 는
+            // `remedy-winmods` 로 채운다.
             modules: r.modules,
+            modules_denied: r.modules_denied,
         });
     }
     Ok(h)
+}
+
+/// 통째로 못 본 프로세스를 거부 목록에 적는 글자. Linux 는 읽으려던 파일이고, Windows 에는
+/// 그런 파일이 없어 pid 를 적는다 — `/proc` 으로 적으면 화면이 컨테이너 안내를 붙인다.
+fn denied_place(pid: u32) -> String {
+    if cfg!(windows) {
+        format!("pid {pid}")
+    } else {
+        format!("/proc/{pid}/maps")
+    }
 }
 
 /// base64 로 감싼 조각을 풀어 붙인다.
@@ -304,13 +319,48 @@ mod tests {
 
         let h = processes(&Refused).expect("수집");
         assert_eq!(h.denied_dirs, 1, "못 본 것을 없는 것으로 보고했다");
-        assert_eq!(h.denied_paths, vec!["/proc/9/maps".to_string()]);
+        assert_eq!(h.denied_paths, vec![denied_place(9)]);
         assert_eq!(
             h.records[0].modules,
             vec!["/usr/lib/x86_64-linux-gnu/libc.so.6".to_string()],
             "플랫폼이 준 목록이 레코드까지 와야 한다"
         );
         assert!(h.records[1].modules.is_empty());
+        assert!(
+            h.records[1].modules_denied,
+            "거부가 레코드에 남아야 룰이 본다"
+        );
+        assert!(!h.records[0].modules_denied);
+    }
+
+    /// 실행 파일 경로는 보이는데 **목록만 막힌** 프로세스는 관측 불완전으로 세지 않고 레코드에만
+    /// 남긴다 — 랩 VM 의 nProtect 둘이 그 꼴이다(`remedy-winmods`). 세면 그 제품이 깔린 기계에서
+    /// 프로세스를 보는 룰이 전부 6 이 된다(출하 룰 EvilAI 의 청정 0 도).
+    #[test]
+    fn a_refused_list_of_a_visible_process_is_kept_on_the_record_only() {
+        use remedy_platform::read::RawProcess;
+
+        struct SelfProtected;
+        impl ProcessRead for SelfProtected {
+            fn processes(&self) -> Result<Vec<RawProcess>, remedy_platform::PlatformError> {
+                Ok(vec![RawProcess {
+                    pid: 3260,
+                    image_path:
+                        "C:\\Program Files\\INCAInternet\\nProtect Online Security\\nossvc.exe"
+                            .into(),
+                    modules_denied: true,
+                    ..Default::default()
+                }])
+            }
+        }
+
+        let h = processes(&SelfProtected).expect("수집");
+        assert_eq!(
+            h.denied_dirs, 0,
+            "경로가 보이는 거부를 관측 불완전으로 셌다"
+        );
+        assert!(h.denied_paths.is_empty());
+        assert!(h.records[0].modules_denied, "거부가 레코드에서 사라졌다");
     }
 
     #[test]

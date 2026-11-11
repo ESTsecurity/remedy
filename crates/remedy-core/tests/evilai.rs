@@ -179,6 +179,7 @@ fn infected() -> (ArtifactsEnvelope, Scope) {
             user: "test".into(),
             start_time: "2026-08-20T00:00:00Z".into(),
             modules: Vec::new(),
+            modules_denied: false,
         }],
     );
 

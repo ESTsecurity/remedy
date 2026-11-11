@@ -15,3 +15,6 @@ remedy-sdk = { path = "../remedy-sdk" }
 # `object` 에 같은 판단을 적는다), 이 크레이트는 **문자열만 만든다** — 읽기도
 # 쓰기도 없다.
 serde_json.workspace = true
+# 판정에 쓰인 `modules` 조건에 **걸린 모듈만** 적으려고 룰의 정규식을 원소마다 다시 댄다 (2026-11-12).
+# 평가기(`remedy-detect`)와 린트(`remedy-sdk`)가 이미 쓰는 크레이트라 의존 트리에 새것이 늘지 않는다.
+regex.workspace = true

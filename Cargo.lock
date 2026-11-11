@@ -2422,6 +2422,7 @@ dependencies = [
  "base64 0.22.1",
  "fs4",
  "remedy-sdk",
+ "remedy-winmods",
  "remedy-wintrust",
  "serde",
  "serde_json",
@@ -2456,6 +2457,7 @@ dependencies = [
 name = "remedy-report"
 version = "1.8.0"
 dependencies = [
+ "regex",
  "remedy-sdk",
  "serde_json",
 ]
@@ -2498,6 +2500,13 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "thiserror 2.0.21",
+]
+
+[[package]]
+name = "remedy-winmods"
+version = "1.8.0"
+dependencies = [
+ "windows-sys 0.59.0",
 ]
 
 [[package]]

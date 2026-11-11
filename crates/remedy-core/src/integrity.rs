@@ -134,8 +134,8 @@ pub fn check_path(path: &std::path::Path) -> SelfIntegrity {
 
 /// `remedy-wintrust` 의 오류를 **화면 언어로** 옮긴다.
 ///
-/// wintrust 는 의존이 하나도 없는 크레이트다 — 저장소의 유일한 `unsafe` 를 담고
-/// 있어 표면을 넓히지 않는다. 그래서 그 `Display` 는 한국어 하나뿐이고, 그것을
+/// wintrust 는 의존이 하나도 없는 크레이트다 — 저장소에서 `unsafe` 를 담은 두 크레이트
+/// 중 하나라 표면을 넓히지 않는다. 그래서 그 `Display` 는 한국어 하나뿐이고, 그것을
 /// 그대로 `Unknown(e.to_string())` 으로 얼리면 영어 화면에 이렇게 나온다:
 ///
 /// ```text

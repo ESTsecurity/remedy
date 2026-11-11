@@ -1,0 +1,16 @@
+[package]
+name = "remedy-winmods"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { workspace = true, features = [
+    "Win32_Foundation",
+    # K32EnumProcessModulesEx · K32GetModuleFileNameExW — kernel32 판이라 임포트에 DLL 이 늘지 않는다.
+    "Win32_System_ProcessStatus",
+    # OpenProcess · GetProcessInformation(보호 수준) · GetExitCodeProcess
+    "Win32_System_Threading",
+] }

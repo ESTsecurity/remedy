@@ -105,7 +105,8 @@
         "args",
         "user",
         "start_time",
-        "modules"
+        "modules",
+        "modules_denied"
       ],
       "id": "process",
       "implemented_in": "P4",

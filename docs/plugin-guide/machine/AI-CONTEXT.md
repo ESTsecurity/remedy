@@ -52,7 +52,7 @@ remediate:
 - `persistence`: id name enabled trigger command args principal source win.task.register_path win.task.actions win.task.run_level win.task.working_directory win.task.command_expanded win.task.args_expanded linux.cron.line_no linux.cron.line
 - `autorun`: id scope name command source
 - `service`: id name state start_type image_path
-- `process`: pid ppid image_path cmdline cmdline_decoded args user start_time modules
+- `process`: pid ppid image_path cmdline cmdline_decoded args user start_time modules modules_denied
 - `file`: path size mtime ctime sha256 streams content_ref version signature.trusted signature.subject signature.thumbprint zone.zone_id zone.referrer_url zone.host_url package package_match
 - `indicator`: kind value source_ref
 - `registry_value`: hive key name type data

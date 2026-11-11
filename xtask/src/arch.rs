@@ -391,13 +391,16 @@ fn network_violations(reached: &[Reached]) -> Vec<String> {
 ///
 /// **여기 없는 크레이트는 `#![forbid(unsafe_code)]` 를 달아야 한다.** 예외를
 /// 하나 만들었으면 그것이 번지지 않게 하는 것이 예외를 만든 사람의 몫이다.
-const UNSAFE_ALLOWED: &[&str] = &["remedy-wintrust"];
+const UNSAFE_ALLOWED: &[&str] = &["remedy-wintrust", "remedy-winmods"];
 
 /// 모든 크레이트가 `forbid(unsafe_code)` 를 달고 있는지 본다.
 ///
-/// P10-B 에서 `remedy-wintrust` 하나가 예외가 됐다(안전 래퍼가 없는
-/// `WinVerifyTrust` 를 감싼다). 그 예외가 조용히 늘어나면 "이 저장소는 unsafe 를
-/// 쓰지 않는다" 는 말이 사실이 아니게 되고, 그 사실을 아무도 모르게 된다.
+/// P10-B 에서 `remedy-wintrust` 가 예외가 됐다(안전 래퍼가 없는
+/// `WinVerifyTrust` 를 감싼다). 그다음 `remedy-winmods` 가 둘째 예외가 됐다 —
+/// Windows 프로세스에 실린 모듈을 읽는 두 함수(`K32EnumProcessModulesEx` ·
+/// `K32GetModuleFileNameExW`)도 안전 래퍼가 없다(목표 결정 29). 그 예외가 조용히
+/// 늘어나면 "이 저장소는 unsafe 를 쓰지 않는다" 는 말이 사실이 아니게 되고, 그
+/// 사실을 아무도 모르게 된다.
 pub fn forbid_unsafe(root: &Path) -> Result<(), String> {
     let crates_dir = root.join("crates");
     let entries = std::fs::read_dir(&crates_dir)

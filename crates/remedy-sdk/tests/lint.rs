@@ -961,13 +961,12 @@ fn a_rule_that_reads_a_field_the_core_never_fills_is_warned() {
 }
 
 #[test]
-fn a_rule_that_reads_process_modules_is_warned() {
-    // **문서는 말하고 있었고 린트만 침묵했다** (2026-10-27). `31-nonexistent.md`
-    // 가 *"항상 비어 있다"* 로 이미 적었는데 `NOT_POPULATED_YET` 에 없어서, 모든
-    // 프로세스가 싣는 `ntdll` 을 건 검사가 **경고 없이 통과했다.** 그 회차는
-    // 종료 0 으로 끝났고 현장에서는 *"이 PC 는 깨끗하다"* 로 읽힌다
-    // (PHP 문서 §8-3 실측). 하필 PHP 권고가 악용을 확인한 SAPI 가 mod_php 고,
-    // 그것을 보는 가장 자연스러운 룰이 이 모양이다.
+fn a_rule_that_reads_process_modules_on_windows_is_not_warned() {
+    // 2026-10-27 부터 이 자리는 *"Windows 에서 `modules` 를 쓰면 경고한다"* 를 쟀다 —
+    // 그때 Windows 수집기는 목록을 늘 비웠고, 모든 프로세스가 싣는 `ntdll` 을 건 검사가
+    // 경고 없이 종료 0 으로 끝났던 일이 그 경고를 세웠다(PHP 문서 §8-3 실측).
+    // **2026-11-12 부터 Windows 도 채운다**(`remedy-winmods`) — 이제 경고하면 채워진 목록을
+    // 쓴 룰에 거짓말을 하는 것이다. Linux 쪽 같은 시험이 아래에 있다.
     let y = BASE
         .replace(
             "subjects: [persistence, file]",
@@ -985,15 +984,9 @@ fn a_rule_that_reads_process_modules_is_warned() {
     );
     let w = warnings(&y);
     assert!(
-        w.iter().any(|x| x.contains("modules")
-            && x.contains("아직 채우지 않는")
-            // **어디서 비는지를 말해야 한다.** 2026-10-27 부터 Windows 축이다 —
-            // Linux 는 `/proc/<pid>/maps` 로 채운다.
-            && x.contains("windows")
-            && x.contains("/proc/")),
-        "{w:#?}"
+        !w.iter().any(|x| x.contains("modules")),
+        "Windows 도 채우는 필드에 '언제나 거짓' 이라고 말했다: {w:#?}"
     );
-    // 오류는 아니다 — 룰이 틀린 것이 아니라 코어가 아직 못 하는 것이다.
     assert!(errors(&y).is_empty(), "{:#?}", errors(&y));
 }
 
