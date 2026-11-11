@@ -19,9 +19,9 @@
 | 룰 | 하는 일 | Windows | Linux | 참고 |
 |---|---|---|---|---|
 | EvilAI(Locust) 제거 | 찾아서 치료합니다 (복원할 수 있습니다) | `evilai-locust` 0.2.0 | — | [www.virustotal.com](https://www.virustotal.com/gui/search/engines%3Ameadowlocust) |
-| Node2Shell 점검 (CVE-2026-111497) | 찾기만 합니다 | `node2shell-check-windows` 0.2.0 | `node2shell-check-linux` 0.2.0 | [nodejs.org](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases) |
-| PHP 세션 업로드 진행 설정 점검 (CVE-2026-115560) | 찾기만 합니다 | `php-session-check-windows` 0.2.0 | `php-session-check-linux` 0.2.0 | [www.php.net](https://www.php.net/archive/2026.php) |
-| PHP2Shell 점검 (CVE-2026-109618 · 109619) | 찾기만 합니다 | `php2shell-check-windows` 0.2.0 | `php2shell-check-linux` 0.2.0 | [www.php.net](https://www.php.net/archive/2026.php) |
+| Node2Shell 점검 (CVE-2026-111497) | 찾기만 합니다 | `node2shell-check-windows` 0.2.1 | `node2shell-check-linux` 0.3.0 | [nodejs.org](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases) |
+| PHP 세션 업로드 진행 설정 점검 (CVE-2026-115560) | 찾기만 합니다 | `php-session-check-windows` 0.2.1 | `php-session-check-linux` 0.2.1 | [www.php.net](https://www.php.net/archive/2026.php) |
+| PHP2Shell 점검 (CVE-2026-109618 · 109619) | 찾기만 합니다 | `php2shell-check-windows` 0.2.1 | `php2shell-check-linux` 0.3.0 | [www.php.net](https://www.php.net/archive/2026.php) |
 | PHP2Shell 원격 점검 (웹서버 응답 헤더) | 적어 주신 주소의 서버를 바깥에서 봅니다 (네트워크 사용) | `php2shell-url-check` 0.1.0 | `php2shell-url-check` 0.1.0 | [www.php.net](https://www.php.net/archive/2026.php) |
 | CWPdoor 점검 (탐지만) | 찾기만 합니다 | — | `cwpdoor-1-check` 0.1.2 | [blog.xlab.qianxin.com](https://blog.xlab.qianxin.com/cwpdoor-the-invisible-backdoor-living-inside-control-web-panel/) |
 | CWPdoor 제거 | 찾아서 치료합니다 (복원할 수 있습니다) | — | `cwpdoor-2-clean` 0.1.2 | [blog.xlab.qianxin.com](https://blog.xlab.qianxin.com/cwpdoor-the-invisible-backdoor-living-inside-control-web-panel/) |
@@ -293,7 +293,8 @@ sudo bash detect_ebury.sh
   해시로 버전을 가려, 고친 버전보다 낮으면 *취약* 입니다. 리눅스의 배포판 패키지는 Debian 과 Oracle Linux 8.10 의
   공지로 판정하고, Debian 은 Node.js 가 쓰는 시스템 Brotli(`libbrotli1`)도 봅니다.
 - **확인 필요가 나오는 경우** — 공식 빌드의 해시와 맞지 않는 `node`(기준에 없는 버전 · 다른 곳에서 지은 빌드),
-  공지로 판정할 수 없는 배포판 패키지(Ubuntu · RHEL · Rocky · Alpine · 다른 저장소), RHEL · Oracle Linux 의 시스템
+  공지로 판정할 수 없는 배포판 패키지(Ubuntu · RHEL · Rocky · Alpine · 다른 저장소), 패키지가 깐 `node` 가 패키지
+  기록과 다를 때(리눅스), RHEL · Oracle Linux 의 시스템
   Brotli 가 고친 버전보다 낮은데 RPM 의 Node.js 가 그것을 쓰는지 이 도구가 재지 못할 때, 정해 둔 자리 밖에서
   실행 중인 `node`(Windows 는 IIS 가 쓰거나 실행 중인 정해 둔 자리 밖의 PHP 도 — 그 PHP 의 Brotli 를 보지
   않았습니다). 화면의 *주의* 줄이 무엇을 확인할지 말합니다. *취약* 한 Node.js 가 나온 회차에는 이 항목들이 나오지
@@ -330,8 +331,9 @@ sudo bash detect_ebury.sh
   (리눅스의 공식 Docker 이미지는 기준에 든 8.3.35 · 8.3.36 등만 — 그 밖의 태그는 *확인 필요* 입니다).
 - **확인 필요가 나오는 경우** — 공지에 없는 공급사 · 저장소의 패키지(Rocky · Alma · Alpine · Remi 등)와 공식
   빌드의 해시와 맞지 않는 PHP 입니다. 같은 버전 번호라도 고친 코드를 담았는지 이 도구가 가릴 근거가 없습니다 —
-  Windows 에서는 화면의 *주의* 줄이 버전을 올릴지(낮은 버전) 받은 곳을 확인할지(높은 버전) 말합니다. RHEL 7.9 는
-  공지가 CVE-2026-109619 만 고쳐 그 버전 이상도 *확인 필요* 입니다. 정해 둔 자리 밖의 PHP(IIS 가 쓰는 것 · 실행
+  Windows 에서는 화면의 *주의* 줄이 버전을 올릴지(낮은 버전) 받은 곳을 확인할지(높은 버전) 말합니다. 리눅스에서
+  패키지가 깐 PHP 실행 파일이 패키지 기록(dpkg · RPM)과 다르면 패키지 버전으로 판정하지 않고 그 경로를 적습니다.
+  RHEL 7.9 는 공지가 CVE-2026-109619 만 고쳐 그 버전 이상도 *확인 필요* 입니다. 정해 둔 자리 밖의 PHP(IIS 가 쓰는 것 · 실행
   중인 것)와 IIS 의 공유 설정도 *확인 필요* 입니다 — *취약* 한 PHP 가 나온 회차에는 이 항목들이 나오지 않을 수
   있고, 고친 뒤 다시 검사하면 나옵니다.
 - **컨테이너 안에서 실행하면** 다른 사용자로 도는 프로세스(php-fpm 의 작업자 등)를 들여다보지 못해 *다 보지 못해
@@ -415,7 +417,8 @@ sudo bash detect_ebury.sh
 ## 화면
 
 검사가 찾은 것과 할 일을 먼저 다 보여 드리고, 결과에 맞는 다음 할 일을 메뉴 번호로 알려
-드립니다.
+드립니다. 아래 화면은 1.4.0 에서 찍었습니다 — 메뉴의 항목 수와 결과 줄의 모양은 지금도 같고, 맨 위의 버전 줄과
+점검 결과의 문구가 다릅니다.
 
 ![검사 결과와 다음 할 일 — Windows Terminal](docs/images/scan-result-windows-terminal.png)
 

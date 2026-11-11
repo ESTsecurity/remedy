@@ -65,15 +65,15 @@
     }
   },
   "node2shell-check-linux": {
-    "version": "0.2.0",
+    "version": "0.3.0",
     "files": {
-      "plugin.yaml": "a2a15606a0c92abf697da00b68f6a818c04129e5c5c094fdc62a216b3401fd90"
+      "plugin.yaml": "228d3e903aadebcd256044a80f833a63fda64cd9c811f05769d147c77a1e8424"
     }
   },
   "node2shell-check-windows": {
-    "version": "0.2.0",
+    "version": "0.2.1",
     "files": {
-      "plugin.yaml": "a4987b23b68f32fc186d5f18896e291c77ce492f6694896c0767063d94398bd8"
+      "plugin.yaml": "7c3e17f9649ec22eb7b279b740241307509a8dc861a2b3b51b5787f90b17c7f3"
     }
   },
   "npm-posthook": {
@@ -83,27 +83,27 @@
     }
   },
   "php-session-check-linux": {
-    "version": "0.2.0",
+    "version": "0.2.1",
     "files": {
-      "plugin.yaml": "0dcc6a25cc6726b35d0f964963e1e7a1e9cc2d59b4e63ad5c746a101f985e295"
+      "plugin.yaml": "86fe3b7dce177b8c8e1311cb5a55d6781db58ecbe8baf6d10230a073e5f69331"
     }
   },
   "php-session-check-windows": {
-    "version": "0.2.0",
+    "version": "0.2.1",
     "files": {
-      "plugin.yaml": "4b915e68382fde0d69f0f71c1f4a21c1f70a6cc7305afd8ed096d1d64f63b23e"
+      "plugin.yaml": "17b77f63d2d2ce612c27c4784a734dee4ef9575bfd57d7f6ac72ae02a7f93a16"
     }
   },
   "php2shell-check-linux": {
-    "version": "0.2.0",
+    "version": "0.3.0",
     "files": {
-      "plugin.yaml": "6be000c5c03443af0b3388bbad8de12cbc34173c15777fa2c67de675bf62b3ee"
+      "plugin.yaml": "9109086d908498e661c1c1ae8ebfa69a49edd4b2a40618265537313630b2f9f1"
     }
   },
   "php2shell-check-windows": {
-    "version": "0.2.0",
+    "version": "0.2.1",
     "files": {
-      "plugin.yaml": "51e119e549647f827647c2abb49b477b67724078c6f53657a70469f7c729e8eb"
+      "plugin.yaml": "f5cae2dc367560c107b7f3b804fa452d5ac3f74987e0963c9cb5bcf28192c79f"
     }
   },
   "php2shell-url-check": {
