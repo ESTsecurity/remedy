@@ -19,9 +19,9 @@
 | 룰 | 하는 일 | Windows | Linux | 참고 |
 |---|---|---|---|---|
 | EvilAI(Locust) 제거 | 찾아서 치료합니다 (복원할 수 있습니다) | `evilai-locust` 0.2.0 | — | [www.virustotal.com](https://www.virustotal.com/gui/search/engines%3Ameadowlocust) |
-| Node2Shell 점검 (CVE-2026-111497) | 찾기만 합니다 | `node2shell-check-windows` 0.2.1 | `node2shell-check-linux` 0.3.0 | [nodejs.org](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases) |
-| PHP 세션 업로드 진행 설정 점검 (CVE-2026-115560) | 찾기만 합니다 | `php-session-check-windows` 0.2.1 | `php-session-check-linux` 0.2.1 | [www.php.net](https://www.php.net/archive/2026.php) |
-| PHP2Shell 점검 (CVE-2026-109618 · 109619) | 찾기만 합니다 | `php2shell-check-windows` 0.2.1 | `php2shell-check-linux` 0.3.0 | [www.php.net](https://www.php.net/archive/2026.php) |
+| Node2Shell 점검 (CVE-2026-111497) | 찾기만 합니다 | `node2shell-check-windows` 0.2.1 | `node2shell-check-linux` 0.4.0 | [nodejs.org](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases) |
+| PHP 세션 업로드 진행 설정 점검 (CVE-2026-115560) | 찾기만 합니다 | `php-session-check-windows` 0.2.1 | `php-session-check-linux` 0.3.0 | [www.php.net](https://www.php.net/archive/2026.php) |
+| PHP2Shell 점검 (CVE-2026-109618 · 109619) | 찾기만 합니다 | `php2shell-check-windows` 0.2.1 | `php2shell-check-linux` 0.4.0 | [www.php.net](https://www.php.net/archive/2026.php) |
 | PHP2Shell 원격 점검 (웹서버 응답 헤더) | 적어 주신 주소의 서버를 바깥에서 봅니다 (네트워크 사용) | `php2shell-url-check` 0.1.0 | `php2shell-url-check` 0.1.0 | [www.php.net](https://www.php.net/archive/2026.php) |
 | CWPdoor 점검 (탐지만) | 찾기만 합니다 | — | `cwpdoor-1-check` 0.1.2 | [blog.xlab.qianxin.com](https://blog.xlab.qianxin.com/cwpdoor-the-invisible-backdoor-living-inside-control-web-panel/) |
 | CWPdoor 제거 | 찾아서 치료합니다 (복원할 수 있습니다) | — | `cwpdoor-2-clean` 0.1.2 | [blog.xlab.qianxin.com](https://blog.xlab.qianxin.com/cwpdoor-the-invisible-backdoor-living-inside-control-web-panel/) |
@@ -283,8 +283,10 @@ sudo bash detect_ebury.sh
   **다시 시작**합니다 — 18 · 20 은 지원이 끝나 고친 버전이 없으니 위의 고친 버전으로 옮깁니다. PHP for Windows 는
   Brotli 를 고쳐 다시 지은 공식 빌드(2026-10-26 의 `8.x.y-1`) 이후의 것으로 바꿉니다.
 - **못 보는 것** 다른 제품 안에 든 Node.js(Electron 앱 · 단일 실행 파일 · 컨테이너 이미지) · 정해 둔 자리 밖에
-  놓였을 뿐 실행 중이 아닌 `node` · 지금 돌고 있는 프로세스가 고친 버전을 실었는지. 정해 둔 자리 밖에서 **실행 중인**
-  `node` 는 경로를 적어 *확인 필요* 로 알립니다 — 그 `node` 는 판정하지 않습니다.
+  놓였을 뿐 실행 중이 아닌 `node` · 옛 파일이 남은 채 떠 있는 프로세스가 고친 버전을 실었는지. 정해 둔 자리 밖에서
+  **실행 중인** `node` 는 경로를 적어 *확인 필요* 로 알립니다 — 그 `node` 는 판정하지 않습니다. 리눅스에서 고친 뒤
+  다시 시작하지 않아 지워진 옛 파일(`node` · `libnode` · Brotli 라이브러리)을 실은 채 도는 프로세스도 *확인 필요*
+  입니다.
 
 <details>
 <summary>자세히 — 판정 · 확인 필요가 나오는 경우 · 보는 자리</summary>
@@ -319,9 +321,11 @@ sudo bash detect_ebury.sh
   8.5.12, 또는 배포판의 보안 갱신)으로 올리고 PHP 를 쓰는 웹 서버 · PHP-FPM 을 **다시 시작**합니다 — 8.1 이하는
   고친 버전이 없어 이 가운데 하나로 옮깁니다. 세션 점검은 PHP 가 있으면 늘 *확인 필요* 입니다 — 앱이
   실행 중에 `session.serialize_handler` 를 바꾸면 `session.upload_progress.enabled = 0` 으로 두고 다시 시작합니다.
-- **못 보는 것** 지금 돌고 있는 PHP 가 고친 버전을 실었는지 · 정해 둔 자리 밖에 놓였을 뿐 쓰이지 않는 PHP · 정해
-  둔 자리 밖에서 Apache 모듈로 실린 PHP · 앱 코드가 실행 중에 바꾸는 설정(`ini_set()`). 정해 둔 자리 밖의 PHP 를 IIS 가 쓰거나 그 PHP 가 **실행 중이면** 경로를
-  적어 *확인 필요* 로 알립니다 — 그 PHP 는 판정하지 않습니다.
+- **못 보는 것** 옛 파일이 남은 채 떠 있는 PHP 가 고친 버전을 실었는지 · 정해 둔 자리 밖에 놓였을 뿐 쓰이지 않는
+  PHP · 정해 둔 자리 밖에서 Apache 모듈로 실린 PHP · 앱 코드가 실행 중에 바꾸는 설정(`ini_set()`). 정해 둔 자리 밖의
+  PHP 를 IIS 가 쓰거나 그 PHP 가 **실행 중이면** 경로를 적어 *확인 필요* 로 알립니다 — 그 PHP 는 판정하지 않습니다.
+  리눅스에서 고친 뒤 다시 시작하지 않아 지워진 옛 파일(실행 파일 · `libphp`)을 실은 채 도는 PHP 도 *확인 필요*
+  입니다.
 
 <details>
 <summary>자세히 — 판정 · 확인 필요가 나오는 경우 · 세션 설정 · 보는 자리</summary>
@@ -345,8 +349,8 @@ sudo bash detect_ebury.sh
   이 도구가 볼 수 없어 판정을 내리지 않고 *확인 필요* 로 알립니다 — *주의* 줄이 설정이 켜짐 · 꺼짐 · 없음(기본값은
   켜짐) 가운데 무엇인지 적습니다.
 - **보는 자리** — Windows: `C:\php` · `Program Files\PHP` · XAMPP · WampServer · Laragon · Chocolatey
-  (`C:\tools\phpNN`). 리눅스: 배포판 패키지 목록(dpkg · apk · RPM) · `/usr/local` 의 PHP(공식 이미지) · 배포판마다의
-  설정 파일 자리. 정해 둔 자리 밖을 찾을 때만 실행 중인 프로세스와 IIS 설정(`C:\Windows\System32\inetsrv\config`)을
+  (`C:\tools\phpNN`). 리눅스: 배포판 패키지 목록(dpkg · apk · RPM) · `/usr/local` 의 PHP(공식 이미지) · 직접 빌드의
+  흔한 자리 `/usr/local/php` · `/opt/php` · 배포판마다의 설정 파일 자리. 정해 둔 자리 밖을 찾을 때만 실행 중인 프로세스와 IIS 설정(`C:\Windows\System32\inetsrv\config`)을
   봅니다.
 
 판정 표와 근거(공지 번호)는 룰 폴더 `php2shell-check-windows` · `php2shell-check-linux` ·
