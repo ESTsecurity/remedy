@@ -618,8 +618,14 @@ fn finding_body(e: &remedy_sdk::artifact::Evidence, lang: Lang) -> String {
             .filter(|m| !in_label.contains(&m.field.as_str()))
             .filter(|m| !unreadable.contains(&m.field.as_str()))
             .filter(|m| !locator.contains(&m.field.as_str()))
-            .filter(|m| !same_as_label(m))
+            // 모듈 목록의 첫 칸은 늘 그 프로세스의 실행 파일이라(`text_at` 은 배열의 첫 칸을 준다) 이름과
+            // 같아 보인다 — 걸린 모듈은 [`matched_modules`] 가 따로 고른다.
+            .filter(|m| m.field == "modules" || !same_as_label(m))
             .find_map(|m| {
+                if m.field == "modules" {
+                    let word = lang.pick("모듈".to_string(), "module".to_string());
+                    return matched_modules(&e.target, m).map(|v| format!("{word} {v}"));
+                }
                 let word = field_word(&m.field, lang)?;
                 text_at(&e.target, &m.field).map(|v| format!("{word} {v}"))
             })
@@ -630,6 +636,40 @@ fn finding_body(e: &remedy_sdk::artifact::Evidence, lang: Lang) -> String {
     }
 }
 
+/// 판정에 쓰인 `modules` 조건에 **걸린 모듈만** (2026-11-12).
+///
+/// 목록 전부는 그 프로세스가 실은 파일 전부라(아파치 작업자 하나가 72개) 적지 않는다. 걸린 모듈은
+/// 사람이 찾아갈 파일이다 — Apache 에 실린 선언 밖의 PHP 가 어느 폴더인지, 다시 시작하지 않은
+/// 프로세스가 어느 옛 파일을 실었는지가 사유 줄만으로는 보이지 않았다. 평가기는 목록을 JSON 글자로
+/// 견주므로(`expr::field`) 원소도 JSON 글자(따옴표 · `\\`)로 바꿔 같은 조건을 댄다 — 그래야 평가기가
+/// 고른 원소와 같다. 셋을 넘으면 나머지는 수만 적는다.
+fn matched_modules(
+    target: &serde_json::Value,
+    m: &remedy_sdk::artifact::MatchedPredicate,
+) -> Option<String> {
+    const SHOWN: usize = 3;
+    let list = target.get("modules")?.as_array()?;
+    let pattern = m.value.as_ref()?.as_str()?;
+    let as_json = |s: &str| serde_json::to_string(s).unwrap_or_default();
+    let names = list.iter().filter_map(|v| v.as_str());
+    let hits: Vec<&str> = match m.op.as_str() {
+        "matches" => {
+            let re = regex::Regex::new(pattern).ok()?;
+            names.filter(|s| re.is_match(&as_json(s))).collect()
+        }
+        "contains" => names.filter(|s| as_json(s).contains(pattern)).collect(),
+        _ => return None,
+    };
+    if hits.is_empty() {
+        return None;
+    }
+    let mut out = hits[..hits.len().min(SHOWN)].join(" · ");
+    if hits.len() > SHOWN {
+        out.push_str(&format!(" · +{}", hits.len() - SHOWN));
+    }
+    Some(out)
+}
+
 /// 항목 줄에서 **값 앞에 붙는 낱말** — 엔진의 칸 이름을 받는 사람의 말로 (2026-11-12).
 ///
 /// 시연 전 검토에서 `applicationHost.config  (value C:\…\php-cgi.exe)` · `php-cli  (manager dpkg)` 가
@@ -638,10 +678,13 @@ fn finding_body(e: &remedy_sdk::artifact::Evidence, lang: Lang) -> String {
 /// 이름 그대로다 — 낱말을 지어내는 것보다 낫다.
 fn field_word(field: &str, lang: Lang) -> Option<String> {
     let (ko, en) = match field {
-        // `modules` 는 그 프로세스가 실은 파일 **전부**의 목록이라(아파치 72개 실측) 적으면 한 줄이 목록 하나가
-        // 된다 — 어느 모듈인지는 룰의 사유 줄이 말한다(2026-11-12 · 다시 시작하지 않은 PHP · Node 규칙).
+        // `modules` 는 그 프로세스가 실은 파일 **전부**의 목록이라(아파치 72개 실측) 통째로 적지 않는다 —
+        // 걸린 모듈만 [`matched_modules`] 가 적는다(2026-11-12).
         "manager" | "package_match" | "modules" => return None,
         "value" | "data" => ("값", "value"),
+        // 줄 단위 설정(`text_config`)의 그 줄 원문 — Windows 랩에서 Apache 설정 줄이 `(line LoadModule …)` 로
+        // 섰다(2026-11-12). 이름 칸에 이미 `파일:줄번호` 가 있다.
+        "line" => ("줄", "line"),
         "vendor" => ("공급사", "vendor"),
         "package" => ("패키지", "package"),
         "image_path" => ("실행 파일", "image"),

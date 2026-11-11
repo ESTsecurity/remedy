@@ -10,7 +10,7 @@ exclude = ["testbed/fixtures/watchdog", "testbed/fixtures/labsvc"]
 # **v1 이다** (설계-09 v1 마감 = P0~P11). 이 값이 `min_core` 비교의 좌변이고,
 # 저장소의 모든 플러그인과 가이드 예제가 `min_core: "1.0.0"` 을 선언한다 —
 # `0.0.0` 인 동안에는 그 선언을 강제하는 순간 전부 거부됐다 (2026-08-28 점검).
-version = "1.8.0"
+version = "1.9.0"
 edition = "2021"
 rust-version = "1.96"
 license = "LicenseRef-ESTsecurity-Proprietary"
@@ -47,10 +47,9 @@ sha1 = "0.10"
 base64 = "0.22"
 # 레지스트리 읽기. unsafe 를 크레이트 안에 가둬 두어 우리 코드는 forbid 를 유지한다.
 winreg = "0.52"
-# Windows API 원형. **이것을 직접 쓰는 곳은 `remedy-wintrust` 하나뿐이고**,
-# 그 크레이트가 저장소에서 유일하게 unsafe 를 쓴다 (설계-04 §1). 서명 검증만은
-# 안전 래퍼가 존재하지 않아 우리가 감싼다 —
-# 근거는 설계-03 §3 에 있다.
+# Windows API 원형. **이것을 직접 쓰는 곳은 `remedy-wintrust` 와 `remedy-winmods` 둘뿐이고**,
+# 그 둘이 저장소에서 unsafe 를 쓰는 크레이트다 (설계-04 §1). 서명 검증과 프로세스에 실린
+# 모듈 열거에는 안전 래퍼가 존재하지 않아 우리가 감싼다 — 근거는 설계-03 §3 과 설계-04 §1 에 있다.
 windows-sys = "0.59"
 # 배포 바이너리의 임포트 테이블을 읽는다. 정적 CRT 가 실제로 적용됐는지,
 # 치료 경로에 네트워크가 링크되지 않았는지(설계-01 D9) 산출물에서 직접 본다.

@@ -1103,23 +1103,17 @@ verdict: { require: 'signed' }
     );
 }
 
-/// **빈 목록은 두 방향으로 틀리고, 진단 한 줄이 둘을 다 덮는다** (2026-10-27).
+/// **Windows 도 `process.modules` 를 채운다 — 그래서 *"채우지 않습니다"* 진단이 나오면 안 된다**
+/// (2026-11-12 · `remedy-winmods`).
 ///
-/// **Windows 스냅샷에서** `process.modules` 는 늘 빈 배열이다(열거가 unsafe 다 —
-/// Linux 는 `/proc/<pid>/maps` 로 채운다. 축은 `NOT_POPULATED_YET` 이 들고 있고,
-/// 그 축이 플랫폼마다 말을 가르는 것은
-/// `a_field_empty_on_one_platform_is_reported_only_there` 가 잰다). 평가기는
-/// 목록 필드를 JSON 문자열로 꺼내므로(`expr::field`) 빈 배열이 `"[]"` 가 되고 —
-///
-/// | 쓴 술어 | 빈 목록에서 | 무너지는 방향 |
-/// |---|---|---|
-/// | `modules contains '...'` | 늘 거짓 | **미탐** — 실제로 밟았다(PHP 문서 §8-3) |
-/// | `modules exists` | **늘 참** | **오탐** — 모든 프로세스가 걸린다 |
-///
-/// **진단은 술어를 막지 않는다.** 여기서 재는 것이 그것이다 — `exists` 쪽은
-/// 증거가 비지 않고, 그 증거가 거짓임을 말하는 것은 `issues` 한 줄뿐이다.
+/// 2026-10-27 부터 이 자리는 *"빈 목록은 두 방향으로 틀리고 진단 한 줄이 둘을 다 덮는다"* 를 쟀다 —
+/// Windows 수집기가 목록을 늘 비웠고, 그 축을 `NOT_POPULATED_YET` 이 들고 있었다. 이제 그 줄을
+/// 뺐으므로 Windows 스냅샷에서 모듈을 쓴 룰에 그 진단이 붙으면 **채워진 목록을 쓴 룰에 거짓
+/// 경고**가 된다. 빈 목록의 평가 자체는 그대로다 — 평가기가 목록을 JSON 문자열로 꺼내므로
+/// (`expr::field`) `exists` 는 `"[]"` 에서도 참이고 `contains` 는 거짓이다(보호 프로세스 · 끝난
+/// 프로세스의 빈 목록이 그 꼴이다).
 #[test]
-fn an_empty_module_list_is_wrong_in_both_directions_and_says_so() {
+fn a_windows_module_list_is_no_longer_flagged_as_unpopulated() {
     let mut obs = Observations::default();
     obs.put(
         Subject::Process,
@@ -1149,7 +1143,7 @@ fn an_empty_module_list_is_wrong_in_both_directions_and_says_so() {
     let snap = Snapshot::from_envelope(&env);
     let scope = || sc.clone();
 
-    // ── `exists` — 늘 참이라 **모든 프로세스가 걸린다** ──────────────
+    // ── `exists` — 빈 목록 `"[]"` 도 있는 값이다 ───────────────────────
     let seen = evaluate(&snap, &manifest(&modules_rule("exists", None)), &scope()).unwrap();
     assert_eq!(
         seen.evidence.len(),
@@ -1158,14 +1152,15 @@ fn an_empty_module_list_is_wrong_in_both_directions_and_says_so() {
         seen.evidence
     );
     assert!(
-        seen.issues.iter().any(|i| i.contains("modules")
-            && i.contains("채우지 않습니다")
-            && i.contains("/proc/")),
-        "증거가 거짓임을 말하는 유일한 줄이 없다: {:?}",
+        !seen
+            .issues
+            .iter()
+            .any(|i| i.contains("modules") && i.contains("채우지 않습니다")),
+        "Windows 도 채우는데 '채우지 않습니다' 가 붙었다: {:?}",
         seen.issues
     );
 
-    // ── `contains` — 늘 거짓이라 **아무것도 걸리지 않는다** ──────────
+    // ── `contains` — 빈 목록에서는 거짓이다 ──────────────────────────
     let none = evaluate(
         &snap,
         &manifest(&modules_rule("contains", Some("ntdll"))),
@@ -1178,13 +1173,13 @@ fn an_empty_module_list_is_wrong_in_both_directions_and_says_so() {
         none.evidence
     );
     assert!(
-        none.issues.iter().any(|i| i.contains("modules")),
-        "미탐 쪽에서도 같은 줄이 나와야 한다: {:?}",
+        !none.issues.iter().any(|i| i.contains("modules")),
+        "Windows 도 채우는데 모듈 진단이 붙었다: {:?}",
         none.issues
     );
 }
 
-/// 모듈을 열거하지 못한 프로세스 — **Windows 수집기**가 내놓는 그대로다.
+/// 모듈 목록이 빈 Windows 프로세스 — 보호 프로세스(PPL)와 끝난 프로세스가 그렇다(`remedy-winmods`).
 fn proc_without_modules(pid: u32) -> remedy_artifacts::ProcessRecord {
     remedy_artifacts::ProcessRecord {
         pid,
@@ -1196,6 +1191,7 @@ fn proc_without_modules(pid: u32) -> remedy_artifacts::ProcessRecord {
         user: "t".into(),
         start_time: "2026-08-20T00:00:00Z".into(),
         modules: Vec::new(),
+        modules_denied: false,
     }
 }
 

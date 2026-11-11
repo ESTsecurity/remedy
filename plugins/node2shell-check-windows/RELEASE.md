@@ -1,6 +1,19 @@
 # node2shell-check-windows — 릴리스 기록
 
-**버전 0.2.1** · 대상: Node2Shell(CVE-2026-111497 · Brotli 디코더) — Windows 의 Node.js 와 PHP for Windows 의 Brotli · **점검**(바꾸지 않는다)
+**버전 0.3.0** · 대상: Node2Shell(CVE-2026-111497 · Brotli 디코더) — Windows 의 Node.js 와 PHP for Windows 의 Brotli · **점검**(바꾸지 않는다)
+
+## 0.3.0 — 선언 밖을 알려 주는 자리가 늘었다 (2026-11)
+
+선언한 자리 밖의 Node.js · PHP 를 찾는 출처를 더했다 — 그 파일은 여전히 열지 않고 경로를 적어 **확인 필요(6)** 로
+낸다(목표 결정 28 · 29).
+
+- **다른 프로그램에 모듈로 실린 PHP** — 코어 1.9.0 부터 Windows 도 실린 모듈을 모은다. 선언 밖의 PHP 코어 DLL 이
+  실린 프로세스와, 모듈 목록을 읽지 못한 Apache(`httpd.exe`). `php2shell-check-windows` 0.3.0 과 같은 규칙이다.
+- **서비스** — 실행 파일 자리(`ImagePath`)가 선언 밖의 `node.exe` · PHP 인 서비스. 멈춰 있어도 남는다.
+- **Apache 설정** — 선언 밖의 PHP 를 싣는 `LoadModule php_module` 줄(Apache Lounge · Apache 설치 프로그램 · XAMPP ·
+  WampServer · Laragon 의 설정 폴더).
+- **Node.js 설치 프로그램이 적은 자리** — `HKLM\SOFTWARE\Node.js` 의 `InstallPath` 가 `Program Files\nodejs` 가
+  아니다. 설치 목록(`Uninstall`)의 `InstallLocation` 은 Node.js MSI 가 비워 둔다(랩 VM 실측: Node.js 24.19.0).
 
 ## 0.2.1 — 화면 문구 (2026-11)
 
@@ -42,12 +55,13 @@
 |---|---|
 | 2 | **취약** — Node.js 를 고친 버전 이상으로, PHP 는 2026-10-26 이후의 공식 빌드(`-1` 재빌드)로 바꾸고 그 서비스를 다시 시작한다 |
 | 0 | 취약한 곳을 찾지 못했다 — 공식 고친 빌드이거나, 선언한 자리에 Node.js · PHP 가 없다 |
-| 6 | **확인 필요** — `주의:` 아래 줄이 무엇의 버전 · 받은 곳을 확인할지 말한다. 선언한 자리 밖의 `node.exe` · PHP 면 항목 줄에 그 경로가 있다 |
+| 6 | **확인 필요** — `주의:` 아래 줄이 무엇의 버전 · 받은 곳을 확인할지 말한다. 선언한 자리 밖의 `node.exe` · PHP 면 항목 줄에 그 경로가 있다 — 서비스는 `<서비스 이름>  (실행 파일 <ImagePath>)`, Apache 설정은 `<파일>:<줄 번호>  (줄 <그 줄>)`, 설치 자리는 `HKLM\SOFTWARE\Node.js\InstallPath  (값 <자리>)`, 실린 PHP 는 `<프로그램>  (모듈 <DLL>)`(0.3.0) |
 
 ## 이 룰이 보지 않는 것
 
 - 다른 제품 안에 든 Node.js(Electron 앱 · 단일 실행 파일 — 실행 파일 이름이 `node.exe` 가 아니다).
-- 선언한 자리 밖에 놓였을 뿐 실행 중도 아니고 IIS 설정에도 없는 `node.exe` · `brotlidec.dll`.
+- 선언한 자리 밖에 놓였을 뿐 실행 중도 아니고 어디에도 적히지 않은(IIS · Apache 설정 · 서비스 · 설치 자리)
+  `node.exe` · `brotlidec.dll`. NSSM 같은 감싸는 프로그램이 띄우는 서비스는 그 프로그램이 실행 파일 자리라, 실행 중일 때만 본다.
 - 실행 중인 프로세스가 고친 버전을 실었는가 — 고친 뒤에는 그 서비스를 다시 시작한다.
 
 ## 근거 — 공개 자료
@@ -68,6 +82,7 @@
 | 모양 | 판정 규칙 | **23/23** | 손으로 지은 기계 모양을 `remedy evaluate` 로 — 계열마다 고친 버전 바로 아래 · 고친 버전 · 지원 종료 둘 · 모르는 빌드 · 해시 없음 · 대문자 이름 · nvm 여러 버전 · PHP 원래 빌드 · 재빌드 · 모르는 `brotlidec.dll` · 둘이 함께 |
 | 실기계 · 자리 밖 | 수집 → 판정 | **7/7** | 2026-11-11 · Windows 랩 VM 에서 0.1.0(코어 1.5.0 공개본)과 0.2.0(1.6.0 개발 빌드)을 나란히 — `Program Files\nodejs` 를 치우고 공식 22.18.0 `node.exe` 를 `C:\apps\node` 에서 실행 **0 → 6**. 스냅숏에는 선언한 자리의 취약한 공식 `node.exe` 가 있어 나머지 여섯 상태(선언 밖 PHP 를 두기만 함 · 실행 · IIS 가 가리킴 · IIS 아래 실행 · `C:\php` 로 옮김 · 스냅숏)는 **2 → 2** — 판정이 섰으므로 자리 밖 PHP 는 그 회차에 나오지 않는다 |
 | 실기계 | 수집 → 판정 | **1/1** | 2026-11-09 · Windows 11 개발 기계에 깔린 공식 Node.js 22.18.0(`node.exe` 85,202,416 B)을 1.3.0 개발 빌드로 수집 — `hash_large` 로 해시가 떴고 **2** |
+| 실기계 · 0.3.0 | 수집 → 판정 | **10/10** | 2026-11-12 · Windows 랩 VM 에서 0.2.1(코어 1.7.0 공개본)과 0.3.0(1.9.0 개발 빌드)을 같은 상태에서 나란히 — `Program Files\nodejs` 를 치우고 설치 자리를 `D:\nodejs\` 로 **0 → 6**(화면: `HKLM\SOFTWARE\Node.js\InstallPath  (값 D:\nodejs\)`) · 선언 밖 `node.exe` 를 띄우는 서비스(시작 안 함) **0 → 6**. 스냅숏의 취약한 `node.exe` 가 남은 여덟 상태(스냅숏 둘 · 선언 밖 PHP 를 두기만 함 · 다른 프로그램이 그 PHP 를 실음 · `C:\php` 로 옮겨 실음 · 그 PHP 를 띄우는 서비스 · Apache 설정이 그 PHP 를 실음 · 선언한 자리를 가리킴)는 **2 → 2** — 판정이 섰으므로 확인 필요 줄은 그 회차에 나오지 않는다 |
 
 린트 경고 하나(`C:\php` 깊이 2)는 룰 머리에 까닭을 적었다.
 

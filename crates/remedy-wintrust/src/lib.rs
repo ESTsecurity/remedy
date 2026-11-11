@@ -1,6 +1,6 @@
 //! remedy-wintrust — Windows 코드 서명 검증 (설계-03 §3 2층).
 //!
-//! # 저장소에서 유일하게 `unsafe` 를 쓰는 크레이트다
+//! # 저장소에서 `unsafe` 를 쓰는 두 크레이트 중 하나다 (다른 하나는 `remedy-winmods`)
 //!
 //! 다른 크레이트는 전부 `#![forbid(unsafe_code)]` 이고 Windows API 는 안전
 //! 래퍼(`winreg` · `windows-permissions`)로만 닿는다. **여기만 예외인 이유를
@@ -31,7 +31,8 @@
 //!
 //! `remedy-platform` 전체의 `forbid` 를 푸는 대신 크레이트를 나눈 것은
 //! `remedy-yara` 와 같은 판단이다 — *"한 크레이트에 가두면 대응도 교체도 한
-//! 곳에서 끝난다"* (설계-04 §1). 다른 16개 크레이트는 `forbid` 를 유지한다.
+//! 곳에서 끝난다"* (설계-04 §1). `remedy-winmods`(실린 모듈)를 뺀 나머지 크레이트는 `forbid` 를
+//! 유지한다 — `xtask arch` 가 그 목록을 본다.
 //!
 //! # 폐기 확인은 하지 않는다
 //!
@@ -127,7 +128,7 @@ pub fn verify(_path: &std::path::Path) -> Result<Verdict, VerifyError> {
 
 #[cfg(windows)]
 mod windows {
-    //! `WinVerifyTrust` 호출부. **이 모듈이 저장소의 유일한 `unsafe` 다.**
+    //! `WinVerifyTrust` 호출부. **이 크레이트의 `unsafe` 는 이 모듈에만 있다.**
     //!
     //! # 두 경로를 다 본다
     //!

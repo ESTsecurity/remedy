@@ -24,9 +24,12 @@ sysinfo.workspace = true
 # 명령줄에 셸 메타문자가 한 글자도 실리지 않게 한다 (windows.rs 참조).
 base64 = { workspace = true }
 # 재귀 삭제 가드의 세 번째 조건 — "하위에 신뢰 서명 파일이 존재하면 거부"
-# (설계-03 §4). 저장소에서 유일하게 unsafe 를 쓰는 크레이트이고, 그 근거는
+# (설계-03 §4). 저장소에서 unsafe 를 쓰는 두 크레이트 중 하나이고, 그 근거는
 # 설계-04 §2 에 있다.
 remedy-wintrust = { path = "../remedy-wintrust" }
+# 프로세스에 실린 모듈(`process.modules`). 모듈 열거는 unsafe 라 그 두 함수를 이 크레이트에
+# 가둔다 — `remedy-wintrust` 와 같은 판단이고, 근거는 그 크레이트의 문서에 있다.
+remedy-winmods = { path = "../remedy-winmods" }
 winreg.workspace = true
 windows-permissions = { workspace = true }
 

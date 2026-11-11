@@ -21,6 +21,7 @@ use crate::write::{PlatformWrite, DEFENDER_EXCLUSIONS, DEFENDER_EXCLUSION_ROOT};
 use crate::PlatformError;
 use remedy_sdk::catalog::Platform;
 use remedy_sdk::normalize;
+use remedy_winmods::Modules;
 
 pub struct Live {
     /// 32비트 프로세스가 64비트 OS 에서 도는가.
@@ -1658,6 +1659,27 @@ impl PlatformWrite for Live {
 
 impl ProcessRead for Live {
     fn processes(&self) -> Result<Vec<RawProcess>, PlatformError> {
+        let mut out = crate::local::processes(self)?;
+        for p in &mut out {
+            match remedy_winmods::modules_of(p.pid) {
+                Modules::Read(paths) => {
+                    // 실행 파일 경로와 같은 기록 규칙 — 같은 파일이 두 칸에서 다른 글자가 되지 않게.
+                    p.modules = paths
+                        .iter()
+                        .map(|m| normalize::nfc(&self.for_record(m)))
+                        .collect();
+                }
+                // 끝난 프로세스와 보호 프로세스는 거부가 아니다(`remedy-winmods` 의 표) — 보호
+                // 프로세스는 서명된 모듈만 실어 PHP · Node 의 모듈이 들어갈 자리가 아니다.
+                Modules::Gone | Modules::Protected => {}
+                Modules::Refused => p.modules_denied = true,
+            }
+        }
+        Ok(out)
+    }
+
+    fn processes_without_modules(&self) -> Result<Vec<RawProcess>, PlatformError> {
+        // 1.8.0 까지의 길 그대로 — 모듈 칸은 빈다(`Scope::process_modules` 가 거짓인 룰).
         crate::local::processes(self)
     }
 }
