@@ -303,7 +303,7 @@ pub struct ProcessRecord {
     /// | 플랫폼 | 값 |
     /// |---|---|
     /// | Linux | `/proc/<pid>/maps` 의 **실행 가능한 파일 매핑** — 읽기 하나다 |
-    /// | Windows | `K32EnumProcessModulesEx` 의 목록 — unsafe 를 `remedy-winmods` 하나에 가둔다 |
+    /// | Windows | Toolhelp 스냅숏의 목록 — unsafe 를 `remedy-winmods` 하나에 가둔다. 룰이 모듈 칸을 쓸 때만 연다(`Scope::process_modules`) |
     ///
     /// # 빈 목록
     ///

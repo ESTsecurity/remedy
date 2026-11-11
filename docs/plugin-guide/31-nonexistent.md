@@ -101,7 +101,7 @@ require: "task and count(payload) >= 2"      # 한 건으로는 서지 않게
 | 빈 값 | 뜻 | 대신 |
 |---|---|---|
 | `process.cmdline` 이 빈 문자열 | **우리에게 없다.** 보호 프로세스의 명령줄은 OS 가 아무에게도 주지 않는다 | 그 프로세스가 무엇으로 등록되었는지를 본다 — `service` 의 `image_path` · `start_type`, `autorun` 의 `command` |
-| `process.modules` 가 빈 배열 | **봤고 없었거나, 모듈을 실을 수 없는 프로세스다** — Linux 의 커널 스레드, Windows 의 보호 프로세스(PPL — 서명된 모듈만 싣는다)와 끝난 프로세스. 두 플랫폼 다 채운다(Linux 는 `/proc/<pid>/maps` 의 실행 가능한 파일 매핑, Windows 는 2026-11-12 부터 `K32EnumProcessModulesEx`) | 목록을 **못 읽은** 프로세스는 `process.modules_denied` 가 `"true"` 다 — 스스로를 지키는 보안 제품이 그 꼴이다(랩 VM 실측 둘). 룰이 볼 자리(웹 서버 · PHP)라면 그 칸을 함께 본다 |
+| `process.modules` 가 빈 배열 | **봤고 없었거나, 모듈을 실을 수 없는 프로세스다** — Linux 의 커널 스레드, Windows 의 보호 프로세스(PPL — 서명된 모듈만 싣는다)와 끝난 프로세스. 두 플랫폼 다 채운다(Linux 는 `/proc/<pid>/maps` 의 실행 가능한 파일 매핑, Windows 는 2026-11-12 부터 Toolhelp 스냅숏 — 룰이 모듈 칸을 쓸 때만 연다) | 목록을 **못 읽은** 프로세스는 `process.modules_denied` 가 `"true"` 다 — 스스로를 지키는 보안 제품이 그 꼴이다(랩 VM 실측 둘). 룰이 볼 자리(웹 서버 · PHP)라면 그 칸을 함께 본다 |
 | `text_config.key` 가 빈 문자열 | 그 줄이 **`키=값` 이 아니다.** `.htaccess` 의 `php_value x 1` · `pam.d` 의 `auth required …` 가 그렇다 — `=` 가 없으면 `line` 만 찬다 | `line contains` 로 겨눈다. `=` 가 **줄 안쪽에** 있으면 `key` 가 거기서 끊겨 엉뚱한 이름이 된다(실측: 청정 코퍼스 6,320줄 중 474줄) — 그 줄도 `line` 으로 본다 |
 
 > **2026-10-27 부터 2026-11-12 까지는 Windows 가 이 목록을 늘 비웠다**(열거가 unsafe

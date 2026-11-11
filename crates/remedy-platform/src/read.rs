@@ -486,7 +486,7 @@ pub trait ProcessRead {
     /// | 플랫폼 | `modules` | 거부 |
     /// |---|---|---|
     /// | Linux | `/proc/<pid>/maps` 의 실행 가능한 파일 매핑 — 읽기 하나라 unsafe 가 없다 | 컨테이너의 다른 uid 프로세스(실행 파일 경로도 함께 빈다) |
-    /// | Windows | `remedy-winmods` 가 연다(`K32EnumProcessModulesEx` — unsafe 를 그 크레이트에 가둔다) | 스스로를 지키는 보안 제품(실행 파일 경로는 보인다). 보호 프로세스(PPL)는 거부로 세지 않는다 |
+    /// | Windows | `remedy-winmods` 가 연다(Toolhelp 스냅숏 — unsafe 를 그 크레이트에 가둔다) | 스스로를 지키는 보안 제품(실행 파일 경로는 보인다). 보호 프로세스(PPL)는 거부로 세지 않는다 |
     fn processes(&self) -> Result<Vec<RawProcess>, PlatformError>;
 
     /// 모듈 목록 **없이** — 룰이 모듈 칸을 보지 않으면 수집기가 이쪽을 부른다(`Scope::process_modules`).
