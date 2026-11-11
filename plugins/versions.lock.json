@@ -65,9 +65,9 @@
     }
   },
   "node2shell-check-linux": {
-    "version": "0.3.0",
+    "version": "0.4.0",
     "files": {
-      "plugin.yaml": "228d3e903aadebcd256044a80f833a63fda64cd9c811f05769d147c77a1e8424"
+      "plugin.yaml": "1ccff9f745972deb9314c9787c13e41fa00f5c839183847345cfe23b0c7a6fb9"
     }
   },
   "node2shell-check-windows": {
@@ -83,9 +83,9 @@
     }
   },
   "php-session-check-linux": {
-    "version": "0.2.1",
+    "version": "0.3.0",
     "files": {
-      "plugin.yaml": "86fe3b7dce177b8c8e1311cb5a55d6781db58ecbe8baf6d10230a073e5f69331"
+      "plugin.yaml": "7e1aa82194f9598c213847b910098fb501f769b3d7755090dfa470872c658bf2"
     }
   },
   "php-session-check-windows": {
@@ -95,9 +95,9 @@
     }
   },
   "php2shell-check-linux": {
-    "version": "0.3.0",
+    "version": "0.4.0",
     "files": {
-      "plugin.yaml": "9109086d908498e661c1c1ae8ebfa69a49edd4b2a40618265537313630b2f9f1"
+      "plugin.yaml": "09973e82cf21d58bd72f4b3d4507ab5592f0524895bcaab2e31758985a4e9dc0"
     }
   },
   "php2shell-check-windows": {

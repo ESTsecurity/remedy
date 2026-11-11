@@ -31,13 +31,17 @@
 # - 다른 제품 안에 든 Node.js(Electron 앱 · 단일 실행 파일 · 컨테이너 이미지)
 # - 선언한 자리 밖에 놓였을 뿐 실행 중이 아닌 `node`. **실행 중이면 찾아서 *확인 필요* 로 그 경로를
 #   적는다**(0.2.0) — 그 파일은 열지 않는다
-# - 실행 중인 프로세스가 고친 판을 실었는가 — 고친 뒤에는 그 서비스를 다시 시작한다
+# - 실행 중인 프로세스가 고친 판을 실었는가 — 옛 파일이 **지워지지 않고** 남은 채 떠 있는 것은 가리지 못한다.
+#   고친 뒤에는 그 서비스를 다시 시작한다. 옛 파일이 지워졌으면 아래 `stale_node` 가 본다
 #
 # **패키지가 깐 `node` 는 패키지 기록과 대조한다**(0.3.0) — 다르면 그 패키지 버전으로 판정하지 않고 *확인 필요*
 # 로 그 경로를 적는다(아래 `pkg_bin_changed`). 데비안의 `node` 가 싣는 `libnode` 는 보는 자리 밖이라 대조하지 않는다.
+#
+# **고친 뒤 다시 시작하지 않은 Node.js 를 알린다**(0.4.0) — 실행 파일 `node` 나 실린 `libnode` · `libbrotlidec` 이
+# 지워진 옛 파일이면(` (deleted)`) 그 프로세스는 고치기 전 코드를 실은 채 돈다(아래 `stale_node`).
 schema_version: 1
 id: node2shell-check-linux
-version: 0.3.0
+version: 0.4.0
 min_core: "1.7.0"   # 패키지 파일 대조가 1.7.0 · verdict.unconfirmed · hash_large · rpm_version_lt 는 1.3.0
 platforms: [linux]
 
@@ -404,6 +408,18 @@ detect:
       - { field: package, op: matches, value: '.' }
       - { field: package_match, op: in, value: [different, unrecorded, unreadable] }
 
+  # ── 고친 뒤 다시 시작하지 않은 Node.js (0.4.0) — `php2shell-check-linux` 의 `stale_php` 와 같은 규칙 ──
+  #
+  # 실행 파일 `node` · `nodejs` 나 실린 `libnode.so*`(Debian 의 `node` 가 싣는 본체) · `libbrotlidec.so*`(시스템
+  # Brotli)가 ` (deleted)` 면 그 프로세스는 지워진 옛 파일을 실은 채 돈다 — 패키지를 올리고 그 앱(pm2 · systemd 서비스
+  # 등)을 다시 시작하지 않은 것이다. 자리는 가리지 않는다. 모듈 목록은 JSON 글자로 견주므로 꼬리 뒤의 `"` 가 끝이다.
+  - id: stale_node
+    subject: process
+    where:
+      any:
+        - { field: image_path, op: matches, value: '/(node|nodejs) \(deleted\)$' }
+        - { field: modules, op: matches, value: '/lib(node|brotlidec)\.so[0-9.]* \(deleted\)"' }
+
 verdict:
   require: "node_vuln or ((deb_node_vuln or (deb_libbrotli_vuln and deb_node) or ol8_node_vuln) and not pkg_bin_changed)"
   unconfirmed:
@@ -427,3 +443,7 @@ verdict:
       why:
         ko: "패키지가 깐 node 실행 파일이 패키지 기록과 같은지 확인되지 않습니다(위 경로) — 내용이 다르거나 기록이 없어 그 패키지의 버전으로 판정하지 않았습니다. 누가 그 파일을 바꿨는지 확인하고, 패키지를 다시 설치한 뒤 다시 검사하십시오"
         en: "a node executable installed by a package cannot be confirmed to match the package record (path above) - its content differs or there is no record, so it was not judged by the package version; check who changed it, reinstall the package and scan again"
+    - when: "stale_node"
+      why:
+        ko: "고친 뒤 다시 시작하지 않은 Node.js 가 실행 중입니다(위 경로) — 그 프로세스가 지워진 옛 파일(node · libnode · Brotli 라이브러리)을 실은 채 돌고 있어 디스크의 버전으로 판정하지 않았습니다. 그 앱(pm2 · 서비스)을 다시 시작한 뒤 다시 검사하십시오"
+        en: "a Node.js that was not restarted after an update is running (path above) - the process still runs a deleted old file (node, libnode or the Brotli library), so it was not judged by the version on disk; restart that app (pm2, service) and scan again"
