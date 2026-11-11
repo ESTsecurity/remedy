@@ -13,11 +13,21 @@ pub struct Generated {
 }
 
 pub fn all() -> Vec<Generated> {
-    let schema = schemars::schema_for!(crate::url::report::Report);
+    vec![
+        Generated {
+            path: "url-report.schema.json",
+            content: pretty(schemars::schema_for!(crate::url::report::Report)),
+        },
+        // `image` · `container` 는 같은 꼴의 결과를 낸다(`command` 칸이 가른다).
+        Generated {
+            path: "scan-report.schema.json",
+            content: pretty(schemars::schema_for!(crate::scan::report::Report)),
+        },
+    ]
+}
+
+fn pretty(schema: schemars::schema::RootSchema) -> String {
     let mut content = serde_json::to_string_pretty(&schema).expect("스키마는 JSON 으로 쓸 수 있다");
     content.push('\n');
-    vec![Generated {
-        path: "url-report.schema.json",
-        content,
-    }]
+    content
 }

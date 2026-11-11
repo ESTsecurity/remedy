@@ -25,6 +25,7 @@ mod wire;
 #[cfg(test)]
 mod tests;
 
+use crate::output::{fail, prepare_dir, run_id};
 use crate::text::ascii_safe;
 use crate::{clock, Outcome};
 use policy::{Budget, Cancel, SLICE, URL_TIMEOUT};
@@ -365,20 +366,6 @@ fn unique(urls: &[String]) -> usize {
     seen.len().min(policy::MAX_URLS) + usize::from(seen.len() > policy::MAX_URLS)
 }
 
-fn run_id(started: SystemTime) -> String {
-    let mut bytes = [0u8; 8];
-    let random = rustls::crypto::ring::default_provider()
-        .secure_random
-        .fill(&mut bytes)
-        .is_ok();
-    let suffix: String = if random {
-        bytes.iter().map(|b| format!("{b:02x}")).collect()
-    } else {
-        format!("{:016x}", std::process::id())
-    };
-    format!("{}-{suffix}", clock::compact(started))
-}
-
 fn limitations(cacert: bool, lang: Lang) -> Vec<String> {
     let mut v = vec![
         lang.t(
@@ -401,33 +388,6 @@ fn limitations(cacert: bool, lang: Lang) -> Vec<String> {
         ));
     }
     v.into_iter().map(str::to_string).collect()
-}
-
-/// 결과 폴더 — 없으면 만든다. 그 자리에 파일 · 링크가 있으면 쓰지 않는다.
-fn prepare_dir(dir: &Path, lang: Lang) -> Result<PathBuf, &'static str> {
-    if let Ok(m) = std::fs::symlink_metadata(dir) {
-        if m.file_type().is_symlink() || !m.is_dir() {
-            return Err(lang.t(
-                "결과 폴더 자리에 폴더가 아닌 것(파일 · 링크)이 있습니다.",
-                "the result folder path holds something that is not a folder (a file or a link).",
-            ));
-        }
-    }
-    std::fs::create_dir_all(dir).map_err(|_| {
-        lang.t(
-            "결과 폴더를 만들지 못했습니다.",
-            "could not create the result folder.",
-        )
-    })?;
-    Ok(dir.to_path_buf())
-}
-
-fn fail(lang: Lang, why: &str) -> Outcome {
-    eprintln!(
-        "{}",
-        ascii_safe(lang.pick(format!("오류: {why}"), format!("error: {why}")))
-    );
-    Outcome::Failed
 }
 
 /// `remedy-net url --help`. 명령 설명은 본체의 도움말처럼 해라체다.

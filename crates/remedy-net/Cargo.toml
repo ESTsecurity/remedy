@@ -21,6 +21,9 @@ remedy-sdk = { path = "../remedy-sdk" }
 # 제품 이름의 한 자리(`brand`). 문자열만 만드는 크레이트라(`remedy-sdk` 말고 내부 의존이 없다) 파괴
 # 경로도 통신도 들이지 않는다. 점검 결과 줄을 본체의 점검 룰과 같은 문장으로 낼 때도 이것을 쓴다.
 remedy-report = { path = "../remedy-report" }
+# RPM 패키지 DB 판독기 — 이미지 · 컨테이너에서 꺼낸 DB 를 `read_untrusted` 로 읽는다. std 뿐인 잎 크레이트라
+# OS 에도 통신에도 닿지 않는다(설계-04 §1 의 `remedy-rpmdb ↛ remedy-platform`).
+remedy-rpmdb = { path = "../remedy-rpmdb" }
 serde.workspace = true
 serde_json.workspace = true
 schemars.workspace = true
@@ -33,6 +36,11 @@ rustls.workspace = true
 httparse.workspace = true
 rustls-native-certs.workspace = true
 webpki-roots.workspace = true
+# 이미지 점검 — 레이어의 압축(gzip · zstd)과 실행 파일의 MD5 대조. 고른 까닭은 워크스페이스 `Cargo.toml` 의
+# "동반 모듈 remedy-net 의 이미지 점검" 절. 이미지 안의 RPM DB 는 위의 `remedy-rpmdb` 가 읽는다.
+flate2.workspace = true
+ruzstd.workspace = true
+md-5.workspace = true
 
 # 사용자 로케일(언어 판단의 Windows 갈래). 본체는 `remedy-platform` 으로 읽지만 동반 모듈은 그
 # 크레이트를 링크하지 않는다(금지 줄) — 같은 값을 같은 자리에서 읽기만 한다. 새 의존이 아니다.
@@ -42,3 +50,5 @@ winreg.workspace = true
 [dev-dependencies]
 rcgen.workspace = true
 socket2.workspace = true
+# 이미지 시험의 tar 픽스처 — 판독은 이 크레이트가 직접 한다(워크스페이스 `Cargo.toml` 의 그 줄).
+tar.workspace = true

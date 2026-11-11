@@ -21,7 +21,9 @@
 //! 것으로 돌려주고, 무인 배포 스크립트가 두 바이너리를 같은 코드로 읽는다. 판정 어휘는 *양호 · 취약 ·
 //! 확인 필요* 이고 [`Outcome`] 이 그 대응이다.
 //!
-//! 점검 명령은 `url` 하나다(`image` · `container` 는 다음 판). 명령의 코드는 라이브러리 쪽(`src/lib.rs`)에 있다.
+//! 점검 명령은 셋이다 — `url`(웹서버 응답 헤더) · `image`(이미지 파일) · `container`(이 기계의 컨테이너 엔진).
+//! 본체가 띄우는 것은 `url` 뿐이고, `image` · `container` 는 이 프로그램을 직접 실행한다. 명령의 코드는
+//! 라이브러리 쪽(`src/lib.rs`)에 있다.
 //!
 //! [`ExitCode`]: remedy_sdk::artifact::ExitCode
 #![forbid(unsafe_code)]
@@ -95,6 +97,8 @@ fn run(args: &[String], lang: Lang) -> Outcome {
             Outcome::Clear
         }
         Some("url") => remedy_net::url::run(&args[1..], lang),
+        Some("image") => remedy_net::image::run(&args[1..], lang),
+        Some("container") => remedy_net::container::run(&args[1..], lang),
         Some(other) => {
             let why = lang.pick(
                 format!(
@@ -128,27 +132,34 @@ fn help(lang: Lang) -> String {
         ),
     ));
     s.push_str(lang.t(
-        "네트워크가 필요한 점검을 맡는 프로그램이다. 본체 remedy 는 통신하지 않는다 — 네트워크 점검 항목을\n\
-         고르면 remedy 가 이 프로그램을 실행해 맡기고, 종료 코드만 받는다. 따로 실행해도 된다.\n\n",
-        "Runs the checks that need the network. The main program (remedy) does not communicate — when a\n\
-         network check is picked, remedy starts this program and takes only its exit code. It can also\n\
-         be run on its own.\n\n",
+        "본체 remedy 가 하지 않는 점검을 맡는 프로그램이다 — 웹서버 원격 확인 · 이미지 파일 · 컨테이너. 본체는\n\
+         통신하지 않는다 — 네트워크 점검 항목을 고르면 remedy 가 이 프로그램을 실행해 맡기고, 종료 코드만\n\
+         받는다. image · container 는 이 프로그램을 직접 실행한다.\n\n",
+        "Runs the checks the main program (remedy) does not do — remote web server checks, image files and\n\
+         containers. remedy does not communicate — when a network check is picked, remedy starts this\n\
+         program and takes only its exit code. image and container are run directly with this program.\n\n",
     ));
     s.push_str(lang.t("쓰는 법:\n", "Usage:\n"));
     s.push_str(lang.t(
-        "  remedy-net url URL ...  웹서버 응답 헤더의 PHP 버전을 PHP2Shell 수정 버전과 견준다\n\
-         \x20 remedy-net url --help   url 의 옵션\n\
-         \x20 remedy-net --help       이 도움말\n\
-         \x20 remedy-net --version    버전\n\
-         \x20 --lang ko|en            출력 언어 (REMEDY_LANG 으로도)\n\
-         \x20 --ascii                 기호를 ASCII 로\n\n",
-        "  remedy-net url URL ...  compare the PHP version in a web server's response headers with the\n\
-         \x20                         PHP2Shell fixed versions\n\
-         \x20 remedy-net url --help   options of url\n\
-         \x20 remedy-net --help       this help\n\
-         \x20 remedy-net --version    version\n\
-         \x20 --lang ko|en            output language (REMEDY_LANG also works)\n\
-         \x20 --ascii                 ASCII symbols only\n\n",
+        "  remedy-net url URL ...         웹서버 응답 헤더의 PHP 버전을 PHP2Shell 수정 버전과 견준다\n\
+         \x20 remedy-net image 파일 ...      이미지 파일의 PHP · Node.js 를 수정 버전 · 공식 빌드와 견준다\n\
+         \x20 remedy-net container ID ...    실행 중인 컨테이너의 PHP · Node.js 를 같은 기준과 견준다\n\
+         \x20 remedy-net <명령> --help       그 명령의 옵션\n\
+         \x20 remedy-net --help              이 도움말\n\
+         \x20 remedy-net --version           버전\n\
+         \x20 --lang ko|en                   출력 언어 (REMEDY_LANG 으로도)\n\
+         \x20 --ascii                        기호를 ASCII 로\n\n",
+        "  remedy-net url URL ...         compare the PHP version in a web server's response headers with\n\
+         \x20                                the PHP2Shell fixed versions\n\
+         \x20 remedy-net image FILE ...      compare PHP and Node.js in image files with the fixed versions\n\
+         \x20                                and official builds\n\
+         \x20 remedy-net container ID ...    compare PHP and Node.js in running containers with the same\n\
+         \x20                                criteria\n\
+         \x20 remedy-net <command> --help    options of that command\n\
+         \x20 remedy-net --help              this help\n\
+         \x20 remedy-net --version           version\n\
+         \x20 --lang ko|en                   output language (REMEDY_LANG also works)\n\
+         \x20 --ascii                        ASCII symbols only\n\n",
     ));
     s.push_str(lang.t(
         "종료 코드 (본체 remedy 와 같은 표):\n",

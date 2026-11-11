@@ -4,12 +4,17 @@
 //! `cargo xtask arch`).
 #![forbid(unsafe_code)]
 
+pub mod container;
+pub mod image;
 pub mod scan;
 pub mod schema;
 pub mod text;
 pub mod url;
 
 mod clock;
+mod cmdline;
+mod consent;
+mod output;
 
 use remedy_sdk::artifact::ExitCode;
 use remedy_sdk::i18n::Lang;

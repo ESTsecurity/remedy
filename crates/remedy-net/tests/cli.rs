@@ -69,15 +69,78 @@ fn version_names_the_product_and_the_workspace_version() {
 
 #[test]
 fn an_unknown_command_is_an_input_error() {
-    // `image` · `container` 는 아직 없다 — 있는 척 0 으로 끝내지 않는다.
-    let o = run("en", &["image", "app.tar"]);
+    // 없는 명령을 있는 척 0 으로 끝내지 않는다.
+    let o = run("en", &["host", "/"]);
     assert_eq!(o.status.code(), Some(4));
     assert!(stdout(&o).is_empty());
     assert!(
-        stderr(&o).contains("unknown command: image"),
+        stderr(&o).contains("unknown command: host"),
         "{}",
         stderr(&o)
     );
+}
+
+#[test]
+fn image_refuses_bad_input_before_the_terms_and_makes_no_folder() {
+    let out = std::env::temp_dir().join(format!("remedy-net-cli-image-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&out);
+    let out_arg = out.to_string_lossy().into_owned();
+    for args in [
+        &["image"][..],
+        &["image", "--runtime", "python", "a.tar"][..],
+        &["image", "a.tar", "--consent", "maybe"][..],
+    ] {
+        let mut full: Vec<&str> = args.to_vec();
+        full.extend(["--out-dir", &out_arg]);
+        let o = run("ko", &full);
+        assert_eq!(o.status.code(), Some(4), "{args:?}: {}", stderr(&o));
+        assert!(!stdout(&o).contains("이용 조건"), "{args:?}");
+        assert!(
+            stderr(&o).contains("remedy-net image --help"),
+            "{}",
+            stderr(&o)
+        );
+    }
+    assert!(!out.exists(), "입력 오류인데 결과 폴더가 생겼다");
+}
+
+#[test]
+fn image_declined_terms_end_with_four_and_no_folder() {
+    let out = std::env::temp_dir().join(format!("remedy-net-cli-decline-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&out);
+    let o = run(
+        "ko",
+        &[
+            "image",
+            "a.tar",
+            "--consent",
+            "n",
+            "--out-dir",
+            &out.to_string_lossy(),
+        ],
+    );
+    assert_eq!(o.status.code(), Some(4), "{}", stderr(&o));
+    let text = stdout(&o);
+    assert!(text.contains("이용 조건"), "{text}");
+    assert!(text.contains("점검을 취소했습니다."), "{text}");
+    assert!(!out.exists(), "동의하지 않았는데 결과 폴더가 생겼다");
+}
+
+#[test]
+fn every_command_has_its_own_help() {
+    for (cmd, line) in [
+        ("url", "Usage: remedy-net url"),
+        ("image", "Usage: remedy-net image"),
+        ("container", "Usage: remedy-net container"),
+    ] {
+        let o = run("en", &[cmd, "--help"]);
+        assert_eq!(o.status.code(), Some(0), "{cmd}");
+        assert!(stdout(&o).starts_with(line), "{cmd}: {}", stdout(&o));
+        assert!(
+            !stdout(&o).contains("Terms of use"),
+            "{cmd} 도움말이 약관을 냈다"
+        );
+    }
 }
 
 #[test]

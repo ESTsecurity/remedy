@@ -8,8 +8,12 @@
 
 pub mod binary;
 pub mod budget;
+pub mod container;
+pub mod image;
 pub mod linuxmeta;
 pub mod model;
 pub mod phpconfig;
+pub mod report;
 pub mod rules;
+pub(crate) mod run;
 pub mod slashpath;
