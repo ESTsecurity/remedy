@@ -1,6 +1,19 @@
 # php2shell-check-windows — 릴리스 기록
 
-**버전 0.3.0** · 대상: PHP2Shell(CVE-2026-109618 · CVE-2026-109619) — Windows 의 PHP · **점검**(바꾸지 않는다)
+**버전 0.4.0** · 대상: PHP2Shell(CVE-2026-109618 · CVE-2026-109619) — Windows 의 PHP · **점검**(바꾸지 않는다)
+
+## 0.4.0 — NSSM 이 감싸 띄우는 PHP (2026-11)
+
+NSSM(srvany 도 같은 자리)으로 등록한 서비스는 실행 파일 자리(`ImagePath`)가 `nssm.exe` 이고, 띄우는 프로그램은
+`HKLM\SYSTEM\CurrentControlSet\Services\<이름>\Parameters` 의 `Application` 값에 있다. 그 값이 선언한 자리 밖의
+PHP(`php.exe` · `php-cgi.exe` · `php-win.exe`)이면 **확인 필요(6)** 로 낸다 — 0.3.0 의 서비스 규칙은 `ImagePath` 만
+봐서 이 PHP 를 몰랐다. 값은 원문이라 환경 변수 꼴(`%SystemDrive%\php\…`)도 선언한 자리로 친다. 경로 없이 이름만
+적혔으면(`php-cgi.exe` — NSSM 이 `AppDirectory` 에서 찾는다) 어디의 PHP 인지 알 수 없어 함께 알린다. 그 PHP 의
+파일은 열지 않는다. 항목 줄은 `HKLM\SYSTEM\CurrentControlSet\Services\<이름>\Parameters\Application  (값 <경로>)`
+이다.
+
+코어 1.10.0 이 필요하다 — 서비스마다 `Parameters` 하나를 읽는 레지스트리 루트(`Services\*\Parameters`)를
+1.10.0 의 린트가 받는다. 랩 VM 실측: 서비스 763 중 `Parameters` 가 있는 것 364 · 관리자가 못 연 것 0 · 값 848.
 
 ## 0.3.0 — 다른 프로그램에 모듈로 실린 PHP (2026-11)
 
@@ -75,8 +88,8 @@
 
 - 선언한 자리(`C:\php` · `Program Files\PHP` · XAMPP · WampServer · Laragon · Chocolatey 의 `C:\tools\phpNN`) 밖의
   PHP 의 버전 — IIS 설정에도 없고 실행 중도 아니며 어디에도 실리지 않았으면 그 PHP 가 있다는 것도 모른다(랩 S1 · M1).
-- IIS 의 공유 설정이 가리키는 다른 자리의 설정 · 위에 적지 않은 자리에 둔 Apache 설정 · NSSM 같은 감싸는 프로그램이
-  띄우는 서비스(그 프로그램이 실행 파일 자리라, 실행 중일 때만 본다).
+- IIS 의 공유 설정이 가리키는 다른 자리의 설정 · 위에 적지 않은 자리에 둔 Apache 설정 · NSSM · srvany 밖의 감싸는
+  프로그램이 띄우는 서비스(그 프로그램이 실행 파일 자리라, 실행 중일 때만 본다).
 - 실행 중인 PHP 가 고친 버전을 실었는가 — 고친 뒤에는 IIS · Apache · PHP 를 다시 시작한다.
 - php.net 의 2026-10-26 Windows 재빌드(`8.x.y-1`)가 바꾼 Brotli(CVE-2026-111497)는 이 룰의 판정이 아니다 —
   `node2shell-check-windows` 가 PHP 폴더의 `brotlidec.dll` 로 본다. 재빌드의 코어 DLL 해시는 이 룰의 고친 버전
@@ -99,6 +112,7 @@
 | 실기계 · 자리 밖 | 수집 → 판정 | **7/7** | 2026-11-11 · Windows 랩 VM 에서 0.1.0(코어 1.5.0 공개본)과 0.2.0(1.6.0 개발 빌드)을 같은 상태에서 나란히 — 취약한 공식 8.3.35 를 선언 밖(`C:\inetpub\php83`)에 둠 **0 → 0** (실행 중도 IIS 설정도 아니다) · 거기서 `php.exe` 실행 **0 → 6** · IIS FastCGI · 처리기가 그 `php-cgi.exe` 를 가리킴 **0 → 6** · 요청 하나로 IIS 아래 `php-cgi.exe` 가 뜸 **0 → 6** · 같은 PHP 를 `C:\php` 로 옮기고 IIS 도 그리로 **2 → 2** · 랩 스냅숏(PHP 없음)과 PHP 를 지운 뒤 **0 → 0** 둘 |
 | 실기계 · 실린 모듈 | 수집 → 판정 | **4/4** | 2026-11-12 · Windows 랩 VM 에서 0.2.1(코어 1.7.0 공개본)과 0.3.0(1.9.0 개발 빌드)을 같은 상태에서 나란히 — 랩 스냅숏 **0 → 0**(nProtect 둘이 모듈 목록을 거부해도) · 취약한 공식 8.3.35(NTS)를 선언 밖(`C:\inetpub\php83`)에 둠 **0 → 0** · 다른 프로그램(`powershell.exe`)이 그 `php8.dll` 을 실음 **0 → 6**(화면: `powershell.exe  (모듈 C:\inetpub\php83\php8.dll)`) · 같은 PHP 를 `C:\php` 로 옮겨 실음 **2 → 2**. 같은 넷에서 `evilai-locust` 0.2.0 은 **0 → 0** |
 | 실기계 · 서비스 · Apache 설정 | 수집 → 판정 | **6/6** | 2026-11-12 · 같은 랩 VM · 같은 두 판 — 스냅숏 **0 → 0** · 선언 밖 PHP 의 `php-cgi.exe` 를 띄우는 서비스(만들기만 · 시작 안 함) **0 → 6** · Apache 설정이 그 PHP 의 `php8apache2_4.dll` 을 실음 **0 → 6** · 같은 줄이 `C:/php` 를 가리킴 **0 → 0** · Node.js 설치 자리 · Node 서비스만 바꾼 둘 **0 → 0**. `evilai-locust` 0.2.0 은 여섯 다 **0 → 0** |
+| 실기계 · NSSM | 수집 → 판정 | **7/7** | 2026-11-12 · Windows 랩 VM 에서 0.3.0(코어 1.9.0 공개본)과 0.4.0(1.10.0 개발 빌드)을 같은 상태에서 나란히 — 스냅숏 **0 → 0** · Node.js 폴더를 치움 **0 → 0** · NSSM 꼴 서비스(만들기만 · 시작 안 함 · `ImagePath` 는 `nssm.exe`)의 `Application` 이 선언 밖 `C:\inetpub\php83\php-cgi.exe` **0 → 6** · 선언 밖 `node.exe` **0 → 0** · `%SystemDrive%\php\php-cgi.exe`(선언한 자리) **0 → 0** · 이름만 `php-cgi.exe` **0 → 6** · `Program Files\nodejs\node.exe` **0 → 0**. 항목 줄은 `HKLM\SYSTEM\CurrentControlSet\Services\<이름>\Parameters\Application  (값 <경로>)`. `evilai-locust` 0.2.0 은 일곱 다 **0 → 0** |
 
 린트 경고 둘(`C:\php` 깊이 2 · 판정이 규칙 하나)은 룰 머리에 까닭을 적었다.
 

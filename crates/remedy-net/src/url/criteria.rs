@@ -11,7 +11,7 @@
 pub(crate) const CHECKED: &str = "2026-11-09";
 pub(crate) const CVES: [&str; 2] = ["CVE-2026-109618", "CVE-2026-109619"];
 /// 같은 값을 쓰는 본체의 점검 룰.
-pub(crate) const SAME_AS: &str = "php2shell-check-linux 0.5.0";
+pub(crate) const SAME_AS: &str = "php2shell-check-linux 0.6.0";
 pub(crate) const SOURCES: [&str; 4] = [
     "https://www.php.net/archive/2026.php",
     "https://ubuntu.com/security/notices/USN-8948-1",
@@ -386,7 +386,7 @@ mod tests {
             "/../../plugins/php2shell-check-linux/plugin.yaml"
         ))
         .expect("plugins/php2shell-check-linux/plugin.yaml 을 읽지 못했다");
-        assert!(rule.contains("version: 0.5.0"), "{SAME_AS} 가 아니다");
+        assert!(rule.contains("version: 0.6.0"), "{SAME_AS} 가 아니다");
         for line in &LINES {
             let row = format!("op: pkg_version_lt, value: \"{}\"", line.fixed);
             assert!(rule.contains(&row), "룰에 {} 줄이 없다", line.fixed);

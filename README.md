@@ -19,9 +19,9 @@
 | 룰 | 하는 일 | Windows | Linux | 참고 |
 |---|---|---|---|---|
 | EvilAI(Locust) 제거 | 찾아서 치료합니다 (복원할 수 있습니다) | `evilai-locust` 0.2.0 | — | [www.virustotal.com](https://www.virustotal.com/gui/search/engines%3Ameadowlocust) |
-| Node2Shell 점검 (CVE-2026-111497) | 찾기만 합니다 | `node2shell-check-windows` 0.3.0 | `node2shell-check-linux` 0.5.0 | [nodejs.org](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases) |
-| PHP 세션 업로드 진행 설정 점검 (CVE-2026-115560) | 찾기만 합니다 | `php-session-check-windows` 0.3.0 | `php-session-check-linux` 0.4.0 | [www.php.net](https://www.php.net/archive/2026.php) |
-| PHP2Shell 점검 (CVE-2026-109618 · 109619) | 찾기만 합니다 | `php2shell-check-windows` 0.3.0 | `php2shell-check-linux` 0.5.0 | [www.php.net](https://www.php.net/archive/2026.php) |
+| Node2Shell 점검 (CVE-2026-111497) | 찾기만 합니다 | `node2shell-check-windows` 0.4.0 | `node2shell-check-linux` 0.6.0 | [nodejs.org](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases) |
+| PHP 세션 업로드 진행 설정 점검 (CVE-2026-115560) | 찾기만 합니다 | `php-session-check-windows` 0.4.0 | `php-session-check-linux` 0.5.0 | [www.php.net](https://www.php.net/archive/2026.php) |
+| PHP2Shell 점검 (CVE-2026-109618 · 109619) | 찾기만 합니다 | `php2shell-check-windows` 0.4.0 | `php2shell-check-linux` 0.6.0 | [www.php.net](https://www.php.net/archive/2026.php) |
 | PHP2Shell 원격 점검 (웹서버 응답 헤더) | 적어 주신 주소의 서버를 바깥에서 봅니다 (네트워크 사용) | `php2shell-url-check` 0.1.0 | `php2shell-url-check` 0.1.0 | [www.php.net](https://www.php.net/archive/2026.php) |
 | CWPdoor 점검 (탐지만) | 찾기만 합니다 | — | `cwpdoor-1-check` 0.1.2 | [blog.xlab.qianxin.com](https://blog.xlab.qianxin.com/cwpdoor-the-invisible-backdoor-living-inside-control-web-panel/) |
 | CWPdoor 제거 | 찾아서 치료합니다 (복원할 수 있습니다) | — | `cwpdoor-2-clean` 0.1.2 | [blog.xlab.qianxin.com](https://blog.xlab.qianxin.com/cwpdoor-the-invisible-backdoor-living-inside-control-web-panel/) |
@@ -284,8 +284,10 @@ sudo bash detect_ebury.sh
   Brotli 를 고쳐 다시 지은 공식 빌드(2026-10-26 의 `8.x.y-1`) 이후의 것으로 바꿉니다.
 - **못 보는 것** 다른 제품 안에 든 Node.js(Electron 앱 · 단일 실행 파일 · 컨테이너 이미지) · 정해 둔 자리 밖에
   놓였을 뿐 실행 중도 아니고 어디에도 적히지 않은 `node` · 옛 파일이 남은 채 떠 있는 프로세스가 고친 버전을
-  실었는지. 정해 둔 자리 밖의 `node` 가 **실행 중이거나**, 서비스(Windows 서비스 · systemd 유닛)나 Node.js 설치
-  프로그램(Windows)이 그 자리를 가리키면 경로를 적어 *확인 필요* 로 알립니다 — 그 `node` 는 판정하지 않습니다.
+  실었는지. 정해 둔 자리 밖의 `node` 가 **실행 중이거나**, 서비스(Windows 서비스 · NSSM · systemd 유닛 · SysV ·
+  OpenRC · Upstart 시작 스크립트)나 Node.js 설치 프로그램(Windows)이 그 자리를 가리키면 경로를 적어 *확인 필요* 로
+  알립니다 — 그 `node` 는 판정하지 않습니다. 시작 스크립트는 실행하지 않고 읽어, 글자 그대로 풀리는 실행 파일
+  자리만 봅니다(셸 함수 · 명령 치환으로 정한 경로 · `pm2` · `npm` 으로 띄우는 앱은 보지 않습니다).
   리눅스에서 고친 뒤 다시 시작하지 않아 지워진 옛 파일(`node` · `libnode` · Brotli 라이브러리)을 실은 채 도는
   프로세스도 *확인 필요* 입니다.
 
@@ -307,9 +309,9 @@ sudo bash detect_ebury.sh
 - **보는 자리** — Windows: `Program Files\nodejs` · 모든 사용자의 nvm-windows · fnm · Volta · nvm, PHP 폴더(PHP
   점검과 같은 자리 — Chocolatey 는 `C:\tools\php82` ~ `php85` 만). 리눅스: `/usr/bin` · `/usr/local/bin` 바로 아래의 `node` · `/opt/node` · `/opt/nodejs` ·
   `/usr/local/lib/nodejs` · 모든 사용자의 nvm · fnm · Volta, 배포판 패키지 목록. 정해 둔 자리 밖을 찾을 때만
-  실행 중인 프로세스(Windows 는 실린 모듈까지) · 서비스(Windows 서비스 · systemd 유닛) · Windows 의 Apache 설정 ·
-  IIS 설정(`C:\Windows\System32\inetsrv\config`) · Node.js 설치 프로그램이 적은 자리(`HKLM\SOFTWARE\Node.js`)를
-  봅니다.
+  실행 중인 프로세스(Windows 는 실린 모듈까지) · 서비스(Windows 서비스 · NSSM 이 띄우는 프로그램 · systemd 유닛 ·
+  SysV · OpenRC · Upstart 시작 스크립트) · Windows 의 Apache 설정 · IIS 설정(`C:\Windows\System32\inetsrv\config`) ·
+  Node.js 설치 프로그램이 적은 자리(`HKLM\SOFTWARE\Node.js`)를 봅니다.
 
 판정 표와 근거(공지 번호)는 룰 폴더 `node2shell-check-windows` · `node2shell-check-linux` 의 `RELEASE.md` 에
 있습니다.
@@ -325,8 +327,8 @@ sudo bash detect_ebury.sh
   고친 버전이 없어 이 가운데 하나로 옮깁니다. 세션 점검은 PHP 가 있으면 늘 *확인 필요* 입니다 — 앱이
   실행 중에 `session.serialize_handler` 를 바꾸면 `session.upload_progress.enabled = 0` 으로 두고 다시 시작합니다.
 - **못 보는 것** 옛 파일이 남은 채 떠 있는 PHP 가 고친 버전을 실었는지 · 정해 둔 자리 밖에 놓였을 뿐 쓰이지도
-  적히지도 않은 PHP · 앱 코드가 실행 중에 바꾸는 설정(`ini_set()`). 정해 둔 자리 밖의 PHP 를 IIS · Apache 설정
-  (Windows) · 서비스가 가리키거나, 그 PHP 가 **실행 중이거나** 다른 프로그램(Apache 등 · Windows)에 모듈로 실려
+  적히지도 않은 PHP · 앱 코드가 실행 중에 바꾸는 설정(`ini_set()`). 정해 둔 자리 밖의 PHP 를 IIS(Windows) · Apache
+  설정 · 서비스가 가리키거나, 그 PHP 가 **실행 중이거나** 다른 프로그램(Apache 등 · Windows)에 모듈로 실려
   있으면 경로를 적어 *확인 필요* 로 알립니다 — 그 PHP 는 판정하지 않습니다. 리눅스에서 고친 뒤 다시 시작하지 않아
   지워진 옛 파일(실행 파일 · `libphp`)을 실은 채 도는 PHP 도 *확인 필요* 입니다.
 
@@ -354,8 +356,10 @@ sudo bash detect_ebury.sh
 - **보는 자리** — Windows: `C:\php` · `Program Files\PHP` · XAMPP · WampServer · Laragon · Chocolatey
   (`C:\tools\phpNN`). 리눅스: 배포판 패키지 목록(dpkg · apk · RPM) · `/usr/local` 의 PHP(공식 이미지) · 직접 빌드의
   흔한 자리 `/usr/local/php` · `/opt/php` · 배포판마다의 설정 파일 자리. 정해 둔 자리 밖을 찾을 때만 실행 중인
-  프로세스(Windows 는 실린 모듈까지) · 서비스(Windows 서비스 · systemd 유닛) · Windows 의 Apache 설정(Apache Lounge ·
-  XAMPP · WampServer · Laragon 의 설정 폴더) · IIS 설정(`C:\Windows\System32\inetsrv\config`)을 봅니다.
+  프로세스(Windows 는 실린 모듈까지) · 서비스(Windows 서비스 · NSSM 이 띄우는 프로그램 · systemd 유닛 · SysV ·
+  OpenRC · Upstart 시작 스크립트) · Apache 설정(Windows: Apache Lounge · XAMPP · WampServer · Laragon 의 설정 폴더,
+  리눅스: `/etc/apache2` · `/etc/httpd` · `/usr/local/apache2/conf` · `/opt/lampp/etc`) · IIS
+  설정(`C:\Windows\System32\inetsrv\config`)을 봅니다.
 
 판정 표와 근거(공지 번호)는 룰 폴더 `php2shell-check-windows` · `php2shell-check-linux` ·
 `php-session-check-windows` · `php-session-check-linux` 의 `RELEASE.md` 에 있습니다.
