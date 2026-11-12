@@ -360,8 +360,24 @@ fn take_body<P: FsRead>(
             format!("the total body cap of {mb}MB was reached — this item was not captured"),
         ));
     }
-    let bytes = match fs.read_file(path, cap.min(TOTAL_BUDGET - sink.spent)) {
+    let limit = cap.min(TOTAL_BUDGET - sink.spent);
+    let bytes = match fs.read_file(path, limit) {
         Ok(Some(b)) => b,
+        // **남은 총량이 파일당 상한보다 작았다** — 그러면 걸린 것은 총량이다(2026-11-12 실측). 파일당
+        // 상한으로 말하면 1.8 MB 짜리 jar 마다 *"상한 8388608 바이트를 넘어"* 가 찍혀, 작성자가 엉뚱한
+        // 칸(`max_size`)을 고친다.
+        Ok(None) if limit < cap => {
+            let mb = TOTAL_BUDGET / (1024 * 1024);
+            return Err(lang.pick(
+                format!(
+                    "'{path}' 가 본문 총량 상한 {mb}MB 의 남은 {limit} 바이트보다 커 담지 않았습니다"
+                ),
+                format!(
+                    "'{path}' is larger than the {limit} bytes left of the {mb}MB total body cap \
+                     and was not captured"
+                ),
+            ));
+        }
         Ok(None) => {
             return Err(lang.pick(
                 format!("'{path}' 가 상한 {cap} 바이트를 넘어 담지 않았습니다"),
@@ -1069,6 +1085,48 @@ collect_extra:
                 .reason
                 .contains(remedy_sdk::i18n::t("총량 상한", "total body cap")),
             "{pass:?}"
+        );
+    }
+
+    #[test]
+    fn a_file_under_its_own_cap_but_over_the_rest_of_the_budget_is_told_by_the_budget() {
+        // 2026-11-12 실측: 고친 판 jar 80개(1.8 MB 씩)를 담다 총량에 닿자 나머지 jar 마다 *"상한
+        // 8388608 바이트를 넘어"* 가 찍혔다 — 그 파일들은 파일당 상한보다 작다. 걸린 것은 남은 총량이다.
+        const LEFT: u64 = 1024 * 1024;
+        let spent = TOTAL_BUDGET - LEFT;
+        assert_eq!(
+            spent % 3,
+            0,
+            "길이만으로 정확히 맞추려면 3 의 배수여야 한다"
+        );
+        let blobs: BTreeMap<String, String> = [(
+            "sha256:거의".to_string(),
+            "A".repeat((spent / 3 * 4) as usize),
+        )]
+        .into_iter()
+        .collect();
+        assert_eq!(blob_bytes(&blobs), spent);
+        let two_mib = vec![1u8; 2 * 1024 * 1024];
+        let f = fs(&[("c:\\app\\lib.jar", &two_mib)]);
+        let m = manifest("  - { path: 'c:\\app\\lib.jar' }");
+        let mut obs = Observations {
+            blobs,
+            ..Default::default()
+        };
+        let un = collect_extra(&f, &m, &scope(), &mut obs, RefPolicy::ReportNow);
+        assert_eq!(un.len(), 1, "{un:?}");
+        let why = &un[0].reason;
+        assert!(
+            why.contains(remedy_sdk::i18n::t("총량 상한", "total body cap")),
+            "총량으로 말하지 않았다: {why}"
+        );
+        assert!(
+            !why.contains(&DEFAULT_MAX_BYTES.to_string()),
+            "파일당 상한으로 말했다: {why}"
+        );
+        assert!(
+            why.contains(&LEFT.to_string()),
+            "남은 양을 말하지 않았다: {why}"
         );
     }
 

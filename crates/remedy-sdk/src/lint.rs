@@ -2353,6 +2353,186 @@ pub fn valid_values() -> String {
     )
 }
 
+/// 형태가 깨진 매니페스트에서 **틀린 술어를 이름으로** 짚는다 (2026-11-12 · 기준 7).
+///
+/// 조건식(`Condition`)과 술어(`Predicate`)는 꼴로 갈리는 enum(`untagged`)이라, 모르는 연산자 하나가
+/// serde 에서 *"data did not match any variant of untagged enum Condition at line 11 column 5"* 로만
+/// 나온다 — 무엇이 틀렸는지 말하지 않는다(1.10.0 실측 — `op: zip_contains`). 줄 · 열은 그 묶음의
+/// 시작이라 술어가 여럿이면 어느 것인지도 모른다. 그래서 serde 가 실패한 **뒤에** 원문을 일반 YAML
+/// 로 한 번 더 읽어, `detect[*].where` · `exclude` 의 술어마다 칸 이름과 연산자를 견준다.
+///
+/// 형태가 맞는 매니페스트에서는 빈 목록이다. YAML 자체가 깨졌어도 빈 목록이다 — 그때는 serde 의
+/// 줄 · 열이 이미 정확하다.
+pub fn schema_hints(text: &str) -> Vec<String> {
+    let Ok(doc) = serde_yaml_ng::from_str::<serde_yaml_ng::Value>(text) else {
+        return Vec::new();
+    };
+    let mut out = Vec::new();
+    let Some(rules) = doc.get("detect").and_then(|d| d.as_sequence()) else {
+        return out;
+    };
+    for (i, rule) in rules.iter().enumerate() {
+        let id = rule.get("id").and_then(|v| v.as_str()).unwrap_or("?");
+        let at = format!("detect[{i}] ('{id}')");
+        if let Some(w) = rule.get("where") {
+            condition_hints(w, &format!("{at}.where"), &mut out);
+        }
+        if let Some(seq) = rule.get("exclude").and_then(|v| v.as_sequence()) {
+            for (j, p) in seq.iter().enumerate() {
+                predicate_hints(p, &format!("{at}.exclude[{j}]"), &mut out);
+            }
+        }
+    }
+    out
+}
+
+fn condition_hints(v: &serde_yaml_ng::Value, at: &str, out: &mut Vec<String>) {
+    use serde_yaml_ng::Value;
+    match v {
+        Value::Sequence(items) => {
+            for (k, c) in items.iter().enumerate() {
+                condition_hints(c, &format!("{at}[{k}]"), out);
+            }
+        }
+        Value::Mapping(m) if m.len() == 1 && (m.contains_key("all") || m.contains_key("any")) => {
+            for key in ["all", "any"] {
+                match m.get(key) {
+                    Some(inner @ Value::Sequence(_)) => {
+                        condition_hints(inner, &format!("{at}.{key}"), out)
+                    }
+                    Some(_) => out.push(format!("{at}.{key}: 조건의 목록이어야 한다")),
+                    None => {}
+                }
+            }
+        }
+        _ => predicate_hints(v, at, out),
+    }
+}
+
+fn predicate_hints(v: &serde_yaml_ng::Value, at: &str, out: &mut Vec<String>) {
+    let Some(m) = v.as_mapping() else {
+        out.push(format!(
+            "{at}: 술어가 아니다 — `{{ field, op, value }}` · `{{ yara }}` · `all` · `any` 중 하나다"
+        ));
+        return;
+    };
+    let keys: Vec<String> = m
+        .keys()
+        .map(|k| {
+            k.as_str()
+                .map(str::to_string)
+                .unwrap_or_else(|| format!("{k:?}"))
+        })
+        .collect();
+    if keys.iter().any(|k| k == "yara") {
+        for k in keys.iter().filter(|k| *k != "yara") {
+            out.push(format!(
+                "{at}: yara 술어에 모르는 칸 '{k}' — `yara` 하나만 쓴다"
+            ));
+        }
+        return;
+    }
+    if keys.iter().any(|k| k == "all" || k == "any") {
+        out.push(format!("{at}: `all` · `any` 는 그 칸 하나만 가진 묶음이다"));
+        return;
+    }
+    for k in keys
+        .iter()
+        .filter(|k| !["field", "op", "value"].contains(&k.as_str()))
+    {
+        out.push(format!(
+            "{at}: 모르는 칸 '{k}' — 필드 술어는 field · op · value 만 쓴다"
+        ));
+    }
+    if !keys.iter().any(|k| k == "field") {
+        out.push(format!("{at}: `field` 가 없다"));
+    }
+    match m.get("op") {
+        None => out.push(format!("{at}: `op` 가 없다")),
+        Some(op) => match op.as_str() {
+            Some(name) if Operator::ALL.iter().any(|o| o.id() == name) => {}
+            Some(name) => out.push(format!(
+                "{at}: 모르는 연산자 '{name}' — 쓸 수 있는 연산자 {}종: {}",
+                Operator::ALL.len(),
+                Operator::ALL
+                    .iter()
+                    .map(|o| o.id())
+                    .collect::<Vec<_>>()
+                    .join(" · ")
+            )),
+            None => out.push(format!("{at}: `op` 가 글자가 아니다")),
+        },
+    }
+}
+
+#[cfg(test)]
+mod schema_hint_tests {
+    use super::schema_hints;
+
+    fn manifest(where_: &str, exclude: &str) -> String {
+        format!(
+            r#"
+schema_version: 1
+id: t
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [linux]
+kind: check
+name: {{ ko: "t", en: "t" }}
+scan_roots: ["/opt"]
+subjects: [file]
+detect:
+  - id: r
+    subject: file
+    where:
+{where_}
+{exclude}
+verdict: {{ require: "r" }}
+"#
+        )
+    }
+
+    #[test]
+    fn an_unknown_operator_is_named_with_its_place_and_the_valid_ones() {
+        // 1.10.0 에서 이 룰은 `untagged enum Condition at line 11 column 5` 로만 나왔다.
+        let y = manifest(
+            "      - { field: path, op: ends_with, value: '.jar' }\n      - { field: path, op: zip_contains, value: 'x' }",
+            "",
+        );
+        assert!(serde_yaml_ng::from_str::<crate::manifest::PluginManifest>(&y).is_err());
+        let h = schema_hints(&y);
+        assert_eq!(h.len(), 1, "{h:?}");
+        assert!(h[0].contains("detect[0] ('r').where[1]"), "{h:?}");
+        assert!(h[0].contains("모르는 연산자 'zip_contains'"), "{h:?}");
+        assert!(
+            h[0].contains("ends_with"),
+            "쓸 수 있는 것을 말하지 않았다: {h:?}"
+        );
+    }
+
+    #[test]
+    fn nested_groups_exclude_and_unknown_keys_are_reached() {
+        let y = manifest(
+            "      - any:\n          - { field: path, op: ends_with, valu: '.jar' }\n          - { yara: 'rules/a.yar:x', op: equals }",
+            "    exclude:\n      - { field: path, op: inside }",
+        );
+        let h = schema_hints(&y).join("\n");
+        assert!(h.contains("where[0].any[0]: 모르는 칸 'valu'"), "{h}");
+        assert!(
+            h.contains("where[0].any[1]: yara 술어에 모르는 칸 'op'"),
+            "{h}"
+        );
+        assert!(h.contains("exclude[0]: 모르는 연산자 'inside'"), "{h}");
+    }
+
+    #[test]
+    fn a_manifest_that_parses_has_no_hints() {
+        let y = manifest("      - { field: path, op: ends_with, value: '.jar' }", "");
+        assert!(serde_yaml_ng::from_str::<crate::manifest::PluginManifest>(&y).is_ok());
+        assert!(schema_hints(&y).is_empty());
+    }
+}
+
 #[cfg(test)]
 mod depth_tests {
     use super::root_depth;
