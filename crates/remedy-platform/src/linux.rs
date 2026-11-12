@@ -88,20 +88,47 @@ const REMOVABLE_PARENTS: [&str; 3] = ["/media", "/run/media", "/mnt"];
 ///
 /// `/` 는 늘 든다 — 루트 파일 시스템의 형식을 `sysinfo` 가 고르지 못하면 기계의 대부분을 잃는다.
 fn local_disk_mounts() -> (Vec<String>, Vec<String>) {
+    let found: Vec<MountSeen> = sysinfo::Disks::new_with_refreshed_list()
+        .iter()
+        .filter(|d| !d.is_removable())
+        .map(|d| {
+            let at = d.mount_point().to_string_lossy().to_string();
+            MountSeen {
+                is_dir: std::path::Path::new(&at).is_dir(),
+                fs: d.file_system().to_string_lossy().to_string(),
+                at,
+            }
+        })
+        .collect();
+    pick_disk_mounts(&found)
+}
+
+/// 마운트 하나 — 자리 · 형식 · 폴더인가.
+struct MountSeen {
+    at: String,
+    fs: String,
+    is_dir: bool,
+}
+
+/// 마운트 목록에서 `%FIXED_DISKS%` 의 뿌리를 고른다 — [`local_disk_mounts`] 의 판단만 떼어 시험한다.
+///
+/// **폴더가 아닌 마운트는 뿌리가 아니다**(2026-11-12 실측). Docker 는 `/etc/hostname` · `/etc/hosts` ·
+/// `/etc/resolv.conf` 를 호스트 디스크(ext4)의 **파일**로 붙이고, `sysinfo` 는 그것도 디스크로 낸다. 그대로 뿌리로
+/// 걸으면 폴더를 열지 못해 *거부* 로 세어(셋) 깨끗한 컨테이너의 점검이 늘 확인 필요(6)가 된다. 그 파일들은 `/` 를
+/// 걸을 때 이름으로 이미 지나가므로 따로 알리지 않는다.
+fn pick_disk_mounts(found: &[MountSeen]) -> (Vec<String>, Vec<String>) {
     let mut mounts = vec!["/".to_string()];
     let mut skipped = Vec::new();
-    for d in sysinfo::Disks::new_with_refreshed_list().iter() {
-        if d.is_removable() {
+    for m in found {
+        if !m.is_dir {
             continue;
         }
-        let fs = d.file_system().to_string_lossy().to_string();
-        let at = d.mount_point().to_string_lossy().to_string();
-        if matches!(fs.as_str(), "9p" | "drvfs" | "virtiofs" | "autofs") || fs.starts_with("fuse.")
-        {
-            skipped.push(format!("{at} ({fs})"));
+        let fs = m.fs.as_str();
+        if matches!(fs, "9p" | "drvfs" | "virtiofs" | "autofs") || fs.starts_with("fuse.") {
+            skipped.push(format!("{} ({fs})", m.at));
             continue;
         }
-        mounts.push(at);
+        mounts.push(m.at.clone());
     }
     mounts.sort();
     mounts.dedup();
@@ -1680,6 +1707,35 @@ pub const NOT_IMPLEMENTED_YET: [(&str, &str); 0] = [];
 mod tests {
     use super::*;
     use crate::local::PathView;
+
+    /// 디스크 토큰의 뿌리 — Docker 컨테이너에서 잰 마운트 목록 그대로다(2026-11-12 · ubuntu:24.04).
+    ///
+    /// 파일로 붙은 `/etc/hosts` 류를 뿌리로 고르면 폴더를 열지 못해 거부 셋이 세어지고 깨끗한 컨테이너가 확인 필요가
+    /// 됐다. 9p(WSL 이 붙인 Windows 쪽 폴더)는 빼되 그렇다고 알린다.
+    #[test]
+    fn disk_roots_are_directories_on_local_disks() {
+        let seen = |at: &str, fs: &str, is_dir: bool| MountSeen {
+            at: at.to_string(),
+            fs: fs.to_string(),
+            is_dir,
+        };
+        let found = [
+            seen("/", "overlay", true),
+            seen("/b", "ext4", true),
+            seen("/out", "9p", true),
+            seen("/scan", "ext4", true),
+            seen("/etc/hostname", "ext4", false),
+            seen("/etc/hosts", "ext4", false),
+            seen("/etc/resolv.conf", "ext4", false),
+            seen("/home/u/remote", "fuse.sshfs", true),
+        ];
+        let (roots, skipped) = pick_disk_mounts(&found);
+        assert_eq!(roots, ["/", "/b", "/scan"]);
+        assert_eq!(skipped, ["/home/u/remote (fuse.sshfs)", "/out (9p)"]);
+
+        // 아무것도 고르지 못해도 `/` 는 든다.
+        assert_eq!(pick_disk_mounts(&[]).0, ["/"]);
+    }
 
     /// 토큰을 펴되 **주석이 영어 회차에서 한글로 나오지 않는가**를 함께 잰다.
     ///
