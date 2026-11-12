@@ -18,7 +18,7 @@
 |---|---|---|---|
 | `persistence` | P2 | P12 | 예약 작업 · cron · systemd timer |
 | `autorun` | P4 | P12 | Run/RunOnce · 시작 폴더 · 셸 프로필 · XDG autostart |
-| `service` | P4 | P12 | Windows 서비스 · systemd service · SysV init |
+| `service` | P4 | P12 | Windows 서비스 · systemd service · SysV · OpenRC · Upstart 시작 스크립트 |
 | `process` | P4 | P12 | 실행 중인 프로세스와 로드된 모듈 |
 | `file` | P2 | P12 | 파일 메타데이터 · 해시 · 서명 · 영역 · 대체 스트림 |
 | `indicator` | P4 | P12 | 다른 관찰에서 파생된 지표 (url · domain · ip · hash) |

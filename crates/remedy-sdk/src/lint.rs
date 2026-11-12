@@ -2006,13 +2006,19 @@ fn check_overbroad(m: &PluginManifest, out: &mut Vec<LintIssue>) {
         // **레지스트리 루트는 다르다.** 값 수집은 재귀하지 않아 선언한 키의
         // 직속 값만 읽는데, 하위 키 이름이 미리 정해지지 않는 자리가 있다
         // (IFEO 는 하이재킹당한 실행 파일 이름마다 키를 하나씩 둔다). 그래서
-        // **맨 끝의 `\*` 하나**를 받아 그 키의 직속 하위 키로 펼친다.
+        // **한 칸 전체인 `\*` 하나**를 받아 그 키의 직속 하위 키로 펼친다.
         //
-        // 맨 끝으로 제한하는 이유가 둘이다. 하나는 전개기가 **첫 번째** `\*` 만
+        // 하나로 제한하는 이유가 둘이다. 하나는 전개기가 **첫 번째** `\*` 만
         // 펼쳐서 둘을 쓰면 뒤엣것이 리터럴로 남아 조용히 0건이 되는 것이고,
         // 다른 하나는 `scan_roots` 가 읽기 권한 상한이라 한 단계보다 넓히면
         // 그만큼 서명된 플러그인이 읽는 범위가 커지는 것이다.
         // **파일 경로에 열지 않은 것은 결정이다** (2026-09-02).
+        //
+        // **가운데의 `\*` 하나도 받는다** (2026-11-12 · 목표 결정 28). 전개기는 별표 뒤의 꼬리를
+        // 그대로 붙여(`<머리>\<하위 키>\<꼬리>`) 리터럴이 남지 않고, 읽는 키 수는 끝의 별표와 같다 —
+        // `Services\*\Parameters` 는 서비스마다 `Parameters` 키 하나만 읽고 서비스 키 자체의 값은
+        // 읽지 않는다. NSSM 이 감싸 띄우는 프로그램의 자리(`Parameters\Application`)가 그 꼴이다.
+        // 없는 하위 키는 거부가 아니라 '없음' 이다(`registry_values` 의 `deny_if_unreadable`).
         //
         // 필요는 실재한다 — 브라우저 프로필처럼 경로 한 조각이 기계마다 다른
         // 자리가 있고, `hijack-r1` 과 `hijack-r2` 가 그 앞에서 갈렸다. 한쪽은
@@ -2052,7 +2058,7 @@ fn check_overbroad(m: &PluginManifest, out: &mut Vec<LintIssue>) {
                 || crate::catalog::DESIGNATED_TOKENS
                     .iter()
                     .any(|d| r.contains(d.token))
-                || (r.ends_with("\\*") && r.matches('*').count() == 1)
+                || (r.matches('*').count() == 1 && (r.ends_with("\\*") || r.contains("\\*\\")))
         } else {
             let body = crate::catalog::DESIGNATED_TOKENS
                 .iter()
@@ -2066,10 +2072,11 @@ fn check_overbroad(m: &PluginManifest, out: &mut Vec<LintIssue>) {
                 at.clone(),
                 if crate::catalog::is_registry_root(r) {
                     format!(
-                        "'{r}' 의 `*` 자리가 맞지 않는다. 레지스트리 루트는 **맨 끝의 \
-                         `\\*` 하나**만 받는다 — 그 키의 직속 하위 키로 펼쳐진다. 중간에 \
-                         두거나 둘 이상 쓰면 첫 번째만 펼쳐지고 나머지는 리터럴로 남아 \
-                         조용히 0건이 된다"
+                        "'{r}' 의 `*` 자리가 맞지 않는다. 레지스트리 루트는 **한 칸 전체인 \
+                         `\\*` 하나**만 받는다(맨 끝 `…\\*` 또는 가운데 `…\\*\\…`) — 그 키의 \
+                         직속 하위 키로 펼쳐지고 뒤의 칸은 하위 키마다 그대로 붙는다. 둘 이상 \
+                         쓰면 첫 번째만 펼쳐지고 나머지는 리터럴로 남아 조용히 0건이 되고, \
+                         `Run*` 처럼 이름에 섞인 별표는 펼치지 않는다"
                     )
                 } else {
                     format!(
@@ -2084,8 +2091,8 @@ fn check_overbroad(m: &PluginManifest, out: &mut Vec<LintIssue>) {
                 "설계-02 §2",
             );
             issue.valid = Some(
-                "실제 디렉터리 경로 · 지정 토큰 · 마지막 칸의 이름 꼴(`…\\*.js`) · 맨 끝이 \
-                 `\\*` 인 레지스트리 키"
+                "실제 디렉터리 경로 · 지정 토큰 · 마지막 칸의 이름 꼴(`…\\*.js`) · 한 칸 \
+                 전체인 `\\*` 하나를 둔 레지스트리 키(`…\\*` · `…\\*\\…`)"
                     .into(),
             );
             out.push(issue);
@@ -2101,8 +2108,19 @@ fn check_overbroad(m: &PluginManifest, out: &mut Vec<LintIssue>) {
         if crate::normalize::glob_root(r).is_some() {
             continue;
         }
-        let measured = r.strip_suffix("\\*").unwrap_or(r);
-        match root_depth(measured) {
+        // **가운데 별표도 한 단계를 사지 않는다** (2026-11-12) — 그 칸을 빼고 잰다.
+        // `HKLM\*\X` 는 `HKLM\*` 만큼의 키를 읽는다. 지정 토큰(`HKU\*`)은 전처럼 잰다.
+        let measured = match r.strip_suffix("\\*") {
+            Some(head) => head.to_string(),
+            None if !crate::catalog::DESIGNATED_TOKENS
+                .iter()
+                .any(|d| r.contains(d.token)) =>
+            {
+                r.replacen("\\*\\", "\\", 1)
+            }
+            None => r.to_string(),
+        };
+        match root_depth(&measured) {
             // `C:\` · `/` · `C:\Users` 처럼 얕은 루트는 사실상 전 디스크다.
             // **`structured_config` 가 함께 선언되면 폭이 상한 문제가 된다.**
             //
@@ -2685,18 +2703,41 @@ verdict: {{ require: 'r' }}
         }
     }
 
-    /// 전개기가 **첫 번째** 별표만 펼친다. 중간에 두거나 둘 이상 쓰면 나머지가
-    /// 리터럴로 남아 조용히 0건이 된다.
+    /// 전개기가 **첫 번째** 별표만 펼친다. 둘 이상 쓰면 나머지가 리터럴로 남아 조용히
+    /// 0건이 되고, 이름에 섞인 별표(`Run*`)는 펼치지 않는다.
     #[test]
-    fn a_star_anywhere_but_the_end_is_an_error() {
+    fn a_second_star_or_a_star_inside_a_name_is_an_error() {
         for r in [
-            "HKLM\\SOFTWARE\\*\\Windows".to_string(),
             format!("{IFEO}\\*\\*"),
+            "HKLM\\SOFTWARE\\*\\*\\Windows".to_string(),
+            "HKLM\\SOFTWARE\\Microsoft\\Run*".to_string(),
+            "HKLM\\SOFTWARE\\*x\\Windows".to_string(),
         ] {
             let got = at_roots(&[&r]);
             assert_eq!(got.len(), 1, "{r}: {got:?}");
             assert_eq!(got[0].0, Severity::Error, "{r}");
         }
+    }
+
+    /// **가운데의 한 칸 별표는 받는다** (2026-11-12). 전개기가 꼬리를 하위 키마다 붙이므로
+    /// 리터럴이 남지 않는다 — NSSM 이 감싸 띄우는 프로그램이 `Services\*\Parameters` 에 있다.
+    #[test]
+    fn a_registry_root_may_hold_one_star_in_the_middle() {
+        for r in [
+            "HKLM\\SYSTEM\\CurrentControlSet\\Services\\*\\Parameters",
+            "HKLM\\SOFTWARE\\*\\Windows",
+        ] {
+            let got = at_roots(&[r]);
+            assert!(got.is_empty(), "{r}: {got:?}");
+        }
+    }
+
+    /// 가운데 별표도 깊이를 사지 않는다 — `HKLM\*\X` 는 `HKLM\*` 만큼의 키를 읽는다.
+    #[test]
+    fn a_middle_star_does_not_buy_a_depth_level() {
+        let got = at_roots(&["HKLM\\*\\Parameters"]);
+        assert_eq!(got.len(), 1, "{got:?}");
+        assert_eq!(got[0].0, Severity::Warning);
     }
 
     /// 지정 토큰은 그대로 통한다. 이쪽은 별표가 중간에 온다.

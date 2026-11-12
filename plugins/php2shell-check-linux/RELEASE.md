@@ -1,6 +1,27 @@
 # php2shell-check-linux — 릴리스 기록
 
-**버전 0.5.0** · 대상: PHP2Shell(CVE-2026-109618 · CVE-2026-109619) — 리눅스의 PHP 런타임 · **점검**(바꾸지 않는다)
+**버전 0.6.0** · 대상: PHP2Shell(CVE-2026-109618 · CVE-2026-109619) — 리눅스의 PHP 런타임 · **점검**(바꾸지 않는다)
+
+## 0.6.0 — 시작 스크립트 · Apache 설정 (2026-11)
+
+멈춰 있어도 남는 자리 둘을 더 본다(목표 결정 28). 둘 다 선언한 자리 밖의 PHP 면 그 경로를 적어 **확인 필요(6)** 로
+내고, 그 PHP 의 파일은 열지 않는다.
+
+- **SysV · OpenRC · Upstart 의 시작 스크립트** — 코어 1.10.0 이 `/etc/init.d/*` · `/etc/init/*.conf` 를 **실행하지
+  않고** 읽어, 글자 그대로 풀리는 실행 파일 자리를 서비스로 낸다: 실행 파일 변수(`DAEMON` · `EXEC` · OpenRC 의
+  `command` · 끝이 `_BIN` 인 것 — PHP 가 내는 php-fpm 스크립트의 `php_fpm_BIN`), `exec <경로>`, `start-stop-daemon
+  --exec <경로>`, `daemon <경로>`. 덮어쓰는 설정(`/etc/default/<이름>` · `/etc/sysconfig/<이름>` 은 스크립트가 그
+  경로를 적었을 때, OpenRC 는 `/etc/conf.d/<이름>`)도 읽는다. 0.5.0 의 서비스 규칙(`service_php`)이 그대로 본다 —
+  항목 줄은 `<스크립트 이름>  (실행 파일 <경로>)` 이다.
+- **Apache 설정의 `LoadModule` 줄** — 이름에 `php` 가 든 모듈(`php_module` · `php7_module` · `php_zts_module` …)을
+  싣는 줄. 읽는 자리는 Debian 계열 `/etc/apache2`(모듈 줄은 `mods-available/*.load` — 켠 것을 가리키는
+  `mods-enabled` 는 링크라 따라가지 않으므로 켜지 않은 모듈의 줄도 읽힌다) · RPM 계열 `/etc/httpd` · 직접 빌드
+  `/usr/local/apache2/conf` · XAMPP `/opt/lampp/etc`. 배포판 패키지가 모듈을 두는 자리(`/usr/lib(64)/apache2*` ·
+  `httpd*` — SUSE 의 `/usr/lib64/apache2/mod_php8.so` 포함)와 RPM 계열의 `ServerRoot` 기준 `modules/` 는 선언한
+  자리로 친다 — 그 PHP 는 패키지 규칙이 판정한다. 직접 빌드 · XAMPP 의 `modules/` 는 그 Apache 아래라 확인 필요다.
+  항목 줄은 `<파일>:<줄 번호>  (줄 <그 줄>)` 이다.
+
+코어 1.10.0 이 필요하다(시작 스크립트의 서비스). 그 밖의 판정은 0.5.0 과 같다.
 
 ## 0.5.0 — 서비스로 등록된 PHP (2026-11)
 
@@ -81,14 +102,15 @@ systemd 유닛이 선언한 자리 밖의 PHP 를 띄우면(`ExecStart` 의 첫 
 |---|---|
 | 2 | **취약** — 화면의 항목을 고친 버전 이상으로 올리고 PHP · 웹 서버를 다시 시작한다 |
 | 0 | 취약한 곳을 찾지 못했다 — 고친 버전이거나, 선언한 자리에 PHP 가 없다 |
-| 6 | **확인 필요** — `주의:` 아래 줄이 무엇을 확인할지 말한다(공급사 패치 여부 · 버전과 받은 곳). 선언한 자리 밖에서 실행 중인 PHP 면 항목 줄에 그 경로가 있다 — 서비스로 등록된 것은 `<유닛>  (실행 파일 <경로>)`(0.5.0) |
+| 6 | **확인 필요** — `주의:` 아래 줄이 무엇을 확인할지 말한다(공급사 패치 여부 · 버전과 받은 곳). 선언한 자리 밖에서 실행 중인 PHP 면 항목 줄에 그 경로가 있다 — 서비스로 등록된 것은 `<유닛 · 스크립트 이름>  (실행 파일 <경로>)`(0.5.0 · 시작 스크립트는 0.6.0), Apache 설정의 줄은 `<파일>:<줄 번호>  (줄 <그 줄>)`(0.6.0) |
 
 ## 이 룰이 보지 않는 것
 
 - **옛 파일이 남은 채 떠 있는 PHP 가 고친 버전을 실었는가** — 옛 파일이 지워졌으면 0.4.0 이 확인 필요로 알리지만,
   지워지지 않았으면(같은 파일을 덮어쓰지 않고 다른 자리에 깐 경우 등) 다시 시작했는지 가리지 못한다.
-- 선언한 자리 밖에 놓였을 뿐 실행 중이 아닌 PHP(예: `/opt` 아래 직접 빌드 · RHEL 의 Software Collections) ·
-  Apache 가 싣는 선언 밖의 `libphp*.so` · 컨테이너 안의 PHP(그 컨테이너 안에서 돌리거나 `remedy-net container`).
+- 선언한 자리 밖에 놓였을 뿐 실행 중도 아니고 서비스 · Apache 설정에도 적히지 않은 PHP(예: `/opt` 아래 직접 빌드 ·
+  RHEL 의 Software Collections) · 위에 적은 자리 밖의 Apache 설정(`Include` 로 다른 곳에서 읽는 설정) · 셸 함수 ·
+  명령 치환으로 정한 시작 스크립트의 경로 · 컨테이너 안의 PHP(그 컨테이너 안에서 돌리거나 `remedy-net container`).
 - 패키지가 깐 PHP 가 싣는 공유 라이브러리 · 확장이 바뀌었는가 — 패키지 기록과 대조하는 것은 실행 파일 자리뿐이다.
   apk(Alpine)는 대조하지 않는다(Alpine 의 PHP 패키지는 늘 확인 필요다).
 
@@ -111,6 +133,7 @@ systemd 유닛이 선언한 자리 밖의 PHP 를 띄우면(`ExecStart` 의 첫 
 | G1 | 청정 환경 무해성 | **통과** | 청정 스냅샷에서 판정 0 — 다만 청정 코퍼스에는 PHP 가 깔린 기계가 없다(`24-check-plugins.md` §청정 코퍼스) |
 | G2~G4 | 복원 · 계획 · 치료 | **미해당** | 바꾸는 것이 없다 |
 | 모양 | 판정 규칙 | **69/69** | 손으로 지은 기계 모양을 `remedy evaluate` 로 — 줄마다 취약 · 고친 버전 · 줄 밖 · ESM · 공식 해시 · 섞인 기계, RPM 은 공급사 줄마다 취약 · 고친 버전 · 이전 마이너 · 다른 스트림 · RHEL 7 의 반쪽 수정 · SCL · 같은 버전 문자열의 Rocky · Alma · 공지 없는 공급사 · 패키지 없는 실행 파일 |
+| 실기계 · 0.6.0 | 수집 → 판정 | **14/14** | 2026-11-12 · 일회용 컨테이너에 파일만 두거나 실제 패키지를 깔고(아무것도 띄우지 않음) 0.5.0(코어 1.9.0 공개본)과 0.6.0(1.10.0 개발 빌드)을 나란히 — SysV 스크립트의 `php_fpm_BIN=${exec_prefix}/sbin/php-fpm`(`prefix=/opt/php83`) **0 → 6** · Upstart `exec /srv/php/bin/php … >> 로그 2>&1` **0 → 6** · Debian `mods-available` 의 선언 밖 `LoadModule` **0 → 6** · 직접 빌드 `/usr/local/apache2/conf` · XAMPP `/opt/lampp/etc` 의 `modules/libphp.so` **0 → 6** 둘 · RPM 자리의 선언 밖 `php_zts_module` **0 → 6** · SUSE 꼴 `/usr/lib64/apache2/mod_php8.so` **0 → 0** · RHEL 8 의 `15-php.conf`(상대 `modules/libphp7.so`) **0 → 0** · node 스크립트 둘 · 깨끗한 debian:12 **0 → 0** · 실제 설치본 Debian 12 `php8.2-fpm` + `libapache2-mod-php8.2`(`/etc/init.d/php8.2-fpm` · `php8.2.load` 가 있다) **0 → 0** · 공식 `php:8.2-apache` **6 → 6** · Rocky 9 `php` + `httpd` **6 → 6** — 실제 설치본 셋은 항목 줄까지 같다. 항목 줄은 `php83-fpm  (실행 파일 /opt/php83/sbin/php-fpm)` · `/etc/httpd/conf.modules.d/20-php.conf:2  (줄 LoadModule php_zts_module …)` (B 는 glibc 2.34 동적 개발 빌드라 Rocky 8(glibc 2.28)의 실제 설치본에서는 돌지 않아, 그 설치본의 `15-php.conf` 꼴을 debian:12 에 옮겨 쟀다) |
 | 실기계 | 수집 → 판정 | **7/7** | 2026-11-09 · 네트워크가 있는 일회용 컨테이너에 실제 PHP 를 깔고 수집(1.2.1 로 수집 · 1.3.0 으로 판정) — Ubuntu 22.04(`8.1.2-1ubuntu2.28`) **0** · Debian 12(`8.2.35-1~deb12u1`) **0** · 공식 `php:8.3.35-cli` **2** · `php:8.3.36-cli` · `-fpm` **0** · Rocky 9 **6** · Alpine 3.22(`php83 8.3.36-r0`) **6**. 실제 수집에서 확인한 것: dpkg 의 `source` 칸이 채워진다 · Debian 계열 `/usr/bin/php` 는 링크라 해시가 없다 · RPM 의 실행 파일은 정규 파일이다 |
 | 실기계 · 자리 밖 | 수집 → 판정 | **3/3** | 2026-11-11 · 일회용 컨테이너에서 0.1.0(코어 1.5.0 공개본)과 0.2.0(1.6.0 개발 빌드)을 나란히 — 공식 `php:8.3.36-cli` 그대로 **0 → 0** · 같은 `php` 를 `/opt/custom/bin` 에 복사해 실행 **0 → 6** · `php:8.3.36-fpm` 에서 선언한 자리의 `php-fpm` 을 root 로 띄움 **0 → 6** — 이것은 자리 밖이 아니라 www-data 작업자 둘을 들여다보지 못한 관측 불완전이다(기본 권한 컨테이너 · `--cap-add SYS_PTRACE` 나 `docker exec --privileged` 면 읽힌다) |
 | 실기계 · 0.5.0 | 수집 → 판정 | **6/6** | 2026-11-12 · 일회용 `debian:12` 컨테이너에 systemd 유닛 파일만 두고(아무것도 띄우지 않음) 0.3.0(코어 1.7.0 공개본)과 0.5.0(1.9.0 개발 빌드)을 나란히 — `ExecStart=/opt/php83/sbin/php-fpm` **0 → 6**(화면: `php83-fpm.service  (실행 파일 /opt/php83/sbin/php-fpm)`) · 배포판 자리 `/usr/sbin/php-fpm8.2` · 직접 빌드의 선언한 자리 `/opt/php/sbin/php-fpm` · 유닛 없음 · Node 유닛 둘 **0 → 0** |

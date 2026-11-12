@@ -104,8 +104,11 @@ fn split_hive(key: &str) -> (String, String) {
 ///   (하이재킹당한 실행 파일 이름마다 키가 하나씩 생기고 값은 그 안에 있는데,
 ///   값 수집은 재귀하지 않는다).
 ///
-/// **첫 번째 `\*` 만 펼친다.** 그래서 린트가 끝자리 하나로 제한한다 — 둘을
-/// 쓰면 뒤엣것이 리터럴로 남아 조용히 0건이 된다.
+/// - `<키>\*\<꼬리>` — 하위 키마다 **같은 이름의 아래 키 하나**. NSSM 이 감싸 띄우는
+///   프로그램이 `Services\<이름>\Parameters` 에 있다(2026-11-12). 꼬리는 그대로 붙는다.
+///
+/// **첫 번째 `\*` 만 펼친다.** 그래서 린트가 한 칸 전체인 별표 하나로 제한한다 —
+/// 둘을 쓰면 뒤엣것이 리터럴로 남아 조용히 0건이 된다.
 ///
 /// 펼치지 못하면 **빈 목록**이다. 원본을 그대로 돌려주면 별표가 든 키를
 /// 읽으려다 조용히 0건이 되고, 그것은 "그런 것이 없다" 로 읽힌다.
@@ -644,7 +647,8 @@ pub fn registry_keys<R: RegistryRead>(
     Ok(h)
 }
 
-/// `scan_roots` 중 레지스트리인 것. 끝의 `\*` 가 직속 하위 키로 펼쳐진다.
+/// `scan_roots` 중 레지스트리인 것. 한 칸 전체인 `\*` 가 직속 하위 키로 펼쳐진다
+/// (끝이면 하위 키 자체, 가운데면 하위 키마다 꼬리를 붙인 키).
 fn registry_roots<R: RegistryRead>(reg: &R, scope: &Scope) -> Vec<String> {
     let mut out: Vec<String> = scope
         .scan_roots
@@ -993,6 +997,46 @@ mod tests {
                 "HKLM\\SOFTWARE\\IFEO\\app_Classes".to_string(),
                 "HKLM\\SOFTWARE\\IFEO\\b.exe".to_string(),
             ]
+        );
+    }
+
+    /// **가운데의 `\*` 도 펼친다** (2026-11-12). 꼬리는 하위 키마다 그대로 붙고, 꼬리
+    /// 키가 없는 하위 키는 '없음' 이지 '못 봄' 이 아니다 — 서비스 대부분에는
+    /// `Parameters` 가 없다. 이름은 있는데 열리지 않는 꼬리는 여전히 못 본 것이다.
+    #[test]
+    fn a_middle_star_expands_with_its_tail_and_only_locked_tails_are_unseen() {
+        let services = "HKLM\\SYSTEM\\CurrentControlSet\\Services";
+        let reg = FakeReg::default()
+            .sub(services, &["Spooler", "web-php", "locked"])
+            .sub(&format!("{services}\\Spooler"), &[])
+            .sub(&format!("{services}\\web-php"), &["Parameters"])
+            .sub(&format!("{services}\\locked"), &["Parameters"])
+            .key(
+                &format!("{services}\\web-php\\Parameters"),
+                &[(
+                    "Application",
+                    RegValue::Str("C:\\tools\\php\\php-cgi.exe".into()),
+                )],
+            );
+        let root = format!("{services}\\*\\Parameters");
+        assert_eq!(
+            expand_user_hive(&reg, &root),
+            vec![
+                format!("{services}\\Spooler\\Parameters"),
+                format!("{services}\\locked\\Parameters"),
+                format!("{services}\\web-php\\Parameters"),
+            ]
+        );
+        let (h, _) = registry_values(&reg, &scope(&[&root])).unwrap();
+        assert_eq!(h.records.len(), 1, "{:?}", h.records);
+        assert_eq!(
+            h.records[0].key,
+            "SYSTEM\\CurrentControlSet\\Services\\web-php\\Parameters"
+        );
+        assert_eq!(h.records[0].name, "Application");
+        assert_eq!(
+            h.denied_dirs, 1,
+            "Parameters 가 없는 서비스를 못 본 것으로 셌거나, 잠긴 것을 놓쳤다"
         );
     }
 

@@ -2266,7 +2266,7 @@ checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
 
 [[package]]
 name = "remedy-apply"
-version = "1.9.0"
+version = "1.10.0"
 dependencies = [
  "remedy-journal",
  "remedy-platform",
@@ -2280,7 +2280,7 @@ dependencies = [
 
 [[package]]
 name = "remedy-artifacts"
-version = "1.9.0"
+version = "1.10.0"
 dependencies = [
  "remedy-sdk",
  "serde",
@@ -2290,7 +2290,7 @@ dependencies = [
 
 [[package]]
 name = "remedy-cli"
-version = "1.9.0"
+version = "1.10.0"
 dependencies = [
  "crossterm",
  "ctrlc",
@@ -2306,7 +2306,7 @@ dependencies = [
 
 [[package]]
 name = "remedy-collect"
-version = "1.9.0"
+version = "1.10.0"
 dependencies = [
  "base64 0.22.1",
  "md-5",
@@ -2325,7 +2325,7 @@ dependencies = [
 
 [[package]]
 name = "remedy-core"
-version = "1.9.0"
+version = "1.10.0"
 dependencies = [
  "base64 0.22.1",
  "remedy-apply",
@@ -2349,7 +2349,7 @@ dependencies = [
 
 [[package]]
 name = "remedy-detect"
-version = "1.9.0"
+version = "1.10.0"
 dependencies = [
  "base64 0.22.1",
  "regex",
@@ -2364,7 +2364,7 @@ dependencies = [
 
 [[package]]
 name = "remedy-enrich"
-version = "1.9.0"
+version = "1.10.0"
 dependencies = [
  "remedy-artifacts",
  "remedy-sdk",
@@ -2372,7 +2372,7 @@ dependencies = [
 
 [[package]]
 name = "remedy-journal"
-version = "1.9.0"
+version = "1.10.0"
 dependencies = [
  "remedy-sdk",
  "serde",
@@ -2381,7 +2381,7 @@ dependencies = [
 
 [[package]]
 name = "remedy-net"
-version = "1.9.0"
+version = "1.10.0"
 dependencies = [
  "ctrlc",
  "flate2",
@@ -2407,7 +2407,7 @@ dependencies = [
 
 [[package]]
 name = "remedy-plan"
-version = "1.9.0"
+version = "1.10.0"
 dependencies = [
  "remedy-artifacts",
  "remedy-sdk",
@@ -2417,7 +2417,7 @@ dependencies = [
 
 [[package]]
 name = "remedy-platform"
-version = "1.9.0"
+version = "1.10.0"
 dependencies = [
  "base64 0.22.1",
  "fs4",
@@ -2435,7 +2435,7 @@ dependencies = [
 
 [[package]]
 name = "remedy-quarantine"
-version = "1.9.0"
+version = "1.10.0"
 dependencies = [
  "argon2",
  "base64 0.22.1",
@@ -2455,7 +2455,7 @@ dependencies = [
 
 [[package]]
 name = "remedy-report"
-version = "1.9.0"
+version = "1.10.0"
 dependencies = [
  "regex",
  "remedy-sdk",
@@ -2464,11 +2464,11 @@ dependencies = [
 
 [[package]]
 name = "remedy-rpmdb"
-version = "1.9.0"
+version = "1.10.0"
 
 [[package]]
 name = "remedy-sdk"
-version = "1.9.0"
+version = "1.10.0"
 dependencies = [
  "regex",
  "schemars",
@@ -2480,7 +2480,7 @@ dependencies = [
 
 [[package]]
 name = "remedy-testkit"
-version = "1.9.0"
+version = "1.10.0"
 dependencies = [
  "flate2",
  "remedy-sdk",
@@ -2491,7 +2491,7 @@ dependencies = [
 
 [[package]]
 name = "remedy-trust"
-version = "1.9.0"
+version = "1.10.0"
 dependencies = [
  "minisign",
  "minisign-verify",
@@ -2504,21 +2504,21 @@ dependencies = [
 
 [[package]]
 name = "remedy-winmods"
-version = "1.9.0"
+version = "1.10.0"
 dependencies = [
  "windows-sys 0.59.0",
 ]
 
 [[package]]
 name = "remedy-wintrust"
-version = "1.9.0"
+version = "1.10.0"
 dependencies = [
  "windows-sys 0.59.0",
 ]
 
 [[package]]
 name = "remedy-yara"
-version = "1.9.0"
+version = "1.10.0"
 dependencies = [
  "remedy-sdk",
  "yara-x",
@@ -4093,7 +4093,7 @@ dependencies = [
 
 [[package]]
 name = "xtask"
-version = "1.9.0"
+version = "1.10.0"
 dependencies = [
  "flate2",
  "minisign",

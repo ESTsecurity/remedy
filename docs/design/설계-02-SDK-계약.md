@@ -71,7 +71,7 @@ signed_malware:                      # 서명된 악성코드 예외. 목록 자
 |---|---|---|---|
 | `persistence` | 예약 작업 | cron 항목, systemd timer | `id, name, enabled, trigger, command, args, principal, source` |
 | `autorun` | Run/RunOnce 키, 시작 폴더 | `~/.bashrc`·`~/.profile` 라인, XDG autostart, user unit | `id, scope(user\|system), name, command, source` |
-| `service` | Windows 서비스 | systemd service, SysV init | `id, name, state, start_type, image_path` |
+| `service` | Windows 서비스 | systemd service, SysV · OpenRC · Upstart 시작 스크립트(1.10.0 · 실행하지 않고 푼 실행 파일) | `id, name, state, start_type, image_path` |
 | `process` | — | — | `pid, ppid, image_path, cmdline, cmdline_decoded, args, user, start_time, modules[]` |
 | `file` | — | — | `path, size, mtime, ctime, sha256, signature{...}, zone{...}, reputation{...}, streams[]` |
 | `indicator` | 파생 관찰 | 파생 관찰 | `kind(url\|domain\|ip\|hash), value, source_ref, reputation{...}` |
