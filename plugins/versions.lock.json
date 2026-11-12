@@ -64,6 +64,12 @@
       "plugin.yaml": "fead3c31459d4c0c082c2ae447b448e1d586d508a530eebdd911a2351599c2bc"
     }
   },
+  "log4j-check": {
+    "version": "0.1.0",
+    "files": {
+      "plugin.yaml": "073fcafd1f96e68752fb2234947776e244b8a5ed8c905f48d8f1084d2bc56a1e"
+    }
+  },
   "node2shell-check-linux": {
     "version": "0.6.0",
     "files": {
