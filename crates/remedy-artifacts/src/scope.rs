@@ -47,6 +47,18 @@ pub struct Scope {
     pub max_large_hash_bytes: u64,
     /// 수집할 파일 개수 상한. 넘으면 `truncated` 가 선다.
     pub max_files: usize,
+    /// `file` 이 기록할 파일의 이름 꼴(매니페스트의 `file_names` · 코어 1.11.0). **비면 전부다** — 지금까지와
+    /// 같다. 대소문자를 가리지 않는다.
+    pub file_names: Vec<String>,
+    /// `archive_entry` 가 기록할 항목의 잎 이름 꼴(매니페스트의 `archive_members` · 코어 1.11.0). 이 꼴에
+    /// 맞고 zip 꼴인 항목은 안쪽 아카이브로 연다. 대소문자를 가리지 않는다.
+    pub archive_members: Vec<String>,
+    /// `scan_roots` 가운데 `%FIXED_DISKS%` 에서 나온 것들(코어 1.11.0).
+    ///
+    /// **그 뿌리는 다른 마운트로 넘어가지 않고 걷는다.** 리눅스의 `/` 를 그냥 걸으면 `/proc` · `/sys` 로
+    /// 내려가고, 따로 뿌리가 된 디스크(`/home`)를 두 번 걷는다. 이 목록 밖의 뿌리는 전처럼 걷는다 —
+    /// 출하 룰의 걷기가 바뀌지 않는다.
+    pub disk_roots: Vec<String>,
     /// 프로세스마다 **실린 모듈을 열 것인가** — 룰이 `process.modules` · `process.modules_denied` 를 쓸 때만
     /// 참이다(2026-11-12).
     ///
@@ -80,6 +92,10 @@ impl Scope {
             hash_large: Vec::new(),
             max_large_hash_bytes: MAX_LARGE_HASH_BYTES,
             max_files: 500_000,
+            // 매니페스트가 없으니 거를 이름도 · 열 아카이브도 · 디스크 토큰도 없다.
+            file_names: Vec::new(),
+            archive_members: Vec::new(),
+            disk_roots: Vec::new(),
             // 진단 모드는 프로세스를 모으지 않는다(`subjects` 가 파일 · 지속성 둘이다).
             process_modules: false,
         }

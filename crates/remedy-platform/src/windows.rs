@@ -259,6 +259,16 @@ impl FsRead for Live {
         crate::local::walk(self, root, limit)
     }
 
+    fn walk_files(
+        &self,
+        root: &str,
+        limit: usize,
+        names: &[String],
+        one_device: bool,
+    ) -> Result<WalkResult, PlatformError> {
+        crate::local::walk_files(self, root, limit, names, one_device)
+    }
+
     fn read_file(&self, path: &str, max: u64) -> Result<Option<Vec<u8>>, PlatformError> {
         crate::local::read_file(self, path, max)
     }
@@ -270,6 +280,15 @@ impl FsRead for Live {
         sink: &mut dyn FnMut(&[u8]),
     ) -> Result<bool, PlatformError> {
         crate::local::read_stream(self, path, max, sink)
+    }
+
+    fn read_range(
+        &self,
+        path: &str,
+        offset: u64,
+        len: usize,
+    ) -> Result<(u64, Vec<u8>), PlatformError> {
+        crate::local::read_range(self, path, offset, len)
     }
 
     fn look(&self, path: &str) -> crate::read::Seen {
@@ -1775,6 +1794,35 @@ impl ExpandRoots for Live {
             out.roots = dirs
                 .into_iter()
                 .map(|d| normalize::for_record(&format!("{d}{rest}"), Platform::Windows))
+                .collect();
+            return out;
+        }
+
+        // `%FIXED_DISKS%` — 고정 드라이브 전부(코어 1.11.0). `sysinfo` 는 고정 · 이동식 볼륨만 내고 네트워크 ·
+        // CD 드라이브를 넣지 않는다 — 그중 이동식이 아닌 것이다. 다른 볼륨은 재파스 지점이라 각 뿌리의 걷기가
+        // 넘어가지 않으므로, 폴더에 붙인 볼륨도 제 뿌리로 한 번만 걷는다.
+        if let Some(rest) = crate::local::strip_token(root, "%FIXED_DISKS%") {
+            let mut mounts: Vec<String> = sysinfo::Disks::new_with_refreshed_list()
+                .iter()
+                .filter(|d| !d.is_removable())
+                .map(|d| d.mount_point().to_string_lossy().to_string())
+                .collect();
+            mounts.sort();
+            mounts.dedup();
+            if mounts.is_empty() {
+                out.notes.push(remedy_sdk::i18n::current().pick(
+                    format!("{root}: 고정 드라이브를 하나도 찾지 못했습니다"),
+                    format!("{root}: not one fixed drive was found"),
+                ));
+            }
+            out.roots = mounts
+                .into_iter()
+                .map(|m| {
+                    normalize::for_record(
+                        &format!("{}{rest}", m.trim_end_matches(['\\', '/'])),
+                        Platform::Windows,
+                    )
+                })
                 .collect();
             return out;
         }

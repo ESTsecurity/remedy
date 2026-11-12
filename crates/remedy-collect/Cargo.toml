@@ -30,6 +30,9 @@ remedy-wintrust = { path = "../remedy-wintrust" }
 # 를 유지한다 — 서명과 달리 안전한 코드가 **맞는** 답을 낸다(`peversion` 문서).
 # yara-x 가 이미 끌어오는 크레이트라 새 의존이 늘지 않는다.
 object.workspace = true
+# 아카이브(jar · war · ear) 안의 deflate 항목을 푼다(`archive.rs` · 코어 1.11.0). zip 해석은 직접 하고 풀기만
+# 맡긴다. yara-x · 동반 모듈이 이미 같은 판을 쓰므로 새 의존이 늘지 않는다.
+flate2.workspace = true
 
 [dev-dependencies]
 serde_yaml_ng.workspace = true

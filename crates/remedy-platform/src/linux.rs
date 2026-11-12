@@ -78,6 +78,38 @@ const HOME_PARENT: &str = "/home";
 /// 그것이 이 토큰의 전제다.
 const REMOVABLE_PARENTS: [&str; 3] = ["/media", "/run/media", "/mnt"];
 
+/// `%FIXED_DISKS%` 가 펴지는 자리 — 로컬 디스크 마운트와, 그것이 아니라 뺀 마운트(`자리 (형식)`) (코어 1.11.0).
+///
+/// `sysinfo` 가 이미 가상 파일 시스템(`proc` · `sysfs` · `cgroup` …) · `tmpfs` · NFS · CIFS 와 `/proc` · `/sys` ·
+/// `/run` 아래를 뺀다(그 크레이트의 목록). 여기서 더 빼는 것은 **이 기계의 디스크가 아닌 것**이다 — `9p`(WSL 의
+/// `/mnt/c` · VM 공유 폴더) · `drvfs` · `virtiofs` · `autofs` · `fuse.*`(sshfs 같은 원격 — `fuseblk` 는 로컬
+/// NTFS 라 둔다). Windows 의 고정 드라이브가 네트워크 드라이브를 넣지 않는 것과 같은 뜻이다. 이동식 매체는
+/// `%REMOVABLE%` 의 몫이다.
+///
+/// `/` 는 늘 든다 — 루트 파일 시스템의 형식을 `sysinfo` 가 고르지 못하면 기계의 대부분을 잃는다.
+fn local_disk_mounts() -> (Vec<String>, Vec<String>) {
+    let mut mounts = vec!["/".to_string()];
+    let mut skipped = Vec::new();
+    for d in sysinfo::Disks::new_with_refreshed_list().iter() {
+        if d.is_removable() {
+            continue;
+        }
+        let fs = d.file_system().to_string_lossy().to_string();
+        let at = d.mount_point().to_string_lossy().to_string();
+        if matches!(fs.as_str(), "9p" | "drvfs" | "virtiofs" | "autofs") || fs.starts_with("fuse.")
+        {
+            skipped.push(format!("{at} ({fs})"));
+            continue;
+        }
+        mounts.push(at);
+    }
+    mounts.sort();
+    mounts.dedup();
+    skipped.sort();
+    skipped.dedup();
+    (mounts, skipped)
+}
+
 /// 프로필 수 상한. Windows 쪽과 같은 이유다 — 상한이 없으면 계정이 수백 개인
 /// 기계에서 `%ALLUSERPROFILES%` 하나가 수집 범위를 통째로 삼킨다.
 const MAX_PROFILES: usize = 64;
@@ -162,6 +194,16 @@ impl FsRead for Live {
         local::walk(self, root, limit)
     }
 
+    fn walk_files(
+        &self,
+        root: &str,
+        limit: usize,
+        names: &[String],
+        one_device: bool,
+    ) -> Result<WalkResult, PlatformError> {
+        local::walk_files(self, root, limit, names, one_device)
+    }
+
     fn read_file(&self, path: &str, max: u64) -> Result<Option<Vec<u8>>, PlatformError> {
         local::read_file(self, path, max)
     }
@@ -173,6 +215,15 @@ impl FsRead for Live {
         sink: &mut dyn FnMut(&[u8]),
     ) -> Result<bool, PlatformError> {
         local::read_stream(self, path, max, sink)
+    }
+
+    fn read_range(
+        &self,
+        path: &str,
+        offset: u64,
+        len: usize,
+    ) -> Result<(u64, Vec<u8>), PlatformError> {
+        local::read_range(self, path, offset, len)
     }
 
     fn look(&self, path: &str) -> crate::read::Seen {
@@ -420,6 +471,37 @@ impl ExpandRoots for Live {
             out.roots = dirs
                 .into_iter()
                 .map(|d| normalize::for_record(&format!("{d}{rest}"), Platform::Linux))
+                .collect();
+            return out;
+        }
+
+        // `%FIXED_DISKS%` — 로컬 디스크 마운트 전부(코어 1.11.0). 각 마운트는 **다른 마운트로 넘어가지 않고**
+        // 걷는다(`Scope::disk_roots` · `walk_files`) — 그래서 `/` 아래의 `/proc` · `/sys` 를 걷지 않고, 따로
+        // 마운트된 `/home` 은 자기 뿌리로 한 번만 걷는다.
+        if let Some(rest) = local::strip_token(root, "%FIXED_DISKS%") {
+            let (mounts, skipped) = local_disk_mounts();
+            if !skipped.is_empty() {
+                out.notes.push(remedy_sdk::i18n::current().pick(
+                    format!(
+                        "{root}: 로컬 디스크가 아닌 마운트는 보지 않습니다 — {}",
+                        skipped.join(" · ")
+                    ),
+                    format!(
+                        "{root}: mounts that are not local disks are not looked at — {}",
+                        skipped.join(" · ")
+                    ),
+                ));
+            }
+            out.roots = mounts
+                .into_iter()
+                .map(|m| {
+                    let joined = if rest.is_empty() {
+                        m
+                    } else {
+                        format!("{}{rest}", m.trim_end_matches('/'))
+                    };
+                    normalize::for_record(&joined, Platform::Linux)
+                })
                 .collect();
             return out;
         }

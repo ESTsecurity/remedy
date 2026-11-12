@@ -67,6 +67,33 @@ pub trait FsRead {
     /// 수집한 스냅샷이 달라지고, 그러면 diff 가 아무것도 말해 주지 않는다.
     fn walk(&self, root: &str, limit: usize) -> Result<WalkResult, PlatformError>;
 
+    /// `root` 아래에서 **이름이 맞는 파일만** 모은다(코어 1.11.0) — 폴더는 내려가지만 담지 않고, 상한도 맞는
+    /// 파일로만 센다. `names` 가 비면 파일 전부다. `one_device` 면 뿌리와 다른 장치(마운트)로 넘어가지 않는다.
+    ///
+    /// 디스크 전체를 걷는 점검이 쓴다(`file_names` · `%FIXED_DISKS%`). [`walk`](Self::walk) 뒤에 거르면
+    /// 폴더와 파일 전부가 상한(50만)에 세어져 끝까지 못 보고, 수백만 항목이 메모리에 든다.
+    ///
+    /// 기본 구현은 `walk` 뒤 거르기다 — 시험용 가짜가 같은 답을 내게 한다(가짜에는 마운트가 없다).
+    fn walk_files(
+        &self,
+        root: &str,
+        limit: usize,
+        names: &[String],
+        one_device: bool,
+    ) -> Result<WalkResult, PlatformError> {
+        let _ = one_device;
+        let mut w = self.walk(root, limit)?;
+        w.entries.retain(|e| {
+            !e.is_dir
+                && (names.is_empty()
+                    || remedy_sdk::normalize::name_in(
+                        names,
+                        remedy_sdk::normalize::leaf_name(&e.path),
+                    ))
+        });
+        Ok(w)
+    }
+
     /// 파일 본문. `max` 를 넘으면 `None` — 자르지 않는다. 잘린 내용으로 해시하면
     /// 그 해시는 아무 의미가 없다.
     fn read_file(&self, path: &str, max: u64) -> Result<Option<Vec<u8>>, PlatformError>;
@@ -92,6 +119,29 @@ pub trait FsRead {
             }
             None => Ok(false),
         }
+    }
+
+    /// 파일의 **한 자리**를 읽는다 — `offset` 에서 `len` 바이트까지(코어 1.11.0).
+    ///
+    /// zip 계열 아카이브(jar · war · ear)는 목록(중앙 디렉터리)이 **파일 끝**에 있다. 수백 MB 짜리 war
+    /// 의 목록과 항목 몇 개를 보려고 파일을 통째로 들면 메모리가 그만큼 든다 — 그래서 끝의 목록과
+    /// 필요한 항목만 짚어 읽는다.
+    ///
+    /// 돌려주는 것은 **지금의 파일 길이와 그 자리의 바이트**다. 끝을 넘은 자리는 있는 데까지만 준다 —
+    /// 걷기 뒤에 파일이 바뀌었는지는 부르는 쪽이 길이로 가린다.
+    ///
+    /// 기본 구현은 `read_file` 한 번 뒤 자르기다 — 시험용 가짜는 따로 구현하지 않아도 같은 답을 낸다.
+    fn read_range(
+        &self,
+        path: &str,
+        offset: u64,
+        len: usize,
+    ) -> Result<(u64, Vec<u8>), PlatformError> {
+        let whole = self.read_file(path, u64::MAX)?.unwrap_or_default();
+        let total = whole.len() as u64;
+        let start = offset.min(total) as usize;
+        let end = start.saturating_add(len).min(whole.len());
+        Ok((total, whole[start..end].to_vec()))
     }
 
     /// 이 경로를 **봤는가 · 없는가 · 못 물었는가** (B-9 · 2026-10-27).

@@ -89,6 +89,7 @@ signed_malware:                      # 서명된 악성코드 예외. 목록 자
 | `firewall_rule` | 방화벽 규칙(레지스트리) | iptables·nftables·firewalld | `id, name, direction, action, enabled, protocol, local_port, remote_port, remote_address, application, service, profile, source` |
 | `package` | (수집기 없음 — MSI·winget 은 개념만 있다) | dpkg `status`, apk `installed`, rpm DB(SQLite·BDB·NDB · 코어 1.3.0) | `name, version, upstream_version, revision, arch, source, manager(dpkg\|apk\|rpm), vendor(rpm)` |
 | `unix_socket` | (해당 없음) | `/proc/net/unix` 의 이름 있는 소켓 — 추상 이름은 `@` 로 시작 | `name, inode, listening, kind(stream\|dgram\|seqpacket)` — **찾기 전용**(코어 1.2.0) |
+| `archive_entry` | jar · war · ear · zip 안의 항목 — 목록(중앙 디렉터리)과 압축을 풀어 읽는다 | (같다) | `archive, path, name, depth, size, sha256, text, error` — **찾기 전용**(코어 1.11.0). `file` 이 기록한 파일 가운데 zip 꼴을 열고 `archive_members` 의 잎 이름 꼴에 맞는 항목만 담는다 |
 
 OS 고유 필드 예: `win.task.register_path`, `win.task.principal.run_level`, `win.registry.hive`, `linux.systemd.unit_path`, `linux.cron.file`.
 
@@ -101,6 +102,8 @@ OS 고유 필드 예: `win.task.register_path`, `win.task.principal.run_level`, 
 > 살아 있는 **연결 목록**은 여기 없다. 표본이라 재현되지 않고 지울 Op 도 없다 — 설계-01 D11.
 >
 > `unix_socket` 은 그것과 다르다 — **듣고 있는 이름 있는 UNIX 소켓**이고, 상주 임플란트가 떠 있는 동안 계속 열려 있는 자리다. Ebury 의 현재 주 탐지법이 그 이름이다. 지울 Op 은 여전히 없다(찾기 전용). 구분의 근거는 설계-01 D11 의 덧붙임.
+>
+> `archive_entry` 는 **아카이브 안의 라이브러리**를 보는 자리다(코어 1.11.0). log4j 점검을 룰만으로 짜 보니 YARA 는 원본 바이트만 봐서 압축된 항목의 속(실제 jar 의 `pom.properties` · 압축된 war 안의 jar)을 못 봤고, 본문 상한(파일 8 MiB · 검사 64 MiB)에 큰 앱과 jar 가 많은 서버가 걸렸다. 항목 하나가 레코드 하나라 한 항목의 좌표와 내용(`path` · `text`)을 한 `where` 로 견준다. 무엇이 취약한지는 룰의 몫이다 — 코어는 Java 지식을 갖지 않는다. 고치는 Op 은 없다 — jar 를 고치면 서명 · 무결성을 보는 앱이 멈춘다.
 
 ### v1 열거 범위와 그 밖의 것
 

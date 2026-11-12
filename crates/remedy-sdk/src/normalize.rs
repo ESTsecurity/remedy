@@ -137,6 +137,23 @@ pub fn glob_root(root: &str) -> Option<(&str, &str)> {
     name.contains(['*', '?']).then_some((dir, name))
 }
 
+/// 잎 이름이 꼴 가운데 하나에 맞는가 — **대소문자를 가리지 않는다**(코어 1.11.0 · `file_names` ·
+/// `archive_members`).
+///
+/// 플랫폼대로 접는 [`for_compare`] 와 다르다. 이 꼴들은 배포물의 이름을 겨누고, 배포물은 플랫폼과 무관하게
+/// `APP.JAR` · `Log4j-Core-2.14.1.Jar` 로 온다(옛 log4j 시험 묶음이 그 모양을 지킨다).
+pub fn name_in(patterns: &[String], name: &str) -> bool {
+    let n = fold_case(name);
+    patterns
+        .iter()
+        .any(|p| name_matches(&n, &fold_case(p.trim())))
+}
+
+/// 경로의 잎 이름 — `\` 와 `/` 둘 다 구분자로 본다.
+pub fn leaf_name(path: &str) -> &str {
+    path.rsplit(['\\', '/']).next().unwrap_or(path)
+}
+
 /// 이름 하나에 `*`(아무 길이) · `?`(한 글자)를 맞춘다. 되돌아가기는 마지막 별에서만
 /// 하므로 이름 길이 × 꼴 길이를 넘지 않는다 — 정규식처럼 터지지 않는다.
 ///

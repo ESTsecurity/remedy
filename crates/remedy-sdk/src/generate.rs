@@ -520,6 +520,14 @@ fn append(title: &'static str, what: &'static str, fix: &'static str, extra: &st
 pub(crate) fn lint_cases() -> Vec<Case> {
     vec![
         case(
+            "아카이브 안의 항목을 본다",
+            "`archive_entry` 를 선언했는데 담을 항목의 이름 꼴(`archive_members`)이 없다 — 또는 `file` 이 없다. \
+             아카이브를 열지 않거나 열어도 담을 것이 없어 그 규칙들이 늘 0건이다",
+            "`archive_members` 에 잎 이름 꼴(`[\"pom.properties\", \"*.jar\"]`)을, `subjects` 에 `file` 을 둔다",
+            "subjects: [persistence, file]",
+            "subjects: [persistence, file, archive_entry]",
+        ),
+        case(
             "패키지가 깐 파일인지 본다",
             "`file.package` · `file.package_match` 를 `package` subject 없이, 또는 Windows 도 대상인 룰에서 썼다 — \
              그 칸은 `package` subject 를 함께 선언한 리눅스 룰에서만 채워져 이 술어는 늘 거짓이다",
@@ -1060,11 +1068,14 @@ pub fn ai_context_md() -> String {
     s.push_str("\n**`from` 은 `path` 필드가 있는 subject 에만 통한다** — ");
     let with_path: Vec<&str> = Subject::ALL
         .iter()
-        .filter(|x| x.fields().contains(&"path"))
+        .filter(|x| x.from_field().is_some())
         .map(|x| x.id())
         .collect();
     s.push_str(&with_path.join(" "));
-    s.push_str(". 그 밖에는 `where` 값에 `${다른규칙.capture}` 를 넣어 부모에 묶는다.\n\n");
+    s.push_str(
+        " (`archive_entry` 는 `archive` 로 견준다). 그 밖에는 `where` 값에 `${다른규칙.capture}` 를 넣어 부모에 \
+         묶는다.\n\n",
+    );
 
     s.push_str(&format!("## Op {}종 (계획기가 고른다)\n\n", Op::ALL.len()));
     let ops: Vec<&str> = Op::ALL.iter().map(|x| x.id()).collect();

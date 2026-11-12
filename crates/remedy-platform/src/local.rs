@@ -209,6 +209,123 @@ fn walk_glob(
     })
 }
 
+/// [`FsRead::walk_files`](crate::read::FsRead::walk_files) 의 실제 구현 — 이름이 맞는 파일만 담는다(코어 1.11.0).
+///
+/// # 왜 [`walk`] 로 걸러서는 안 되는가
+///
+/// `walk` 는 폴더와 파일을 **전부** 담고 상한도 그 전부로 센다. 디스크 전체에서 jar 만 찾는 점검이 그 길을
+/// 타면 파일 50만 개에서 잘려 끝까지 못 보고, 수백만 항목을 메모리에 든다. 여기서는 **이름을 먼저** 보고
+/// (파일 정보를 묻기 전에) 맞는 것만 담고 센다 — 맞지 않는 파일은 `stat` 도 하지 않는다.
+///
+/// # 한 장치 안에서
+///
+/// `one_device` 면 뿌리와 다른 장치로 넘어가지 않는다 — 리눅스 `/` 아래의 `/proc` · `/sys` · `/dev` 와, 따로
+/// 뿌리가 된 디스크(`/home`)를 여기서 걷지 않는다. Windows 의 다른 볼륨은 재파스 지점이라 원래 넘어가지
+/// 않으므로 장치를 묻지 않는다.
+///
+/// 순서 · 거부 세기 · 링크를 따라가지 않는 규칙은 `walk` 와 같다.
+pub(crate) fn walk_files(
+    view: &impl PathView,
+    root: &str,
+    limit: usize,
+    names: &[String],
+    one_device: bool,
+) -> Result<WalkResult, PlatformError> {
+    let wanted = |name: &str| names.is_empty() || normalize::name_in(names, name);
+    if let Some((dir, pattern)) = normalize::glob_root(root) {
+        let mut w = walk_glob(view, dir, pattern, limit)?;
+        w.entries.retain(|e| wanted(normalize::leaf_name(&e.path)));
+        return Ok(w);
+    }
+    let mut out = Vec::new();
+    let mut truncated = false;
+    let mut denied = 0usize;
+    let mut denied_paths: Vec<String> = Vec::new();
+    let top = view.for_access(root);
+    let device = if one_device { device_of(&top) } else { None };
+    let mut stack = vec![top];
+
+    while let Some(dir) = stack.pop() {
+        if truncated {
+            break;
+        }
+        let rd = match std::fs::read_dir(&dir) {
+            Ok(r) => r,
+            Err(_) => {
+                denied += 1;
+                if denied_paths.len() < crate::read::DENIED_SAMPLE {
+                    denied_paths.push(normalize::nfc(&view.for_record(&dir)));
+                }
+                continue;
+            }
+        };
+        crate::progress::enter_dir(&dir);
+        let mut entries: Vec<_> = rd.flatten().collect();
+        entries.sort_by_key(|e| e.file_name());
+        let mut subdirs = Vec::new();
+        for e in entries {
+            crate::progress::tick_entry();
+            // `file_type` 은 링크를 따라가지 않는다 — 폴더 링크는 `is_dir` 가 아니라 내려가지 않는다(`walk` 와 같다).
+            let Ok(ft) = e.file_type() else { continue };
+            if ft.is_dir() {
+                let accessed = e.path().to_string_lossy().to_string();
+                if device.is_some() && device_of(&accessed) != device {
+                    continue; // 다른 마운트
+                }
+                subdirs.push(accessed);
+                continue;
+            }
+            if !wanted(&e.file_name().to_string_lossy()) {
+                continue;
+            }
+            let md = match e.metadata() {
+                Ok(m) => m,
+                Err(_) => continue,
+            };
+            if md.is_dir() {
+                continue; // 폴더를 가리키는 링크
+            }
+            if out.len() >= limit {
+                truncated = true;
+                break;
+            }
+            let accessed = e.path().to_string_lossy().to_string();
+            out.push(FsEntry {
+                path: normalize::nfc(&view.for_record(&accessed)),
+                is_dir: false,
+                is_reparse: ft.is_symlink(),
+                size: md.len(),
+                mtime: rfc3339(md.modified()).unwrap_or_else(|| "1970-01-01T00:00:00Z".into()),
+                ctime: rfc3339(md.created()),
+                mode: unix_mode(&md),
+            });
+        }
+        subdirs.reverse();
+        stack.extend(subdirs);
+    }
+
+    out.sort_by(|a, b| a.path.cmp(&b.path));
+    Ok(WalkResult {
+        entries: out,
+        truncated,
+        denied,
+        denied_paths,
+    })
+}
+
+/// 이 경로가 놓인 장치 — 링크를 따라가지 않는다.
+#[cfg(unix)]
+fn device_of(path: &str) -> Option<u64> {
+    use std::os::unix::fs::MetadataExt;
+    std::fs::symlink_metadata(path).ok().map(|m| m.dev())
+}
+
+/// Windows 는 묻지 않는다 — 다른 볼륨은 재파스 지점이라 `walk_files` 가 원래 넘어가지 않는다.
+#[cfg(not(unix))]
+fn device_of(_path: &str) -> Option<u64> {
+    None
+}
+
 /// 파일 본문. `max` 를 넘으면 `None` — **자르지 않는다.**
 ///
 /// 잘린 내용으로 해시하면 그 해시는 아무 의미가 없고, 잘린 본문에 YARA 를 걸면
@@ -239,6 +356,40 @@ pub(crate) fn read_file(
     std::fs::read(&p)
         .map(Some)
         .map_err(|e| PlatformError::io(path, e))
+}
+
+/// [`FsRead::read_range`](crate::read::FsRead::read_range) 의 실제 구현 — 열고, 그 자리로 가서, 그만큼 읽는다.
+///
+/// 끝을 넘은 자리는 있는 데까지만 준다. 읽는 사이에 파일이 짧아졌으면 읽힌 데까지다 — 길이를 함께
+/// 돌려주므로 부르는 쪽이 어긋남을 안다.
+pub(crate) fn read_range(
+    view: &impl PathView,
+    path: &str,
+    offset: u64,
+    len: usize,
+) -> Result<(u64, Vec<u8>), PlatformError> {
+    use std::io::{ErrorKind, Read, Seek, SeekFrom};
+    let p = view.for_access(path);
+    let mut f = std::fs::File::open(&p).map_err(|e| PlatformError::io(path, e))?;
+    let total = f.metadata().map_err(|e| PlatformError::io(path, e))?.len();
+    if offset >= total {
+        return Ok((total, Vec::new()));
+    }
+    let want = (len as u64).min(total - offset) as usize;
+    f.seek(SeekFrom::Start(offset))
+        .map_err(|e| PlatformError::io(path, e))?;
+    let mut buf = vec![0u8; want];
+    let mut got = 0usize;
+    while got < want {
+        match f.read(&mut buf[got..]) {
+            Ok(0) => break,
+            Ok(n) => got += n,
+            Err(e) if e.kind() == ErrorKind::Interrupted => continue,
+            Err(e) => return Err(PlatformError::io(path, e)),
+        }
+    }
+    buf.truncate(got);
+    Ok((total, buf))
 }
 
 /// 흘려 읽는 조각 크기.
@@ -552,6 +703,58 @@ mod tests {
         let w = walk(&Identity, &gone, 100).expect("순회");
         assert!(w.entries.is_empty());
         assert_eq!(w.denied, 0);
+    }
+
+    /// 이름이 맞는 파일만 담고 **상한도 그것으로만 센다** — 폴더와 맞지 않는 파일은 담지도 세지도 않는다
+    /// (코어 1.11.0). 대소문자는 어느 플랫폼에서나 가리지 않는다(`APP.JAR`).
+    #[test]
+    fn walk_files_keeps_only_matching_files_and_counts_only_them() {
+        let d = lab("walk-files");
+        let deep = d.join("opt").join("app").join("WEB-INF").join("lib");
+        std::fs::create_dir_all(&deep).expect("하위");
+        for n in ["log4j-core-2.14.1.jar", "APP.JAR", "readme.txt"] {
+            std::fs::write(deep.join(n), b"x").expect("쓰기");
+        }
+        for i in 0..20 {
+            std::fs::write(d.join(format!("noise-{i}.log")), b"x").expect("쓰기");
+        }
+        let names = vec!["*.jar".to_string()];
+        let root = d.to_str().unwrap();
+        // 상한 2 — 맞지 않는 파일 20개와 폴더 넷이 세어지면 여기서 잘린다.
+        let w = walk_files(&Identity, root, 2, &names, false).expect("순회");
+        let mut got: Vec<&str> = w
+            .entries
+            .iter()
+            .map(|e| e.path.rsplit(['\\', '/']).next().unwrap())
+            .collect();
+        got.sort();
+        assert_eq!(got, vec!["APP.JAR", "log4j-core-2.14.1.jar"]);
+        assert!(!w.truncated, "맞지 않는 것까지 세었다");
+        assert!(w.entries.iter().all(|e| !e.is_dir && e.size == 1));
+
+        // 이름 꼴이 비면 파일 전부다 — 폴더는 여전히 담지 않는다.
+        let w = walk_files(&Identity, root, 1000, &[], true).expect("순회");
+        assert_eq!(w.entries.len(), 23);
+        assert!(w.entries.iter().all(|e| !e.is_dir));
+
+        // 상한에 닿으면 잘림이 선다.
+        let w = walk_files(&Identity, root, 1, &names, false).expect("순회");
+        assert!(w.truncated && w.entries.len() == 1);
+    }
+
+    /// 걷기 뒤에 짚어 읽기 — 끝을 넘은 자리는 있는 데까지, 길이는 늘 지금 길이다.
+    #[test]
+    fn a_ranged_read_returns_the_current_length_and_what_is_there() {
+        let d = lab("range");
+        let p = d.join("a.bin");
+        std::fs::write(&p, (0u8..100).collect::<Vec<_>>()).expect("쓰기");
+        let path = p.to_str().unwrap();
+        let (total, b) = read_range(&Identity, path, 10, 5).expect("읽기");
+        assert_eq!((total, b), (100, vec![10, 11, 12, 13, 14]));
+        let (total, b) = read_range(&Identity, path, 98, 50).expect("읽기");
+        assert_eq!((total, b), (100, vec![98, 99]));
+        let (total, b) = read_range(&Identity, path, 500, 5).expect("읽기");
+        assert_eq!((total, b.len()), (100, 0));
     }
 
     #[test]

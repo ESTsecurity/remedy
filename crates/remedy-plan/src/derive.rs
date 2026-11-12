@@ -185,6 +185,9 @@ fn removal_ops(subject: Subject) -> Removal {
         // **소켓을 닫는 것은 치료가 아니다** — 그 소켓을 연 프로세스가 다시 연다
         // (설계-01 D11 근거 1). 찾기 전용이고, 위 `Package` 와 같은 빈 것이다.
         Subject::UnixSocket => Removal::Choice(&[]),
+        // **아카이브 안을 고치는 것은 치료가 아니다** (코어 1.11.0). jar 에서 클래스를 빼면 서명 · 무결성을 보는
+        // 앱이 멈추고, 어느 판으로 올릴지는 그 앱을 만든 쪽의 일이다. 찾기 전용 — 위 `Package` 와 같은 빈 것이다.
+        Subject::ArchiveEntry => Removal::Choice(&[]),
     }
 }
 
@@ -2653,9 +2656,15 @@ mod tests {
             //
             // `unix_socket`(코어 1.2.0)도 그렇다 — 소켓을 닫는 것은 치료가 아니고 그
             // 소켓을 연 프로세스가 다시 연다(설계-01 D11 근거 1 · 카탈로그의 그 항목).
+            //
+            // `archive_entry`(코어 1.11.0)도 그렇다 — jar 를 고치는 것은 치료가 아니다. 클래스를 빼면 서명 ·
+            // 무결성을 보는 앱이 멈추고, 어느 판으로 올릴지는 그 앱을 만든 쪽의 일이다(설계-02 §3 의 덧붙임).
             if ops.ops().is_empty() {
                 assert!(
-                    matches!(x, Subject::Package | Subject::UnixSocket),
+                    matches!(
+                        x,
+                        Subject::Package | Subject::UnixSocket | Subject::ArchiveEntry
+                    ),
                     "'{}' 의 제거 Op 이 비어 있다. 치료가 영원히 없는 subject 라면 \
                      이 시험에 이름을 적고 그 이유를 카탈로그에 적을 것",
                     x.info().id

@@ -492,7 +492,7 @@
       "type": "object"
     },
     "Subject": {
-      "description": "관찰 대상 타입 20종 (설계-02 §3).\n\n순서는 설계-02 §3 표와 같다. 사람이 두 목록을 대조할 일이 남아 있는 한 순서가 같은 편이 낫다.\n\n카탈로그에서 **뺀** 것은 [`RETIRED_SUBJECTS`] 에 이유와 함께 남는다.",
+      "description": "관찰 대상 타입 21종 (설계-02 §3).\n\n순서는 설계-02 §3 표와 같다. 사람이 두 목록을 대조할 일이 남아 있는 한 순서가 같은 편이 낫다.\n\n카탈로그에서 **뺀** 것은 [`RETIRED_SUBJECTS`] 에 이유와 함께 남는다.",
       "enum": [
         "persistence",
         "autorun",
@@ -513,7 +513,8 @@
         "proxy_config",
         "firewall_rule",
         "package",
-        "unix_socket"
+        "unix_socket",
+        "archive_entry"
       ],
       "type": "string"
     },
@@ -612,6 +613,13 @@
       "description": "이동식 매체 접근. 기본 false.\n\n켜는 것만으로는 부족하다 — 이동식 매체 대상 파괴 Action 은 대화형에서 별도 승인을 받고 무인 모드에서는 계획에 포함되지 않는다. 연결된 USB 가 다른 사람의 것일 수 있기 때문이다 (설계-02 §2).",
       "type": "boolean"
     },
+    "archive_members": {
+      "description": "`archive_entry` 가 기록할 아카이브 항목의 **잎 이름 꼴** (코어 1.11.0).\n\n```yaml archive_members: [\"*.jar\", \"*.war\", \"pom.properties\", \"MANIFEST.MF\"] ```\n\n맞는 항목만 레코드가 된다 — 항목 전부를 담으면 jar 하나가 수천, 디스크 전체가 수백만 레코드다. **이 꼴에 맞고 zip 꼴인 항목은 안쪽 아카이브로 연다**(4겹까지) — 열 것과 담을 것을 한 칸으로 정한다. 대소문자를 가리지 않는다.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
     "collect_extra": {
       "default": [],
       "description": "분석에 필요한 추가 수집. 파괴가 아니므로 계획에 나타나지 않지만 수집된 사실은 감사 로그에 남는다 (설계-02 §6-1).",
@@ -623,6 +631,13 @@
     "detect": {
       "items": {
         "$ref": "#/definitions/DetectRule"
+      },
+      "type": "array"
+    },
+    "file_names": {
+      "description": "`file` 이 기록할 파일의 **이름 꼴** — 비면 전부(지금까지와 같다) (코어 1.11.0).\n\n# 왜 필요한가\n\n`file` 은 상한 아래 **모든 파일을 기록하고 32 MiB 이하는 해시한다**(최대 50만 개). 디스크 전체에서 jar 만 보려는 점검(`%FIXED_DISKS%`)이 그 값을 치르면 검사가 몇 시간이 되고, 스냅샷에 모든 파일 경로가 실린다.\n\n```yaml file_names: [\"*.jar\", \"*.war\", \"*.ear\"] ```\n\n**이름 하나의 꼴**이다(`*` · `?`). **대소문자를 가리지 않는다** — `APP.JAR` 로 배포된 앱이 있다(옛 log4j 시험 묶음). 걷기는 그대로라 폴더는 다 내려가고, 맞지 않는 파일만 기록하지 않는다.",
+      "items": {
+        "type": "string"
       },
       "type": "array"
     },

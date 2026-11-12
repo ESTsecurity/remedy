@@ -6,6 +6,17 @@
 
 **오류는 로드를 막고, 경고는 막지 않는다.** 경고가 남은 채로 서명하려면 각각의 이유를 설명해야 한다 (설계-06 §8).
 
+## 아카이브 안의 항목을 본다
+
+**무엇이 잘못됐나.** `archive_entry` 를 선언했는데 담을 항목의 이름 꼴(`archive_members`)이 없다 — 또는 `file` 이 없다. 아카이브를 열지 않거나 열어도 담을 것이 없어 그 규칙들이 늘 0건이다
+
+```
+오류 archive_members: `archive_entry` 를 선언했는데 `archive_members` 가 비었다 — 기록할 항목의 잎 이름 꼴(`["pom.properties", "*.jar"]`)이 없으면 아무것도 담기지 않는다
+      근거: 설계-02 §3
+```
+
+**고치는 법.** `archive_members` 에 잎 이름 꼴(`["pom.properties", "*.jar"]`)을, `subjects` 에 `file` 을 둔다
+
 ## 패키지가 깐 파일인지 본다
 
 **무엇이 잘못됐나.** `file.package` · `file.package_match` 를 `package` subject 없이, 또는 Windows 도 대상인 룰에서 썼다 — 그 칸은 `package` subject 를 함께 선언한 리눅스 룰에서만 채워져 이 술어는 늘 거짓이다
@@ -190,7 +201,7 @@ error: unclosed group
       쓸 수 있는 것: id · scope · name · command · source
       근거: 설계-02 §3
 오류 detect[payload].from: subject 'autorun' 에는 path 필드가 없어 from 이 통하지 않는다 — 이 규칙은 아무 레코드도 매치하지 못한다
-      쓸 수 있는 것: from 을 쓸 수 있는 subject: file · text_config · structured_config · shortcut · browser_extension · 그 밖에는 where 값에 ${다른규칙.capture} 를 넣어 묶는다
+      쓸 수 있는 것: from 을 쓸 수 있는 subject: file · text_config · structured_config · shortcut · browser_extension · archive_entry · 그 밖에는 where 값에 ${다른규칙.capture} 를 넣어 묶는다
       근거: 설계-02 §4
 ```
 
@@ -324,7 +335,7 @@ remediate.remove: data did not match any variant of untagged enum RemoveTarget a
 
 ```
 경고 subjects.firewall_rule: Linux 에 개념은 있으나 이 코어의 'firewall_rule' 수집기가 Windows 전용이다. Windows 에서는 동작하지만 **Linux 에서는 0건**이 된다
-      쓸 수 있는 것: Linux 에서 수집되는 subject: persistence · autorun · service · process · file · indicator · text_config · structured_config · shortcut · hosts_entry · browser_extension · cert_store · package · unix_socket
+      쓸 수 있는 것: Linux 에서 수집되는 subject: persistence · autorun · service · process · file · indicator · text_config · structured_config · shortcut · hosts_entry · browser_extension · cert_store · package · unix_socket · archive_entry
       근거: 설계-09 P12
 ```
 

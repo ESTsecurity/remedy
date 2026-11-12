@@ -607,6 +607,14 @@ const UNMEASURED: &[(&str, &str, &str)] = &[
     ("boot_config", "linux", "B — 위와 같다"),
     ("firewall_rule", "linux", "B — 위와 같다"),
     ("proxy_config", "linux", "B — 위와 같다"),
+    (
+        "archive_entry",
+        "windows",
+        "D — 코퍼스 스냅샷이 이 subject 가 생기기 전(코어 1.11.0 · 2026-11-12)에 떠져 그 자리를 안 봤다. \
+         청정 기계에 자바 앱(jar · war)이 있는지도 아직 모른다 — `subjects: [file, archive_entry]` · \
+         `file_names: [\"*.jar\", \"*.war\", \"*.ear\"]` 로 한 번 뜨면 C 인지 D 인지 갈리고, 있으면 메워진다",
+    ),
+    ("archive_entry", "linux", "D — 위와 같다"),
 ];
 
 /// 비어 있는 subject 마다 **왜 비었는지가 적혀 있는가.**

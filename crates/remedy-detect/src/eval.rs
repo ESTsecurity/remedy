@@ -1109,7 +1109,9 @@ fn eval_rule(
     let mut out = Vec::new();
     for record in snapshot.records(rule.subject) {
         if let Some(dir) = &from_dir {
-            let path = expr::field(record, "path").unwrap_or_default();
+            // 디스크의 자리를 쥔 칸 — 대개 `path`, `archive_entry` 는 `archive` 다(그 `path` 는 안쪽 경로).
+            let field = rule.subject.from_field().unwrap_or("path");
+            let path = expr::field(record, field).unwrap_or_default();
             if !normalize::is_within(&path, dir, scope.platform) {
                 continue;
             }

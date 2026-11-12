@@ -52,7 +52,7 @@ scan_roots:
 **수집기가 `scan_roots` 를 보는가로 갈린다.** 레코드에 `path` 가 있는지가
 아니다 — 레지스트리 값에는 `path` 가 없는데도 이 상한을 받는다.
 
-| `scan_roots` 가 범위를 정한다 | `file` · `text_config` · `structured_config` · `shortcut` · `browser_extension` · `registry_value` · `registry_key` |
+| `scan_roots` 가 범위를 정한다 | `file` · `text_config` · `structured_config` · `shortcut` · `browser_extension` · `registry_value` · `registry_key` · `archive_entry` |
 |---|---|
 | **무관하게 수집된다** | `persistence` · `autorun` · `process` · `service` · `av_exclusion` · `firewall_rule` · `hosts_entry` · `cert_store` · `proxy_config` · `boot_config` · `indicator` · `package` · `unix_socket` |
 
@@ -152,6 +152,21 @@ hash_large: ["node.exe"]   # 이 이름은 256 MiB 까지 흘려 읽어 해시�
 | **이름 하나의 꼴** | `*` · `?` 는 글롭 뿌리와 같다. 경로나 글자 없는 꼴(`*`)은 오류다. 읽는 자리는 그대로 `scan_roots` 다 |
 | **해시만** | 본문을 들지 않아 `version` 은 빈다. 256 MiB 를 넘으면 전처럼 빈다 |
 
+#### 디스크 전체에서 이름으로 — `%FIXED_DISKS%` · `file_names`
+
+라이브러리(jar)처럼 **아무 자리에나 깔리는 것**을 볼 때다(코어 1.11.0).
+
+```yaml
+scan_roots: ["%FIXED_DISKS%"]           # Windows 고정 드라이브 · 리눅스 로컬 디스크 마운트
+file_names: ["*.jar", "*.war", "*.ear"]  # 이 이름만 기록 · 해시 — 대소문자 무관
+```
+
+| | |
+|---|---|
+| **이름으로 좁힌다** | `file_names` 가 없으면 모든 파일을 기록 · 해시해 50만 개에서 잘린다(린트 경고) |
+| **마운트를 넘지 않는다** | `/proc` · 네트워크 · `9p` 공유는 걷지 않고, 디스크마다 제 뿌리로 한 번 걷는다 |
+| **다른 경로 subject** | `subject_roots` 로 좁히지 않으면 디스크 전체를 걷는다(린트 경고) |
+
 ### 이름을 미리 알 수 없는 경로 조각
 
 브라우저 프로필처럼 **경로 한 조각이 기계마다 다른** 자리가 있다. 파일 경로에는
@@ -196,6 +211,7 @@ Win10x64-Test)으로 `User Data` 아래 디렉터리가 Edge 53 · Chrome 35 개
 | `%ALLUSERPROFILES%` | **사용자 수만큼** | - |
 | `HKU\*` | 로그온한 하이브 수만큼 | - |
 | `%REMOVABLE%` | 꽂힌 매체 수만큼 | ● |
+| `%FIXED_DISKS%` | 고정 디스크 수만큼(위) | - |
 
 **하나가 여럿이 된다.** `%ALLUSERPROFILES%` 를 쓰지 않으면 다중 사용자 기계에서
 현재 로그온 사용자만 치료되고 나머지는 감염 상태로 남는다.
