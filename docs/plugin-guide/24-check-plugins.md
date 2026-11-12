@@ -270,6 +270,37 @@ dpkg 의 규칙은 높게 읽어 **순서가 반대**다. 그때는 추측하지
     - { field: value, op: matches, value: '(?i)^(c:|%systemdrive%)\\php\\' }
 ```
 
+## 아카이브 안 — `archive_entry`
+
+jar · war · ear 안의 라이브러리 판은 YARA 로 가리지 못한다 — 원본 바이트만 봐서 압축된 항목의
+속(`pom.properties` · 압축된 war 안의 jar)이 안 보이고, 본문 상한(파일 8 MiB · 검사 64 MiB)에
+걸린다(코어 1.11.0 · log4j 실측). 항목 하나가 레코드 하나라 **좌표와 내용을 한 `where` 로** 견준다.
+
+```yaml
+scan_roots: ["%FIXED_DISKS%"]
+file_names: ["*.jar", "*.war", "*.ear"]
+subjects: [file, archive_entry]
+archive_members: ["pom.properties", "*.jar", "*.war"]  # 담을 잎 이름 — 이 꼴의 zip 은 안까지 연다(4겹)
+detect:
+  - id: core
+    subject: archive_entry
+    where:
+      - { field: path, op: ends_with, value: "/log4j-core/pom.properties" }
+      - { field: text, op: matches, value: '(?m)^version=2\.14\.1\r?$' }
+  - id: unread
+    subject: archive_entry
+    where: [{ field: error, op: exists }]
+```
+
+| 칸 | |
+|---|---|
+| `archive` · `path` | 디스크 파일 · 안쪽 경로(`a.war!/WEB-INF/lib/b.jar!/…` · 구분자 `/`). `from` 은 `archive` 로 견준다 |
+| `text` | 64 KiB 이하 · UTF-8 · NUL 없는 항목만. 줄 끝에 `\r` 이 올 수 있어 `\r?$` 로 쓴다. 화면은 맞은 글자만 적는다 |
+| `sha256` | 푼 내용 — 이름을 바꾼 안쪽 jar 도 공식 빌드 해시로 가린다 |
+| `error` | 끝까지 못 본 까닭(`broken` · `encrypted` · `too_large` · `too_deep` …) — **`unconfirmed` 로 알린다.** zip 이 아닌 파일은 아카이브가 아니다 |
+
+고치는 Op 은 없다(찾기 전용) — jar 를 고치면 서명 · 무결성을 보는 앱이 멈춘다.
+
 ## 바깥을 보는 점검 — `network`
 
 이 기계가 아니라 **적어 준 주소의 서버**를 보는 점검은 `network: url` 을 적는다(코어 1.4.0).

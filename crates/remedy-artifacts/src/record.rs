@@ -619,3 +619,42 @@ pub struct FirewallRuleRecord {
     /// 이 규칙을 읽은 자리. 치료가 어디를 되돌려야 하는지 여기서 안다.
     pub source: String,
 }
+
+/// 아카이브(jar · war · ear · zip) 안의 항목 하나 (코어 1.11.0 · `archive_entry`).
+///
+/// # 왜 레코드가 항목 하나인가
+///
+/// *"log4j-core 의 `pom.properties` 이고 그 판이 취약하다"* 는 **한 항목의 좌표와 내용**을 함께 묻는다.
+/// 아카이브 하나를 레코드 하나로 두고 항목을 목록 칸에 넣으면 좌표와 내용이 다른 원소에서 맞아도 참이 된다 —
+/// shade 된 jar 에는 `pom.properties` 가 라이브러리 수만큼 있다.
+///
+/// # 비는 칸은 싣지 않는다
+///
+/// `sha256` · `text` · `error` 는 그 값이 있을 때만 있다. 빈 문자열로 싣으면 `exists` 가 참이 된다
+/// (`expr::field` 는 없는 칸만 `None` 으로 본다).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ArchiveEntryRecord {
+    /// 디스크의 아카이브 — 그 파일의 `file.path` 와 같은 꼴이다.
+    pub archive: String,
+    /// 아카이브 안의 경로. 안쪽 아카이브를 지나면 `!/` 로 잇는다(`WEB-INF/lib/a.jar!/META-INF/MANIFEST.MF`).
+    /// 구분자는 `/` 로 고친다 — `\` 로 적는 도구가 있다.
+    ///
+    /// 아카이브 자체를 못 읽었으면 빈 문자열이고 그때는 [`error`](Self::error) 가 있다.
+    pub path: String,
+    /// 잎 이름(`pom.properties`). `archive_members` 의 꼴은 이것에 맞춘다.
+    pub name: String,
+    /// 몇 겹 안인가 — 1 은 디스크 파일 바로 안이다. 아카이브 자체의 오류 레코드는 그 아카이브의 겹이다.
+    pub depth: u32,
+    /// 풀었을 때 크기 — 아카이브 목록(중앙 디렉터리)에 적힌 값.
+    pub size: u64,
+    /// 푼 내용의 SHA-256. 상한(32 MiB) 안에서 끝까지 읽었을 때만 있다.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sha256: Option<String>,
+    /// 작은 글자 항목의 내용 — 64 KiB 이하 · UTF-8 · NUL 없음일 때만 있다.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
+    /// 그 자리를 **끝까지 못 본** 까닭 — 깨진 목록 · 상한 · 암호 · 모르는 압축 방식. 있으면 그 항목(아카이브면
+    /// 그 안 전부)의 판정 근거가 빠져 있다.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}

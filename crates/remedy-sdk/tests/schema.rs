@@ -34,7 +34,9 @@ fn closed_sets_have_the_declared_size() {
     // 19 → 20: `unix_socket` (2026-11-08 · 코어 1.2.0). Ebury 의 현재 주 탐지법이
     // 추상 소켓 이름이다. **Linux 전용**이고 찾기 전용이다 — `/proc/net/unix` 를 파일로
     // 읽고, 닫는 Op 은 없다(설계-01 D11 의 덧붙임).
-    assert_eq!(Subject::ALL.len(), 20, "설계-02 §3 은 subject 20종이다");
+    // 20 → 21: `archive_entry` (2026-11-12 · 코어 1.11.0). jar · war · ear 안의 항목 — YARA 는 압축된
+    // 항목 속을 못 본다. **찾기 전용**이다 — 아카이브 안을 고치는 Op 은 없다.
+    assert_eq!(Subject::ALL.len(), 21, "설계-02 §3 은 subject 21종이다");
     assert_eq!(Op::ALL.len(), 29, "설계-03 §2 는 Op 29종이다");
     // 12 → 14. `version_lt`·`version_gt` 를 더했다 — `lt` 는 수와 RFC3339 시각만
     // 봐서 `8.2.29` 를 견주지 못했고, 고치면 `1.10` 에서 순서가 뒤집힌다.
@@ -49,7 +51,7 @@ fn closed_sets_have_the_declared_size() {
         9,
         "설계-02 §4 는 capture 함수 9종이다"
     );
-    assert_eq!(DESIGNATED_TOKENS.len(), 3, "지정 확장 토큰은 3종이다");
+    assert_eq!(DESIGNATED_TOKENS.len(), 4, "지정 확장 토큰은 4종이다");
     assert_eq!(ArtifactKind::ALL.len(), 4, "아티팩트 봉투는 4종이다");
     assert_eq!(
         ExitCode::ALL.len(),

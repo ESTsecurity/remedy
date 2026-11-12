@@ -172,6 +172,35 @@ pub struct PluginManifest {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub hash_large: Vec<String>,
 
+    /// `file` 이 기록할 파일의 **이름 꼴** — 비면 전부(지금까지와 같다) (코어 1.11.0).
+    ///
+    /// # 왜 필요한가
+    ///
+    /// `file` 은 상한 아래 **모든 파일을 기록하고 32 MiB 이하는 해시한다**(최대 50만 개). 디스크 전체에서
+    /// jar 만 보려는 점검(`%FIXED_DISKS%`)이 그 값을 치르면 검사가 몇 시간이 되고, 스냅샷에 모든 파일
+    /// 경로가 실린다.
+    ///
+    /// ```yaml
+    /// file_names: ["*.jar", "*.war", "*.ear"]
+    /// ```
+    ///
+    /// **이름 하나의 꼴**이다(`*` · `?`). **대소문자를 가리지 않는다** — `APP.JAR` 로 배포된 앱이 있다(옛
+    /// log4j 시험 묶음). 걷기는 그대로라 폴더는 다 내려가고, 맞지 않는 파일만 기록하지 않는다.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub file_names: Vec<String>,
+
+    /// `archive_entry` 가 기록할 아카이브 항목의 **잎 이름 꼴** (코어 1.11.0).
+    ///
+    /// ```yaml
+    /// archive_members: ["*.jar", "*.war", "pom.properties", "MANIFEST.MF"]
+    /// ```
+    ///
+    /// 맞는 항목만 레코드가 된다 — 항목 전부를 담으면 jar 하나가 수천, 디스크 전체가 수백만 레코드다.
+    /// **이 꼴에 맞고 zip 꼴인 항목은 안쪽 아카이브로 연다**(4겹까지) — 열 것과 담을 것을 한 칸으로 정한다.
+    /// 대소문자를 가리지 않는다.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub archive_members: Vec<String>,
+
     /// 이동식 매체 접근. 기본 false.
     ///
     /// 켜는 것만으로는 부족하다 — 이동식 매체 대상 파괴 Action 은 대화형에서

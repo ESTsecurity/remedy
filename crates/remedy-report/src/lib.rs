@@ -372,6 +372,12 @@ pub fn evidence_label(subject: remedy_sdk::catalog::Subject, target: &serde_json
         S::CertStore => first_of(target, &["subject", "thumbprint", "store"]),
         S::ProxyConfig => first_of(target, &["server", "pac_url", "scope"]),
         S::BrowserExtension => first_of(target, &["name", "ext_id", "path"]),
+        // 아카이브 안의 항목은 **디스크의 파일과 안쪽 경로**가 함께 있어야 찾아간다 — 자바가 쓰는 `!/` 로
+        // 잇는다(코어 1.11.0). 아카이브 자체를 못 읽은 레코드는 안쪽 경로가 비어 파일만 남는다.
+        S::ArchiveEntry => match (first_of(target, &["archive"]), first_of(target, &["path"])) {
+            (Some(a), Some(p)) => Some(format!("{a}!/{p}")),
+            (a, _) => a,
+        },
     };
     named.unwrap_or_else(|| subject.info().id.to_string())
 }
@@ -575,7 +581,7 @@ fn finding_body(e: &remedy_sdk::artifact::Evidence, lang: Lang) -> String {
     // 로 나왔다 — **엔진 필드 이름 셋**이고 사용자에게 뜻이 없다. 판이 맞은
     // 룰이면 사람이 볼 값은 **판 하나**다. 그 밖의 모양에서만 맞은 필드를
     // 원래 이름으로 적는다(이름에 이미 쓴 필드는 뺀다).
-    let in_label = ["path", "name", "key", "hive", "line_no", "entry"];
+    let in_label = ["path", "name", "key", "hive", "line_no", "entry", "archive"];
     // **내용 해시는 적지 않는다** (2026-11-09) — 64자리 값은 사람에게 뜻이 없다. 공식 빌드 해시로
     // 판정하는 점검 룰(`sha256 in […]` · `sha256 exists`)에서 경로 뒤에 그대로 찍혔다. 위협 룰 화면
     // ([`threat_findings`])이 이름만 적는 것과 같은 까닭이다.
@@ -626,6 +632,10 @@ fn finding_body(e: &remedy_sdk::artifact::Evidence, lang: Lang) -> String {
                     let word = lang.pick("모듈".to_string(), "module".to_string());
                     return matched_modules(&e.target, m).map(|v| format!("{word} {v}"));
                 }
+                if m.field == "text" {
+                    let word = lang.pick("내용".to_string(), "content".to_string());
+                    return matched_text(&e.target, m).map(|v| format!("{word} {v}"));
+                }
                 let word = field_word(&m.field, lang)?;
                 text_at(&e.target, &m.field).map(|v| format!("{word} {v}"))
             })
@@ -670,6 +680,31 @@ fn matched_modules(
     Some(out)
 }
 
+/// `text` 를 맞춘 술어에서 **맞은 글자만** (코어 1.11.0 · `archive_entry`).
+///
+/// `text` 는 항목 하나의 내용 전부라(`pom.properties` 세 줄 · `MANIFEST.MF` 수십 줄) 통째로 적으면 줄이
+/// 넘친다. 사람이 볼 것은 판정을 가른 줄이다 — `version=2.14.1`. 룰의 정규식을 다시 대 첫 맞음을 고르고 그
+/// 첫 줄만 적는다(줄 끝의 `\r` 은 뗀다).
+fn matched_text(
+    target: &serde_json::Value,
+    m: &remedy_sdk::artifact::MatchedPredicate,
+) -> Option<String> {
+    const SHOWN: usize = 120;
+    let text = target.get("text")?.as_str()?;
+    let pattern = m.value.as_ref()?.as_str()?;
+    let hit = match m.op.as_str() {
+        "matches" => regex::Regex::new(pattern)
+            .ok()?
+            .find(text)?
+            .as_str()
+            .to_string(),
+        "contains" | "equals" | "starts_with" | "ends_with" => pattern.to_string(),
+        _ => return None,
+    };
+    let line = hit.lines().map(str::trim).find(|l| !l.is_empty())?;
+    Some(line.chars().take(SHOWN).collect())
+}
+
 /// 항목 줄에서 **값 앞에 붙는 낱말** — 엔진의 칸 이름을 받는 사람의 말로 (2026-11-12).
 ///
 /// 시연 전 검토에서 `applicationHost.config  (value C:\…\php-cgi.exe)` · `php-cli  (manager dpkg)` 가
@@ -690,6 +725,8 @@ fn field_word(field: &str, lang: Lang) -> Option<String> {
         "image_path" => ("실행 파일", "image"),
         "command_line" | "command" => ("명령", "command"),
         "source" => ("원본 패키지", "source package"),
+        // 아카이브 안을 끝까지 못 본 까닭(코어 1.11.0) — 값은 언어와 무관한 짧은 낱말이다(`too_large` 등).
+        "error" => ("못 본 까닭", "not read"),
         other => (other, other),
     };
     Some(lang.pick(ko.to_string(), en.to_string()))

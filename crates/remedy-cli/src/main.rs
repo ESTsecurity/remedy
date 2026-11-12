@@ -1803,7 +1803,15 @@ fn scan_started() {
 
 fn load_manifest(path: &str) -> Result<PluginManifest, String> {
     let text = std::fs::read_to_string(path).map_err(|e| format!("{path}: {e}"))?;
-    let m: PluginManifest = serde_yaml_ng::from_str(&text).map_err(|e| format!("{path}: {e}"))?;
+    let m: PluginManifest = serde_yaml_ng::from_str(&text).map_err(|e| {
+        // 틀린 술어를 이름으로 짚는다 — serde 의 문구만으로는 모르는 연산자가 보이지 않는다.
+        let hints = remedy_sdk::lint::schema_hints(&text);
+        if hints.is_empty() {
+            format!("{path}: {e}")
+        } else {
+            format!("{path}: {e}\n  {}", hints.join("\n  "))
+        }
+    })?;
 
     // 스키마는 통과했지만 의미가 어긋난 것들. 여기서 막지 않으면 결과가 조용히
     // 비어 있고, 작성자는 룰이 안 맞는 이유를 찾느라 시간을 버린다.
@@ -3656,6 +3664,10 @@ fn cmd_plugin_lint(raw: &[String]) -> Result<Code, Failure> {
             Ok(m) => m,
             Err(e) => {
                 outln!("  오류 스키마: {e}");
+                // serde 는 꼴로 갈리는 조건식에서 무엇이 틀렸는지 말하지 않는다 — 원문으로 짚는다.
+                for h in remedy_sdk::lint::schema_hints(&text) {
+                    outln!("      → {h}");
+                }
                 outln!(
                     "      쓸 수 있는 것:
 {}",

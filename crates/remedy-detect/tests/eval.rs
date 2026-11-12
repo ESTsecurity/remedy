@@ -1432,3 +1432,89 @@ fn a_bad_pattern_is_still_reported_once() {
     assert_eq!(bad.len(), 1, "{:?}", body.issues);
     assert!(body.verdicts.is_empty(), "잘못된 정규식은 매치가 아니다");
 }
+
+// ─────────────────────────────────────────── 아카이브 안의 항목 (`archive_entry` · 코어 1.11.0)
+
+const ARCHIVE_MANIFEST: &str = r#"
+schema_version: 1
+id: arch
+version: 0.1.0
+min_core: "1.0.0"
+platforms: [windows]
+kind: check
+name: { ko: "a", en: "a" }
+scan_roots: ["c:\\users\\t\\appdata\\local\\programs"]
+subjects: [file, archive_entry]
+archive_members: ["pom.properties"]
+detect:
+  - id: war
+    subject: file
+    where:
+      - { field: path, op: ends_with, value: "\\app\\app.war" }
+    capture:
+      dir: "path | dirname"
+  - id: pom
+    subject: archive_entry
+    from: "${war.dir}"
+    where:
+      - { field: name, op: equals, value: "pom.properties" }
+      - { field: text, op: matches, value: "(?m)^version=2\\.14\\.1$" }
+verdict:
+  require: "war and pom"
+"#;
+
+/// `from` 은 아카이브의 **디스크 자리**(`archive`)로 좁힌다 — 그 `path` 는 안쪽 경로라 디스크 폴더와 견주면 늘
+/// 거짓이다. 부모가 찍은 앱 폴더 안의 war 만 본다.
+#[test]
+fn from_narrows_archive_entries_by_the_archive_on_disk() {
+    use remedy_artifacts::ArchiveEntryRecord;
+    let pom = |archive: &str| ArchiveEntryRecord {
+        archive: archive.into(),
+        path:
+            "WEB-INF/lib/a.jar!/META-INF/maven/org.apache.logging.log4j/log4j-core/pom.properties"
+                .into(),
+        name: "pom.properties".into(),
+        depth: 2,
+        size: 40,
+        sha256: None,
+        text: Some("artifactId=log4j-core\nversion=2.14.1\n".into()),
+        error: None,
+    };
+    let app = format!("{ROOT}\\app\\app.war");
+    let other = format!("{ROOT}\\other\\x.war");
+    let mut obs = Observations::default();
+    obs.put(Subject::File, &[file(&app), file(&other)]);
+    obs.put(Subject::ArchiveEntry, &[pom(&app), pom(&other)]);
+    let mut sc = scope();
+    sc.subjects = vec![Subject::File, Subject::ArchiveEntry];
+    let env = remedy_artifacts::assemble(
+        "r".into(),
+        "2026-11-12T00:00:00Z".into(),
+        HostInfo {
+            hostname: "H".into(),
+            os: "windows".into(),
+            version: "10".into(),
+            arch: "amd64".into(),
+        },
+        CoreInfo {
+            version: "0".into(),
+            build: "d".into(),
+        },
+        &sc,
+        obs,
+    );
+    let body = evaluate(
+        &Snapshot::from_envelope(&env),
+        &manifest(ARCHIVE_MANIFEST),
+        &sc,
+    )
+    .unwrap();
+    let hits: Vec<&str> = body
+        .evidence
+        .iter()
+        .filter(|e| e.rule == "pom")
+        .filter_map(|e| e.target.get("archive").and_then(|v| v.as_str()))
+        .collect();
+    assert_eq!(hits, [app.as_str()], "{:?}", body.evidence);
+    assert_eq!(body.verdicts.len(), 1, "{:?}", body.issues);
+}

@@ -1220,7 +1220,7 @@ fn sub_second_runs_do_not_say_zero() {
 // ───────────────────────────────────────── 점검 결과 항목 (2026-10-28)
 //
 // 점검 화면이 `취약 N건` 이라는 **수만** 내고 끝나던 자리다. 재는 것은 둘 —
-// **subject 20종이 전부 이름을 낸다**(빈 줄이 나가면 사용자가 아무것도 못 한다)
+// **subject 21종이 전부 이름을 낸다**(빈 줄이 나가면 사용자가 아무것도 못 한다)
 // 와 **잘리는 갈래가 실제로 돈다**(안 재면 죽은 코드다).
 
 use remedy_sdk::artifact::{Evidence, EvidenceGroup, MatchedPredicate};
@@ -1248,7 +1248,7 @@ fn group(id: &str, evidence: &[&str], verdict: bool) -> EvidenceGroup {
     }
 }
 
-/// **20종 전부가 이름을 낸다.** 카탈로그가 적은 식별 필드를 주면 그것이 나오고,
+/// **21종 전부가 이름을 낸다.** 카탈로그가 적은 식별 필드를 주면 그것이 나오고,
 /// 모르는 모양을 주어도 subject 의 id 로 떨어진다 — 빈 줄은 없다.
 #[test]
 fn every_subject_names_its_target() {
@@ -1349,6 +1349,12 @@ fn every_subject_names_its_target() {
             serde_json::json!({"name": "@/run/systemd/log", "inode": 7}),
             "@/run/systemd/log",
         ),
+        // 디스크의 파일과 안쪽 경로를 `!/` 로 잇는다 — 둘 다 있어야 찾아간다.
+        (
+            Subject::ArchiveEntry,
+            serde_json::json!({"archive": "/opt/app.war", "path": "WEB-INF/lib/log4j-core-2.14.1.jar"}),
+            "/opt/app.war!/WEB-INF/lib/log4j-core-2.14.1.jar",
+        ),
     ];
     // 카탈로그의 subject 가 하나도 빠지지 않았는가 — 새 subject 를 더하고 여기를
     // 잊으면 그 subject 의 화면 이름은 아무도 재지 않는다.
@@ -1361,6 +1367,60 @@ fn every_subject_names_its_target() {
         let empty = evidence_label(*s, &serde_json::json!({}));
         assert!(!empty.is_empty(), "{s:?} 가 빈 이름을 냈다");
     }
+}
+
+/// 아카이브 안의 항목은 `파일!/안쪽 경로` 로, `text` 를 맞춘 줄은 **맞은 글자만** 적는다(코어 1.11.0) — 항목
+/// 내용을 통째로 적으면 `pom.properties` 넷째 줄 · `MANIFEST.MF` 수십 줄이 한 줄에 선다. 아카이브 자체를 못 읽은
+/// 레코드는 안쪽 경로가 비어 파일만 이름이 되고, 못 본 까닭을 적는다.
+#[test]
+fn an_archive_member_shows_its_place_and_only_the_line_that_matched() {
+    let pom = "#Created by Maven\r\ngroupId=org.apache.logging.log4j\r\nartifactId=log4j-core\r\nversion=2.14.1\r\n";
+    let path = "WEB-INF/lib/logging.jar!/META-INF/maven/org.apache.logging.log4j/log4j-core/pom.properties";
+    let mut e = ev(
+        "e0",
+        Subject::ArchiveEntry,
+        serde_json::json!({
+            "archive": "/opt/app/app.war", "path": path, "name": "pom.properties",
+            "depth": 2, "size": 90, "text": pom,
+        }),
+    );
+    e.matched = vec![
+        MatchedPredicate {
+            field: "path".into(),
+            op: "ends_with".into(),
+            value: Some(serde_json::json!("log4j-core/pom.properties")),
+        },
+        MatchedPredicate {
+            field: "text".into(),
+            op: "matches".into(),
+            value: Some(serde_json::json!(
+                r"(?m)^version=2\.(1[0-6]|[0-9])(\.[0-9]+)?\r?$"
+            )),
+        },
+    ];
+    let lines = check_findings(&[e], &[group("g0", &["e0"], true)], &[], Lang::Ko, 10);
+    assert_eq!(
+        lines,
+        vec![format!(
+            "   1. /opt/app/app.war!/{path}  (내용 version=2.14.1)"
+        )]
+    );
+
+    let mut bad = ev(
+        "e1",
+        Subject::ArchiveEntry,
+        serde_json::json!({"archive": "/opt/app/bad.jar", "path": "", "depth": 0, "error": "broken: directory"}),
+    );
+    bad.matched = vec![MatchedPredicate {
+        field: "error".into(),
+        op: "exists".into(),
+        value: None,
+    }];
+    let lines = check_findings(&[bad], &[group("g1", &["e1"], true)], &[], Lang::Ko, 10);
+    assert_eq!(
+        lines,
+        vec!["   1. /opt/app/bad.jar  (못 본 까닭 broken: directory)".to_string()]
+    );
 }
 
 /// 판정이 선 그룹의 증거만 적는다 — 제외된 그룹은 화면에 올리지 않는다.

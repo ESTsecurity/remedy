@@ -97,6 +97,7 @@ pub fn lint(m: &PluginManifest) -> Vec<LintIssue> {
     check_fields(m, &mut out);
     check_unpopulated_fields(m, &mut out);
     check_package_fields(m, &mut out);
+    check_archive_fields(m, &mut out);
     check_enumerated_values(m, &mut out);
     check_sha256_literals(m, &mut out);
     check_version_literals(m, &mut out);
@@ -461,11 +462,11 @@ fn check_restore_named(m: &PluginManifest, out: &mut Vec<LintIssue>) {
 fn check_from_subject(m: &PluginManifest, out: &mut Vec<LintIssue>) {
     let usable: Vec<&str> = crate::catalog::Subject::ALL
         .iter()
-        .filter(|s| s.fields().contains(&"path"))
+        .filter(|s| s.from_field().is_some())
         .map(|s| s.id())
         .collect();
     for r in &m.detect {
-        if r.from.is_none() || r.subject.fields().contains(&"path") {
+        if r.from.is_none() || r.subject.from_field().is_some() {
             continue;
         }
         out.push(LintIssue {
@@ -965,6 +966,65 @@ fn check_package_fields(m: &PluginManifest, out: &mut Vec<LintIssue>) {
                 valid: None,
                 doc: Some("설계-02 §3"),
             });
+        }
+    }
+}
+
+/// `archive_entry` · `archive_members` · `file_names` 가 짝을 이루는가 (코어 1.11.0).
+///
+/// 짝이 어긋나면 수집이 **조용히 0건**이다 — 아카이브를 열지 않거나(`file` 이 없다), 열어도 담을 이름이
+/// 없다(`archive_members` 가 비었다). 그 subject 의 규칙은 '안 맞았다' 로 끝나고 점검은 *"그 취약점이
+/// 없다"* 를 말한다.
+fn check_archive_fields(m: &PluginManifest, out: &mut Vec<LintIssue>) {
+    let entry = m.subjects.contains(&Subject::ArchiveEntry);
+    let file = m.subjects.contains(&Subject::File);
+    if entry && !file {
+        out.push(err(
+            "subjects",
+            "`archive_entry` 는 `file` 이 기록한 파일을 연다 — subjects 에 `file` 을 함께 선언한다. 없으면 \
+             아카이브를 하나도 열지 않아 그 subject 의 규칙이 전부 미평가다",
+            "설계-02 §3",
+        ));
+    }
+    if entry && m.archive_members.is_empty() {
+        out.push(err(
+            "archive_members",
+            "`archive_entry` 를 선언했는데 `archive_members` 가 비었다 — 기록할 항목의 잎 이름 꼴\
+             (`[\"pom.properties\", \"*.jar\"]`)이 없으면 아무것도 담기지 않는다",
+            "설계-02 §3",
+        ));
+    }
+    if !entry && !m.archive_members.is_empty() {
+        out.push(warn(
+            "archive_members",
+            "`archive_members` 를 적었는데 `archive_entry` 를 선언하지 않았다 — 아카이브를 열지 않으므로 \
+             이 칸은 아무 일도 하지 않는다",
+            "설계-02 §3",
+        ));
+    }
+    if !file && !m.file_names.is_empty() {
+        out.push(warn(
+            "file_names",
+            "`file_names` 를 적었는데 `file` 을 선언하지 않았다 — 이 칸은 아무 일도 하지 않는다",
+            "설계-02 §3",
+        ));
+    }
+    for (field, list) in [
+        ("file_names", &m.file_names),
+        ("archive_members", &m.archive_members),
+    ] {
+        for (i, p) in list.iter().enumerate() {
+            let t = p.trim();
+            if t.is_empty() || t.contains(['/', '\\']) {
+                out.push(err(
+                    format!("{field}[{i}]"),
+                    format!(
+                        "'{p}' 는 이름 하나의 꼴이어야 한다(`*.jar` · `pom.properties`) — 빈 값과 경로 \
+                         구분자는 받지 않는다. 자리는 scan_roots 가 정한다"
+                    ),
+                    "설계-02 §2",
+                ));
+            }
         }
     }
 }
@@ -1823,6 +1883,7 @@ fn token_depth(token: &str) -> Option<usize> {
         "APPDATA" | "LOCALAPPDATA" => 5,           // …\AppData\Roaming|Local
         "TEMP" | "TMP" => 6,                       // …\AppData\Local\Temp
         "REMOVABLE" => 1,                          // 이동식 매체 루트
+        "FIXED_DISKS" => 1,                        // 디스크 루트 (코어 1.11.0)
         _ => return None,
     })
 }
@@ -2120,6 +2181,40 @@ fn check_overbroad(m: &PluginManifest, out: &mut Vec<LintIssue>) {
             }
             None => r.to_string(),
         };
+        // **디스크 토큰은 넓은 것이 뜻이다**(코어 1.11.0) — 깊이로 재면 늘 경고라 그 말은 무시된다. 물을 것은
+        // **이름으로 좁혔는가**와, 디스크 전체를 걷게 될 다른 경로 subject 를 좁혔는가다.
+        if r.to_ascii_uppercase().contains("%FIXED_DISKS%") {
+            if m.subjects.contains(&Subject::File) && m.file_names.is_empty() {
+                out.push(warn(
+                    at.clone(),
+                    format!(
+                        "'{r}' 은 디스크 전체다. `file_names` 없이 쓰면 모든 파일을 기록하고 32 MiB \
+                         이하는 해시한다 — 50만 개에서 잘려 검사가 종료 코드 6 이 되고 몇 시간이 걸린다. \
+                         볼 파일의 이름 꼴을 `file_names` 로 적는다(`[\"*.jar\", \"*.war\"]`)"
+                    ),
+                    "설계-02 §2",
+                ));
+            }
+            for s in &m.subjects {
+                let narrowed = m.subject_roots.contains_key(s);
+                if s.info().scoping == crate::catalog::Scoping::Path
+                    && !matches!(s, Subject::File | Subject::ArchiveEntry)
+                    && !narrowed
+                {
+                    out.push(warn(
+                        at.clone(),
+                        format!(
+                            "'{r}' 을 상한으로 둔 룰의 `{}` 는 디스크 전체를 걷는다 — 그 수집기는 이름으로 \
+                             거르지 않는다. `subject_roots.{}` 로 그 subject 의 자리를 좁힌다",
+                            s.id(),
+                            s.id()
+                        ),
+                        "설계-02 §2",
+                    ));
+                }
+            }
+            continue;
+        }
         match root_depth(&measured) {
             // `C:\` · `/` · `C:\Users` 처럼 얕은 루트는 사실상 전 디스크다.
             // **`structured_config` 가 함께 선언되면 폭이 상한 문제가 된다.**
@@ -2351,6 +2446,307 @@ pub fn valid_values() -> String {
             .collect::<Vec<_>>()
             .join(" · "),
     )
+}
+
+/// 형태가 깨진 매니페스트에서 **틀린 술어를 이름으로** 짚는다 (2026-11-12 · 기준 7).
+///
+/// 조건식(`Condition`)과 술어(`Predicate`)는 꼴로 갈리는 enum(`untagged`)이라, 모르는 연산자 하나가
+/// serde 에서 *"data did not match any variant of untagged enum Condition at line 11 column 5"* 로만
+/// 나온다 — 무엇이 틀렸는지 말하지 않는다(1.10.0 실측 — `op: zip_contains`). 줄 · 열은 그 묶음의
+/// 시작이라 술어가 여럿이면 어느 것인지도 모른다. 그래서 serde 가 실패한 **뒤에** 원문을 일반 YAML
+/// 로 한 번 더 읽어, `detect[*].where` · `exclude` 의 술어마다 칸 이름과 연산자를 견준다.
+///
+/// 형태가 맞는 매니페스트에서는 빈 목록이다. YAML 자체가 깨졌어도 빈 목록이다 — 그때는 serde 의
+/// 줄 · 열이 이미 정확하다.
+pub fn schema_hints(text: &str) -> Vec<String> {
+    let Ok(doc) = serde_yaml_ng::from_str::<serde_yaml_ng::Value>(text) else {
+        return Vec::new();
+    };
+    let mut out = Vec::new();
+    let Some(rules) = doc.get("detect").and_then(|d| d.as_sequence()) else {
+        return out;
+    };
+    for (i, rule) in rules.iter().enumerate() {
+        let id = rule.get("id").and_then(|v| v.as_str()).unwrap_or("?");
+        let at = format!("detect[{i}] ('{id}')");
+        if let Some(w) = rule.get("where") {
+            condition_hints(w, &format!("{at}.where"), &mut out);
+        }
+        if let Some(seq) = rule.get("exclude").and_then(|v| v.as_sequence()) {
+            for (j, p) in seq.iter().enumerate() {
+                predicate_hints(p, &format!("{at}.exclude[{j}]"), &mut out);
+            }
+        }
+    }
+    out
+}
+
+fn condition_hints(v: &serde_yaml_ng::Value, at: &str, out: &mut Vec<String>) {
+    use serde_yaml_ng::Value;
+    match v {
+        Value::Sequence(items) => {
+            for (k, c) in items.iter().enumerate() {
+                condition_hints(c, &format!("{at}[{k}]"), out);
+            }
+        }
+        Value::Mapping(m) if m.len() == 1 && (m.contains_key("all") || m.contains_key("any")) => {
+            for key in ["all", "any"] {
+                match m.get(key) {
+                    Some(inner @ Value::Sequence(_)) => {
+                        condition_hints(inner, &format!("{at}.{key}"), out)
+                    }
+                    Some(_) => out.push(format!("{at}.{key}: 조건의 목록이어야 한다")),
+                    None => {}
+                }
+            }
+        }
+        _ => predicate_hints(v, at, out),
+    }
+}
+
+fn predicate_hints(v: &serde_yaml_ng::Value, at: &str, out: &mut Vec<String>) {
+    let Some(m) = v.as_mapping() else {
+        out.push(format!(
+            "{at}: 술어가 아니다 — `{{ field, op, value }}` · `{{ yara }}` · `all` · `any` 중 하나다"
+        ));
+        return;
+    };
+    let keys: Vec<String> = m
+        .keys()
+        .map(|k| {
+            k.as_str()
+                .map(str::to_string)
+                .unwrap_or_else(|| format!("{k:?}"))
+        })
+        .collect();
+    if keys.iter().any(|k| k == "yara") {
+        for k in keys.iter().filter(|k| *k != "yara") {
+            out.push(format!(
+                "{at}: yara 술어에 모르는 칸 '{k}' — `yara` 하나만 쓴다"
+            ));
+        }
+        return;
+    }
+    if keys.iter().any(|k| k == "all" || k == "any") {
+        out.push(format!("{at}: `all` · `any` 는 그 칸 하나만 가진 묶음이다"));
+        return;
+    }
+    for k in keys
+        .iter()
+        .filter(|k| !["field", "op", "value"].contains(&k.as_str()))
+    {
+        out.push(format!(
+            "{at}: 모르는 칸 '{k}' — 필드 술어는 field · op · value 만 쓴다"
+        ));
+    }
+    if !keys.iter().any(|k| k == "field") {
+        out.push(format!("{at}: `field` 가 없다"));
+    }
+    match m.get("op") {
+        None => out.push(format!("{at}: `op` 가 없다")),
+        Some(op) => match op.as_str() {
+            Some(name) if Operator::ALL.iter().any(|o| o.id() == name) => {}
+            Some(name) => out.push(format!(
+                "{at}: 모르는 연산자 '{name}' — 쓸 수 있는 연산자 {}종: {}",
+                Operator::ALL.len(),
+                Operator::ALL
+                    .iter()
+                    .map(|o| o.id())
+                    .collect::<Vec<_>>()
+                    .join(" · ")
+            )),
+            None => out.push(format!("{at}: `op` 가 글자가 아니다")),
+        },
+    }
+}
+
+#[cfg(test)]
+mod schema_hint_tests {
+    use super::schema_hints;
+
+    fn manifest(where_: &str, exclude: &str) -> String {
+        format!(
+            r#"
+schema_version: 1
+id: t
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [linux]
+kind: check
+name: {{ ko: "t", en: "t" }}
+scan_roots: ["/opt"]
+subjects: [file]
+detect:
+  - id: r
+    subject: file
+    where:
+{where_}
+{exclude}
+verdict: {{ require: "r" }}
+"#
+        )
+    }
+
+    #[test]
+    fn an_unknown_operator_is_named_with_its_place_and_the_valid_ones() {
+        // 1.10.0 에서 이 룰은 `untagged enum Condition at line 11 column 5` 로만 나왔다.
+        let y = manifest(
+            "      - { field: path, op: ends_with, value: '.jar' }\n      - { field: path, op: zip_contains, value: 'x' }",
+            "",
+        );
+        assert!(serde_yaml_ng::from_str::<crate::manifest::PluginManifest>(&y).is_err());
+        let h = schema_hints(&y);
+        assert_eq!(h.len(), 1, "{h:?}");
+        assert!(h[0].contains("detect[0] ('r').where[1]"), "{h:?}");
+        assert!(h[0].contains("모르는 연산자 'zip_contains'"), "{h:?}");
+        assert!(
+            h[0].contains("ends_with"),
+            "쓸 수 있는 것을 말하지 않았다: {h:?}"
+        );
+    }
+
+    #[test]
+    fn nested_groups_exclude_and_unknown_keys_are_reached() {
+        let y = manifest(
+            "      - any:\n          - { field: path, op: ends_with, valu: '.jar' }\n          - { yara: 'rules/a.yar:x', op: equals }",
+            "    exclude:\n      - { field: path, op: inside }",
+        );
+        let h = schema_hints(&y).join("\n");
+        assert!(h.contains("where[0].any[0]: 모르는 칸 'valu'"), "{h}");
+        assert!(
+            h.contains("where[0].any[1]: yara 술어에 모르는 칸 'op'"),
+            "{h}"
+        );
+        assert!(h.contains("exclude[0]: 모르는 연산자 'inside'"), "{h}");
+    }
+
+    #[test]
+    fn a_manifest_that_parses_has_no_hints() {
+        let y = manifest("      - { field: path, op: ends_with, value: '.jar' }", "");
+        assert!(serde_yaml_ng::from_str::<crate::manifest::PluginManifest>(&y).is_ok());
+        assert!(schema_hints(&y).is_empty());
+    }
+}
+
+#[cfg(test)]
+mod archive_field_tests {
+    use super::{lint, Severity};
+    use crate::manifest::PluginManifest;
+
+    fn m(head: &str, subjects: &str, rule_subject: &str) -> PluginManifest {
+        let y = format!(
+            r#"
+schema_version: 1
+id: t
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [linux]
+kind: check
+name: {{ ko: "t", en: "t" }}
+scan_roots: ["%FIXED_DISKS%"]
+subjects: [{subjects}]
+{head}
+detect:
+  - id: r
+    subject: {rule_subject}
+    where:
+      - {{ field: path, op: ends_with, value: "pom.properties" }}
+verdict: {{ require: "r" }}
+"#
+        );
+        serde_yaml_ng::from_str(&y).unwrap_or_else(|e| panic!("{e}\n{y}"))
+    }
+
+    fn found(m: &PluginManifest) -> Vec<(Severity, String, String)> {
+        lint(m)
+            .into_iter()
+            .map(|i| (i.severity, i.at, i.message))
+            .collect()
+    }
+
+    #[test]
+    fn a_complete_archive_rule_has_no_archive_or_disk_issue() {
+        let mm = m(
+            "file_names: [\"*.jar\", \"*.war\"]\narchive_members: [\"pom.properties\", \"*.jar\"]",
+            "file, archive_entry",
+            "archive_entry",
+        );
+        let got = found(&mm);
+        assert!(
+            got.iter()
+                .all(|(_, at, msg)| !at.starts_with("archive_members")
+                    && !at.starts_with("file_names")
+                    && at != "scan_roots[0]"
+                    && !msg.contains("archive_entry")),
+            "{got:#?}"
+        );
+    }
+
+    #[test]
+    fn archive_entry_without_file_or_members_is_an_error() {
+        let no_file = m(
+            "archive_members: [\"pom.properties\"]",
+            "archive_entry",
+            "archive_entry",
+        );
+        assert!(
+            found(&no_file)
+                .iter()
+                .any(|(s, at, msg)| *s == Severity::Error
+                    && at == "subjects"
+                    && msg.contains("`file`")),
+            "{:#?}",
+            found(&no_file)
+        );
+        let no_members = m(
+            "file_names: [\"*.jar\"]",
+            "file, archive_entry",
+            "archive_entry",
+        );
+        assert!(found(&no_members)
+            .iter()
+            .any(|(s, at, _)| *s == Severity::Error && at == "archive_members"));
+        // 반대 방향은 경고다 — 칸이 아무 일도 하지 않을 뿐 수집이 틀리지는 않는다.
+        let unused = m("archive_members: [\"pom.properties\"]", "file", "file");
+        assert!(found(&unused)
+            .iter()
+            .any(|(s, at, _)| *s == Severity::Warning && at == "archive_members"));
+    }
+
+    #[test]
+    fn a_path_in_a_name_pattern_is_an_error() {
+        let mm = m(
+            "file_names: [\"lib/*.jar\"]\narchive_members: ['META-INF\\MANIFEST.MF']",
+            "file, archive_entry",
+            "archive_entry",
+        );
+        let errs: Vec<String> = found(&mm)
+            .into_iter()
+            .filter(|(s, _, _)| *s == Severity::Error)
+            .map(|(_, at, _)| at)
+            .collect();
+        assert!(
+            errs.contains(&"file_names[0]".to_string())
+                && errs.contains(&"archive_members[0]".to_string()),
+            "{errs:?}"
+        );
+    }
+
+    #[test]
+    fn the_disk_token_warns_only_when_names_do_not_narrow_it() {
+        // 디스크 토큰은 넓은 것이 뜻이라 깊이 경고를 내지 않는다 — 이름으로 좁히지 않았을 때만 말한다.
+        let wide = m("", "file", "file");
+        let w = found(&wide);
+        assert!(
+            w.iter().any(|(s, at, msg)| *s == Severity::Warning
+                && at == "scan_roots[0]"
+                && msg.contains("file_names")),
+            "{w:#?}"
+        );
+        let narrow = m("file_names: [\"*.jar\"]", "file", "file");
+        let n = found(&narrow);
+        assert!(!n.iter().any(|(_, at, _)| at == "scan_roots[0]"), "{n:#?}");
+    }
 }
 
 #[cfg(test)]
@@ -2849,6 +3245,9 @@ verdict: {{ require: 'r' }}
     /// 더하며 여기서 멈췄고, 멈춰서 보고 `Fixed` 를 골랐다 — 패키지 DB 는
     /// `/var/lib/dpkg/status` · `/lib/apk/db/installed` 로 **자리가 정해져
     /// 있어** `scan_roots` 를 보지 않는다.
+    ///
+    /// 2026-11-12 에 `archive_entry` 를 더하며 다시 멈췄고 `Path` 를 골랐다 — 여는 아카이브는 `file` 이
+    /// `scan_roots` 안에서 기록한 파일이라, 경로 루트가 없으면 그 subject 는 아무것도 열지 못한다.
     #[test]
     fn every_subject_declares_how_it_is_scoped() {
         let n = Subject::ALL.len();
@@ -2856,7 +3255,8 @@ verdict: {{ require: 'r' }}
             .into_iter()
             .filter(|s| matches!(s.info().scoping, Scoping::Fixed))
             .count();
-        assert_eq!(n, 20);
+        assert_eq!(n, 21);
+        assert_eq!(Subject::ArchiveEntry.info().scoping, Scoping::Path);
         // 전부 Fixed 면 이 검사는 아무것도 막지 못한다.
         assert!(fixed < n, "scan_roots 를 받는 subject 가 하나도 없다");
     }
@@ -3047,6 +3447,7 @@ mod doc_coverage_tests {
                 Box::new(check_unpopulated_fields),
             ),
             ("check_package_fields", Box::new(check_package_fields)),
+            ("check_archive_fields", Box::new(check_archive_fields)),
             ("check_enumerated_values", Box::new(check_enumerated_values)),
             ("check_sha256_literals", Box::new(check_sha256_literals)),
             ("check_version_literals", Box::new(check_version_literals)),

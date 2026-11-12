@@ -144,7 +144,7 @@ require: "task and count(payload) >= 2"      # 한 건으로는 서지 않게
 앞엣것은 기다리면 된다. 뒤엣것은 다른 이름을 찾아야 한다. **그 구분이 오류
 메시지에 들어 있으므로 메시지를 끝까지 읽는다.**
 
-> **이 갈래는 subject 에만 붙고, 지금은 비어 있다** — subject 20종이 전부
-> 구현됐다(P2·P4 · 현재 코어 P12 · `package` 가 2026-10-27 에, `unix_socket` 이 코어 1.2.0 에 더해졌다). 카탈로그에 새 subject 가 예고되면 다시
+> **이 갈래는 subject 에만 붙고, 지금은 비어 있다** — subject 21종이 전부
+> 구현됐다(P2·P4 · 현재 코어 P12 · `package` 가 2026-10-27 에, `unix_socket` 이 코어 1.2.0 에, `archive_entry` 가 1.11.0 에 더해졌다). 카탈로그에 새 subject 가 예고되면 다시
 > 나온다. **Op 은 이 갈래가 아니다** — 아직 오지 않은 Op 은 린트가 아니라
 > 계획 단계에서 `deferred` 로 빠진다(`22-remediate-recipes.md`).

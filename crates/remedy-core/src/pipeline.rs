@@ -146,6 +146,7 @@ pub fn scope_from_manifest(
     }
     let mut roots = Vec::new();
     let mut removable = Vec::new();
+    let mut disks = Vec::new();
     let mut notes: Vec<remedy_collect::extra::Unresolved> = Vec::new();
     for r in &m.scan_roots {
         let e = expand(r);
@@ -155,6 +156,10 @@ pub fn scope_from_manifest(
         // 답이 나온다.
         if r.to_ascii_uppercase().contains("%REMOVABLE%") {
             removable.extend(e.roots.iter().cloned());
+        }
+        // 디스크 토큰의 뿌리는 **다른 마운트로 넘어가지 않고** 걷는다(`Scope::disk_roots`) — 그것도 여기서만 안다.
+        if r.to_ascii_uppercase().contains("%FIXED_DISKS%") {
+            disks.extend(e.roots.iter().cloned());
         }
         roots.extend(e.roots);
         notes.extend(
@@ -168,6 +173,8 @@ pub fn scope_from_manifest(
     }
     removable.sort();
     removable.dedup();
+    disks.sort();
+    disks.dedup();
     // 순서를 고정하고 겹치는 것을 없앤다. 두 토큰이 같은 곳으로 펼쳐지면
     // 같은 파일이 두 번 수집되고, 그러면 스냅샷이 실행마다 달라진다.
     roots.sort();
@@ -306,6 +313,10 @@ pub fn scope_from_manifest(
             hash_large: m.hash_large.clone(),
             max_large_hash_bytes: remedy_artifacts::MAX_LARGE_HASH_BYTES,
             max_files: 500_000,
+            // 이름 꼴이라 전개할 토큰이 없다(`hash_large` 와 같다).
+            file_names: m.file_names.clone(),
+            archive_members: m.archive_members.clone(),
+            disk_roots: disks,
             // 룰이 모듈 칸을 볼 때만 프로세스마다 모듈을 연다 — Windows 에서 값이 크다(`Scope::process_modules`).
             process_modules: remedy_sdk::lint::uses_field(
                 m,
@@ -492,6 +503,10 @@ pub fn scope_of(artifacts: &ArtifactsEnvelope) -> Scope {
         hash_large: Vec::new(),
         max_large_hash_bytes: 0,
         max_files: 0,
+        // 평가는 걷지도 · 아카이브를 열지도 않는다.
+        file_names: Vec::new(),
+        archive_members: Vec::new(),
+        disk_roots: Vec::new(),
         // 평가는 프로세스를 다시 모으지 않는다.
         process_modules: false,
     }

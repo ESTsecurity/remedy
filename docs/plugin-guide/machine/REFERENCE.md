@@ -8,7 +8,7 @@
 - 스키마 버전: 1
 - 현재 구현된 Phase: P12
 
-## 관찰 대상 20종
+## 관찰 대상 21종
 
 **Windows** · **Linux** 열은 *이 코어가 그 플랫폼에서 수집하기 시작하는 Phase* 다.
 
@@ -36,6 +36,7 @@
 | `firewall_rule` | P4 | 개념만 | 방화벽 규칙. 자기 허용·보안 제품 차단이 여기 남는다 |
 | `package` | — | P12 | 설치된 패키지. 배포판이 백포트한 판을 가리는 유일한 길 |
 | `unix_socket` | — | P12 | 이름 있는 UNIX 소켓. 추상 이름은 `@` 로 시작한다 — 상주 임플란트가 여는 자리 |
+| `archive_entry` | P4 | P12 | 아카이브(jar · war · ear · zip) 안의 항목 — 안쪽 경로 · 크기 · 해시 · 작은 글자 내용 |
 
 ### subject 별 필드 (닫힌 집합)
 
@@ -61,6 +62,7 @@
 - **`firewall_rule`** — `id` · `name` · `direction` · `action` · `enabled` · `protocol` · `local_port` · `remote_port` · `remote_address` · `application` · `service` · `profile` · `source`
 - **`package`** — `name` · `version` · `upstream_version` · `revision` · `arch` · `source` · `manager` · `vendor`
 - **`unix_socket`** — `name` · `inode` · `listening` · `kind`
+- **`archive_entry`** — `archive` · `path` · `name` · `depth` · `size` · `sha256` · `text` · `error`
 
 ## 파괴·변경 동작 29종
 
@@ -158,6 +160,7 @@
 | `HKU\*` | 모든 사용자 레지스트리 하이브 (프로필 수 상한 적용) | - |
 | `%ALLUSERPROFILES%` | 모든 사용자 프로필 디렉터리 | - |
 | `%REMOVABLE%` | 연결된 이동식 매체 | O |
+| `%FIXED_DISKS%` | 고정 디스크 전부 — Windows 는 고정 드라이브, 리눅스는 로컬 디스크 마운트(가상 · 네트워크 · tmpfs 제외). 다른 마운트로 넘어가지 않고 걷는다 | - |
 
 ## 산출 아티팩트
 

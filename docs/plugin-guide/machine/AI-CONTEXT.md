@@ -69,8 +69,9 @@ remediate:
 - `firewall_rule`: id name direction action enabled protocol local_port remote_port remote_address application service profile source
 - `package`: name version upstream_version revision arch source manager vendor
 - `unix_socket`: name inode listening kind
+- `archive_entry`: archive path name depth size sha256 text error
 
-**`from` 은 `path` 필드가 있는 subject 에만 통한다** — file text_config structured_config shortcut browser_extension. 그 밖에는 `where` 값에 `${다른규칙.capture}` 를 넣어 부모에 묶는다.
+**`from` 은 `path` 필드가 있는 subject 에만 통한다** — file text_config structured_config shortcut browser_extension archive_entry (`archive_entry` 는 `archive` 로 견준다). 그 밖에는 `where` 값에 `${다른규칙.capture}` 를 넣어 부모에 묶는다.
 
 ## Op 29종 (계획기가 고른다)
 

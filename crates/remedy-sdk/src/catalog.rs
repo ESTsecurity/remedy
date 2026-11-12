@@ -1,4 +1,4 @@
-//! 닫힌 집합 카탈로그 — subject 20종 · Op 29종 · 연산자 15종 · capture 함수 9종.
+//! 닫힌 집합 카탈로그 — subject 21종 · Op 29종 · 연산자 15종 · capture 함수 9종.
 //!
 //! 각 항목의 메타데이터는 **exhaustive match** 로 붙인다. 변이를 추가하면
 //! 메타데이터를 채우기 전까지 컴파일이 되지 않는다. 표를 따로 두면 언젠가
@@ -134,7 +134,7 @@ impl Scoping {
 }
 // ─────────────────────────────────────────────────────────── Subject
 
-/// 관찰 대상 타입 20종 (설계-02 §3).
+/// 관찰 대상 타입 21종 (설계-02 §3).
 ///
 /// 순서는 설계-02 §3 표와 같다. 사람이 두 목록을 대조할 일이 남아 있는 한
 /// 순서가 같은 편이 낫다.
@@ -163,6 +163,7 @@ pub enum Subject {
     FirewallRule,
     Package,
     UnixSocket,
+    ArchiveEntry,
 }
 
 /// subject 하나에 대해 코어가 아는 모든 것.
@@ -276,7 +277,7 @@ pub const RETIRED_SUBJECTS: [(&str, &str); 1] = [(
 )];
 
 impl Subject {
-    pub const ALL: [Subject; 20] = [
+    pub const ALL: [Subject; 21] = [
         Subject::Persistence,
         Subject::Autorun,
         Subject::Service,
@@ -297,6 +298,7 @@ impl Subject {
         Subject::FirewallRule,
         Subject::Package,
         Subject::UnixSocket,
+        Subject::ArchiveEntry,
     ];
 
     /// 메타데이터. `match` 가 exhaustive 하므로 변이를 추가하면 여기서 막힌다.
@@ -764,6 +766,13 @@ impl Subject {
             // 시작하고(커널이 앞의 NUL 을 `@` 로 적는다), 파일 소켓은 경로다. 이름 없는
             // 소켓은 담지 않는다(바쁜 서버에 수천 개이고 룰이 겨눌 것이 없다).
             Subject::UnixSocket => &["name", "inode", "listening", "kind"],
+            // 아카이브 안의 항목 하나가 레코드 하나다(코어 1.11.0). **좌표와 내용이 한 레코드에** 있어야
+            // `where` 의 AND 로 *"log4j-core 의 pom.properties 이고 그 판이 취약하다"* 를 한 항목에서 견준다.
+            // `path` 는 안쪽 아카이브를 지나면 `!/` 로 잇고(`WEB-INF/lib/a.jar!/META-INF/MANIFEST.MF`), `text`
+            // 는 작은 글자 항목에만, `error` 는 그 자리를 끝까지 못 봤을 때만 있다 — 없으면 `exists` 가 거짓이다.
+            Subject::ArchiveEntry => &[
+                "archive", "path", "name", "depth", "size", "sha256", "text", "error",
+            ],
         }
     }
 
@@ -1010,11 +1019,36 @@ impl Subject {
                 summary:
                     "이름 있는 UNIX 소켓. 추상 이름은 `@` 로 시작한다 — 상주 임플란트가 여는 자리",
             },
+            // **아카이브 안의 항목**(코어 1.11.0 · 2026-11-12). log4j 점검을 룰만으로 짜 보니 YARA 는 원본
+            // 바이트만 봐서 압축된 항목 속(실제 jar 의 `pom.properties` · 압축된 war 안의 jar)을 못 봤고,
+            // 본문 상한(파일 8 MiB · 검사 64 MiB)에 큰 앱과 jar 가 많은 서버가 걸렸다 — 101경우 중 놓침
+            // 하나 · 확인 필요 여섯. 열 아카이브는 `file` 이 기록한 파일이라 `file` 을 함께 선언한다.
+            Subject::ArchiveEntry => SubjectInfo {
+                id: "archive_entry",
+                scoping: Scoping::Path,
+                implemented_in: Phase::P4,
+                windows: true,
+                linux: true,
+                linux_from: Some(Phase::P12),
+                summary: "아카이브(jar · war · ear · zip) 안의 항목 — 안쪽 경로 · 크기 · 해시 · 작은 글자 내용",
+            },
         }
     }
 
     pub const fn id(self) -> &'static str {
         self.info().id
+    }
+
+    /// `from`(파생 경로로 좁히기)이 견주는 칸 — **디스크의 자리를 쥔 칸**이다. 없으면 `from` 이 통하지 않는다.
+    ///
+    /// 대개 `path` 다. `archive_entry` 는 다르다 — 그 `path` 는 아카이브 **안의** 경로라 디스크 경로와 견주면 늘
+    /// 거짓이고, 디스크의 자리는 `archive` 가 쥔다(코어 1.11.0). 평가기 · 린트 · 생성 문서가 이 하나를 본다.
+    pub fn from_field(self) -> Option<&'static str> {
+        match self {
+            Subject::ArchiveEntry => Some("archive"),
+            s if s.fields().contains(&"path") => Some("path"),
+            _ => None,
+        }
     }
 
     pub fn from_id(s: &str) -> Option<Subject> {
@@ -2242,11 +2276,15 @@ pub struct DesignatedToken {
     pub requires_allow_removable: bool,
 }
 
-/// 지정 확장 토큰 3종.
+/// 지정 확장 토큰 4종.
 ///
 /// `%ALLUSERPROFILES%` 가 없으면 다중 사용자 환경에서 현재 로그온 사용자만
 /// 치료되고 나머지는 감염 상태로 남는다.
-pub const DESIGNATED_TOKENS: [DesignatedToken; 3] = [
+///
+/// `%FIXED_DISKS%`(코어 1.11.0)는 **디스크 전체를 보는 점검**의 것이다 — 라이브러리(jar)는 기계마다 아무
+/// 자리에나 깔린다. 펴진 뿌리는 다른 마운트로 넘어가지 않고 걷고(`Scope::disk_roots`), `file_names` 로
+/// 이름을 좁혀 쓴다(린트가 본다).
+pub const DESIGNATED_TOKENS: [DesignatedToken; 4] = [
     DesignatedToken {
         token: "HKU\\*",
         expands_to: "모든 사용자 레지스트리 하이브 (프로필 수 상한 적용)",
@@ -2261,6 +2299,12 @@ pub const DESIGNATED_TOKENS: [DesignatedToken; 3] = [
         token: "%REMOVABLE%",
         expands_to: "연결된 이동식 매체",
         requires_allow_removable: true,
+    },
+    DesignatedToken {
+        token: "%FIXED_DISKS%",
+        expands_to: "고정 디스크 전부 — Windows 는 고정 드라이브, 리눅스는 로컬 디스크 마운트(가상 · 네트워크 · \
+                     tmpfs 제외). 다른 마운트로 넘어가지 않고 걷는다",
+        requires_allow_removable: false,
     },
 ];
 

@@ -43,6 +43,11 @@
       "expands_to": "연결된 이동식 매체",
       "requires_allow_removable": true,
       "token": "%REMOVABLE%"
+    },
+    {
+      "expands_to": "고정 디스크 전부 — Windows 는 고정 드라이브, 리눅스는 로컬 디스크 마운트(가상 · 네트워크 · tmpfs 제외). 다른 마운트로 넘어가지 않고 걷는다",
+      "requires_allow_removable": false,
+      "token": "%FIXED_DISKS%"
     }
   ],
   "exit_codes": [

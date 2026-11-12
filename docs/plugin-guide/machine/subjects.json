@@ -1,5 +1,5 @@
 {
-  "count": 20,
+  "count": 21,
   "subjects": [
     {
       "enumerated": {},
@@ -535,6 +535,26 @@
       "scoping": "fixed",
       "summary": "이름 있는 UNIX 소켓. 추상 이름은 `@` 로 시작한다 — 상주 임플란트가 여는 자리",
       "windows": false
+    },
+    {
+      "enumerated": {},
+      "fields": [
+        "archive",
+        "path",
+        "name",
+        "depth",
+        "size",
+        "sha256",
+        "text",
+        "error"
+      ],
+      "id": "archive_entry",
+      "implemented_in": "P4",
+      "linux": true,
+      "linux_from": "P12",
+      "scoping": "path",
+      "summary": "아카이브(jar · war · ear · zip) 안의 항목 — 안쪽 경로 · 크기 · 해시 · 작은 글자 내용",
+      "windows": true
     }
   ]
 }

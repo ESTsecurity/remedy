@@ -11,6 +11,7 @@
 //! `Scope::diagnostic` 이 플러그인 없이 범위를 만드는 길이다.
 #![forbid(unsafe_code)]
 
+mod archive;
 pub mod certstore;
 pub mod config;
 pub mod cron;
@@ -29,8 +30,8 @@ pub mod task;
 pub mod unix_socket;
 
 use remedy_artifacts::{
-    CollectError, FileCollector, FileRecord, Harvest, Observations, PersistenceCollector,
-    PersistenceRecord, Scope, SecurityProductCollector,
+    ArchiveEntryRecord, CollectError, FileCollector, FileRecord, Harvest, Observations,
+    PersistenceCollector, PersistenceRecord, Scope, SecurityProductCollector,
 };
 use remedy_platform::read::{EnvRead, FsRead, ProcessRead, RegValue, RegistryRead, Seen};
 use remedy_sdk::artifact::SecurityProduct;
@@ -69,7 +70,32 @@ impl<P> Collector<P> {
 
 impl<P: FsRead> FileCollector for Collector<P> {
     fn collect_files(&self, scope: &Scope) -> Result<Harvest<FileRecord>, CollectError> {
+        self.files(scope, None)
+    }
+}
+
+impl<P: FsRead> Collector<P> {
+    /// 파일을 걷고 — `archives` 를 주면 — 기록한 파일 가운데 **zip 꼴인 것의 안까지** 연다(코어 1.11.0 ·
+    /// `archive_entry`).
+    ///
+    /// 한 걸음에 하는 까닭: 32 MiB 이하 파일은 해시하려고 본문을 이미 들었다. 따로 걸으면 디스크 전체를 두 번
+    /// 걷고 jar 를 두 번 읽는다. 그보다 큰 파일은 목록과 필요한 항목만 짚어 읽는다.
+    ///
+    /// # 걷기가 둘인 까닭
+    ///
+    /// 이름 꼴(`file_names`)을 적었거나 디스크 토큰(`%FIXED_DISKS%`)의 뿌리면 **이름이 맞는 파일만 담는 걷기**
+    /// (`walk_files`)로 간다 — 상한을 맞는 파일로만 세고, 디스크 토큰이면 다른 마운트로 넘어가지 않는다. 그
+    /// 밖의 뿌리는 전처럼 `walk` 다 — 출하 룰의 수집이 바뀌지 않는다.
+    pub fn files(
+        &self,
+        scope: &Scope,
+        mut archives: Option<&mut Harvest<ArchiveEntryRecord>>,
+    ) -> Result<Harvest<FileRecord>, CollectError> {
         let mut h = Harvest::default();
+        let limits = archive::Limits::DEFAULT;
+        let mut budget = archive::Budget::default();
+        // 뿌리가 겹치면 같은 파일을 두 번 걷는다 — 아카이브는 한 번만 연다.
+        let mut opened: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
         // **없는 루트를 먼저 걸러 낸다.** 존재하지 않는 루트는 정상이고(설치되지
         // 않은 프로그램 등) 접근 거부와 달라 denied 로 세지 않는데, 화면의
         // `루트 k/n` 에서도 세면 안 된다 — 세면 n 에 영영 닿지 못한다.
@@ -92,10 +118,14 @@ impl<P: FsRead> FileCollector for Collector<P> {
             }
             remedy_platform::progress::begin_root(i + 1, root_total);
             let walk_started = std::time::Instant::now();
-            let w = self
-                .platform
-                .walk(root, remaining)
-                .map_err(|e| CollectError::Other(e.to_string()))?;
+            let disk = scope.disk_roots.iter().any(|d| d == root.as_str());
+            let w = if disk || !scope.file_names.is_empty() {
+                self.platform
+                    .walk_files(root, remaining, &scope.file_names, disk)
+            } else {
+                self.platform.walk(root, remaining)
+            }
+            .map_err(|e| CollectError::Other(e.to_string()))?;
             remedy_platform::progress::add_walk(walk_started.elapsed());
             // 걷기가 끝났으니 이 루트의 분모가 정해졌다.
             remedy_platform::progress::root_walked();
@@ -168,6 +198,22 @@ impl<P: FsRead> FileCollector for Collector<P> {
                 } else {
                     None
                 };
+                // 아카이브 안 — **링크는 열지 않는다.** 해시하지 않는 것과 같은 까닭이고, 링크가 상한 밖을
+                // 가리키면 그 바깥을 읽게 된다.
+                if let Some(ah) = archives.as_mut() {
+                    if !e.is_reparse && opened.insert(e.path.clone()) {
+                        archive::inspect_file(
+                            &self.platform,
+                            &e.path,
+                            e.size,
+                            body.as_deref(),
+                            &scope.archive_members,
+                            &limits,
+                            &mut budget,
+                            ah,
+                        );
+                    }
+                }
                 h.records.push(FileRecord {
                     path: e.path,
                     size: e.size,
@@ -189,6 +235,10 @@ impl<P: FsRead> FileCollector for Collector<P> {
         remedy_platform::progress::end_roots();
         h.records.sort_by(|a, b| a.path.cmp(&b.path));
         h.records.dedup_by(|a, b| a.path == b.path);
+        // 아카이브 안의 순서는 목록의 순서 그대로 두고(안정 정렬) 아카이브끼리만 줄 세운다.
+        if let Some(ah) = archives {
+            ah.records.sort_by(|a, b| a.archive.cmp(&b.archive));
+        }
         Ok(h)
     }
 }
@@ -994,7 +1044,15 @@ where
 
     if scope.subjects.contains(&Subject::File) {
         remedy_platform::progress::set_stage("file");
-        let mut h = collector.collect_files(scope)?;
+        // 아카이브 안은 **`file` 이 기록한 파일**을 연다 — 걷기를 두 번 하지 않는다. `archive_entry` 만 선언하고
+        // `file` 을 빠뜨린 룰은 린트가 막고, 그래도 오면 그 subject 는 수집되지 않은 것으로 보고된다.
+        let open = scope.subjects.contains(&Subject::ArchiveEntry);
+        let mut ah: Harvest<ArchiveEntryRecord> = Harvest::default();
+        let mut h = collector.files(scope, open.then_some(&mut ah))?;
+        if open {
+            obs.absorb(&ah);
+            obs.put(Subject::ArchiveEntry, &ah.records);
+        }
         // **패키지를 보는 룰이면** 모은 파일이 패키지가 깐 그대로인지 적는다(코어 1.7.0 · `owner`). 패키지 DB 는
         // `package` subject 의 고정 자리라, 그것을 선언하지 않은 룰에서는 읽지 않는다.
         if scope.platform == remedy_sdk::catalog::Platform::Linux

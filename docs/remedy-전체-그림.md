@@ -450,14 +450,15 @@ flowchart TB
 이 프로그램이 할 수 있는 일의 경계가 곧 이 목록이기 때문이다. 늘리려면 코어를
 고치고 새 판을 내야 하고, 그래서 **룰만 배포해서 늘릴 수는 없다.**
 
-### subject 20종 — 무엇을 볼 수 있는가
+### subject 21종 — 무엇을 볼 수 있는가
 
 ```mermaid
 flowchart TB
-    subgraph SF["파일 계열 3"]
+    subgraph SF["파일 계열 4"]
         s1[file]
         s2[shortcut]
         s3[browser_extension]
+        s21[archive_entry]
     end
     subgraph SP["지속성 3"]
         s4[persistence]
@@ -492,6 +493,9 @@ flowchart TB
 > 파일로 직접 읽고(dpkg·apk·rpm DB · `/proc/net/unix`) **치료 Op 이 없다** — 패키지를 올리는 것은
 > 공급사의 일이고, 소켓을 닫는 것은 치료가 아니다(그 소켓을 연 프로세스가 다시 연다). `unix_socket`
 > 은 코어 1.2.0 에서 더했다 — Ebury 의 현재 주 탐지법이 추상 소켓 이름이다(설계-01 D11 덧붙임).
+>
+> `archive_entry` 는 코어 1.11.0 에서 더했다 — jar · war · ear 안의 항목(안쪽 경로 · 해시 · 작은 글자
+> 내용)을 읽는 **찾기 전용** subject 다. log4j 점검을 룰만으로 짜 보니 YARA 가 압축된 항목의 속을 못 봤다.
 
 ### Op 29종 — 코어가 할 수 있는 변경
 

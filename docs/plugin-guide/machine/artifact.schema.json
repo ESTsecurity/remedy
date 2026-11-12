@@ -197,7 +197,7 @@
         "type": "object"
       },
       "Subject": {
-        "description": "관찰 대상 타입 20종 (설계-02 §3).\n\n순서는 설계-02 §3 표와 같다. 사람이 두 목록을 대조할 일이 남아 있는 한 순서가 같은 편이 낫다.\n\n카탈로그에서 **뺀** 것은 [`RETIRED_SUBJECTS`] 에 이유와 함께 남는다.",
+        "description": "관찰 대상 타입 21종 (설계-02 §3).\n\n순서는 설계-02 §3 표와 같다. 사람이 두 목록을 대조할 일이 남아 있는 한 순서가 같은 편이 낫다.\n\n카탈로그에서 **뺀** 것은 [`RETIRED_SUBJECTS`] 에 이유와 함께 남는다.",
         "enum": [
           "persistence",
           "autorun",
@@ -218,7 +218,8 @@
           "proxy_config",
           "firewall_rule",
           "package",
-          "unix_socket"
+          "unix_socket",
+          "archive_entry"
         ],
         "type": "string"
       }
@@ -659,7 +660,7 @@
         "type": "string"
       },
       "Subject": {
-        "description": "관찰 대상 타입 20종 (설계-02 §3).\n\n순서는 설계-02 §3 표와 같다. 사람이 두 목록을 대조할 일이 남아 있는 한 순서가 같은 편이 낫다.\n\n카탈로그에서 **뺀** 것은 [`RETIRED_SUBJECTS`] 에 이유와 함께 남는다.",
+        "description": "관찰 대상 타입 21종 (설계-02 §3).\n\n순서는 설계-02 §3 표와 같다. 사람이 두 목록을 대조할 일이 남아 있는 한 순서가 같은 편이 낫다.\n\n카탈로그에서 **뺀** 것은 [`RETIRED_SUBJECTS`] 에 이유와 함께 남는다.",
         "enum": [
           "persistence",
           "autorun",
@@ -680,7 +681,8 @@
           "proxy_config",
           "firewall_rule",
           "package",
-          "unix_socket"
+          "unix_socket",
+          "archive_entry"
         ],
         "type": "string"
       },
@@ -1336,7 +1338,7 @@
         "type": "object"
       },
       "Subject": {
-        "description": "관찰 대상 타입 20종 (설계-02 §3).\n\n순서는 설계-02 §3 표와 같다. 사람이 두 목록을 대조할 일이 남아 있는 한 순서가 같은 편이 낫다.\n\n카탈로그에서 **뺀** 것은 [`RETIRED_SUBJECTS`] 에 이유와 함께 남는다.",
+        "description": "관찰 대상 타입 21종 (설계-02 §3).\n\n순서는 설계-02 §3 표와 같다. 사람이 두 목록을 대조할 일이 남아 있는 한 순서가 같은 편이 낫다.\n\n카탈로그에서 **뺀** 것은 [`RETIRED_SUBJECTS`] 에 이유와 함께 남는다.",
         "enum": [
           "persistence",
           "autorun",
@@ -1357,7 +1359,8 @@
           "proxy_config",
           "firewall_rule",
           "package",
-          "unix_socket"
+          "unix_socket",
+          "archive_entry"
         ],
         "type": "string"
       },
