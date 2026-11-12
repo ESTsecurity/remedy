@@ -801,9 +801,10 @@ impl Subject {
                 linux: true,
                 // systemd `.service` 유닛. **`.timer` 는 여기가 아니라
                 // `persistence` 다** — 이 표의 요약이 처음부터 그렇게 적고
-                // 있었다 (설계-09 P12 순서 9).
+                // 있었다 (설계-09 P12 순서 9). SysV · OpenRC · Upstart 의 시작 스크립트는
+                // 1.10.0 부터 — 실행하지 않고 푼 실행 파일 하나가 레코드 하나다.
                 linux_from: Some(Phase::P12),
-                summary: "Windows 서비스 · systemd service · SysV init",
+                summary: "Windows 서비스 · systemd service · SysV · OpenRC · Upstart 시작 스크립트",
             },
             Subject::Process => SubjectInfo {
                 id: "process",

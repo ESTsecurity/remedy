@@ -17,6 +17,7 @@ pub mod cron;
 pub mod derived;
 pub mod desktop;
 pub mod extra;
+pub mod initscripts;
 mod owner;
 pub mod package;
 pub mod peversion;
@@ -558,10 +559,87 @@ impl<P: FsRead + EnvRead> Collector<P> {
                     .push(systemd::to_service_record(u, &path, enabled));
             }
         }
+        self.legacy_services(scope, &mut h);
         h.records
             .sort_by(|a, b| (&a.name, &a.id).cmp(&(&b.name, &b.id)));
         drop_usr_merge_service_duplicates(&mut h.records);
         Ok(h)
+    }
+
+    /// SysV · OpenRC(`/etc/init.d`) · Upstart(`/etc/init/*.conf`)의 시작 스크립트 (2026-11-12 · 목표 결정 28).
+    ///
+    /// **실행하지 않고 읽는다** — 푸는 규칙은 [`initscripts`]. 풀린 실행 파일 하나가 레코드 하나다. `id` 는
+    /// 스크립트 경로(systemd 와 같은 까닭), `name` 은 파일 이름, 켜져 있는지는 보지 않는다(`unknown`) —
+    /// 멈춰 있어도 남는 자리라 그 자리 자체가 알릴 것이다.
+    ///
+    /// 덮어쓰는 설정은 스캐너와 같은 조건으로만 읽는다 — `/etc/default/<이름>` · `/etc/sysconfig/<이름>` 은
+    /// 스크립트가 그 경로를 글자 그대로 적었을 때, `/etc/conf.d/<이름>` 은 OpenRC 스크립트일 때.
+    fn legacy_services(&self, scope: &Scope, h: &mut Harvest<remedy_artifacts::ServiceRecord>) {
+        for (dir, upstart) in [(initscripts::INIT_D, false), (initscripts::UPSTART, true)] {
+            for e in self.list_files(dir, scope, h) {
+                // 바로 아래의 파일만 — 하위 폴더는 스크립트 자리가 아니다.
+                let Some((parent, file)) = e.path.rsplit_once('/') else {
+                    continue;
+                };
+                if parent != dir || (upstart && !file.ends_with(".conf")) {
+                    continue;
+                }
+                let Some(text) = self.read_text(&e.path, h) else {
+                    continue;
+                };
+                let name = if upstart {
+                    file.strip_suffix(".conf").unwrap_or(file)
+                } else {
+                    file
+                };
+                let overrides = self.legacy_overrides(&text, name, h);
+                for program in initscripts::programs(&text, &overrides) {
+                    h.records.push(remedy_artifacts::ServiceRecord {
+                        id: e.path.clone(),
+                        name: file.to_string(),
+                        state: "unknown".into(),
+                        start_type: "unknown".into(),
+                        image_path: remedy_sdk::normalize::nfc(&program),
+                    });
+                }
+            }
+        }
+    }
+
+    /// 스크립트 뒤에 붙여 읽을 덮어쓰는 설정.
+    fn legacy_overrides<T>(&self, script: &str, name: &str, h: &mut Harvest<T>) -> Vec<String> {
+        let openrc =
+            script.starts_with("#!/sbin/openrc-run") || script.starts_with("#!/sbin/runscript");
+        let mut out = Vec::new();
+        for dir in ["/etc/default", "/etc/sysconfig", "/etc/conf.d"] {
+            let path = format!("{dir}/{name}");
+            let wanted = if dir == "/etc/conf.d" {
+                openrc
+            } else {
+                script.contains(&path)
+            };
+            if !wanted || !self.platform.exists(&path) {
+                continue;
+            }
+            if let Some(t) = self.read_text(&path, h) {
+                out.push(t);
+            }
+        }
+        out
+    }
+
+    /// 글자 파일 하나(1 MiB 까지). 있는데 못 읽었으면 센다 — 상한을 넘었거나 글자가 아니면 조용히 뺀다.
+    fn read_text<T>(&self, path: &str, h: &mut Harvest<T>) -> Option<String> {
+        match self.platform.read_file(path, 1 << 20) {
+            Ok(Some(b)) if !b.contains(&0) => String::from_utf8(b).ok(),
+            Ok(_) => None,
+            Err(_) => {
+                if self.platform.exists(path) {
+                    h.deny(path);
+                }
+                None
+            }
+        }
     }
 
     /// `<target>.wants/` 아래에 링크된 유닛 이름들.
@@ -781,12 +859,14 @@ impl<P: RegistryRead> SecurityProductCollector for Collector<P> {
 /// 것으로 센다"* 고 적혀 있었다. **`scan_roots` 만 그 규율 밖이었다.**
 fn root_look<P: FsRead + RegistryRead>(p: &P, root: &str) -> Seen {
     if remedy_sdk::catalog::is_registry_root(root) {
-        // 끝의 `\*` 는 "직속 하위 키로 펼쳐라" 는 표시다. 있는지 묻는 대상은
-        // 별표를 뗀 그 키다 — 별표째 물으면 어떤 키도 존재하지 않는다.
+        // `\*` 는 "직속 하위 키로 펼쳐라" 는 표시다. 있는지 묻는 대상은 별표
+        // **앞의** 키다 — 별표째 물으면 어떤 키도 존재하지 않는다. 가운데 별표
+        // (`Services\*\Parameters` · 2026-11-12)도 같다: 꼬리 키가 하위 키마다 없는
+        // 것은 정상이고, 그것은 수집기가 하위 키마다 가른다.
         let key = root
-            .strip_suffix("\\*")
-            .or_else(|| root.strip_suffix("/*"))
-            .unwrap_or(root);
+            .find("\\*")
+            .or_else(|| root.find("/*"))
+            .map_or(root, |i| &root[..i]);
         if p.key_exists(key) {
             return Seen::Present;
         }

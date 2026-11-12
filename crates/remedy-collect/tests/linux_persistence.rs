@@ -354,3 +354,55 @@ fn a_service_shadowed_in_etc_stays_visible() {
         "가로채기가 사라졌다"
     );
 }
+
+/// **SysV · OpenRC · Upstart 의 시작 스크립트도 서비스다** (2026-11-12 · 목표 결정 28). 실행하지 않고 푼
+/// 실행 파일 하나가 레코드 하나이고, 덮어쓰는 설정은 스크립트가 그 자리를 적었을 때(OpenRC 는 늘)만 읽는다.
+/// 바로 아래가 아닌 파일 · `.conf` 가 아닌 Upstart 파일은 스크립트가 아니다.
+#[test]
+fn legacy_init_scripts_give_one_service_record_per_program() {
+    let svc = services(
+        Fs::new()
+            .file(
+                "/etc/init.d/php83-fpm",
+                "#!/bin/sh\nphp_fpm_BIN=/opt/php83/sbin/php-fpm\n$php_fpm_BIN --daemonize\n",
+            )
+            .file(
+                "/etc/init.d/web",
+                "#!/bin/sh\nDAEMON=/usr/bin/node\n[ -r /etc/default/web ] && . /etc/default/web\n",
+            )
+            .file("/etc/default/web", "DAEMON=/srv/node/bin/node\n")
+            .file("/etc/init.d/quiet", "#!/bin/sh\nDAEMON=/usr/sbin/x\n")
+            .file("/etc/default/quiet", "DAEMON=/srv/ignored\n")
+            .file("/etc/init.d/rc", "#!/sbin/openrc-run\ncommand=/usr/bin/y\n")
+            .file("/etc/conf.d/rc", "command=/opt/node/bin/node\n")
+            .file(
+                "/etc/init/worker.conf",
+                "start on runlevel [2345]\nexec /opt/php/bin/php /srv/w.php >> /var/log/w 2>&1\n",
+            )
+            .file("/etc/init/README", "exec /opt/x/bin/node\n")
+            .file("/etc/init.d/sub/inner", "DAEMON=/opt/x/bin/php\n"),
+    );
+    let got: Vec<(&str, &str, &str)> = svc
+        .iter()
+        .map(|r| (r.id.as_str(), r.name.as_str(), r.image_path.as_str()))
+        .collect();
+    assert_eq!(
+        got,
+        vec![
+            (
+                "/etc/init.d/php83-fpm",
+                "php83-fpm",
+                "/opt/php83/sbin/php-fpm"
+            ),
+            ("/etc/init.d/quiet", "quiet", "/usr/sbin/x"),
+            ("/etc/init.d/rc", "rc", "/usr/bin/y"),
+            ("/etc/init.d/rc", "rc", "/opt/node/bin/node"),
+            ("/etc/init.d/web", "web", "/usr/bin/node"),
+            ("/etc/init.d/web", "web", "/srv/node/bin/node"),
+            ("/etc/init/worker.conf", "worker.conf", "/opt/php/bin/php"),
+        ]
+    );
+    assert!(svc
+        .iter()
+        .all(|r| r.state == "unknown" && r.start_type == "unknown"));
+}

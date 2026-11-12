@@ -91,7 +91,7 @@
       "linux": true,
       "linux_from": "P12",
       "scoping": "fixed",
-      "summary": "Windows 서비스 · systemd service · SysV init",
+      "summary": "Windows 서비스 · systemd service · SysV · OpenRC · Upstart 시작 스크립트",
       "windows": true
     },
     {

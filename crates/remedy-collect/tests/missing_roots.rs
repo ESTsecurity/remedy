@@ -460,6 +460,26 @@ fn a_registry_root_with_a_star_strips_it_before_asking() {
     );
 }
 
+/// **가운데 별표도 그 앞의 키를 묻는다** (2026-11-12). 별표째 물으면 NSSM 의
+/// 자리(`Services\*\Parameters`)가 모든 기계에서 '없는 뿌리' 로 적힌다.
+#[test]
+fn a_registry_root_with_a_middle_star_asks_for_the_key_before_it() {
+    let fs = FakeFs::new(vec![]).with_keys(&["HKLM\\SYSTEM\\CurrentControlSet\\Services"]);
+    let c = Collector::new(fs);
+    let obs = collect_all(
+        &c,
+        &scope(&["HKLM\\SYSTEM\\CurrentControlSet\\Services\\*\\Parameters"]),
+    )
+    .expect("수집");
+
+    assert!(
+        obs.missing_roots.is_empty() && obs.unreadable_roots.is_empty(),
+        "별표 앞의 키를 묻지 않았다: {:?} {:?}",
+        obs.missing_roots,
+        obs.unreadable_roots
+    );
+}
+
 /// 검체의 폴더가 없는 **청정 기계**에서, 레지스트리 루트가 살아 있으면
 /// 관측은 완전하다 — 실기기가 낸 그 상황 그대로다.
 #[test]
