@@ -1,0 +1,340 @@
+# Apache HTTP/2 점검 — 리눅스 (CVE-2026-119618)
+#
+# Apache HTTP Server 의 mod_http2 가 assign_headers() 에서 힙을 망가뜨려 인증 없이 원격 코드 실행이 된다(critical ·
+# Red Hat CVSS 9.8). 상류는 2.4.55 ~ 2.4.70 이 영향이고 2.4.71 이 고쳤다. GitHub 의 별도 mod_h2 는 2.0.8 ~ 2.0.42 가
+# 영향인데 그 저장소는 2026-06-09 에 닫혀 고친 판이 없다. **고치지 않는다** — 판을 올리는 것은 공급사의 일이다.
+#
+# # 판정
+#
+# | 무엇 | 결과 |
+# |---|---|
+# | 배포판 패키지가 그 배포판의 고친 판보다 낮다 · 직접 빌드가 2.4.55 ~ 2.4.70 이다 — 그리고 HTTP/2 를 켠 흔적(모듈 적재 + Protocols 의 h2 · h2c)이 있다 | 취약(2) |
+# | 판은 취약인데 HTTP/2 를 켠 흔적을 다 찾지 못했다 | 확인 필요(6) — Include 로 읽는 다른 설정에서 켰을 수 있다 |
+# | 영향 범위의 판인데 고친 판을 이 룰이 모르는 빌드(고침을 기다리는 배포판 · 지원이 끝난 판 · 그 밖의 빌드) | 확인 필요(6) |
+# | 고친 패키지를 깔았지만 다시 시작하지 않은 Apache 가 지워진 옛 mod_http2 를 실었다 | 확인 필요(6) |
+# | 고친 판 · 영향 없는 판(RHEL 8 · Ubuntu 18.04 이하 · 상류 2.4.54 이하) · Apache 없음 | 0 |
+#
+# **HTTP/2 를 켜야 닿는다** — Red Hat 공지(RHSB-2026-017): 악용에는 mod_http2 적재 · Protocols 의 h2 또는 h2c ·
+# 네트워크 노출 셋이 다 필요하고, HTTP/1.1 만 쓰는 서버는 영향이 없다. 기본값은 배포판마다 다르다(2026-11-13 실측):
+# Debian · Ubuntu 는 모듈이 꺼져 있고 켜면(`a2enmod http2`) 함께 오는 http2.conf 가 `Protocols h2 h2c http/1.1` 을
+# 켠다. RHEL 계열 · Amazon Linux 2023 · Alpine 은 모듈은 실리지만 Protocols 가 없어 HTTP/1.1 이다. **Amazon Linux 2 ·
+# SUSE 는 기본 설정이 h2 h2c 를 켠다.**
+#
+# # 고친 판 (공급사 공지 · 2026-11-13 확인)
+#
+# | 배포판 | 패키지 | 고친 판 |
+# |---|---|---|
+# | Debian 12 · 13 · sid | apache2-bin | 2.4.71-1~deb12u1 · 2.4.71-1~deb13u1 · 2.4.71-1 |
+# | Ubuntu 26.10 · 26.04 · 24.04 | apache2-bin | 2.4.68-1ubuntu6.2 · 2.4.66-2ubuntu2.8 · 2.4.58-1ubuntu8.19 |
+# | Ubuntu 22.04 · 20.04 (상류 2.4.55 아래인데 영향 — 새 mod_http2 를 백포트했다) | apache2-bin | 2.4.52-1ubuntu4.27 · 2.4.41-4ubuntu3.23+esm11 |
+# | RHEL 9.9 · 9.8 EUS · 9.6 EUS · 9.4 E4S | mod_http2 | 2.0.26-7.el9_9.1 · 2.0.26-6.el9_8.3 · 2.0.26-4.el9_6.3 · 2.0.26-2.el9_4.4 |
+# | RHEL 10.3 · 10.2 · 10.0 | mod_http2 | 2.0.29-5.el10_3.1 · 2.0.29-4.el10_2.3 · 2.0.29-2.el10_0.3 |
+# | Rocky Linux 9 · 10 | mod_http2 | 2.0.26-7.el9_9.1 (RLSA-2026:98981) · 2.0.29-5.el10_3.1 (RLSA-2026:98978) |
+# | Amazon Linux 2023 · 2 | mod_http2 (epoch 1) | 1:2.4.71-1.amzn2023.0.1 · 1:2.4.71-1.amzn2.0.1 |
+# | Alpine 3.21 ~ edge | apache2-http2 | 2.4.71-r0 |
+#
+# RHEL 은 마이너 스트림마다 고친 판이 달라 스트림(`el9_8` 등)으로 줄을 가른다 — 한 판과만 견주면 EUS 에서 고친 기계를
+# 취약으로 낸다. 지원이 끝난 마이너의 빌드는 본류(9.9 · 10.3)의 고친 판과 견준다. RHEL 8 은 mod_http2 1.15 라 영향이
+# 없다(VEX). **공지가 아직 없는 곳은 영향 범위면 확인 필요다**: AlmaLinux · Oracle Linux · CentOS Stream · Fedora ·
+# SUSE(SLES 15 SP4 ~ 16 · Leap 15.4 ~ 16.1 — 공지가 '영향 · 고침 대기') · 지원이 끝난 판(Debian 11 · Ubuntu 25.x ·
+# Alpine 3.20 이하).
+#
+# # 이 룰이 보지 않는 것
+#
+# - 선언한 자리 밖의 직접 빌드(아래 `scan_roots` 밖) · 컨테이너 안 · Windows(Apache Lounge · XAMPP — 다음 판)
+# - Include 로 다른 자리에서 읽는 설정 — 흔적을 못 찾으면 확인 필요로 돌린다
+# - 한 기계에 Apache 가 둘이면 HTTP/2 흔적을 설치본마다 가르지 않는다(기계 전체의 흔적이다)
+# - TLS 개인키 — 이름(`*.conf` · `http2.load` · `httpd`)으로만 기록 · 해시하므로 `*.key` · `*.pem` 은 읽지 않는다
+schema_version: 1
+id: apache-http2-check-linux
+version: 0.1.0
+min_core: "1.14.0"  # apk_version_lt 는 1.14.0 · label 은 1.13.0 · file_names 는 1.11.0
+platforms: [linux]
+
+kind: check
+
+name:
+  ko: "Apache HTTP/2 점검 (CVE-2026-119618)"
+  en: "Apache HTTP/2 check (CVE-2026-119618)"
+
+references:
+  - "https://httpd.apache.org/security/vulnerabilities_24.html"
+  - "CVE-2026-119618"
+  - "https://access.redhat.com/security/vulnerabilities/RHSB-2026-017"
+  - "https://security.access.redhat.com/data/csaf/v2/vex/2026/cve-2026-119618.json"
+  - "https://security-tracker.debian.org/tracker/CVE-2026-119618"
+  - "https://ubuntu.com/security/CVE-2026-119618"
+  - "https://osv.dev/vulnerability/RLSA-2026:98981"
+  - "https://osv.dev/vulnerability/RLSA-2026:98978"
+  - "https://explore.alas.aws.amazon.com/CVE-2026-119618.html"
+  - "https://security.alpinelinux.org/vuln/CVE-2026-119618"
+  - "https://www.suse.com/security/cve/CVE-2026-119618/"
+
+# 패키지 DB 와 프로세스는 자리가 정해져 있어 `scan_roots` 를 보지 않는다. 파일은 Apache 설정 자리와 직접 빌드의
+# 실행 파일 자리만 읽는다 — 직접 빌드는 `conf` · `bin` 만 적어 웹 문서(`htdocs`) · 로그를 걷지 않는다.
+scan_roots:
+  - "/etc/apache2"            # Debian · Ubuntu · Alpine · SUSE
+  - "/etc/httpd"              # RHEL 계열 · Amazon Linux
+  - "/usr/local/apache2/conf" # 직접 빌드의 흔한 접두사
+  - "/usr/local/apache2/bin"
+  - "/usr/local/apache/conf"
+  - "/usr/local/apache/bin"
+  - "/usr/local/httpd/conf"
+  - "/usr/local/httpd/bin"
+  - "/opt/apache2/conf"
+  - "/opt/apache2/bin"
+  - "/opt/apache/conf"
+  - "/opt/apache/bin"
+  - "/opt/httpd/conf"
+  - "/opt/httpd/bin"
+  - "/opt/lampp/etc"          # XAMPP
+  - "/opt/lampp/bin"
+# 이 이름만 기록 · 해시한다 — 설정 · Debian 의 모듈 링크 · 실행 파일. TLS 개인키(`*.key` · `*.pem`)는 기록하지 않는다.
+file_names: ["*.conf", "http2.load", "httpd"]
+subjects: [package, file, process]
+
+detect:
+  # ── 배포판 패키지 — 줄마다 계열 → 고친 판 ─────────────────────────────────────
+  #
+  # mod_http2 를 담은 패키지만 본다 — Debian 계열은 apache2-bin, RPM 계열은 mod_http2, Alpine 은 apache2-http2.
+  # mod_http2 가 깔리지 않았으면 HTTP/2 를 처리할 코드가 없다.
+  - id: vulnerable_deb
+    subject: package
+    where:
+      all:
+        - { field: manager, op: equals, value: dpkg }
+        - { field: name, op: equals, value: apache2-bin }
+        - any:
+            - all: [{ field: version, op: matches, value: '~deb12u[0-9]+$' }, { field: version, op: pkg_version_lt, value: "2.4.71-1~deb12u1" }]
+            - all: [{ field: version, op: matches, value: '~deb13u[0-9]+$' }, { field: version, op: pkg_version_lt, value: "2.4.71-1~deb13u1" }]
+            # testing · sid — 개정에 배포판 꼬리가 없다. 상류 2.4.54 이하는 영향이 없다.
+            - all:
+                - { field: version, op: matches, value: '^2\.4\.[0-9]+-[0-9]+(\+b[0-9]+)?$' }
+                - { field: upstream_version, op: version_gt, value: "2.4.54" }
+                - { field: version, op: pkg_version_lt, value: "2.4.71-1" }
+            - all: [{ field: upstream_version, op: equals, value: "2.4.68" }, { field: version, op: matches, value: 'ubuntu' }, { field: version, op: pkg_version_lt, value: "2.4.68-1ubuntu6.2" }]
+            - all: [{ field: upstream_version, op: equals, value: "2.4.66" }, { field: version, op: matches, value: 'ubuntu' }, { field: version, op: pkg_version_lt, value: "2.4.66-2ubuntu2.8" }]
+            - all: [{ field: upstream_version, op: equals, value: "2.4.58" }, { field: version, op: matches, value: 'ubuntu' }, { field: version, op: pkg_version_lt, value: "2.4.58-1ubuntu8.19" }]
+            - all: [{ field: upstream_version, op: equals, value: "2.4.52" }, { field: version, op: matches, value: 'ubuntu' }, { field: version, op: pkg_version_lt, value: "2.4.52-1ubuntu4.27" }]
+            - all: [{ field: upstream_version, op: equals, value: "2.4.41" }, { field: version, op: matches, value: 'ubuntu' }, { field: version, op: pkg_version_lt, value: "2.4.41-4ubuntu3.23+esm11" }]
+    label:
+      ko: "Apache 의 HTTP/2 모듈(mod_http2) — CVE-2026-119618 · 이 배포판의 고친 판보다 낮습니다"
+      en: "Apache's HTTP/2 module (mod_http2) - CVE-2026-119618, below this distribution's fixed build"
+  # 공급사가 먼저다 — Rocky · Alma · Oracle 이 RHEL 의 판 문자열을 그대로 적으므로 판만으로는 누구의 빌드인지 모른다.
+  # 판은 rpm 이 적는 그대로라 epoch 0 은 없고 Amazon Linux 의 mod_http2 는 `1:` 이 붙는다.
+  - id: vulnerable_rpm
+    subject: package
+    where:
+      all:
+        - { field: manager, op: equals, value: rpm }
+        - { field: name, op: equals, value: mod_http2 }
+        - any:
+            - all: [{ field: vendor, op: equals, value: "Red Hat, Inc." }, { field: version, op: matches, value: '^([0-9]+:)?2\.0\.[0-9]+-[0-9]+\.el9_4(\.[0-9]+)*$' }, { field: version, op: rpm_version_lt, value: "0:2.0.26-2.el9_4.4" }]
+            - all: [{ field: vendor, op: equals, value: "Red Hat, Inc." }, { field: version, op: matches, value: '^([0-9]+:)?2\.0\.[0-9]+-[0-9]+\.el9_6(\.[0-9]+)*$' }, { field: version, op: rpm_version_lt, value: "0:2.0.26-4.el9_6.3" }]
+            - all: [{ field: vendor, op: equals, value: "Red Hat, Inc." }, { field: version, op: matches, value: '^([0-9]+:)?2\.0\.[0-9]+-[0-9]+\.el9_8(\.[0-9]+)*$' }, { field: version, op: rpm_version_lt, value: "0:2.0.26-6.el9_8.3" }]
+            # 그 밖의 RHEL 9 빌드(9.0 GA · 끝난 마이너 · 9.9) — 본류의 고친 판과 견준다.
+            - all: [{ field: vendor, op: equals, value: "Red Hat, Inc." }, { field: version, op: matches, value: '^([0-9]+:)?2\.0\.[0-9]+-[0-9]+\.el9(_([0-35790]|[1-9][0-9]+))?(\.[0-9]+)*$' }, { field: version, op: rpm_version_lt, value: "0:2.0.26-7.el9_9.1" }]
+            - all: [{ field: vendor, op: equals, value: "Red Hat, Inc." }, { field: version, op: matches, value: '^([0-9]+:)?2\.0\.[0-9]+-[0-9]+\.el10_0(\.[0-9]+)*$' }, { field: version, op: rpm_version_lt, value: "0:2.0.29-2.el10_0.3" }]
+            - all: [{ field: vendor, op: equals, value: "Red Hat, Inc." }, { field: version, op: matches, value: '^([0-9]+:)?2\.0\.[0-9]+-[0-9]+\.el10_2(\.[0-9]+)*$' }, { field: version, op: rpm_version_lt, value: "0:2.0.29-4.el10_2.3" }]
+            - all: [{ field: vendor, op: equals, value: "Red Hat, Inc." }, { field: version, op: matches, value: '^([0-9]+:)?2\.0\.[0-9]+-[0-9]+\.el10(_([13-9]|[1-9][0-9]+))?(\.[0-9]+)*$' }, { field: version, op: rpm_version_lt, value: "0:2.0.29-5.el10_3.1" }]
+            - all: [{ field: vendor, op: equals, value: "Rocky Enterprise Software Foundation" }, { field: version, op: matches, value: '^([0-9]+:)?2\.0\.[0-9]+-[0-9]+\.el9(_[0-9]+)?(\.[0-9]+)*$' }, { field: version, op: rpm_version_lt, value: "0:2.0.26-7.el9_9.1" }]
+            - all: [{ field: vendor, op: equals, value: "Rocky Enterprise Software Foundation" }, { field: version, op: matches, value: '^([0-9]+:)?2\.0\.[0-9]+-[0-9]+\.el10(_[0-9]+)?(\.[0-9]+)*$' }, { field: version, op: rpm_version_lt, value: "0:2.0.29-5.el10_3.1" }]
+            - all: [{ field: vendor, op: equals, value: "Amazon Linux" }, { field: version, op: matches, value: '\.amzn2023(\.[0-9]+)*$' }, { field: version, op: rpm_version_lt, value: "1:2.4.71-1.amzn2023.0.1" }]
+            - all: [{ field: vendor, op: equals, value: "Amazon Linux" }, { field: version, op: matches, value: '\.amzn2(\.[0-9]+)*$' }, { field: version, op: rpm_version_lt, value: "1:2.4.71-1.amzn2.0.1" }]
+    label:
+      ko: "Apache 의 HTTP/2 모듈(mod_http2) — CVE-2026-119618 · 이 배포판의 고친 판보다 낮습니다"
+      en: "Apache's HTTP/2 module (mod_http2) - CVE-2026-119618, below this distribution's fixed build"
+  # Alpine 은 지원 중인 브랜치(3.21 ~ edge)가 모두 2.4.71-r0 에서 고쳤다. 지원이 끝난 브랜치는 아래 `alpine_eol` 이 가린다.
+  - id: vulnerable_apk
+    subject: package
+    where:
+      all:
+        - { field: manager, op: equals, value: apk }
+        - { field: name, op: equals, value: apache2-http2 }
+        - { field: upstream_version, op: version_gt, value: "2.4.54" }
+        - { field: version, op: apk_version_lt, value: "2.4.71-r0" }
+    label:
+      ko: "Apache 의 HTTP/2 모듈(mod_http2) — CVE-2026-119618 · 이 배포판의 고친 판보다 낮습니다"
+      en: "Apache's HTTP/2 module (mod_http2) - CVE-2026-119618, below this distribution's fixed build"
+  - id: alpine_eol
+    subject: package
+    where:
+      all:
+        - { field: manager, op: equals, value: apk }
+        - { field: name, op: equals, value: alpine-release }
+        - { field: upstream_version, op: version_lt, value: "3.21" }
+    label:
+      ko: "지원이 끝난 Alpine 브랜치입니다 — 이 브랜치의 고친 판은 없습니다"
+      en: "an Alpine branch past its support - this branch has no fixed build"
+
+  # ── 직접 빌드 — 실행 파일의 서버 판 문자열 ───────────────────────────────────────
+  #
+  # 패키지가 깐 파일은 뺀다 — 그 판은 위 패키지 줄이 가린다(배포판은 상류 번호를 두고 고친다).
+  - id: vulnerable_src
+    subject: file
+    where:
+      all:
+        - { field: path, op: matches, value: '^/(usr/local/(apache2?|httpd)|opt/(apache2?|httpd|lampp))/bin/httpd$' }
+        - { field: sha256, op: exists }
+        - { yara: "rules/apache.yar:apache_version_affected" }
+    exclude:
+      - { field: package, op: matches, value: '.' }
+    label:
+      ko: "직접 빌드한 Apache 2.4.55 ~ 2.4.70 — CVE-2026-119618 · 2.4.71 이상으로 올리십시오"
+      en: "a self-built Apache 2.4.55 - 2.4.70 - CVE-2026-119618, upgrade to 2.4.71 or later"
+
+  # ── 고친 판을 이 룰이 모르는 빌드 — 영향 범위면 확인 필요 ────────────────────────────
+  - id: unknown_deb
+    subject: package
+    where:
+      all:
+        - { field: manager, op: equals, value: dpkg }
+        - { field: name, op: equals, value: apache2-bin }
+        - { field: upstream_version, op: version_gt, value: "2.4.54" }
+        - { field: upstream_version, op: version_lt, value: "2.4.71" }
+    exclude:
+      - { field: version, op: matches, value: '~deb1[23]u[0-9]+$' }
+      - { field: version, op: matches, value: '^2\.4\.[0-9]+-[0-9]+(\+b[0-9]+)?$' }
+      - { field: version, op: matches, value: '^2\.4\.(68|66|58)-[0-9]+ubuntu' }
+    label:
+      ko: "Apache 의 HTTP/2 모듈 — CVE-2026-119618 을 고친 판인지 이 룰이 모르는 빌드입니다"
+      en: "Apache's HTTP/2 module - a build this rule cannot tell fixed for CVE-2026-119618"
+  # 공지를 읽은 공급사(Red Hat · Rocky · Amazon)와 SUSE(아래)는 뺀다. mod_http2 의 판은 공급사에 따라 mod_h2 의 판(2.0.x)
+  # 이거나 httpd 의 판(2.4.x)이다.
+  - id: unknown_rpm
+    subject: package
+    where:
+      all:
+        - { field: manager, op: equals, value: rpm }
+        - any:
+            - all:
+                - { field: name, op: equals, value: mod_http2 }
+                - any:
+                    - all: [{ field: upstream_version, op: version_gt, value: "2.0.7" }, { field: upstream_version, op: version_lt, value: "2.0.43" }]
+                    - all: [{ field: upstream_version, op: version_gt, value: "2.4.54" }, { field: upstream_version, op: version_lt, value: "2.4.71" }]
+            - all:
+                - { field: name, op: equals, value: apache2 }
+                - { field: upstream_version, op: version_gt, value: "2.4.54" }
+                - { field: upstream_version, op: version_lt, value: "2.4.71" }
+    exclude:
+      - { field: vendor, op: in, value: ["Red Hat, Inc.", "Rocky Enterprise Software Foundation", "Amazon Linux", "SUSE LLC <https://www.suse.com/>"] }
+    label:
+      ko: "Apache 의 HTTP/2 모듈 — CVE-2026-119618 을 고친 판인지 이 룰이 모르는 빌드입니다"
+      en: "Apache's HTTP/2 module - a build this rule cannot tell fixed for CVE-2026-119618"
+  # SUSE 는 mod_http2 를 apache2 에 담는다. 공지가 SLES 15 SP4 이후 · 16 · Leap 15.4 이후를 '영향 · 고침 대기' 로 적는다 —
+  # SP3 이전의 코드 줄기(`-1500xx.` ~ `-1503xx.`)는 영향이 없다.
+  - id: unknown_suse
+    subject: package
+    where:
+      all:
+        - { field: manager, op: equals, value: rpm }
+        - { field: vendor, op: equals, value: "SUSE LLC <https://www.suse.com/>" }
+        - { field: name, op: equals, value: apache2 }
+        - { field: upstream_version, op: version_gt, value: "2.4.50" }
+    exclude:
+      - { field: version, op: matches, value: '-150[0-3]00\.' }
+    label:
+      ko: "Apache(SUSE) — CVE-2026-119618 의 영향 판이고 SUSE 의 고친 판이 아직 없습니다"
+      en: "Apache (SUSE) - affected by CVE-2026-119618 and SUSE has no fixed build yet"
+
+  # ── HTTP/2 를 켠 흔적 ─────────────────────────────────────────────────────────
+  #
+  # Debian 계열은 켠 모듈이 `mods-enabled` 의 링크다 — 수집기는 링크를 따라가 읽지 않지만 그 이름은 기록하므로 이름으로
+  # 본다. 그 밖은 설정 파일의 살아 있는 줄이다(YARA). `mods-available` 은 켜지 않은 모듈의 줄까지 늘 있으므로 보지 않는다.
+  # **YARA 의 경로는 아래 `collect_extra` 의 글롭이 담는 범위와 같다** — 링크(sites-enabled 등)는 본문이 없어 `sha256` 이
+  # 비므로 YARA 를 세지 않는다.
+  - id: h2_module
+    subject: file
+    where:
+      any:
+        - { field: path, op: equals, value: "/etc/apache2/mods-enabled/http2.load" }
+        - all:
+            - { field: path, op: matches, value: '^(/etc/apache2/((conf\.d|conf-available|conf-enabled|sites-available|sites-enabled|vhosts\.d)/)?|/etc/httpd/(conf|conf\.d|conf\.modules\.d)/|/(usr/local/(apache2?|httpd)|opt/(apache2?|httpd))/conf/(extra/)?|/opt/lampp/etc/(extra/)?)[^/]+\.conf$' }
+            - { field: sha256, op: exists }
+            - { yara: "rules/apache.yar:apache_h2_loadmodule" }
+    label:
+      ko: "HTTP/2 모듈(mod_http2)을 싣는 자리입니다"
+      en: "this loads the HTTP/2 module (mod_http2)"
+  - id: h2_running
+    subject: process
+    where:
+      - { field: modules, op: matches, value: '/mod_http2\.so"' }
+    label:
+      ko: "실행 중인 Apache 가 HTTP/2 모듈(mod_http2)을 실었습니다"
+      en: "a running Apache has the HTTP/2 module (mod_http2) loaded"
+  - id: h2_protocols
+    subject: file
+    where:
+      any:
+        # Debian 계열에서 모듈을 켜면 함께 오는 http2.conf 가 `Protocols h2 h2c http/1.1` 을 켠다(2026-11-13 실측).
+        - { field: path, op: equals, value: "/etc/apache2/mods-enabled/http2.conf" }
+        - all:
+            - { field: path, op: matches, value: '^(/etc/apache2/((conf\.d|conf-available|conf-enabled|sites-available|sites-enabled|vhosts\.d)/)?|/etc/httpd/(conf|conf\.d|conf\.modules\.d)/|/(usr/local/(apache2?|httpd)|opt/(apache2?|httpd))/conf/(extra/)?|/opt/lampp/etc/(extra/)?)[^/]+\.conf$' }
+            - { field: sha256, op: exists }
+            - { yara: "rules/apache.yar:apache_h2_protocols" }
+    label:
+      ko: "HTTP/2(h2 · h2c)를 켜는 Protocols 줄입니다"
+      en: "a Protocols line turns HTTP/2 (h2, h2c) on"
+
+  # ── 고친 뒤 다시 시작하지 않은 Apache ────────────────────────────────────────────
+  #
+  # 패키지를 올리면 옛 mod_http2.so 가 지워지고, 그것을 실은 채 도는 프로세스의 모듈 경로 끝에 커널이 ` (deleted)` 를
+  # 붙인다 — 그 Apache 는 고치기 전 코드로 돈다. 모듈 목록은 JSON 글자로 견주므로 꼬리 뒤의 `"` 가 그 항목의 끝이다.
+  - id: stale_h2
+    subject: process
+    where:
+      - { field: modules, op: matches, value: '/mod_http2\.so \(deleted\)"' }
+    label:
+      ko: "고친 뒤 다시 시작하지 않은 Apache 가 지워진 옛 HTTP/2 모듈을 실은 채 돕니다"
+      en: "an Apache not restarted after the update still runs a deleted old HTTP/2 module"
+
+verdict:
+  require: "(vulnerable_deb or vulnerable_rpm or (vulnerable_apk and not alpine_eol) or vulnerable_src) and (h2_module or h2_running) and h2_protocols"
+  unconfirmed:
+    - when: "(vulnerable_deb or vulnerable_rpm or (vulnerable_apk and not alpine_eol) or vulnerable_src) and not ((h2_module or h2_running) and h2_protocols)"
+      why:
+        ko: "Apache 의 HTTP/2 모듈(mod_http2)이 CVE-2026-119618 의 취약 판인데, HTTP/2 를 켠 흔적(모듈 적재와 Protocols 의 h2 · h2c)을 다 찾지 못했습니다 — Include 로 읽는 다른 설정에서 켰을 수 있으니 확인하고, 고친 판으로 올리십시오(그때까지 Protocols 에 h2 · h2c 를 두지 마십시오)"
+        en: "Apache's HTTP/2 module (mod_http2) is a build vulnerable to CVE-2026-119618, but not every sign of HTTP/2 being on (the module loaded and h2 or h2c in Protocols) was found - check any other configuration it includes, and upgrade to the fixed build (keep h2 and h2c out of Protocols until then)"
+    - when: "unknown_deb or unknown_rpm or unknown_suse or (vulnerable_apk and alpine_eol)"
+      why:
+        ko: "Apache 의 HTTP/2 모듈이 CVE-2026-119618 의 영향 범위 판인데, 이 배포판 · 빌드의 고친 판을 이 룰이 모릅니다(고침을 기다리는 배포판 · 지원이 끝난 판 · 그 밖의 빌드) — 그 배포판의 공지를 확인하고, 고칠 때까지 Protocols 에서 h2 · h2c 를 빼십시오"
+        en: "Apache's HTTP/2 module is in the range affected by CVE-2026-119618, but this rule does not know this distribution's or build's fixed version (a distribution still waiting for a fix, a release past its support, or another build) - check the distribution's advisory, and take h2 and h2c out of Protocols until it is fixed"
+    - when: "stale_h2"
+      why:
+        ko: "패키지를 올린 뒤 다시 시작하지 않은 Apache 가 지워진 옛 HTTP/2 모듈을 실은 채 돌고 있습니다(위 경로) — Apache 를 다시 시작한 뒤 다시 검사하십시오"
+        en: "an Apache that was not restarted after the update still runs a deleted old HTTP/2 module (path above) - restart Apache and scan again"
+
+# YARA 는 본문을 본다 — 설정은 폴더마다 `*.conf`, 직접 빌드는 실행 파일 하나. **전부 `glob` 형이다** — 없으면 담을 것이
+# 없는 것이지 미해소가 아니다(대부분의 기계에 이 자리 대부분이 없다). 링크는 담지 않는다.
+collect_extra:
+  - { glob: "/etc/apache2/*.conf", max_size: 1MB }
+  - { glob: "/etc/apache2/conf.d/*.conf", max_size: 1MB }
+  - { glob: "/etc/apache2/conf-available/*.conf", max_size: 1MB }
+  - { glob: "/etc/apache2/conf-enabled/*.conf", max_size: 1MB }
+  - { glob: "/etc/apache2/sites-available/*.conf", max_size: 1MB }
+  - { glob: "/etc/apache2/sites-enabled/*.conf", max_size: 1MB }
+  - { glob: "/etc/apache2/vhosts.d/*.conf", max_size: 1MB }
+  - { glob: "/etc/httpd/conf/*.conf", max_size: 1MB }
+  - { glob: "/etc/httpd/conf.d/*.conf", max_size: 1MB }
+  - { glob: "/etc/httpd/conf.modules.d/*.conf", max_size: 1MB }
+  - { glob: "/usr/local/apache2/conf/*.conf", max_size: 1MB }
+  - { glob: "/usr/local/apache2/conf/extra/*.conf", max_size: 1MB }
+  - { glob: "/usr/local/apache/conf/*.conf", max_size: 1MB }
+  - { glob: "/usr/local/apache/conf/extra/*.conf", max_size: 1MB }
+  - { glob: "/usr/local/httpd/conf/*.conf", max_size: 1MB }
+  - { glob: "/usr/local/httpd/conf/extra/*.conf", max_size: 1MB }
+  - { glob: "/opt/apache2/conf/*.conf", max_size: 1MB }
+  - { glob: "/opt/apache2/conf/extra/*.conf", max_size: 1MB }
+  - { glob: "/opt/apache/conf/*.conf", max_size: 1MB }
+  - { glob: "/opt/apache/conf/extra/*.conf", max_size: 1MB }
+  - { glob: "/opt/httpd/conf/*.conf", max_size: 1MB }
+  - { glob: "/opt/httpd/conf/extra/*.conf", max_size: 1MB }
+  - { glob: "/opt/lampp/etc/*.conf", max_size: 1MB }
+  - { glob: "/opt/lampp/etc/extra/*.conf", max_size: 1MB }
+  - { glob: "/usr/local/apache2/bin/httpd", max_size: 32MB }
+  - { glob: "/usr/local/apache/bin/httpd", max_size: 32MB }
+  - { glob: "/usr/local/httpd/bin/httpd", max_size: 32MB }
+  - { glob: "/opt/apache2/bin/httpd", max_size: 32MB }
+  - { glob: "/opt/apache/bin/httpd", max_size: 32MB }
+  - { glob: "/opt/httpd/bin/httpd", max_size: 32MB }
+  - { glob: "/opt/lampp/bin/httpd", max_size: 32MB }

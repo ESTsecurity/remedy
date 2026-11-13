@@ -7,7 +7,7 @@
 
 **remedy** 는 **ESTsecurity 가 만들고 관리하는 전용백신**입니다. 아래 표의 악성코드가 남긴
 파일 · 자동 실행 등록 · 보안 제품 예외를 찾아 치료하고, 치료한 것은 격리해 두어 **되돌릴 수
-있습니다.** 표의 *점검* 항목 가운데 PHP · Node.js · Log4j · OpenSSH 는 알려진 취약점이 이 기계에 있는지 알려 드리고,
+있습니다.** 표의 *점검* 항목 가운데 PHP · Node.js · Log4j · OpenSSH · Apache 는 알려진 취약점이 이 기계에 있는지 알려 드리고,
 *(탐지만)* 항목은 악성코드를 찾기만 합니다 — 둘 다 아무것도 바꾸지 않습니다. *원격 점검* 항목은 적어 주신 주소의 웹서버를 바깥에서 봅니다 — 네트워크를
 쓰는 것은 이 항목뿐이고, 고르기 전에 그렇다고 알려 드립니다. 설치 없이, 받은 폴더에서 바로 실행합니다.
 
@@ -24,6 +24,7 @@
 | PHP 세션 업로드 진행 설정 점검 (CVE-2026-115560) | 찾기만 합니다 | `php-session-check-windows` 0.4.0 | `php-session-check-linux` 0.5.0 | [www.php.net](https://www.php.net/archive/2026.php) |
 | PHP2Shell 점검 (CVE-2026-109618 · 109619) | 찾기만 합니다 | `php2shell-check-windows` 0.4.0 | `php2shell-check-linux` 0.6.0 | [www.php.net](https://www.php.net/archive/2026.php) |
 | PHP2Shell 원격 점검 (웹서버 응답 헤더) | 적어 주신 주소의 서버를 바깥에서 봅니다 (네트워크 사용) | `php2shell-url-check` 0.1.1 | `php2shell-url-check` 0.1.1 | [www.php.net](https://www.php.net/archive/2026.php) |
+| Apache HTTP/2 점검 (CVE-2026-119618) | 찾기만 합니다 | — | `apache-http2-check-linux` 0.1.0 | [httpd.apache.org](https://httpd.apache.org/security/vulnerabilities_24.html) |
 | CWPdoor 점검 (탐지만) | 찾기만 합니다 | — | `cwpdoor-1-check` 0.1.2 | [blog.xlab.qianxin.com](https://blog.xlab.qianxin.com/cwpdoor-the-invisible-backdoor-living-inside-control-web-panel/) |
 | CWPdoor 제거 | 찾아서 치료합니다 (복원할 수 있습니다) | — | `cwpdoor-2-clean` 0.1.2 | [blog.xlab.qianxin.com](https://blog.xlab.qianxin.com/cwpdoor-the-invisible-backdoor-living-inside-control-web-panel/) |
 | Ebury 점검 (탐지만) | 찾기만 합니다 | — | `ebury-check` 0.2.0 | [www.welivesecurity.com](https://www.welivesecurity.com/en/eset-research/ebury-alive-unseen-400k-linux-servers-compromised-cryptotheft-financial-gain/) |
@@ -131,7 +132,7 @@ sudo ./remedy
 | 취약합니다. 위에 적은 항목을 확인하십시오. | *점검* 항목이 취약한 버전을 찾았습니다 — 적힌 프로그램을 고친 버전으로 올리고 그것을 쓰는 서비스를 다시 시작합니다([위협별 안내](#위협별-안내)). |
 | 확인이 필요합니다. 위에 적은 항목은 '취약하지 않다' 를 가릴 근거가 없습니다. | *점검* 항목이 판정할 근거가 없는 설치본 · 설정입니다 — 위 *주의* 줄이 무엇을 확인할지(버전 · 받은 곳 · 설정) 말합니다. |
 | 다 보지 못해 '취약하지 않다' 를 말할 수 없습니다. | *점검* 항목이 볼 자리를 다 보지 못했습니다 — 바로 위 *주의* 줄에 까닭과 할 일이 있습니다(컨테이너 안이면 `docker exec --privileged` 로 들어가 다시 실행합니다). |
-| 취약한 곳을 찾지 못했습니다. | *점검* 항목이 본 자리에서 취약한 버전을 찾지 못했습니다 — 그 프로그램(PHP · Node.js · Log4j · OpenSSH)이 이 기계에 없을 때도 이렇게 나옵니다. |
+| 취약한 곳을 찾지 못했습니다. | *점검* 항목이 본 자리에서 취약한 버전을 찾지 못했습니다 — 그 프로그램(PHP · Node.js · Log4j · OpenSSH · Apache)이 이 기계에 없을 때도 이렇게 나옵니다. |
 | 해당 없음 (검사할 경로가 이 기계에 없습니다) | *모두 검사만* 의 요약 줄입니다. 그 항목이 검사하는 제품이 이 서버에 없습니다 — Control Web Panel(CWP)을 쓰지 않는 서버의 CWPdoor 두 항목이 이렇게 나옵니다. |
 | 돌리지 않았습니다 (네트워크 점검은 그 항목을 골라 주소를 적어야 합니다) | *모두 검사만* 의 요약 줄입니다. *네트워크 사용* 이 붙은 항목은 점검할 주소를 적어야 해서 한꺼번에 돌리지 않습니다 — 그 항목을 골라 실행합니다. |
 
@@ -327,6 +328,33 @@ sudo bash detect_ebury.sh
 
 </details>
 
+### Apache — 웹서버의 HTTP/2 (점검만 합니다)
+
+- **점검만 합니다** — 리눅스의 Apache 웹서버가 HTTP/2 처리 모듈(mod_http2)의 원격 코드 실행 취약점(CVE-2026-119618)을
+  고치기 전 버전인지, 그리고 HTTP/2 를 켜 두었는지 봅니다. 아무것도 바꾸지 않습니다.
+- **꼭 할 일** *취약* 이면 배포판의 보안 업데이트로 고친 버전 이상으로 올리고(Debian · Ubuntu 는 `apache2`, RHEL 계열 ·
+  Amazon Linux 는 `mod_http2`, Alpine 은 `apache2-http2`) Apache 를 **다시 시작**합니다. 직접 빌드했으면 2.4.71 이상으로
+  다시 빌드합니다. 올리기 전에는 설정의 `Protocols` 에서 `h2` · `h2c` 를 빼 HTTP/1.1 만 쓰는 것이 막는 길입니다.
+- **못 보는 것** 정해 둔 자리 밖의 직접 빌드 · `Include` 로 다른 곳에서 읽는 설정 · 컨테이너 안 · Windows 의
+  Apache(다음 버전). TLS 개인키(`*.key` · `*.pem`)는 읽지도 기록하지도 않습니다.
+
+<details>
+<summary>자세히 — 판정 · 확인 필요가 나오는 경우 · 보는 자리</summary>
+
+- **판정** — 패키지 기록의 버전을 배포판이 낸 고친 버전과 견줍니다(Debian · Ubuntu · RHEL 9 · 10 과 그 마이너 스트림 ·
+  Rocky · Amazon Linux · Alpine). Ubuntu 22.04 · 20.04 는 상류 2.4.55 보다 낮아도 새 모듈을 들여와 해당됩니다. 직접
+  빌드는 실행 파일에 적힌 버전(2.4.55 ~ 2.4.70)으로 가립니다. 그리고 HTTP/2 를 켠 흔적 — 모듈을 싣는 줄(Debian 계열은
+  `a2enmod http2`)과 `Protocols` 의 `h2` · `h2c` — 이 함께 있으면 *취약* 입니다. 버전 아래 줄에 CVE 를 적습니다.
+- **확인 필요가 나오는 경우** — 취약한 버전인데 HTTP/2 를 켠 흔적을 다 찾지 못했을 때, 고친 버전을 이 룰이 모르는
+  배포판일 때(AlmaLinux · Oracle Linux · SUSE · 지원이 끝난 버전 등 — 공지가 아직 없거나 고침을 기다리는 곳), 업데이트
+  뒤 다시 시작하지 않은 Apache 가 옛 모듈을 실은 채 돌 때.
+- **보는 자리** — 패키지 기록 · 실행 중인 프로세스 · `/etc/apache2` · `/etc/httpd` · 직접 빌드의 흔한 자리
+  (`/usr/local/apache2` 등의 `conf` · `bin`) · XAMPP(`/opt/lampp`).
+
+판정 표와 근거(공급사 공지 번호)는 룰 폴더 `apache-http2-check-linux` 의 `RELEASE.md` 에 있습니다.
+
+</details>
+
 ### Node.js — Node2Shell (점검만 합니다)
 
 - **점검만 합니다** — `node` 실행 파일이 Node.js 공식 빌드의 어느 버전인지(파일 해시)와 배포판 패키지의 보안
@@ -505,7 +533,7 @@ sudo bash detect_ebury.sh
   지운 것은 격리소에 보관해 두었다가 *치료 전으로 복원하기* 로 복원합니다.
 - **모두 검사만** — 받은 폴더에 검사 항목이 여럿이면 한 번에 전부 검사하고 결과를 한 덩어리로
   보여 드립니다. 아무것도 바꾸지 않습니다.
-- **취약점 점검** — PHP · Node.js · Log4j · OpenSSH 의 알려진 취약점을 버전 · 공식 빌드의 파일 해시 · 배포판의 보안 공지로 가려
+- **취약점 점검** — PHP · Node.js · Log4j · OpenSSH · Apache 의 알려진 취약점을 버전 · 공식 빌드의 파일 해시 · 배포판의 보안 공지로 가려
   *취약* 으로 알려 드립니다. 판정할 근거가 없는 설치본은 '괜찮다' 로 넘기지 않고 *확인 필요* 로 남기며, 무엇을
   확인할지 함께 적습니다.
 - **메뉴 하나로 전부** — 첫 화면에는 그 기계에서 지금 할 일만 섭니다(검사 · 치료, 치료한 뒤에는 유지
