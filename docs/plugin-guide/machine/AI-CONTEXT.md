@@ -93,7 +93,7 @@ first_path · last_path · dirname · basename · lower · expand_env · trim_qu
 
 ## 지정 확장 토큰
 
-`%ALLUSERPROFILES%`(사용자 수만큼) · `HKU\*`(하이브 수만큼) · `%REMOVABLE%`(매체 수만큼 · `allow_removable: true` 필요). **하나가 여럿이 된다** — 쓰지 않으면 다중 사용자 기계에서 현재 사용자만 치료된다.
+`HKU\*` · `%ALLUSERPROFILES%` · `%REMOVABLE%`(`allow_removable: true` 필요) · `%FIXED_DISKS%`. **하나가 여럿이 된다**(사용자 · 하이브 · 매체 · 디스크마다) — 쓰지 않으면 다중 사용자 기계에서 현재 사용자만 치료된다.
 
 ## 없는 것 (지어내지 말 것)
 
