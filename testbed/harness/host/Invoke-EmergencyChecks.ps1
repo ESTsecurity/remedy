@@ -71,8 +71,11 @@ Step 'package' {
     [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
     $env:REMEDY_LANG = 'en'
     foreach ($p in @($exe, $net)) {
-        $v = & $p --version 2>&1 | Select-Object -First 1
-        '{0} -> {1} (exit={2})' -f (Split-Path $p -Leaf), "$v", $LASTEXITCODE
+        # 출력을 다 받은 뒤 첫 줄을 고른다 — `| Select-Object -First 1` 은 파이프를 일찍 닫아 5.1 이 프로세스를 끊고
+        # 종료 코드가 -1 로 남는다(remedy.exe --version 은 두 줄이라 8번 중 7번)
+        $out = @(& $p --version 2>&1)
+        $code = $LASTEXITCODE
+        '{0} -> {1} (exit={2})' -f (Split-Path $p -Leaf), "$($out | Select-Object -First 1)", $code
     }
     foreach ($d in Get-ChildItem -LiteralPath (Join-Path $Package 'plugins') -Directory) {
         $null = & $exe plugin verify --dir $d.FullName 2>&1
