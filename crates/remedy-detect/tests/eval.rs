@@ -834,6 +834,7 @@ fn every_operator_the_catalog_calls_available_actually_evaluates() {
             // 그러면 이 시험은 배선만 보고 통과한다.
             Operator::PkgVersionLt => "\"1.0-1ubuntu2\"".into(),
             Operator::RpmVersionLt => "\"0:8.0.30-8.el9_8.1\"".into(),
+            Operator::ApkVersionLt => "\"10.3_p1-r2\"".into(),
             Operator::Yara => "\"rules/x.yar:r\"".into(),
             _ => "\"evil\"".into(),
         };
@@ -941,6 +942,110 @@ fn an_rpm_line_picks_the_vendor_and_compares_as_rpm_does() {
             "Rocky Enterprise Software Foundation"
         )),
         0
+    );
+}
+
+// ─────────────────────────────────────────── apk 판 (코어 1.14.0)
+
+/// Alpine 공지 한 줄 모양 — 상류 판으로 브랜치를 고르고, 판은 apk 의 규칙으로 견준다.
+const APK_MANIFEST: &str = r#"
+schema_version: 1
+id: apk-line
+version: 0.1.0
+min_core: "1.14.0"
+platforms: [linux]
+name: { ko: "예시", en: "Sample" }
+scan_roots: ["/etc/ssh"]
+subjects: [package]
+detect:
+  - id: alpine324
+    subject: package
+    where:
+      all:
+        - { field: manager, op: equals, value: apk }
+        - { field: name, op: equals, value: openssh-server }
+        - { field: upstream_version, op: equals, value: "10.3" }
+        - { field: version, op: apk_version_lt, value: "10.3_p1-r2" }
+verdict:
+  require: "alpine324"
+"#;
+
+fn apk(name: &str, version: &str, upstream: &str) -> PackageRecord {
+    PackageRecord {
+        name: name.into(),
+        version: version.into(),
+        upstream_version: upstream.into(),
+        revision: String::new(),
+        arch: "x86_64".into(),
+        source: "openssh".into(),
+        manager: "apk".into(),
+        vendor: String::new(),
+    }
+}
+
+fn apk_eval(recs: &[PackageRecord]) -> remedy_sdk::artifact::ScanBody {
+    let mut sc = Scope::diagnostic(Vec::new(), Platform::Linux);
+    sc.subjects.push(Subject::Package);
+    let mut o = Observations::default();
+    o.put(Subject::Package, recs);
+    let host = HostInfo {
+        hostname: "H".into(),
+        os: "linux".into(),
+        version: "3.24".into(),
+        arch: "amd64".into(),
+    };
+    let core = CoreInfo {
+        version: "0".into(),
+        build: "d".into(),
+    };
+    let env = remedy_artifacts::assemble(
+        "r".into(),
+        "2026-11-13T00:00:00Z".into(),
+        host,
+        core,
+        &sc,
+        o,
+    );
+    evaluate(&Snapshot::from_envelope(&env), &manifest(APK_MANIFEST), &sc).unwrap()
+}
+
+#[test]
+fn an_apk_line_tells_alpine_patch_releases_apart() {
+    // 개정만 올려 고친 판 — 상류 판(`10.3`)이 같아 그 앞의 연산자로는 가릴 수 없었다.
+    let body = apk_eval(&[apk("openssh-server", "10.3_p1-r1", "10.3")]);
+    assert!(body.observation.is_complete(), "{:?}", body.issues);
+    assert_eq!(body.verdicts.len(), 1);
+    for fixed in ["10.3_p1-r2", "10.3_p1-r10", "10.3_p2-r0"] {
+        let body = apk_eval(&[apk("openssh-server", fixed, "10.3")]);
+        assert!(body.observation.is_complete(), "{fixed}: {:?}", body.issues);
+        assert!(body.verdicts.is_empty(), "{fixed} 를 취약으로 읽었다");
+    }
+    // 이름이 다른 패키지의 낯선 판은 이 규칙이 재지 않는다 — 형제 술어가 이미 거짓이다. 그렇지
+    // 않으면 그런 패키지가 하나라도 있는 Alpine 기계가 전부 *"재지 못했다"*(6)가 된다.
+    let body = apk_eval(&[
+        apk("busybox", "1.37.0~x-r0", "1.37.0"),
+        apk("openssh-server", "10.3_p1-r2", "10.3"),
+    ]);
+    assert!(body.observation.is_complete(), "{:?}", body.issues);
+    assert!(body.verdicts.is_empty());
+    // 그 패키지의 판을 읽지 못하면 *"재지 못했다"* 다 — 안 맞았다로 접지 않는다.
+    let body = apk_eval(&[apk("openssh-server", "10.3_P1-r1", "10.3")]);
+    assert!(body.verdicts.is_empty());
+    assert!(
+        !body.observation.is_complete(),
+        "읽지 못한 판을 조용히 지났다"
+    );
+    // 기계 쪽 값이면 그 값이 자리다(룰 쪽 값이면 `version: …` 꼴로 칸 이름이 붙는다).
+    assert_eq!(
+        body.observation.unreadable_versions,
+        vec!["10.3_P1-r1".to_string()],
+        "{:?}",
+        body.issues
+    );
+    assert!(
+        body.issues.iter().any(|i| i.contains("apk 가 적는 판")),
+        "고칠 길을 말하지 않았다: {:?}",
+        body.issues
     );
 }
 

@@ -787,6 +787,7 @@ fn eval_predicate(
         | Operator::VersionGt
         | Operator::PkgVersionLt
         | Operator::RpmVersionLt
+        | Operator::ApkVersionLt
             if f.value
                 .as_ref()
                 .is_some_and(remedy_sdk::catalog::unquoted_version_number) =>
@@ -823,6 +824,17 @@ fn eval_predicate(
                 let rule_side = !remedy_sdk::catalog::is_rpm_version(&expected);
                 let bad = if rule_side { &expected } else { &actual };
                 let why = rpm_version_issue(&f.field, &actual, &expected);
+                return issues.unreadable_version(version_label(&f.field, bad), why, rule_side);
+            }
+        },
+        // apk(Alpine)가 적은 판 — apk-tools 의 규칙으로 견준다(코어 1.14.0). `_p` · `_rc` 를 받는 것이
+        // `pkg_version_lt` 와 갈리는 자리이고, 모양이 아니면 같은 레일로 *"재지 못했다"* 가 된다.
+        Operator::ApkVersionLt => match crate::compare::apk_version_cmp(&actual, &expected) {
+            Some(ord) => ord == std::cmp::Ordering::Less,
+            None => {
+                let rule_side = !remedy_sdk::catalog::is_apk_version(&expected);
+                let bad = if rule_side { &expected } else { &actual };
+                let why = apk_version_issue(&f.field, &actual, &expected);
                 return issues.unreadable_version(version_label(&f.field, bad), why, rule_side);
             }
         },
@@ -919,6 +931,22 @@ fn rpm_version_issue(field: &str, actual: &str, expected: &str) -> String {
                7.4.33-8.module+el8.10.0+25117+30337cca). 숫자로 시작해야 합니다";
     let (pa, pe) = (particle(actual, "을", "를"), particle(expected, "을", "를"));
     match (is_rpm_version(actual), is_rpm_version(expected)) {
+        (false, true) => format!("'{field}' 의 값 '{actual}' {pa} 판으로 읽지 못했습니다 — {how}"),
+        (true, false) => format!("룰이 적은 '{expected}' {pe} 판으로 읽지 못했습니다 — {how}"),
+        _ => format!(
+            "'{field}' 의 값 '{actual}' 과 룰이 적은 '{expected}' {pe} 모두 판으로 읽지 못했습니다 — {how}"
+        ),
+    }
+}
+
+fn apk_version_issue(field: &str, actual: &str, expected: &str) -> String {
+    use remedy_sdk::catalog::is_apk_version;
+    use remedy_sdk::i18n::particle;
+    let how = "apk_version_lt 는 apk 가 적는 판을 비교합니다(예: 10.3_p1-r2 · 3.21.3-r0). 숫자로 시작하고 \
+               `-r개정` 으로 끝나야 하며, 접미사는 소문자 alpha · beta · pre · rc · cvs · svn · git · hg · p \
+               뿐입니다";
+    let (pa, pe) = (particle(actual, "을", "를"), particle(expected, "을", "를"));
+    match (is_apk_version(actual), is_apk_version(expected)) {
         (false, true) => format!("'{field}' 의 값 '{actual}' {pa} 판으로 읽지 못했습니다 — {how}"),
         (true, false) => format!("룰이 적은 '{expected}' {pe} 판으로 읽지 못했습니다 — {how}"),
         _ => format!(

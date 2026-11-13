@@ -43,7 +43,11 @@ fn closed_sets_have_the_declared_size() {
     // 14 → 15: `pkg_version_lt` (2026-10-27 · C-2 후속). `version_lt` 가 일부러
     // 거절한 **개정 꼬리**가 그쪽의 대상이고, 순서는 dpkg 의 규칙이다. 반대
     // 방향은 두지 않았다 — `not` 이 `>=` 이므로 범위가 둘로 적힌다.
-    assert_eq!(Operator::ALL.len(), 16, "설계-02 §4 는 연산자 16종이다");
+    // 15 → 16: `rpm_version_lt` (2026-11-09 · 코어 1.3.0). RHEL 의 개정(`el9_8`)이 `_` 를 담아
+    // `pkg_version_lt` 가 거절했고, 순서는 rpm 의 규칙이다.
+    // 16 → 17: `apk_version_lt` (2026-11-13 · 코어 1.14.0). Alpine 의 패치 판(`10.3_p1-r2`)이 `_` 를
+    // 담아 거절됐고, 개정만 올려 고친 판을 상류 판으로 가릴 수 없었다. 순서는 apk 의 규칙이다.
+    assert_eq!(Operator::ALL.len(), 17, "설계-02 §4 는 연산자 17종이다");
     // 8 → 9: `last_path` (2026-11-08 · 코어 1.2.0). 공개 보도의 EvilAI 작업이
     // `cmd.exe /c start "" /min "…\node.exe" "…\a.js"` 라 `first_path` 가 `/c` 를 집었다.
     assert_eq!(

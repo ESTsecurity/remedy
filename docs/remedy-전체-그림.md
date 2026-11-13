@@ -546,7 +546,7 @@ flowchart TB
 `process.kill` 만 되돌릴 수 없다. 그래서 **되돌릴 수 있는 Action 보다 먼저**
 배치되고 멱등하게 설계된다.
 
-### 격리 엔트리 14종 · 연산자 15종
+### 격리 엔트리 14종 · 연산자 17종
 
 | 엔트리 종류 | |
 |---|---|
@@ -556,9 +556,9 @@ flowchart TB
 | `TextLine` · `StructuredConfig` | 설정 |
 | `AvExclusion` · `CertStore` · `BootConfig` | 보안 설정 |
 
-연산자 **16종**: `equals` · `not_equals` · `matches` · `contains` ·
+연산자 **17종**: `equals` · `not_equals` · `matches` · `contains` ·
 `starts_with` · `ends_with` · `in` · `glob` · `exists` · `gt` · `lt` ·
-`version_lt` · `pkg_version_lt` · `rpm_version_lt` · `version_gt` · `yara`
+`version_lt` · `pkg_version_lt` · `rpm_version_lt` · `apk_version_lt` · `version_gt` · `yara`
 
 > **`pkg_version_lt` 가 빠져 있었다** (2026-10-29 에 더했다). 2026-10-27 에
 > 들어온 연산자인데 이 목록만 열넷으로 남아 있었다 — 어느 게이트도 이 문서를

@@ -206,9 +206,9 @@ DB 를 **파일로 직접 읽고**(`dpkg status` · `apk installed` · rpm DB) �
 ```
 
 순서는 **dpkg 의 규칙**이다(데비안 정책 §5.6.12) — `~` 가 무엇보다 먼저이므로
-`1.0~rc1 < 1.0 < 1.0+b1` 이고, `2.9 < 2.28` 이다(수로 견준다). apk 의 `-rN` 도
-같은 규칙으로 선다. **`_` 는 받지 않는다** — apk 는 `_alpha` 를 그 판보다 낮게,
-dpkg 의 규칙은 높게 읽어 **순서가 반대**다. 그때는 추측하지 않고 6 이다.
+`1.0~rc1 < 1.0 < 1.0+b1` 이고, `2.9 < 2.28` 이다(수로 견준다). **`_` 는 받지 않는다**
+— apk 는 `_alpha` 를 그 판보다 낮게, dpkg 의 규칙은 높게 읽어 **순서가 반대**다.
+그때는 추측하지 않고 6 이다. apk 판은 아래 `apk_version_lt` 로 견준다.
 **반대 방향은 없다** — `not pkg_version_lt` 가 `>=` 이므로 범위는 둘로 적는다.
 
 > **고친 판은 배포판마다 다르다.** 룰이 그 숫자를 들고 있어야 하고, 그것은
@@ -222,6 +222,16 @@ dpkg 의 규칙은 높게 읽어 **순서가 반대**다. 그때는 추측하지
 ```yaml
 - { field: vendor,  op: equals,         value: "Red Hat, Inc." }
 - { field: version, op: rpm_version_lt, value: "0:8.0.30-8.el9_8.1" }
+```
+
+**apk 판은 `apk_version_lt`** 다(코어 1.14.0 · `manager: apk`). Alpine 은 상류의 패치 판을
+`_p` 로 적고(`10.3_p1-r2`) 개정만 올려 고치므로 상류 판으로는 가리지 못한다. 순서는 apk 의
+규칙이다 — 접미사 `alpha < beta < pre < rc < (없음) < cvs < svn < git < hg < p`, 그다음
+`-rN`. 판은 `-rN` 으로 끝나야 한다. 브랜치마다 고친 판이 다르므로 상류 판으로 브랜치를 고른다:
+
+```yaml
+- { field: upstream_version, op: equals,         value: "10.3" }
+- { field: version,          op: apk_version_lt, value: "10.3_p1-r2" }
 ```
 
 `package` 에는 **치료 Op 이 없다**: 패키지를 올리는 것은 공급사의 일이다.

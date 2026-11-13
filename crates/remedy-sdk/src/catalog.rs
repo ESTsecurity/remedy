@@ -1934,8 +1934,9 @@ pub enum Operator {
     ///
     /// apk 의 `_alpha` 는 그 판보다 **낮고** dpkg 의 규칙에서 `_` 는 글자보다
     /// **뒤**다 — 같은 문자열의 순서가 두 매니저에서 반대다. 거절하고
-    /// *"재지 못했다"* 로 돌린다([`is_pkg_version`]). `-rN` 개정은 두 규칙이
-    /// 같은 답을 내므로 apk 판도 이 연산자로 견준다.
+    /// *"재지 못했다"* 로 돌린다([`is_pkg_version`]). **apk 판은
+    /// [`Operator::ApkVersionLt`] 로 견준다**(코어 1.14.0) — `-rN` 개정만 있는 판도 두 규칙이
+    /// 앞자리 `0` 에서 갈린다(`1.01` 과 `1.1` — dpkg 는 같고 apk 는 앞이 낮다).
     ///
     /// # 반대 방향을 두지 않은 이유
     ///
@@ -1961,6 +1962,33 @@ pub enum Operator {
     /// 덩어리를 번갈아 본다 — 숫자는 수로, `~` 는 무엇보다도 먼저, `^` 는 끝보다는 뒤이고 다른 무엇보다는
     /// 먼저다. 구현과 시험은 `remedy_detect::compare::rpm_version_cmp` 에 있다.
     RpmVersionLt,
+    /// **apk(Alpine)가 적은 판**끼리 견준다 (2026-11-13 · 코어 1.14.0).
+    ///
+    /// # 왜 `pkg_version_lt` 로 안 되는가
+    ///
+    /// Alpine 은 상류의 패치 판을 `_p` 로 적는다(`10.3_p1-r2`) — `pkg_version_lt` 는 dpkg 와 apk 가
+    /// `_` 를 반대로 읽어 그것을 거절하므로 Alpine 기계는 늘 *"재지 못했다"*(6)가 된다. 상류 판만 보는
+    /// 길도 막혀 있다 — 수집기의 `upstream_version` 은 앞쪽 점숫자만 떼어 `10.3_p1` 과 `10.3_p2` 를 같은
+    /// `10.3` 으로 둔다. 그래서 Alpine 이 개정만 올려 고친 판(OpenSSH 의 musl 비밀번호 인증 우회 ·
+    /// CVE-2026-123158)을 가릴 수 없었다.
+    ///
+    /// # 규칙 (apk-tools 의 판 비교 — 2.14.13 의 `apk version -t` 로 잰 것)
+    ///
+    /// `숫자(.숫자)*[글자][_접미사[숫자]]*-r숫자` 를 앞에서부터 조각으로 견준다. 숫자는 수로 —
+    /// **둘째 조각부터 `0` 으로 시작하는 조각은 `0` 이 많을수록 낮고**(같으면 남은 숫자를 수로), `0` 없는
+    /// 조각보다 늘 낮다(`1.01 < 1.1` · `1.0 > 1.00` · `1.0 < 1.05`). 접미사는 `alpha < beta < pre < rc < (없음) < cvs < svn < git < hg < p`
+    /// 이고 그 번호와 개정 `-rN` 은 수로 본다. 한쪽이 먼저 갈라지면 그 자리 조각의 종류가 정한다 —
+    /// 사전 배포 접미사(`_alpha` ~ `_rc`)는 무엇보다 낮고, 그 밖은 숫자 · 글자 · 접미사 · 접미사 번호 ·
+    /// 개정 · 끝 차례로 앞의 것이 높다. 구현과 시험(apk 의 답 그대로)은
+    /// `remedy_detect::compare::apk_version_cmp` 에 있다.
+    ///
+    /// # 받지 않는 모양
+    ///
+    /// 대문자 · 모르는 접미사 · 글자 뒤의 숫자(`1.0a1`) · `~` 꼬리 · `-rN` 이 없는 판 — apk 의 설치
+    /// 기록(`/lib/apk/db/installed`)은 늘 `-rN` 으로 끝나고, 그 밖의 모양은 apk 도 판으로 인정하지
+    /// 않거나(`apk version -c`) 순서가 뜻밖이다. 추측하지 않고 *"재지 못했다"* 로 돌린다
+    /// ([`is_apk_version`]).
+    ApkVersionLt,
     /// 파일 전용이 아니다. 바이트열을 제공하는 모든 필드에 적용된다.
     Yara,
 }
@@ -1974,7 +2002,7 @@ pub struct OperatorInfo {
 }
 
 impl Operator {
-    pub const ALL: [Operator; 16] = [
+    pub const ALL: [Operator; 17] = [
         Operator::Equals,
         Operator::NotEquals,
         Operator::Matches,
@@ -1990,6 +2018,7 @@ impl Operator {
         Operator::VersionGt,
         Operator::PkgVersionLt,
         Operator::RpmVersionLt,
+        Operator::ApkVersionLt,
         Operator::Yara,
     ];
 
@@ -2077,6 +2106,12 @@ impl Operator {
             // 위 `VersionLt` 의 주석과 같은 규약 — 연산자는 탐지 표면(P4)의 몫이다.
             Operator::RpmVersionLt => OperatorInfo {
                 id: "rpm_version_lt",
+                implemented_in: Phase::P4,
+                takes_value: true,
+            },
+            // 위 `VersionLt` 의 주석과 같은 규약 — 연산자는 탐지 표면(P4)의 몫이다.
+            Operator::ApkVersionLt => OperatorInfo {
+                id: "apk_version_lt",
                 implemented_in: Phase::P4,
                 takes_value: true,
             },
@@ -2183,6 +2218,43 @@ pub fn is_rpm_version(s: &str) -> bool {
             b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'+' | b'~' | b'^' | b'-')
         })
 }
+
+/// `apk_version_lt` 가 견줄 수 있는 모양인가 (2026-11-13 · 코어 1.14.0).
+///
+/// `숫자(.숫자)*[a-z][_접미사[숫자]]*-r숫자` — 접미사는 소문자 `alpha` `beta` `pre` `rc` `cvs` `svn`
+/// `git` `hg` `p` 뿐이다. apk 의 설치 기록이 적는 모양이 이것이고(`10.3_p1-r2` · `3.21.3-r0` ·
+/// `2024a-r0`), 그 밖은 [`Operator::ApkVersionLt`] 의 설명대로 받지 않는다. 비교기
+/// (`remedy_detect::compare::apk_version_cmp`)는 이 검사를 지난 문자열만 조각낸다 — 린트가 받는
+/// 모양과 평가기가 견주는 모양이 같아야 한다([`is_version`] 과 같은 까닭).
+pub fn is_apk_version(s: &str) -> bool {
+    let s = s.trim();
+    // 개정 — 마지막 `-r` 뒤가 숫자뿐이다. 판 안의 다른 `-` 는 아래 숫자 검사가 막는다.
+    let Some((body, rev)) = s.rsplit_once("-r") else {
+        return false;
+    };
+    if rev.is_empty() || !rev.bytes().all(|b| b.is_ascii_digit()) {
+        return false;
+    }
+    let mut parts = body.split('_');
+    let head = parts.next().unwrap_or_default();
+    // 판 — 점으로 나눈 숫자에 소문자 하나까지.
+    let nums = match head.as_bytes().last() {
+        Some(c) if c.is_ascii_lowercase() => &head[..head.len() - 1],
+        _ => head,
+    };
+    let numeric = |c: &str| !c.is_empty() && c.bytes().all(|b| b.is_ascii_digit());
+    if !nums.split('.').all(numeric) {
+        return false;
+    }
+    parts.all(|suffix| {
+        let n = suffix.bytes().take_while(u8::is_ascii_lowercase).count();
+        let (name, num) = suffix.split_at(n);
+        APK_SUFFIXES.contains(&name) && num.bytes().all(|b| b.is_ascii_digit())
+    })
+}
+
+/// apk 의 판 접미사 — **이 차례가 순서다**(앞의 넷은 사전 배포라 접미사 없는 판보다 낮다).
+pub const APK_SUFFIXES: [&str; 9] = ["alpha", "beta", "pre", "rc", "cvs", "svn", "git", "hg", "p"];
 
 /// 룰이 **따옴표 없이** 적어서 버전으로 읽을 수 없게 된 리터럴인가.
 ///
