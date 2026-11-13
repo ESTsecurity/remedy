@@ -1,0 +1,121 @@
+# OpenSSH 점검 — musl(Alpine) · PAM 없는 sshd 의 비밀번호 인증 우회 (CVE-2026-123158)
+#
+# musl 의 crypt() 는 256 바이트가 넘는 비밀번호에 해시 대신 "*" 를 돌려준다. /etc/shadow 의 비밀번호 칸이 정확히
+# "*" 인 계정(Alpine 3.16 부터 root 가 그렇다)이 있으면, PAM 없는 sshd 에 257 ~ 1024 자의 아무 비밀번호로
+# 로그인된다. OpenSSH 10.6p2 가 고쳤고(auth-passwd.c 의 해시 길이 검사), Alpine 은 3.16 ~ edge 열 브랜치에 고친
+# 판을 냈다. glibc 배포판 · PAM 을 쓰는 sshd(openssh-server-pam) · Dropbear 는 해당이 없다.
+#
+# # 판정
+#
+# | 무엇 | 결과 |
+# |---|---|
+# | apk 의 openssh-server(PAM 없음)가 그 브랜치의 고친 판보다 낮다 | 취약(2) |
+# | 그런데 sshd 설정에 PasswordAuthentication no 줄이 있다 | 확인 필요(6) — Match 블록이 다시 켜는지는 줄만으로 모른다 |
+# | openssh-server 의 판이 알려진 브랜치의 것이 아니고 상류의 고친 판(10.6_p2)보다 낮다 | 확인 필요(6) |
+# | 고친 판 · openssh-server-pam · apk 가 아닌 배포판 · /etc/ssh 가 없다 | 0 |
+#
+# "*" 계정이 있는지는 보지 않는다 — /etc/shadow 는 읽지 않는다(수집기가 닫아 두었다). 안내문이 확인을 맡긴다.
+#
+# # 브랜치마다 고친 판 (Alpine secdb · 2026-11-13 다시 받아 확인)
+#
+# | 브랜치 | 고친 판 | 브랜치 | 고친 판 |
+# |---|---|---|---|
+# | edge | 10.6_p2-r0 | 3.20 | 9.7_p1-r6 |
+# | 3.24 | 10.3_p1-r2 | 3.19 | 9.6_p1-r3 |
+# | 3.23 | 10.2_p1-r1 | 3.18 | 9.3_p2-r4 |
+# | 3.22 | 10.0_p1-r11 | 3.17 | 9.1_p1-r7 |
+# | 3.21 | 9.9_p2-r1 | 3.16 | 9.0_p1-r6 |
+#
+# 브랜치마다 상류 판이 달라 상류 판(upstream_version)으로 브랜치를 고르고, 판은 apk 의 규칙(apk_version_lt ·
+# 코어 1.14.0)으로 견준다 — Alpine 은 개정만 올려 고쳤으므로 상류 판만으로는 가리지 못한다.
+#
+# # 호스트 개인키를 읽지 않는다
+#
+# /etc/ssh 에는 호스트 개인키(ssh_host_*_key)가 있다. file_names 로 sshd_config 와 *.conf 만 기록하고 본문도 그
+# 둘만 담는다 — 개인키는 기록 · 해시 · 본문 어느 것도 하지 않는다. text_config_dirs 에 /etc/ssh 를 적으면 그 폴더의
+# 직속 파일 전부(개인키 포함)가 줄 단위로 결과에 실리므로 쓰지 않는다.
+schema_version: 1
+id: openssh-musl-check
+version: 0.1.0
+min_core: "1.14.0"  # apk_version_lt 는 1.14.0 · label 은 1.13.0 · file_names 는 1.11.0
+platforms: [linux]
+
+kind: check
+
+name:
+  ko: "OpenSSH 점검 (CVE-2026-123158 · Alpine)"
+  en: "OpenSSH check (CVE-2026-123158, Alpine)"
+
+references:
+  - "https://github.com/advisories/GHSA-4fcc-vm97-gx3x"
+  - "CVE-2026-123158"
+  - "https://secdb.alpinelinux.org/"
+
+scan_roots: ["/etc/ssh"]
+# 이 이름만 기록 · 해시한다 — 호스트 개인키(ssh_host_*_key)는 기록하지 않는다.
+file_names: ["sshd_config", "*.conf"]
+subjects: [package, file]
+
+detect:
+  - id: vulnerable
+    subject: package
+    where:
+      all:
+        - { field: manager, op: equals, value: apk }
+        - { field: name, op: equals, value: openssh-server }
+        - any:
+            - all: [{ field: upstream_version, op: equals, value: "10.6" }, { field: version, op: apk_version_lt, value: "10.6_p2-r0" }]
+            - all: [{ field: upstream_version, op: equals, value: "10.3" }, { field: version, op: apk_version_lt, value: "10.3_p1-r2" }]
+            - all: [{ field: upstream_version, op: equals, value: "10.2" }, { field: version, op: apk_version_lt, value: "10.2_p1-r1" }]
+            - all: [{ field: upstream_version, op: equals, value: "10.0" }, { field: version, op: apk_version_lt, value: "10.0_p1-r11" }]
+            - all: [{ field: upstream_version, op: equals, value: "9.9" }, { field: version, op: apk_version_lt, value: "9.9_p2-r1" }]
+            - all: [{ field: upstream_version, op: equals, value: "9.7" }, { field: version, op: apk_version_lt, value: "9.7_p1-r6" }]
+            - all: [{ field: upstream_version, op: equals, value: "9.6" }, { field: version, op: apk_version_lt, value: "9.6_p1-r3" }]
+            - all: [{ field: upstream_version, op: equals, value: "9.3" }, { field: version, op: apk_version_lt, value: "9.3_p2-r4" }]
+            - all: [{ field: upstream_version, op: equals, value: "9.1" }, { field: version, op: apk_version_lt, value: "9.1_p1-r7" }]
+            - all: [{ field: upstream_version, op: equals, value: "9.0" }, { field: version, op: apk_version_lt, value: "9.0_p1-r6" }]
+    label:
+      ko: "openssh-server(PAM 없음) — CVE-2026-123158 · 이 Alpine 브랜치의 고친 판보다 낮습니다"
+      en: "openssh-server (no PAM) - CVE-2026-123158, below this Alpine branch's fixed build"
+  # 알려진 브랜치의 상류 판이 아닌데 상류의 고친 판보다 낮다 — 그 판이 고쳤는지 이 룰은 모른다.
+  - id: unknown_build
+    subject: package
+    where:
+      all:
+        - { field: manager, op: equals, value: apk }
+        - { field: name, op: equals, value: openssh-server }
+        - { field: version, op: apk_version_lt, value: "10.6_p2-r0" }
+    exclude:
+      - { field: upstream_version, op: in, value: ["10.6", "10.3", "10.2", "10.0", "9.9", "9.7", "9.6", "9.3", "9.1", "9.0"] }
+    label:
+      ko: "openssh-server(PAM 없음) — CVE-2026-123158 을 고친 판인지 이 룰이 모르는 판입니다"
+      en: "openssh-server (no PAM) - a build this rule cannot tell fixed for CVE-2026-123158"
+  # 비밀번호 로그인을 끈 줄. 주석 줄은 아니다. sshd 는 `키워드 값` 과 `키워드=값` 을 다 받는다.
+  - id: password_off
+    subject: file
+    where:
+      all:
+        - { field: path, op: matches, value: '^/etc/ssh/sshd_config(\.d/[^/]+\.conf)?$' }
+        - { yara: "rules/sshd.yar:sshd_password_authentication_off" }
+    label:
+      ko: "비밀번호 로그인을 끈 줄(PasswordAuthentication no)이 있습니다"
+      en: "a line turns password login off (PasswordAuthentication no)"
+
+verdict:
+  require: "vulnerable and not password_off"
+  unconfirmed:
+    - when: "vulnerable and password_off"
+      why:
+        ko: "openssh-server 가 취약 판인데 비밀번호 로그인을 끈 줄이 있습니다 — Match 블록이 사용자 · 주소별로 다시 켜지 않는지 확인하고, openssh-server 를 고친 판으로 올리십시오"
+        en: "openssh-server is a vulnerable build but a line turns password login off - check that no Match block turns it back on for some users or addresses, and upgrade openssh-server to the fixed build"
+    - when: "unknown_build"
+      why:
+        ko: "openssh-server 의 판이 알려진 Alpine 브랜치의 것이 아닙니다 — 그 배포판의 공지에서 CVE-2026-123158 을 고친 판인지 확인하십시오"
+        en: "openssh-server is not a build of a known Alpine branch - check the distribution's advisory for whether it fixes CVE-2026-123158"
+
+# YARA 는 본문을 본다 — 설정 둘만 담는다(위 file_names 와 같은 자리). **둘 다 `glob` 형이다** — `path` 형은 그
+# 파일이 없으면 미해소로 보고해, SSH 클라이언트만 깔린 기계(/etc/ssh 는 있고 sshd_config 는 없다)마다 *"선언한 것이
+# 해소되지 않았습니다"* 를 띄웠다(2026-11-13 콘솔 캡처). `glob` 은 없으면 담을 것이 없는 것이다.
+collect_extra:
+  - { glob: "/etc/ssh/sshd_config", max_size: 1MB }
+  - { glob: "/etc/ssh/sshd_config.d/*.conf", max_size: 1MB }

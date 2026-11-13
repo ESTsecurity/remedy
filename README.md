@@ -7,7 +7,7 @@
 
 **remedy** 는 **ESTsecurity 가 만들고 관리하는 전용백신**입니다. 아래 표의 악성코드가 남긴
 파일 · 자동 실행 등록 · 보안 제품 예외를 찾아 치료하고, 치료한 것은 격리해 두어 **되돌릴 수
-있습니다.** 표의 *점검* 항목 가운데 PHP · Node.js · Log4j 는 알려진 취약점이 이 기계에 있는지 알려 드리고,
+있습니다.** 표의 *점검* 항목 가운데 PHP · Node.js · Log4j · OpenSSH 는 알려진 취약점이 이 기계에 있는지 알려 드리고,
 *(탐지만)* 항목은 악성코드를 찾기만 합니다 — 둘 다 아무것도 바꾸지 않습니다. *원격 점검* 항목은 적어 주신 주소의 웹서버를 바깥에서 봅니다 — 네트워크를
 쓰는 것은 이 항목뿐이고, 고르기 전에 그렇다고 알려 드립니다. 설치 없이, 받은 폴더에서 바로 실행합니다.
 
@@ -27,6 +27,7 @@
 | CWPdoor 점검 (탐지만) | 찾기만 합니다 | — | `cwpdoor-1-check` 0.1.2 | [blog.xlab.qianxin.com](https://blog.xlab.qianxin.com/cwpdoor-the-invisible-backdoor-living-inside-control-web-panel/) |
 | CWPdoor 제거 | 찾아서 치료합니다 (복원할 수 있습니다) | — | `cwpdoor-2-clean` 0.1.2 | [blog.xlab.qianxin.com](https://blog.xlab.qianxin.com/cwpdoor-the-invisible-backdoor-living-inside-control-web-panel/) |
 | Ebury 점검 (탐지만) | 찾기만 합니다 | — | `ebury-check` 0.2.0 | [www.welivesecurity.com](https://www.welivesecurity.com/en/eset-research/ebury-alive-unseen-400k-linux-servers-compromised-cryptotheft-financial-gain/) |
+| OpenSSH 점검 (CVE-2026-123158 · Alpine) | 찾기만 합니다 | — | `openssh-musl-check` 0.1.0 | [github.com](https://github.com/advisories/GHSA-4fcc-vm97-gx3x) |
 <!-- threats:end -->
 
 ## 처음 쓰시는 분 — 다섯 단계
@@ -130,7 +131,7 @@ sudo ./remedy
 | 취약합니다. 위에 적은 항목을 확인하십시오. | *점검* 항목이 취약한 버전을 찾았습니다 — 적힌 프로그램을 고친 버전으로 올리고 그것을 쓰는 서비스를 다시 시작합니다([위협별 안내](#위협별-안내)). |
 | 확인이 필요합니다. 위에 적은 항목은 '취약하지 않다' 를 가릴 근거가 없습니다. | *점검* 항목이 판정할 근거가 없는 설치본 · 설정입니다 — 위 *주의* 줄이 무엇을 확인할지(버전 · 받은 곳 · 설정) 말합니다. |
 | 다 보지 못해 '취약하지 않다' 를 말할 수 없습니다. | *점검* 항목이 볼 자리를 다 보지 못했습니다 — 바로 위 *주의* 줄에 까닭과 할 일이 있습니다(컨테이너 안이면 `docker exec --privileged` 로 들어가 다시 실행합니다). |
-| 취약한 곳을 찾지 못했습니다. | *점검* 항목이 본 자리에서 취약한 버전을 찾지 못했습니다 — 그 프로그램(PHP · Node.js · Log4j)이 이 기계에 없을 때도 이렇게 나옵니다. |
+| 취약한 곳을 찾지 못했습니다. | *점검* 항목이 본 자리에서 취약한 버전을 찾지 못했습니다 — 그 프로그램(PHP · Node.js · Log4j · OpenSSH)이 이 기계에 없을 때도 이렇게 나옵니다. |
 | 해당 없음 (검사할 경로가 이 기계에 없습니다) | *모두 검사만* 의 요약 줄입니다. 그 항목이 검사하는 제품이 이 서버에 없습니다 — Control Web Panel(CWP)을 쓰지 않는 서버의 CWPdoor 두 항목이 이렇게 나옵니다. |
 | 돌리지 않았습니다 (네트워크 점검은 그 항목을 골라 주소를 적어야 합니다) | *모두 검사만* 의 요약 줄입니다. *네트워크 사용* 이 붙은 항목은 점검할 주소를 적어야 해서 한꺼번에 돌리지 않습니다 — 그 항목을 골라 실행합니다. |
 
@@ -300,6 +301,29 @@ sudo bash detect_ebury.sh
   않습니다). 이름이 `.jar` · `.war` · `.ear` 인 파일만 기록합니다 — 디스크가 크면 몇 분이 걸릴 수 있습니다.
 
 판정 표와 근거(공지 번호)는 룰 폴더 `log4j-check` 의 `RELEASE.md` 에 있습니다.
+
+</details>
+
+### OpenSSH — Alpine 의 sshd (점검만 합니다)
+
+- **점검만 합니다** — Alpine(musl) 의 PAM 없는 sshd(`openssh-server`)가 비밀번호 인증 우회(CVE-2026-123158)를
+  고치기 전 버전인지 봅니다. `/etc/shadow` 의 비밀번호 칸이 `*` 인 계정(Alpine 3.16 부터 `root`)이 있으면 아주 긴
+  아무 비밀번호로 로그인되는 취약점입니다. 아무것도 바꾸지 않습니다.
+- **꼭 할 일** *취약* 이면 `apk upgrade openssh-server` 로 그 브랜치의 고친 버전 이상으로 올리고 sshd 를
+  **다시 시작**합니다. 올리기 전에는 `/etc/ssh/sshd_config` 에 `PasswordAuthentication no` 를 두는 것이 막는 길입니다.
+- **못 보는 것** `*` 계정이 실제로 있는지(`/etc/shadow` 는 읽지 않습니다) · 실행 중인 sshd 가 어느 파일인지.
+  호스트 개인키(`ssh_host_*_key`)는 읽지도 기록하지도 않습니다.
+
+<details>
+<summary>자세히 — 판정 · 확인 필요가 나오는 경우</summary>
+
+- **판정** — 패키지 기록(`/lib/apk/db/installed`)의 `openssh-server` 버전을 Alpine 이 브랜치마다 낸 고친 버전과
+  견줍니다(3.16 ~ edge 열 브랜치 · 예: 3.21 `9.9_p2-r1`). 버전 아래 줄에 CVE 를 적습니다. glibc 배포판 · PAM 을 쓰는
+  sshd(`openssh-server-pam`)는 해당이 없습니다.
+- **확인 필요가 나오는 경우** — 취약한 버전인데 `PasswordAuthentication no` 줄이 있을 때(`Match` 블록이 다시
+  켜는지는 줄만으로 알 수 없습니다), 알려진 브랜치의 버전이 아닐 때.
+
+판정 표와 근거(Alpine 보안 공지)는 룰 폴더 `openssh-musl-check` 의 `RELEASE.md` 에 있습니다.
 
 </details>
 
@@ -481,7 +505,7 @@ sudo bash detect_ebury.sh
   지운 것은 격리소에 보관해 두었다가 *치료 전으로 복원하기* 로 복원합니다.
 - **모두 검사만** — 받은 폴더에 검사 항목이 여럿이면 한 번에 전부 검사하고 결과를 한 덩어리로
   보여 드립니다. 아무것도 바꾸지 않습니다.
-- **취약점 점검** — PHP · Node.js · Log4j 의 알려진 취약점을 버전 · 공식 빌드의 파일 해시 · 배포판의 보안 공지로 가려
+- **취약점 점검** — PHP · Node.js · Log4j · OpenSSH 의 알려진 취약점을 버전 · 공식 빌드의 파일 해시 · 배포판의 보안 공지로 가려
   *취약* 으로 알려 드립니다. 판정할 근거가 없는 설치본은 '괜찮다' 로 넘기지 않고 *확인 필요* 로 남기며, 무엇을
   확인할지 함께 적습니다.
 - **메뉴 하나로 전부** — 첫 화면에는 그 기계에서 지금 할 일만 섭니다(검사 · 치료, 치료한 뒤에는 유지

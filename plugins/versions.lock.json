@@ -88,6 +88,13 @@
       "plugin.yaml": "f58813ecdd998f33d5b319cf1fee1a96b8414b139a7682d2e0804796368e06d5"
     }
   },
+  "openssh-musl-check": {
+    "version": "0.1.0",
+    "files": {
+      "plugin.yaml": "3186a4378b3b6c423293cf5b4617519cc2ae51d00e6d5949367a83f78d3c12a4",
+      "rules/sshd.yar": "4d94a1f41baab8732e41067125282d213eaf742209b48bf89acb575939c292ec"
+    }
+  },
   "php-session-check-linux": {
     "version": "0.5.0",
     "files": {
