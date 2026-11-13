@@ -95,6 +95,7 @@ docs/plugin-guide/10-manifest.md
 docs/plugin-guide/20-detect-recipes.md
 docs/plugin-guide/22-remediate-recipes.md
 docs/plugin-guide/23-collect-and-submit.md
+docs/plugin-guide/24-check-plugins.md
 docs/plugin-guide/30-antipatterns.md
 docs/plugin-guide/32-lint-errors.md
 docs/plugin-guide/31-nonexistent.md
@@ -109,9 +110,15 @@ docs/plugin-guide/examples/ex02-registry-ifeo/plugin.yaml
 docs/plugin-guide/examples/ex02-registry-ifeo/README.md
 docs/plugin-guide/examples/ex03-text-config/plugin.yaml
 docs/plugin-guide/examples/ex03-text-config/README.md
+docs/plugin-guide/examples/ex04-check-only/plugin.yaml
+docs/plugin-guide/examples/ex04-check-only/README.md
 ```
 
-합계 100 KB (실측). **손으로 붙이지 않는다** — `--bundle` 이 조립한다(아래 절차).
+> **2026-11-14 — 점검 룰 안내와 예제를 더했다**(`24-check-plugins.md` · `ex04-check-only`). 점검(`kind: check`)의
+> `unconfirmed` · 판 비교 연산자 · `%FIXED_DISKS%` 는 그 파일에만 있는데 묶음에서 빠져 있었다 — 위협 스무 개가
+> 모두 치료 룰이라 드러나지 않았다. **이 날 뒤의 회차는 꾸러미가 다르다**(기록에 적는다).
+
+합계 100 KB (실측 · 위의 더하기 전). **손으로 붙이지 않는다** — `--bundle` 이 조립한다(아래 절차).
 목록은 [`inject.txt`](inject.txt) 와 `xtask exam --list-inject` 두 곳에 있고,
 **갈라지면 빌드가 잡는다.**
 

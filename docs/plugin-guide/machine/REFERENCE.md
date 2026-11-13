@@ -64,6 +64,25 @@
 - **`unix_socket`** — `name` · `inode` · `listening` · `kind`
 - **`archive_entry`** — `archive` · `path` · `name` · `depth` · `size` · `sha256` · `text` · `error`
 
+## 매니페스트 칸 (닫힌 집합)
+
+받는 자리마다 칸 이름이다 — 매니페스트 타입의 스키마(`plugin.schema.json`)에서 생성한다. 여기 없는 칸은 파싱에서 거부된다. 칸의 뜻은 `10-manifest.md` · 점검 룰의 칸은 `24-check-plugins.md`.
+
+- 최상위: `allow_removable` · `archive_members` · `collect_extra` · `detect` · `file_names` · `hash_large` · `id` · `kind` · `min_core` · `name` · `network` · `platforms` · `references` · `remediate` · `scan_roots` · `schema_version` · `signed_malware` · `subject_roots` · `subjects` · `submit_hint` · `text_config_dirs` · `verdict` · `version`
+- `collect_extra[]`: `content` · `glob` · `max_size` · `path` · `ref` · `subject`
+- `detect[]`: `capture` · `exclude` · `from` · `id` · `label` · `score` · `subject` · `where`
+- `detect[].exclude[]`: `field` · `op` · `value` · `yara`
+- `detect[].where`(안의 `all[]` · `any[]` 도): `all` · `any` · `field` · `op` · `value` · `yara`
+- `remediate`: `edit` · `remove` · `restore` · `verify`
+- `remediate.edit[]`: `op` · `ref` · `value`
+- `remediate.remove[]`: `descendants` · `guard` · `path` · `recursive` · `ref`
+- `remediate.restore[]`: `ref` · `to`
+- `remediate.verify`: `after_reboot`
+- `signed_malware[]`: `subject` · `thumbprint`
+- `submit_hint`: `confidentiality_min` · `samples`
+- `verdict`: `require` · `unconfirmed`
+- `verdict.unconfirmed[]`: `when` · `why`
+
 ## 파괴·변경 동작 29종
 
 플러그인이 직접 적지 않는다. 계획기가 도출한다.

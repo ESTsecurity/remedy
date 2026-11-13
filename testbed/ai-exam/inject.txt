@@ -5,6 +5,7 @@ docs/plugin-guide/10-manifest.md
 docs/plugin-guide/20-detect-recipes.md
 docs/plugin-guide/22-remediate-recipes.md
 docs/plugin-guide/23-collect-and-submit.md
+docs/plugin-guide/24-check-plugins.md
 docs/plugin-guide/30-antipatterns.md
 docs/plugin-guide/32-lint-errors.md
 docs/plugin-guide/31-nonexistent.md
@@ -19,3 +20,5 @@ docs/plugin-guide/examples/ex02-registry-ifeo/plugin.yaml
 docs/plugin-guide/examples/ex02-registry-ifeo/README.md
 docs/plugin-guide/examples/ex03-text-config/plugin.yaml
 docs/plugin-guide/examples/ex03-text-config/README.md
+docs/plugin-guide/examples/ex04-check-only/plugin.yaml
+docs/plugin-guide/examples/ex04-check-only/README.md

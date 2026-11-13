@@ -307,6 +307,194 @@ const CAPTURE_FN_NOTE: &str = "`first_path` 는 **첫 공백 토큰**을 뽑는�
      `key`/`value` 는 `=` 로 쓴 줄에서만 채워진다 — 공백으로 쓰는 설정\
      (`sshd_config` 등)에서는 둘 다 비므로 그 자리는 리터럴로 적는다.";
 
+/// 매니페스트의 칸을 받는 자리 하나 — `at` 이 비면 최상위다. `also` 는 같은 정의를 받는 다른 자리다
+/// (조건의 `all` · `any` 처럼 `where` 와 `exclude` 가 함께 쓰는 것).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FieldGroup {
+    pub at: String,
+    pub also: Vec<String>,
+    pub names: Vec<String>,
+}
+
+/// 매니페스트의 칸 전부 — 스키마(`schema_for!(PluginManifest)`)를 최상위에서부터 걸어 **받는 자리마다** 모은다.
+///
+/// 손으로 적은 목록은 칸이 늘 때 갈라진다 — 코어 1.11.0 의 `file_names` · `text_config_dirs` · `hash_large`,
+/// 1.13.0 의 `label` 이 AI 용 두 문서에 없었다. 스키마는 매니페스트 타입에서 생성되므로 이 목록도 타입을
+/// 따라간다. 자리 하나가 받는 것은 **정의 묶음**이다(조건 하나 = `all` · `any` · 필드 비교 · YARA 중 하나).
+/// 같은 묶음을 다른 자리가 또 받으면 — 조건이 `all` 안에 다시 조건을 받는 것처럼 — 내려가지 않고 `also` 에 적는다.
+pub fn manifest_fields() -> Vec<FieldGroup> {
+    let schema =
+        serde_json::to_value(schemars::schema_for!(PluginManifest)).expect("스키마 직렬화 실패");
+    let empty = serde_json::Map::new();
+    let defs = schema
+        .get("definitions")
+        .and_then(serde_json::Value::as_object)
+        .unwrap_or(&empty);
+    let props = schema
+        .get("properties")
+        .and_then(serde_json::Value::as_object)
+        .unwrap_or(&empty);
+    let mut groups = vec![FieldGroup {
+        at: String::new(),
+        also: Vec::new(),
+        names: props.keys().cloned().collect(),
+    }];
+    let mut sets = Vec::new();
+    for (name, sub) in props {
+        descend_fields(name.clone(), sub, defs, &mut groups, &mut sets);
+    }
+    groups
+}
+
+/// 칸 하나(`at`)가 받는 정의 묶음을 묶음 하나로 싣고, 그 정의들의 칸으로 내려간다.
+fn descend_fields(
+    mut at: String,
+    sub: &serde_json::Value,
+    defs: &serde_json::Map<String, serde_json::Value>,
+    groups: &mut Vec<FieldGroup>,
+    sets: &mut Vec<(std::collections::BTreeSet<String>, usize)>,
+) {
+    if is_array(sub) {
+        at.push_str("[]");
+    }
+    let mut leaves = Vec::new();
+    object_defs(sub, defs, &mut Vec::new(), &mut leaves);
+    if leaves.is_empty() {
+        return;
+    }
+    let set: std::collections::BTreeSet<String> = leaves.iter().cloned().collect();
+    if let Some(&(_, gi)) = sets.iter().find(|(s, _)| *s == set) {
+        if groups[gi].at != at && !groups[gi].also.contains(&at) {
+            groups[gi].also.push(at);
+        }
+        return;
+    }
+    let mut names: Vec<String> = Vec::new();
+    for r in &leaves {
+        for k in def_props(defs, r).keys() {
+            if !names.contains(k) {
+                names.push(k.clone());
+            }
+        }
+    }
+    names.sort();
+    groups.push(FieldGroup {
+        at: at.clone(),
+        also: Vec::new(),
+        names,
+    });
+    sets.push((set, groups.len() - 1));
+    for r in &leaves {
+        for (k, v) in def_props(defs, r) {
+            descend_fields(format!("{at}.{k}"), v, defs, groups, sets);
+        }
+    }
+}
+
+/// 정의 하나의 칸(`properties`). 칸이 없으면 빈 것.
+fn def_props<'a>(
+    defs: &'a serde_json::Map<String, serde_json::Value>,
+    name: &str,
+) -> &'a serde_json::Map<String, serde_json::Value> {
+    static EMPTY: std::sync::OnceLock<serde_json::Map<String, serde_json::Value>> =
+        std::sync::OnceLock::new();
+    defs.get(name)
+        .and_then(|d| d.get("properties"))
+        .and_then(serde_json::Value::as_object)
+        .unwrap_or_else(|| EMPTY.get_or_init(serde_json::Map::new))
+}
+
+/// 이 칸이 목록인가 — `Option<Vec<_>>` 처럼 `null` 과 함께 감싼 것도.
+fn is_array(v: &serde_json::Value) -> bool {
+    if v.get("type").and_then(serde_json::Value::as_str) == Some("array")
+        || v.get("items").is_some()
+    {
+        return true;
+    }
+    if let Some(t) = v.get("type").and_then(serde_json::Value::as_array) {
+        if t.iter().any(|x| x.as_str() == Some("array")) {
+            return true;
+        }
+    }
+    ["anyOf", "oneOf", "allOf"].iter().any(|k| {
+        v.get(*k)
+            .and_then(serde_json::Value::as_array)
+            .is_some_and(|xs| {
+                let real: Vec<&serde_json::Value> = xs
+                    .iter()
+                    .filter(|x| x.get("type").and_then(serde_json::Value::as_str) != Some("null"))
+                    .collect();
+                real.len() == 1 && is_array(real[0])
+            })
+    })
+}
+
+/// 이 스키마가 닿는 정의 가운데 **칸을 가진 것**의 이름 — 참조 · 목록 · 합집합을 거쳐서.
+fn object_defs(
+    v: &serde_json::Value,
+    defs: &serde_json::Map<String, serde_json::Value>,
+    path: &mut Vec<String>,
+    out: &mut Vec<String>,
+) {
+    if let Some(r) = v.get("$ref").and_then(serde_json::Value::as_str) {
+        let name = r.rsplit('/').next().unwrap_or(r).to_string();
+        if path.contains(&name) {
+            return;
+        }
+        let Some(def) = defs.get(&name) else { return };
+        if def.get("properties").is_some() {
+            if !out.contains(&name) {
+                out.push(name);
+            }
+            return;
+        }
+        path.push(name);
+        object_defs(def, defs, path, out);
+        path.pop();
+        return;
+    }
+    for k in ["items", "additionalProperties"] {
+        if let Some(x) = v.get(k).filter(|x| x.is_object()) {
+            object_defs(x, defs, path, out);
+        }
+    }
+    for k in ["anyOf", "oneOf", "allOf"] {
+        if let Some(xs) = v.get(k).and_then(serde_json::Value::as_array) {
+            for x in xs {
+                object_defs(x, defs, path, out);
+            }
+        }
+    }
+}
+
+/// `manifest_fields()` 를 목록 한 줄씩으로. 자리 안에서 되풀이되는 자리는 `(안의 … 도)` 로 붙인다.
+fn manifest_fields_md() -> String {
+    let q = |x: &str| format!("`{x}`");
+    let mut s = String::new();
+    for g in manifest_fields() {
+        let mut at = if g.at.is_empty() {
+            "최상위".to_string()
+        } else {
+            q(&g.at)
+        };
+        let prefix = format!("{}.", g.at);
+        let (inner, other): (Vec<&String>, Vec<&String>) = g
+            .also
+            .iter()
+            .partition(|a| !g.at.is_empty() && a.starts_with(&prefix));
+        if !inner.is_empty() {
+            let rel: Vec<String> = inner.iter().map(|a| q(&a[prefix.len()..])).collect();
+            at.push_str(&format!("(안의 {} 도)", rel.join(" · ")));
+        }
+        for a in other {
+            at.push_str(&format!(" · {}", q(a)));
+        }
+        let names: Vec<String> = g.names.iter().map(|n| q(n)).collect();
+        s.push_str(&format!("- {at}: {}\n", names.join(" · ")));
+    }
+    s
+}
+
 /// 사람이 읽는 레퍼런스. 표를 손으로 옮겨 적지 않기 위한 것이다.
 pub fn reference_md() -> String {
     let mut s = String::new();
@@ -375,6 +563,14 @@ pub fn reference_md() -> String {
             s.push('\n');
         }
     }
+
+    // **칸도 닫힌 집합이다.** 모든 구조체가 모르는 키를 파싱에서 거부한다(`manifest.rs`).
+    s.push_str("\n## 매니페스트 칸 (닫힌 집합)\n\n");
+    s.push_str(
+        "받는 자리마다 칸 이름이다 — 매니페스트 타입의 스키마(`plugin.schema.json`)에서 생성한다. \
+         여기 없는 칸은 파싱에서 거부된다. 칸의 뜻은 `10-manifest.md` · 점검 룰의 칸은 `24-check-plugins.md`.\n\n",
+    );
+    s.push_str(&manifest_fields_md());
 
     s.push_str(&format!("\n## 파괴·변경 동작 {}종\n\n", Op::ALL.len()));
     s.push_str("플러그인이 직접 적지 않는다. 계획기가 도출한다.\n\n");
@@ -1101,12 +1297,22 @@ pub fn ai_context_md() -> String {
     s.push_str(CAPTURE_FN_NOTE);
     s.push_str("\n\n");
 
+    // 토큰은 카탈로그(`DESIGNATED_TOKENS`)에서 — 손으로 적은 줄은 1.11.0 의 `%FIXED_DISKS%` 를 빠뜨렸다.
     s.push_str("## 지정 확장 토큰\n\n");
+    let tokens: Vec<String> = DESIGNATED_TOKENS
+        .iter()
+        .map(|t| {
+            if t.requires_allow_removable {
+                format!("`{}`(`allow_removable: true` 필요)", t.token)
+            } else {
+                format!("`{}`", t.token)
+            }
+        })
+        .collect();
+    s.push_str(&tokens.join(" · "));
     s.push_str(
-        "`%ALLUSERPROFILES%`(사용자 수만큼) · `HKU\\*`(하이브 수만큼) · \
-         `%REMOVABLE%`(매체 수만큼 · `allow_removable: true` 필요). \
-         **하나가 여럿이 된다** — 쓰지 않으면 다중 사용자 기계에서 현재 \
-         사용자만 치료된다.\n\n",
+        ". **하나가 여럿이 된다**(사용자 · 하이브 · 매체 · 디스크마다) — 쓰지 않으면 다중 사용자 \
+         기계에서 현재 사용자만 치료된다.\n\n",
     );
 
     s.push_str("## 없는 것 (지어내지 말 것)\n\n");
@@ -1225,6 +1431,86 @@ mod tests {
 {md}"
         );
         assert!(!md.contains("파싱되지 않는다"), "예제가 파싱되지 않는다");
+    }
+
+    /// 스키마 어디에서든 `properties` 의 키 — 최상위와 모든 정의.
+    fn property_names(v: &serde_json::Value, out: &mut std::collections::BTreeSet<String>) {
+        match v {
+            serde_json::Value::Object(m) => {
+                if let Some(serde_json::Value::Object(p)) = m.get("properties") {
+                    out.extend(p.keys().cloned());
+                }
+                for x in m.values() {
+                    property_names(x, out);
+                }
+            }
+            serde_json::Value::Array(xs) => {
+                for x in xs {
+                    property_names(x, out);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    /// `w` 가 낱말로(앞뒤가 영숫자 · `_` 가 아닌 자리에) 있는가 — 연산자 `in` 이 `contains` 안에서 맞지 않게.
+    fn has_word(doc: &str, w: &str) -> bool {
+        let word = |c: Option<char>| c.is_some_and(|c| c.is_ascii_alphanumeric() || c == '_');
+        doc.match_indices(w).any(|(i, _)| {
+            !word(doc[..i].chars().next_back()) && !word(doc[i + w.len()..].chars().next())
+        })
+    }
+
+    #[test]
+    fn ai_documents_name_every_manifest_field_token_and_operator() {
+        // **칸 · 토큰 · 연산자는 닫힌 집합이고, AI 는 문서에 없는 이름을 쓰지 못한다.** 손으로 적던 때
+        // 코어 1.11.0 의 `%FIXED_DISKS%` 가 AI-CONTEXT 에 없었고, REFERENCE(AI 합격 시험이 싣는 쪽)는
+        // 매니페스트 칸을 하나도 싣지 않았다 — 1.11.0 의 `file_names` · 1.13.0 의 `label` 같은 칸은
+        // 번호 붙은 문서의 산문에만 있었다.
+        let schema = serde_json::to_value(schemars::schema_for!(PluginManifest)).unwrap();
+        let mut all = std::collections::BTreeSet::new();
+        property_names(&schema, &mut all);
+        assert!(
+            all.len() > 40,
+            "스키마에서 칸을 거의 못 찾았다: {}",
+            all.len()
+        );
+        let listed: std::collections::BTreeSet<String> = manifest_fields()
+            .into_iter()
+            .flat_map(|g| g.names)
+            .collect();
+        let unlisted: Vec<&String> = all.iter().filter(|n| !listed.contains(*n)).collect();
+        assert!(
+            unlisted.is_empty(),
+            "칸 목록이 스키마의 칸을 빠뜨렸다(걷는 함수가 닿지 못한 정의): {unlisted:?}"
+        );
+        let section = manifest_fields_md();
+        let reference = reference_md();
+        assert!(
+            reference.contains(&section),
+            "REFERENCE.md 에 매니페스트 칸 절이 없다"
+        );
+        let unnamed: Vec<&String> = all.iter().filter(|n| !has_word(&section, n)).collect();
+        assert!(unnamed.is_empty(), "칸 절이 이름을 빠뜨렸다: {unnamed:?}");
+        for (name, doc) in [
+            ("AI-CONTEXT.md", ai_context_md()),
+            ("REFERENCE.md", reference),
+        ] {
+            let mut lacks: Vec<String> = Vec::new();
+            lacks.extend(
+                DESIGNATED_TOKENS
+                    .iter()
+                    .filter(|t| !doc.contains(t.token))
+                    .map(|t| t.token.to_string()),
+            );
+            lacks.extend(
+                Operator::ALL
+                    .iter()
+                    .filter(|o| !has_word(&doc, o.id()))
+                    .map(|o| o.id().to_string()),
+            );
+            assert!(lacks.is_empty(), "{name} 에 없다: {lacks:?}");
+        }
     }
 
     #[test]
