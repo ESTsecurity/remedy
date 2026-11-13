@@ -16,8 +16,9 @@
     (`Invoke-MenuVerify.ps1` 의 `-Package` 설명). 리눅스 컨테이너 점검과 **나란히 돌리지 않는다** — 랩 되돌리기와
     컨테이너 묶음이 겹치면 메모리가 모자랐다.
 
-    단계마다 기록과 summary.txt 를 남긴다. 판정은 각 단계 기록의 마지막 줄이다(시연 `판정 N/N · 실패 0`,
-    메뉴 `판정 N/N · 실패 0`, 정식 파일은 모든 `verify exit=0`).
+    단계마다 기록과 summary.txt 를 남긴다. 단계의 판정은 그 기록에서 한다 — 정식 파일은 버전 둘 · 모든
+    `verify exit=0` · 기준 도움말 셋, 시연과 메뉴는 마지막 `판정 N/N · 실패 0`, 되돌리기는 `복원 완료`.
+    종료 코드: 0 = 넷 모두 통과 · 1 = 하나라도 실패(summary.txt 의 끝 줄이 이름을 적는다).
 
 .PARAMETER Package
     내려받아 푼 `remedy-windows-x64` 폴더.
@@ -41,13 +42,28 @@ if (-not (Test-Path -LiteralPath $exe)) { throw "remedy.exe 가 없다: $exe" }
 New-Item -ItemType Directory -Force $LogDir | Out-Null
 $summary = Join-Path $LogDir 'summary.txt'
 function Note([string] $line) { $line; [IO.File]::AppendAllText($summary, $line + "`r`n") }
-function Step([string] $name, [scriptblock] $body) {
+$script:failed = @()
+# 단계를 돌리고 그 기록으로 판정한다 — `$judge` 는 기록의 줄들을 받아 (통과 여부, 요약)을 돌려준다.
+function Step([string] $name, [scriptblock] $body, [scriptblock] $judge) {
     $t0 = Get-Date
     $log = Join-Path $LogDir "$name.log"
     try { & $body *>&1 | ForEach-Object { "$_" } | Out-File -FilePath $log -Encoding utf8 }
     catch { "THROWN: $($_.Exception.Message)" | Out-File -FilePath $log -Append -Encoding utf8 }
-    $last = Get-Content -LiteralPath $log -Encoding UTF8 | Where-Object { $_ -match '판정 \d+/\d+|verify exit=' } | Select-Object -Last 1
-    Note ("{0}  {1}초  {2}  {3}" -f $name, [int]((Get-Date) - $t0).TotalSeconds, (Get-Date -Format 'HH:mm:ss'), $last)
+    $lines = @(Get-Content -LiteralPath $log -Encoding UTF8)
+    $ok, $what = & $judge $lines
+    if ($lines -match '^THROWN:') { $ok = $false; $what = "$what · 예외" }
+    if (-not $ok) { $script:failed += $name }
+    Note ("{0}  {1}  {2}초  {3}  {4}" -f $name, $(if ($ok) { '통과' } else { '실패' }),
+        [int]((Get-Date) - $t0).TotalSeconds, (Get-Date -Format 'HH:mm:ss'), $what)
+}
+# 하네스의 마지막 판정 줄 `판정 N/N · 실패 0` 이 있어야 통과다.
+$verdictLine = {
+    param($lines)
+    $v = $lines | Where-Object { $_ -match '판정 (\d+)/(\d+) · 실패 (\d+)' } | Select-Object -Last 1
+    $ok = [bool]($v -and $v -match '판정 (\d+)/(\d+) · 실패 0' -and $Matches[1] -eq $Matches[2])
+    # 값 둘을 **따로** 내보낸다 — 배열 하나로 감싸면 `$ok, $what = …` 의 $ok 가 배열 통째를 받아 늘 참이 된다.
+    $ok
+    $(if ($v) { $v.Trim() } else { '판정 줄 없음' })
 }
 Set-Location $repo
 Note ("시작 {0}  꾸러미={1}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Package)
@@ -69,9 +85,26 @@ Step 'package' {
         '{0} help exit={1}' -f $c, $rc
     }
     Remove-Item Env:REMEDY_LANG -ErrorAction SilentlyContinue
+} {
+    param($lines)
+    $verify = @($lines | Where-Object { $_ -match ' verify exit=' })
+    $good = @($verify | Where-Object { $_ -match ' verify exit=0$' })
+    $help = @($lines | Where-Object { $_ -match ' help exit=' })
+    $helpGood = @($help | Where-Object { $_ -match ' help exit=0$' })
+    $ver = @($lines | Where-Object { $_ -match '\(exit=0\)$' })
+    $ok = ($verify.Count -gt 0) -and ($good.Count -eq $verify.Count) -and ($help.Count -eq 3) -and
+          ($helpGood.Count -eq 3) -and ($ver.Count -eq 2)
+    $ok
+    '버전 {0}/2 · 룰 서명 {1}/{2} · 판정 기준 도움말 {3}/3' -f $ver.Count, $good.Count, $verify.Count, $helpGood.Count
 }
-Step 'demo' { & (Join-Path $h 'Invoke-DemoVerify.ps1') -Bin $exe }
-Step 'menu' { & (Join-Path $h 'Invoke-MenuVerify.ps1') -Package $Package -Prepare -ReinfectOnly }
-Step 'reset' { & (Join-Path $h 'Reset-Vm.ps1') }
-Note ("끝 {0}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'))
-exit 0
+Step 'demo' { & (Join-Path $h 'Invoke-DemoVerify.ps1') -Bin $exe } $verdictLine
+Step 'menu' { & (Join-Path $h 'Invoke-MenuVerify.ps1') -Package $Package -Prepare -ReinfectOnly } $verdictLine
+Step 'reset' { & (Join-Path $h 'Reset-Vm.ps1') } {
+    param($lines)
+    $ok = [bool]($lines -match '복원 완료')
+    $ok
+    $(if ($ok) { '복원 완료' } else { '복원 완료 줄 없음' })
+}
+Note ("끝 {0} · {1}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'),
+    $(if ($script:failed.Count -eq 0) { '모두 통과' } else { '실패: ' + ($script:failed -join ', ') }))
+if ($script:failed.Count -eq 0) { exit 0 } else { exit 1 }

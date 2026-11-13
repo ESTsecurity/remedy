@@ -4,18 +4,19 @@
 # 호스트(WSL)에서, 저장소 루트:
 #
 #   bash testbed/harness/linux/emergency-checks.sh --new <정식 remedy-linux-x64.tar.gz> \
-#        --prev <지난 공개본 remedy-linux-x64.tar.gz> --out <결과 폴더> [--harness <새 룰의 하네스 스크립트>]
+#        --prev <지난 공개본 remedy-linux-x64.tar.gz> --out <결과 폴더> --harness <새 룰의 하네스 스크립트 | none>
 #
-# `--new` 는 태그의 배포 잡이 올린 **초안을 내려받은 그 파일**이다 — 공개할 파일을 잰다. `--prev` 는 지금 Latest 인
-# 공개본이다. `--harness` 는 새 룰의 하네스(`testbed/harness/linux/<룰>-verify.sh` — `--bin` · `--plugins` · `--out` 을
-# 받는 꼴)이고, 주면 정식 파일의 정적 실행 파일과 **배포 키로 서명된** 룰로 돌린다. 호스트에 docker 와 debian:12 ·
-# ubuntu:24.04 이미지가 있어야 한다. 망은 쓰지 않는다.
+# `--new` 는 태그의 배포 잡이 올린 **초안을 내려받은 그 파일**이다 — 공개할 파일을 잰다. 같은 폴더에 받은 `SHA256SUMS` 가
+# 있으면 그 줄로 체크섬도 잰다. `--prev` 는 지금 Latest 인 공개본이다. `--harness` 는 새 룰의 하네스
+# (`testbed/harness/linux/<룰>-verify.sh` — `--bin` · `--plugins` · `--out` 을 받는 꼴)이고 정식 파일의 정적 실행 파일과
+# **배포 키로 서명된** 룰로 돌린다. 리눅스 룰이 아니어서 돌릴 것이 없으면 `none` 을 **적는다** — 빠뜨린 것과 가른다.
+# 호스트에 docker 와 debian:12 · ubuntu:24.04 이미지가 있어야 한다. 망은 쓰지 않는다.
 #
 # # 무엇을 재나
 #
-#   1  새 룰 하네스 — 그 하네스가 정한 칸이 모두 통과(`--harness` 를 줬을 때)
-#   2  정식 파일 — 엔진 · 동반 프로그램의 버전, 꾸러미에 든 룰 전부의 서명(`plugin verify`), 동반 프로그램이 판정 기준을
-#      알아보는가(`url` · `image` · `container` 도움말의 기준 줄)
+#   1  새 룰 하네스 — 그 하네스가 정한 칸이 모두 통과
+#   2  정식 파일 — 체크섬(받은 `SHA256SUMS`), 엔진 · 동반 프로그램의 버전, 꾸러미에 든 룰 전부의 서명(`plugin verify`),
+#      동반 프로그램이 판정 기준을 알아보는가(`url` · `image` · `container` 도움말의 기준 줄)
 #   3  기존 동작 — 깨끗한 컨테이너(Debian 12 · Ubuntu 24.04)에서 지난 공개본과 이 파일의 메뉴 '모두 검사' 를 돌려
 #      **종료 코드가 같아야 한다**. 화면은 버전 · 시각 · 회차 · 기계 이름을 가린 뒤의 차이를 남긴다 — 차이가 새 룰의
 #      줄(메뉴 항목 · 번호 밀림 · 그 룰의 검사 덩어리 · 요약 한 줄)뿐인지 사람이 본다(`<결과>/scan-all/*.diff`)
@@ -40,7 +41,8 @@ done
 [ -f "$NEW" ] || { echo "--new <정식 tar.gz> 가 필요하다" >&2; exit 2; }
 [ -f "$PREV" ] || { echo "--prev <지난 공개본 tar.gz> 가 필요하다" >&2; exit 2; }
 [ -n "$OUT" ] || { echo "--out <결과 폴더> 가 필요하다" >&2; exit 2; }
-[ -z "$HARNESS" ] || [ -f "$HARNESS" ] || { echo "--harness 가 없다: $HARNESS" >&2; exit 2; }
+[ -n "$HARNESS" ] || { echo "--harness <새 룰의 하네스 | none> 가 필요하다 — 리눅스 룰이 아니면 none 을 적는다" >&2; exit 2; }
+[ "$HARNESS" = none ] || [ -f "$HARNESS" ] || { echo "--harness 가 없다: $HARNESS" >&2; exit 2; }
 command -v docker >/dev/null || { echo "docker 가 없다" >&2; exit 2; }
 for base in debian:12 ubuntu:24.04; do
     docker image inspect "$base" >/dev/null 2>&1 || { echo "$base 이미지가 없다 — docker pull $base" >&2; exit 2; }
@@ -62,17 +64,26 @@ fail=0
 note "시작 $(date '+%Y-%m-%d %H:%M:%S') · 새 파일 $("$W/new/remedy" --version 2>/dev/null | grep -m1 -E '[0-9]+\.[0-9]+\.[0-9]+') · 지난 공개본 $("$W/prev/remedy" --version 2>/dev/null | grep -m1 -E '[0-9]+\.[0-9]+\.[0-9]+')"
 
 # ── 1. 새 룰 하네스 ─────────────────────────────────────────────────────────────
-if [ -n "$HARNESS" ]; then
+if [ "$HARNESS" != none ]; then
     t0=$(date +%s)
     bash "$HARNESS" --bin "$W/new/remedy" --plugins "$W/new/plugins" --out "$OUT/harness" >"$OUT/harness.log" 2>&1
     rc=$?
     [ "$rc" = 0 ] || fail=1
     note "1 새 룰 하네스 · 종료 $rc · $(tail -n 1 "$OUT/harness/verdict.txt" 2>/dev/null) · $(( $(date +%s) - t0 ))초"
 else
-    note "1 새 룰 하네스 · 건너뜀(--harness 없음)"
+    note "1 새 룰 하네스 · 건너뜀(--harness none — 리눅스 룰이 아니다)"
 fi
 
-# ── 2. 정식 파일 — 버전 · 서명 · 판정 기준 ──────────────────────────────────────────
+# ── 2. 정식 파일 — 체크섬 · 버전 · 서명 · 판정 기준 ────────────────────────────────────
+sums="$(dirname "$NEW")/SHA256SUMS"
+if [ -f "$sums" ]; then
+    (cd "$(dirname "$NEW")" && grep " $(basename "$NEW")\$" SHA256SUMS | sha256sum -c -) >"$OUT/checksum.log" 2>&1
+    rc=$?
+    [ "$rc" = 0 ] || fail=1
+    note "2 체크섬 · 종료 $rc · $(tail -n 1 "$OUT/checksum.log")"
+else
+    note "2 체크섬 · 받은 폴더에 SHA256SUMS 가 없다 — 받은 대로 손으로 잰다(docs/긴급-대응.md)"
+fi
 t0=$(date +%s)
 docker run --rm --pull=never --network none -e REMEDY_LANG=en -v "$W/new:/p:ro" ubuntu:24.04 sh -c '
 cd /p
