@@ -357,6 +357,7 @@ mod tests {
             target: serde_json::json!({ "path": path }),
             captures: Default::default(),
             matched: Vec::new(),
+            label: None,
         }];
         s.body.groups = vec![EvidenceGroup {
             id: "g0".into(),
@@ -440,6 +441,7 @@ mod tests {
             target: serde_json::json!({ "hive": "HKLM", "key": r"SOFTWARE\Evil" }),
             captures: Default::default(),
             matched: Vec::new(),
+            label: None,
         }];
         s.body.groups = vec![EvidenceGroup {
             id: "g0".into(),

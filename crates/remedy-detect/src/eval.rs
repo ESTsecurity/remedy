@@ -1246,6 +1246,7 @@ fn eval_rule(
                     })
                     .collect(),
                 matched,
+                label: rule.label.clone(),
             },
             captures: own,
         });

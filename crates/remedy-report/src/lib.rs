@@ -542,20 +542,33 @@ fn numbered(
     //
     // 가르는 기준은 **찍히는 줄 그대로**다. 같은 파일이라도 적히는 값이 다르면
     // 다른 줄이므로 남는다.
-    let mut bodies: Vec<String> = Vec::new();
+    //
+    // **규칙의 문구는 그 줄 바로 아래에** 한 줄씩 붙는다(`detect[].label` · 2026-11-13 · 코어 1.13.0) —
+    // 이 흔적이 무슨 뜻인가(예: 해당 CVE). 같은 줄을 문구가 다른 규칙 둘이 짚으면 둘 다 그 아래에,
+    // 같은 문구는 한 번. 문구가 없는 룰의 화면은 전과 한 글자도 같다.
+    let mut rows: Vec<(String, Vec<String>)> = Vec::new();
     for e in picked.iter().copied() {
         let b = body(e);
-        if !bodies.contains(&b) {
-            bodies.push(b);
+        let note = label_text(e, lang);
+        match rows.iter_mut().find(|(seen, _)| *seen == b) {
+            Some((_, notes)) => {
+                if let Some(n) = note.filter(|n| !notes.contains(n)) {
+                    notes.push(n);
+                }
+            }
+            None => rows.push((b, note.into_iter().collect())),
         }
     }
 
     let mut out = Vec::new();
-    for (i, body) in bodies.iter().take(limit).enumerate() {
+    for (i, (body, notes)) in rows.iter().take(limit).enumerate() {
         out.push(format!("   {}. {body}", i + 1));
+        for n in notes {
+            out.push(format!("      {n}"));
+        }
     }
-    if bodies.len() > limit {
-        let rest = bodies.len() - limit;
+    if rows.len() > limit {
+        let rest = rows.len() - limit;
         out.push(format!(
             "      {}",
             lang.pick(
@@ -565,6 +578,16 @@ fn numbered(
         ));
     }
     out
+}
+
+/// 증거를 낸 규칙의 문구 — 화면 언어의 것, 없으면 영어(`detect[].label` · 코어 1.13.0).
+fn label_text(e: &remedy_sdk::artifact::Evidence, lang: Lang) -> Option<String> {
+    let label = e.label.as_ref()?;
+    let text = label
+        .get(lang.pick("ko", "en"))
+        .or_else(|| label.get("en"))?;
+    let text = text.trim();
+    (!text.is_empty()).then(|| text.to_string())
 }
 
 /// 증거 한 건이 화면에 적히는 **알맹이** — 번호를 뺀 줄.

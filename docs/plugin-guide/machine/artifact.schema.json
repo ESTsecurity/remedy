@@ -1128,6 +1128,16 @@
           "id": {
             "type": "string"
           },
+          "label": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "이 증거를 낸 규칙의 문구(`detect[].label` · 코어 1.13.0) — 규칙에 없으면 키도 없다.",
+            "type": [
+              "object",
+              "null"
+            ]
+          },
           "matched": {
             "default": [],
             "items": {
