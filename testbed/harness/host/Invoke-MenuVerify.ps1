@@ -284,7 +284,9 @@ try {
         param($lab)
         [pscustomobject]@{
             Exe    = (Test-Path "$lab\menu\remedy.exe")
-            Plugin = @(Get-ChildItem "$lab\menu\plugins" -Filter plugin.yaml -Recurse -ErrorAction SilentlyContinue).Count
+            # 데이터 룰(`kind: data` · 코어 1.12.0)은 꾸러미에 들지만 검사 항목이 아니라 메뉴에 서지 않는다 — 세지 않는다.
+            Plugin = @(Get-ChildItem "$lab\menu\plugins" -Filter plugin.yaml -Recurse -ErrorAction SilentlyContinue |
+                       Where-Object { -not (Select-String -LiteralPath $_.FullName -Pattern '^kind: data' -Quiet) }).Count
             Root   = @(Get-ChildItem "$lab\menu" -File | Select-Object -ExpandProperty Name) -join ","
         }
     }
