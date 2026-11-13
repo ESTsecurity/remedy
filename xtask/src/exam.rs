@@ -34,10 +34,6 @@ pub const INJECT: &[&str] = &[
     "docs/plugin-guide/20-detect-recipes.md",
     "docs/plugin-guide/22-remediate-recipes.md",
     "docs/plugin-guide/23-collect-and-submit.md",
-    // **점검 룰(`kind: check`)의 안내다** — `unconfirmed` · 판 비교 연산자 셋 · `%FIXED_DISKS%` 와 점검 룰
-    // 규약이 이 파일에만 있다. 2026-11-14 까지 빠져 있어, 위협 스무 개가 모두 치료 룰이던 동안에는 드러나지
-    // 않았다. 이 줄과 아래 `ex04` 를 더한 뒤의 회차는 앞선 회차와 꾸러미가 다르다(기록에 적는다).
-    "docs/plugin-guide/24-check-plugins.md",
     "docs/plugin-guide/30-antipatterns.md",
     "docs/plugin-guide/32-lint-errors.md",
     "docs/plugin-guide/31-nonexistent.md",
@@ -66,8 +62,6 @@ pub const INJECT: &[&str] = &[
     "docs/plugin-guide/examples/ex02-registry-ifeo/README.md",
     "docs/plugin-guide/examples/ex03-text-config/plugin.yaml",
     "docs/plugin-guide/examples/ex03-text-config/README.md",
-    "docs/plugin-guide/examples/ex04-check-only/plugin.yaml",
-    "docs/plugin-guide/examples/ex04-check-only/README.md",
 ];
 
 /// 채점 결과. **숫자를 구조로 남긴다** — 출력만 하면 회귀 테스트가 그것을
