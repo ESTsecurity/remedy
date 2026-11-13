@@ -165,6 +165,46 @@ fn a_rule_that_needs_a_newer_core_stops_before_the_scan() {
     );
 }
 
+/// 데이터 룰(코어 1.12.0)은 동반 프로그램이 읽는 기준을 담을 뿐 검사하는 룰이 아니다 — `run` · `scan` 에 주면
+/// 빈 결과를 *깨끗함* 으로 내지 않고 종료 4 로 멈추며 무엇인지 말한다.
+#[test]
+fn a_data_rule_is_not_something_to_run() {
+    let p = work().join("data-rule.yaml");
+    std::fs::write(
+        &p,
+        "schema_version: 1\nid: data-rule\nversion: 1.0.0\nmin_core: '1.12.0'\n\
+         platforms: [windows, linux]\nkind: data\nname: { ko: 'x', en: 'x' }\n\
+         scan_roots: []\nsubjects: []\ndetect: []\n",
+    )
+    .expect("플러그인");
+    let plugin = p.to_str().unwrap();
+    let out = work().join("data-rule-out");
+    for args in [
+        vec!["run", "--plugin", plugin, "--dry-run"],
+        vec![
+            "scan",
+            "--plugin",
+            plugin,
+            "--out-dir",
+            out.to_str().unwrap(),
+        ],
+    ] {
+        let o = Command::new(EXE)
+            .args(&args)
+            .env("REMEDY_ELEVATION", "yes")
+            .env("REMEDY_LANG", "ko")
+            .output()
+            .unwrap_or_else(|e| panic!("{EXE} 실행 실패: {e}"));
+        let said = String::from_utf8_lossy(&o.stderr);
+        assert_eq!(o.status.code(), Some(4), "{}: {said}", args[0]);
+        assert!(
+            said.contains("판정 기준만 담았습니다"),
+            "{}: {said}",
+            args[0]
+        );
+    }
+}
+
 /// Windows 에서만 수집 백엔드가 있다. 다른 플랫폼에서는 수집이 성립하지 않으므로
 /// 이 아래 검사는 `NoBackend` 오류를 받는다 (설계-09 P12 에서 Linux 가 들어온다).
 #[cfg(windows)]

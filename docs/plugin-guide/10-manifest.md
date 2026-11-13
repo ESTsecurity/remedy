@@ -18,7 +18,7 @@
 | `subjects` | ● | 열거 허용 대상. **선언하지 않은 subject 는 `detect` 에서 못 쓴다** |
 | `detect` | ● | 탐지 규칙 (`20-detect-recipes.md`) |
 | `verdict` | ● | 판정식 |
-| `kind` | | `check` = **점검 전용**(`24-check-plugins.md`). 없으면 치료 |
+| `kind` | | `check` = **점검 전용**(`24-check-plugins.md`). `data` = **기준만 담는다**(아래). 없으면 치료 |
 | `allow_removable` | | 이동식 매체. 기본 `false` |
 | `references` | | 근거 링크 |
 | `signed_malware` | | 서명된 악성코드 예외 (`22-remediate-recipes.md`) |
@@ -322,3 +322,17 @@ platforms: [windows]
 사람의 것일 수 있다.
 
 **USB 웜이 아니면 켜지 않는다.**
+
+## `kind: data` — 기준만 담는 룰 (코어 1.12.0)
+
+동반 프로그램 `remedy-net` 이 견주는 **판정 기준**을 담는 룰이다 — 지금은 `plugins/remedy-net-criteria`
+(원격 점검의 수정 버전 표 `url.json` · 이미지 · 컨테이너 기준 `baseline.json`) 하나다. 기준은 폴더의 데이터
+파일에 있고, 매니페스트는 그 폴더가 서명 · 잠금 · 꾸러미를 다른 룰과 같이 타게 하는 머리다.
+
+- **이 기계를 읽는 칸은 전부 비운다** — `scan_roots` · `subjects` · `detect` 는 `[]`, `verdict` · `remediate` ·
+  `network` · 수집 칸은 적지 않는다(채우면 로드가 거부한다). `min_core: "1.12.0"` 이 함께 온다.
+- **메뉴 · *모두 검사만* · 위협 표에 서지 않는다.** `scan` · `run` · `verify` 에 주면 종료 4 다. 꾸러미에는
+  `platforms` 대로 들어가고, 받는 사람은 `plugin verify` 로 그 폴더를 확인할 수 있다.
+- **기준을 바꾸면 그 파일과 `version` 만 고친다** — remedy-net 은 다시 짓지 않는다. `plugin-lock` 이 데이터
+  파일까지 잠그고, `cargo xtask net-criteria` 가 remedy-net 의 코드로 읽히는지 · 본체의 점검 룰과 같은 값인지
+  본다. 서명은 다른 룰과 같고, remedy-net 은 그 서명을 확인하지 못하면 점검하지 않는다.

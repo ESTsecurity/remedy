@@ -184,7 +184,7 @@
           "type": "string"
         },
         "sha256": {
-          "description": "내장 기준 데이터의 SHA-256 — 사내 runtime-scanner 가 같은 기준에 적는 값과 같다.",
+          "description": "읽은 기준 데이터(데이터 룰 `remedy-net-criteria` 의 `baseline.json`)의 SHA-256 — 사내 runtime-scanner 가 같은 기준에 적는 값과 같다.",
           "type": "string"
         },
         "version": {

@@ -56,6 +56,14 @@ pub fn run(args: &[String], lang: Lang) -> Outcome {
             return Outcome::BadInput;
         }
     };
+    // 기준부터 — 받은 파일이 온전하지 않으면 약관을 묻기 전에 멈춘다(요청도 결과 폴더도 없다).
+    let criteria = match load() {
+        Ok(c) => c,
+        Err(why) => {
+            eprintln!("{}", ascii_safe(why.message(lang)));
+            return Outcome::BadInput;
+        }
+    };
     let extra = match opts.cacert.as_deref() {
         Some(p) => match trust::load_ca(Path::new(p)) {
             Ok(c) => c,
@@ -113,8 +121,24 @@ pub fn run(args: &[String], lang: Lang) -> Outcome {
         accepted_at,
         dir,
         lang,
+        criteria,
     };
     ctx.execute(net, cancel)
+}
+
+/// url 표의 글을 이 프로그램이 읽을 수 있는가 — `crate::criteria::check_texts` 가 쓴다.
+pub(crate) fn check_table(text: &str) -> Result<(), String> {
+    criteria::UrlCriteria::from_json(text).map(|_| ())
+}
+
+/// 서명을 확인한 데이터 룰의 url 표 — 실행마다 한 번 읽는다(코어 1.12.0 · `crate::criteria`).
+fn load() -> Result<&'static criteria::UrlCriteria, crate::criteria::Refusal> {
+    let verified = crate::criteria::open()?;
+    let text = verified.read(crate::criteria::URL_FILE)?;
+    let table = criteria::UrlCriteria::from_json(&text).map_err(|why| {
+        crate::criteria::Refusal::Unreadable(crate::criteria::URL_FILE.to_string(), why)
+    })?;
+    Ok(crate::criteria::leak(table))
 }
 
 /// 약관을 지난 한 번의 실행.
@@ -125,6 +149,7 @@ struct Run {
     accepted_at: SystemTime,
     dir: PathBuf,
     lang: Lang,
+    criteria: &'static criteria::UrlCriteria,
 }
 
 enum Msg {
@@ -147,11 +172,12 @@ impl Run {
         );
         let (tx, rx) = mpsc::channel::<Msg>();
         {
-            let (net, budget, cancel, urls) = (
+            let (net, budget, cancel, urls, criteria) = (
                 Arc::clone(&net),
                 Arc::clone(&budget),
                 cancel.clone(),
                 self.urls.clone(),
+                self.criteria,
             );
             std::thread::spawn(move || {
                 let scan = scan::Scan {
@@ -160,6 +186,7 @@ impl Run {
                     cancel: &cancel,
                     url_timeout: URL_TIMEOUT,
                     lang,
+                    criteria,
                 };
                 let all = scan.run(&urls, &mut |t| {
                     let _ = tx.send(Msg::Done(t.clone()));
@@ -283,10 +310,10 @@ impl Run {
             },
             criteria: report::Criteria {
                 name: "PHP2Shell".to_string(),
-                cves: criteria::CVES.iter().map(|s| s.to_string()).collect(),
-                checked: criteria::CHECKED.to_string(),
-                same_as: criteria::SAME_AS.to_string(),
-                sources: criteria::SOURCES.iter().map(|s| s.to_string()).collect(),
+                cves: self.criteria.cves.clone(),
+                checked: self.criteria.checked.clone(),
+                same_as: self.criteria.same_as.clone(),
+                sources: self.criteria.sources.clone(),
             },
             verdict,
             exit_code: outcome.exit().code(),
@@ -392,8 +419,29 @@ fn limitations(cacert: bool, lang: Lang) -> Vec<String> {
 
 /// `remedy-net url --help`. 명령 설명은 본체의 도움말처럼 해라체다.
 pub fn help(lang: Lang) -> String {
-    let rule = criteria::SAME_AS;
-    let checked = criteria::CHECKED;
+    // 기준 줄은 받은 기준 폴더에서 읽는다 — 확인하지 못하면 그렇다고 적는다(도움말은 기준 없이도 선다).
+    let basis = match load() {
+        Ok(c) => lang.pick(
+            format!(
+                "기준: {} 와 같은 수정 버전 ({} 확인).",
+                c.same_as, c.checked
+            ),
+            format!(
+                "Criteria: the fixed versions of {} (checked {}).",
+                c.same_as, c.checked
+            ),
+        ),
+        Err(_) => lang.pick(
+            format!(
+                "기준: 데이터 룰 {} 의 url 표 — 이 자리에서 확인하지 못했다.",
+                crate::criteria::ID
+            ),
+            format!(
+                "Criteria: the url table of the data rule {} — could not be verified here.",
+                crate::criteria::ID
+            ),
+        ),
+    };
     lang.pick(
         format!(
             "쓰는 법: remedy-net url URL [URL ...] [옵션]\n\n\
@@ -408,7 +456,7 @@ pub fn help(lang: Lang) -> String {
              지키는 것: 직렬 · 요청 사이 2초 · URL 하나에 HEAD 한 번(405 · 501 이면 GET 한 번) · 실행 전체 100회 ·\n\
              URL 하나에 10초 · 응답 헤더 32 KiB. 리다이렉트를 따르지 않고 프록시 · 쿠키 · 인증을 쓰지 않으며\n\
              본문을 읽지 않는다.\n\
-             기준: {rule} 와 같은 수정 버전 ({checked} 확인).\n"
+             {basis}\n"
         ),
         format!(
             "Usage: remedy-net url URL [URL ...] [options]\n\n\
@@ -424,7 +472,7 @@ pub fn help(lang: Lang) -> String {
              Limits: serial · 2 seconds between requests · one HEAD per URL (one GET on 405 · 501) · 100 requests\n\
              per run · 10 seconds per URL · 32 KiB of response headers. Redirects are not followed; no proxy,\n\
              cookies or authentication; bodies are not read.\n\
-             Criteria: the fixed versions of {rule} (checked {checked}).\n"
+             {basis}\n"
         ),
     )
 }

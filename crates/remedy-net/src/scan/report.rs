@@ -74,7 +74,8 @@ pub struct Criteria {
     pub version: String,
     /// 기준을 낸 시각(RFC 3339 UTC).
     pub issued_at: String,
-    /// 내장 기준 데이터의 SHA-256 — 사내 runtime-scanner 가 같은 기준에 적는 값과 같다.
+    /// 읽은 기준 데이터(데이터 룰 `remedy-net-criteria` 의 `baseline.json`)의 SHA-256 — 사내 runtime-scanner 가
+    /// 같은 기준에 적는 값과 같다.
     pub sha256: String,
     /// 고른 제품마다 보는 CVE. PHP 에는 세션 설정(CVE-2026-115560)도 든다.
     pub cves: BTreeMap<Product, Vec<String>>,
@@ -245,7 +246,7 @@ mod tests {
 
     #[test]
     fn criteria_carry_the_session_cve_for_php_only() {
-        let rules = RuleSet::builtin();
+        let rules = RuleSet::fixture();
         let c = Criteria::of(rules, &[Product::Php, Product::Node]);
         assert!(c.cves[&Product::Php].iter().any(|v| v == phpconfig::CVE));
         assert!(!c.cves[&Product::Node].iter().any(|v| v == phpconfig::CVE));

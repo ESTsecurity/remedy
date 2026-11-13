@@ -4,7 +4,7 @@
 //! 서버가 429 · 5xx 를 주거나 시간이 다 되거나 연결을 끊으면 **그 서버에는 더 요청하지 않는다** — 스킴 ·
 //! 포트가 달라도, 이름이 달라도 연결한 IP 가 같으면 같은 서버다([`super::stop`]).
 
-use super::criteria;
+use super::criteria::UrlCriteria;
 use super::headers::{php_hints, php_version, values};
 use super::input::Input;
 use super::policy::{Cancel, Gate, Halt, MAX_URLS};
@@ -23,6 +23,8 @@ pub(crate) struct Scan<'a> {
     pub(crate) cancel: &'a Cancel,
     pub(crate) url_timeout: Duration,
     pub(crate) lang: Lang,
+    /// 서명을 확인한 url 표(데이터 룰 `remedy-net-criteria`).
+    pub(crate) criteria: &'a UrlCriteria,
 }
 
 impl Scan<'_> {
@@ -165,7 +167,7 @@ impl Scan<'_> {
                 }
             };
             t.status.set(method, head.status);
-            collect(&mut t, method, &head.headers, lang);
+            collect(&mut t, method, &head.headers, self.criteria, lang);
             // GET 이 막히거나 시간을 넘겨도 HEAD 에서 본 경고는 남는다.
             self.gate.record(&t);
             if should_stop(method, head.status) {
@@ -250,7 +252,13 @@ fn review_reason(lang: Lang) -> &'static str {
 }
 
 /// `Server` · `X-Powered-By` 한 줄마다 항목 하나. 영향 버전이면 그 항목과 대상이 *취약* 이 된다.
-fn collect(t: &mut Target, method: Method, headers: &[(String, String)], lang: Lang) {
+fn collect(
+    t: &mut Target,
+    method: Method,
+    headers: &[(String, String)],
+    criteria: &UrlCriteria,
+    lang: Lang,
+) {
     for name in ["Server", "X-Powered-By"] {
         for (index, value) in values(headers, name).enumerate() {
             let version = php_version(value);
@@ -267,7 +275,7 @@ fn collect(t: &mut Target, method: Method, headers: &[(String, String)], lang: L
                 verdict: Verdict::ReviewRequired,
                 reason: review_reason(lang).to_string(),
             };
-            if f.version.as_deref().and_then(criteria::below_fix) == Some(true) {
+            if f.version.as_deref().and_then(|v| criteria.below_fix(v)) == Some(true) {
                 let why = lang.t(
                     "헤더 기준으로 PHP2Shell 영향 버전입니다. 실제 설치 버전과 백포트 패치 적용 여부는 확인하지 못했습니다.",
                     "By its header this is a PHP2Shell-affected version. The installed version and any backported patch were not confirmed.",

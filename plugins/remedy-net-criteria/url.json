@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "checked": "2026-11-09",
+  "cves": ["CVE-2026-109618", "CVE-2026-109619"],
+  "same_as": "php2shell-check-linux 0.6.0",
+  "sources": [
+    "https://www.php.net/archive/2026.php",
+    "https://ubuntu.com/security/notices/USN-8948-1",
+    "https://ubuntu.com/security/notices/USN-8948-2",
+    "https://security-tracker.debian.org/tracker/CVE-2026-109618"
+  ],
+  "upstream": {
+    "8.2": "8.2.35",
+    "8.3": "8.3.36",
+    "8.4": "8.4.27",
+    "8.5": "8.5.12"
+  },
+  "legacy": ["5.4", "5.5", "5.6", "7.0", "7.1", "7.2", "7.3", "7.4", "8.0", "8.1"],
+  "lines": [
+    { "distro": "ubuntu", "release": "22.04", "package": "php8.1-", "fixed": "8.1.2-1ubuntu2.28" },
+    { "distro": "ubuntu", "release": "24.04", "package": "php8.3-", "fixed": "8.3.6-0ubuntu0.24.04.13" },
+    { "distro": "ubuntu", "release": "26.04", "package": "php8.5-", "fixed": "8.5.4-0ubuntu1.5" },
+    { "distro": "ubuntu", "release": "26.10", "package": "php8.5-", "fixed": "8.5.9-0ubuntu2.1" },
+    { "distro": "debian", "release": "12", "package": "php8.2-", "fixed": "8.2.35-1~deb12u1" },
+    { "distro": "debian", "release": "13", "package": "php8.4-", "fixed": "8.4.27-1~deb13u1" },
+    { "distro": "ubuntu", "release": "14.04", "package": "php5-", "fixed": "5.5.9+dfsg-1ubuntu4.29+esm18" },
+    { "distro": "ubuntu", "release": "16.04", "package": "php7.0-", "fixed": "7.0.33-0ubuntu0.16.04.16+esm22" },
+    { "distro": "ubuntu", "release": "18.04", "package": "php7.2-", "fixed": "7.2.24-0ubuntu0.18.04.17+esm14" },
+    { "distro": "ubuntu", "release": "20.04", "package": "php7.4-", "fixed": "7.4.3-4ubuntu2.29+esm5" }
+  ]
+}

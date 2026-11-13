@@ -1,11 +1,14 @@
-//! 기준 데이터의 꼴과 검사 — `data/baseline.json` 을 읽는 타입, 그리고 줄마다 판정 규칙의 전제를 지키는가.
+//! 기준 데이터의 꼴과 검사 — 데이터 룰의 `baseline.json` 을 읽는 타입, 그리고 줄마다 판정 규칙의 전제를
+//! 지키는가.
 //!
-//! 모르는 칸은 받지 않는다(`deny_unknown_fields`). 기준 파일에 새 칸이 생겼는데 코드가 그것을 모르면 조용히
-//! 버리는 대신 읽기에서 멈춘다 — 파일을 컴파일해 넣으므로 그 멈춤은 실행 중이 아니라 시험에서 드러난다.
+//! 모르는 칸은 받지 않는다(`deny_unknown_fields`). 기준 파일에 새 칸이 생겼는데 이 프로그램이 그것을 모르면
+//! 조용히 버리는 대신 읽기에서 멈춘다 — 점검하지 않고 같은 릴리스의 파일을 쓰라고 말한다(종료 4).
 //!
-//! 검사는 판정 규칙이 기대는 것만 본다: 견줄 수 있는 꼴의 수정 버전, 그 제품의 CVE, 공급사 줄의 범위
-//! (RPM 은 아키텍처 · 공급사 · 버전 범위가 다 있어야 한다), 한 해시에 한 버전. 스캐너가 서명한 파일을 바깥에서
-//! 받을 때 보던 것(엔진 버전 · 기준 번호의 되돌림 · 옛 형식)은 옮기지 않았다 — 여기서는 바깥 파일을 받지 않는다.
+//! 검사는 판정 규칙이 기대는 것만 본다: 견줄 수 있는 꼴의 수정 버전, CVE 번호의 꼴과 줄이 덮는 CVE 가 그
+//! 제품이 밝힌 목록 안인가, 공급사 줄의 범위(RPM 은 아키텍처 · 공급사 · 버전 범위가 다 있어야 한다), 한 해시에
+//! 한 버전. **어느 CVE · 계열을 다루는가는 데이터가 밝힌다** — 코드에 목록을 두지 않는다(새 CVE · 계열이
+//! 데이터만으로 들어온다 · 코어 1.12.0). 스캐너가 서명한 파일을 받을 때 보던 것(엔진 버전 · 기준 번호의 되돌림 ·
+//! 옛 형식)은 옮기지 않았다 — 서명은 본체의 사슬이 본다(`crate::criteria`).
 
 use super::version::{is_core, rpm_has_release, valid_debian};
 use super::DependencyMode;
@@ -18,15 +21,6 @@ use std::collections::BTreeMap;
 
 /// 이 코드가 읽는 기준 형식. 스캐너의 옛 형식(1 — PHP 만 있던 때)은 받지 않는다.
 const SCHEMA_VERSION: u32 = 2;
-/// 제품마다 이 기준이 다루는 CVE. 다른 제품의 CVE 가 섞인 줄은 받지 않는다.
-const PHP_CVES: [&str; 2] = ["CVE-2026-109618", "CVE-2026-109619"];
-const BROTLI_CVES: [&str; 1] = ["CVE-2026-111497"];
-/// php.net 수정 버전이 없는 PHP 계열 — 영향 범위로 검토한 것만.
-const LEGACY_PHP: [&str; 10] = [
-    "5.4", "5.5", "5.6", "7.0", "7.1", "7.2", "7.3", "7.4", "8.0", "8.1",
-];
-/// 수정 버전 기준을 둘 수 있는 Node.js 계열 — 지원이 끝난 계열은 수정 버전으로 판정하지 않는다.
-const NODE_LINES: [&str; 3] = ["22", "24", "26"];
 /// RPM 버전 범위(정규식)의 상한(바이트).
 const MAX_PATTERN_BYTES: usize = 512;
 /// RPM 범위 낱말(아키텍처 · 모듈 이름 · 스트림)의 상한(바이트).
@@ -247,8 +241,10 @@ fn check_product(product: Product, p: &ProductData) -> Result<(), String> {
     if p.cves.is_empty() || !https(&p.source) {
         return Err("취약점 목록이나 출처가 없다".to_string());
     }
-    if let Some(cve) = p.cves.iter().find(|cve| !known_cve(product, cve)) {
-        return Err(format!("이 제품에서 다루지 않는 취약점이다: {cve}"));
+    for (i, cve) in p.cves.iter().enumerate() {
+        if !cve_id(cve) || p.cves[..i].contains(cve) {
+            return Err(format!("CVE 번호의 꼴이 잘못됐거나 겹친다: {cve}"));
+        }
     }
     check_legacy(product, p)?;
     check_upstream(product, &p.upstream)?;
@@ -259,11 +255,23 @@ fn check_product(product: Product, p: &ProductData) -> Result<(), String> {
     check_hashes(product, &p.hashes)
 }
 
-fn known_cve(product: Product, cve: &str) -> bool {
-    match product {
-        Product::Php => PHP_CVES.contains(&cve),
-        Product::Node | Product::Brotli => BROTLI_CVES.contains(&cve),
-    }
+/// `CVE-YYYY-N…`(번호 넷 이상). 어느 CVE 를 다루는가는 그 제품의 `cves` 가 밝힌다.
+fn cve_id(s: &str) -> bool {
+    let Some((year, n)) = s.strip_prefix("CVE-").and_then(|r| r.split_once('-')) else {
+        return false;
+    };
+    year.len() == 4
+        && year.bytes().all(|b| b.is_ascii_digit())
+        && n.len() >= 4
+        && n.bytes().all(|b| b.is_ascii_digit())
+}
+
+/// PHP 계열 이름(`7.4`) — 숫자 두 조각.
+fn php_branch_name(s: &str) -> bool {
+    s.split_once('.').is_some_and(|(a, b)| {
+        let digits = |s: &str| (1..=6).contains(&s.len()) && s.bytes().all(|c| c.is_ascii_digit());
+        digits(a) && digits(b)
+    })
 }
 
 fn check_legacy(product: Product, p: &ProductData) -> Result<(), String> {
@@ -274,8 +282,8 @@ fn check_legacy(product: Product, p: &ProductData) -> Result<(), String> {
         return Err("PHP 구버전 영향 기준의 제품이나 출처가 잘못됐다".to_string());
     }
     for (i, branch) in legacy.branches.iter().enumerate() {
-        if !LEGACY_PHP.contains(&branch.as_str()) {
-            return Err(format!("확인되지 않은 PHP 구버전 계열이다: {branch}"));
+        if !php_branch_name(branch) {
+            return Err(format!("PHP 구버전 계열의 꼴이 잘못됐다: {branch}"));
         }
         if legacy.branches[..i].contains(branch) || p.upstream.contains_key(branch) {
             return Err(format!(
@@ -295,11 +303,6 @@ fn check_upstream(product: Product, upstream: &BTreeMap<String, String>) -> Resu
             .is_some_and(|rest| rest.starts_with('.'));
         if !is_core(fixed) || !in_branch || branch.matches('.').count() != dots {
             return Err(format!("수정 버전의 꼴이 잘못됐다: {branch} → {fixed}"));
-        }
-        if product == Product::Node && !NODE_LINES.contains(&branch.as_str()) {
-            return Err(format!(
-                "지원이 끝났거나 확인되지 않은 Node.js 계열이다: {branch}"
-            ));
         }
     }
     Ok(())
@@ -465,163 +468,4 @@ fn rfc3339_utc(s: &str) -> bool {
             19 => *c == b'Z',
             _ => c.is_ascii_digit(),
         })
-}
-
-/// 내장 기준을 본체의 점검 룰 파일과 대조한다.
-///
-/// 호스트는 본체의 점검 룰(`plugins/{php2shell,node2shell}-check-{linux,windows}`)이, 이미지와 컨테이너는 이
-/// 크레이트가 본다. 같은 공지에서 온 값이 두 자리에 있으므로, 한쪽만 고치면 여기서 걸리게 한다.
-///
-/// 방향은 **내장 기준 → 룰 파일** 이다. 기준의 수정 버전과, 기준의 해시 가운데 그 룰이 보는 꼴의 것이 룰
-/// 파일에 빠짐없이 있는가를 본다. 거꾸로는 보지 않는다 — 룰 파일은 기준에 없는 해시를 더 안다(다시 지은 공식
-/// PHP 이미지 · PHP for Windows 의 다른 계열과 재빌드 · 그 안의 `brotlidec.dll`).
-#[cfg(test)]
-mod host_rules {
-    use super::HashRecord;
-    use crate::scan::model::Product::{Node, Php};
-    use crate::scan::rules::tests::builtin;
-    use std::collections::{BTreeMap, BTreeSet};
-
-    fn host_rule(plugin: &str) -> String {
-        let root = env!("CARGO_MANIFEST_DIR");
-        std::fs::read_to_string(format!("{root}/../../plugins/{plugin}/plugin.yaml"))
-            .unwrap_or_else(|e| panic!("plugins/{plugin}/plugin.yaml 을 읽지 못했다: {e}"))
-    }
-
-    /// 룰 파일의 해시 한 줄이 주석으로 붙인 것 — `# <버전> <꼴> …`.
-    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-    struct Listed<'a> {
-        version: &'a str,
-        /// `linux/amd64` · `linux-x64` · `win-x64` …
-        label: &'a str,
-    }
-
-    /// 룰 파일이 따옴표 안에 적은 SHA-256 → 그 줄의 주석. 한 해시가 여러 목록에 나와도 주석은 같다.
-    fn host_hashes(rule: &str) -> BTreeMap<&str, Listed<'_>> {
-        let mut hashes = BTreeMap::new();
-        for line in rule.lines() {
-            let Some(hash) = line.split('"').nth(1) else {
-                continue;
-            };
-            if hash.len() != 64 || !hash.bytes().all(|b| b.is_ascii_hexdigit()) {
-                continue;
-            }
-            let comment = line.split('#').nth(1).unwrap_or_default();
-            let mut words = comment.split_whitespace();
-            let (version, label) = (words.next(), words.next());
-            let listed = Listed {
-                version: version.unwrap_or_default(),
-                label: label.unwrap_or_default(),
-            };
-            let old = hashes.insert(hash, listed);
-            assert!(
-                old.is_none_or(|old| old == listed),
-                "{hash}: {old:?} · {listed:?}"
-            );
-        }
-        hashes
-    }
-
-    /// 기준의 그 해시가 룰 파일에 **같은 버전으로** 적혀 있으면 그 꼴.
-    fn label_of<'a>(known: &BTreeMap<&str, Listed<'a>>, h: &HashRecord) -> Option<&'a str> {
-        let listed = known.get(h.sha256.as_str())?;
-        assert_eq!(listed.version, h.version, "{}", h.sha256);
-        Some(listed.label)
-    }
-
-    /// 수정 버전 — 기준의 값이 네 룰 파일에 그대로 있다.
-    #[test]
-    fn the_fixed_versions_are_in_the_host_rules() {
-        let php: Vec<&str> = builtin(Php).upstream.values().map(String::as_str).collect();
-        assert_eq!(php.len(), 4);
-        let line = format!("상류: {}", php.join(" · "));
-        assert!(host_rule("php2shell-check-linux").contains(&line), "{line}");
-        let windows = host_rule("php2shell-check-windows");
-        assert!(windows.contains(&line), "{line}");
-        for fixed in php {
-            let row = format!("op: version_lt, value: \"{fixed}\"");
-            assert!(windows.contains(&row), "{row}");
-        }
-
-        let node = builtin(Node).upstream.values();
-        let node: Vec<&str> = node.map(String::as_str).collect();
-        assert_eq!(node.len(), 3);
-        let line = node.join(" · ");
-        for plugin in ["node2shell-check-linux", "node2shell-check-windows"] {
-            assert!(host_rule(plugin).contains(&line), "{plugin}: {line}");
-        }
-    }
-
-    /// PHP 공식 빌드의 해시 — 기준의 37개가 전부 같은 버전으로 룰 파일에 있다. 기준의 해시는 출처로 갈린다:
-    /// 공식 Docker 이미지의 실행 파일 · 코어 라이브러리(리눅스 룰)와 PHP for Windows 의 코어 DLL(Windows 룰).
-    #[test]
-    fn every_php_hash_is_in_the_host_rule_of_its_platform() {
-        let ours = &builtin(Php).hashes;
-        let mut seen = 0;
-        for (plugin, host, platform, count) in [
-            (
-                "php2shell-check-linux",
-                "registry-1.docker.io",
-                "linux/",
-                33,
-            ),
-            (
-                "php2shell-check-windows",
-                "downloads.php.net",
-                "windows/",
-                4,
-            ),
-        ] {
-            let rule = host_rule(plugin);
-            let known = host_hashes(&rule);
-            let prefix = format!("https://{host}/");
-            let from_host: Vec<&HashRecord> = ours
-                .iter()
-                .filter(|h| h.source.starts_with(&prefix))
-                .collect();
-            assert_eq!(from_host.len(), count, "{host}");
-            for h in from_host {
-                let listed = label_of(&known, h).is_some_and(|l| l.starts_with(platform));
-                assert!(listed, "{plugin}: PHP {} {}", h.version, h.sha256);
-                seen += 1;
-            }
-        }
-        assert_eq!(seen, ours.len());
-    }
-
-    /// Node.js 공식 빌드의 해시 — 기준의 555개는 여러 운영체제 · 아키텍처의 것이고, 본체 룰은 x64 만 본다.
-    /// 그 꼴의 해시는 기준의 89 버전마다 하나씩, 같은 버전으로 룰 파일에 있다(musl 은 공식 빌드가 있는 여덟
-    /// 버전).
-    #[test]
-    fn the_x64_node_hashes_are_in_the_host_rules() {
-        let ours = &builtin(Node).hashes;
-        let versions: BTreeSet<&str> = ours.iter().map(|h| h.version.as_str()).collect();
-        assert_eq!(versions.len(), 89);
-        for (plugin, labels) in [
-            (
-                "node2shell-check-linux",
-                &[("linux-x64", 89), ("linux-x64-musl", 8)][..],
-            ),
-            ("node2shell-check-windows", &[("win-x64", 89)][..]),
-        ] {
-            let rule = host_rule(plugin);
-            let known = host_hashes(&rule);
-            let mut listed = 0;
-            for (label, count) in labels {
-                let of_label: Vec<&HashRecord> = ours
-                    .iter()
-                    .filter(|h| label_of(&known, h) == Some(*label))
-                    .collect();
-                assert_eq!(of_label.len(), *count, "{plugin} {label}");
-                // 버전마다 하나다 — 해시 수와 버전 수가 같다.
-                let covered: BTreeSet<&str> = of_label.iter().map(|h| h.version.as_str()).collect();
-                assert_eq!(covered.len(), *count, "{plugin} {label}");
-                assert_eq!(covered == versions, *count == 89, "{plugin} {label}");
-                listed += count;
-            }
-            // 그 룰 파일에 있는 기준의 해시는 위 꼴의 것이 전부다.
-            let in_rule = ours.iter().filter(|h| label_of(&known, h).is_some());
-            assert_eq!(in_rule.count(), listed, "{plugin}");
-        }
-    }
 }

@@ -87,6 +87,8 @@ inside() {
         cargo run -q -p xtask -- sign plugin --dir "$w/all/$n" --secret-key "$w/sec.key" \
             --signed-at 2026-11-06T00:00:00Z >/dev/null || { echo "error=$n 을 서명하지 못했다"; return 8; }
         args+=(--plugin "$w/all/$n")
+        # 데이터 룰(코어 1.12.0)은 꾸러미에 담지만 검사 항목이 아니다 — 메뉴의 개수에 들지 않는다.
+        if grep -q '^kind: data' "$w/all/$n/plugin.yaml"; then continue; fi
         count=$((count + 1))
         # 네트워크로 점검하는 룰(코어 1.4.0)은 주소를 적어야 돌아 *모두 검사만* 에 들지 않는다 — 따로 센다.
         if grep -q '^network:' "$w/all/$n/plugin.yaml"; then remote=$((remote + 1)); fi
@@ -94,8 +96,9 @@ inside() {
     echo "linux_rules=$count"
     echo "network_rules=$remote"
     # 동반 프로그램 — 본체와 따로 짓고 같은 키로 서명한다(배포 잡과 같은 차례). 네트워크 점검 룰을
-    # 담는 꾸러미는 이것 없이 지어지지 않는다(`xtask package` 가 멈춘다).
-    cargo build -q --release --locked -p remedy-net \
+    # 담는 꾸러미는 이것 없이 지어지지 않는다(`xtask package` 가 멈춘다). **같은 공개키를 박는다** —
+    # 판정 기준(데이터 룰 `remedy-net-criteria`)의 서명을 동반 프로그램이 직접 확인한다(코어 1.12.0).
+    REMEDY_TRUST_ANCHOR="$anchor" cargo build -q --release --locked -p remedy-net \
         || { echo "error=remedy-net 을 짓지 못했다"; return 11; }
     mkdir -p "$w/companion/remedy-net"
     cp "$CARGO_TARGET_DIR/release/remedy-net" "$w/companion/remedy-net/" || return 11

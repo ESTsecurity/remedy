@@ -399,7 +399,7 @@ mod tests {
             consent,
             out_dir: out.to_string_lossy().into_owned(),
             products: vec![Product::Php],
-            rules: RuleSet::builtin(),
+            rules: RuleSet::fixture(),
             start: "점검 시작".to_string(),
             limitations: vec!["한정 문장".to_string()],
             lang: Lang::Ko,
@@ -477,7 +477,7 @@ mod tests {
             assert_eq!(r["command"], "image");
             assert_eq!(r["interrupted"], false);
             assert_eq!(r["consent"]["via"], "flag");
-            assert_eq!(r["criteria"]["version"], RuleSet::builtin().version());
+            assert_eq!(r["criteria"]["version"], RuleSet::fixture().version());
             assert_eq!(r["targets"].as_array().unwrap().len(), 1);
             std::fs::remove_dir_all(&dir).unwrap();
         }

@@ -5,6 +5,7 @@
 #![forbid(unsafe_code)]
 
 pub mod container;
+pub mod criteria;
 pub mod image;
 pub mod scan;
 pub mod schema;

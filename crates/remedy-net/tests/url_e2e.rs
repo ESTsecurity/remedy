@@ -10,12 +10,16 @@
 #[path = "support/mock.rs"]
 mod mock;
 
+/// 서명한 기준 폴더를 보는 remedy-net (코어 1.12.0 — 기준은 데이터 룰에 있다).
+#[path = "support/criteria.rs"]
+mod criteria;
+
 use mock::{Event, Mock, SENSITIVE};
 use serde_json::Value;
 use std::io::{Read, Write};
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::Stdio;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
@@ -238,7 +242,7 @@ fn run_case(m: &Mock, case: Case, name: &str) {
             }
         }
     }
-    let mut cmd = Command::new(env!("CARGO_BIN_EXE_remedy-net"));
+    let mut cmd = criteria::command();
     cmd.args(&args)
         .env("REMEDY_LANG", "ko")
         .env("REMEDY_ASCII", "0")
@@ -1121,7 +1125,7 @@ fn ctrl_c_keeps_the_head_warning_and_the_report() {
     let scratch = Scratch::new("ctrl_c");
     let m = Mock::start(&scratch.0);
     let out_dir = scratch.0.join("reports");
-    let mut child = Command::new(env!("CARGO_BIN_EXE_remedy-net"))
+    let mut child = criteria::command()
         .args([
             "url",
             &url(m.base, "/head405-vulnerable-timeout"),
@@ -1148,7 +1152,7 @@ fn ctrl_c_keeps_the_head_warning_and_the_report() {
     }
     let sent = Instant::now();
     let kill = format!("kill -INT {}", child.id());
-    assert!(Command::new("sh")
+    assert!(std::process::Command::new("sh")
         .args(["-c", &kill])
         .status()
         .unwrap()
@@ -1203,7 +1207,7 @@ fn ask_mode_reads_the_addresses_after_consent() {
     let scratch = Scratch::new("ask");
     let m = Mock::start(&scratch.0);
     let out_dir = scratch.0.join("reports");
-    let mut child = Command::new(env!("CARGO_BIN_EXE_remedy-net"))
+    let mut child = criteria::command()
         .args(["url", "--ask", "--out-dir"])
         .arg(&out_dir)
         .env("REMEDY_LANG", "ko")
@@ -1256,7 +1260,7 @@ fn ask_mode_with_no_address_checks_nothing() {
     let scratch = Scratch::new("ask_none");
     let m = Mock::start(&scratch.0);
     let out_dir = scratch.0.join("reports");
-    let mut child = Command::new(env!("CARGO_BIN_EXE_remedy-net"))
+    let mut child = criteria::command()
         .args(["url", "--ask", "--out-dir"])
         .arg(&out_dir)
         .env("REMEDY_LANG", "ko")

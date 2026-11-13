@@ -113,6 +113,13 @@ pub fn validate(m: &PluginManifest) -> Vec<SchemaIssue> {
         ));
     }
 
+    // **데이터 룰은 아무것도 보지 않는다** — 동반 프로그램이 읽는 기준을 담을 뿐이다(코어 1.12.0).
+    // 네트워크 점검 룰처럼 아래의 "비어 있다" 검사가 뒤집힌다. `network` 를 함께 적은 것도 여기서 막는다.
+    if m.kind == Some(crate::manifest::PluginKind::Data) {
+        check_data(m, &mut issues);
+        return issues;
+    }
+
     // **네트워크 점검 룰은 이 기계를 보지 않는다** — 아래의 "비어 있다" 검사가 전부 뒤집힌다
     // (있어야 할 것이 없어야 할 것이 된다). 그 룰의 검사는 따로 하고 여기서 끝낸다.
     if m.network.is_some() {
@@ -317,32 +324,14 @@ fn check_network(m: &PluginManifest, issues: &mut Vec<SchemaIssue>) {
             .with_valid("kind: check".to_string()),
         );
     }
-    let filled: [(&str, bool); 11] = [
-        ("scan_roots", !m.scan_roots.is_empty()),
-        ("subjects", !m.subjects.is_empty()),
-        ("subject_roots", !m.subject_roots.is_empty()),
-        ("text_config_dirs", !m.text_config_dirs.is_empty()),
-        ("hash_large", !m.hash_large.is_empty()),
-        ("allow_removable", m.allow_removable),
-        ("signed_malware", !m.signed_malware.is_empty()),
-        ("detect", !m.detect.is_empty()),
-        (
-            "verdict",
-            !m.verdict.require.trim().is_empty() || !m.verdict.unconfirmed.is_empty(),
-        ),
-        ("collect_extra", !m.collect_extra.is_empty()),
-        ("submit_hint", m.submit_hint.is_some()),
-    ];
-    for (at, _) in filled.iter().filter(|(_, on)| *on) {
+    for at in local_fields(m) {
         issues.push(
             SchemaIssue::new(
-                *at,
+                at,
                 "네트워크 점검 룰은 이 기계를 보지 않는다 — 이 칸은 비워야 한다",
                 DOC,
             )
-            .with_valid(
-                "비우거나 지울 것 (scan_roots · subjects · detect 는 [] 로 적는다)".to_string(),
-            ),
+            .with_valid(EMPTY_THEM.to_string()),
         );
     }
     // remediate 는 위 `kind: check` 와 함께면 모순이고, kind 가 빠졌으면 여기서 따로 말한다.
@@ -365,6 +354,77 @@ fn check_network(m: &PluginManifest, issues: &mut Vec<SchemaIssue>) {
                 "설계-02 §10",
             )
             .with_valid("min_core: \"1.4.0\" 이상".to_string()),
+        );
+    }
+}
+
+/// 이 기계를 읽는 칸을 비우라고 할 때 적는 고칠 길.
+const EMPTY_THEM: &str = "비우거나 지울 것 (scan_roots · subjects · detect 는 [] 로 적는다)";
+
+/// 이 기계를 읽는 칸 가운데 채워진 것 — 네트워크 점검 룰과 데이터 룰은 이것이 비어야 한다.
+fn local_fields(m: &PluginManifest) -> Vec<&'static str> {
+    let filled: [(&'static str, bool); 13] = [
+        ("scan_roots", !m.scan_roots.is_empty()),
+        ("subjects", !m.subjects.is_empty()),
+        ("subject_roots", !m.subject_roots.is_empty()),
+        ("text_config_dirs", !m.text_config_dirs.is_empty()),
+        ("hash_large", !m.hash_large.is_empty()),
+        ("file_names", !m.file_names.is_empty()),
+        ("archive_members", !m.archive_members.is_empty()),
+        ("allow_removable", m.allow_removable),
+        ("signed_malware", !m.signed_malware.is_empty()),
+        ("detect", !m.detect.is_empty()),
+        (
+            "verdict",
+            !m.verdict.require.trim().is_empty() || !m.verdict.unconfirmed.is_empty(),
+        ),
+        ("collect_extra", !m.collect_extra.is_empty()),
+        ("submit_hint", m.submit_hint.is_some()),
+    ];
+    filled
+        .iter()
+        .filter(|(_, on)| *on)
+        .map(|(at, _)| *at)
+        .collect()
+}
+
+/// 데이터 룰(`kind: data`)의 모양 (2026-11-13 · 코어 1.12.0).
+///
+/// - **아무것도 보지 않는다.** 동반 프로그램이 읽는 기준 파일을 담을 뿐이라, 이 기계를 읽는 칸 · 판정 ·
+///   치료 · 네트워크 점검이 전부 비어 있다. 채워 두면 서명된 룰이 *"이 자리를 읽는다"* 고 적어 놓고 아무도
+///   읽지 않는다.
+/// - **`min_core` 는 1.12.0 이상.** 낮은 코어는 이 종류를 모른다(매니페스트를 읽다 멈춘다).
+fn check_data(m: &PluginManifest, issues: &mut Vec<SchemaIssue>) {
+    const DOC: &str = "docs/plugin-guide/10-manifest.md";
+    let mut filled = local_fields(m);
+    if m.network.is_some() {
+        filled.push("network");
+    }
+    if m.remediate.is_some() {
+        filled.push("remediate");
+    }
+    for at in filled {
+        issues.push(
+            SchemaIssue::new(
+                at,
+                "데이터 룰은 이 기계를 보지 않는다 — 기준 파일만 담는다. 이 칸은 비워야 한다",
+                DOC,
+            )
+            .with_valid(EMPTY_THEM.to_string()),
+        );
+    }
+    const SINCE: (u64, u64, u64) = (1, 12, 0);
+    if semver3(&m.min_core).is_some_and(|v| v < SINCE) {
+        issues.push(
+            SchemaIssue::new(
+                "min_core",
+                format!(
+                    "kind: data 는 코어 1.12.0 부터 있다 — min_core '{}' 로는 낮은 코어가 이 룰을 읽다 멈춘다",
+                    m.min_core
+                ),
+                "설계-02 §10",
+            )
+            .with_valid("min_core: \"1.12.0\" 이상".to_string()),
         );
     }
 }

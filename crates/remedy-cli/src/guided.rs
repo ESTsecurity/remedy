@@ -381,6 +381,9 @@ pub fn run(anchor: Option<&str>) -> Outcome {
     let mut rejected = Vec::new();
     for f in found {
         match discover::usable(&f.dir, anchor) {
+            // 데이터 룰(코어 1.12.0)은 검사 항목이 아니다 — 동반 프로그램이 읽는 기준을 담을 뿐이라
+            // 고를 거리에도 개수에도 넣지 않는다. 서명이 맞지 않으면 아래처럼 거절된 것으로 말한다.
+            Ok(()) if is_data(&f) => {}
             Ok(()) => ok.push(f),
             Err(why) => rejected.push((f, why)),
         }
@@ -495,6 +498,17 @@ enum Choice {
     /// 이 기계를 보는 룰 전부와, **빼 둔 네트워크 점검 룰의 이름** — 그 룰은 주소를 적어야 돌아서
     /// 한꺼번에 돌릴 수 없다. 빼 두었다는 것을 말해야 *모두* 가 거짓이 되지 않는다.
     All(Vec<Chosen>, Vec<String>),
+}
+
+/// 데이터 룰(`kind: data` · 코어 1.12.0)인가 — 서명을 확인한 뒤에 부른다.
+///
+/// 조용히 읽는다(`load_manifest` 는 주의 줄을 찍는데, 검사 항목은 `choose` 가 다시 읽으므로 두 번
+/// 찍힌다). 못 읽으면 데이터 룰이 아닌 것으로 두어 지금까지처럼 다룬다.
+fn is_data(f: &discover::Found) -> bool {
+    std::fs::read_to_string(&f.path)
+        .ok()
+        .and_then(|t| serde_yaml_ng::from_str::<remedy_sdk::manifest::PluginManifest>(&t).ok())
+        .is_some_and(|m| m.kind == Some(remedy_sdk::manifest::PluginKind::Data))
 }
 
 /// 거절된 것을 화면에 적는다. **왜 못 쓰는지가 사용자의 다음 행동을 정한다.**
