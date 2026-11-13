@@ -81,7 +81,7 @@ file.quarantine_only · shortcut.strip_args · av.restore_exclusions · hosts.re
 
 ## 연산자
 
-equals · not_equals · matches · contains · starts_with · ends_with · in · glob · exists · gt · lt · version_lt · version_gt · pkg_version_lt · rpm_version_lt · yara
+equals · not_equals · matches · contains · starts_with · ends_with · in · glob · exists · gt · lt · version_lt · version_gt · pkg_version_lt · rpm_version_lt · apk_version_lt · yara
 
 정규식은 **RE2** 다. 역참조·전방탐색이 없다.
 

@@ -1506,8 +1506,11 @@ fn check_version_literals(m: &PluginManifest, out: &mut Vec<LintIssue>) {
             // 배포판 판을 받는다 — 둘을 한 자리에서 보되 판정은 나눈다.
             let pkg_op = matches!(f.op, Operator::PkgVersionLt);
             let rpm_op = matches!(f.op, Operator::RpmVersionLt);
-            let version_op =
-                pkg_op || rpm_op || matches!(f.op, Operator::VersionLt | Operator::VersionGt);
+            let apk_op = matches!(f.op, Operator::ApkVersionLt);
+            let version_op = pkg_op
+                || rpm_op
+                || apk_op
+                || matches!(f.op, Operator::VersionLt | Operator::VersionGt);
             if !version_op && !matches!(f.op, Operator::Gt | Operator::Lt) {
                 continue;
             }
@@ -1540,6 +1543,8 @@ fn check_version_literals(m: &PluginManifest, out: &mut Vec<LintIssue>) {
                         crate::catalog::is_pkg_version(&v)
                     } else if rpm_op {
                         crate::catalog::is_rpm_version(&v)
+                    } else if apk_op {
+                        crate::catalog::is_apk_version(&v)
                     } else {
                         crate::catalog::is_version(&v)
                     };
@@ -1551,6 +1556,8 @@ fn check_version_literals(m: &PluginManifest, out: &mut Vec<LintIssue>) {
                             out.push(pkg_version_error(&at, &f.field, shown));
                         } else if rpm_op {
                             out.push(rpm_version_error(&at, &f.field, shown));
+                        } else if apk_op {
+                            out.push(apk_version_error(&at, &f.field, shown));
                         } else {
                             out.push(version_error(&at, &f.field, shown, f.op.id()));
                         }
@@ -1618,8 +1625,8 @@ fn pkg_version_error(at: &str, field: &str, v: &str) -> LintIssue {
         valid: Some(
             "배포판이 적는 그대로 — 예: 8.1.2-1ubuntu2.28 · 1:2.38.1-5+deb12u3 · 3.6.8-r1. \
              숫자로 시작해야 하고 `_` 는 받지 않는다(apk 는 `_alpha` 를 낮게, dpkg 의 \
-             규칙은 높게 읽어 순서가 반대다). 상류 판만 보려면 \
-             `upstream_version` 에 `version_lt` 를 걸 것"
+             규칙은 높게 읽어 순서가 반대다). apk 판(10.3_p1-r2)이면 apk_version_lt 를, \
+             상류 판만 보려면 `upstream_version` 에 `version_lt` 를 걸 것"
                 .into(),
         ),
         doc: Some("24-check-plugins.md"),
@@ -1638,7 +1645,27 @@ fn rpm_version_error(at: &str, field: &str, v: &str) -> LintIssue {
         ),
         valid: Some(
             "RPM 이 적는 그대로 — 예: 0:8.0.30-8.el9_8.1 · 7.4.33-8.module+el8.10.0+25117+30337cca. \
-             숫자로 시작해야 한다. 배포판(dpkg · apk) 판은 pkg_version_lt 를 쓸 것"
+             숫자로 시작해야 한다. dpkg 판은 pkg_version_lt · apk 판은 apk_version_lt 를 쓸 것"
+                .into(),
+        ),
+        doc: Some("24-check-plugins.md"),
+    }
+}
+
+/// `apk_version_lt` 에 적은 값이 apk 판 모양이 아니다 (2026-11-13 · 코어 1.14.0).
+fn apk_version_error(at: &str, field: &str, v: &str) -> LintIssue {
+    LintIssue {
+        severity: Severity::Error,
+        at: format!("{at}.value"),
+        message: format!(
+            "'{field}' 에 걸린 apk_version_lt 의 값 '{v}' {} apk 판으로 읽지 못했다. \
+             이 항목은 어느 기계에서도 판정을 세우지 못하고 진단만 남긴다",
+            crate::i18n::particle(v, "을", "를")
+        ),
+        valid: Some(
+            "apk 가 적는 그대로 — 예: 10.3_p1-r2 · 3.21.3-r0 · 2024a-r0. 숫자로 시작하고 `-r개정` 으로 \
+             끝나야 하며, 접미사는 소문자 alpha · beta · pre · rc · cvs · svn · git · hg · p 뿐이다. \
+             dpkg 판은 pkg_version_lt · RPM 판은 rpm_version_lt 를 쓸 것"
                 .into(),
         ),
         doc: Some("24-check-plugins.md"),

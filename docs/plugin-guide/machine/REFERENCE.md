@@ -118,7 +118,7 @@
 | `HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Windows\AppInit_DLLs` | (빈 값) |
 | `HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Windows\LoadAppInit_DLLs` | `0` (REG_DWORD) |
 
-## 연산자 16종
+## 연산자 17종
 
 | 연산자 | 구현 Phase | value 필요 |
 |---|---|---|
@@ -137,6 +137,7 @@
 | `version_gt` | P4 | O |
 | `pkg_version_lt` | P4 | O |
 | `rpm_version_lt` | P4 | O |
+| `apk_version_lt` | P4 | O |
 | `yara` | P4 | O |
 
 ## capture 함수 9종

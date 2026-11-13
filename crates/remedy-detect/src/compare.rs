@@ -485,6 +485,130 @@ fn drop_leading_zeros(s: &str) -> &str {
     }
 }
 
+/// apk(Alpine)가 적은 판끼리 (2026-11-13 · 코어 1.14.0) — `apk_version_lt` 가 쓴다.
+///
+/// 규칙은 apk-tools 의 것이다 — 연산자의 설명(`Operator::ApkVersionLt`)이 적고, 아래 시험이 apk
+/// 2.14.13 의 `apk version -t` 답을 그대로 든다. 판을 조각([`ApkPart`])으로 나눠 앞에서부터
+/// 견준다. 모양이 아니면 `None` 이다(`is_apk_version`).
+pub fn apk_version_cmp(a: &str, b: &str) -> Option<std::cmp::Ordering> {
+    use remedy_sdk::catalog::is_apk_version;
+    if !is_apk_version(a) || !is_apk_version(b) {
+        return None;
+    }
+    let (pa, pb) = (apk_parts(a.trim()), apk_parts(b.trim()));
+    // 둘 다 `End` 로 끝난다 — 길이가 달라도 짧은 쪽의 `End` 자리에서 갈린다.
+    for (x, y) in pa.iter().zip(&pb) {
+        let ord = apk_part_cmp(x, y);
+        if ord != std::cmp::Ordering::Equal {
+            return Some(ord);
+        }
+    }
+    Some(std::cmp::Ordering::Equal)
+}
+
+/// apk 판의 조각. **종류의 차례도 순서다** — 한쪽이 먼저 갈라지면 그 자리 조각의 종류가 정한다
+/// (앞의 종류가 높고, 사전 배포 접미사는 무엇보다 낮다).
+#[derive(Debug)]
+enum ApkPart<'a> {
+    /// 숫자 조각 — 앞의 `0` 을 뗀 수로 견준다.
+    Num(&'a str),
+    /// 둘째 조각부터 `0` 으로 시작하는 조각 — `0` 의 개수와 남은 숫자. **`0` 이 많을수록 낮고, 같으면
+    /// 남은 숫자를 수로 견주며(없는 쪽이 가장 낮다), 어떤 `Num` 보다도 낮다**(`1.01 < 1.1` · `1.00 < 1.0`
+    /// · `1.0 < 1.05` · `1.09 < 1.010` — 남은 숫자는 그 조각 안에서 견준다. 다음 조각으로 넘기면
+    /// `1.0.9` 와 `1.05` 가 뒤집힌다).
+    Zeros(usize, &'a str),
+    Letter(u8),
+    /// 접미사의 차례 — 사전 배포(`alpha` ~ `rc`)는 음수다.
+    Suffix(i8),
+    SuffixNo(&'a str),
+    Revision(&'a str),
+    End,
+}
+
+impl ApkPart<'_> {
+    fn kind(&self) -> u8 {
+        match self {
+            ApkPart::Num(_) | ApkPart::Zeros(..) => 1,
+            ApkPart::Letter(_) => 2,
+            ApkPart::Suffix(_) => 3,
+            ApkPart::SuffixNo(_) => 4,
+            ApkPart::Revision(_) => 5,
+            ApkPart::End => 6,
+        }
+    }
+
+    fn pre_release(&self) -> bool {
+        matches!(self, ApkPart::Suffix(r) if *r < 0)
+    }
+}
+
+fn apk_part_cmp(x: &ApkPart<'_>, y: &ApkPart<'_>) -> std::cmp::Ordering {
+    use std::cmp::Ordering::{Equal, Greater, Less};
+    use ApkPart::{End, Letter, Num, Revision, Suffix, SuffixNo, Zeros};
+    match (x, y) {
+        (Num(a), Num(b)) | (SuffixNo(a), SuffixNo(b)) | (Revision(a), Revision(b)) => {
+            component_cmp(a, b)
+        }
+        (Zeros(ka, ra), Zeros(kb, rb)) => {
+            kb.cmp(ka)
+                .then_with(|| match (ra.is_empty(), rb.is_empty()) {
+                    (true, true) => Equal,
+                    (true, false) => Less,
+                    (false, true) => Greater,
+                    (false, false) => component_cmp(ra, rb),
+                })
+        }
+        (Zeros(..), Num(_)) => Less,
+        (Num(_), Zeros(..)) => Greater,
+        (Letter(a), Letter(b)) => a.cmp(b),
+        (Suffix(a), Suffix(b)) => a.cmp(b),
+        (End, End) => Equal,
+        // 종류가 다르다 — 사전 배포 접미사가 먼저 지고, 그 밖은 앞의 종류가 이긴다.
+        _ if x.pre_release() => Less,
+        _ if y.pre_release() => Greater,
+        _ => y.kind().cmp(&x.kind()),
+    }
+}
+
+/// `is_apk_version` 을 지난 문자열을 조각낸다.
+fn apk_parts(s: &str) -> Vec<ApkPart<'_>> {
+    use remedy_sdk::catalog::APK_SUFFIXES;
+    let (body, rev) = s.rsplit_once("-r").unwrap_or((s, "0"));
+    let mut sections = body.split('_');
+    let head = sections.next().unwrap_or_default();
+    let (nums, letter) = match head.as_bytes().last() {
+        Some(&c) if c.is_ascii_lowercase() => (&head[..head.len() - 1], Some(c)),
+        _ => (head, None),
+    };
+    let mut out = Vec::new();
+    for (i, c) in nums.split('.').enumerate() {
+        let rest = c.trim_start_matches('0');
+        let zeros = c.len() - rest.len();
+        // 첫 조각은 그냥 수다(`01` = `1`). 둘째부터 앞의 `0` 이 값을 낮춘다.
+        if i == 0 || zeros == 0 {
+            out.push(ApkPart::Num(c));
+        } else {
+            out.push(ApkPart::Zeros(zeros, rest));
+        }
+    }
+    if let Some(c) = letter {
+        out.push(ApkPart::Letter(c));
+    }
+    for suffix in sections {
+        let n = suffix.bytes().take_while(u8::is_ascii_lowercase).count();
+        let (name, num) = suffix.split_at(n);
+        let place = APK_SUFFIXES.iter().position(|s| *s == name).unwrap_or(0);
+        // 앞의 넷(사전 배포)이 음수가 되게 4 를 뺀다.
+        out.push(ApkPart::Suffix(i8::try_from(place).unwrap_or(0) - 4));
+        if !num.is_empty() {
+            out.push(ApkPart::SuffixNo(num));
+        }
+    }
+    out.push(ApkPart::Revision(rev));
+    out.push(ApkPart::End);
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -685,6 +809,148 @@ mod tests {
     fn a_shape_rpm_does_not_write_is_not_compared() {
         for bad in ["", "el9", "v8.0.30-1", "8.0.30 1", "x:1.0-1"] {
             assert_eq!(rpm_version_cmp(bad, "1.0-1"), None, "{bad:?}");
+        }
+    }
+
+    // ───────────────────────────── apk_version_lt (2026-11-13 · 코어 1.14.0)
+
+    /// **apk 자신의 답이다** — alpine:3.22 의 apk-tools 2.14.13 에서 `apk version -t A B` 로 받은 것을
+    /// 그대로 적었다(네트워크 끊은 컨테이너). 규칙을 기억으로 옮기지 않고 실물에 댄다.
+    #[test]
+    fn apk_versions_order_as_apk_does() {
+        use std::cmp::Ordering::*;
+        for (a, b, want) in [
+            // Alpine 이 브랜치마다 고친 OpenSSH 와 그 바로 아래 판.
+            ("10.6_p1-r0", "10.6_p2-r0", Less),
+            ("10.3_p1-r1", "10.3_p1-r2", Less),
+            ("10.2_p1-r0", "10.2_p1-r1", Less),
+            ("10.0_p1-r10", "10.0_p1-r11", Less),
+            ("9.9_p2-r0", "9.9_p2-r1", Less),
+            ("9.7_p1-r5", "9.7_p1-r6", Less),
+            ("9.6_p1-r2", "9.6_p1-r3", Less),
+            ("9.3_p2-r3", "9.3_p2-r4", Less),
+            ("9.1_p1-r6", "9.1_p1-r7", Less),
+            ("9.0_p1-r5", "9.0_p1-r6", Less),
+            ("9.9_p2-r1", "10.3_p1-r2", Less),
+            ("10.6_p2-r0", "10.7_p1-r0", Less),
+            ("10.3_p1-r2", "10.3_p1-r10", Less),
+            ("9.9_p2-r1", "9.9_p10-r0", Less),
+            // 접미사의 차례 — 사전 배포 넷은 접미사 없는 판보다 낮다.
+            ("1.0_alpha-r0", "1.0_beta-r0", Less),
+            ("1.0_beta-r0", "1.0_pre-r0", Less),
+            ("1.0_pre-r0", "1.0_rc-r0", Less),
+            ("1.0_rc1-r0", "1.0-r0", Less),
+            ("1.0-r0", "1.0_cvs-r0", Less),
+            ("1.0_cvs-r0", "1.0_svn-r0", Less),
+            ("1.0_svn-r0", "1.0_git-r0", Less),
+            ("1.0_git-r0", "1.0_hg-r0", Less),
+            ("1.0_hg-r0", "1.0_p-r0", Less),
+            // 접미사 번호 — 없는 번호는 `0` 보다 낮고, 번호는 수다.
+            ("1.0_p-r0", "1.0_p0-r0", Less),
+            ("1.0_p1-r0", "1.0_p10-r0", Less),
+            ("1.0_p9-r0", "1.0_p10-r0", Less),
+            ("1.0_rc-r0", "1.0_rc1-r0", Less),
+            ("1.0_alpha2-r0", "1.0_alpha10-r0", Less),
+            ("1.0_p01-r0", "1.0_p1-r0", Equal),
+            ("1.0_p00-r0", "1.0_p0-r0", Equal),
+            // 접미사가 더 있는 쪽 — 사전 배포면 낮고 그 밖은 높다.
+            ("1.0_p1_p2-r0", "1.0_p1-r0", Greater),
+            ("1.0_p1_rc1-r0", "1.0_p1-r0", Less),
+            ("1.0_rc1_p1-r0", "1.0_rc1-r0", Greater),
+            ("1.0_rc1_p1-r0", "1.0-r0", Less),
+            ("1.0_p1_p1-r0", "1.0_p1_p1-r0", Equal),
+            // 글자 — 없는 것보다 높고, 접미사보다 높고, 숫자 조각보다 낮다.
+            ("1.0a-r0", "1.0-r0", Greater),
+            ("1.0a-r0", "1.0b-r0", Less),
+            ("1.0a-r0", "1.0_p1-r0", Greater),
+            ("1.0a-r0", "1.0.1-r0", Less),
+            ("1.0a_rc1-r0", "1.0a-r0", Less),
+            ("1.0z-r0", "1.0.0-r0", Less),
+            // 조각 수 — 더 있는 쪽이 높다(사전 배포 접미사와 맞서도).
+            ("1.0-r0", "1.0.0-r0", Less),
+            ("1.0.1-r0", "1.0_p1-r0", Greater),
+            ("1.0.1-r0", "1.0_rc1-r0", Greater),
+            // 숫자는 수다 · 자리 수를 넘는 판.
+            ("1.10-r0", "1.9-r0", Greater),
+            ("2-r0", "10-r0", Less),
+            ("20240705-r0", "20230311-r0", Greater),
+            // 앞자리 0 — 첫 조각은 그냥 수, 둘째부터는 `0` 이 많을수록 낮다.
+            ("01-r0", "1-r0", Equal),
+            ("0-r0", "00-r0", Equal),
+            ("00-r0", "0.0-r0", Less),
+            ("1.01-r0", "1.1-r0", Less),
+            ("1.01-r0", "1.001-r0", Greater),
+            ("1.010-r0", "1.01-r0", Greater),
+            ("1.0-r0", "1.00-r0", Greater),
+            ("1.0-r0", "1.01-r0", Less),
+            ("1.00-r0", "1.000-r0", Greater),
+            ("1.0.0-r0", "1.00-r0", Greater),
+            ("1.001-r0", "1.0-r0", Less),
+            ("0.1-r0", "0.01-r0", Greater),
+            ("1.02-r0", "1.1-r0", Less),
+            ("1.09-r0", "1.1-r0", Less),
+            ("1.1-r0", "1.10-r0", Less),
+            ("2.050-r0", "2.05-r0", Greater),
+            ("2.05-r0", "2.5-r0", Less),
+            ("1.0a-r0", "1.00a-r0", Greater),
+            ("2024.07.05-r0", "2024.7.5-r0", Less),
+            // `0` 뒤의 남은 숫자는 그 조각 안에서 수로 견준다 — 다음 조각으로 넘기면 뒤집힌다.
+            ("1.09-r0", "1.010-r0", Less),
+            ("1.019-r0", "1.02-r0", Greater),
+            ("1.05-r0", "1.050-r0", Less),
+            ("1.0010-r0", "1.002-r0", Greater),
+            ("1.0.9-r0", "1.05.10-r0", Less),
+            ("1.0.9-r0", "1.05-r0", Less),
+            ("1.0-r0", "1.05-r0", Less),
+            ("1.05-r0", "1.05.0-r0", Less),
+            ("1.050.1-r0", "1.05.9-r0", Greater),
+            ("1.01.5-r0", "1.01-r0", Greater),
+            ("1.001-r0", "1.0.1-r0", Less),
+            ("1.00.1-r0", "1.0.01-r0", Less),
+            ("0.05-r0", "0.0.5-r0", Greater),
+            ("01.0.9.3a_beta-r00", "001.05.10.01-r1", Less),
+            // 개정은 수다.
+            ("1.0-r9", "1.0-r10", Less),
+            ("1.0-r01", "1.0-r1", Equal),
+            ("1.0-r00", "1.0-r0", Equal),
+            ("10.3_p1-r2", "10.3_p1-r2", Equal),
+        ] {
+            assert_eq!(apk_version_cmp(a, b), Some(want), "'{a}' vs '{b}'");
+            assert_eq!(
+                apk_version_cmp(b, a),
+                Some(want.reverse()),
+                "'{b}' vs '{a}' (뒤집어서)"
+            );
+        }
+    }
+
+    /// apk 가 판으로 인정하지 않거나(`apk version -c`) 순서가 뜻밖인 모양 — 추측하지 않는다.
+    #[test]
+    fn a_shape_apk_does_not_write_is_not_compared() {
+        for bad in [
+            "",
+            "1.0",
+            "1.0_p1",
+            "1.0_P1-r1",
+            "1.0-R1",
+            "1.0_foo-r0",
+            "1.0~abc-r0",
+            "1.0a1-r0",
+            "1.0aa-r0",
+            "1.0A-r0",
+            "1.0_p1a-r0",
+            "1.0.a-r0",
+            "1.0z.1-r0",
+            ".1-r0",
+            "1..0-r0",
+            "1.0_-r0",
+            "1.0-r",
+            "1.0-rx-r0",
+            "v1.0-r0",
+            "openssh-r0",
+        ] {
+            assert_eq!(apk_version_cmp(bad, "1.0-r0"), None, "{bad:?}");
+            assert_eq!(apk_version_cmp("1.0-r0", bad), None, "{bad:?}");
         }
     }
 

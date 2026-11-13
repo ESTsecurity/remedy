@@ -647,6 +647,57 @@ fn a_shape_rpm_does_not_write_is_an_error_for_rpm_version_lt() {
 }
 
 #[test]
+fn an_apk_version_passes_apk_version_lt_and_fails_pkg_version_lt() {
+    // Alpine 의 패치 판은 `_p` 를 담는다 — `pkg_version_lt` 는 그것을 거절하고(dpkg 와 apk 가 반대로
+    // 읽는다) `apk_version_lt` 는 받는다(apk 의 규칙으로 견준다 · 코어 1.14.0).
+    for v in [
+        "10.3_p1-r2",
+        "9.9_p2-r1",
+        "3.21.3-r0",
+        "2024a-r0",
+        "1.0_rc1_p1-r0",
+        "0.9.21_git20190108-r1",
+    ] {
+        let ok = with_payload_pred(&format!(
+            "{{ field: path, op: apk_version_lt, value: '{v}' }}"
+        ));
+        assert_eq!(blocking(&lint(&parse(&ok))), 0, "'{v}': {:?}", errors(&ok));
+    }
+    let no = with_payload_pred("{ field: path, op: pkg_version_lt, value: '10.3_p1-r2' }");
+    let e = errors(&no);
+    assert!(!e.is_empty(), "pkg_version_lt 가 `_` 를 받아 버렸다");
+}
+
+#[test]
+fn a_shape_apk_does_not_write_is_an_error_for_apk_version_lt() {
+    // apk 의 설치 기록은 늘 `-rN` 으로 끝나고 접미사는 소문자 아홉 가지다 — 그 밖은 추측하지 않는다.
+    for bad in [
+        "10.3_p1",
+        "1.0_P1-r1",
+        "1.0_foo-r0",
+        "1.0a1-r0",
+        "openssh-10.3",
+        "1.0~abc-r0",
+    ] {
+        let y = with_payload_pred(&format!(
+            "{{ field: path, op: apk_version_lt, value: '{bad}' }}"
+        ));
+        let e = errors(&y);
+        assert_eq!(e.len(), 1, "{bad}: {e:?}");
+        assert!(
+            e[0].contains(bad) && e[0].contains("apk 판"),
+            "{bad}: {}",
+            e[0]
+        );
+    }
+    // 따옴표 없는 `8.10` 은 이미 `8.1` 로 도착한 값이다 — 모양 검사보다 먼저 잡는다.
+    let y = with_payload_pred("{ field: path, op: apk_version_lt, value: 8.10 }");
+    let e = errors(&y);
+    assert_eq!(e.len(), 1, "{e:?}");
+    assert!(e[0].contains("따옴표"), "{}", e[0]);
+}
+
+#[test]
 fn a_version_operator_without_a_value_is_an_error() {
     // 값이 없으면 평가기가 관측에 적을 이름조차 비어 **사유 줄의 끝이 빈 채로**
     // 나간다 — `yara_label` 이 막으려는 바로 그 모양이다. `takes_value` 는
