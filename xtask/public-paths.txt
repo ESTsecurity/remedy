@@ -22,8 +22,10 @@ plugins/                      # 위협 룰 — 배포한 룰은 공개한다 (�
 corpus/clean/
 corpus/infected/
 testbed/ai-exam/PROMPT.md
+testbed/ai-exam/PROMPT-check.md
 testbed/ai-exam/README.md
 testbed/ai-exam/inject.txt
+testbed/ai-exam/inject-check.txt
 testbed/ai-exam/runs/
 testbed/ai-exam/threats/
 testbed/demo/
