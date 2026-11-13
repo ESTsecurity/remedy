@@ -1580,6 +1580,7 @@ mod tests {
             target,
             captures: Default::default(),
             matched: Vec::new(),
+            label: None,
         }
     }
 
@@ -2030,6 +2031,7 @@ mod tests {
             target: serde_json::json!({ "path": path }),
             captures: Default::default(),
             matched: Vec::new(),
+            label: None,
         }
     }
 

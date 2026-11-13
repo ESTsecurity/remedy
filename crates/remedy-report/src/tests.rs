@@ -638,6 +638,7 @@ fn unconfirmed_items_list_only_the_noted_groups() {
         target: serde_json::json!({ "path": path }),
         captures: Default::default(),
         matched: Vec::new(),
+        label: None,
     };
     let group = |id: &str, evidence: &[&str]| EvidenceGroup {
         id: id.into(),
@@ -688,6 +689,7 @@ fn a_hash_that_decided_a_finding_is_not_printed() {
                 value: Some(serde_json::json!(["ab".repeat(32)])),
             },
         ],
+        label: None,
     };
     let g = EvidenceGroup {
         id: "g0".into(),
@@ -724,6 +726,7 @@ fn a_config_finding_shows_the_value_not_the_key_path() {
         captures: Default::default(),
         // 룰이 적은 차례 그대로 — 자리(`key_path`)가 먼저다.
         matched: vec![pred("key_path"), pred("value")],
+        label: None,
     };
     let g = EvidenceGroup {
         id: "g0".into(),
@@ -768,6 +771,7 @@ fn a_package_line_shows_its_version_not_the_manager() {
         target,
         captures: Default::default(),
         matched: vec![pred("manager"), pred("name")],
+        label: None,
     };
     let evidence = [
         pkg(
@@ -869,6 +873,7 @@ fn module_line(image: &str, modules: &[&str], pattern: &str) -> Vec<String> {
             op: "matches".into(),
             value: Some(serde_json::json!(pattern)),
         }],
+        label: None,
     };
     let g = EvidenceGroup {
         id: "g0".into(),
@@ -907,6 +912,7 @@ fn a_configuration_line_is_named_in_the_readers_words() {
             op: "matches".into(),
             value: Some(serde_json::json!(r"(?i)^\s*LoadModule\s+php\d*_module\s")),
         }],
+        label: None,
     };
     let g = EvidenceGroup {
         id: "g0".into(),
@@ -946,6 +952,7 @@ fn each_list_shows_only_the_rules_its_expression_names() {
         target,
         captures: Default::default(),
         matched: vec![pred(field)],
+        label: None,
     };
     use remedy_sdk::catalog::Subject;
     let node = "C:\\Program Files\\nodejs\\node.exe";
@@ -1235,7 +1242,55 @@ fn ev(id: &str, subject: Subject, target: serde_json::Value) -> Evidence {
         target,
         captures: Default::default(),
         matched: Vec::new(),
+        label: None,
     }
+}
+
+/// **규칙의 문구는 찾은 줄 바로 아래에** 한 줄로 적힌다(`detect[].label` · 2026-11-13 · 코어 1.13.0) — 화면 언어의
+/// 것을. 같은 줄을 짚은 규칙들의 문구는 그 줄 아래에 함께, 같은 문구는 한 번. 문구가 없는 줄은 전과 같다.
+#[test]
+fn a_rule_label_is_written_under_the_line_it_found() {
+    let label = |ko: &str, en: &str| -> Option<remedy_sdk::manifest::LocalizedText> {
+        Some(
+            [("ko", ko), ("en", en)]
+                .into_iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect(),
+        )
+    };
+    let jar = serde_json::json!({"path": "/opt/app/lib/log4j-core-2.14.1.jar"});
+    let mut by_name = ev("e0", Subject::File, jar.clone());
+    by_name.label = label(
+        "log4j-core 2.x — CVE-2021-44228",
+        "log4j-core 2.x - CVE-2021-44228",
+    );
+    let mut by_hash = ev("e1", Subject::File, jar.clone());
+    by_hash.label = by_name.label.clone();
+    let mut other = ev("e2", Subject::File, jar);
+    other.label = label("다른 뜻", "another meaning");
+    let plain = ev(
+        "e3",
+        Subject::File,
+        serde_json::json!({"path": "/opt/app/lib/plain.jar"}),
+    );
+    let evidence = [by_name, by_hash, other, plain];
+    let g = [group("g0", &["e0", "e1", "e2", "e3"], true)];
+
+    assert_eq!(
+        check_findings(&evidence, &g, &[], Lang::Ko, 10),
+        vec![
+            "   1. /opt/app/lib/log4j-core-2.14.1.jar".to_string(),
+            "      log4j-core 2.x — CVE-2021-44228".to_string(),
+            "      다른 뜻".to_string(),
+            "   2. /opt/app/lib/plain.jar".to_string(),
+        ]
+    );
+    let en = check_findings(&evidence, &g, &[], Lang::En, 10);
+    assert_eq!(en[1], "      log4j-core 2.x - CVE-2021-44228");
+    // 접는 수는 찾은 줄의 수다 — 문구 줄은 세지 않는다.
+    let cut = check_findings(&evidence, &g, &[], Lang::Ko, 1);
+    assert_eq!(cut.len(), 4, "{cut:?}");
+    assert!(cut[3].contains("그 외 1건"), "{cut:?}");
 }
 
 fn group(id: &str, evidence: &[&str], verdict: bool) -> EvidenceGroup {

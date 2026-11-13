@@ -834,6 +834,9 @@ pub struct Evidence {
     pub captures: BTreeMap<String, String>,
     #[serde(default)]
     pub matched: Vec<MatchedPredicate>,
+    /// 이 증거를 낸 규칙의 문구(`detect[].label` · 코어 1.13.0) — 규칙에 없으면 키도 없다.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<crate::manifest::LocalizedText>,
 }
 
 /// 증거 그룹 — 부모 증거 인스턴스마다 생기는 독립 스코프 (설계-02 §4).

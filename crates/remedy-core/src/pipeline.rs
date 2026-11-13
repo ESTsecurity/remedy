@@ -1154,6 +1154,7 @@ mod verify_tests {
             target: serde_json::json!({ "path": r"C:\a\x" }),
             captures: Default::default(),
             matched: Vec::new(),
+            label: None,
         }
     }
 

@@ -201,6 +201,62 @@ fn an_unconfirmed_line_needs_core_1_3_0() {
     );
 }
 
+// ───────────────────────────── 찾은 줄의 문구 (`detect[].label` · 2026-11-13 · 코어 1.13.0)
+
+/// 규칙 하나에 문구를 단 모양 — 각 시험이 한 곳만 비튼다.
+fn with_label() -> String {
+    BASE.replace("min_core: '1.0.0'", "min_core: '1.13.0'")
+        .replace(
+            r"      - { field: path, op: ends_with, value: '\main.js' }",
+            "      - { field: path, op: ends_with, value: '\\main.js' }\n    \
+         label: { ko: '페이로드 파일', en: 'payload file' }",
+        )
+}
+
+#[test]
+fn a_label_in_both_languages_is_clean() {
+    let y = with_label();
+    assert!(y.contains("label: {"), "{y}");
+    let e = errors(&y);
+    assert!(e.is_empty(), "{e:?}");
+}
+
+#[test]
+fn a_label_speaks_both_languages() {
+    // 한쪽이 비면 그 언어의 화면과 무인 배포가 찾은 것의 뜻을 읽지 못한다.
+    let y = with_label().replace(", en: 'payload file'", "");
+    let e = errors(&y);
+    assert!(
+        e.iter()
+            .any(|x| x.starts_with("detect[1].label ::") && x.contains("'en'")),
+        "{e:?}"
+    );
+}
+
+#[test]
+fn a_label_is_one_line() {
+    // 번호 줄 바로 아래 한 줄에 적힌다 — 줄바꿈이 있으면 다음 번호 줄과 섞인다.
+    let y = with_label().replace("ko: '페이로드 파일'", r#"ko: "페이로드\n파일""#);
+    let e = errors(&y);
+    assert!(
+        e.iter()
+            .any(|x| x.starts_with("detect[1].label ::") && x.contains("줄바꿈")),
+        "{e:?}"
+    );
+}
+
+#[test]
+fn a_label_needs_core_1_13_0() {
+    // 낮은 코어는 이 칸을 모른다 — 요구 판을 적어야 로드 단계가 그 차이를 말한다.
+    let y = with_label().replace("min_core: '1.13.0'", "min_core: '1.12.0'");
+    let e = errors(&y);
+    assert!(
+        e.iter()
+            .any(|x| x.starts_with("min_core ::") && x.contains("1.13.0")),
+        "{e:?}"
+    );
+}
+
 // ───────────────────────────── 네트워크 점검 (`network` · 2026-11-10 · 코어 1.4.0)
 
 /// 네트워크 점검 룰의 온전한 모양 — 이 기계를 읽는 칸이 전부 비어 있다. 각 시험이 한 곳만 비튼다.

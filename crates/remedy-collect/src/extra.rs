@@ -918,6 +918,7 @@ collect_extra:
             },
             captures: Default::default(),
             matched: Vec::new(),
+            label: None,
         }
     }
 

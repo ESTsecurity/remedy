@@ -362,6 +362,15 @@ pub struct DetectRule {
     /// 보고·우선순위 표시용. **판정 게이트가 아니다** (설계-02 §5).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub score: Option<u8>,
+
+    /// **찾은 줄 아래에 적는 문구** — 이 규칙이 찾은 것이 무슨 뜻인가(예: 해당 CVE · 무슨 파일인가).
+    /// `ko` · `en` 둘 다, 한 줄로 적는다(2026-11-13 · 코어 1.13.0).
+    ///
+    /// `score` 처럼 **판정에는 쓰지 않는다.** 결과의 증거([`crate::artifact::Evidence::label`])에도 그대로
+    /// 실려 무인 배포도 같은 뜻을 읽는다. 옛 Log4j 스캐너가 찾은 것마다 CVE 를 적던 칸을 룰이 채우는
+    /// 자리다 — 코어에는 CVE 가 없다.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<LocalizedText>,
 }
 
 /// 조건식. 술어 하나, 술어 목록(암묵적 all), 또는 `all`/`any` 묶음.

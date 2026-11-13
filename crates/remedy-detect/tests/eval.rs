@@ -341,6 +341,35 @@ fn an_unconfirmed_line_naming_a_missing_rule_is_refused() {
     assert!(err.to_string().contains("verdict.unconfirmed"), "{err}");
 }
 
+// ─────────────────────────────────────────── 찾은 줄의 문구 (`detect[].label` · 2026-11-13)
+
+#[test]
+fn a_rule_label_rides_on_the_evidence_it_found() {
+    // 화면과 무인 배포가 같은 뜻을 읽는다 — 문구는 그 규칙이 낸 증거에 실린다. 판정은 그대로다.
+    let yaml = VERSION_MANIFEST
+        .replace("min_core: \"1.0.0\"", "min_core: \"1.13.0\"")
+        .replace(
+            "        - { field: version, op: version_lt, value: \"8.2.29\" }\n",
+            "        - { field: version, op: version_lt, value: \"8.2.29\" }\n    \
+             label: { ko: \"고치기 전 판 — CVE-0000-0001\", en: \"unfixed build - CVE-0000-0001\" }\n",
+        );
+    assert!(yaml.contains("label: {"), "{yaml}");
+    let body = ext_eval_with("8.2.28", &yaml);
+    assert_eq!(body.verdicts.len(), 1);
+    let label = body.evidence[0]
+        .label
+        .as_ref()
+        .expect("문구가 증거에 실린다");
+    assert_eq!(label["en"], "unfixed build - CVE-0000-0001");
+    assert_eq!(label["ko"], "고치기 전 판 — CVE-0000-0001");
+
+    // 문구가 없는 규칙의 증거에는 키도 없다 — 전의 산출물과 한 글자도 같다.
+    let plain = ext_eval("8.2.28");
+    assert!(plain.evidence[0].label.is_none());
+    let json = serde_json::to_string(&plain.evidence[0]).expect("직렬화");
+    assert!(!json.contains("\"label\""), "{json}");
+}
+
 #[test]
 fn a_rule_without_unconfirmed_writes_the_same_observation() {
     // 이 칸이 없는 룰은 전과 한 글자도 같다 — 산출물에 키조차 나오지 않는다(불변식 I1).

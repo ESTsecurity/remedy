@@ -162,6 +162,7 @@ pub fn validate(m: &PluginManifest) -> Vec<SchemaIssue> {
 
     check_unconfirmed(m, &mut issues);
     check_hash_large(m, &mut issues);
+    check_labels(m, &mut issues);
 
     if m.detect.is_empty() {
         issues.push(SchemaIssue::new(
@@ -301,6 +302,54 @@ fn check_unconfirmed(m: &PluginManifest, issues: &mut Vec<SchemaIssue>) {
                 "설계-02 §10",
             )
             .with_valid("min_core: \"1.3.0\" 이상".to_string()),
+        );
+    }
+}
+
+/// `detect[].label` — 찾은 줄 아래의 문구 (2026-11-13 · 코어 1.13.0).
+///
+/// - **두 언어로.** 화면이 찾은 줄 아래에 그 언어의 것을 적는다 — 한쪽이 비면 그 언어의 화면과
+///   무인 배포가 찾은 것의 뜻을 읽지 못한다.
+/// - **한 줄로.** 번호 줄 바로 아래 한 줄에 적힌다 — 줄바꿈이 있으면 다음 번호 줄과 섞인다.
+/// - **`min_core` 는 1.13.0 이상.** 낮은 코어는 이 칸을 모른다(매니페스트를 읽다 멈춘다).
+fn check_labels(m: &PluginManifest, issues: &mut Vec<SchemaIssue>) {
+    let mut any = false;
+    for (i, rule) in m.detect.iter().enumerate() {
+        let Some(label) = &rule.label else {
+            continue;
+        };
+        any = true;
+        for lang in ["ko", "en"] {
+            let text = label.get(lang).map(|t| t.trim()).unwrap_or_default();
+            let problem = if text.is_empty() {
+                format!("'{lang}' 문구가 없다 — 그 언어의 화면에 찾은 것의 뜻이 빠진다")
+            } else if text.contains(['\n', '\r']) {
+                format!("'{lang}' 문구에 줄바꿈이 있다 — 찾은 줄 아래 한 줄로 적힌다")
+            } else {
+                continue;
+            };
+            issues.push(
+                SchemaIssue::new(
+                    format!("detect[{i}].label"),
+                    problem,
+                    "docs/plugin-guide/20-detect-recipes.md",
+                )
+                .with_valid("label: { ko: '…', en: '…' } — 한 줄씩".to_string()),
+            );
+        }
+    }
+    const SINCE: (u64, u64, u64) = (1, 13, 0);
+    if any && semver3(&m.min_core).is_some_and(|v| v < SINCE) {
+        issues.push(
+            SchemaIssue::new(
+                "min_core",
+                format!(
+                    "detect[].label 은 코어 1.13.0 부터 있다 — min_core '{}' 로는 낮은 코어가 이 룰을 읽다 멈춘다",
+                    m.min_core
+                ),
+                "설계-02 §10",
+            )
+            .with_valid("min_core: \"1.13.0\" 이상".to_string()),
         );
     }
 }

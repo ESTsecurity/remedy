@@ -1,4 +1,5 @@
-//! 점검 룰의 *확인 필요* — `verdict.unconfirmed` (2026-11-09 · 코어 1.3.0).
+//! 점검 룰의 *확인 필요* — `verdict.unconfirmed` (2026-11-09 · 코어 1.3.0) — 와 찾은 줄의 문구
+//! `detect[].label` (2026-11-13 · 코어 1.13.0).
 //!
 //! 바이너리를 실제로 띄운다. 평가기 · 관측 · 종료 코드 · 화면이 **한 줄로 이어져야** 뜻이 있다 —
 //! 평가기가 사유를 실어도 합치는 자리(`remedy-core`)가 버리면 0 이 나가고, 종료 코드가 6 이어도
@@ -95,6 +96,42 @@ verdict:
     p
 }
 
+const LABEL_KO: &str = "고치기 전 판 — CVE-0000-0001";
+const LABEL_EN: &str = "unfixed build - CVE-0000-0001";
+
+/// 점검 룰 — 고치기 전 표식을 찾는 규칙에 **문구**를 단 모양.
+fn labeled_plugin(base: &Path, root: &Path) -> PathBuf {
+    let dir = base.join("plug");
+    std::fs::create_dir_all(&dir).expect("플러그인 디렉터리");
+    let p = dir.join("plugin.yaml");
+    std::fs::write(
+        &p,
+        format!(
+            r#"schema_version: 1
+id: label-test
+version: 1.0.0
+min_core: '1.13.0'
+platforms: [windows, linux]
+kind: check
+name: {{ ko: '문구 시험', en: 'label test' }}
+scan_roots: ['{root}']
+subjects: [file]
+detect:
+  - id: old
+    subject: file
+    where:
+      - {{ field: path, op: ends_with, value: 'old.flag' }}
+    label: {{ ko: '{LABEL_KO}', en: '{LABEL_EN}' }}
+verdict:
+  require: 'old'
+"#,
+            root = root.display()
+        ),
+    )
+    .expect("plugin.yaml");
+    p
+}
+
 fn scan(base: &Path, plugin: &Path) -> (Run, serde_json::Value) {
     let out = base.join("out");
     std::fs::create_dir_all(&out).expect("out");
@@ -172,6 +209,34 @@ fn without_the_field_the_same_rule_says_what_it_said_before() {
     assert!(!r.stdout.contains("확인이 필요"), "{}", r.stdout);
     assert!(
         s["observation"].is_object() && s["observation"]["unconfirmed"].is_null(),
+        "{s}"
+    );
+}
+
+#[test]
+fn a_rule_label_is_written_under_what_it_found_and_kept_in_the_result() {
+    // 옛 Log4j 스캐너가 찾은 것마다 CVE 를 적던 칸 — 룰이 적은 문구가 찾은 줄 바로 아래에 서고,
+    // 결과의 증거에도 두 언어로 남는다. 코어에는 CVE 가 없다.
+    let base = work("label");
+    let root = tree(&base, true);
+    let (r, s) = scan(&base, &labeled_plugin(&base, &root));
+    assert_eq!(r.code, 2, "{}\n{}", r.stdout, r.stderr);
+    let lines: Vec<&str> = r.stdout.lines().collect();
+    let at = lines
+        .iter()
+        .position(|l| l.trim_start().starts_with("1. ") && l.ends_with("old.flag"))
+        .unwrap_or_else(|| panic!("찾은 줄이 없다:\n{}", r.stdout));
+    assert_eq!(
+        lines.get(at + 1).copied(),
+        Some(format!("      {LABEL_KO}").as_str()),
+        "{}",
+        r.stdout
+    );
+    let evidence = s["evidence"].as_array().expect("증거");
+    assert!(
+        evidence
+            .iter()
+            .any(|e| e["label"]["en"] == LABEL_EN && e["label"]["ko"] == LABEL_KO),
         "{s}"
     );
 }
