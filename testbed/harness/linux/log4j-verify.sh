@@ -31,6 +31,7 @@
 #      화면이 안쪽 경로를 `!/` 로 잇고 맞은 글자(`version=…`)를 적는다
 #   D  크기 3 — 12 MiB Spring Boot 2 · jar 81개 2 · 고친 판 80개 0(깨끗한 서버는 깨끗하다)
 #   E  모르는 것 3 — 잘린 jar 6(화면에 못 본 까닭) · 판이 없는 log4j-core 좌표 6 · zip 이 아닌 .jar 0
+#   S  화면 6 — 안쪽 경로를 `!/` 로 · 맞은 글자 · 못 본 까닭 · 찾은 줄 바로 아래의 계열 CVE 셋(룰 0.2.0 · 코어 1.13.0)
 set -u
 
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -162,9 +163,20 @@ check "S1 안쪽 경로를 !/ 로 잇는다 (c05)" \
     "$(screen_has c05-ear-war-jar 'app.ear!/web/app.war!/WEB-INF/lib/log4j-core-2.14.1.jar')" "ear → war → jar"
 check "S2 맞은 글자를 적는다 (c14)" "$(screen_has c14-rebuilt '(내용 version=2.14.1)')" "pom.properties 의 version"
 check "S3 못 본 까닭을 적는다 (e01)" "$(screen_has e01-truncated '못 본 까닭 broken')" "잘린 jar"
+# 찾은 줄 **바로 아래 줄**이 그 계열의 CVE 다(룰 0.2.0 · 코어 1.13.0 의 `label`).
+screen_under() { # 경우 · 찾은 줄에 든 글 · 바로 아래 줄에 든 글
+    awk -v a="$2" -v b="$3" 'hit && index($0, b) { ok = 1 } { hit = index($0, a) > 0 } END { exit !ok }' \
+        "$OUT/cases/$1/screen.txt" 2>/dev/null && echo 1 || echo 0
+}
+check "S4 찾은 줄 아래에 log4j-core 의 CVE (c05)" \
+    "$(screen_under c05-ear-war-jar 'log4j-core-2.14.1.jar' 'log4j-core 2.x — CVE-2021-44228')" "계열 문구"
+check "S5 찾은 줄 아래에 log4j 1.x 의 CVE (b-log4j-1.2.17)" \
+    "$(screen_under b-log4j-1.2.17 'log4j-1.2.17.jar' 'log4j 1.x — CVE-2021-4104')" "계열 문구"
+check "S6 찾은 줄 아래에 logback 의 CVE (b-logback-core-1.2.8)" \
+    "$(screen_under b-logback-core-1.2.8 'logback-core-1.2.8.jar' 'logback-core — CVE-2021-42550')" "계열 문구"
 
 # 칸 수까지 본다 — 시료를 짓다 멈추면 남은 경우가 조용히 사라지고 "실패 0" 이 남는다.
-EXPECTED=56 # A 2 · B 29 · C 16 · D 3 · E 3 · 화면 3
+EXPECTED=59 # A 2 · B 29 · C 16 · D 3 · E 3 · 화면 6
 pass=$(awk -F'\t' '$2 == 1' "$OUT/checks.tsv" | wc -l)
 fail=$(awk -F'\t' '$2 != 1' "$OUT/checks.tsv" | wc -l)
 echo
