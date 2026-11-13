@@ -19,7 +19,7 @@
 | 룰 | 하는 일 | Windows | Linux | 참고 |
 |---|---|---|---|---|
 | EvilAI(Locust) 제거 | 찾아서 치료합니다 (복원할 수 있습니다) | `evilai-locust` 0.2.0 | — | [www.virustotal.com](https://www.virustotal.com/gui/search/engines%3Ameadowlocust) |
-| Log4j 점검 (CVE-2021-44228 등) | 찾기만 합니다 | `log4j-check` 0.1.0 | `log4j-check` 0.1.0 | [logging.apache.org](https://logging.apache.org/security.html) |
+| Log4j 점검 (CVE-2021-44228 등) | 찾기만 합니다 | `log4j-check` 0.2.0 | `log4j-check` 0.2.0 | [logging.apache.org](https://logging.apache.org/security.html) |
 | Node2Shell 점검 (CVE-2026-111497) | 찾기만 합니다 | `node2shell-check-windows` 0.4.0 | `node2shell-check-linux` 0.6.0 | [nodejs.org](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases) |
 | PHP 세션 업로드 진행 설정 점검 (CVE-2026-115560) | 찾기만 합니다 | `php-session-check-windows` 0.4.0 | `php-session-check-linux` 0.5.0 | [www.php.net](https://www.php.net/archive/2026.php) |
 | PHP2Shell 점검 (CVE-2026-109618 · 109619) | 찾기만 합니다 | `php2shell-check-windows` 0.4.0 | `php2shell-check-linux` 0.6.0 | [www.php.net](https://www.php.net/archive/2026.php) |
@@ -292,6 +292,8 @@ sudo bash detect_ebury.sh
 - **판정** — 파일 이름의 버전(`log4j-core-2.14.1.jar`), Maven Central 공식 파일의 해시(이름을 바꿔도), 파일 안
   `pom.properties` 의 버전으로 가립니다. log4j-core 2.0 ~ 2.17.0(2.3.2 · 2.12.4 는 제외) · log4j 1.x 전부 ·
   logback-core 1.2.9 미만이 *취약* 입니다.
+- **찾은 것마다** 그 파일 · 안쪽 경로 · 버전을 적고, 바로 아래 줄에 그 라이브러리와 해당 CVE 를 적습니다(같은
+  라이브러리라도 버전에 따라 해당하는 CVE 가 달라 *버전에 따라 일부* 라고 적습니다).
 - **확인 필요가 나오는 경우** — log4j-core 가 들어 있는데 버전이 적혀 있지 않을 때, 파일을 끝까지 읽지 못했을 때
   (깨진 파일 · 잘린 파일 · 너무 큰 파일 · 암호). 화면의 항목 줄이 그 파일과 까닭을, *주의* 줄이 할 일을 알려 드립니다.
 - **보는 자리** — Windows 는 고정 드라이브 전부, 리눅스는 로컬 디스크 전부입니다(가상 · 네트워크 파일 시스템은 보지

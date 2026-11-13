@@ -65,9 +65,9 @@
     }
   },
   "log4j-check": {
-    "version": "0.1.0",
+    "version": "0.2.0",
     "files": {
-      "plugin.yaml": "073fcafd1f96e68752fb2234947776e244b8a5ed8c905f48d8f1084d2bc56a1e"
+      "plugin.yaml": "d2ba4161e9a7b74de36b7f075f0717548adb4e05c450b68a24df25055ebeaf72"
     }
   },
   "node2shell-check-linux": {
