@@ -1,0 +1,365 @@
+# apache-http2-check-linux — mod_http2 머리 처리 원격 코드 실행(CVE-2026-119618) 점검
+# 아무것도 바꾸지 않는다(kind: check · remediate 없음). 종료 코드가 결과다:
+#   2 취약 · 0 찾지 못함(고친 판 · 영향 없는 판 · Apache 없음) · 6 확인 필요
+# 취약 = 취약 판 AND 모듈을 싣는 흔적 AND h2 · h2c 를 켠 흔적.
+# 판은 상류 번호가 아니라 그 배포판이 고친 판과, 그 배포판의 규칙(dpkg · rpm · apk)으로 견준다.
+schema_version: 1
+id: apache-http2-check-linux
+version: 1.0.0
+min_core: "1.14.0"          # label 은 1.13.0 · apk_version_lt 는 1.14.0 부터
+platforms: [linux]
+kind: check
+
+name:
+  ko: "점검 — Apache mod_http2 원격 코드 실행 (CVE-2026-119618)"
+  en: "Check - Apache mod_http2 remote code execution (CVE-2026-119618)"
+
+# 읽기 권한 상한 — 보고가 적은 설정 자리와 직접 빌드의 conf · bin 두 칸만(htdocs · logs 는 읽지 않는다).
+# 대부분의 기계에서 대부분이 없다. kind: check 라서 전부 없으면 0(해당 없음)이다.
+scan_roots:
+  - "/etc/apache2"
+  - "/etc/httpd"
+  - "/usr/local/apache2/conf"
+  - "/usr/local/apache2/bin"
+  - "/usr/local/apache/conf"
+  - "/usr/local/apache/bin"
+  - "/usr/local/httpd/conf"
+  - "/usr/local/httpd/bin"
+  - "/opt/apache2/conf"
+  - "/opt/apache2/bin"
+  - "/opt/apache/conf"
+  - "/opt/apache/bin"
+  - "/opt/httpd/conf"
+  - "/opt/httpd/bin"
+  - "/opt/lampp/etc"
+  - "/opt/lampp/bin"
+
+# 개인키(server.key · ssl.key/ …)는 설정 폴더에 함께 있다.
+# - file 은 이름까지 기록하므로, 키가 놓이지 않는 자리로만 좁힌다:
+#   Debian 의 mods-enabled(링크 이름만 기록) · 직접 빌드의 bin.
+# - text_config 는 확장자(.conf …)로 고르므로 .key · .pem 은 읽지 않는다. bin 은 뺀다.
+subject_roots:
+  file:
+    - "/etc/apache2/mods-enabled"
+    - "/usr/local/apache2/bin"
+    - "/usr/local/apache/bin"
+    - "/usr/local/httpd/bin"
+    - "/opt/apache2/bin"
+    - "/opt/apache/bin"
+    - "/opt/httpd/bin"
+    - "/opt/lampp/bin"
+  text_config:
+    - "/etc/apache2"
+    - "/etc/httpd"
+    - "/usr/local/apache2/conf"
+    - "/usr/local/apache/conf"
+    - "/usr/local/httpd/conf"
+    - "/opt/apache2/conf"
+    - "/opt/apache/conf"
+    - "/opt/httpd/conf"
+    - "/opt/lampp/etc"
+
+subjects: [package, file, text_config, process]
+
+# 본문은 직접 빌드의 실행 파일만 담는다. build_vuln 의 경로 조건과 정확히 같은 일곱 자리다.
+# 그래서 YARA 가 본문 없는 레코드를 만나지 않는다. glob 은 폴더가 없으면
+# "담을 것이 없음"이지 미해소가 아니어서, Apache 가 없는 기계가 6 이 되지 않는다.
+collect_extra:
+  - { glob: "/usr/local/apache2/bin/httpd", max_size: 32MB }
+  - { glob: "/usr/local/apache/bin/httpd",  max_size: 32MB }
+  - { glob: "/usr/local/httpd/bin/httpd",   max_size: 32MB }
+  - { glob: "/opt/apache2/bin/httpd",       max_size: 32MB }
+  - { glob: "/opt/apache/bin/httpd",        max_size: 32MB }
+  - { glob: "/opt/httpd/bin/httpd",         max_size: 32MB }
+  - { glob: "/opt/lampp/bin/httpd",         max_size: 32MB }
+
+detect:
+  # ── 판: Debian · Ubuntu (dpkg · apache2-bin) ─────────────────────────────
+  # 판의 꼴로 배포판을 가르고 그 배포판의 고친 판과 견준다.
+  # ~deb13u1 < 꼬리 없는 판이라서, 꼴을 가르지 않으면 고친 기계가 취약으로 나온다.
+  - id: deb_vuln
+    subject: package
+    where:
+      all:
+        - { field: manager, op: equals, value: "dpkg" }
+        - { field: name,    op: equals, value: "apache2-bin" }
+        - any:
+            - all:
+                - { field: version, op: contains,       value: "~deb12u" }
+                - { field: version, op: pkg_version_lt, value: "2.4.71-1~deb12u1" }
+            - all:
+                - { field: version, op: contains,       value: "~deb13u" }
+                - { field: version, op: pkg_version_lt, value: "2.4.71-1~deb13u1" }
+            - all:   # testing · sid — 꼬리 없는 2.4.N-M(+bN)
+                - { field: version,          op: matches,        value: '^2\.4\.[0-9]+-[0-9]+(\+b[0-9]+)?$' }
+                - { field: upstream_version, op: version_gt,     value: "2.4.54" }
+                - { field: version,          op: pkg_version_lt, value: "2.4.71-1" }
+            - all:   # Ubuntu 26.10
+                - { field: upstream_version, op: equals,         value: "2.4.68" }
+                - { field: version,          op: contains,       value: "ubuntu" }
+                - { field: version,          op: pkg_version_lt, value: "2.4.68-1ubuntu6.2" }
+            - all:   # Ubuntu 26.04
+                - { field: upstream_version, op: equals,         value: "2.4.66" }
+                - { field: version,          op: contains,       value: "ubuntu" }
+                - { field: version,          op: pkg_version_lt, value: "2.4.66-2ubuntu2.8" }
+            - all:   # Ubuntu 24.04
+                - { field: upstream_version, op: equals,         value: "2.4.58" }
+                - { field: version,          op: contains,       value: "ubuntu" }
+                - { field: version,          op: pkg_version_lt, value: "2.4.58-1ubuntu8.19" }
+            - all:   # Ubuntu 22.04 — 상류 2.4.52 인데 백포트로 영향
+                - { field: upstream_version, op: equals,         value: "2.4.52" }
+                - { field: version,          op: contains,       value: "ubuntu" }
+                - { field: version,          op: pkg_version_lt, value: "2.4.52-1ubuntu4.27" }
+            - all:   # Ubuntu 20.04 — 같은 까닭 · 고침은 Ubuntu Pro(+esm)
+                - { field: upstream_version, op: equals,         value: "2.4.41" }
+                - { field: version,          op: contains,       value: "ubuntu" }
+                - { field: version,          op: pkg_version_lt, value: "2.4.41-4ubuntu3.23+esm11" }
+    label: { ko: "CVE-2026-119618 — 고친 판보다 낮은 apache2-bin", en: "CVE-2026-119618 - apache2-bin older than the fixed build" }
+
+  # ── 판: RHEL · Rocky · Amazon Linux (rpm · mod_http2) ────────────────────
+  # 공급사로 누구의 빌드인지 가르고, 판 꼬리(el9_8 …)로 스트림을 가른다. Amazon 은 epoch 1.
+  - id: rpm_vuln
+    subject: package
+    where:
+      all:
+        - { field: manager, op: equals, value: "rpm" }
+        - { field: name,    op: equals, value: "mod_http2" }
+        - any:
+            - all:   # RHEL 9 본류 — el9 · el9_9 와 지원이 끝난 마이너(EUS 4 · 6 · 8 은 뺀다)
+                - { field: vendor,  op: equals,         value: "Red Hat, Inc." }
+                - { field: version, op: matches,        value: '\.el9(_([0123579]|[1-9][0-9]))?(\.|$)' }
+                - { field: version, op: rpm_version_lt, value: "0:2.0.26-7.el9_9.1" }
+            - all:
+                - { field: vendor,  op: equals,         value: "Red Hat, Inc." }
+                - { field: version, op: matches,        value: '\.el9_8(\.|$)' }
+                - { field: version, op: rpm_version_lt, value: "0:2.0.26-6.el9_8.3" }
+            - all:
+                - { field: vendor,  op: equals,         value: "Red Hat, Inc." }
+                - { field: version, op: matches,        value: '\.el9_6(\.|$)' }
+                - { field: version, op: rpm_version_lt, value: "0:2.0.26-4.el9_6.3" }
+            - all:
+                - { field: vendor,  op: equals,         value: "Red Hat, Inc." }
+                - { field: version, op: matches,        value: '\.el9_4(\.|$)' }
+                - { field: version, op: rpm_version_lt, value: "0:2.0.26-2.el9_4.4" }
+            - all:   # RHEL 10 본류 — el10 · el10_3 · el10_1(10.0 · 10.2 스트림은 뺀다)
+                - { field: vendor,  op: equals,         value: "Red Hat, Inc." }
+                - { field: version, op: matches,        value: '\.el10(_([13456789]|[1-9][0-9]))?(\.|$)' }
+                - { field: version, op: rpm_version_lt, value: "0:2.0.29-5.el10_3.1" }
+            - all:
+                - { field: vendor,  op: equals,         value: "Red Hat, Inc." }
+                - { field: version, op: matches,        value: '\.el10_2(\.|$)' }
+                - { field: version, op: rpm_version_lt, value: "0:2.0.29-4.el10_2.3" }
+            - all:
+                - { field: vendor,  op: equals,         value: "Red Hat, Inc." }
+                - { field: version, op: matches,        value: '\.el10_0(\.|$)' }
+                - { field: version, op: rpm_version_lt, value: "0:2.0.29-2.el10_0.3" }
+            - all:   # Rocky 9 — 스트림이 하나뿐(본류)
+                - { field: vendor,  op: equals,         value: "Rocky Enterprise Software Foundation" }
+                - { field: version, op: matches,        value: '\.el9(_[0-9]+)?(\.|$)' }
+                - { field: version, op: rpm_version_lt, value: "0:2.0.26-7.el9_9.1" }
+            - all:   # Rocky 10
+                - { field: vendor,  op: equals,         value: "Rocky Enterprise Software Foundation" }
+                - { field: version, op: matches,        value: '\.el10(_[0-9]+)?(\.|$)' }
+                - { field: version, op: rpm_version_lt, value: "0:2.0.29-5.el10_3.1" }
+            - all:   # Amazon Linux 2023 — epoch 1
+                - { field: vendor,  op: equals,         value: "Amazon Linux" }
+                - { field: version, op: matches,        value: '\.amzn2023(\.|$)' }
+                - { field: version, op: rpm_version_lt, value: "1:2.4.71-1.amzn2023.0.1" }
+            - all:   # Amazon Linux 2 — epoch 1
+                - { field: vendor,  op: equals,         value: "Amazon Linux" }
+                - { field: version, op: matches,        value: '\.amzn2(\.|$)' }
+                - { field: version, op: rpm_version_lt, value: "1:2.4.71-1.amzn2.0.1" }
+    label: { ko: "CVE-2026-119618 — 고친 판보다 낮은 mod_http2", en: "CVE-2026-119618 - mod_http2 older than the fixed build" }
+
+  # ── 판: Alpine (apk · apache2-http2) ─────────────────────────────────────
+  - id: alpine_vuln
+    subject: package
+    where:
+      all:
+        - { field: manager,          op: equals,         value: "apk" }
+        - { field: name,             op: equals,         value: "apache2-http2" }
+        - { field: upstream_version, op: version_gt,     value: "2.4.54" }
+        - { field: version,          op: apk_version_lt, value: "2.4.71-r0" }
+    label: { ko: "CVE-2026-119618 — 고친 판보다 낮은 apache2-http2", en: "CVE-2026-119618 - apache2-http2 older than the fixed build" }
+
+  # Alpine 3.20 이하 — 그 브랜치에는 고친 판이 나오지 않는다(판단은 unconfirmed 가 한다)
+  - id: alpine_old
+    subject: package
+    where:
+      all:
+        - { field: manager, op: equals,         value: "apk" }
+        - { field: name,    op: equals,         value: "alpine-release" }
+        - { field: version, op: apk_version_lt, value: "3.21.0-r0" }
+    label: { ko: "CVE-2026-119618 — 고친 판이 나오지 않는 Alpine 3.20 이하", en: "CVE-2026-119618 - Alpine 3.20 or older, no fixed build on this branch" }
+
+  # ── 고친 판을 정하지 못한 빌드 → 확인 필요 ────────────────────────────────
+  # 위 표에 없는 꼴의 apache2-bin(Debian 11 ~deb11uN · Ubuntu 25.x …) 중 상류 2.4.55 ~ 2.4.70
+  - id: deb_unknown
+    subject: package
+    where:
+      all:
+        - { field: manager,          op: equals,     value: "dpkg" }
+        - { field: name,             op: equals,     value: "apache2-bin" }
+        - { field: upstream_version, op: version_gt, value: "2.4.54" }
+        - { field: upstream_version, op: version_lt, value: "2.4.71" }
+    exclude:
+      # deb_vuln 이 판정하는 꼴은 뺀다 — deb12u · deb13u · 꼬리 없는 꼴 · 표에 있는 Ubuntu 상류 판
+      - { field: version, op: matches, value: '~deb1[23]u|^2\.4\.[0-9]+-[0-9]+(\+b[0-9]+)?$|^2\.4\.(58|66|68)-.*ubuntu' }
+    label: { ko: "CVE-2026-119618 — 영향 범위의 판 · 고친 판을 모르는 빌드", en: "CVE-2026-119618 - affected range, fixed build unknown" }
+
+  # 공지가 없는 RPM 공급사(AlmaLinux · Oracle · CentOS Stream · Fedora …)
+  - id: rpm_unknown
+    subject: package
+    where:
+      all:
+        - { field: manager, op: equals, value: "rpm" }
+        - any:
+            - all:
+                - { field: name,             op: equals,     value: "mod_http2" }
+                - { field: upstream_version, op: version_gt, value: "2.0.7" }
+                - { field: upstream_version, op: version_lt, value: "2.0.43" }
+            - all:
+                - { field: name,             op: in,         value: ["mod_http2", "apache2"] }
+                - { field: upstream_version, op: version_gt, value: "2.4.54" }
+                - { field: upstream_version, op: version_lt, value: "2.4.71" }
+    exclude:
+      - { field: vendor, op: in, value: ["Red Hat, Inc.", "Rocky Enterprise Software Foundation", "Amazon Linux", "SUSE LLC <https://www.suse.com/>"] }
+    label: { ko: "CVE-2026-119618 — 영향 범위의 판 · 고친 판을 모르는 빌드", en: "CVE-2026-119618 - affected range, fixed build unknown" }
+
+  # SUSE — 고침 대기. apache2 하나에 HTTP/2 모듈이 든다. SP3 이전 코드 줄기(-150000. ~ -150300.)는 영향이 없다
+  - id: suse
+    subject: package
+    where:
+      all:
+        - { field: manager,          op: equals,     value: "rpm" }
+        - { field: name,             op: equals,     value: "apache2" }
+        - { field: vendor,           op: equals,     value: "SUSE LLC <https://www.suse.com/>" }
+        - { field: upstream_version, op: version_gt, value: "2.4.50" }
+        - { field: upstream_version, op: version_lt, value: "2.4.71" }
+    exclude:
+      - { field: version, op: matches, value: '-150[0-3]00\.' }
+    label: { ko: "CVE-2026-119618 — 영향 범위의 판 · 고친 판을 모르는 빌드", en: "CVE-2026-119618 - affected range, fixed build unknown" }
+
+  # ── 판: 직접 빌드 — 실행 파일 안의 서버 판 문자열 ───────────────────────
+  # 경로가 collect_extra 의 일곱 glob 과 같아서, 본문이 담기는 범위에서만 YARA 가 돈다.
+  # 패키지가 깐 파일이면 직접 빌드가 아니다.
+  - id: build_vuln
+    subject: file
+    where:
+      all:
+        - { field: path, op: matches, value: '^(/usr/local/(apache2|apache|httpd)|/opt/(apache2|apache|httpd|lampp))/bin/httpd$' }
+        - { yara: "rules/apache-httpd-version.yar:apache_httpd_2_4_55_to_2_4_70" }
+    exclude:
+      - { field: package_match, op: exists }
+    label: { ko: "CVE-2026-119618 — 직접 빌드한 httpd 2.4.55 ~ 2.4.70", en: "CVE-2026-119618 - self-built httpd 2.4.55 to 2.4.70" }
+
+  # ── 흔적: 배포판 설치본(/etc/apache2 · /etc/httpd) ──────────────────────
+  # Debian · Ubuntu — 켠 모듈은 mods-enabled 의 링크다. 수집기가 이름만 기록한다
+  - id: deb_mod_link
+    subject: file
+    where:
+      - { field: path, op: equals, value: "/etc/apache2/mods-enabled/http2.load" }
+    label: { ko: "CVE-2026-119618 — mod_http2 를 싣는 흔적", en: "CVE-2026-119618 - sign that mod_http2 is loaded" }
+
+  - id: deb_h2_link
+    subject: file
+    where:
+      - { field: path, op: equals, value: "/etc/apache2/mods-enabled/http2.conf" }
+    label: { ko: "CVE-2026-119618 — h2 · h2c 를 켠 흔적", en: "CVE-2026-119618 - sign that h2 or h2c is enabled" }
+
+  # 살아 있는 줄만 수집된다(주석 줄은 오지 않는다). 지시어 줄에는 '=' 가 없어 line 으로 본다.
+  # 보고가 적은 자리만 본다 — mods-available 은 켜지 않은 모듈의 줄까지 늘 있어 뺀다.
+  - id: pkg_mod_line
+    subject: text_config
+    where:
+      all:
+        - { field: path, op: matches, value: '^/etc/(apache2/((conf\.d|conf-available|conf-enabled|sites-available|sites-enabled|vhosts\.d)/)?|httpd/(conf|conf\.d|conf\.modules\.d)/)[^/]+$' }
+        - { field: line, op: matches, value: '(?i)^\s*LoadModule\s+http2_module\s' }
+    label: { ko: "CVE-2026-119618 — mod_http2 를 싣는 흔적", en: "CVE-2026-119618 - sign that mod_http2 is loaded" }
+
+  - id: pkg_h2_line
+    subject: text_config
+    where:
+      all:
+        - { field: path, op: matches, value: '^/etc/(apache2/((conf\.d|conf-available|conf-enabled|sites-available|sites-enabled|vhosts\.d)/)?|httpd/(conf|conf\.d|conf\.modules\.d)/)[^/]+$' }
+        - { field: line, op: matches, value: '(?i)^\s*Protocols\s(.*\s)?h2c?(\s|$)' }
+    label: { ko: "CVE-2026-119618 — h2 · h2c 를 켠 흔적", en: "CVE-2026-119618 - sign that h2 or h2c is enabled" }
+
+  # 실행 중인 배포판 Apache 가 mod_http2.so 를 실었다(어느 배포판이든 모듈 흔적)
+  - id: pkg_proc_mod
+    subject: process
+    where:
+      all:
+        - { field: image_path, op: matches,  value: '^/usr/sbin/(apache2|httpd)(-[a-z]+)?( \(deleted\))?$' }
+        - { field: modules,    op: contains, value: "/mod_http2.so" }
+    label: { ko: "CVE-2026-119618 — mod_http2 를 실은 Apache 프로세스", en: "CVE-2026-119618 - Apache process with mod_http2 loaded" }
+
+  # ── 흔적: 직접 빌드(접두사의 conf · conf/extra · XAMPP 의 etc · etc/extra) ──
+  - id: build_mod_line
+    subject: text_config
+    where:
+      all:
+        - { field: path, op: matches, value: '^(/usr/local/(apache2|apache|httpd)/conf|/opt/(apache2|apache|httpd)/conf|/opt/lampp/etc)/(extra/)?[^/]+$' }
+        - { field: line, op: matches, value: '(?i)^\s*LoadModule\s+http2_module\s' }
+    label: { ko: "CVE-2026-119618 — mod_http2 를 싣는 흔적", en: "CVE-2026-119618 - sign that mod_http2 is loaded" }
+
+  - id: build_h2_line
+    subject: text_config
+    where:
+      all:
+        - { field: path, op: matches, value: '^(/usr/local/(apache2|apache|httpd)/conf|/opt/(apache2|apache|httpd)/conf|/opt/lampp/etc)/(extra/)?[^/]+$' }
+        - { field: line, op: matches, value: '(?i)^\s*Protocols\s(.*\s)?h2c?(\s|$)' }
+    label: { ko: "CVE-2026-119618 — h2 · h2c 를 켠 흔적", en: "CVE-2026-119618 - sign that h2 or h2c is enabled" }
+
+  - id: build_proc_mod
+    subject: process
+    where:
+      all:
+        - { field: image_path, op: matches,  value: '^(/usr/local/(apache2|apache|httpd)|/opt/(apache2|apache|httpd|lampp))/bin/httpd( \(deleted\))?$' }
+        - { field: modules,    op: contains, value: "/mod_http2.so" }
+    label: { ko: "CVE-2026-119618 — mod_http2 를 실은 Apache 프로세스", en: "CVE-2026-119618 - Apache process with mod_http2 loaded" }
+
+  # ── 다시 시작하지 않은 Apache ───────────────────────────────────────────
+  - id: stale_module
+    subject: process
+    where:
+      - { field: modules, op: contains, value: "mod_http2.so (deleted)" }
+    label: { ko: "CVE-2026-119618 — 지워진 옛 mod_http2.so 를 실은 프로세스", en: "CVE-2026-119618 - process still holding the deleted old mod_http2.so" }
+
+  # 모듈 목록을 못 읽은 Apache 프로세스 — 빈 목록을 '안 실었다'로 읽지 않는다
+  - id: modules_unread
+    subject: process
+    where:
+      all:
+        - { field: image_path,     op: matches, value: '^(/usr/sbin/(apache2|httpd)(-[a-z]+)?|(/usr/local/(apache2|apache|httpd)|/opt/(apache2|apache|httpd|lampp))/bin/httpd)( \(deleted\))?$' }
+        - { field: modules_denied, op: equals,  value: "true" }
+    label: { ko: "CVE-2026-119618 — 실은 모듈 목록을 읽지 못한 Apache 프로세스", en: "CVE-2026-119618 - Apache process whose loaded modules could not be read" }
+
+# 설치 종류마다 판 · 모듈 흔적 · h2 흔적을 그 설치본의 자리끼리 묶는다(배포판 설정과 직접 빌드 설정을 섞지 않는다).
+# 판만으로는 취약을 내지 않는다.
+verdict:
+  require: >-
+    ((deb_vuln or rpm_vuln or (alpine_vuln and not alpine_old))
+      and (deb_mod_link or pkg_mod_line or pkg_proc_mod)
+      and (deb_h2_link or pkg_h2_line))
+    or (build_vuln
+      and (build_mod_line or build_proc_mod)
+      and build_h2_line)
+  # require 가 서지 않은 그룹에서만 본다 → 6. 찾은 것(2)이 앞선다.
+  unconfirmed:
+    - when: "deb_vuln or rpm_vuln or (alpine_vuln and not alpine_old) or build_vuln"
+      why:
+        ko: "취약한 판인데 HTTP/2 를 켠 흔적을 다 찾지 못했습니다 — Include 로 읽는 다른 설정에서 켰을 수 있습니다. 고친 판으로 올리거나 Protocols · LoadModule 설정을 직접 확인하십시오."
+        en: "A vulnerable build is installed but not every sign that HTTP/2 is enabled was found - it may be enabled in a file read through Include. Update to the fixed build or check the Protocols and LoadModule settings yourself."
+    - when: "deb_unknown or rpm_unknown or suse or (alpine_vuln and alpine_old)"
+      why:
+        ko: "영향 범위의 판인데 이 빌드의 고친 판을 이 룰이 모릅니다 — 공급사 공지에서 고친 판을 확인하고 올리십시오."
+        en: "The version is in the affected range but this rule does not know the fixed build for it - check the vendor advisory and update."
+    - when: "stale_module"
+      why:
+        ko: "다시 시작하지 않은 Apache 가 지워진 옛 mod_http2.so 를 싣고 있습니다 — 패키지를 고쳤어도 옛 코드가 돕니다. Apache 를 다시 시작하십시오."
+        en: "An Apache that was not restarted still has the deleted old mod_http2.so loaded - the old code still runs even though the package is fixed. Restart Apache."
+    - when: "modules_unread and (deb_mod_link or pkg_mod_line or build_mod_line)"
+      why:
+        ko: "Apache 프로세스가 실은 모듈 목록을 읽지 못해, 다시 시작하지 않은 Apache 가 옛 모듈을 싣고 있는지 확인하지 못했습니다 — 관리자 권한으로 다시 점검하거나 Apache 를 다시 시작하십시오."
+        en: "The modules loaded by the Apache process could not be read, so an Apache that was not restarted may still hold the old module - scan again as root or restart Apache."

@@ -11,6 +11,7 @@
   subject: persistence        # 무엇을 훑는가
   from: "${다른규칙.capture}"  # (선택) 훑을 범위를 증거에서 좁힌다
   where: …                    # 조건
+  exclude: [ … ]              # (선택) 술어 목록 — 하나라도 맞으면 그 레코드는 매치가 아니다(all · any 는 못 쓴다)
   capture:                    # (선택) 증거에서 값을 뽑아 다른 규칙에 넘긴다
     script: "args | first_path"
   score: 90                   # (선택) 보고 정렬용. 판정 게이트가 **아니다**

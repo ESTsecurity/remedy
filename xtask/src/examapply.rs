@@ -232,9 +232,19 @@ pub fn run(root: &Path) -> Result<(), String> {
         return Err("정답 표가 비었다. exam::REFERENCES 를 볼 것".into());
     }
 
+    let mut checks = 0usize;
     for (name, rel) in refs {
         let name = name.to_string();
         let dir = threats.join(&name);
+        // **점검 위협에는 실기기 치료가 없다** — 점검 룰은 아무것도 바꾸지 않는다. 판정(취약 · 깨끗 · 확인 필요)은
+        // 그 위협의 `harness.txt` 가 가리키는 하네스가 실제 배포판에서 잰다. 조용히 빼지 않고 줄과 수로 적는다.
+        if dir.join("harness.txt").exists() {
+            lines.push(format!(
+                "    {name}  점검 위협 — 치료가 없다(판정은 하네스가 잰다)"
+            ));
+            checks += 1;
+            continue;
+        }
         let plugin_dir = root.join(rel);
         let plugin = plugin_dir.join("plugin.yaml");
         if !plugin.exists() {
@@ -463,7 +473,14 @@ pub fn run(root: &Path) -> Result<(), String> {
             errors.join("\n  ")
         ));
     }
-    println!("실기기 OK — 위협 {checked}개의 치료 결과가 지금 자료로 재어졌다");
+    println!(
+        "실기기 OK — 위협 {checked}개의 치료 결과가 지금 자료로 재어졌다{}",
+        if checks > 0 {
+            format!(" · 점검 위협 {checks}개는 하네스가 잰다")
+        } else {
+            String::new()
+        }
+    );
     Ok(())
 }
 
@@ -621,10 +638,12 @@ mod tests {
         // 2026-09-22: hexcfg-loader 가 스무째다 — capture 함수 셋
         //             (`hex_decode`·`basename`·`lower`)을 한 사슬로 처음 밟는다.
         //             셋 중 하나만 빼도 판정이 서지 않는다.
+        // 2026-11-14: apache-h2 가 스물한째다 — 처음 재는 **점검 위협**. 치료가 없어 실기기 결과 대신 그 위협의
+        //             `harness.txt` 가 가리키는 하네스가 판정을 잰다(위 게이트는 그것을 건너뛰고 수를 적는다).
         // 실기기 결과는 각 위협 폴더의 apply-result.json.
         assert_eq!(
             crate::exam::REFERENCES.len(),
-            20,
+            21,
             "정답 표의 크기가 바뀌었다. 늘었으면 그 위협의 실기기 결과를 두고,              줄었으면 왜 지웠는지 여기 적을 것"
         );
     }

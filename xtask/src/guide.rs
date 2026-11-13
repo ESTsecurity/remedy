@@ -408,37 +408,45 @@ fn check_exit_codes(root: &Path) -> Result<(), String> {
 /// 아니다. 그리고 목록에 적힌 파일이 실제로 있어야 한다 — 문서를 지우거나
 /// 이름을 바꿨는데 목록이 남으면 그 회차는 조용히 그것 없이 돌아간다.
 fn check_inject(root: &Path) -> Result<(), String> {
-    let list_path = root.join("testbed/ai-exam/inject.txt");
-    let text = std::fs::read_to_string(&list_path)
-        .map_err(|e| format!("{} 를 읽지 못했다: {e}", list_path.display()))?;
-    let listed: Vec<&str> = text
-        .lines()
-        .map(str::trim)
-        .filter(|l| !l.is_empty())
-        .collect();
+    // 모든 위협의 목록과, 점검 위협에만 더하는 목록(2026-11-14). 둘 다 코드와 파일이 같아야 한다.
+    for (file, code, name) in [
+        ("inject.txt", crate::exam::INJECT, "exam::INJECT"),
+        (
+            "inject-check.txt",
+            crate::exam::INJECT_CHECK,
+            "exam::INJECT_CHECK",
+        ),
+    ] {
+        let list_path = root.join("testbed/ai-exam").join(file);
+        let text = std::fs::read_to_string(&list_path)
+            .map_err(|e| format!("{} 를 읽지 못했다: {e}", list_path.display()))?;
+        let listed: Vec<&str> = text
+            .lines()
+            .map(str::trim)
+            .filter(|l| !l.is_empty())
+            .collect();
 
-    if listed != crate::exam::INJECT {
-        return Err(format!(
-            "주입 목록이 갈라졌다 — {} {}줄 vs exam::INJECT {}개\n  \
-             둘 중 하나를 고친 뒤 `cargo xtask exam --list-inject > {}` 로 맞춘다",
-            list_path.display(),
-            listed.len(),
-            crate::exam::INJECT.len(),
-            list_path.display()
-        ));
-    }
+        if listed != code {
+            return Err(format!(
+                "주입 목록이 갈라졌다 — {} {}줄 vs {name} {}개\n  둘 중 하나를 고쳐 맞춘다",
+                list_path.display(),
+                listed.len(),
+                code.len(),
+            ));
+        }
 
-    let missing: Vec<&str> = crate::exam::INJECT
-        .iter()
-        .copied()
-        .filter(|p| !root.join(p).exists())
-        .collect();
-    if !missing.is_empty() {
-        return Err(format!(
-            "주입 목록이 없는 파일을 가리킨다 {}건: {}",
-            missing.len(),
-            missing.join(", ")
-        ));
+        let missing: Vec<&str> = code
+            .iter()
+            .copied()
+            .filter(|p| !root.join(p).exists())
+            .collect();
+        if !missing.is_empty() {
+            return Err(format!(
+                "주입 목록이 없는 파일을 가리킨다 {}건: {}",
+                missing.len(),
+                missing.join(", ")
+            ));
+        }
     }
 
     check_bundle(root)
@@ -477,7 +485,13 @@ fn check_one_bundle(root: &Path, t: &crate::exam::Threat) -> Result<(), String> 
                 .count()
         })
         .unwrap_or(0);
-    let want = crate::exam::INJECT.len() + rules;
+    // 점검 위협은 점검 룰의 규약과 실물을 더 받는다(`exam::INJECT_CHECK`).
+    let check = if t.is_check() {
+        crate::exam::INJECT_CHECK.len()
+    } else {
+        0
+    };
+    let want = crate::exam::INJECT.len() + check + rules;
     let blocks = text.lines().filter(|l| l.starts_with("파일: ")).count();
     if blocks != want {
         return Err(format!(
