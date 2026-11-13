@@ -1,4 +1,11 @@
 {
+  "apache-http2-check-linux": {
+    "version": "0.1.0",
+    "files": {
+      "plugin.yaml": "9c02aaa527fd3ac74bbb7050763f5c0750dbad2f8c1c4337c6b68c40b5253529",
+      "rules/apache.yar": "c0f4415a088e0e22579790915f0405c676a78af9eab7a52936e3e40265fa9372"
+    }
+  },
   "appinit-implant": {
     "version": "1.0.0",
     "files": {
