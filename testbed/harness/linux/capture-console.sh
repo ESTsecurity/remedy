@@ -791,8 +791,10 @@ if command -v script >/dev/null 2>&1 && (
     REMEDY_TRUST_ANCHOR="$(sed -n 2p "$AW/pub.key")" \
         cargo build -q --release --offline -p remedy-cli >"$BUILD_LOG" 2>&1 || exit 1
     # 룰 목록에 네트워크 점검이 하나 있다(1.4.0) — 동반 프로그램을 따로 짓고 같은 키로 서명해
-    # 함께 담는다(배포 잡과 같은 차례). 없으면 `package` 가 멈춘다.
-    cargo build -q --release --offline -p remedy-net >>"$BUILD_LOG" 2>&1 || exit 1
+    # 함께 담는다(배포 잡과 같은 차례). 없으면 `package` 가 멈춘다. **같은 공개키를 박는다** — 판정
+    # 기준(데이터 룰 `remedy-net-criteria` · 위 룰 목록에 든다)의 서명을 동반 프로그램이 직접 확인한다(1.12.0).
+    REMEDY_TRUST_ANCHOR="$(sed -n 2p "$AW/pub.key")" \
+        cargo build -q --release --offline -p remedy-net >>"$BUILD_LOG" 2>&1 || exit 1
     mkdir -p "$AW/companion/remedy-net"
     cp "$(dirname "$REL")/remedy-net" "$AW/companion/remedy-net/" || exit 1
     cargo run -q --offline -p xtask -- sign companion --dir "$AW/companion/remedy-net" \

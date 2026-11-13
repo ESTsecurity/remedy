@@ -1833,6 +1833,18 @@ fn load_manifest(path: &str) -> Result<PluginManifest, String> {
 /// 동반 프로그램 쪽으로 보낸다 — 여기 닿는 것은 그 길을 지나지 않은 호출이다).
 fn load_local(path: &str) -> Result<PluginManifest, String> {
     let m = load_manifest(path)?;
+    // 데이터 룰(코어 1.12.0)은 판정 기준을 담을 뿐 이 기계에서 볼 것이 없다 — 빈 결과가 *깨끗함* 으로
+    // 읽히지 않게 무엇인지 말하고 멈춘다.
+    if m.kind == Some(PluginKind::Data) {
+        return Err(ui().lang.pick(
+            format!(
+                "이 룰은 동반 프로그램(remedy-net)이 읽는 판정 기준만 담았습니다 — 검사하는 룰이 아닙니다: {path}"
+            ),
+            format!(
+                "This rule only holds the criteria the companion program (remedy-net) reads — it is not a rule that checks anything: {path}"
+            ),
+        ));
+    }
     if m.network.is_some() {
         return Err(ui().lang.pick(
             format!(
@@ -4392,7 +4404,8 @@ fn outcome(verdicts: &[String], obs: &Observation, kind: Option<PluginKind>) -> 
 fn complete_enough(obs: &Observation, kind: Option<PluginKind>) -> bool {
     match kind {
         Some(PluginKind::Check) => obs.is_complete_for_check(),
-        None => obs.is_complete(),
+        // 데이터 룰은 `load_local` 이 막아 여기 오지 않는다 — 온다면 가장 엄한 쪽으로 본다.
+        None | Some(PluginKind::Data) => obs.is_complete(),
     }
 }
 

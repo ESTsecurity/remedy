@@ -15,6 +15,7 @@ mod fuzz;
 mod guide;
 mod leaks;
 mod metrics;
+mod netcriteria;
 mod package;
 mod pluginlock;
 mod schema;
@@ -78,6 +79,8 @@ fn main() -> ExitCode {
         // **룰을 고치면 플러그인 버전을 올린다** (2026-09-06). 린트는 한 파일만
         // 보므로 "전과 달라졌는가" 는 저장소 게이트가 본다.
         Some("plugin-lock") => pluginlock::run(&root, write),
+        // 동반 프로그램의 판정 기준(데이터 룰)이 읽히고 본체의 점검 룰과 같은 값인가 (코어 1.12.0).
+        Some("net-criteria") => netcriteria::run(&root),
         // 공개 전 누출 검사. **`all` 에 넣지 않는다** — 옛 사본은 로컬 전용 파일을
         // 추적하고 있어 실패가 맞는 상태다. 공개 저장소에서는 CI 의 따로 선 잡이다.
         Some("leaks") => {
@@ -101,7 +104,9 @@ fn main() -> ExitCode {
             .and_then(|()| examapply::run(&root))
             .and_then(|()| pluginlock::run(&root, false))
             // README 의 *다루는 위협* 표가 룰 매니페스트와 같은가 — 손으로 쓴 표는 룰이 늘면 어긋난다.
-            .and_then(|()| threats::run(&root, &[])),
+            .and_then(|()| threats::run(&root, &[]))
+            // 동반 프로그램의 기준과 본체의 점검 룰이 같은 공지의 같은 값인가 — 한쪽만 고치면 여기서 걸린다.
+            .and_then(|()| netcriteria::run(&root)),
         // VM 검증용 격리 컨테이너. 격리물을 **만드는** 것은 P6 의 몫이라
         // 제품 CLI 에 넣지 않고 개발 도구 쪽에 둔다.
         Some("fixture") => {
@@ -168,7 +173,7 @@ fn main() -> ExitCode {
             console::doc(&root, &args)
         }
         Some(other) => Err(format!("알 수 없는 작업: {other}")),
-        None => Err("사용법: cargo xtask <arch|trace|schema|guide|snapshots|exam-apply|plugin-lock|all> [--write]\n\
+        None => Err("사용법: cargo xtask <arch|trace|schema|guide|snapshots|exam-apply|plugin-lock|net-criteria|all> [--write]\n\
                      cargo xtask metrics [--state-dir <디렉터리>] [--lang ko|en]\n\
                      cargo xtask static <바이너리 경로>...\n\
                      cargo xtask exam --dir <플러그인 디렉터리>

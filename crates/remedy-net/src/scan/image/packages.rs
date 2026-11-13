@@ -53,8 +53,8 @@ pub(super) struct Record {
 
 /// 배포판 · 패키지를 읽고 고른 제품을 판정한다(스캐너의 `inspectRootFS`).
 ///
-/// 스캐너는 서명과 발행 시각을 검증한 기준이 없으면 *보지 못한 것* 을 더했다. 여기서는 기준이 바이너리에 들어 있고
-/// 만료가 없어 그 자리가 생기지 않는다(`scan::rules` 머리말).
+/// 스캐너는 서명과 발행 시각을 검증한 기준이 없으면 *보지 못한 것* 을 더했다. 여기서는 서명을 확인한 기준이 없으면
+/// 점검을 시작하지 않고(`crate::criteria` · 종료 4) 기준에 만료가 없어 그 자리가 생기지 않는다(`scan::rules` 머리말).
 pub(super) fn inspect(fs: &RootFs, t: &mut Target, cx: &Cx<'_>) {
     let (distro, release) = release(fs, t);
     t.metadata.insert("distribution".into(), distro.clone());

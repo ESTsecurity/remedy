@@ -24,6 +24,9 @@ remedy-report = { path = "../remedy-report" }
 # RPM 패키지 DB 판독기 — 이미지 · 컨테이너에서 꺼낸 DB 를 `read_untrusted` 로 읽는다. std 뿐인 잎 크레이트라
 # OS 에도 통신에도 닿지 않는다(설계-04 §1 의 `remedy-rpmdb ↛ remedy-platform`).
 remedy-rpmdb = { path = "../remedy-rpmdb" }
+# 판정 기준의 서명 확인 — 데이터 룰 `remedy-net-criteria` 를 본체가 룰 폴더를 확인하는 것과 같은 사슬로 본다
+# (코어 1.12.0 · `src/criteria.rs`). 검증만 하는 크레이트다(`minisign-verify`) — 서명 능력은 들이지 않는다.
+remedy-trust = { path = "../remedy-trust" }
 serde.workspace = true
 serde_json.workspace = true
 schemars.workspace = true
@@ -52,3 +55,6 @@ rcgen.workspace = true
 socket2.workspace = true
 # 이미지 시험의 tar 픽스처 — 판독은 이 크레이트가 직접 한다(워크스페이스 `Cargo.toml` 의 그 줄).
 tar.workspace = true
+# 시험의 기준 폴더를 일회용 키로 서명한다 — 시험 빌드에만 링크된다(제품은 서명 능력이 없다 · 루트
+# `Cargo.toml` 의 `minisign` 주석).
+minisign = { workspace = true }

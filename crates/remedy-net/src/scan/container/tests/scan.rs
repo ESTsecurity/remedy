@@ -83,7 +83,7 @@ fn a_confirmed_package_is_recorded_before_the_next_file_read() {
         &mut t,
         TEST_ID,
         &inspect_path("/usr/local/bin/php"),
-        RuleSet::builtin(),
+        RuleSet::fixture(),
         &[],
     );
     assert!(*checked.lock().unwrap(), "다음 파일 요청에 닿지 않았다");
@@ -256,7 +256,7 @@ fn combined_products_read_common_metadata_once() {
         &mut t,
         TEST_ID,
         &inspect_path("/usr/bin/node"),
-        RuleSet::builtin(),
+        RuleSet::fixture(),
         &[Product::Php, Product::Node],
     );
     t.finalize(Lang::Ko);
@@ -338,13 +338,13 @@ fn php_configuration_uses_bounded_individual_files_and_stays_review() {
         let mut t = target(&[Product::Php]);
         let mut seed = Component::new(Product::Php);
         seed.id = "php-runtime".into();
-        let mut first = RuleSet::builtin().evaluate(&seed, Lang::Ko);
+        let mut first = RuleSet::fixture().evaluate(&seed, Lang::Ko);
         first.status = Status::Clear;
         t.findings.push(first);
         let s = Subject {
             id: TEST_ID,
             inspected: &inspected,
-            rules: RuleSet::builtin(),
+            rules: RuleSet::fixture(),
             packages: &[],
             package_data: &[],
             distro: "ubuntu",
@@ -457,7 +457,7 @@ fn run(
         endpoint: "unix:///var/run/docker.sock",
         ids: &ids,
         products,
-        rules: RuleSet::builtin(),
+        rules: RuleSet::fixture(),
         lang: Lang::Ko,
     };
     let mut c = Client::new(&b, engine, Lang::Ko);
@@ -475,7 +475,7 @@ fn an_endpoint_that_fails_its_check_becomes_one_target() {
         endpoint: "tcp://localhost:2375",
         ids: &ids,
         products: &[Product::Php, Product::Node],
-        rules: RuleSet::builtin(),
+        rules: RuleSet::fixture(),
         lang: Lang::Ko,
     };
     let mut done = 0;

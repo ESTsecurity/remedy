@@ -1,12 +1,13 @@
 //! 스캐너 `internal/rules` 의 시험을 옮겼다. 각 시험의 이름 위에 원래 이름을 적는다.
 //!
-//! 버전 비교의 시험(`TestDebianOrdering` · `TestRPMOrdering` …)은 [`super::version`] 에, 내장 기준을 본체의 점검
-//! 룰 파일과 대조하는 시험은 [`super::data`] 의 `host_rules` 에 있다. 여기는 기준 한 벌을 놓고 판정을 보는
-//! 시험이다.
+//! 버전 비교의 시험(`TestDebianOrdering` · `TestRPMOrdering` …)은 [`super::version`] 에 있다. 기준을 본체의 점검
+//! 룰 파일과 대조하는 것은 크레이트 시험이 아니라 저장소 검사(`cargo xtask net-criteria`)다 — 룰을 고쳐도 이
+//! 크레이트의 시험이 깨지지 않게(코어 1.12.0). 여기는 고정 사본 기준 한 벌(`testdata/baseline.json`)을 놓고
+//! 판정을 보는 시험이다.
 //!
 //! 스캐너가 시험마다 서명해 만들던 기준은 여기서 JSON 글로 지어 [`RuleSet::from_json`] 으로 읽는다. 서명 ·
 //! 되돌림 · 엔진 버전 · 발행 시각을 보던 시험은 옮기지 않았다 — 그 장치가 여기에는 없다. 스캐너의 다른 자료
-//! 파일(`php-catalog.json` · `linux-vendor-advisories.json` …)과 대조하던 시험은 내장 기준의 줄로 바꿔 보거나
+//! 파일(`php-catalog.json` · `linux-vendor-advisories.json` …)과 대조하던 시험은 고정 사본 기준의 줄로 바꿔 보거나
 //! 옮기지 않았다 — 그 파일들을 들여오지 않는다.
 
 use super::data::{HashRecord, ProductData};
@@ -39,11 +40,11 @@ fn verdict(r: &RuleSet, c: &Component) -> Status {
     r.evaluate(c, Lang::Ko).status
 }
 
-/// 내장 기준의 한 제품 — [`super::data`] 의 대조 시험도 쓴다.
-pub(super) fn builtin(product: Product) -> &'static ProductData {
-    RuleSet::builtin()
+/// 고정 사본 기준의 한 제품 — [`super::data`] 의 대조 시험도 쓴다.
+pub(super) fn fixture(product: Product) -> &'static ProductData {
+    RuleSet::fixture()
         .product(product)
-        .expect("내장 기준에 그 제품이 없다")
+        .expect("고정 사본 기준에 그 제품이 없다")
 }
 
 /// PHP 만 있는 기준 — 공급사 줄은 받은 것만.
@@ -215,12 +216,13 @@ fn shared(base: Component, dependencies: Vec<Component>, complete: bool) -> Comp
     })
 }
 
-// ── 내장 기준 ───────────────────────────────────────────────────────────
+// ── 고정 사본 기준 ───────────────────────────────────────────────────────────
 
-/// `TestDistributedBaselineMatchesBuiltin` — 서명 봉투 대신 파일의 SHA-256 과 줄 수를 못박는다.
+/// `TestDistributedBaselineMatchesBuiltin` — 서명 봉투 대신 파일의 SHA-256 과 줄 수를 못박는다. 고정 사본이
+/// 스캐너의 그 파일인가를 본다(데이터 룰의 `baseline.json` 이 바뀌어도 이 사본은 그대로다).
 #[test]
-fn the_embedded_baseline_is_the_scanners_file() {
-    let r = RuleSet::builtin();
+fn the_fixture_baseline_is_the_scanners_file() {
+    let r = RuleSet::fixture();
     assert_eq!(r.version(), "2026-10-30.12");
     assert_eq!(r.issued_at(), "2026-10-30T01:46:17Z");
     // 스캐너 저장소(d3acb38)의 `data/baseline.json` 과 같은 바이트다 — 줄 끝만 바뀌어도 여기서 걸린다.
@@ -228,25 +230,25 @@ fn the_embedded_baseline_is_the_scanners_file() {
     assert_eq!(r.sha256(), digest);
     assert!(r.supports(Php) && r.supports(Node) && r.supports(Brotli));
 
-    let php = builtin(Php);
+    let php = fixture(Php);
     assert_eq!(php.upstream.len(), 4);
     assert_eq!(php.legacy_php.as_ref().map(|l| l.branches.len()), Some(10));
     assert_eq!(php.advisories.len(), 63);
     assert_eq!(php.hashes.len(), 37);
 
-    let node = builtin(Node);
+    let node = fixture(Node);
     assert_eq!(node.upstream.len(), 3);
     assert_eq!(node.build_assessments.len(), 2);
     assert_eq!(node.advisories.len(), 14);
     assert_eq!(node.hashes.len(), 555);
 
-    assert_eq!(builtin(Brotli).advisories.len(), 18);
+    assert_eq!(fixture(Brotli).advisories.len(), 18);
 }
 
 /// `TestProductCVEIsolationAndOfficialBaseline`
 #[test]
 fn each_product_keeps_its_own_cves_and_priority_releases_are_judged() {
-    let r = RuleSet::builtin();
+    let r = RuleSet::fixture();
     assert_eq!(r.cves(Php), PHP_CVES);
     assert_eq!(r.cves(Node), [BROTLI_CVE]);
     assert_eq!(r.cves(Brotli), [BROTLI_CVE]);
@@ -260,7 +262,7 @@ fn each_product_keeps_its_own_cves_and_priority_releases_are_judged() {
         ("18.20.8", Vulnerable),
         ("20.20.2", Vulnerable),
     ] {
-        let hashes = builtin(Node).hashes.iter();
+        let hashes = fixture(Node).hashes.iter();
         let builds: Vec<&HashRecord> = hashes.filter(|h| h.version == version).collect();
         assert!(!builds.is_empty(), "{version} 의 공식 빌드가 기준에 없다");
         for h in builds {
@@ -281,7 +283,7 @@ fn a_finding_carries_what_the_component_said() {
         c.source = "dpkg status".into();
         c.runtime = "fpm".into();
     });
-    let f = RuleSet::builtin().evaluate(&c, Lang::Ko);
+    let f = RuleSet::fixture().evaluate(&c, Lang::Ko);
     assert_eq!((f.id.as_str(), f.name.as_str()), ("t:1", "시험 패키지"));
     assert_eq!(f.product, Php);
     assert_eq!(f.path, None);
@@ -308,7 +310,7 @@ fn a_finding_carries_what_the_component_said() {
         advisory.detail
     );
     // 모르는 칸은 `-` 로 적는다.
-    let bare = RuleSet::builtin().evaluate(&official(Php, "8.3.36"), Lang::En);
+    let bare = RuleSet::fixture().evaluate(&official(Php, "8.3.36"), Lang::En);
     assert_eq!(
         bare.evidence[0].detail,
         "Install info: upstream / - / 8.3.36"
@@ -320,7 +322,7 @@ fn a_finding_carries_what_the_component_said() {
 /// `TestUbuntuBackportAndUnknown`
 #[test]
 fn ubuntu_backports_follow_the_vendor_line() {
-    let r = RuleSet::builtin();
+    let r = RuleSet::fixture();
     let fpm = |version: &str| package(Php, "ubuntu", "22.04", "php8.1-fpm", version);
     assert_eq!(verdict(r, &fpm("8.1.2-1ubuntu2.27")), Vulnerable);
     assert_eq!(verdict(r, &fpm("8.1.2-1ubuntu2.28")), Clear);
@@ -335,7 +337,7 @@ fn ubuntu_backports_follow_the_vendor_line() {
 /// `TestDebianBackportAdvisories`
 #[test]
 fn debian_backports_follow_the_vendor_line() {
-    let r = RuleSet::builtin();
+    let r = RuleSet::fixture();
     for (name, release, version, trusted, want) in [
         ("php8.2-fpm", "12", "8.2.28-1~deb12u1", true, Vulnerable),
         ("php8.2-cli", "12", "8.2.35-1~deb12u1", true, Clear),
@@ -360,7 +362,7 @@ fn debian_backports_follow_the_vendor_line() {
 /// `TestPHPVerdictsRemainStableAfterLegacyExpiry` — 시각을 바꿔 가며 보던 아홉 판정. 여기에는 시계가 없다.
 #[test]
 fn php_verdicts_at_the_boundaries() {
-    let r = RuleSet::builtin();
+    let r = RuleSet::fixture();
     let ubuntu = |version: &str| package(Php, "ubuntu", "22.04", "php8.1-fpm", version);
     let debian = |release: &str, v: &str| package(Php, "debian", release, "php8.2-cli", v);
     for (c, want) in [
@@ -402,7 +404,7 @@ fn criteria_do_not_expire() {
 /// `TestUbuntuThirdPartySuffixIsNotVendorFix`
 #[test]
 fn a_third_party_suffix_does_not_inherit_the_ubuntu_fix() {
-    let r = RuleSet::builtin();
+    let r = RuleSet::fixture();
     for version in [
         "8.1.2-1ubuntu2.28+ppa1",
         "1:8.1.2-1ubuntu2.28",
@@ -440,9 +442,9 @@ fn a_third_party_debian_build_does_not_inherit_the_fix() {
 /// 않았다. 기준의 8.3.35 · 8.3.36 해시가, 적힌 버전을 이기는가만 본다.
 #[test]
 fn an_official_hash_overrides_an_untrusted_version() {
-    let r = RuleSet::builtin();
+    let r = RuleSet::fixture();
     let mut seen = 0;
-    for h in &builtin(Php).hashes {
+    for h in &fixture(Php).hashes {
         let want = match h.version.as_str() {
             "8.3.35" => Vulnerable,
             "8.3.36" => Clear,
@@ -461,17 +463,17 @@ fn an_official_hash_overrides_an_untrusted_version() {
         assert_eq!(verdict(r, &c), Review, "{version}");
     }
     // 해시의 대소문자는 가리지 않는다.
-    let h = &builtin(Php).hashes[0];
+    let h = &fixture(Php).hashes[0];
     let upper = r.evaluate(&hashed(Php, &h.sha256.to_ascii_uppercase()), Lang::Ko);
     assert_eq!(upper.version.as_deref(), Some(h.version.as_str()));
     assert_ne!(upper.status, Review);
 }
 
-/// `TestLegacyPHPOfficialCatalogHashes` — 목록 파일 대신 내장 기준의 해시 줄로 본다(5.6.40 둘 · 7.4.33 셋).
+/// `TestLegacyPHPOfficialCatalogHashes` — 목록 파일 대신 고정 사본 기준의 해시 줄로 본다(5.6.40 둘 · 7.4.33 셋).
 #[test]
 fn a_legacy_official_hash_overrides_what_the_fields_say() {
-    let r = RuleSet::builtin();
-    let hashes = builtin(Php).hashes.iter();
+    let r = RuleSet::fixture();
+    let hashes = fixture(Php).hashes.iter();
     let legacy: Vec<&HashRecord> = hashes
         .filter(|h| h.version == "5.6.40" || h.version == "7.4.33")
         .collect();
@@ -491,7 +493,7 @@ fn a_legacy_official_hash_overrides_what_the_fields_say() {
 /// `TestLegacyPHPUpstreamAndUnknownBuilds`
 #[test]
 fn end_of_life_branches_are_vulnerable_only_as_official_builds() {
-    let r = RuleSet::builtin();
+    let r = RuleSet::fixture();
     for version in [
         "5.4.0", "5.4.45", "5.5.38", "5.6.40", "7.0.33", "7.1.33", "7.2.34", "7.3.33", "7.4.33",
         "8.0.30", "8.1.34",
@@ -530,7 +532,7 @@ fn end_of_life_branches_are_vulnerable_only_as_official_builds() {
 /// `TestLegacyPHPUbuntuESM`
 #[test]
 fn ubuntu_esm_lines_are_compared() {
-    let r = RuleSet::builtin();
+    let r = RuleSet::fixture();
     // 배포판 버전 · 패키지 이름의 앞머리 · 그 줄의 버전 · 수정된 ESM 번호(그 앞 번호는 고치기 전이다).
     for (release, base, line, esm) in [
         ("14.04", "php5", "5.5.9+dfsg-1ubuntu4.29", 18),
@@ -691,21 +693,21 @@ fn a_node_hash_names_its_version() {
     // Node.js 가 없는 기준에서는 어떤 해시도 이름이 없다.
     let php_only = rules(&php_rules(vec![]));
     assert_eq!(php_only.node_hash_version(&"1".repeat(64)), None);
-    // 내장 기준 — 대소문자를 가리지 않는다.
-    let h = &builtin(Node).hashes[0];
+    // 고정 사본 기준 — 대소문자를 가리지 않는다.
+    let h = &fixture(Node).hashes[0];
     let upper = h.sha256.to_ascii_uppercase();
-    let named = RuleSet::builtin().node_hash_version(&upper);
+    let named = RuleSet::fixture().node_hash_version(&upper);
     assert_eq!(named, Some(h.version.as_str()));
 }
 
 /// `TestKnownEOLBuildRequiresOfficialHashAndCodeEvidence`
 #[test]
 fn an_end_of_life_node_needs_the_official_hash_and_code_evidence() {
-    let r = RuleSet::builtin();
+    let r = RuleSet::fixture();
     // 버전 문자열만으로는 — 출처를 믿을 수 있어도 — 지원이 끝난 계열을 취약이라 하지 않는다.
     assert_eq!(verdict(r, &bundled("18.20.8")), Review);
     let mut seen = 0;
-    for h in &builtin(Node).hashes {
+    for h in &fixture(Node).hashes {
         if h.version != "18.20.8" && h.version != "20.20.2" {
             continue;
         }
@@ -1074,7 +1076,7 @@ fn malformed_fixed_versions_are_refused() {
     }
     // 입력 쪽의 넘치는 숫자도 판정하지 않는다.
     let oversized = official(Php, "8.3.999999999999999999999999");
-    assert_eq!(verdict(RuleSet::builtin(), &oversized), Review);
+    assert_eq!(verdict(RuleSet::fixture(), &oversized), Review);
 }
 
 /// `TestLegacyPHPRuleValidation` — 엔진 버전을 보던 한 줄은 옮기지 않았다.
@@ -1087,8 +1089,11 @@ fn a_bad_legacy_branch_rule_is_refused() {
         v
     };
     assert!(!refused(&legacy("7.4", "https://example.com/")));
+    // 어느 계열을 다루는가는 데이터가 정한다 — 코드의 목록에 없던 계열도 꼴이 맞으면 받는다(코어 1.12.0).
+    assert!(!refused(&legacy("5.3", "https://example.com/")));
     for (branch, source) in [
-        ("5.3", "https://example.com/"),
+        ("5", "https://example.com/"),
+        ("5.x", "https://example.com/"),
         ("8.2", "https://example.com/"),
         ("7.4", "http://example.com/"),
     ] {
@@ -1116,10 +1121,12 @@ fn malformed_product_rows_are_refused() {
     };
     // 옛 형식의 칸이 섞였다.
     assert!(broken(|v| v["upstream"] = json!({"8.3": "8.3.36"})));
-    // 다른 제품의 CVE.
-    assert!(broken(
-        |v| v["products"]["node"]["cves"] = json!([PHP_CVES[0]])
-    ));
+    // CVE 번호의 꼴이 틀렸거나 겹친다. 어느 CVE 를 다루는가는 그 제품의 `cves` 가 밝힌다(코어 1.12.0 — 코드의
+    // 목록과 견주지 않는다).
+    assert!(broken(|v| v["products"]["node"]["cves"] = json!(["CVE-26"])));
+    assert!(broken(|v| {
+        v["products"]["node"]["cves"] = json!(["CVE-2026-111497", "CVE-2026-111497"])
+    }));
     // 공급사가 아직 평가하지 않았다는 것은 수정됐다는 근거가 아니다.
     assert!(broken(|v| {
         v["products"]["node"]["advisories"][0]["status"] = json!("Needs evaluation")
@@ -1152,9 +1159,9 @@ fn hangul(c: char) -> bool {
 
 /// 판정 문장 스무 가지를 다 지나는 발견들.
 fn every_kind_of_finding(lang: Lang) -> Vec<Finding> {
-    let r = RuleSet::builtin();
+    let r = RuleSet::fixture();
     let node_hash = |version: &str| {
-        let h = builtin(Node).hashes.iter().find(|h| h.version == version);
+        let h = fixture(Node).hashes.iter().find(|h| h.version == version);
         hashed(Node, &h.expect("그 버전의 공식 빌드").sha256)
     };
     let rhel = |product: Product, release: &str, name: &str, version: &str| {
@@ -1175,7 +1182,7 @@ fn every_kind_of_finding(lang: Lang) -> Vec<Finding> {
         official(Php, "8.3.36"),
         official(Php, "8.9.9"),
         official(Php, "7.4.33"),
-        hashed(Php, &builtin(Php).hashes[0].sha256),
+        hashed(Php, &fixture(Php).hashes[0].sha256),
         // 공급사 공지
         ubuntu("8.1.2-1ubuntu2.27"),
         ubuntu("8.1.2-1ubuntu2.28"),
@@ -1244,7 +1251,7 @@ fn every_sentence_exists_in_both_languages() {
 /// 기준 데이터의 근거 설명은 한국어뿐이다 — 영어 문장이 코드에 다 있는가.
 #[test]
 fn every_build_evidence_detail_has_an_english_form() {
-    let builds = builtin(Node).build_assessments.iter();
+    let builds = fixture(Node).build_assessments.iter();
     let details: BTreeSet<&str> = builds
         .flat_map(|b| &b.evidence)
         .map(|e| e.detail.as_str())

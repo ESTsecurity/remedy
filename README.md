@@ -23,7 +23,7 @@
 | Node2Shell 점검 (CVE-2026-111497) | 찾기만 합니다 | `node2shell-check-windows` 0.4.0 | `node2shell-check-linux` 0.6.0 | [nodejs.org](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases) |
 | PHP 세션 업로드 진행 설정 점검 (CVE-2026-115560) | 찾기만 합니다 | `php-session-check-windows` 0.4.0 | `php-session-check-linux` 0.5.0 | [www.php.net](https://www.php.net/archive/2026.php) |
 | PHP2Shell 점검 (CVE-2026-109618 · 109619) | 찾기만 합니다 | `php2shell-check-windows` 0.4.0 | `php2shell-check-linux` 0.6.0 | [www.php.net](https://www.php.net/archive/2026.php) |
-| PHP2Shell 원격 점검 (웹서버 응답 헤더) | 적어 주신 주소의 서버를 바깥에서 봅니다 (네트워크 사용) | `php2shell-url-check` 0.1.0 | `php2shell-url-check` 0.1.0 | [www.php.net](https://www.php.net/archive/2026.php) |
+| PHP2Shell 원격 점검 (웹서버 응답 헤더) | 적어 주신 주소의 서버를 바깥에서 봅니다 (네트워크 사용) | `php2shell-url-check` 0.1.1 | `php2shell-url-check` 0.1.1 | [www.php.net](https://www.php.net/archive/2026.php) |
 | CWPdoor 점검 (탐지만) | 찾기만 합니다 | — | `cwpdoor-1-check` 0.1.2 | [blog.xlab.qianxin.com](https://blog.xlab.qianxin.com/cwpdoor-the-invisible-backdoor-living-inside-control-web-panel/) |
 | CWPdoor 제거 | 찾아서 치료합니다 (복원할 수 있습니다) | — | `cwpdoor-2-clean` 0.1.2 | [blog.xlab.qianxin.com](https://blog.xlab.qianxin.com/cwpdoor-the-invisible-backdoor-living-inside-control-web-panel/) |
 | Ebury 점검 (탐지만) | 찾기만 합니다 | — | `ebury-check` 0.2.0 | [www.welivesecurity.com](https://www.welivesecurity.com/en/eset-research/ebury-alive-unseen-400k-linux-servers-compromised-cryptotheft-financial-gain/) |
@@ -448,8 +448,12 @@ sudo bash detect_ebury.sh
 - **권한** — 이미지 점검은 관리자 권한이 필요 없습니다. 컨테이너 점검은 리눅스에서 root 로 실행합니다 — 엔진
   (dockerd · podman)이 정말 떠 있는지 확인하고, 꺼져 있으면 접속하지 않습니다(접속이 엔진을 띄울 수 있어서입니다).
   Windows 에서는 Docker Desktop 이 떠 있어야 합니다.
+- **판정 기준** — 원격 점검 · 이미지 · 컨테이너 점검의 기준은 받은 폴더의 `plugins/remedy-net-criteria` 에
+  들어 있습니다. `remedy-net` 은 그 폴더의 서명을 확인한 뒤 쓰고, 그 폴더가 없거나 서명이 맞지 않으면 점검하지
+  않습니다(종료 코드 4) — 받은 파일을 통째로 다시 푸십시오.
 - **결과 파일** — `--out-dir`(기본 `results`) 폴더의 `remedy-net-image-….json` · `remedy-net-container-….json`.
-  종료 코드는 remedy 와 같은 표입니다(0 양호 · 2 취약 · 6 확인 필요 · 4 입력 오류나 동의하지 않음).
+  종료 코드는 remedy 와 같은 표입니다(0 양호 · 2 취약 · 6 확인 필요 · 4 입력 오류나 동의하지 않음 · 기준 폴더가
+  없거나 맞지 않음).
 
 </details>
 

@@ -1,8 +1,9 @@
 //! 판정 규칙과 기준 데이터 — PHP · Node.js · Brotli.
 //!
 //! 사내 runtime-scanner(`d3acb38`)의 `internal/rules` 를 옮겼다. 기준 데이터는 그 저장소의
-//! `data/baseline.json`(기준 `2026-10-30.12`)을 **바이트 그대로** 담는다 — 공개 공지와 공식 배포본에서 온
-//! 값뿐이다.
+//! `data/baseline.json`(기준 `2026-10-30.12`) 형식이고 공개 공지와 공식 배포본에서 온 값뿐이다. **이
+//! 바이너리에는 없다** — 데이터 룰 `remedy-net-criteria` 의 `baseline.json` 을 서명을 확인한 뒤 읽는다
+//! ([`RuleSet::load`] · `crate::criteria` · 코어 1.12.0). 기준을 바꾸면 그 파일과 데이터 룰의 버전만 고친다.
 //!
 //! 수집한 것 하나([`Component`])를 받아 발견 하나([`Finding`])를 낸다. 규칙은 넷이다.
 //!
@@ -14,17 +15,19 @@
 //!   아닌 버전(PPA · 직접 빌드 · 다른 저장소)은 수정을 물려받지 않는다.
 //! - **대상 CVE 를 전부 덮어야 양호다.** 하나라도 덮지 못하면 *확인 필요* 로 남는다.
 //!
-//! # 서명과 만료를 두지 않는다
+//! # 서명은 본체의 것 하나, 만료는 두지 않는다
 //!
-//! 스캐너는 기준을 서명한 파일로 바깥에서 받아 바꿀 수 있었다. 여기서는 기준이 바이너리에 들어 있고 바깥
-//! 파일을 받지 않는다 — 그래서 서명 · 발행 시각 검사 · 엔진 버전 관문을 옮기지 않았다. **기준은 만료되지
-//! 않는다.** 그 대신 결과가 기준의 버전 · 발행 시각 · SHA-256 을 싣는다([`RuleSet::version`] ·
+//! 스캐너는 기준을 자기 키로 서명한 파일로 받았다. 여기서는 그 파일이 룰 폴더와 같은 사슬로 서명된 데이터
+//! 룰에 있다(본체와 같은 배포 키 · `remedy-trust`) — 스캐너의 서명 · 엔진 버전 관문은 옮기지 않았다.
+//! **기준은 만료되지 않는다.** 그 대신 결과가 기준의 버전 · 발행 시각 · SHA-256 을 싣는다([`RuleSet::version`] ·
 //! [`RuleSet::issued_at`] · [`RuleSet::sha256`]).
 //!
 //! # 본체의 점검 룰과 겹치는 값
 //!
-//! 수정 버전과 공식 빌드 해시는 본체의 점검 룰(`plugins/{php2shell,node2shell}-check-*`)에도 있다. 시험
-//! (`data` 의 `host_rules`)이 두 자리를 대조한다 — 기준의 값이 룰 파일에서 빠지거나 달라지면 시험이 실패한다.
+//! 수정 버전과 공식 빌드 해시는 본체의 점검 룰(`plugins/{php2shell,node2shell}-check-*`)에도 있다. 두 자리가
+//! 같은지는 저장소 검사(`cargo xtask net-criteria`)가 본다 — 룰 파일을 읽는 것은 크레이트 시험이 아니다(룰을
+//! 고쳐도 이 크레이트의 시험이 깨지지 않게). 크레이트 시험은 고정 사본(`testdata/baseline.json`)으로 판정
+//! 규칙을 잰다.
 
 mod advisory;
 mod data;
@@ -42,13 +45,9 @@ use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::fmt;
-use std::sync::OnceLock;
 
 /// 배포판 칸([`Component::distribution`])에 적는 값 — 배포판의 패키지가 아니라 만든 곳의 배포본이다.
 pub const UPSTREAM: &str = "upstream";
-
-/// 스캐너 `data/baseline.json` 의 바이트 그대로.
-const BASELINE: &str = include_str!("../../../data/baseline.json");
 
 /// Node.js 가 Brotli 를 어떻게 쓰는가.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
@@ -138,7 +137,8 @@ impl Component {
     }
 }
 
-/// 기준 데이터를 읽지 못한 까닭. 내장 기준에서는 시험이 먼저 잡는다 — 사용자 화면에 내는 글이 아니다.
+/// 기준 데이터를 읽지 못한 까닭 — 서명된 기준이면 같은 릴리스의 이 프로그램이 다 읽는다. 화면에는
+/// [`crate::criteria::Refusal::Unreadable`] 에 실려 괄호 안의 까닭으로 나간다.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RuleError(String);
 
@@ -159,18 +159,55 @@ pub struct RuleSet {
 }
 
 impl RuleSet {
-    /// 바이너리에 든 기준. 처음 부를 때 한 번 읽는다.
-    pub fn builtin() -> &'static RuleSet {
-        static BUILTIN: OnceLock<RuleSet> = OnceLock::new();
-        BUILTIN.get_or_init(|| {
-            // 컴파일해 넣은 파일이다. 읽지 못하는 것은 실행 조건이 아니라 빌드의 결함이고, 시험
-            // (`the_embedded_baseline_is_the_scanners_file`)이 먼저 잡는다 — 그래서 여기서는 멈춘다.
-            RuleSet::from_json(BASELINE)
-                .expect("내장 기준 데이터(data/baseline.json)를 읽지 못했다")
+    /// 서명을 확인한 데이터 룰의 `baseline.json` — 실행마다 한 번 읽는다(코어 1.12.0 · `crate::criteria`).
+    /// 점검은 따로 도는 일감에서도 쓰므로 그 실행이 끝날 때까지 둔다.
+    pub fn load() -> Result<&'static RuleSet, crate::criteria::Refusal> {
+        let verified = crate::criteria::open()?;
+        let text = verified.read(crate::criteria::BASELINE_FILE)?;
+        let set = RuleSet::from_json(&text).map_err(|e| {
+            crate::criteria::Refusal::Unreadable(
+                crate::criteria::BASELINE_FILE.to_string(),
+                e.to_string(),
+            )
+        })?;
+        Ok(crate::criteria::leak(set))
+    }
+
+    /// 도움말의 기준 줄(해라체) — 받은 기준 폴더에서 읽고, 확인하지 못하면 그렇다고 적는다(도움말은
+    /// 기준 없이도 선다). `image` · `container` 가 함께 쓴다.
+    pub fn help_line(lang: Lang) -> String {
+        match RuleSet::load() {
+            Ok(rules) => {
+                let (version, issued) = (rules.version(), rules.issued_at());
+                let issued = issued.get(..10).unwrap_or(issued);
+                lang.pick(
+                    format!("기준: {version} ({issued} 발행 · 만료 없음)."),
+                    format!("Criteria: {version} (issued {issued} · no expiry)."),
+                )
+            }
+            Err(_) => lang.pick(
+                format!(
+                    "기준: 데이터 룰 {} 의 baseline.json — 이 자리에서 확인하지 못했다.",
+                    crate::criteria::ID
+                ),
+                format!(
+                    "Criteria: baseline.json of the data rule {} — could not be verified here.",
+                    crate::criteria::ID
+                ),
+            ),
+        }
+    }
+
+    /// 시험이 쓰는 기준 — `testdata/baseline.json`(1.11.0 까지 바이너리에 들던 파일의 고정 사본).
+    #[cfg(test)]
+    pub fn fixture() -> &'static RuleSet {
+        static FIXTURE: std::sync::OnceLock<RuleSet> = std::sync::OnceLock::new();
+        FIXTURE.get_or_init(|| {
+            RuleSet::from_json(crate::criteria::testkit::BASELINE).expect("testdata/baseline.json")
         })
     }
 
-    /// 기준 파일의 글에서 읽는다 — 내장 기준과 시험이 쓴다. 모르는 칸 · 견줄 수 없는 꼴의 줄이 있으면 실패한다.
+    /// 기준 파일의 글에서 읽는다 — 데이터 룰과 시험이 쓴다. 모르는 칸 · 견줄 수 없는 꼴의 줄이 있으면 실패한다.
     pub fn from_json(text: &str) -> Result<RuleSet, RuleError> {
         let checked = data::parse(text).map_err(RuleError)?;
         let sha256 = Sha256::digest(text.as_bytes())

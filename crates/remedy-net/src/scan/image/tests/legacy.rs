@@ -137,7 +137,7 @@ fn image_elf32_library_resolution_uses_class_and_machine() {
     assert!(!complete, "같은 ABI 의 라이브러리 둘을 하나로 정했다");
 }
 
-/// `TestLegacyUbuntuPHPBackportsUseFinalImagePackageFiles` — 내장 기준(`RuleSet::builtin`)으로 본다.
+/// `TestLegacyUbuntuPHPBackportsUseFinalImagePackageFiles` — 고정 사본 기준(`RuleSet::fixture`)으로 본다.
 #[test]
 fn legacy_ubuntu_php_backports_use_final_image_package_files() {
     let releases = [
@@ -230,7 +230,7 @@ fn backport_case(
         reg(file, &data),
     ];
     let (dir, _) = oci(&[tar(&entries)], Raw, &[]);
-    let targets = run(dir.path(), &[Product::Php], RuleSet::builtin());
+    let targets = run(dir.path(), &[Product::Php], RuleSet::fixture());
     assert_eq!(targets.len(), 1, "{name}");
     let found = runtime(&targets[0]);
     assert_eq!(found.len(), 1, "{name}: {:#?}", targets[0]);

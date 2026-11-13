@@ -69,9 +69,15 @@ struct Row {
 }
 
 /// README 와 릴리스 본문에 같은 꼴로 들어가는 표. Windows 에 있는 줄이 먼저, 그 안은 폴더 이름순(처음 나온 차례).
+/// 표에 서는 룰인가 — 데이터 룰(`kind: data` · 코어 1.12.0)은 위협을 다루지 않고 동반 프로그램이 읽는
+/// 기준을 담을 뿐이라 표에 서지 않는다. 꾸러미에는 들어간다(`--dirs`).
+fn listed(m: &PluginManifest) -> bool {
+    m.kind != Some(remedy_sdk::manifest::PluginKind::Data)
+}
+
 fn table(plugins: &[(PathBuf, PluginManifest)]) -> String {
     let mut rows: Vec<Row> = Vec::new();
-    for (dir, m) in plugins {
+    for (dir, m) in plugins.iter().filter(|(_, m)| listed(m)) {
         let name = m
             .name
             .get("ko")
@@ -177,20 +183,15 @@ pub fn run(root: &Path, args: &[String]) -> Result<(), String> {
     let readme = std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
     let (s, e) = section(&readme)?;
     let want = format!("\n{}", table(&plugins));
+    let n = plugins.iter().filter(|(_, m)| listed(m)).count();
     if readme[s..e] == want {
-        println!(
-            "threats OK — README 의 위협 표가 룰 {}개와 같다",
-            plugins.len()
-        );
+        println!("threats OK — README 의 위협 표가 룰 {n}개와 같다");
         return Ok(());
     }
     if args.iter().any(|a| a == "--write") {
         let next = format!("{}{want}{}", &readme[..s], &readme[e..]);
         std::fs::write(&path, next).map_err(|e| format!("{}: {e}", path.display()))?;
-        println!(
-            "threats 갱신 — README 의 위협 표를 룰 {}개로 다시 썼다",
-            plugins.len()
-        );
+        println!("threats 갱신 — README 의 위협 표를 룰 {n}개로 다시 썼다");
         return Ok(());
     }
     Err(
@@ -254,6 +255,22 @@ mod tests {
             lines[5].contains("| 나 점검 | 찾기만 합니다 | — | `b-only-linux` 0.2.0 |"),
             "{t}"
         );
+    }
+
+    /// 데이터 룰은 위협이 아니다 — 표에 서지 않는다(꾸러미에는 `--dirs` 로 들어간다 · 코어 1.12.0).
+    #[test]
+    fn a_data_rule_is_not_a_row() {
+        let yaml = "schema_version: 1\nid: e-data\nversion: 1.0.0\nmin_core: \"1.12.0\"\n\
+                    platforms: [windows, linux]\nkind: data\nname: { ko: \"기준\", en: \"x\" }\n\
+                    scan_roots: []\nsubjects: []\ndetect: []\n";
+        let data: PluginManifest = serde_yaml_ng::from_str(yaml).expect("데이터 룰");
+        assert!(!listed(&data));
+        let with = table(&[
+            rule("a-check-linux", "가 점검", "linux"),
+            (PathBuf::from("e-data"), data),
+        ]);
+        let without = table(&[rule("a-check-linux", "가 점검", "linux")]);
+        assert_eq!(with, without);
     }
 
     #[test]

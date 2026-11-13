@@ -72,7 +72,7 @@ fn package_records_do_not_trust_a_custom_vendor() {
 /// 기준과 이어지고, 수집한 뒤에도 그 판정을 잃지 않는다. 고친 패키지 기록은 실제 파일과 잇지 못해 *확인 필요* 다.
 #[test]
 fn legacy_ubuntu_php_backports_keep_their_package_evidence() {
-    let rules = RuleSet::builtin();
+    let rules = RuleSet::fixture();
     let releases = [
         (
             "14.04",
@@ -255,7 +255,7 @@ fn a_php_package_needs_a_linked_file_for_clear() {
             &mut t,
             TEST_ID,
             &Inspect::default(),
-            RuleSet::builtin(),
+            RuleSet::fixture(),
             &[Product::Php],
         );
         t.finalize(Lang::Ko);

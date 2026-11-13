@@ -70,8 +70,12 @@ fn sha256_of(p: &Path) -> Result<String, String> {
     Ok(format!("{:x}", Sha256::digest(&bytes)))
 }
 
+/// 데이터 룰(`kind: data`)에서 잠그지 않는 파일 — 서명 둘과 사람이 읽는 기록.
+const NOT_DATA: [&str; 3] = ["MANIFEST", "MANIFEST.minisig", "RELEASE.md"];
+
 /// 플러그인 폴더의 지금 상태. `plugin.yaml` 과 `rules/**` 만 본다 — 그 둘이
-/// 치료를 정한다.
+/// 치료를 정한다. **데이터 룰은 맨 위의 데이터 파일도 본다**(코어 1.12.0) — 판정 기준이
+/// 그 파일들에 있으므로, 기준을 고치면 버전을 올리게 한다.
 fn entry_of(dir: &Path) -> Result<(String, Entry), String> {
     let manifest = std::fs::read_to_string(dir.join("plugin.yaml"))
         .map_err(|e| format!("{}: {e}", dir.display()))?;
@@ -96,6 +100,24 @@ fn entry_of(dir: &Path) -> Result<(String, Entry), String> {
                 p.file_name().unwrap_or_default().to_string_lossy()
             );
             files.insert(rel, sha256_of(&p)?);
+        }
+    }
+    if m.kind == Some(remedy_sdk::manifest::PluginKind::Data) {
+        let mut paths: Vec<PathBuf> = std::fs::read_dir(dir)
+            .map_err(|e| format!("{}: {e}", dir.display()))?
+            .filter_map(|e| e.ok().map(|e| e.path()))
+            .filter(|p| p.is_file())
+            .collect();
+        paths.sort();
+        for p in paths {
+            let name = p
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string();
+            if name != "plugin.yaml" && !NOT_DATA.contains(&name.as_str()) {
+                files.insert(name, sha256_of(&p)?);
+            }
         }
     }
     Ok((

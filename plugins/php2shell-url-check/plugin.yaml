@@ -19,7 +19,8 @@
 #   `php2shell-check-windows`)로 한다.
 #
 # 수정 버전은 `php2shell-check-linux` 와 같은 표다(상류 8.2.35 · 8.3.36 · 8.4.27 · 8.5.12 · Ubuntu · Debian
-# 줄) — 동반 프로그램에 들어 있고, 그 프로그램의 시험이 두 표가 같은지 본다.
+# 줄) — 데이터 룰 `remedy-net-criteria` 의 `url.json` 에 있고(코어 1.12.0), 동반 프로그램은 그 폴더의 서명을
+# 확인한 뒤 읽는다. 두 표가 같은지는 `cargo xtask net-criteria` 가 본다.
 #
 # # 이 룰이 보지 않는 것
 #
@@ -28,7 +29,7 @@
 # - 적지 않은 주소. CIDR · 목록 파일을 펼치지 않고, 리다이렉트가 가리키는 곳에도 가지 않는다.
 schema_version: 1
 id: php2shell-url-check
-version: 0.1.0
+version: 0.1.1
 min_core: "1.4.0"   # network 가 1.4.0 부터 있다
 platforms: [windows, linux]
 

@@ -113,6 +113,7 @@ fn scan(t: &dyn Transport, g: &dyn Gate, urls: &[&str], timeout: Duration) -> Ve
         cancel: &cancel,
         url_timeout: timeout,
         lang: Lang::Ko,
+        criteria: super::criteria::fixture(),
     }
     .run(&urls, &mut |_| {})
 }
@@ -393,6 +394,7 @@ fn a_head_warning_survives_an_interrupted_fallback() {
                 cancel: &cancel,
                 url_timeout: Duration::from_secs(5),
                 lang: Lang::Ko,
+                criteria: super::criteria::fixture(),
             }
             .run(&["https://example.com/".to_string()], &mut |_| {})
         });

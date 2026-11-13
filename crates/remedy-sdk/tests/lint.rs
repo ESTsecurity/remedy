@@ -290,6 +290,86 @@ fn the_network_value_is_a_closed_set() {
 }
 
 #[test]
+fn a_network_check_does_not_name_files_or_archive_members() {
+    // 1.11.0 의 두 칸도 이 기계를 읽는 칸이다 — 네트워크 점검 룰에 적으면 같은 오류다.
+    for (to, at) in [
+        ("detect: []\nfile_names: ['*.jar']", "file_names"),
+        ("detect: []\narchive_members: ['*.jar']", "archive_members"),
+    ] {
+        let e = errors(&NETWORK.replace("detect: []", to));
+        assert!(
+            e.iter()
+                .any(|x| x.starts_with(&format!("{at} ::")) && x.contains("이 기계를 보지 않는다")),
+            "{at}: {e:?}"
+        );
+    }
+}
+
+// ───────────────────────────── 데이터 룰 (`kind: data` · 2026-11-13 · 코어 1.12.0)
+
+/// 데이터 룰의 온전한 모양 — 동반 프로그램이 읽는 기준만 담고 이 기계를 보지 않는다.
+const DATA: &str = r#"
+schema_version: 1
+id: lint-data
+version: 1.0.0
+min_core: '1.12.0'
+platforms: [windows, linux]
+name: { ko: '기준', en: 'criteria' }
+kind: data
+scan_roots: []
+subjects: []
+detect: []
+"#;
+
+#[test]
+fn a_data_rule_is_clean() {
+    let issues = lint(&parse(DATA));
+    assert_eq!(blocking(&issues), 0, "오류가 나오면 안 된다: {issues:#?}");
+}
+
+#[test]
+fn a_data_rule_reads_nothing_and_does_nothing() {
+    // 채워 두면 서명된 룰이 '이 자리를 읽는다 · 이것을 고친다' 고 적어 놓고 아무도 그것을 하지 않는다.
+    for (from, to, at) in [
+        ("scan_roots: []", "scan_roots: ['/etc']", "scan_roots"),
+        ("subjects: []", "subjects: [file]", "subjects"),
+        (
+            "detect: []",
+            "detect: []\nverdict: { require: 'x' }",
+            "verdict",
+        ),
+        ("detect: []", "detect: []\nnetwork: url", "network"),
+        (
+            "detect: []",
+            "detect: []\nfile_names: ['*.json']",
+            "file_names",
+        ),
+        (
+            "detect: []",
+            "detect: []\nremediate: { remove: [] }",
+            "remediate",
+        ),
+    ] {
+        let e = errors(&DATA.replace(from, to));
+        assert!(
+            e.iter().any(|x| x.starts_with(&format!("{at} ::"))
+                && x.contains("데이터 룰은 이 기계를 보지 않는다")),
+            "{at}: {e:?}"
+        );
+    }
+}
+
+#[test]
+fn a_data_rule_needs_core_1_12_0() {
+    let e = errors(&DATA.replace("min_core: '1.12.0'", "min_core: '1.11.0'"));
+    assert!(
+        e.iter()
+            .any(|x| x.starts_with("min_core ::") && x.contains("1.12.0")),
+        "{e:?}"
+    );
+}
+
+#[test]
 fn an_ordinary_rule_still_needs_a_verdict() {
     // `verdict` 가 빠져도 읽히게 된 것은 네트워크 점검 룰 때문이다 — 그 밖의 룰에서는 오류로 남는다.
     let e = errors(&BASE.replace("verdict: { require: 'task and payload' }", ""));

@@ -88,6 +88,7 @@ pub fn run(root: &Path, args: &[String]) -> Result<(), String> {
             tree,
             treats: m.remediate.is_some(),
             network: m.network.is_some(),
+            data: m.kind == Some(remedy_sdk::manifest::PluginKind::Data),
         });
     }
 
@@ -261,6 +262,9 @@ struct Packed {
     /// 네트워크로 점검하는 룰인가(`network`) — 이 기계를 보지 않고 동반 프로그램이 맡는다. 쓰는
     /// 법이 다르다(관리자 권한이 필요 없고 주소를 준다).
     network: bool,
+    /// 데이터 룰인가(`kind: data` · 코어 1.12.0) — 검사 항목이 아니라 동반 프로그램이 읽는 기준이다.
+    /// README 의 검사 항목 · 실행 명령 · 할 일 안내에 서지 않고, 서명 확인 줄에만 선다.
+    data: bool,
 }
 
 /// 꾸러미에 담기로 확인된 동반 프로그램 폴더.
@@ -417,6 +421,10 @@ fn readme(
         })
         .unwrap_or_else(|| "?".into());
 
+    // 검사 항목 — 데이터 룰(코어 1.12.0)은 동반 프로그램이 읽는 기준일 뿐이라 검사 항목 · 실행 명령 ·
+    // 할 일 안내에 서지 않는다. 서명 확인 줄(아래)에는 선다 — 받는 사람이 그 폴더도 확인할 수 있다.
+    let checks: Vec<&Packed> = plugins.iter().filter(|p| !p.data).collect();
+
     let mut s = String::new();
     s.push_str("ESTsecurity 전용백신 — 사용 방법\r\n");
     s.push_str("========================================\r\n\r\n");
@@ -424,7 +432,7 @@ fn readme(
     // **하나일 때의 글자는 그대로 둔다.** `docs/operator.md` 와 화면 캡처가 그 꼴로
     // 돌고 있고, 여럿을 담을 수 있게 되었다는 사실이 하나짜리 꾸러미의 안내문을
     // 바꿀 이유는 없다.
-    for p in plugins {
+    for p in &checks {
         s.push_str(&format!("검사 항목 {} {}\r\n", p.id, p.version));
     }
     s.push_str(&format!("{anchored}\r\n\r\n"));
@@ -472,11 +480,11 @@ fn readme(
         // 그 질문의 1번은 **전부로 검사만**이다(목표 remedy_출시_20261111 기준 3) — 무엇을 노린
         // 위협인지 모르는 사람이 항목을 하나씩 골라 다시 띄우지 않게. 작업이 끝나면 그 질문으로
         // 돌아오므로 *"한 번 더 실행해 고릅니다"* 는 이제 틀린 말이다.
-        if plugins.len() > 1 {
-            let n = plugins.len();
+        if checks.len() > 1 {
+            let n = checks.len();
             // 화면의 그 줄은 **이 기계를 보는 항목**만 센다(`guided::choose`) — 네트워크 점검은
             // 주소를 적어야 돌아서 한꺼번에 돌리지 않는다. 글이 화면과 같은 수를 말해야 한다.
-            let local = plugins.iter().filter(|p| !p.network).count();
+            let local = checks.iter().filter(|p| !p.network).count();
             s.push_str(&format!(
                 "   이 폴더에는 검사 항목이 {n}개 들어 있어, 먼저 어느 것을 볼지\r\n"
             ));
@@ -534,7 +542,7 @@ fn readme(
     //
     // 네트워크 점검 룰은 여기 적지 않는다 — 쓰는 법이 달라(관리자 권한이 필요 없고 주소를 준다)
     // 아래 *네트워크를 쓰는 점검* 절이 따로 적는다.
-    let local: Vec<&Packed> = plugins.iter().filter(|p| !p.network).collect();
+    let local: Vec<&Packed> = checks.iter().copied().filter(|p| !p.network).collect();
     for p in &local {
         s.push_str(&format!(
             "     {sudo}{here}{exe} run --plugin {here}plugins{sep}{}{sep}plugin.yaml\r\n",
@@ -599,8 +607,9 @@ fn readme(
     // **인터넷이 막힌 기계에서도 볼 곳** — 같은 차례가 룰 폴더마다 든 RELEASE.md 에 있다
     // (2026-11-07 적대적 검토: 폐쇄망 서버에는 주소만으로는 볼 곳이 없었다). 서명과 대조한
     // 목록(`tree`)에 있는 것만 적는다 — 없는 파일을 가리키지 않는다.
-    let notes: Vec<&Packed> = plugins
+    let notes: Vec<&Packed> = checks
         .iter()
+        .copied()
         .filter(|p| p.tree.contains_key("RELEASE.md"))
         .collect();
     if !notes.is_empty() {
@@ -825,7 +834,43 @@ mod tests {
             tree: BTreeMap::new(),
             treats: true,
             network: false,
+            data: false,
         }
+    }
+
+    /// 데이터 룰 하나 — 검사 항목이 아니라 동반 프로그램이 읽는 기준이다(코어 1.12.0).
+    fn data(name: &str) -> Packed {
+        Packed {
+            treats: false,
+            data: true,
+            ..packed(name)
+        }
+    }
+
+    /// 데이터 룰은 검사 항목 · 실행 명령에 서지 않고, 서명 확인 줄에만 선다.
+    #[test]
+    fn a_data_rule_is_verified_but_not_offered() {
+        let ps = vec![packed("rule0"), data("criteria")];
+        let r = readme(Path::new("."), &ps, "remedy.exe", &[], true, false);
+        assert!(r.contains("검사 항목 rule0 1.0.0"), "{r}");
+        assert!(!r.contains("검사 항목 criteria"), "{r}");
+        assert!(!r.contains("run --plugin .\\plugins\\criteria"), "{r}");
+        let verify = "     .\\remedy.exe plugin verify --dir .\\plugins\\criteria\r\n";
+        assert!(r.contains(verify), "{r}");
+        // 그 줄을 빼면 하나짜리 꾸러미의 글 그대로다 — 데이터 룰은 '여럿' 으로 세지 않는다.
+        let one = readme(
+            Path::new("."),
+            &[packed("rule0")],
+            "remedy.exe",
+            &[],
+            true,
+            false,
+        );
+        assert_eq!(
+            r.replace(verify, ""),
+            one,
+            "데이터 룰 말고 달라진 줄이 있다"
+        );
     }
 
     /// 네트워크 점검 룰 하나 — 찾기만 하고(치료 없음) 이 기계를 보지 않는다.

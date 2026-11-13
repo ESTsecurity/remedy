@@ -116,7 +116,14 @@ pub fn run(args: &[String], lang: Lang) -> Outcome {
     if o.list {
         return list(&o.endpoint, lang);
     }
-    let rules = RuleSet::builtin();
+    // 기준부터 — 받은 파일이 온전하지 않으면 약관을 묻기 전에 멈춘다(엔진에 닿지도 않는다).
+    let rules = match RuleSet::load() {
+        Ok(r) => r,
+        Err(why) => {
+            eprintln!("{}", ascii_safe(why.message(lang)));
+            return Outcome::BadInput;
+        }
+    };
     let n = o.ids.len();
     let (ids, endpoint, products) = (o.ids, o.endpoint, o.products.clone());
     let engine: Engine = Box::new(move |_dir, budget, done| {
@@ -229,9 +236,7 @@ fn limitations(lang: Lang) -> Vec<String> {
 
 /// `remedy-net container --help`. 명령 설명은 본체의 도움말처럼 해라체다.
 pub fn help(lang: Lang) -> String {
-    let rules = RuleSet::builtin();
-    let (version, issued) = (rules.version(), rules.issued_at());
-    let issued = issued.get(..10).unwrap_or(issued);
+    let basis = RuleSet::help_line(lang);
     let endpoint = crate::scan::container::default_endpoint();
     lang.pick(
         format!(
@@ -249,7 +254,7 @@ pub fn help(lang: Lang) -> String {
              \x20 --consent y|n      약관에 미리 답한다(무인 실행). 빼면 묻는다\n\
              \x20 --out-dir 폴더     결과 JSON 을 쓸 폴더 (기본: results)\n\n\
              지키는 것: 실행 전체 10분 · 엔진 API 요청 128회 · 받는 양 256 MiB · 초당 10 MiB.\n\
-             기준: {version} ({issued} 발행 · 만료 없음).\n"
+             {basis}\n"
         ),
         format!(
             "Usage: remedy-net container CONTAINER-ID [ID ...] [options]\n\
@@ -268,7 +273,7 @@ pub fn help(lang: Lang) -> String {
              \x20 --consent y|n      answer the terms in advance (unattended runs); asked if omitted\n\
              \x20 --out-dir DIR      folder for the JSON result (default: results)\n\n\
              Limits: 10 minutes per run · 128 engine API requests · 256 MiB received · 10 MiB per second.\n\
-             Criteria: {version} (issued {issued} · no expiry).\n"
+             {basis}\n"
         ),
     )
 }
@@ -359,7 +364,11 @@ mod tests {
     fn help_and_terms_are_bilingual_and_separate() {
         for lang in [Lang::Ko, Lang::En] {
             let h = help(lang);
-            assert!(h.contains(RuleSet::builtin().version()), "{h}");
+            // 기준 줄 — 이 시험 자리에는 기준 폴더가 없어 그렇다고 적는다(있으면 그 버전).
+            assert!(
+                h.contains(crate::criteria::ID) || h.contains(RuleSet::fixture().version()),
+                "{h}"
+            );
             assert!(h.contains(crate::scan::container::default_endpoint()));
             assert!(!h.contains(terms(lang)));
         }

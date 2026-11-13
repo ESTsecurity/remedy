@@ -308,7 +308,8 @@ detect:
 맡기고 종료 코드만 받는다(설계-04 §1). 그래서 **이 기계를 읽는 칸은 전부 비운다**:
 `scan_roots` · `subjects` · `detect` 는 `[]`, `verdict` 는 적지 않는다 — 채우면 로드가
 거부한다. `kind: check` 와 `min_core: "1.4.0"` 이 함께 온다. 값은 닫힌 집합이고 지금은
-`url` 하나다. 판정 기준은 룰이 아니라 `remedy-net` 에 있다(`plugins/php2shell-url-check`).
+`url` 하나다. 판정 기준(수정 버전 표)은 이 룰이 아니라 데이터 룰 `plugins/remedy-net-criteria` 의
+`url.json` 에 있다(코어 1.12.0 · `10-manifest.md` 의 *kind: data*) — 기준을 바꿀 때 remedy-net 을 다시 짓지 않는다.
 
 ## 청정 코퍼스
 

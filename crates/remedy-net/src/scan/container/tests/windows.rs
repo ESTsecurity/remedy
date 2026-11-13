@@ -333,7 +333,7 @@ fn windows_php_legacy_core_files_reach_the_hash_rules() {
         let mut seed = Component::new(Product::Php);
         seed.path = r"C:\php\php.exe".into();
         t.findings
-            .push(RuleSet::builtin().evaluate(&seed, Lang::Ko));
+            .push(RuleSet::fixture().evaluate(&seed, Lang::Ko));
         let executables: BTreeMap<String, Vec<usize>> =
             [(r"C:\php".to_string(), vec![0])].into_iter().collect();
         scan_windows_php_core(&mut c, &mut t, TEST_ID, &rules, &executables);

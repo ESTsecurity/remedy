@@ -113,9 +113,9 @@
     }
   },
   "php2shell-url-check": {
-    "version": "0.1.0",
+    "version": "0.1.1",
     "files": {
-      "plugin.yaml": "c5895ac5be66c74f512006d5fb22bfc198f05c0978497057d9e611a469910f36"
+      "plugin.yaml": "6064beb4aea1be2bcd161b3eef682283471f97f8012d927e2ef76172f4126d45"
     }
   },
   "proxy-dns-hijack": {
@@ -134,6 +134,14 @@
     "version": "1.0.0",
     "files": {
       "plugin.yaml": "7dee04909756f6f2182faf6da3d5e786610816945955189a2bdaf42196ef4af7"
+    }
+  },
+  "remedy-net-criteria": {
+    "version": "1.0.0",
+    "files": {
+      "baseline.json": "2fd679f46718d75841747396e71386bf38f31442a61d2344c64dd27dc2eb9b67",
+      "plugin.yaml": "e7d44e2454ef615ac4379b6a946bb6534dc95d1d08f603f449f53f2f4c58bdb1",
+      "url.json": "de518b078c5438e59b0b9135f0add9c82a2e7228241021b57134b4e55d7aba53"
     }
   },
   "search-hijack": {

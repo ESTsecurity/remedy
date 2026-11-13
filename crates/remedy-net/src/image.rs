@@ -93,7 +93,14 @@ pub fn run(args: &[String], lang: Lang) -> Outcome {
             return Outcome::BadInput;
         }
     };
-    let rules = RuleSet::builtin();
+    // 기준부터 — 받은 파일이 온전하지 않으면 약관을 묻기 전에 멈춘다(결과 폴더도 없다).
+    let rules = match RuleSet::load() {
+        Ok(r) => r,
+        Err(why) => {
+            eprintln!("{}", ascii_safe(why.message(lang)));
+            return Outcome::BadInput;
+        }
+    };
     let n = o.inputs.len();
     let (inputs, products) = (o.inputs, o.products.clone());
     let engine: Engine = Box::new(move |dir, budget, done| {
@@ -176,9 +183,7 @@ fn limitations(lang: Lang) -> Vec<String> {
 
 /// `remedy-net image --help`. 명령 설명은 본체의 도움말처럼 해라체다.
 pub fn help(lang: Lang) -> String {
-    let rules = RuleSet::builtin();
-    let (version, issued) = (rules.version(), rules.issued_at());
-    let issued = issued.get(..10).unwrap_or(issued);
+    let basis = RuleSet::help_line(lang);
     lang.pick(
         format!(
             "쓰는 법: remedy-net image 파일 [파일 ...] [옵션]\n\n\
@@ -193,7 +198,7 @@ pub fn help(lang: Lang) -> String {
              \x20 --out-dir 폴더     결과 JSON 을 쓸 폴더 (기본: results). 파일 하나로 받은 이미지는 이 아래에\n\
              \x20                    잠시 풀었다가 지운다\n\n\
              지키는 것: 실행 전체 10분 · 읽는 양 8 GiB · 푼 양 8 GiB · 레이어 256개 · 파일 항목 100,000개.\n\
-             기준: {version} ({issued} 발행 · 만료 없음).\n"
+             {basis}\n"
         ),
         format!(
             "Usage: remedy-net image FILE [FILE ...] [options]\n\n\
@@ -209,7 +214,7 @@ pub fn help(lang: Lang) -> String {
              \x20 --out-dir DIR      folder for the JSON result (default: results); an image given as a single\n\
              \x20                    file is unpacked below it for a while and then deleted\n\n\
              Limits: 10 minutes per run · 8 GiB read · 8 GiB expanded · 256 layers · 100,000 file entries.\n\
-             Criteria: {version} (issued {issued} · no expiry).\n"
+             {basis}\n"
         ),
     )
 }
@@ -275,7 +280,11 @@ mod tests {
     fn help_and_terms_are_bilingual_and_separate() {
         for lang in [Lang::Ko, Lang::En] {
             let h = help(lang);
-            assert!(h.contains(RuleSet::builtin().version()), "{h}");
+            // 기준 줄 — 이 시험 자리에는 기준 폴더가 없어 그렇다고 적는다(있으면 그 버전).
+            assert!(
+                h.contains(crate::criteria::ID) || h.contains(RuleSet::fixture().version()),
+                "{h}"
+            );
             assert!(!h.contains(terms(lang)));
             assert!(terms(lang).lines().count() >= 6);
         }
