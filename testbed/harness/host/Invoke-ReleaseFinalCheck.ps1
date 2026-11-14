@@ -5,13 +5,16 @@
 
 .DESCRIPTION
     `-Final` 은 정식 태그의 배포 잡이 올린 **초안을 내려받아 푼** `remedy-windows-x64` 폴더, `-Rc` 는 rc 묶음이 잰 rc 의
-    같은 폴더다. 같은 판 · 같은 커밋이면 정식과 rc 는 **바이트까지 같다** — 그래서 rc 묶음의 결과가 정식 파일의 결과가
-    된다. 랩 VM 은 쓰지 않는다.
+    같은 폴더다. 같은 판 · 같은 커밋이면 정식과 rc 는 **빌드마다 새로 쓰이는 칸 말고는 바이트까지 같다** — 그래서 rc
+    묶음의 결과가 정식 파일의 결과가 된다. 랩 VM 은 쓰지 않는다.
 
       1  체크섬 — `-Sums`(릴리스의 SHA256SUMS)를 주면 그 안의 `remedy-windows-x64.zip` 줄과 `-Zip`(받은 zip)을 견준다
-      2  정식 파일 — 엔진 · 동반 프로그램의 버전, 꾸러미에 든 룰 전부의 서명(`plugin verify`), 동반 프로그램이 판정
-         기준을 알아보는가(`url` · `image` · `container` 도움말의 기준 줄)
-      3  rc 와 같은가 — 파일마다 SHA-256 대조. 다른 파일 · 한쪽에만 있는 파일이 0 이어야 한다
+      2  정식 파일 — 엔진 · 동반 프로그램의 버전, 꾸러미에 든 룰 전부와 동반 프로그램 폴더의 서명(`plugin verify`), 동반
+         프로그램이 판정 기준을 알아보는가(`url` · `image` · `container` 도움말의 기준 줄)
+      3  rc 와 같은가 — 파일마다 SHA-256 대조. 빌드마다 새로 쓰이는 칸은 둘이다(v1.16.0 에서 처음 쟀다):
+         서명 파일(`MANIFEST.minisig`)은 minisign 이 서명마다 난수를 섞어 서명 값이 다르므로 서명 주석이 같은지 보고(그
+         서명이 맞는지는 2 가 잰다), 실행 파일(`.exe`)은 MSVC 링크가 시각과 PDB 의 GUID 를 새로 쓰므로 그 칸만 가리고
+         견준다 — 그 실행 파일의 해시를 적은 `MANIFEST` 는 그 줄만 다를 수 있다. 다른 파일 · 한쪽에만 있는 파일이 0 이어야 한다
 
     `-LogDir` 에 summary.txt 를 남긴다. 종료 코드: 0 = 모두 통과 · 1 = 하나라도 실패.
 
@@ -58,7 +61,9 @@ foreach ($p in @($exe, $net)) {
     $code = $LASTEXITCODE
     $lines.Add(('{0} -> {1} (exit={2})' -f (Split-Path $p -Leaf), "$($out | Select-Object -First 1)", $code))
 }
-foreach ($d in Get-ChildItem -LiteralPath (Join-Path $Final 'plugins') -Directory) {
+# 서명 폴더는 룰 폴더들과 동반 프로그램 폴더가 전부다 — 3 은 서명 값이 다른 것을 여기서 잰 서명으로 받아들인다.
+$signed = @(Get-ChildItem -LiteralPath (Join-Path $Final 'plugins') -Directory) + @(Get-Item -LiteralPath (Join-Path $Final 'remedy-net'))
+foreach ($d in $signed) {
     $null = & $exe plugin verify --dir $d.FullName 2>&1
     $lines.Add(('{0} verify exit={1}' -f $d.Name, $LASTEXITCODE))
 }
@@ -77,7 +82,7 @@ $crit = @($lines | Where-Object { $_ -like 'Criteria:*' })
 $ver = @($lines | Where-Object { $_ -match '\(exit=0\)$' })
 $pkgOk = ($verify.Count -gt 0) -and ($good.Count -eq $verify.Count) -and ($helpGood.Count -eq 3) -and ($crit.Count -eq 3) -and ($ver.Count -eq 2)
 if (-not $pkgOk) { $failed += 'package' }
-Note ('2 정식 파일  {0}  버전 {1}/2 · 룰 서명 {2}/{3} · 판정 기준 도움말 {4}/3 · 기준 줄 {5}/3' -f $(if ($pkgOk) { '통과' } else { '실패' }),
+Note ('2 정식 파일  {0}  버전 {1}/2 · 서명(룰 · 동반 프로그램) {2}/{3} · 판정 기준 도움말 {4}/3 · 기준 줄 {5}/3' -f $(if ($pkgOk) { '통과' } else { '실패' }),
     $ver.Count, $good.Count, $verify.Count, $helpGood.Count, $crit.Count)
 
 # ── 3. rc 와 같은가 ──
@@ -89,19 +94,103 @@ function Get-Tree([string] $root) {
     }
     $map
 }
+# 실행 파일에서 MSVC 링크가 빌드마다 새로 쓰는 칸 — COFF 헤더의 시각 · 선택 헤더의 체크섬 · 디버그 항목마다의 시각 ·
+# CodeView(RSDS) 의 PDB GUID 와 나이. PE32+ 가 아니거나 헤더를 따라가지 못하면 $null(그 파일은 바이트 대조 그대로다).
+function Get-PeBuildFields([byte[]] $b) {
+    if ($b.Length -lt 0x40) { return $null }
+    $pe = [BitConverter]::ToInt32($b, 0x3C)
+    if ($pe -lt 0 -or $pe + 24 -gt $b.Length -or [BitConverter]::ToUInt32($b, $pe) -ne 0x00004550) { return $null }
+    $coff = $pe + 4
+    $nsec = [BitConverter]::ToUInt16($b, $coff + 2)
+    $optSize = [BitConverter]::ToUInt16($b, $coff + 16)
+    $opt = $coff + 20
+    if ($opt + 120 -gt $b.Length -or [BitConverter]::ToUInt16($b, $opt) -ne 0x20B) { return $null }
+    $fields = New-Object System.Collections.Generic.List[object]
+    $fields.Add(@(($coff + 4), 4))
+    $fields.Add(@(($opt + 64), 4))
+    $dbgRva = [BitConverter]::ToUInt32($b, $opt + 112 + 48)
+    $dbgSize = [BitConverter]::ToUInt32($b, $opt + 112 + 52)
+    if ($dbgRva -ne 0) {
+        $dbg = $null
+        for ($i = 0; $i -lt $nsec; $i++) {
+            $s = $opt + $optSize + $i * 40
+            $vsize = [BitConverter]::ToUInt32($b, $s + 8)
+            $vaddr = [BitConverter]::ToUInt32($b, $s + 12)
+            $rsize = [BitConverter]::ToUInt32($b, $s + 16)
+            $raddr = [BitConverter]::ToUInt32($b, $s + 20)
+            if ($dbgRva -ge $vaddr -and $dbgRva -lt $vaddr + [Math]::Max($vsize, $rsize)) { $dbg = $dbgRva - $vaddr + $raddr; break }
+        }
+        if ($null -eq $dbg) { return $null }
+        for ($k = 0; $k -lt [Math]::Floor($dbgSize / 28); $k++) {
+            $e = $dbg + $k * 28
+            if ($e + 28 -gt $b.Length) { return $null }
+            $fields.Add(@(($e + 4), 4))
+            $type = [BitConverter]::ToUInt32($b, $e + 12)
+            $ptr = [BitConverter]::ToUInt32($b, $e + 24)
+            if ($type -eq 2 -and $ptr + 24 -le $b.Length -and [BitConverter]::ToUInt32($b, $ptr) -eq 0x53445352) {
+                $fields.Add(@(($ptr + 4), 20))
+            }
+        }
+    }
+    , $fields
+}
+# 그 칸을 0 으로 가린 SHA-256. 가릴 칸을 찾지 못하면 $null.
+function Get-MaskedHash([string] $path) {
+    $b = [IO.File]::ReadAllBytes($path)
+    $fields = Get-PeBuildFields $b
+    if ($null -eq $fields) { return $null }
+    foreach ($f in $fields) { [Array]::Clear($b, [int]$f[0], [int]$f[1]) }
+    $sha = [Security.Cryptography.SHA256]::Create()
+    try { [BitConverter]::ToString($sha.ComputeHash($b)) } finally { $sha.Dispose() }
+}
+function Get-TrustedComment([string] $path) {
+    @(Get-Content -LiteralPath $path -Encoding UTF8 | Where-Object { $_ -like 'trusted comment: *' }) | Select-Object -First 1
+}
 $treeRc = Get-Tree $Rc
 $treeFinal = Get-Tree $Final
 $same = 0
+$resigned = 0
+$rebuilt = New-Object System.Collections.Generic.List[string]
+$manifests = New-Object System.Collections.Generic.List[string]
+$hashLines = 0
 $diffs = New-Object System.Collections.Generic.List[string]
+$notes = New-Object System.Collections.Generic.List[string]
 foreach ($k in (@($treeRc.Keys) + @($treeFinal.Keys) | Sort-Object -Unique)) {
     if (-not $treeRc.ContainsKey($k)) { $diffs.Add("정식에만  $k"); continue }
     if (-not $treeFinal.ContainsKey($k)) { $diffs.Add("rc 에만    $k"); continue }
-    if ($treeRc[$k] -eq $treeFinal[$k]) { $same++ } else { $diffs.Add("다름      $k") }
+    if ($treeRc[$k] -eq $treeFinal[$k]) { $same++; continue }
+    $leaf = Split-Path -Leaf $k
+    if ($leaf -eq 'MANIFEST') { $manifests.Add($k); continue }
+    if ($leaf -eq 'MANIFEST.minisig') {
+        $ca = Get-TrustedComment (Join-Path $Rc $k)
+        if ($ca -and $ca -eq (Get-TrustedComment (Join-Path $Final $k))) { $resigned++; $notes.Add("서명만 다시  $k"); continue }
+    } elseif ($leaf -like '*.exe') {
+        $ha = Get-MaskedHash (Join-Path $Rc $k)
+        if ($ha -and $ha -eq (Get-MaskedHash (Join-Path $Final $k))) { $rebuilt.Add($k); $notes.Add("빌드 칸만 다름  $k"); continue }
+    }
+    $diffs.Add("다름      $k")
 }
-[IO.File]::WriteAllLines((Join-Path $LogDir 'compare.txt'), $diffs)
+# MANIFEST — 다른 줄은 모두 '빌드 칸만 다른 실행 파일' 의 해시 줄이어야 한다. 그 해시가 실제 파일과 맞는지는 2 의 서명
+# 확인이 잰다.
+foreach ($k in $manifests) {
+    $dir = Split-Path -Parent $k
+    $la = @(Get-Content -LiteralPath (Join-Path $Rc $k) -Encoding UTF8)
+    $lb = @(Get-Content -LiteralPath (Join-Path $Final $k) -Encoding UTF8)
+    $ok = $la.Count -eq $lb.Count
+    for ($i = 0; $ok -and $i -lt $la.Count; $i++) {
+        if ($la[$i] -ceq $lb[$i]) { continue }
+        $na = $la[$i] -replace '^[0-9a-f]{64}  ', ''
+        $nb = $lb[$i] -replace '^[0-9a-f]{64}  ', ''
+        $rel = $(if ($dir) { Join-Path $dir ($na -replace '/', '\') } else { $na -replace '/', '\' })
+        $ok = ($na -ceq $nb) -and ($na -cne $la[$i]) -and $rebuilt.Contains($rel)
+    }
+    if ($ok) { $hashLines++; $notes.Add("그 해시 줄만 다름  $k") } else { $diffs.Add("다름      $k") }
+}
+[IO.File]::WriteAllLines((Join-Path $LogDir 'compare.txt'), @(@($diffs) + @($notes)))
 $cmpOk = ($same -gt 0) -and ($diffs.Count -eq 0)
 if (-not $cmpOk) { $failed += 'compare' }
-Note ('3 rc 와 같은가  {0}  같은 파일 {1} · 다르거나 한쪽에만 {2}' -f $(if ($cmpOk) { '통과' } else { '실패' }), $same, $diffs.Count)
+Note ('3 rc 와 같은가  {0}  같은 파일 {1} · 서명만 다시 {2} · 빌드 칸만 다른 실행 파일 {3} · 그 해시 줄만 다른 MANIFEST {4} · 다르거나 한쪽에만 {5}' -f
+    $(if ($cmpOk) { '통과' } else { '실패' }), $same, $resigned, $rebuilt.Count, $hashLines, $diffs.Count)
 
 Note ("끝 {0} · {1}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'),
     $(if ($failed.Count -eq 0) { '모두 통과' } else { '실패: ' + ($failed -join ', ') }))
