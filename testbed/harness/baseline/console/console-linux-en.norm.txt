@@ -1332,7 +1332,7 @@ No threat was found.
 [4/9] Apache HTTP/2 check (CVE-2026-119618)
 ────────────────────────────────────────────────────────
  ESTsecurity Dedicated Cleaner 1.17.0
- Apache HTTP/2 check (CVE-2026-119618)  (apache-http2-check-linux 0.1.0)
+ Apache HTTP/2 check (CVE-2026-119618)  (apache-http2-check-linux 0.1.1)
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
  Machine    : <host> (linux)
@@ -1382,7 +1382,7 @@ No vulnerability was found.
 [7/9] OpenSSH check (CVE-2026-123158, Alpine)
 ────────────────────────────────────────────────────────
  ESTsecurity Dedicated Cleaner 1.17.0
- OpenSSH check (CVE-2026-123158, Alpine)  (openssh-musl-check 0.1.0)
+ OpenSSH check (CVE-2026-123158, Alpine)  (openssh-musl-check 0.1.1)
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
  Machine    : <host> (linux)

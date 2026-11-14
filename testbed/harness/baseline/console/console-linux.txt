@@ -219,10 +219,10 @@ ESTsecurity 전용백신 1.17.0 (remedy)
 ########## A5. 심장박동의 형태 (루트 여럿 · 없는 루트 하나)
 
 만든 것: r1 100000개 · r2 100000개 · 없는 자리 하나
-검사 중 · 파일 검사 · 폴더 2개 · 항목 120676개 · 처리 0개 · 루트 2/2 · 경과 1초 · /tmp/console-capture/beat/r2
+검사 중 · 파일 검사 · 폴더 2개 · 항목 127316개 · 처리 0개 · 루트 2/2 · 경과 1초 · /tmp/console-capture/beat/r2
 검사 중 · 평가 · 폴더 2개 · 항목 200000개 · 처리 200000개 · 경과 2초
 (영어)
-Scanning · files · 2 folders · 145845 entries · 0 processed · root 2/2 · 1s elapsed · /tmp/console-capture/beat/r2
+Scanning · files · 2 folders · 115629 entries · 0 processed · root 2/2 · 1s elapsed · /tmp/console-capture/beat/r2
 Scanning · evaluating · 2 folders · 200000 entries · 200000 processed · 2s elapsed
 
 ########## B. 감염 픽스처
@@ -236,8 +236,8 @@ Scanning · evaluating · 2 folders · 200000 entries · 200000 processed · 2s 
  ESTsecurity 전용백신 1.17.0
  라이브러리 경로 로더 제거  (ldso-preload 1.0.0)
 --------------------------------------------------------
- 시작 시각  : 2026-11-14 07:39:35 UTC
- 실행 기계  : c33cfe448a72 (linux)
+ 시작 시각  : 2026-11-14 09:26:42 UTC
+ 실행 기계  : d9138cf3efc9 (linux)
 
 검사를 시작합니다.
 결과 폴더 : /tmp/console-capture/o1  (artifacts.json | scan.json | plan.json)
@@ -262,8 +262,8 @@ Scanning · evaluating · 2 folders · 200000 entries · 200000 processed · 2s 
  ESTsecurity 전용백신 1.17.0
  라이브러리 경로 로더 제거  (ldso-preload 1.0.0)
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-14 07:39:35 UTC
- 실행 기계  : c33cfe448a72 (linux)
+ 시작 시각  : 2026-11-14 09:26:42 UTC
+ 실행 기계  : d9138cf3efc9 (linux)
 
 검사를 시작합니다.
 결과 폴더 : /tmp/console-capture/o2  (artifacts.json · scan.json · plan.json)
@@ -288,8 +288,8 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
  ESTsecurity Dedicated Cleaner 1.17.0
  Library path loader removal  (ldso-preload 1.0.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-14 07:39:35 UTC
- Machine    : c33cfe448a72 (linux)
+ Started    : 2026-11-14 09:26:43 UTC
+ Machine    : d9138cf3efc9 (linux)
 
 Starting scan.
 Output    : /tmp/console-capture/o3  (artifacts.json · scan.json · plan.json)
@@ -315,8 +315,8 @@ Threat found, not treated.
  ESTsecurity 전용백신 1.17.0
  라이브러리 경로 로더 제거  (ldso-preload 1.0.0)
 --------------------------------------------------------
- 시작 시각  : 2026-11-14 07:39:35 UTC
- 실행 기계  : c33cfe448a72 (linux)
+ 시작 시각  : 2026-11-14 09:26:43 UTC
+ 실행 기계  : d9138cf3efc9 (linux)
 
 검사를 시작합니다.
 결과 폴더 : /tmp/console-capture/o-ascii  (artifacts.json | scan.json | plan.json)
@@ -340,8 +340,8 @@ Threat found, not treated.
  ESTsecurity 전용백신 1.17.0
  라이브러리 경로 로더 제거  (ldso-preload 1.0.0)
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-14 07:39:35 UTC
- 실행 기계  : c33cfe448a72 (linux)
+ 시작 시각  : 2026-11-14 09:26:43 UTC
+ 실행 기계  : d9138cf3efc9 (linux)
 
 검사를 시작합니다.
 검사 시간 0.1초 · 걷기 0.0초 · 읽기 0.0초 (127 KB · 9개) · 해시 0.0초 · 서명 0.0초 (0개) · 큰 파일 건너뜀 0개 · 그 밖 0.1초
@@ -373,8 +373,8 @@ ESTsecurity Dedicated Cleaner 1.17.0 (remedy)
  ESTsecurity 전용백신 1.17.0
  라이브러리 경로 로더 제거  (ldso-preload 1.0.0)
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-14 07:39:35 UTC
- 실행 기계  : c33cfe448a72 (linux)
+ 시작 시각  : 2026-11-14 09:26:43 UTC
+ 실행 기계  : d9138cf3efc9 (linux)
 
 검사를 시작합니다.
 검사 완료 : 흔적 5건 · 위협 1건
@@ -400,8 +400,8 @@ ESTsecurity Dedicated Cleaner 1.17.0 (remedy)
  ESTsecurity 전용백신 1.17.0
  라이브러리 경로 로더 제거  (ldso-preload 1.0.0)
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-14 07:39:35 UTC
- 실행 기계  : c33cfe448a72 (linux)
+ 시작 시각  : 2026-11-14 09:26:43 UTC
+ 실행 기계  : d9138cf3efc9 (linux)
 
 검사를 시작합니다.
 검사 완료 : 흔적 5건 · 위협 1건
@@ -427,8 +427,8 @@ ESTsecurity Dedicated Cleaner 1.17.0 (remedy)
 ────────────────────────────────────────────────────────
  ESTsecurity 전용백신 1.17.0
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-14 07:39:35 UTC
- 실행 기계  : c33cfe448a72 (linux)
+ 시작 시각  : 2026-11-14 09:26:43 UTC
+ 실행 기계  : d9138cf3efc9 (linux)
 
 
 4 건을 수행합니다:
@@ -450,8 +450,8 @@ ESTsecurity Dedicated Cleaner 1.17.0 (remedy)
  ESTsecurity 전용백신 1.17.0
  라이브러리 경로 로더 제거  (ldso-preload 1.0.0)
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-14 07:39:40 UTC
- 실행 기계  : c33cfe448a72 (linux)
+ 시작 시각  : 2026-11-14 09:26:48 UTC
+ 실행 기계  : d9138cf3efc9 (linux)
 
 검사를 시작합니다.
 검사 완료 : 흔적 5건 · 위협 1건
@@ -475,14 +475,14 @@ ESTsecurity Dedicated Cleaner 1.17.0 (remedy)
 ────────────────────────────────────────────────────────
  결과       : 위협 발견, 치료 완료 (4건 수행 완료)
  소요 시간  : 1초 미만
- 격리소     : /tmp/console-capture/s/quarantine/run-1794641980-0ac6-25f1e6b7.rq
- 저널       : /tmp/console-capture/s/journal/run-1794641980-0ac6-25f1e6b7.jsonl
- 되돌리려면 : remedy restore --run run-1794641980-0ac6-25f1e6b7 --state-dir /tmp/console-capture/s
- 오탐 신고  : remedy support-bundle --run run-1794641980-0ac6-25f1e6b7 --state-dir /tmp/console-capture/s
+ 격리소     : /tmp/console-capture/s/quarantine/run-1794648408-01b7-16c9e498.rq
+ 저널       : /tmp/console-capture/s/journal/run-1794648408-01b7-16c9e498.jsonl
+ 되돌리려면 : remedy restore --run run-1794648408-01b7-16c9e498 --state-dir /tmp/console-capture/s
+ 오탐 신고  : remedy support-bundle --run run-1794648408-01b7-16c9e498 --state-dir /tmp/console-capture/s
 ────────────────────────────────────────────────────────
  Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
 [exit=1]
-[run_id=run-1794641980-0ac6-25f1e6b7]
+[run_id=run-1794648408-01b7-16c9e498]
 
 ########## E1. verify — 한국어
 
@@ -490,12 +490,12 @@ ESTsecurity Dedicated Cleaner 1.17.0 (remedy)
 ────────────────────────────────────────────────────────
  ESTsecurity 전용백신 1.17.0
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-14 07:39:40 UTC
- 실행 기계  : c33cfe448a72 (linux)
+ 시작 시각  : 2026-11-14 09:26:48 UTC
+ 실행 기계  : d9138cf3efc9 (linux)
 
 검사를 시작합니다.
 검사 완료 : 흔적 0건 · 위협 0건
-재평가 기록 -> /tmp/console-capture/s/verify/run-1794641980-0ac6-25f1e6b7.jsonl
+재평가 기록 -> /tmp/console-capture/s/verify/run-1794648408-01b7-16c9e498.jsonl
 
 치료 성공. 같은 검사에서 위협이 다시 나오지 않았습니다.
 [exit=0]
@@ -506,12 +506,12 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
 ────────────────────────────────────────────────────────
  ESTsecurity Dedicated Cleaner 1.17.0
 ────────────────────────────────────────────────────────
- Started    : 2026-11-14 07:39:40 UTC
- Machine    : c33cfe448a72 (linux)
+ Started    : 2026-11-14 09:26:48 UTC
+ Machine    : d9138cf3efc9 (linux)
 
 Starting scan.
 Scan done : 0 trace(s) · 0 threat(s)
-Re-evaluation record -> /tmp/console-capture/s/verify/run-1794641980-0ac6-25f1e6b7.jsonl
+Re-evaluation record -> /tmp/console-capture/s/verify/run-1794648408-01b7-16c9e498.jsonl
 
 Treatment succeeded. The same check no longer finds the threat.
 [exit=0]
@@ -522,15 +522,15 @@ Treatment succeeded. The same check no longer finds the threat.
 ────────────────────────────────────────────────────────
  ESTsecurity 전용백신 1.17.0
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-14 07:39:40 UTC
- 실행 기계  : c33cfe448a72 (linux)
+ 시작 시각  : 2026-11-14 09:26:48 UTC
+ 실행 기계  : d9138cf3efc9 (linux)
 
 격리소 : /tmp/console-capture/s/quarantine
 
 되돌릴 수 있는 회차 1건
-  2026-11-14 07:39:40 UTC  run-1794641980-0ac6-25f1e6b7 · 98226 바이트
+  2026-11-14 09:26:48 UTC  run-1794648408-01b7-16c9e498 · 98226 바이트
 
-되돌리려면 : remedy restore --run run-1794641980-0ac6-25f1e6b7 --state-dir /tmp/console-capture/s
+되돌리려면 : remedy restore --run run-1794648408-01b7-16c9e498 --state-dir /tmp/console-capture/s
 [exit=0]
 
 ########## F1. restore — 계획만
@@ -539,13 +539,13 @@ Treatment succeeded. The same check no longer finds the threat.
 ────────────────────────────────────────────────────────
  ESTsecurity 전용백신 1.17.0
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-14 07:39:40 UTC
- 실행 기계  : c33cfe448a72 (linux)
+ 시작 시각  : 2026-11-14 09:26:48 UTC
+ 실행 기계  : d9138cf3efc9 (linux)
 
-격리소     : /tmp/console-capture/s/quarantine/run-1794641980-0ac6-25f1e6b7.rq
-실행 번호  : run-1794641980-0ac6-25f1e6b7
-만든 시각  : 2026-11-14 07:39:40 UTC
-키         : local(57e4ab95)
+격리소     : /tmp/console-capture/s/quarantine/run-1794648408-01b7-16c9e498.rq
+실행 번호  : run-1794648408-01b7-16c9e498
+만든 시각  : 2026-11-14 09:26:48 UTC
+키         : local(733a4a44)
   주의: 이 격리물은 이 기계의 키로만 열립니다. 이 기계를 재설치하면 열 수 없으므로, 복원이 필요하면 그 전에 하십시오.
 
 복원할 항목 4건 · 95829 바이트
@@ -560,7 +560,7 @@ Treatment succeeded. The same check no longer finds the threat.
   [e3] /usr/local/lib/.crypt-9d41/libnsl_compat.so.2
         복원 불가  ctime: 운영체제가 관리하는 값이라 복원할 수 없습니다
         복원 불가  btime: 이 운영체제에서는 이 값을 바꿀 수 없습니다
-  볼륨 /  필요 95829 · 여유 982435913728 바이트
+  볼륨 /  필요 95829 · 여유 981032103936 바이트
 
 아무것도 하지 않았습니다. 위 목록을 확인하고 --yes 를 붙여 다시 부르십시오.
 [exit=2]
@@ -571,13 +571,13 @@ Treatment succeeded. The same check no longer finds the threat.
 ────────────────────────────────────────────────────────
  ESTsecurity 전용백신 1.17.0
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-14 07:39:40 UTC
- 실행 기계  : c33cfe448a72 (linux)
+ 시작 시각  : 2026-11-14 09:26:48 UTC
+ 실행 기계  : d9138cf3efc9 (linux)
 
-격리소     : /tmp/console-capture/s/quarantine/run-1794641980-0ac6-25f1e6b7.rq
-실행 번호  : run-1794641980-0ac6-25f1e6b7
-만든 시각  : 2026-11-14 07:39:40 UTC
-키         : local(57e4ab95)
+격리소     : /tmp/console-capture/s/quarantine/run-1794648408-01b7-16c9e498.rq
+실행 번호  : run-1794648408-01b7-16c9e498
+만든 시각  : 2026-11-14 09:26:48 UTC
+키         : local(733a4a44)
   주의: 이 격리물은 이 기계의 키로만 열립니다. 이 기계를 재설치하면 열 수 없으므로, 복원이 필요하면 그 전에 하십시오.
 
 복원할 항목 4건 · 95829 바이트
@@ -592,7 +592,7 @@ Treatment succeeded. The same check no longer finds the threat.
   [e3] /usr/local/lib/.crypt-9d41/libnsl_compat.so.2
         복원 불가  ctime: 운영체제가 관리하는 값이라 복원할 수 없습니다
         복원 불가  btime: 이 운영체제에서는 이 값을 바꿀 수 없습니다
-  볼륨 /  필요 95829 · 여유 982435909632 바이트
+  볼륨 /  필요 95829 · 여유 981032099840 바이트
 
   복원 [e0] /etc/ld.so.conf.d/libc.conf  (/etc/ld.so.conf.d/libc.conf:3)
   복원 [e1] /usr/share/applications/org.example.Editor.desktop  (content · mtime · readonly · mode)
@@ -611,8 +611,8 @@ Treatment succeeded. The same check no longer finds the threat.
 ────────────────────────────────────────────────────────
  ESTsecurity 전용백신 1.17.0
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-14 07:39:40 UTC
- 실행 기계  : c33cfe448a72 (linux)
+ 시작 시각  : 2026-11-14 09:26:48 UTC
+ 실행 기계  : d9138cf3efc9 (linux)
 
 
 4 건을 수행합니다:
@@ -636,10 +636,10 @@ Treatment succeeded. The same check no longer finds the threat.
 ────────────────────────────────────────────────────────
  결과       : 위협 발견, 치료 완료 (4건 수행 완료)
  소요 시간  : 2초
- 격리소     : /tmp/console-capture/s-beat/quarantine/run-1794641975-0abd-219c7840.rq
- 저널       : /tmp/console-capture/s-beat/journal/run-1794641975-0abd-219c7840.jsonl
- 되돌리려면 : remedy restore --run run-1794641975-0abd-219c7840 --state-dir /tmp/console-capture/s-beat
- 오탐 신고  : remedy support-bundle --run run-1794641975-0abd-219c7840 --state-dir /tmp/console-capture/s-beat
+ 격리소     : /tmp/console-capture/s-beat/quarantine/run-1794648403-01ae-130c68d8.rq
+ 저널       : /tmp/console-capture/s-beat/journal/run-1794648403-01ae-130c68d8.jsonl
+ 되돌리려면 : remedy restore --run run-1794648403-01ae-130c68d8 --state-dir /tmp/console-capture/s-beat
+ 오탐 신고  : remedy support-bundle --run run-1794648403-01ae-130c68d8 --state-dir /tmp/console-capture/s-beat
 ────────────────────────────────────────────────────────
  Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
 [exit=1]
@@ -647,17 +647,17 @@ Treatment succeeded. The same check no longer finds the threat.
 ########## G. support-bundle
 
 알림: 이 OS 에는 코드서명 확인이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
-지원 번들 폴더 : /tmp/console-capture/bundle/remedy-support-run-1794641980-0ac6-25f1e6b7
+지원 번들 폴더 : /tmp/console-capture/bundle/remedy-support-run-1794648408-01b7-16c9e498
 
 담긴 것
   plan.json               1933 바이트  무엇을 하려 했는가: 승인된 계획 전문
   journal.jsonl           1382 바이트  무엇을 했는가: 감사 로그
   verify.jsonl             308 바이트  치료가 유지됐는가: 재평가 기록
-  run.log                 6307 바이트  사람이 본 화면: 배너·계획·경고·실패 문구·마무리 표, 줄마다 시각
+  run.log                 6304 바이트  사람이 본 화면: 배너·계획·경고·실패 문구·마무리 표, 줄마다 시각
   environment.json         482 바이트  어떤 코어에서 돌았는가: 버전, 타깃, 자기무결성, 엔진 상태
 
 일부러 담지 않은 것
-  /tmp/console-capture/s/quarantine/run-1794641980-0ac6-25f1e6b7.rq
+  /tmp/console-capture/s/quarantine/run-1794648408-01b7-16c9e498.rq
     격리 컨테이너: 검체와 사용자 파일 내용이 들어 있습니다. 오탐 복구는 보내지 않고 이 기계에서 `remedy restore --run <id>` 로 합니다
   /tmp/console-capture/s/machine.key
     격리 컨테이너를 여는 봉인 키. 보내면 그 컨테이너를 누구나 열 수 있습니다. 어떤 경우에도 첨부하지 마십시오
@@ -681,8 +681,8 @@ Treatment succeeded. The same check no longer finds the threat.
  ESTsecurity 전용백신 1.17.0
  C2 비컨 자동 시작 항목 제거  (c2-beacon 1.0.1)
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-14 07:39:43 UTC
- 실행 기계  : c33cfe448a72 (linux)
+ 시작 시각  : 2026-11-14 09:26:51 UTC
+ 실행 기계  : d9138cf3efc9 (linux)
 
 검사를 시작합니다.
 검사 시간 0.1초 · 걷기 0.0초 · 읽기 0.0초 (75 KB · 4개) · 해시 0.0초 · 서명 0.0초 (0개) · 큰 파일 건너뜀 0개 · 그 밖 0.1초
@@ -707,8 +707,8 @@ Treatment succeeded. The same check no longer finds the threat.
  ESTsecurity 전용백신 1.17.0
  C2 비컨 자동 시작 항목 제거  (c2-beacon 1.0.1)
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-14 07:39:43 UTC
- 실행 기계  : c33cfe448a72 (linux)
+ 시작 시각  : 2026-11-14 09:26:51 UTC
+ 실행 기계  : d9138cf3efc9 (linux)
 
 검사를 시작합니다.
 검사 완료 : 흔적 4건 · 위협 1건
@@ -729,10 +729,10 @@ Treatment succeeded. The same check no longer finds the threat.
 ────────────────────────────────────────────────────────
  결과       : 위협 발견, 치료 완료 (3건 수행 완료)
  소요 시간  : 1초 미만
- 격리소     : /tmp/console-capture/sq/quarantine/run-1794641983-0af0-2bd60de8.rq
- 저널       : /tmp/console-capture/sq/journal/run-1794641983-0af0-2bd60de8.jsonl
- 되돌리려면 : remedy restore --run run-1794641983-0af0-2bd60de8 --state-dir /tmp/console-capture/sq
- 오탐 신고  : remedy support-bundle --run run-1794641983-0af0-2bd60de8 --state-dir /tmp/console-capture/sq
+ 격리소     : /tmp/console-capture/sq/quarantine/run-1794648411-01e1-282eeda4.rq
+ 저널       : /tmp/console-capture/sq/journal/run-1794648411-01e1-282eeda4.jsonl
+ 되돌리려면 : remedy restore --run run-1794648411-01e1-282eeda4 --state-dir /tmp/console-capture/sq
+ 오탐 신고  : remedy support-bundle --run run-1794648411-01e1-282eeda4 --state-dir /tmp/console-capture/sq
 ────────────────────────────────────────────────────────
  Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
 [exit=1]
@@ -802,7 +802,7 @@ Treatment succeeded. The same check no longer finds the threat.
         "path": "/opt/.cache-9f2/agent.bin",
         "size": 51200,
         "mtime": "2026-09-01T03:12:40Z",
-        "ctime": "2026-11-14T07:39:43Z",
+        "ctime": "2026-11-14T09:26:51Z",
         "sha256": "fec8aa606ec99721bd2a5153d2973816484c18b755e23fd508b1146d954195c7"
       },
       "captures": {},
@@ -827,7 +827,7 @@ Treatment succeeded. The same check no longer finds the threat.
         "path": "/opt/.cache-9f2/helper.so",
         "size": 24576,
         "mtime": "2026-09-01T03:12:40Z",
-        "ctime": "2026-11-14T07:39:43Z",
+        "ctime": "2026-11-14T09:26:51Z",
         "sha256": "384670229c221ff5384c8b7691d711efe8763a41c48490f184727d334e95f5fe"
       },
       "captures": {},
@@ -852,8 +852,8 @@ Treatment succeeded. The same check no longer finds the threat.
 ────────────────────────────────────────────────────────
  ESTsecurity 전용백신 1.17.0
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-14 07:39:43 UTC
- 실행 기계  : c33cfe448a72 (linux)
+ 시작 시각  : 2026-11-14 09:26:51 UTC
+ 실행 기계  : d9138cf3efc9 (linux)
 
 실패: --plan 옵션이 필요합니다
   (종료 코드 4: 사용법·입력 오류)
@@ -862,8 +862,8 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
 ────────────────────────────────────────────────────────
  ESTsecurity Dedicated Cleaner 1.17.0
 ────────────────────────────────────────────────────────
- Started    : 2026-11-14 07:39:43 UTC
- Machine    : c33cfe448a72 (linux)
+ Started    : 2026-11-14 09:26:51 UTC
+ Machine    : d9138cf3efc9 (linux)
 
 Error: --plan is required
   (exit code 4: usage or input error)
@@ -918,40 +918,40 @@ selftest OK
 
 ########## K. 회차 로그 (심장박동 줄 제외)
 
-restore-run-1794641980-0ac6-25f1e6b7.log
-run-1794641975-0ab0-c353c41.log
-run-1794641975-0ab2-fc86ff4.log
-run-1794641975-0ab4-135a1e69.log
-run-1794641975-0ab6-16eb71b7.log
-run-1794641975-0ab8-1a7132aa.log
-run-1794641975-0abb-1e0a6324.log
-run-1794641975-0abd-219c7840.log
-run-1794641980-0ac6-25f1e6b7.log
+restore-run-1794648408-01b7-16c9e498.log
+run-1794648402-01a1-37d07b1d.log
+run-1794648402-01a3-3b576f9b.log
+run-1794648403-01a5-35d2c2d.log
+run-1794648403-01a7-7874ff1.log
+run-1794648403-01a9-b573b32.log
+run-1794648403-01ac-f694baa.log
+run-1794648403-01ae-130c68d8.log
+run-1794648408-01b7-16c9e498.log
 --- 치료 회차 로그의 머리부터 치료 시작까지 ---
-2026-11-14T07:39:40Z # remedy 1.17.0 pid 2758 · run --plugin /repo/testbed/ai-exam/threats/ldso-preload/reference-plugin/plugin.yaml --out-dir /tmp/console-capture/run --yes --state-dir /tmp/console-capture/s
-2026-11-14T07:39:40Z | ────────────────────────────────────────────────────────
-2026-11-14T07:39:40Z |  ESTsecurity 전용백신 1.17.0
-2026-11-14T07:39:40Z |  라이브러리 경로 로더 제거  (ldso-preload 1.0.0)
-2026-11-14T07:39:40Z | ────────────────────────────────────────────────────────
-2026-11-14T07:39:40Z |  시작 시각  : 2026-11-14 07:39:40 UTC
-2026-11-14T07:39:40Z |  실행 기계  : c33cfe448a72 (linux)
-2026-11-14T07:39:40Z | 
-2026-11-14T07:39:40Z # run_id run-1794641980-0ac6-25f1e6b7
-2026-11-14T07:39:40Z | 검사를 시작합니다.
-2026-11-14T07:39:40Z # 검사 시간 0.1초 · 걷기 0.0초 · 읽기 0.0초 (127 KB · 9개) · 해시 0.0초 · 서명 0.0초 (0개) · 큰 파일 건너뜀 0개 · 그 밖 0.1초
-2026-11-14T07:39:40Z | 검사 완료 : 흔적 5건 · 위협 1건
-2026-11-14T07:39:40Z | 
-2026-11-14T07:39:40Z | 4 건을 수행합니다:
-2026-11-14T07:39:40Z |    1. 파일에서 줄 제거  /etc/ld.so.conf.d/libc.conf
-2026-11-14T07:39:40Z |       그 파일에서 덧붙은 줄만 뺍니다. 파일은 지우지 않습니다
-2026-11-14T07:39:40Z |    2. 바로가기 인자 제거  /usr/share/applications/org.example.Editor.desktop
-2026-11-14T07:39:40Z |       바로가기에 덧붙은 인자만 뗍니다. 바로가기는 그대로 씁니다
-2026-11-14T07:39:40Z |    3. 파일 격리  /usr/local/lib/.crypt-9d41/.seed
-2026-11-14T07:39:40Z |       파일을 격리소로 옮깁니다. 지우는 것이 아니라 되돌릴 수 있습니다
-2026-11-14T07:39:40Z |    4. 파일 격리  /usr/local/lib/.crypt-9d41/libnsl_compat.so.2
-2026-11-14T07:39:40Z |       파일을 격리소로 옮깁니다. 지우는 것이 아니라 되돌릴 수 있습니다
-2026-11-14T07:39:40Z | 
-2026-11-14T07:39:40Z | 치료를 시작합니다.
+2026-11-14T09:26:48Z # remedy 1.17.0 pid 439 · run --plugin /repo/testbed/ai-exam/threats/ldso-preload/reference-plugin/plugin.yaml --out-dir /tmp/console-capture/run --yes --state-dir /tmp/console-capture/s
+2026-11-14T09:26:48Z | ────────────────────────────────────────────────────────
+2026-11-14T09:26:48Z |  ESTsecurity 전용백신 1.17.0
+2026-11-14T09:26:48Z |  라이브러리 경로 로더 제거  (ldso-preload 1.0.0)
+2026-11-14T09:26:48Z | ────────────────────────────────────────────────────────
+2026-11-14T09:26:48Z |  시작 시각  : 2026-11-14 09:26:48 UTC
+2026-11-14T09:26:48Z |  실행 기계  : d9138cf3efc9 (linux)
+2026-11-14T09:26:48Z | 
+2026-11-14T09:26:48Z # run_id run-1794648408-01b7-16c9e498
+2026-11-14T09:26:48Z | 검사를 시작합니다.
+2026-11-14T09:26:48Z # 검사 시간 0.1초 · 걷기 0.0초 · 읽기 0.0초 (127 KB · 9개) · 해시 0.0초 · 서명 0.0초 (0개) · 큰 파일 건너뜀 0개 · 그 밖 0.1초
+2026-11-14T09:26:48Z | 검사 완료 : 흔적 5건 · 위협 1건
+2026-11-14T09:26:48Z | 
+2026-11-14T09:26:48Z | 4 건을 수행합니다:
+2026-11-14T09:26:48Z |    1. 파일에서 줄 제거  /etc/ld.so.conf.d/libc.conf
+2026-11-14T09:26:48Z |       그 파일에서 덧붙은 줄만 뺍니다. 파일은 지우지 않습니다
+2026-11-14T09:26:48Z |    2. 바로가기 인자 제거  /usr/share/applications/org.example.Editor.desktop
+2026-11-14T09:26:48Z |       바로가기에 덧붙은 인자만 뗍니다. 바로가기는 그대로 씁니다
+2026-11-14T09:26:48Z |    3. 파일 격리  /usr/local/lib/.crypt-9d41/.seed
+2026-11-14T09:26:48Z |       파일을 격리소로 옮깁니다. 지우는 것이 아니라 되돌릴 수 있습니다
+2026-11-14T09:26:48Z |    4. 파일 격리  /usr/local/lib/.crypt-9d41/libnsl_compat.so.2
+2026-11-14T09:26:48Z |       파일을 격리소로 옮깁니다. 지우는 것이 아니라 되돌릴 수 있습니다
+2026-11-14T09:26:48Z | 
+2026-11-14T09:26:48Z | 치료를 시작합니다.
 
 ########## L. 관측 불완전 (6) — 선언한 자리가 하나도 없다
 
@@ -960,8 +960,8 @@ run-1794641980-0ac6-25f1e6b7.log
  ESTsecurity 전용백신 1.17.0
  없는 자리 검사  (force-incomplete 1.0.0)
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-14 07:39:43 UTC
- 실행 기계  : c33cfe448a72 (linux)
+ 시작 시각  : 2026-11-14 09:26:51 UTC
+ 실행 기계  : d9138cf3efc9 (linux)
 
 검사를 시작합니다.
 결과 폴더 : /tmp/console-capture/o6  (artifacts.json · scan.json · plan.json)
@@ -979,8 +979,8 @@ run-1794641980-0ac6-25f1e6b7.log
  ESTsecurity 전용백신 1.17.0
  점검 — 없는 자리  (force-check-absent 1.0.0)
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-14 07:39:43 UTC
- 실행 기계  : c33cfe448a72 (linux)
+ 시작 시각  : 2026-11-14 09:26:51 UTC
+ 실행 기계  : d9138cf3efc9 (linux)
 
 검사를 시작합니다.
 결과 폴더 : /tmp/console-capture/ochk  (artifacts.json · scan.json · plan.json)
@@ -998,8 +998,8 @@ run-1794641980-0ac6-25f1e6b7.log
  ESTsecurity 전용백신 1.17.0
  점검 — 노출된 설정  (force-check-found 1.0.0)
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-14 07:39:44 UTC
- 실행 기계  : c33cfe448a72 (linux)
+ 시작 시각  : 2026-11-14 09:26:51 UTC
+ 실행 기계  : d9138cf3efc9 (linux)
 
 검사를 시작합니다.
 결과 폴더 : /tmp/console-capture/ochk2  (artifacts.json · scan.json · plan.json)
@@ -1031,8 +1031,8 @@ run-1794641980-0ac6-25f1e6b7.log
  ESTsecurity 전용백신 1.17.0
  점검 — 취약 버전  (force-check-version 1.0.0)
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-14 07:39:44 UTC
- 실행 기계  : c33cfe448a72 (linux)
+ 시작 시각  : 2026-11-14 09:26:52 UTC
+ 실행 기계  : d9138cf3efc9 (linux)
 
 검사를 시작합니다.
 결과 폴더 : /tmp/console-capture/ochk3  (artifacts.json · scan.json · plan.json)
@@ -1051,8 +1051,8 @@ run-1794641980-0ac6-25f1e6b7.log
  ESTsecurity 전용백신 1.17.0
  물어보지 못한 자리  (force-unreadable-root 1.0.0)
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-14 07:39:44 UTC
- 실행 기계  : c33cfe448a72 (linux)
+ 시작 시각  : 2026-11-14 09:26:52 UTC
+ 실행 기계  : d9138cf3efc9 (linux)
 
 검사를 시작합니다.
 결과 폴더 : /tmp/console-capture/o6b  (artifacts.json · scan.json · plan.json)
@@ -1070,8 +1070,8 @@ run-1794641980-0ac6-25f1e6b7.log
  ESTsecurity 전용백신 1.17.0
  읽기 전용 자리  (force-partial 1.0.0)
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-14 07:39:44 UTC
- 실행 기계  : c33cfe448a72 (linux)
+ 시작 시각  : 2026-11-14 09:26:52 UTC
+ 실행 기계  : d9138cf3efc9 (linux)
 
 검사를 시작합니다.
 검사 완료 : 흔적 2건 · 위협 1건
@@ -1091,10 +1091,10 @@ run-1794641980-0ac6-25f1e6b7.log
 ────────────────────────────────────────────────────────
  결과       : 일부 실패 (0건 수행 완료)
  소요 시간  : 1초 미만
- 격리소     : /tmp/console-capture/s7/quarantine/run-1794641984-0b1e-e37c5af.rq
- 저널       : /tmp/console-capture/s7/journal/run-1794641984-0b1e-e37c5af.jsonl
- 되돌리려면 : remedy restore --run run-1794641984-0b1e-e37c5af --state-dir /tmp/console-capture/s7
- 오탐 신고  : remedy support-bundle --run run-1794641984-0b1e-e37c5af --state-dir /tmp/console-capture/s7
+ 격리소     : /tmp/console-capture/s7/quarantine/run-1794648412-020f-9771523.rq
+ 저널       : /tmp/console-capture/s7/journal/run-1794648412-020f-9771523.jsonl
+ 되돌리려면 : remedy restore --run run-1794648412-020f-9771523 --state-dir /tmp/console-capture/s7
+ 오탐 신고  : remedy support-bundle --run run-1794648412-020f-9771523 --state-dir /tmp/console-capture/s7
 ────────────────────────────────────────────────────────
  Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
 [exit=3]
@@ -1106,8 +1106,8 @@ run-1794641980-0ac6-25f1e6b7.log
  ESTsecurity 전용백신 1.17.0
  상한 초과 시험  (force-guard 1.0.0)
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-14 07:39:44 UTC
- 실행 기계  : c33cfe448a72 (linux)
+ 시작 시각  : 2026-11-14 09:26:52 UTC
+ 실행 기계  : d9138cf3efc9 (linux)
 
 검사를 시작합니다.
 실패: 계획 실패: 안전 가드가 계획을 거부했습니다 (1):
@@ -1122,8 +1122,8 @@ run-1794641980-0ac6-25f1e6b7.log
  ESTsecurity 전용백신 1.17.0
  상한 초과 시험  (force-tamper 1.0.0)
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-14 07:39:44 UTC
- 실행 기계  : c33cfe448a72 (linux)
+ 시작 시각  : 2026-11-14 09:26:52 UTC
+ 실행 기계  : d9138cf3efc9 (linux)
 
 검사를 시작합니다.
 검사 완료 : 흔적 1건 · 위협 1건
@@ -1138,18 +1138,18 @@ run-1794641980-0ac6-25f1e6b7.log
 ────────────────────────────────────────────────────────
  결과       : 위협 발견, 치료 완료 (1건 수행 완료)
  소요 시간  : 1초 미만
- 격리소     : /tmp/console-capture/s9/quarantine/run-1794641984-0b29-18680881.rq
- 저널       : /tmp/console-capture/s9/journal/run-1794641984-0b29-18680881.jsonl
- 되돌리려면 : remedy restore --run run-1794641984-0b29-18680881 --state-dir /tmp/console-capture/s9
- 오탐 신고  : remedy support-bundle --run run-1794641984-0b29-18680881 --state-dir /tmp/console-capture/s9
+ 격리소     : /tmp/console-capture/s9/quarantine/run-1794648412-021a-1c98ea74.rq
+ 저널       : /tmp/console-capture/s9/journal/run-1794648412-021a-1c98ea74.jsonl
+ 되돌리려면 : remedy restore --run run-1794648412-021a-1c98ea74 --state-dir /tmp/console-capture/s9
+ 오탐 신고  : remedy support-bundle --run run-1794648412-021a-1c98ea74 --state-dir /tmp/console-capture/s9
 ────────────────────────────────────────────────────────
  Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
 알림: 이 OS 에는 코드서명 확인이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 ────────────────────────────────────────────────────────
  ESTsecurity 전용백신 1.17.0
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-14 07:39:44 UTC
- 실행 기계  : c33cfe448a72 (linux)
+ 시작 시각  : 2026-11-14 09:26:52 UTC
+ 실행 기계  : d9138cf3efc9 (linux)
 
 
 1 건을 수행합니다:
@@ -1157,7 +1157,7 @@ run-1794641980-0ac6-25f1e6b7.log
       파일을 격리소로 옮깁니다. 지우는 것이 아니라 되돌릴 수 있습니다
 
 치료를 시작합니다.
-실패: 저널에 남은 계획과 다른 계획입니다. 이어받지 않습니다. 새로 계획하십시오 (run run-1794641984-0b29-18680881)
+실패: 저널에 남은 계획과 다른 계획입니다. 이어받지 않습니다. 새로 계획하십시오 (run run-1794648412-021a-1c98ea74)
   (종료 코드 5: 안전 가드에 의한 중단 (상한 초과·보호 경로·서명 검증 실패))
 [exit=5]
 --- 무고한 파일은 그대로인가 ---
@@ -1169,25 +1169,25 @@ x.evil
 
 실패: 내부 오류 — 도구 자체가 멈췄습니다. 기계는 이 시점까지의 저널 상태 그대로입니다
   crates/remedy-cli/src/tee.rs:133:9: REMEDY_PANIC_TEST: 개발 빌드 전용 패닉 시험
-  기록: /tmp/console-capture/sP/logs/crash-2026-11-14T07-39-44Z-2864.txt
+  기록: /tmp/console-capture/sP/logs/crash-2026-11-14T09-26-52Z-545.txt
   (종료 코드 7: 내부 오류 — 도구 자체가 멈췄습니다 (logs/crash-*.txt 를 신고에 붙이십시오))
 [exit=7]
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 
 Error: internal error: the tool itself crashed. The machine is as the journal recorded up to this point
   crates/remedy-cli/src/tee.rs:133:9: REMEDY_PANIC_TEST: 개발 빌드 전용 패닉 시험
-  Record: /tmp/console-capture/sP/logs/crash-2026-11-14T07-39-44Z-2865.txt
+  Record: /tmp/console-capture/sP/logs/crash-2026-11-14T09-26-52Z-546.txt
   (exit code 7: internal error: the tool itself crashed (attach logs/crash-*.txt to the report))
 [exit=7]
 --- 크래시 기록의 머리 ---
-==> /tmp/console-capture/sP/logs/crash-2026-11-14T07-39-44Z-2864.txt <==
+==> /tmp/console-capture/sP/logs/crash-2026-11-14T09-26-52Z-545.txt <==
 remedy 1.17.0 · internal error (panic)
-at    : 2026-11-14T07:39:44Z
+at    : 2026-11-14T09:26:52Z
 where : crates/remedy-cli/src/tee.rs:133:9
 
-==> /tmp/console-capture/sP/logs/crash-2026-11-14T07-39-44Z-2865.txt <==
+==> /tmp/console-capture/sP/logs/crash-2026-11-14T09-26-52Z-546.txt <==
 remedy 1.17.0 · internal error (panic)
-at    : 2026-11-14T07:39:44Z
+at    : 2026-11-14T09:26:52Z
 
 ########## R. 조직 복구 키 — apply 가 싣고 restore 가 연다
 
@@ -1197,8 +1197,8 @@ org 키쌍 생성 OK — 공개키 32 바이트
  ESTsecurity 전용백신 1.17.0
  조직 복구 키 시험  (force-org 1.0.0)
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-14 07:40:05 UTC
- 실행 기계  : c33cfe448a72 (linux)
+ 시작 시각  : 2026-11-14 09:27:00 UTC
+ 실행 기계  : d9138cf3efc9 (linux)
 
 검사를 시작합니다.
 검사 완료 : 흔적 2건 · 위협 1건
@@ -1216,10 +1216,10 @@ org 키쌍 생성 OK — 공개키 32 바이트
 ────────────────────────────────────────────────────────
  결과       : 위협 발견, 치료 완료 (2건 수행 완료)
  소요 시간  : 1초 미만
- 격리소     : /tmp/console-capture/sR/quarantine/run-1794642005-11b5-141b6619.rq
- 저널       : /tmp/console-capture/sR/journal/run-1794642005-11b5-141b6619.jsonl
- 되돌리려면 : remedy restore --run run-1794642005-11b5-141b6619 --state-dir /tmp/console-capture/sR
- 오탐 신고  : remedy support-bundle --run run-1794642005-11b5-141b6619 --state-dir /tmp/console-capture/sR
+ 격리소     : /tmp/console-capture/sR/quarantine/run-1794648420-0233-10ff4659.rq
+ 저널       : /tmp/console-capture/sR/journal/run-1794648420-0233-10ff4659.jsonl
+ 되돌리려면 : remedy restore --run run-1794648420-0233-10ff4659 --state-dir /tmp/console-capture/sR
+ 오탐 신고  : remedy support-bundle --run run-1794648420-0233-10ff4659 --state-dir /tmp/console-capture/sR
 ────────────────────────────────────────────────────────
  Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
 [exit=1]
@@ -1229,13 +1229,13 @@ org 키쌍 생성 OK — 공개키 32 바이트
 ────────────────────────────────────────────────────────
  ESTsecurity 전용백신 1.17.0
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-14 07:40:05 UTC
- 실행 기계  : c33cfe448a72 (linux)
+ 시작 시각  : 2026-11-14 09:27:00 UTC
+ 실행 기계  : d9138cf3efc9 (linux)
 
-격리소     : /tmp/console-capture/sR/quarantine/run-1794642005-11b5-141b6619.rq
-실행 번호  : run-1794642005-11b5-141b6619
-만든 시각  : 2026-11-14 07:40:05 UTC
-키         : local(e849facb) · org(01f09b6f)
+격리소     : /tmp/console-capture/sR/quarantine/run-1794648420-0233-10ff4659.rq
+실행 번호  : run-1794648420-0233-10ff4659
+만든 시각  : 2026-11-14 09:27:00 UTC
+키         : local(b0abb8cb) · org(92b355a0)
 꺼내기 모드입니다. 원본 자리가 아니라 /tmp/console-capture/orgout 로 꺼냅니다.
   제자리 복원은 원래 머신에서만 보장됩니다.
 
@@ -1246,7 +1246,7 @@ org 키쌍 생성 OK — 공개키 32 바이트
   [e1] /tmp/console-capture/orgout/_tmp_console-capture_orgsrc_g2.evil
         복원 불가  ctime: 운영체제가 관리하는 값이라 복원할 수 없습니다
         복원 불가  btime: 이 운영체제에서는 이 값을 바꿀 수 없습니다
-  볼륨 /  필요 20 · 여유 981740367872 바이트
+  볼륨 /  필요 20 · 여유 981031153664 바이트
 
   복원 [e0] /tmp/console-capture/orgout/_tmp_console-capture_orgsrc_g1.evil  (content · mtime · readonly · mode)
   복원 [e1] /tmp/console-capture/orgout/_tmp_console-capture_orgsrc_g2.evil  (content · mtime · readonly · mode)
@@ -1290,11 +1290,11 @@ root 권한으로 실행 중입니다.
  ESTsecurity 전용백신 1.17.0
  CWPdoor 점검 (탐지만)  (cwpdoor-1-check 0.1.2)
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-14 07:44:23 UTC
- 실행 기계  : c33cfe448a72 (linux)
+ 시작 시각  : 2026-11-14 09:31:06 UTC
+ 실행 기계  : d9138cf3efc9 (linux)
 
 검사를 시작합니다.
-결과 폴더 : /tmp/console-capture/scan-all/pkg/out/20261114T074423Z  (artifacts.json · scan.json · plan.json)
+결과 폴더 : /tmp/console-capture/scan-all/pkg/out/20261114T093106Z  (artifacts.json · scan.json · plan.json)
 검사 완료 : 흔적 0건 · 위협 0건
   주의: 아래 까닭으로 '위협 없음' 이라고 판단할 수 없습니다:
      - 검사할 경로 1개가 이 기계에 전부 존재하지 않아 아무 곳도 열어 보지 못했습니다: /usr/local/cwpsrv/bin
@@ -1307,11 +1307,11 @@ root 권한으로 실행 중입니다.
  ESTsecurity 전용백신 1.17.0
  CWPdoor 제거  (cwpdoor-2-clean 0.1.2)
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-14 07:44:23 UTC
- 실행 기계  : c33cfe448a72 (linux)
+ 시작 시각  : 2026-11-14 09:31:06 UTC
+ 실행 기계  : d9138cf3efc9 (linux)
 
 검사를 시작합니다.
-결과 폴더 : /tmp/console-capture/scan-all/pkg/out/20261114T074423Z-2  (artifacts.json · scan.json · plan.json)
+결과 폴더 : /tmp/console-capture/scan-all/pkg/out/20261114T093106Z-2  (artifacts.json · scan.json · plan.json)
 검사 완료 : 흔적 0건 · 위협 0건
   주의: 아래 까닭으로 '위협 없음' 이라고 판단할 수 없습니다:
      - 검사할 경로 1개가 이 기계에 전부 존재하지 않아 아무 곳도 열어 보지 못했습니다: /usr/local/cwpsrv/bin
@@ -1324,11 +1324,11 @@ root 권한으로 실행 중입니다.
  ESTsecurity 전용백신 1.17.0
  Ebury 점검 (탐지만)  (ebury-check 0.2.0)
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-14 07:44:23 UTC
- 실행 기계  : c33cfe448a72 (linux)
+ 시작 시각  : 2026-11-14 09:31:06 UTC
+ 실행 기계  : d9138cf3efc9 (linux)
 
 검사를 시작합니다.
-결과 폴더 : /tmp/console-capture/scan-all/pkg/out/20261114T074423Z-3  (artifacts.json · scan.json · plan.json)
+결과 폴더 : /tmp/console-capture/scan-all/pkg/out/20261114T093106Z-3  (artifacts.json · scan.json · plan.json)
 검사 완료 : 흔적 0건 · 위협 0건
 
 위협이 발견되지 않았습니다.
@@ -1337,13 +1337,13 @@ root 권한으로 실행 중입니다.
 [4/9] Apache HTTP/2 점검 (CVE-2026-119618)
 ────────────────────────────────────────────────────────
  ESTsecurity 전용백신 1.17.0
- Apache HTTP/2 점검 (CVE-2026-119618)  (apache-http2-check-linux 0.1.0)
+ Apache HTTP/2 점검 (CVE-2026-119618)  (apache-http2-check-linux 0.1.1)
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-14 07:44:25 UTC
- 실행 기계  : c33cfe448a72 (linux)
+ 시작 시각  : 2026-11-14 09:31:09 UTC
+ 실행 기계  : d9138cf3efc9 (linux)
 
 검사를 시작합니다.
-결과 폴더 : /tmp/console-capture/scan-all/pkg/out/20261114T074425Z  (artifacts.json · scan.json · plan.json)
+결과 폴더 : /tmp/console-capture/scan-all/pkg/out/20261114T093109Z  (artifacts.json · scan.json · plan.json)
 검사 완료 : 흔적 0건 · 취약 0건
   안내: 점검 대상이 이 기계에 없습니다 — 선언한 자리 16곳이 전부 존재하지 않습니다: /etc/apache2 · /etc/httpd · /opt/apache/bin · /opt/apache/conf · /opt/apache2/bin · /opt/apache2/conf · /opt/httpd/bin · /opt/httpd/conf · /opt/lampp/bin · /opt/lampp/etc · /usr/local/apache/bin · /usr/local/apache/conf · /usr/local/apache2/bin · /usr/local/apache2/conf · /usr/local/httpd/bin · /usr/local/httpd/conf
         경로가 틀린 것이 아닌지도 함께 보십시오.
@@ -1356,14 +1356,14 @@ root 권한으로 실행 중입니다.
  ESTsecurity 전용백신 1.17.0
  Log4j 점검 (CVE-2021-44228 등)  (log4j-check 0.2.0)
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-14 07:44:25 UTC
- 실행 기계  : c33cfe448a72 (linux)
+ 시작 시각  : 2026-11-14 09:31:09 UTC
+ 실행 기계  : d9138cf3efc9 (linux)
 
 검사를 시작합니다.
 
   주의: 선언한 것 1건이 해소되지 않았습니다:
      - scan_roots: %FIXED_DISKS%: 로컬 디스크가 아닌 마운트는 보지 않습니다 — /repo (9p) · /usr/local/cargo/registry (9p)
-결과 폴더 : /tmp/console-capture/scan-all/pkg/out/20261114T074425Z-2  (artifacts.json · scan.json · plan.json)
+결과 폴더 : /tmp/console-capture/scan-all/pkg/out/20261114T093109Z-2  (artifacts.json · scan.json · plan.json)
 검사 완료 : 흔적 0건 · 취약 0건
 
 취약한 곳을 찾지 못했습니다.
@@ -1374,11 +1374,11 @@ root 권한으로 실행 중입니다.
  ESTsecurity 전용백신 1.17.0
  Node2Shell 점검 (CVE-2026-111497)  (node2shell-check-linux 0.6.0)
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-14 07:44:26 UTC
- 실행 기계  : c33cfe448a72 (linux)
+ 시작 시각  : 2026-11-14 09:31:10 UTC
+ 실행 기계  : d9138cf3efc9 (linux)
 
 검사를 시작합니다.
-결과 폴더 : /tmp/console-capture/scan-all/pkg/out/20261114T074426Z  (artifacts.json · scan.json · plan.json)
+결과 폴더 : /tmp/console-capture/scan-all/pkg/out/20261114T093110Z  (artifacts.json · scan.json · plan.json)
 검사 완료 : 흔적 0건 · 취약 0건
 
 취약한 곳을 찾지 못했습니다.
@@ -1387,13 +1387,13 @@ root 권한으로 실행 중입니다.
 [7/9] OpenSSH 점검 (CVE-2026-123158 · Alpine)
 ────────────────────────────────────────────────────────
  ESTsecurity 전용백신 1.17.0
- OpenSSH 점검 (CVE-2026-123158 · Alpine)  (openssh-musl-check 0.1.0)
+ OpenSSH 점검 (CVE-2026-123158 · Alpine)  (openssh-musl-check 0.1.1)
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-14 07:44:26 UTC
- 실행 기계  : c33cfe448a72 (linux)
+ 시작 시각  : 2026-11-14 09:31:10 UTC
+ 실행 기계  : d9138cf3efc9 (linux)
 
 검사를 시작합니다.
-결과 폴더 : /tmp/console-capture/scan-all/pkg/out/20261114T074426Z-2  (artifacts.json · scan.json · plan.json)
+결과 폴더 : /tmp/console-capture/scan-all/pkg/out/20261114T093110Z-2  (artifacts.json · scan.json · plan.json)
 검사 완료 : 흔적 0건 · 취약 0건
 
 취약한 곳을 찾지 못했습니다.
@@ -1404,11 +1404,11 @@ root 권한으로 실행 중입니다.
  ESTsecurity 전용백신 1.17.0
  PHP 세션 업로드 진행 설정 점검 (CVE-2026-115560)  (php-session-check-linux 0.5.0)
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-14 07:44:26 UTC
- 실행 기계  : c33cfe448a72 (linux)
+ 시작 시각  : 2026-11-14 09:31:10 UTC
+ 실행 기계  : d9138cf3efc9 (linux)
 
 검사를 시작합니다.
-결과 폴더 : /tmp/console-capture/scan-all/pkg/out/20261114T074426Z-3  (artifacts.json · scan.json · plan.json)
+결과 폴더 : /tmp/console-capture/scan-all/pkg/out/20261114T093110Z-3  (artifacts.json · scan.json · plan.json)
 검사 완료 : 흔적 0건 · 취약 0건
 
 취약한 곳을 찾지 못했습니다.
@@ -1419,11 +1419,11 @@ root 권한으로 실행 중입니다.
  ESTsecurity 전용백신 1.17.0
  PHP2Shell 점검 (CVE-2026-109618 · 109619)  (php2shell-check-linux 0.6.0)
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-14 07:44:27 UTC
- 실행 기계  : c33cfe448a72 (linux)
+ 시작 시각  : 2026-11-14 09:31:11 UTC
+ 실행 기계  : d9138cf3efc9 (linux)
 
 검사를 시작합니다.
-결과 폴더 : /tmp/console-capture/scan-all/pkg/out/20261114T074427Z  (artifacts.json · scan.json · plan.json)
+결과 폴더 : /tmp/console-capture/scan-all/pkg/out/20261114T093111Z  (artifacts.json · scan.json · plan.json)
 검사 완료 : 흔적 0건 · 취약 0건
 
 취약한 곳을 찾지 못했습니다.
@@ -1469,8 +1469,8 @@ root 권한으로 실행 중입니다.
  ESTsecurity 전용백신 1.17.0
  PHP2Shell 원격 점검 (웹서버 응답 헤더)  (php2shell-url-check 0.1.1)
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-14 07:44:43 UTC
- 실행 기계  : c33cfe448a72 (linux)
+ 시작 시각  : 2026-11-14 09:31:26 UTC
+ 실행 기계  : d9138cf3efc9 (linux)
 
 
 이 점검은 네트워크를 씁니다 — 적어 주시는 주소로 요청을 보냅니다.
@@ -1495,7 +1495,7 @@ root 권한으로 실행 중입니다.
 응답 헤더가 알리는 정보는 실제 설치 상태와 다를 수 있습니다.
 URL 점검은 '양호' 를 내지 않습니다 — 그 서버에서 remedy 의 PHP2Shell · PHP 세션 점검으로 확인하십시오.
 확인이 필요합니다. 위에 적은 항목은 '취약하지 않다' 를 가릴 근거가 없습니다.
-결과 파일: /tmp/console-capture/scan-all/net-out/remedy-net-url-20261114T074443Z-2df4939db6afd898.json
+결과 파일: /tmp/console-capture/scan-all/net-out/remedy-net-url-20261114T093126Z-07c732deb8274fc4.json
 [exit=6]
 --- 서명 파일(MANIFEST.minisig)을 지운 remedy-net ---
 알림: 이 OS 에는 코드서명 확인이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
@@ -1503,8 +1503,8 @@ URL 점검은 '양호' 를 내지 않습니다 — 그 서버에서 remedy 의 P
  ESTsecurity 전용백신 1.17.0
  PHP2Shell 원격 점검 (웹서버 응답 헤더)  (php2shell-url-check 0.1.1)
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-14 07:44:43 UTC
- 실행 기계  : c33cfe448a72 (linux)
+ 시작 시각  : 2026-11-14 09:31:26 UTC
+ 실행 기계  : d9138cf3efc9 (linux)
 
 실패: remedy-net 에 서명이 없어 실행하지 않았습니다 — 배포처에서 받은 것이 맞는지 확인하십시오.
   (종료 코드 5: 안전 가드에 의한 중단 (상한 초과·보호 경로·서명 검증 실패))

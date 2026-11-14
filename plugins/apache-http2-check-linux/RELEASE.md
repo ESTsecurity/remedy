@@ -1,6 +1,11 @@
 # apache-http2-check-linux — 릴리스 기록
 
-**버전 0.1.0** · 대상: Apache HTTP Server 의 mod_http2 원격 코드 실행(CVE-2026-119618) — 리눅스 · **점검**(바꾸지 않는다)
+**버전 0.1.1** · 대상: Apache HTTP Server 의 mod_http2 원격 코드 실행(CVE-2026-119618) — 리눅스 · **점검**(바꾸지 않는다)
+
+## 0.1.1 — 기록 정리 (2026-11)
+
+**판정은 0.1.0 과 같다** — 바뀐 것은 기록뿐이다. 게이트 표에 G9 줄을 더했다(1.15.0 공개 뒤에 잰 값 — 공개 전에
+빠뜨렸다). Windows 는 이제 `apache-http2-check-windows`(코어 1.17.0)가 보므로 '다음 판' 이라는 말을 고쳤다.
 
 ## 0.1.0 — 처음 (2026-11)
 
@@ -74,7 +79,7 @@ Linux 는 2026-11-13 에 공지가 없다(OSV · Oracle 의 CVE 페이지).
 ## 이 룰이 보지 않는 것
 
 - 선언한 자리 밖의 직접 빌드(`/usr/local/apache2` 등의 `conf` · `bin` · XAMPP 밖) · 컨테이너 안 · Windows(Apache Lounge ·
-  XAMPP — 다음 판)
+  XAMPP — `apache-http2-check-windows` 가 본다)
 - `Include` 로 다른 자리에서 읽는 설정 · `<VirtualHost>` · `<IfModule>` 안의 줄인지 — 흔적을 못 찾으면 확인 필요로 돌린다.
   Ubuntu 22.04 의 `http2.conf` 는 `Protocols` 를 `<IfModule !mpm_prefork>` 안에 두므로 prefork 로 돌면 켠 흔적이 있어도
   h2 가 꺼져 있을 수 있다
@@ -96,6 +101,7 @@ Linux 는 2026-11-13 에 공지가 없다(OSV · Oracle 의 CVE 페이지).
 |---|---|---|---|
 | G1 | 청정 환경 무해성 | **통과** | 2026-11-13 · 청정 코퍼스의 리눅스 스냅샷 13개(Alpine 3.21 · Debian 12 · Fedora 41 · Ubuntu 22.04)에 `remedy evaluate` — 모두 종료 0. 청정 코퍼스에는 Apache 가 깔린 기계가 없다 — Apache 를 깐 고친 기계의 0 은 아래 하네스가 잰다 |
 | G2~G4 | 복원 · 계획 · 치료 | **미해당** | 바꾸는 것이 없다 |
+| G9 | 룰의 검체 오탐(YARA) | **통과(공개 뒤)** | 2026-11-14 · 0.1.0(1.15.0) 공개 뒤에 쟀다 — 공개 전에 빠뜨렸다(`docs/긴급-대응.md` 의 1.15.0 기록). 정상 설치 열넷(Debian 12 · Ubuntu 24.04 · 22.04 · Rocky 9 · 8 · AlmaLinux 9 · Oracle Linux 9 · Amazon Linux 2023 · 2 · openSUSE Leap 15.6 · Alpine 3.22 · OpenSSH 하네스 이미지 셋)의 `/etc` · `/usr` 79,684개에 `cargo xtask yara`: `apache_h2_loadmodule` 10(모두 mod_http2 를 싣는 설정) · `apache_h2_protocols` 8(설정 5 · RHEL 계열이 까는 mod_http2 의 README 문서 3 — 룰은 YARA 를 설정 자리에만 건다) · `apache_version_affected` 28(모두 판 2.4.55 ~ 2.4.70 배포판의 Apache 실행 파일 · 모듈 — 룰은 패키지가 깔지 않은 직접 빌드의 `bin/httpd` 에만 건다). 못 훑은 것은 리눅스 링크뿐(11,660) · 16 MiB 를 넘은 3개는 64 MiB 상한으로 다시 읽어 맞음 0 |
 | 하네스 | `testbed/harness/linux/apache-verify.sh` | **55/55** | 2026-11-13 · 코어 1.14.0 musl 정적 개발 빌드 · 경우마다 네트워크 없는 컨테이너 — 깐 판을 배포판 자신이 견줌 7(고친 판 Debian 12 · Ubuntu 24.04 · 22.04 · Alpine 3.22 · Amazon Linux 2 · **실제 취약 판** Rocky 9 `2.0.26-6.el9_8.2` · Amazon Linux 2023 `1:2.4.69`) · dpkg 13 · rpm 10 · RHEL 스트림 7(EUS 의 고친 판 0 · 끝난 마이너 2 · RHEL 8 0) · Alpine 4 · 직접 빌드 4(XAMPP 포함) · Apache 없음 2 · 다시 시작하지 않은 Apache 6 · 화면 다섯(찾은 줄 아래 CVE · 확인 필요 까닭 셋 · 미해소 경고 0) · **설정 폴더에 둔 가짜 TLS 키의 본문 · 기록 0** |
 
 ## 서명 — 저장소 사본은 개발용 키, 배포본은 배포 키
