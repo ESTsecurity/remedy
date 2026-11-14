@@ -1,7 +1,7 @@
 ﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
-    출시의 Windows 랩 묶음 — 지난 공개본(A)과 이번 판(B)을 랩 VM 과 이 기계에서 나란히 재는 17단계
+    출시의 Windows 랩 묶음 — 지난 공개본(A)과 이번 판(B)을 랩 VM 과 이 기계에서 나란히 재는 18단계
     (docs/개발-안내.md "출시 검증").
 
 .DESCRIPTION
@@ -13,6 +13,7 @@
       A/B           outside(선언 밖 · IIS) · modules(실린 모듈) · sources(서비스 · Apache 설정 · 레지스트리) · nssm —
                     랩 VM 의 같은 상태에서 A 와 B(`rc\Invoke-Ab*.ps1`). 상태를 바꾸는 단계 뒤마다 되돌린다(reset1 ~ 6)
       log4j         log4j-disk(깨끗한 C: 전체 → 0) · log4j-positive(시료를 놓고 → 2 · 고친 판은 화면에 없다)
+      apache        이번 판의 Apache HTTP/2 점검 룰 하네스(`Invoke-ApacheVerify.ps1` — 설치본 모양마다 0 · 2 · 6)
       원격          net-ab — 이 기계에서 remedy-net url · image · container(`rc\Invoke-AbNet.ps1`)
 
     시료는 `-Inputs`(기본 `testbed\harness\results\rc-inputs` — 리눅스 묶음과 같은 자리)에서 읽는다: `jars\`(리눅스 묶음의
@@ -83,6 +84,22 @@ if (-not (Test-Path -LiteralPath $phpZip)) {
 }
 if (-not (Test-Path -LiteralPath $phpZip)) { Stop-Setup 'PHP 8.3.35 zip 을 받지 못했다(windows.php.net)' }
 if ((Get-FileHash -LiteralPath $phpZip -Algorithm SHA256).Hash.ToLower() -ne $phpSha) { Stop-Setup "PHP zip 의 SHA-256 이 다르다: $phpZip" }
+
+# Apache Lounge 의 고친 판 2.4.71 — Apache 하네스의 진짜 설치본이다. Apache Lounge 는 옛 판을 내려받게 두지 않으므로
+# (새 판이 나오면 이 주소가 사라진다) 한 번 받은 zip 을 이 자리에 둔다. SHA-256 은 그 내려받기 자리의 `.txt` 값이다.
+$apacheZip = Join-Path $Inputs 'httpd-2.4.71-261112-Win64-VS18.zip'
+$apacheSha = '44961a929dff16b767b3adbcea55760a942a00239b2891dc55806be34029e1fc'
+if (-not (Test-Path -LiteralPath $apacheZip)) {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    $ProgressPreference = 'SilentlyContinue'
+    try {
+        Invoke-WebRequest -Uri 'https://www.apachelounge.com/download/VS18/binaries/httpd-2.4.71-261112-Win64-VS18.zip' `
+            -OutFile "$apacheZip.part" -UseBasicParsing
+        Move-Item "$apacheZip.part" $apacheZip
+    } catch { Remove-Item "$apacheZip.part" -ErrorAction SilentlyContinue }
+}
+if (-not (Test-Path -LiteralPath $apacheZip)) { Stop-Setup 'Apache Lounge 2.4.71 zip 을 받지 못했다(apachelounge.com) — 받아 둔 것을 이 자리에 둔다' }
+if ((Get-FileHash -LiteralPath $apacheZip -Algorithm SHA256).Hash.ToLower() -ne $apacheSha) { Stop-Setup "Apache zip 의 SHA-256 이 다르다: $apacheZip" }
 
 $jars = Join-Path $Inputs 'jars'
 $fx = Join-Path $repo 'testbed\harness\linux\fixtures\log4j'
@@ -222,6 +239,10 @@ Step 'log4j-positive' {
     $(if ($st -match '^exit=2 ' -and $found.Count -eq $expect.Count -and -not $fixedShown) { 0 } else { 1 })
     '{0} · 놓은 취약 {1}/{2} 이 화면에 · 고친 판 {3}' -f $st, $found.Count, $expect.Count, $(if ($fixedShown) { '화면에 있다' } else { '화면에 없다' })
 }
+# 이번 판의 Apache 룰 하네스 — 놓은 설치본 · 서비스 · 프로세스는 하네스가 치운다(되돌리기는 아래 reset6).
+Step 'apache' {
+    & (Join-Path $h 'Invoke-ApacheVerify.ps1') -Package $Package -ApacheZip $apacheZip -LogDir (Join-Path $LogDir 'apache')
+} $verdictLine
 Step 'reset6' { & (Join-Path $h 'Reset-Vm.ps1') } $resetJudge
 Step 'net-ab' {
     & (Join-Path $rcDir 'Invoke-AbNet.ps1') -PackageA $PackageA -PackageB $Package -ImagesDir $images -OutDir (Join-Path $LogDir 'net-ab')
