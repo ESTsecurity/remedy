@@ -58,7 +58,7 @@ SUM=$OUT/summary.txt
 : >"$SUM"
 note() { echo "$*" | tee -a "$SUM"; }
 W=$(mktemp -d /tmp/remedy-net-apache-verify.XXXXXX)
-trap 'docker rm -f remedy-net-apache-verify-dind >/dev/null 2>&1; docker run --rm -v /tmp:/t alpine:3.22 rm -rf "/t/${W#/tmp/}"' EXIT
+trap 'docker rm -f -v remedy-net-apache-verify-dind >/dev/null 2>&1; docker run --rm -v /tmp:/t alpine:3.22 rm -rf "/t/${W#/tmp/}"' EXIT
 
 # ── 꼴 셋 — 망 없는 일회용 컨테이너에서 바꾸고 commit 한다(없을 때만) ─────────────────────────────
 variant() { # 이름 · 바탕 이미지 · 명령 — 이미지 점검만 쓴다(그 시작 명령은 이 명령으로 바뀌어 있다)
@@ -123,12 +123,13 @@ docker run -d --privileged --name remedy-net-apache-verify-dind -v "$W:/w" -v "$
     note "FAIL   dind 가 뜨지 않았다"; exit 1; }
 for _ in $(seq 1 60); do docker exec remedy-net-apache-verify-dind docker info >/dev/null 2>&1 && break; sleep 1; done
 docker exec -e ANCHOR="$ANCHOR" remedy-net-apache-verify-dind sh /w/c/inside.sh
-docker rm -f remedy-net-apache-verify-dind >/dev/null 2>&1
+# -v: docker:dind 는 /var/lib/docker 를 이름 없는 볼륨으로 잡는다 — 빼면 돌 때마다 그 볼륨(약 1.8 GB)이 남는다
+docker rm -f -v remedy-net-apache-verify-dind >/dev/null 2>&1
 while read -r name want got why; do
     j=$(ls "$W/c/out-$name"/*.json 2>/dev/null | head -1)
     [ -n "$j" ] && cp "$j" "$OUT/container-$name.json"
     cp "$W/c/$name.txt" "$OUT/container-$name.txt" 2>/dev/null
     judge "container $name" "$want" "$got" "$OUT/container-$name.json" "$why"
 done <"$W/c/results"
-note "통과 $pass · 어긋남 $fail"
+note "통과 $pass · 실패 $fail"
 [ "$fail" = 0 ]
