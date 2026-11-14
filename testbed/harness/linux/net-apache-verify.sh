@@ -130,5 +130,5 @@ while read -r name want got why; do
     cp "$W/c/$name.txt" "$OUT/container-$name.txt" 2>/dev/null
     judge "container $name" "$want" "$got" "$OUT/container-$name.json" "$why"
 done <"$W/c/results"
-note "통과 $pass · 어긋남 $fail"
+note "통과 $pass · 실패 $fail"
 [ "$fail" = 0 ]
