@@ -47,6 +47,23 @@ remediate:
     - { ref: payload }
 ```
 
+## 매니페스트 칸 (닫힌 집합 · 스키마에서 생성)
+
+- 최상위: `allow_removable` · `archive_members` · `collect_extra` · `detect` · `file_names` · `hash_large` · `id` · `kind` · `min_core` · `name` · `network` · `platforms` · `references` · `remediate` · `scan_roots` · `schema_version` · `signed_malware` · `subject_roots` · `subjects` · `submit_hint` · `text_config_dirs` · `verdict` · `version`
+- `collect_extra[]`: `content` · `glob` · `max_size` · `path` · `ref` · `subject`
+- `detect[]`: `capture` · `exclude` · `from` · `id` · `label` · `score` · `subject` · `where`
+- `detect[].exclude[]`: `field` · `op` · `value` · `yara`
+- `detect[].where`(안의 `all[]` · `any[]` 도): `all` · `any` · `field` · `op` · `value` · `yara`
+- `remediate`: `edit` · `remove` · `restore` · `verify`
+- `remediate.edit[]`: `op` · `ref` · `value`
+- `remediate.remove[]`: `descendants` · `guard` · `path` · `recursive` · `ref`
+- `remediate.restore[]`: `ref` · `to`
+- `remediate.verify`: `after_reboot`
+- `signed_malware[]`: `subject` · `thumbprint`
+- `submit_hint`: `confidentiality_min` · `samples`
+- `verdict`: `require` · `unconfirmed`
+- `verdict.unconfirmed[]`: `when` · `why`
+
 ## subject 와 필드 (닫힌 집합)
 
 - `persistence`: id name enabled trigger command args principal source win.task.register_path win.task.actions win.task.run_level win.task.working_directory win.task.command_expanded win.task.args_expanded linux.cron.line_no linux.cron.line

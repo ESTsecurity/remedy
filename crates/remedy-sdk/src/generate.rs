@@ -1190,7 +1190,7 @@ remediate:
 /// `machine/AI-CONTEXT.md` — **하나만 넣을 때 넣는 파일** (설계-06 §2·§9).
 ///
 /// 폴더 전체를 문맥에 넣을 수 없을 때 이것 하나로 룰을 쓸 수 있어야 한다.
-/// 상한 8 KB 는 `cargo xtask guide` 가 잰다 — 넘으면 빌드가 멈춘다.
+/// 상한 10 KB 는 `cargo xtask guide` 가 잰다 — 넘으면 빌드가 멈춘다(2026-11-14 에 8 KB 에서 올렸다 — 칸 목록).
 ///
 /// # 무엇을 넣고 무엇을 빼는가
 ///
@@ -1248,6 +1248,11 @@ pub fn ai_context_md() -> String {
             }
         }
     }
+
+    // **칸도 닫힌 집합이다** — 손으로 적던 때 1.11.0 의 `file_names` · 1.13.0 의 `label` 이 여기 없었다.
+    s.push_str("## 매니페스트 칸 (닫힌 집합 · 스키마에서 생성)\n\n");
+    s.push_str(&manifest_fields_md());
+    s.push('\n');
 
     s.push_str("## subject 와 필드 (닫힌 집합)\n\n");
     for x in Subject::ALL {
@@ -1490,6 +1495,10 @@ mod tests {
             reference.contains(&section),
             "REFERENCE.md 에 매니페스트 칸 절이 없다"
         );
+        assert!(
+            ai_context_md().contains(&section),
+            "AI-CONTEXT.md 에 매니페스트 칸 절이 없다"
+        );
         let unnamed: Vec<&String> = all.iter().filter(|n| !has_word(&section, n)).collect();
         assert!(unnamed.is_empty(), "칸 절이 이름을 빠뜨렸다: {unnamed:?}");
         for (name, doc) in [
@@ -1515,10 +1524,10 @@ mod tests {
 
     #[test]
     fn the_ai_context_fits_its_budget() {
-        // 상한 8 KB (설계-06 §9). `xtask guide` 도 재지만, 생성 시점에 넘으면
+        // 상한 10 KB (설계-06 §9 · 2026-11-14 에 8 KB 에서). `xtask guide` 도 재지만, 생성 시점에 넘으면
         // 커밋된 파일이 이미 넘은 상태가 된다.
         let n = ai_context_md().len();
-        assert!(n <= 8 * 1024, "AI-CONTEXT.md 가 {n} 바이트다 (상한 8192)");
+        assert!(n <= 10 * 1024, "AI-CONTEXT.md 가 {n} 바이트다 (상한 10240)");
     }
 
     #[test]
