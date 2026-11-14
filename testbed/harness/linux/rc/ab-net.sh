@@ -61,7 +61,8 @@ for t in "$IMG"/*.tar; do
 done
 
 # ── container ───────────────────────────────────────────────────────
-docker rm -f "$DIND" > /dev/null 2>&1
+# -v: docker:dind 는 /var/lib/docker 를 이름 없는 볼륨으로 잡는다 — 빼면 돌 때마다 그 볼륨(약 1 GB)이 남는다
+docker rm -f -v "$DIND" > /dev/null 2>&1
 docker run -d --privileged --name "$DIND" -v "$W:/w" -v "$IMG:/in:ro" docker:dind > /dev/null \
     || { note "dind 가 뜨지 않았다"; exit 9; }
 for _ in $(seq 1 60); do docker exec "$DIND" docker info > /dev/null 2>&1 && break; sleep 1; done
@@ -72,7 +73,7 @@ for n in php node; do
             "$W/out-container-b-$n-$r"
     done
 done
-docker rm -f "$DIND" > /dev/null 2>&1
+docker rm -f -v "$DIND" > /dev/null 2>&1
 
 cp -r "$W"/*.txt "$W"/*.rc "$RES/" 2>/dev/null
 # 컨테이너가 root 로 쓴 결과는 컨테이너로 지운다
