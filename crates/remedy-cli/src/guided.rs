@@ -388,6 +388,9 @@ pub fn run(anchor: Option<&str>) -> Outcome {
             Err(why) => rejected.push((f, why)),
         }
     }
+    // **하는 일로 묶어 늘어놓는다**(1.16.0) — 악성코드 탐지 · 제거 → 취약점 점검 → 원격 점검, 묶음 안은 이름순.
+    // 고르는 화면 · '모두 검사만' 의 차례가 이것이다.
+    discover::in_menu_order(&mut ok);
 
     if ok.is_empty() {
         report_rejections(&rejected);

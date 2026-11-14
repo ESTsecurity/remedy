@@ -88,6 +88,29 @@ pub fn beside(exe: &Path) -> Vec<Found> {
     out
 }
 
+/// 메뉴의 묶음 — **하는 일로 가른다**(코어 1.16.0): 악성코드 탐지 · 제거(0) → 취약점 점검(1) → 원격 점검(2).
+///
+/// 이름순 하나였을 때는 새 룰이 이름이 놓이는 자리에 끼어 뒤 번호가 밀렸고(1.15.0 의 Apache 가 2번), 치료 ·
+/// 탐지 · 취약점 점검 · 원격이 섞였다. `kind: check` 는 상태(취약한 판 · 노출된 설정)를 보는 룰이고, 감염을 보는
+/// 탐지만 하는 룰은 `kind` 를 두지 않는다(`24-check-plugins.md`) — 그래서 같은 사고의 `<사고>-1-check` ·
+/// `<사고>-2-clean` 은 둘 다 악성코드 묶음에 들어 폴더 이름의 차례를 지킨다. 매니페스트를 읽지 못하면 악성코드
+/// 묶음으로 둔다 — 고를 거리에서 빼는 판단은 서명 검증이 한다.
+pub fn menu_group(path: &Path) -> u8 {
+    let m = std::fs::read_to_string(path)
+        .ok()
+        .and_then(|t| serde_yaml_ng::from_str::<remedy_sdk::manifest::PluginManifest>(&t).ok());
+    match m {
+        Some(m) if m.network.is_some() => 2,
+        Some(m) if m.kind == Some(remedy_sdk::manifest::PluginKind::Check) => 1,
+        _ => 0,
+    }
+}
+
+/// [`menu_group`] 의 차례로 늘어놓는다. **안정 정렬**이라 묶음 안은 [`beside`] 의 이름순이 그대로 남는다.
+pub fn in_menu_order(found: &mut [Found]) {
+    found.sort_by_cached_key(|f| menu_group(&f.path));
+}
+
 /// 이 꾸러미를 써도 되는가 — `plugin verify` 와 **같은 사슬**이다.
 ///
 /// `anchor_b64` 는 빌드에 박힌 앵커(`EMBEDDED_ANCHOR`). `None` 이면 검증할 방법이
@@ -172,6 +195,46 @@ mod tests {
             .map(|f| f.dir.file_name().unwrap().to_string_lossy().to_string())
             .collect();
         assert_eq!(names, vec!["alpha", "mid", "zeta"], "{got:?}");
+    }
+
+    #[test]
+    fn the_menu_groups_rules_by_what_they_do_and_keeps_name_order_within() {
+        // **하는 일로 묶는다**(1.16.0) — 악성코드 탐지 · 제거 → 취약점 점검 → 원격. 이름순 하나일 때는 `a-…` 로
+        // 시작하는 취약점 점검이 치료보다 앞에 끼었다. 묶음 안은 이름순 그대로다(안정 정렬).
+        let d = lab("groups");
+        let head = "schema_version: 1\nversion: 0.1.0\nmin_core: \"1.4.0\"\nplatforms: [linux]\n\
+                    name: { ko: \"x\", en: \"x\" }\n";
+        let put = |name: &str, tail: &str| {
+            let p = d.join("plugins").join(name).join("plugin.yaml");
+            std::fs::create_dir_all(p.parent().unwrap()).expect("폴더");
+            std::fs::write(&p, format!("{head}id: {name}\n{tail}")).expect("파일");
+        };
+        let local = "scan_roots: [\"/etc\"]\nsubjects: [file]\ndetect: []\n";
+        put(
+            "a-remote",
+            "kind: check\nnetwork: url\nscan_roots: []\nsubjects: []\ndetect: []\n",
+        );
+        put("b-vuln", &format!("kind: check\n{local}"));
+        put("c-detect", local);
+        put("d-clean", local);
+        put("e-vuln", &format!("kind: check\n{local}"));
+        let mut got = beside(&d.join("remedy.exe"));
+        let groups: Vec<u8> = got.iter().map(|f| menu_group(&f.path)).collect();
+        assert_eq!(
+            groups,
+            vec![2, 1, 0, 0, 1],
+            "매니페스트를 읽어 묶음을 가른다: {got:?}"
+        );
+        in_menu_order(&mut got);
+        let names: Vec<String> = got
+            .iter()
+            .map(|f| f.dir.file_name().unwrap().to_string_lossy().to_string())
+            .collect();
+        assert_eq!(
+            names,
+            vec!["c-detect", "d-clean", "b-vuln", "e-vuln", "a-remote"],
+            "{got:?}"
+        );
     }
 
     #[test]
