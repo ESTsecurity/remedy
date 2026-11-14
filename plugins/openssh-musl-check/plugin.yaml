@@ -36,7 +36,7 @@
 # 직속 파일 전부(개인키 포함)가 줄 단위로 결과에 실리므로 쓰지 않는다.
 schema_version: 1
 id: openssh-musl-check
-version: 0.1.0
+version: 0.1.1
 min_core: "1.14.0"  # apk_version_lt 는 1.14.0 · label 은 1.13.0 · file_names 는 1.11.0
 platforms: [linux]
 

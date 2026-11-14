@@ -18,7 +18,7 @@
 <!-- threats:begin — `cargo xtask threats --write` 가 룰에서 만든다. 손으로 고치지 않는다 -->
 | 룰 | 하는 일 | Windows | Linux | 참고 |
 |---|---|---|---|---|
-| Apache HTTP/2 점검 (CVE-2026-119618) | 찾기만 합니다 | `apache-http2-check-windows` 0.1.0 | `apache-http2-check-linux` 0.1.0 | [httpd.apache.org](https://httpd.apache.org/security/vulnerabilities_24.html) |
+| Apache HTTP/2 점검 (CVE-2026-119618) | 찾기만 합니다 | `apache-http2-check-windows` 0.1.0 | `apache-http2-check-linux` 0.1.1 | [httpd.apache.org](https://httpd.apache.org/security/vulnerabilities_24.html) |
 | EvilAI(Locust) 제거 | 찾아서 치료합니다 (복원할 수 있습니다) | `evilai-locust` 0.2.0 | — | [www.virustotal.com](https://www.virustotal.com/gui/search/engines%3Ameadowlocust) |
 | Log4j 점검 (CVE-2021-44228 등) | 찾기만 합니다 | `log4j-check` 0.2.0 | `log4j-check` 0.2.0 | [logging.apache.org](https://logging.apache.org/security.html) |
 | Node2Shell 점검 (CVE-2026-111497) | 찾기만 합니다 | `node2shell-check-windows` 0.4.0 | `node2shell-check-linux` 0.6.0 | [nodejs.org](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases) |
@@ -28,7 +28,7 @@
 | CWPdoor 점검 (탐지만) | 찾기만 합니다 | — | `cwpdoor-1-check` 0.1.2 | [blog.xlab.qianxin.com](https://blog.xlab.qianxin.com/cwpdoor-the-invisible-backdoor-living-inside-control-web-panel/) |
 | CWPdoor 제거 | 찾아서 치료합니다 (복원할 수 있습니다) | — | `cwpdoor-2-clean` 0.1.2 | [blog.xlab.qianxin.com](https://blog.xlab.qianxin.com/cwpdoor-the-invisible-backdoor-living-inside-control-web-panel/) |
 | Ebury 점검 (탐지만) | 찾기만 합니다 | — | `ebury-check` 0.2.0 | [www.welivesecurity.com](https://www.welivesecurity.com/en/eset-research/ebury-alive-unseen-400k-linux-servers-compromised-cryptotheft-financial-gain/) |
-| OpenSSH 점검 (CVE-2026-123158 · Alpine) | 찾기만 합니다 | — | `openssh-musl-check` 0.1.0 | [github.com](https://github.com/advisories/GHSA-4fcc-vm97-gx3x) |
+| OpenSSH 점검 (CVE-2026-123158 · Alpine) | 찾기만 합니다 | — | `openssh-musl-check` 0.1.1 | [github.com](https://github.com/advisories/GHSA-4fcc-vm97-gx3x) |
 <!-- threats:end -->
 
 ## 처음 쓰시는 분 — 다섯 단계

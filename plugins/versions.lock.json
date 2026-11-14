@@ -1,8 +1,8 @@
 {
   "apache-http2-check-linux": {
-    "version": "0.1.0",
+    "version": "0.1.1",
     "files": {
-      "plugin.yaml": "9c02aaa527fd3ac74bbb7050763f5c0750dbad2f8c1c4337c6b68c40b5253529",
+      "plugin.yaml": "a8e62e899baeaaa220a01409ff8ee3f3e785e284dd166bfab39228b94d6c9fe9",
       "rules/apache.yar": "c0f4415a088e0e22579790915f0405c676a78af9eab7a52936e3e40265fa9372"
     }
   },
@@ -103,9 +103,9 @@
     }
   },
   "openssh-musl-check": {
-    "version": "0.1.0",
+    "version": "0.1.1",
     "files": {
-      "plugin.yaml": "3186a4378b3b6c423293cf5b4617519cc2ae51d00e6d5949367a83f78d3c12a4",
+      "plugin.yaml": "d9dd86b1f40bb04b93a7e8d019ca4bb46b8ee956b3d97fec30cec5c6c24200d4",
       "rules/sshd.yar": "4d94a1f41baab8732e41067125282d213eaf742209b48bf89acb575939c292ec"
     }
   },

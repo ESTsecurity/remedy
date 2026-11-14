@@ -41,13 +41,13 @@
 #
 # # 이 룰이 보지 않는 것
 #
-# - 선언한 자리 밖의 직접 빌드(아래 `scan_roots` 밖) · 컨테이너 안 · Windows(Apache Lounge · XAMPP — 다음 판)
+# - 선언한 자리 밖의 직접 빌드(아래 `scan_roots` 밖) · 컨테이너 안 · Windows(`apache-http2-check-windows` 가 본다 — 코어 1.17.0)
 # - Include 로 다른 자리에서 읽는 설정 — 흔적을 못 찾으면 확인 필요로 돌린다
 # - 한 기계에 Apache 가 둘이면 HTTP/2 흔적을 설치본마다 가르지 않는다(기계 전체의 흔적이다)
 # - TLS 개인키 — 이름(`*.conf` · `http2.load` · `httpd`)으로만 기록 · 해시하므로 `*.key` · `*.pem` 은 읽지 않는다
 schema_version: 1
 id: apache-http2-check-linux
-version: 0.1.0
+version: 0.1.1
 min_core: "1.14.0"  # apk_version_lt 는 1.14.0 · label 은 1.13.0 · file_names 는 1.11.0
 platforms: [linux]
 
