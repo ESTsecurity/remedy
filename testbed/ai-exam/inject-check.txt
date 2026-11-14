@@ -1,0 +1,3 @@
+docs/plugin-guide/24-check-plugins.md
+docs/plugin-guide/examples/ex04-check-only/plugin.yaml
+docs/plugin-guide/examples/ex04-check-only/README.md

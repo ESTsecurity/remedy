@@ -64,6 +64,18 @@ pub const INJECT: &[&str] = &[
     "docs/plugin-guide/examples/ex03-text-config/README.md",
 ];
 
+/// **점검 위협의 꾸러미에만 더하는 파일** — 점검 룰(`kind: check`)의 규약과 실물이다. `unconfirmed` · 판 비교
+/// 연산자 · `%FIXED_DISKS%` 는 이 파일들에만 있다. `testbed/ai-exam/inject-check.txt` 와 같아야 한다(`xtask guide`).
+///
+/// **치료 위협의 꾸러미에는 넣지 않는다**(2026-10-25 · 시험 README 의 '넣지 않는 것') — 치료 룰을 쓰게 하는 시험에서
+/// 점검 전용의 "처치 절을 뺀다" 를 응시자 앞에 두면 오도가 된다. 그래서 위협 스무 개의 꾸러미는 그대로이고,
+/// 점검 위협(2026-11-14 · `apache-h2`)이 생긴 날부터 그 꾸러미에만 실린다.
+pub const INJECT_CHECK: &[&str] = &[
+    "docs/plugin-guide/24-check-plugins.md",
+    "docs/plugin-guide/examples/ex04-check-only/plugin.yaml",
+    "docs/plugin-guide/examples/ex04-check-only/README.md",
+];
+
 /// 채점 결과. **숫자를 구조로 남긴다** — 출력만 하면 회귀 테스트가 그것을
 /// 잡을 수 없고, 린트를 느슨하게 고쳤을 때 과거 회차가 조용히 통과한다.
 pub struct Score {
@@ -260,6 +272,28 @@ pub fn score(root: &Path, dir: &Path, t: &Threat) -> Result<Score, String> {
         }
     }
 
+    // ── 3·4. 점검 위협은 하네스가 잰다 ──────────────────────────
+    // 감염 스냅샷도 기대 Op 도 없다. 여기서는 린트와 청정 코퍼스까지만 — 판정은 `t.harness` 가 실제 배포판에서
+    // 잰다(`run` 이 그 명령을 적는다).
+    if t.is_check() {
+        return Ok(Score {
+            parse_error: None,
+            plugin_id: m.id.clone(),
+            issues,
+            lint_errors,
+            clean_total: corpus.len(),
+            clean_records,
+            dirty,
+            infected_total: 0,
+            missed: Vec::new(),
+            rejected: Vec::new(),
+            expected_ops: 0,
+            planned_total: 0,
+            lacking: Vec::new(),
+            extra: Vec::new(),
+        });
+    }
+
     // ── 3·4. 감염 스냅샷 ─────────────────────────────────────
     let infected = remedy_testkit::load_corpus(&t.infected_dir).map_err(|e| format!("{e}"))?;
     if infected.is_empty() {
@@ -341,6 +375,19 @@ pub struct Threat {
     /// 감염 스냅샷이 있는 곳. 위협 폴더에 `infected/` 가 있으면 그것,
     /// 없으면 저장소의 `corpus/infected/`.
     pub infected_dir: PathBuf,
+    /// **점검 위협**이면 채점 하네스(저장소 상대 경로 · 위협 폴더의 `harness.txt` 첫 줄).
+    ///
+    /// 점검 룰은 아무것도 바꾸지 않으므로 감염 스냅샷 · 기대 Op 으로 잴 것이 없다. 갈라야 하는 것은 취약 ·
+    /// 깨끗 · 확인 필요이고, 그것은 **실제 배포판에 깐 패키지**에서만 잴 수 있다 — 스냅샷에 판 문자열을
+    /// 지어 넣으면 배포판의 판 비교(dpkg · rpm · apk)를 재지 못한다. 그래서 3 · 4 를 하네스가 맡는다.
+    pub harness: Option<String>,
+}
+
+impl Threat {
+    /// 점검 위협인가 — 꾸러미의 머리말 · 프롬프트와 채점이 갈린다.
+    pub fn is_check(&self) -> bool {
+        self.harness.is_some()
+    }
 }
 
 /// 기본 위협. 인자를 주지 않으면 이것으로 돈다.
@@ -558,6 +605,10 @@ pub const REFERENCES: &[(&str, &str)] = &[
         "hexcfg-loader",
         "testbed/ai-exam/threats/hexcfg-loader/reference-plugin",
     ),
+    // **처음 재는 점검 위협** (2026-11-14). 정답은 제품이 싣는 룰이다 — `evilai-locust` 처럼. 여기서 재는 것은
+    // 린트와 청정 코퍼스까지이고, 판정(취약 · 깨끗 · 확인 필요)은 위협의 `harness.txt` 가 가리키는 하네스 55칸이
+    // 실제 배포판에서 잰다. 실기기 치료 게이트(`examapply`)는 점검 위협을 건너뛴다 — 바꾸는 것이 없다.
+    ("apache-h2", "plugins/apache-http2-check-linux"),
 ];
 
 pub fn threat(root: &Path, name: &str) -> Result<Threat, String> {
@@ -577,10 +628,28 @@ pub fn threat(root: &Path, name: &str) -> Result<Threat, String> {
     } else {
         root.join("corpus").join("infected")
     };
+    // 하네스를 적었는데 그 파일이 없으면 멈춘다 — 조용히 치료 위협으로 채점하면 감염 스냅샷이 없어 엉뚱한
+    // 실패가 난다.
+    let harness = match std::fs::read_to_string(dir.join("harness.txt")) {
+        Err(_) => None,
+        Ok(text) => {
+            let h = text
+                .lines()
+                .map(str::trim)
+                .find(|l| !l.is_empty() && !l.starts_with('#'))
+                .ok_or_else(|| format!("{name}/harness.txt 가 비어 있다"))?
+                .to_string();
+            if !root.join(&h).is_file() {
+                return Err(format!("{name}/harness.txt 의 하네스가 없다: {h}"));
+            }
+            Some(h)
+        }
+    };
     Ok(Threat {
         name: name.to_string(),
         dir,
         infected_dir,
+        harness,
     })
 }
 
@@ -709,6 +778,25 @@ pub fn run(root: &Path, args: &[String]) -> Result<(), String> {
         },
         s.clean_records
     );
+
+    // **점검 위협은 판정을 여기서 재지 않는다** — 감염 스냅샷이 없고, 취약 · 깨끗 · 확인 필요는 실제 배포판에 깐
+    // 패키지에서만 잰다. 재지 않은 것을 초록으로 적지 않도록 하네스 명령을 남긴다.
+    if let Some(h) = &t.harness {
+        println!(
+            "  3. 판정          여기서 재지 않는다 — 점검 위협은 하네스가 실제 배포판에서 잰다"
+        );
+        println!("       bash {h} --bin <musl 정적 개발 빌드> \\");
+        println!(
+            "           --plugins <이 답을 `{}/` 로 두고 개발 키로 서명한 폴더>",
+            s.plugin_id
+        );
+        println!();
+        if s.passed() {
+            println!("린트 · 청정 코퍼스 통과 — 판정은 위 하네스로 마저 잰다");
+            return Ok(());
+        }
+        return Err(format!("불합격 — {}", s.failures().join(" · ")));
+    }
 
     for x in &s.missed {
         println!("    {x}");
@@ -922,17 +1010,50 @@ const HEADER: &str = "\
 
 ";
 
+/// 점검 위협의 머리말. `HEADER` 는 치료 규칙과 감염 기계의 관측 보고를 말하므로 점검 위협에는 틀린다 —
+/// 점검 규칙은 아무것도 바꾸지 않고, 위협 설명은 공지와 배포판 보안 추적기를 읽은 보고다. 이것도 고정이다.
+const HEADER_CHECK: &str = "\
+# 이 요청에 대하여 — 방어 목적 보안 도구의 점검 규칙 작성
+
+`remedy` 는 이스트시큐리티가 만드는 **전용백신**(dedicated antivirus)이다. 이
+요청은 그 도구가 읽을 **취약점 점검 규칙 하나를 작성하는 일**이다 — 기계에 깔린
+소프트웨어가 공지된 취약 판인지, 고쳐졌는지를 가린다.
+
+무엇을 만드는지 먼저 밝힌다.
+
+- 산출물은 **선언형 YAML 파일 하나**다. 플러그인은 코드를 싣지 않는다 —
+  코어가 미리 정해 둔 관찰 대상과 연산자만 해석하고, 그 밖의 것은 할 수 없다.
+- 읽을 수 있는 범위는 규칙이 스스로 선언한 경로 상한(`scan_roots`) 안뿐이다.
+  그것은 성능 설정이 아니라 **권한 상한**이다.
+- 점검 규칙은 **아무것도 바꾸지 않는다** — 읽고 판정만 한다.
+- 아래 위협 설명은 공급사 공지와 배포판 보안 추적기를 읽고 쓴 보고다. 공격
+  코드도, 악용 방법도 이 문서에 없다.
+- 채점은 실제 배포판에 깐 패키지에서 **고친 기계를 취약으로 내지 않는가 ·
+  모르는 것을 깨끗하다고 하지 않는가**를 본다.
+
+---
+
+";
+
 pub fn bundle(root: &Path, t: &Threat) -> Result<String, String> {
     let mut s = String::new();
 
-    s.push_str(HEADER);
+    // 점검 위협은 머리말과 프롬프트가 다르다 — 위협 스무 개의 회차가 `PROMPT.md` 의 글자에 묶여 있어 고치지
+    // 않고 따로 둔다(`PROMPT-check.md` 의 출제 메모).
+    let (header, prompt_file) = if t.is_check() {
+        (HEADER_CHECK, "PROMPT-check.md")
+    } else {
+        (HEADER, "PROMPT.md")
+    };
+    s.push_str(header);
 
     s.push_str(
         "아래는 `remedy` 전용백신의 플러그인 규격 문서 전부다. \
          파일마다 경로를 함께 적었다.\n\n",
     );
 
-    for rel in INJECT {
+    let extra: &[&str] = if t.is_check() { INJECT_CHECK } else { &[] };
+    for rel in INJECT.iter().chain(extra) {
         let p = root.join(rel);
         let body = std::fs::read_to_string(&p)
             .map_err(|e| format!("{} 를 읽지 못했다: {e}", p.display()))?;
@@ -957,12 +1078,12 @@ pub fn bundle(root: &Path, t: &Threat) -> Result<String, String> {
         }
     }
 
-    let prompt = std::fs::read_to_string(root.join("testbed/ai-exam/PROMPT.md"))
-        .map_err(|e| format!("PROMPT.md 를 읽지 못했다: {e}"))?;
+    let prompt = std::fs::read_to_string(root.join("testbed/ai-exam").join(prompt_file))
+        .map_err(|e| format!("{prompt_file} 를 읽지 못했다: {e}"))?;
     let threat = std::fs::read_to_string(t.dir.join("THREAT.md"))
         .map_err(|e| format!("{}/THREAT.md 를 읽지 못했다: {e}", t.name))?;
 
-    let prompt_body = between_rules("PROMPT.md", &prompt, 2)?;
+    let prompt_body = between_rules(prompt_file, &prompt, 2)?;
     let threat_body = between_rules("THREAT.md", &threat, 1)?;
 
     // 룰이 없는 위협에서는 룰 관련 문단을 뺀다. **남겨 두면 응시자가 오지도
@@ -970,7 +1091,7 @@ pub fn bundle(root: &Path, t: &Threat) -> Result<String, String> {
     let prompt_body = strip_rule_block(&prompt_body, s.contains("파일: rules/"));
     if !prompt_body.contains(THREAT_SLOT) {
         return Err(format!(
-            "PROMPT.md 본문에 {THREAT_SLOT} 자리가 없다 — 위협 설명을 넣을 곳이 사라졌다"
+            "{prompt_file} 본문에 {THREAT_SLOT} 자리가 없다 — 위협 설명을 넣을 곳이 사라졌다"
         ));
     }
     s.push_str(prompt_body.replace(THREAT_SLOT, threat_body.trim()).trim());
@@ -2211,6 +2332,29 @@ mod tests {
             missed: 0,
             lacking: 0,
         },
+        // 첫 점검 위협(2026-11-14). 여기서는 린트 · 청정 코퍼스까지 — 판정은 하네스가 잰다(54/55 · 떨어진
+        // S1 은 위협 설명이 그 화면 문구를 주지 않은 출제 쪽 빈칸이었다). 자세한 것은 NOTES.md.
+        Expected {
+            dir: "2026-11-14-opus-5.5-apache-r1",
+            threat: "apache-h2",
+            parses: true,
+            errors: 0,
+            warnings: 0,
+            dirty: 0,
+            missed: 0,
+            lacking: 0,
+        },
+        // 위협 설명에 S1 문구를 준 뒤의 회차 — 하네스 55/55, 첫 점검 위협 합격. 자세한 것은 NOTES.md.
+        Expected {
+            dir: "2026-11-14-opus-5.5-apache-r2",
+            threat: "apache-h2",
+            parses: true,
+            errors: 0,
+            warnings: 0,
+            dirty: 0,
+            missed: 0,
+            lacking: 0,
+        },
     ];
 
     fn repo_root() -> PathBuf {
@@ -2575,6 +2719,10 @@ remediate:
 
         for name in threat_names(&root) {
             let t = threat(&root, &name).unwrap_or_else(|e| panic!("{name}: {e}"));
+            // 점검 위협에는 기대 Op 이 없다 — 판정은 그 위협의 하네스가 잰다.
+            if t.is_check() {
+                continue;
+            }
             let expected = load_expected_ops(&t).unwrap_or_else(|e| panic!("{name}: {e}"));
 
             // 자리표는 `<op> <대상>` 이다. Op 이름만 남은 줄은 로더가 이미
@@ -2650,5 +2798,58 @@ remediate:
         let t = threat(&root, DEFAULT_THREAT).expect("기본 위협");
         let s = score(&root, &root.join("plugins/evilai-locust"), &t).expect("첫 플러그인");
         assert!(s.passed(), "첫 플러그인이 불합격이다: {:?}", s.failures());
+    }
+
+    /// **점검 위협의 꾸러미는 점검을 말한다.** 치료 위협의 머리말과 프롬프트("탐지하고 제거하는" · "감염 상태를
+    /// 세우고 관측한 보고")가 점검 위협에 실리면 응시자는 지울 것을 찾는다 — 점검 룰은 아무것도 바꾸지 않는다.
+    /// 그리고 점검 위협이 하나도 없으면 이 갈래는 아무도 재지 않는다.
+    #[test]
+    fn a_check_threat_bundle_speaks_of_checking_not_removal() {
+        let root = repo_root();
+        let checks: Vec<String> = threat_names(&root)
+            .into_iter()
+            .filter(|n| threat(&root, n).is_ok_and(|t| t.is_check()))
+            .collect();
+        assert!(!checks.is_empty(), "점검 위협이 하나도 없다");
+        // 점검 룰 안내는 점검 위협의 꾸러미에만 — 치료 위협에는 오도가 된다(2026-10-25 결정).
+        let guide = format!("파일: {}", INJECT_CHECK[0]);
+        let cure = bundle(&root, &threat(&root, DEFAULT_THREAT).unwrap()).unwrap();
+        assert!(
+            !cure.contains(&guide),
+            "치료 위협의 꾸러미에 점검 룰 안내가 실렸다"
+        );
+        for name in checks {
+            let t = threat(&root, &name).unwrap();
+            let text = bundle(&root, &t).unwrap_or_else(|e| panic!("{name}: {e}"));
+            assert!(
+                text.starts_with(HEADER_CHECK),
+                "{name}: 점검 머리말이 아니다"
+            );
+            assert!(
+                text.contains("**점검하는** 플러그인"),
+                "{name}: 점검 프롬프트가 아니다"
+            );
+            assert!(text.contains(&guide), "{name}: 점검 룰 안내가 없다");
+            for cure in ["탐지하고 제거하는", "감염 상태를", "지우는 대상이 전부"]
+            {
+                assert!(
+                    !text.contains(cure),
+                    "{name}: 치료 위협의 문구 '{cure}' 가 실렸다"
+                );
+            }
+            // 판정은 하네스가 재므로 여기서는 린트 · 청정 코퍼스까지다 — 그 둘을 정답이 넘어야 한다.
+            let reference = REFERENCES
+                .iter()
+                .find(|(n, _)| *n == name)
+                .unwrap_or_else(|| panic!("{name}: 정답이 표에 없다"))
+                .1;
+            let s = score(&root, &root.join(reference), &t).unwrap();
+            assert!(s.passed(), "{name}: 정답이 불합격이다: {:?}", s.failures());
+            assert_eq!(
+                (s.infected_total, s.expected_ops),
+                (0, 0),
+                "{name}: 감염 · 기대 Op 을 쟀다"
+            );
+        }
     }
 }
