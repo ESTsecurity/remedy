@@ -64,6 +64,7 @@ pub(crate) fn runtime_selected(name: &str, products: &[Product]) -> bool {
         Product::Php => php_executable_name(name),
         Product::Node => is_node_runtime(name),
         Product::Brotli => false,
+        Product::Apache => crate::scan::slashpath::base(name) == "httpd",
     })
 }
 

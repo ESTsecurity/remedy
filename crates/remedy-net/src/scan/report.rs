@@ -79,6 +79,19 @@ pub struct Criteria {
     pub sha256: String,
     /// 고른 제품마다 보는 CVE. PHP 에는 세션 설정(CVE-2026-115560)도 든다.
     pub cves: BTreeMap<Product, Vec<String>>,
+    /// Apache 기준(`apache.json` · 코어 1.18.0) — Apache 를 고른 점검에만 싣는다(PHP · Node.js 만 고른 결과는 1.17.0
+    /// 과 같은 꼴이다).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub apache: Option<ApacheBasis>,
+}
+
+/// 견준 Apache 기준.
+#[derive(Debug, Clone, Serialize, JsonSchema)]
+pub struct ApacheBasis {
+    /// 공지를 확인한 날(`YYYY-MM-DD`).
+    pub checked: String,
+    /// 읽은 `apache.json` 의 SHA-256.
+    pub sha256: String,
 }
 
 impl Criteria {
@@ -91,11 +104,19 @@ impl Criteria {
             }
             cves.insert(*p, list);
         }
+        let apache = rules
+            .apache()
+            .filter(|_| products.contains(&Product::Apache))
+            .map(|a| ApacheBasis {
+                checked: a.checked().to_string(),
+                sha256: a.sha256().to_string(),
+            });
         Criteria {
             version: rules.version().to_string(),
             issued_at: rules.issued_at().to_string(),
             sha256: rules.sha256().to_string(),
             cves,
+            apache,
         }
     }
 }

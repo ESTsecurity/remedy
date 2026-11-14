@@ -30,6 +30,7 @@
 //! 규칙을 잰다.
 
 mod advisory;
+mod apache;
 mod data;
 mod node;
 mod php;
@@ -37,6 +38,8 @@ mod version;
 
 #[cfg(test)]
 mod tests;
+
+pub use apache::ApacheCriteria;
 
 use crate::scan::model::{Evidence, Finding, Product, Status};
 use data::ProductData;
@@ -70,6 +73,8 @@ pub enum PackageManager {
     Dpkg,
     /// RPM 패키지는 RPM 줄(공급사 · 아키텍처 · 버전 범위가 맞는 것)로만 견준다.
     Rpm,
+    /// apk(Alpine) — Apache 만 쓴다(코어 1.18.0). 기록의 파일 체크섬이 실제 파일과 맞을 때만 그 판을 믿는다.
+    Apk,
 }
 
 /// 수집한 것 하나 — 실행 파일 · 라이브러리 · 패키지. 모르는 칸은 비워 둔다.
@@ -156,21 +161,38 @@ pub struct RuleSet {
     issued_at: String,
     sha256: String,
     products: BTreeMap<Product, ProductData>,
+    /// Apache 기준(`apache.json` · 코어 1.18.0). 기준 파일로 읽은 것만 있고, `baseline.json` 만 읽은 것(저장소
+    /// 검사 · 옛 시험)에는 없다 — 없으면 Apache 는 판정하지 않는다(*확인 필요*).
+    apache: Option<ApacheCriteria>,
 }
 
 impl RuleSet {
-    /// 서명을 확인한 데이터 룰의 `baseline.json` — 실행마다 한 번 읽는다(코어 1.12.0 · `crate::criteria`).
-    /// 점검은 따로 도는 일감에서도 쓰므로 그 실행이 끝날 때까지 둔다.
+    /// 서명을 확인한 데이터 룰의 `baseline.json` 과 `apache.json` — 실행마다 한 번 읽는다(코어 1.12.0 · 1.18.0 ·
+    /// `crate::criteria`). 점검은 따로 도는 일감에서도 쓰므로 그 실행이 끝날 때까지 둔다. 둘 중 하나라도 읽지
+    /// 못하면 점검하지 않는다.
     pub fn load() -> Result<&'static RuleSet, crate::criteria::Refusal> {
+        use crate::criteria::{Refusal, APACHE_FILE, BASELINE_FILE};
         let verified = crate::criteria::open()?;
-        let text = verified.read(crate::criteria::BASELINE_FILE)?;
-        let set = RuleSet::from_json(&text).map_err(|e| {
-            crate::criteria::Refusal::Unreadable(
-                crate::criteria::BASELINE_FILE.to_string(),
-                e.to_string(),
-            )
-        })?;
+        let baseline = verified.read(BASELINE_FILE)?;
+        let apache = verified.read(APACHE_FILE)?;
+        let mut set = RuleSet::from_json(&baseline)
+            .map_err(|e| Refusal::Unreadable(BASELINE_FILE.to_string(), e.to_string()))?;
+        let criteria = ApacheCriteria::from_json(&apache)
+            .map_err(|e| Refusal::Unreadable(APACHE_FILE.to_string(), e))?;
+        set.apache = Some(criteria);
         Ok(crate::criteria::leak(set))
+    }
+
+    /// 두 기준 파일의 글에서 읽는다 — 저장소 검사와 시험이 쓴다.
+    pub fn from_texts(baseline: &str, apache: &str) -> Result<RuleSet, RuleError> {
+        let mut set = RuleSet::from_json(baseline)?;
+        set.apache = Some(ApacheCriteria::from_json(apache).map_err(RuleError)?);
+        Ok(set)
+    }
+
+    /// Apache 기준 — 없으면 `None`.
+    pub fn apache(&self) -> Option<&ApacheCriteria> {
+        self.apache.as_ref()
     }
 
     /// 도움말의 기준 줄(해라체) — 받은 기준 폴더에서 읽고, 확인하지 못하면 그렇다고 적는다(도움말은
@@ -180,9 +202,10 @@ impl RuleSet {
             Ok(rules) => {
                 let (version, issued) = (rules.version(), rules.issued_at());
                 let issued = issued.get(..10).unwrap_or(issued);
+                let checked = rules.apache().map_or("-", |a| a.checked());
                 lang.pick(
-                    format!("기준: {version} ({issued} 발행 · 만료 없음)."),
-                    format!("Criteria: {version} (issued {issued} · no expiry)."),
+                    format!("기준: {version} ({issued} 발행 · 만료 없음) · Apache {checked} 확인."),
+                    format!("Criteria: {version} (issued {issued} · no expiry) · Apache checked {checked}."),
                 )
             }
             Err(_) => lang.pick(
@@ -198,12 +221,17 @@ impl RuleSet {
         }
     }
 
-    /// 시험이 쓰는 기준 — `testdata/baseline.json`(1.11.0 까지 바이너리에 들던 파일의 고정 사본).
+    /// 시험이 쓰는 기준 — `testdata/baseline.json`(1.11.0 까지 바이너리에 들던 파일의 고정 사본)과
+    /// `testdata/apache.json`(데이터 룰의 그 파일과 같은 사본).
     #[cfg(test)]
     pub fn fixture() -> &'static RuleSet {
         static FIXTURE: std::sync::OnceLock<RuleSet> = std::sync::OnceLock::new();
         FIXTURE.get_or_init(|| {
-            RuleSet::from_json(crate::criteria::testkit::BASELINE).expect("testdata/baseline.json")
+            RuleSet::from_texts(
+                crate::criteria::testkit::BASELINE,
+                crate::criteria::testkit::APACHE,
+            )
+            .expect("testdata/baseline.json · apache.json")
         })
     }
 
@@ -219,6 +247,7 @@ impl RuleSet {
             issued_at: checked.issued_at,
             sha256,
             products: checked.products,
+            apache: None,
         })
     }
 
@@ -239,22 +268,32 @@ impl RuleSet {
 
     /// 이 기준에 그 제품이 있는가.
     pub fn supports(&self, product: Product) -> bool {
-        self.products.contains_key(&product)
+        match product {
+            Product::Apache => self.apache.is_some(),
+            _ => self.products.contains_key(&product),
+        }
     }
 
     /// 그 제품에서 보는 CVE. 기준에 없는 제품이면 비어 있다.
     pub fn cves(&self, product: Product) -> &[String] {
+        if product == Product::Apache {
+            return self.apache.as_ref().map(|a| a.cves()).unwrap_or_default();
+        }
         self.product(product)
             .map(|p| p.cves.as_slice())
             .unwrap_or_default()
     }
 
-    /// 수집한 것 하나를 판정한다. 사람이 읽는 칸은 `lang` 으로 적는다.
+    /// 수집한 것 하나를 판정한다. 사람이 읽는 칸은 `lang` 으로 적는다. Apache 는 HTTP/2 흔적이 없는 것으로 본다 —
+    /// 흔적을 모은 쪽은 [`RuleSet::evaluate_apache`] 를 부른다.
     pub fn evaluate(&self, c: &Component, lang: Lang) -> Finding {
         match c.product {
             Product::Php => self.evaluate_php(c, lang),
             Product::Node => self.evaluate_node(c, lang),
             Product::Brotli => self.evaluate_vendor_component(c, lang),
+            Product::Apache => {
+                self.evaluate_apache(c, &crate::scan::apacheconf::Http2::default(), lang)
+            }
         }
     }
 

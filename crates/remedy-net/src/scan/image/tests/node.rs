@@ -31,7 +31,7 @@ fn image_product_selection_and_unknown_node_do_not_change_php_coverage() {
         match f.product {
             Product::Node => assert_eq!(f.id, format!("node:{}:usr/local/bin/node", t.id)),
             Product::Php => assert_eq!(f.id, format!("{}:usr/bin/php8.3", t.id)),
-            Product::Brotli => panic!("{f:#?}"),
+            Product::Brotli | Product::Apache => panic!("{f:#?}"),
         }
     }
     let only = run(dir.path(), &[Product::Node], &rules);

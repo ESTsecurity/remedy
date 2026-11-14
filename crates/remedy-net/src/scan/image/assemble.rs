@@ -78,6 +78,7 @@ fn build(src: &Source<'_>, t: &mut Target, cfg: &ImageConfig, layers: &[LayerSpe
         ..RootFs::default()
     };
     config::configure_paths(&mut fs, &cfg.config.env);
+    fs.httpd_env = crate::scan::apacheconf::HttpdEnv::from_env(&cfg.config.env);
     fs.loader_override = cfg.config.env.iter().any(|v| {
         ["LD_LIBRARY_PATH=", "LD_PRELOAD=", "LD_AUDIT="]
             .iter()

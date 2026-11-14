@@ -6,20 +6,25 @@
 use crate::scan::model::Product;
 use remedy_sdk::i18n::Lang;
 
-/// `--runtime` 의 값 — `php` · `node` · `all`(둘 다). 스캐너와 같다.
+/// `--runtime` 의 값 — `php` · `node` · `apache` · `all`(셋 다). `apache` 는 코어 1.18.0 에서 더했고 `all` 도 그것을
+/// 본다(목표 `remedy_net아파치` 결정 4 — 새 룰이 *모두 검사* 에 드는 것과 같은 꼴).
 pub(crate) fn runtime(value: &str, lang: Lang) -> Result<Vec<Product>, String> {
     match value {
         "php" => Ok(vec![Product::Php]),
         "node" => Ok(vec![Product::Node]),
-        "all" => Ok(vec![Product::Php, Product::Node]),
+        "apache" => Ok(vec![Product::Apache]),
+        "all" => Ok(ALL.to_vec()),
         _ => Err(lang
             .t(
-                "--runtime 에는 php · node · all 만 적을 수 있습니다.",
-                "--runtime takes only php, node or all.",
+                "--runtime 에는 php · node · apache · all 만 적을 수 있습니다.",
+                "--runtime takes only php, node, apache or all.",
             )
             .to_string()),
     }
 }
+
+/// `--runtime` 을 주지 않았을 때와 `all` 이 보는 제품.
+pub(crate) const ALL: [Product; 3] = [Product::Php, Product::Node, Product::Apache];
 
 /// 읽은 낱말 하나.
 #[derive(Debug, Clone, PartialEq, Eq)]

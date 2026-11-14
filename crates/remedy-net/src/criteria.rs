@@ -30,6 +30,8 @@ pub const ID: &str = "remedy-net-criteria";
 pub const URL_FILE: &str = "url.json";
 /// 이미지 · 컨테이너 기준.
 pub const BASELINE_FILE: &str = "baseline.json";
+/// 이미지 · 컨테이너의 Apache 기준(코어 1.18.0) — `baseline.json` 은 사내 스캐너의 형식 그대로 두고 따로 둔다.
+pub const APACHE_FILE: &str = "apache.json";
 /// 기준 폴더를 따로 가리키는 환경 변수.
 pub const DIR_ENV: &str = "REMEDY_NET_CRITERIA";
 
@@ -224,13 +226,16 @@ pub fn verify(dir: &Path, anchor_b64: Option<&str>) -> Result<Verified, Refusal>
     })
 }
 
-/// 기준 파일 둘을 이 프로그램이 읽을 수 있는가 — 실행 때 읽는 것과 같은 코드다. 저장소 검사
+/// 기준 파일 셋을 이 프로그램이 읽을 수 있는가 — 실행 때 읽는 것과 같은 코드다. 저장소 검사
 /// (`cargo xtask net-criteria`)가 서명하기 전에 본다.
-pub fn check_texts(url: &str, baseline: &str) -> Result<(), String> {
+pub fn check_texts(url: &str, baseline: &str, apache: &str) -> Result<(), String> {
     crate::url::check_table(url).map_err(|e| format!("{URL_FILE}: {e}"))?;
     crate::scan::rules::RuleSet::from_json(baseline)
         .map(|_| ())
-        .map_err(|e| format!("{BASELINE_FILE}: {e}"))
+        .map_err(|e| format!("{BASELINE_FILE}: {e}"))?;
+    crate::scan::rules::ApacheCriteria::from_json(apache)
+        .map(|_| ())
+        .map_err(|e| format!("{APACHE_FILE}: {e}"))
 }
 
 /// 실행마다 한 번 읽는다 — 점검은 따로 도는 스레드에서도 쓰므로 그 실행이 끝날 때까지 둔다.
@@ -246,6 +251,7 @@ pub(crate) mod testkit {
 
     pub(crate) const URL: &str = include_str!("../testdata/url.json");
     pub(crate) const BASELINE: &str = include_str!("../testdata/baseline.json");
+    pub(crate) const APACHE: &str = include_str!("../testdata/apache.json");
 
     /// 폴더를 통째로 서명한다 — 룰을 서명하는 것과 같은 형식(`cargo xtask sign`).
     pub(crate) fn sign(dir: &Path, kp: &KeyPair, id: &str, version: &str) {
@@ -270,11 +276,12 @@ pub(crate) mod testkit {
         boxed.lines().nth(1).expect("공개키 줄").trim().to_string()
     }
 
-    /// 고정 사본 둘을 담아 서명한 기준 폴더.
+    /// 고정 사본 셋을 담아 서명한 기준 폴더.
     pub(crate) fn folder(dir: &Path, kp: &KeyPair) {
         std::fs::create_dir_all(dir).expect("폴더");
         std::fs::write(dir.join(super::URL_FILE), URL).expect("url.json");
         std::fs::write(dir.join(super::BASELINE_FILE), BASELINE).expect("baseline.json");
+        std::fs::write(dir.join(super::APACHE_FILE), APACHE).expect("apache.json");
         sign(dir, kp, super::ID, "1.0.0");
     }
 }

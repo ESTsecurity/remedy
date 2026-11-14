@@ -234,6 +234,7 @@ fn an_rpm_brotli_vulnerability_survives_another_dependency_gap() {
         prefix: Vec::new(),
         sha256: String::new(),
         md5: String::new(),
+        sha1: String::new(),
         size: 128,
         info: root,
     };

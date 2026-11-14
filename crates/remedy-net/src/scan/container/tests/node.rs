@@ -29,6 +29,7 @@ fn binary(data: &[u8], sha: &str) -> BinaryFile {
         prefix: Vec::new(),
         sha256: sha.to_string(),
         md5: String::new(),
+        sha1: String::new(),
         size: data.len() as u64,
         info: inspect_node_binary(data, data.len() as u64),
     }

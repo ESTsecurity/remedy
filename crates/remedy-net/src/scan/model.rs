@@ -37,12 +37,16 @@ impl Status {
 }
 
 /// 판정하는 제품. Brotli 는 따로 고르는 제품이 아니라 Node.js 가 연결한 디코더로만 나온다.
+///
+/// 차례가 결과 파일의 제품 차례다 — Apache(코어 1.18.0)는 맨 뒤에 두어 앞 셋의 차례를 바꾸지 않는다.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Product {
     Php,
     Node,
     Brotli,
+    /// Apache HTTP Server 의 HTTP/2 모듈(mod_http2) — 기준은 데이터 룰의 `apache.json`.
+    Apache,
 }
 
 impl Product {
@@ -52,6 +56,7 @@ impl Product {
             Product::Php => "php",
             Product::Node => "node",
             Product::Brotli => "brotli",
+            Product::Apache => "apache",
         }
     }
 
@@ -61,6 +66,7 @@ impl Product {
             Product::Php => "PHP",
             Product::Node => "Node.js",
             Product::Brotli => "Brotli",
+            Product::Apache => "Apache",
         }
     }
 }

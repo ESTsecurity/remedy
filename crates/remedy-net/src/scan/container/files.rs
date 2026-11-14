@@ -1,10 +1,12 @@
-//! 컨테이너 하나의 파일 — 배포판 · 패키지 기록 · PHP · Node.js · 세션 설정의 차례(스캐너 `scanContainerFiles`).
+//! 컨테이너 하나의 파일 — 배포판 · 패키지 기록 · PHP · Node.js · Apache · 세션 설정의 차례(스캐너
+//! `scanContainerFiles` · Apache 는 코어 1.18.0 · 리눅스 엔진만).
 //!
 //! 리눅스 엔진은 배포판 기록(os-release 와 옛 꼴 일곱)을 64 KiB 까지 읽어 배포판을 정하고, 그 배포판의 패키지
 //! DB(dpkg · apk · RPM)를 읽는다. Windows 엔진은 패키지 DB 를 보지 않는다. Hyper-V 격리의 Windows 컨테이너는 파일
 //! 조회 API 를 쓸 수 없어 요청하지 않는다. 마운트가 있으면 그 경계 안은 읽지 않고, 디렉터리 링크를 거친 마운트는 알
 //! 수 없다고 적는다.
 
+use super::apache::scan_apache_container;
 use super::client::Client;
 use super::failure::Policy;
 use super::gostr::fold_eq;
@@ -40,9 +42,9 @@ pub(crate) struct Subject<'x> {
     pub(crate) id: &'x str,
     pub(crate) inspected: &'x Inspect,
     pub(crate) rules: &'x RuleSet,
-    /// 고른 제품의 패키지 기록(PHP · Node.js · Brotli).
+    /// 고른 제품의 패키지 기록(PHP · Node.js · Brotli · Apache).
     pub(crate) packages: &'x [Component],
-    /// apk `installed` 의 바이트 — Node.js 의 파일 소유를 다시 읽는다.
+    /// dpkg `status` · apk `installed` 의 바이트 — Node.js 의 파일 소유와 Apache 의 apk 체크섬을 다시 읽는다.
     pub(crate) package_data: &'x [u8],
     /// 배포판 식별자 · `windows` · 빈 글.
     pub(crate) distro: &'x str,
@@ -131,6 +133,13 @@ fn windows_files(
     if selected(t, Product::Php) && container_php_found(t) {
         scan_php_configuration(c, t, &s);
     }
+    if selected(t, Product::Apache) {
+        let (ko, en) = (
+            "Windows 컨테이너의 Apache 는 점검하지 않습니다(리눅스 이미지 · 컨테이너만).",
+            "Apache in Windows containers is not checked (Linux images and containers only).",
+        );
+        t.add_product_gap(Product::Apache, c.lang.t(ko, en));
+    }
 }
 
 /// 앞서 Windows 파일 조회가 5xx 를 냈으면 그 까닭을 제품마다 적고 그만둔다.
@@ -182,6 +191,9 @@ fn linux_files(
     }
     if selected(t, Product::Php) && container_php_found(t) {
         scan_php_configuration(c, t, &s);
+    }
+    if selected(t, Product::Apache) {
+        scan_apache_container(c, t, &s);
     }
 }
 

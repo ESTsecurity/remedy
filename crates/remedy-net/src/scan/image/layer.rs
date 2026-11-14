@@ -4,6 +4,7 @@
 //! 덮는다. 하나라도 어긋나면 그 이미지는 아래 레이어까지 버린다 — 덮이지 않은 아래 레이어의 옛 PHP 를 최종 구성으로
 //! 보고하지 않는다. 화이트아웃은 아래 레이어만 지운다(같은 레이어 안의 차례와 상관없다).
 
+use super::apache::{APACHE_DATA_LIMIT, APACHE_FILE_LIMIT, MAX_APACHE_FILES};
 use super::config::{CONFIG_DATA_LIMIT, CONFIG_FILE_LIMIT, MAX_CONFIG_FILES};
 use super::expand::{drain_zeros, expanded};
 use super::fault::describe;
@@ -17,9 +18,11 @@ use super::tarball::{
 };
 use super::Cx;
 use crate::scan::budget::IMAGE_LIMIT;
+use crate::scan::model::Product;
 use crate::scan::slashpath;
 use md5::{Digest as _, Md5};
 use remedy_sdk::i18n::Lang;
+use sha1::Sha1;
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::{self, Read};
@@ -49,6 +52,9 @@ pub(super) struct Changes {
     config_bytes: i64,
     config_files: usize,
     config_limited: bool,
+    apache_bytes: i64,
+    apache_files: usize,
+    apache_limited: bool,
 }
 
 /// 읽은 바이트를 세고 SHA-256 을 낸다.
@@ -96,6 +102,9 @@ pub(super) fn apply(src: &Source<'_>, fs: &mut RootFs, layer: &LayerSpec, cx: &C
         config_bytes: fs.config_bytes,
         config_files: fs.config_files,
         config_limited: fs.config_limited,
+        apache_bytes: fs.apache_bytes,
+        apache_files: fs.apache_files,
+        apache_limited: fs.apache_limited,
         ..Changes::default()
     };
     let diff = {
@@ -285,8 +294,9 @@ fn whiteout(h: &Header, name: &str, removed: &str, ch: &mut Changes, lang: Lang)
     Ok(())
 }
 
-/// 일반 파일 — 담을 자리면 앞부분을 담고, 고른 제품의 실행 파일이면 파일 전체의 SHA-256 · MD5 를 낸다(스캐너와
-/// 같은 한도 계산). PHP 설정은 따로 센다 — 파일당 4 MiB, 합계 16 MiB, 64개.
+/// 일반 파일 — 담을 자리면 앞부분을 담고, 고른 제품의 실행 파일이면 파일 전체의 SHA-256 · MD5 · SHA-1 을 낸다
+/// (스캐너와 같은 한도 계산). PHP 설정은 따로 센다 — 파일당 4 MiB, 합계 16 MiB, 64개. Apache 설정(코어 1.18.0)은
+/// **PHP 설정으로 담지 않는 것만** 제 몫으로 센다 — PHP 의 한도 계산을 바꾸지 않으려는 것이다(`super::apache`).
 fn capture<R: Read>(
     tar: &mut TarReader<R>,
     h: &Header,
@@ -304,6 +314,9 @@ fn capture<R: Read>(
     let selected = is_selected_binary(name, cx.products);
     let mut limit = capture_limit(name, cx.products);
     let config = fs.selected_config(name, cx.products);
+    let apache = !config
+        && cx.products.contains(&Product::Apache)
+        && crate::scan::apacheconf::is_config_path(name);
     if config {
         limit = CONFIG_FILE_LIMIT.min(CONFIG_DATA_LIMIT - ch.config_bytes);
         if ch.config_files >= MAX_CONFIG_FILES {
@@ -313,9 +326,18 @@ fn capture<R: Read>(
         ch.config_limited |= h.size > limit;
         e.truncated = h.size > limit;
     }
-    let mut hash = selected.then(|| (Sha256::new(), Md5::new()));
+    if apache {
+        limit = APACHE_FILE_LIMIT.min(APACHE_DATA_LIMIT - ch.apache_bytes);
+        if ch.apache_files >= MAX_APACHE_FILES {
+            limit = 0;
+        }
+        ch.apache_files += 1;
+        ch.apache_limited |= h.size > limit;
+        e.truncated = h.size > limit;
+    }
+    let mut hash = selected.then(|| (Sha256::new(), Md5::new(), Sha1::new()));
     if limit > 0 {
-        if !config {
+        if !config && !apache {
             limit = limit.min(SELECTED_DATA_LIMIT - ch.captured);
         }
         e.truncated = h.size > limit;
@@ -327,28 +349,37 @@ fn capture<R: Read>(
             let n = e.data.len() as i64;
             if config {
                 ch.config_bytes += n;
+            } else if apache {
+                ch.apache_bytes += n;
             } else {
                 ch.captured += n;
             }
         }
     }
-    if let Some((sha, md5)) = hash.as_mut() {
-        rest_into(tar, sha, md5).map_err(|err| describe(&err, cx.lang))?;
+    if let Some((sha, md5, sha1)) = hash.as_mut() {
+        rest_into(tar, sha, md5, sha1).map_err(|err| describe(&err, cx.lang))?;
         e.sha256 = hex(&sha.clone().finalize());
         e.md5 = hex(&md5.clone().finalize());
+        e.sha1 = hex(&sha1.clone().finalize());
     }
     Ok(e)
 }
 
-fn feed(hash: &mut Option<(Sha256, Md5)>, data: &[u8]) {
-    if let Some((sha, md5)) = hash.as_mut() {
+fn feed(hash: &mut Option<(Sha256, Md5, Sha1)>, data: &[u8]) {
+    if let Some((sha, md5, sha1)) = hash.as_mut() {
         sha.update(data);
         md5.update(data);
+        sha1.update(data);
     }
 }
 
 /// 항목의 남은 데이터를 해시에 넣는다.
-fn rest_into(r: &mut impl Read, sha: &mut Sha256, md5: &mut Md5) -> io::Result<()> {
+fn rest_into(
+    r: &mut impl Read,
+    sha: &mut Sha256,
+    md5: &mut Md5,
+    sha1: &mut Sha1,
+) -> io::Result<()> {
     let mut buf = vec![0u8; 32 << 10];
     loop {
         let n = r.read(&mut buf)?;
@@ -357,6 +388,7 @@ fn rest_into(r: &mut impl Read, sha: &mut Sha256, md5: &mut Md5) -> io::Result<(
         }
         sha.update(&buf[..n]);
         md5.update(&buf[..n]);
+        sha1.update(&buf[..n]);
     }
 }
 
@@ -431,6 +463,9 @@ fn merge(fs: &mut RootFs, ch: Changes, cx: &Cx<'_>) -> Res<()> {
     fs.config_bytes = ch.config_bytes;
     fs.config_files = ch.config_files;
     fs.config_limited = ch.config_limited;
+    fs.apache_bytes = ch.apache_bytes;
+    fs.apache_files = ch.apache_files;
+    fs.apache_limited = ch.apache_limited;
     Ok(())
 }
 

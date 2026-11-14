@@ -6,6 +6,7 @@
 
 pub(crate) mod support;
 
+mod apache;
 mod node;
 mod php;
 mod qualification;

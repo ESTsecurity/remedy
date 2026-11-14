@@ -42,6 +42,8 @@ pub(super) struct Entry {
     /// 고른 제품의 실행 파일이면 파일 전체의 SHA-256 과 MD5(16진수).
     pub(super) sha256: String,
     pub(super) md5: String,
+    /// 같은 파일의 SHA-1(16진수) — apk 기록(`Z:Q1…`)과 견준다(코어 1.18.0).
+    pub(super) sha1: String,
 }
 
 /// 가상 뿌리.
@@ -60,6 +62,12 @@ pub(super) struct RootFs {
     pub(super) config_bytes: i64,
     pub(super) config_files: usize,
     pub(super) config_limited: bool,
+    /// Apache 설정을 담은 양 — PHP 설정으로 담지 않은 것만 센다(코어 1.18.0 · `super::apache`).
+    pub(super) apache_bytes: i64,
+    pub(super) apache_files: usize,
+    pub(super) apache_limited: bool,
+    /// 이미지 설정의 공식 `httpd` 이미지 표지(코어 1.18.0).
+    pub(super) httpd_env: crate::scan::apacheconf::HttpdEnv,
 }
 
 impl Entry {
@@ -205,6 +213,7 @@ pub(super) fn is_selected_binary(name: &str, products: &[Product]) -> bool {
         Product::Php => is_php_runtime(name),
         Product::Node => is_node_runtime(name) || is_brotli_decoder(name),
         Product::Brotli => false,
+        Product::Apache => crate::scan::apacheconf::is_apache_binary(name),
     })
 }
 

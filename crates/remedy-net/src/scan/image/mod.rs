@@ -1,5 +1,5 @@
-//! 이미지 파일 점검 — OCI 레이아웃 · OCI 아카이브 · docker save 의 최종 파일 구성에서 PHP · Node.js 를 찾아
-//! 판정한다.
+//! 이미지 파일 점검 — OCI 레이아웃 · OCI 아카이브 · docker save 의 최종 파일 구성에서 PHP · Node.js · Apache 를
+//! 찾아 판정한다(Apache 는 코어 1.18.0).
 //!
 //! 사내 runtime-scanner 의 `internal/images` 를 옮겼다(HEAD d3acb38). 이미지를 실행하지 않고 레지스트리에 닿지
 //! 않는다. 입력마다(다중 플랫폼이면 플랫폼마다) 대상 하나를 낸다.
@@ -17,8 +17,9 @@
 //! - 입력: [`source`](경로 규칙은 [`input`]) — 폴더는 그 자리에서, 파일은 작업 폴더 아래에 잠시 풀어서.
 //! - 메타데이터: [`oci`] · [`docker`] · [`attest`] · [`meta`](JSON 은 Go 의 규칙대로 [`json`]).
 //! - 레이어: [`layer`](tar 는 [`tarball`], 압축은 [`expand`] · [`zstd`]) → [`rootfs`].
-//! - 판정: [`packages`](RPM 은 [`rpm`]) → [`php`] · [`node`] · [`config`].
+//! - 판정: [`packages`](RPM 은 [`rpm`]) → [`php`] · [`node`] · [`apache`] · [`config`].
 
+mod apache;
 mod assemble;
 mod attest;
 mod config;
