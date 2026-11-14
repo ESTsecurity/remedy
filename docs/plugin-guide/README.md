@@ -12,7 +12,7 @@
 | 2 | `01-quickstart.md` — 동작하는 플러그인 하나 + 반복 루프 | 5 KB |
 | 3 | `examples/` — **CI 에서 실행되는 실물** (제거까지 둘 · 탐지만 하나 · 점검 하나) | — |
 
-문맥에 파일 하나만 넣을 수 있다면 **`machine/AI-CONTEXT.md`** 다 — 전수 카탈로그와 최소 예제를 8 KB 로 압축한 생성물이다. 사람이 읽는 요약은 `machine/REFERENCE.md`.
+문맥에 파일 하나만 넣을 수 있다면 **`machine/AI-CONTEXT.md`** 다 — 전수 카탈로그와 최소 예제를 10 KB 로 압축한 생성물이다. 사람이 읽는 요약은 `machine/REFERENCE.md`.
 
 ## 과업별
 

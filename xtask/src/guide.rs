@@ -15,7 +15,9 @@ use std::path::Path;
 /// 들어가는 것은 바이트다.
 const LIMITS: &[(&str, usize)] = &[
     ("00-invariants.md", 2 * 1024),
-    ("machine/AI-CONTEXT.md", 8 * 1024),
+    // 2026-11-14 에 10 KB 로 올렸다 — 매니페스트 칸 목록(57칸 · 약 1.2 KB)을 생성으로 싣자 8 KB 를 넘었다. 내용을
+    // 잃지 않게 줄여도 198 바이트가 넘었고 남은 자리는 안내 문장뿐이었다(설계-06 §9 의 같은 날 줄).
+    ("machine/AI-CONTEXT.md", 10 * 1024),
     // **처음으로 기본값보다 높인 자리다.**
     //
     // 이 파일 하나가 `remediate` 의 세 절(`remove`·`edit`·`restore`)을 전부
