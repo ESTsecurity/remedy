@@ -6,6 +6,13 @@
       "rules/apache.yar": "c0f4415a088e0e22579790915f0405c676a78af9eab7a52936e3e40265fa9372"
     }
   },
+  "apache-http2-check-windows": {
+    "version": "0.1.0",
+    "files": {
+      "plugin.yaml": "f0bd728697620013038e079d368d5d97230e0034840cfa87afec8f315de98ad5",
+      "rules/apache.yar": "62e74fe014841c2ba7dabec654e371d108c64dbb9e52b0c39f92325a9bcc8878"
+    }
+  },
   "appinit-implant": {
     "version": "1.0.0",
     "files": {
