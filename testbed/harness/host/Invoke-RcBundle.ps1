@@ -1,7 +1,7 @@
 ﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
-    출시의 Windows 랩 묶음 — 지난 공개본(A)과 이번 판(B)을 랩 VM 과 이 기계에서 나란히 재는 18단계
+    출시의 Windows 랩 묶음 — 지난 공개본(A)과 이번 판(B)을 랩 VM 과 이 기계에서 나란히 재는 19단계
     (docs/개발-안내.md "출시 검증").
 
 .DESCRIPTION
@@ -14,7 +14,8 @@
                     랩 VM 의 같은 상태에서 A 와 B(`rc\Invoke-Ab*.ps1`). 상태를 바꾸는 단계 뒤마다 되돌린다(reset1 ~ 6)
       log4j         log4j-disk(깨끗한 C: 전체 → 0) · log4j-positive(시료를 놓고 → 2 · 고친 판은 화면에 없다)
       apache        이번 판의 Apache HTTP/2 점검 룰 하네스(`Invoke-ApacheVerify.ps1` — 설치본 모양마다 0 · 2 · 6)
-      원격          net-ab — 이 기계에서 remedy-net url · image · container(`rc\Invoke-AbNet.ps1`)
+      원격          net-ab — 이 기계에서 remedy-net url · image · container(`rc\Invoke-AbNet.ps1`) · net-apache — 이번 판의
+                    remedy-net.exe 로 이미지의 Apache(`rc\Invoke-NetApache.ps1` — 리눅스 묶음이 저장한 `apache-images\`)
 
     시료는 `-Inputs`(기본 `testbed\harness\results\rc-inputs` — 리눅스 묶음과 같은 자리)에서 읽는다: `jars\`(리눅스 묶음의
     log4j 하네스가 Maven Central 에서 받는다) · `images\`(리눅스 `rc/save-images.sh` 가 만든다) — 그래서 **리눅스 묶음을
@@ -120,6 +121,10 @@ $boot = Join-Path $cases 'c07-boot-renamed\app.jar'
 foreach ($p in @($war, $boot)) { if (-not (Test-Path -LiteralPath $p)) { Stop-Setup "log4j 시료를 짓지 못했다: $p" } }
 
 $images = Join-Path $Inputs 'images'
+$apacheImages = Join-Path $Inputs 'apache-images'
+if (@(Get-ChildItem -LiteralPath $apacheImages -Filter '*.tar' -ErrorAction SilentlyContinue).Count -lt 14) {
+    Stop-Setup "Apache 이미지 tar 열넷이 없다 — 리눅스 묶음의 net-apache 단계가 $apacheImages 에 만든다"
+}
 if (@(Get-ChildItem -LiteralPath $images -Filter '*.tar' -ErrorAction SilentlyContinue).Count -lt 8) {
     Stop-Setup "이미지 tar 여덟이 없다 — 리눅스 묶음이 $images 에 만든다"
 }
@@ -257,6 +262,11 @@ Step 'net-ab' {
     $(if ($pairs.Count -eq 0 -or -not $last) { 1 } elseif ($differ.Count -gt 0 -or $last -notmatch 'different 0$') { 3 } else { 0 })
     '짝 {0} · 종료 코드 다름 {1} · {2}' -f $pairs.Count, $differ.Count, $(if ($last) { $last } else { '끝 줄 없음' })
 }
+# 이번 판의 remedy-net.exe 로 이미지의 Apache — 리눅스 하네스와 같은 표(net-apache-cases.txt).
+Step 'net-apache' {
+    & (Join-Path $rcDir 'Invoke-NetApache.ps1') -Bin (Join-Path $Package 'remedy-net\remedy-net.exe') `
+        -Criteria (Join-Path $Package 'plugins\remedy-net-criteria') -ImagesDir $apacheImages -OutDir (Join-Path $LogDir 'net-apache')
+} $verdictLine
 
 $tail = @()
 if ($script:failed.Count) { $tail += '실패: ' + ($script:failed -join ', ') }

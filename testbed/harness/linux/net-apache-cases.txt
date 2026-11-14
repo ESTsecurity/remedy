@@ -1,0 +1,18 @@
+# remedy-net 의 Apache(코어 1.18.0) — 이미지 점검의 기대 판정. `net-apache-verify.sh`(리눅스) · `host/rc/Invoke-NetApache.ps1`
+# (Windows)가 함께 읽는다. 칸: 이름 · 이미지 tar(이미지 폴더 안) · 기대 종료 코드 · 결과 JSON 에 있어야 할 글(없으면 -).
+# 판정은 리눅스 Apache 점검 룰과 같다(목표 remedy_net아파치 결정 2) — 영향 판 + HTTP/2 흔적 2 · 흔적 없음 6 · 고친 판 0.
+# tar 는 `net-apache-verify.sh` 가 짓고 저장한다(하네스 이미지 · 공식 httpd · 그 위에 HTTP/2 를 켜거나 모듈을 바꾼 꼴).
+rocky9             apache-rocky9.tar              6   RLSA-2026:98981
+debian12           apache-debian12.tar            0   2.4.71-1~deb12u1
+debian12-tampered  net-apache-debian12-tampered.tar  6   일치하지 않습니다
+ubuntu2404         apache-ubuntu2404.tar          0   2.4.58-1ubuntu8.19
+alpine322          apache-alpine322.tar           0   SHA-1(apk Z:Q1)
+al2023             apache-al2023.tar              6   1:2.4.71-1.amzn2023.0.1
+rocky8             apache-rocky8.tar              0   영향 범위 밖
+alma9              apache-alma9.tar               6   고친 판을 기준이 모릅니다
+leap156            apache-leap156.tar             6   고침 대기
+php82apache        php-8.2-apache.tar             6   2.4.71-1~deb13u1
+php82apache-h2     net-apache-php-8.2-apache-h2.tar  2   mods-enabled/http2.load
+httpd2465          httpd-2.4.65.tar               6   HTTPD_VERSION=2.4.65
+httpd2465-h2       net-apache-httpd-2.4.65-h2.tar    2   Protocols 줄
+httpd2471          httpd-2.4.71.tar               0   HTTPD_VERSION=2.4.71

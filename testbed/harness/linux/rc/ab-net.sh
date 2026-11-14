@@ -8,6 +8,7 @@
 #   image     - 저장한 tar 를 debian:12 컨테이너 하나에 복사해 잰다(overlay 루트 — 로컬 파일 시스템. /mnt/d 같은
 #               9p 경로는 설계대로 거부된다)
 #   container - docker:dind(진짜 리눅스 엔진) 안에서 저장한 tar 로 띄운 컨테이너 둘
+# image · container 는 제품마다(`--runtime php` · `node`) 견준다 — 1.18.0 의 기본(all)은 Apache 도 본다(ab-net-inside.sh).
 # 경우마다 종료 코드와 화면 · 결과 JSON(버전 · 시각 · 회차 · 경로를 가린 뒤)이 같아야 한다. 이미지 tar 는
 # `save-images.sh` 가 만든다. 망은 쓰지 않는다(dind 는 tar 로 싣는다).
 #
@@ -54,7 +55,9 @@ done
 docker run --rm --pull=never -v "$W:/w" -v "$IMG:/in:ro" debian:12 bash /w/ab-net-inside.sh images
 for t in "$IMG"/*.tar; do
     n=$(basename "$t" .tar)
-    compare "image $n" "$W/image-a-$n" "$W/image-b-$n" "$W/out-image-a-$n" "$W/out-image-b-$n"
+    for r in php node; do
+        compare "image $n $r" "$W/image-a-$n-$r" "$W/image-b-$n-$r" "$W/out-image-a-$n-$r" "$W/out-image-b-$n-$r"
+    done
 done
 
 # ── container ───────────────────────────────────────────────────────
@@ -64,7 +67,10 @@ docker run -d --privileged --name "$DIND" -v "$W:/w" -v "$IMG:/in:ro" docker:din
 for _ in $(seq 1 60); do docker exec "$DIND" docker info > /dev/null 2>&1 && break; sleep 1; done
 docker exec "$DIND" sh /w/ab-net-inside.sh containers
 for n in php node; do
-    compare "container $n" "$W/container-a-$n" "$W/container-b-$n" "$W/out-container-a-$n" "$W/out-container-b-$n"
+    for r in php node; do
+        compare "container $n $r" "$W/container-a-$n-$r" "$W/container-b-$n-$r" "$W/out-container-a-$n-$r" \
+            "$W/out-container-b-$n-$r"
+    done
 done
 docker rm -f "$DIND" > /dev/null 2>&1
 
