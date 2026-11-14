@@ -142,8 +142,8 @@ fn help(lang: Lang) -> String {
     s.push_str(lang.t("쓰는 법:\n", "Usage:\n"));
     s.push_str(lang.t(
         "  remedy-net url URL ...         웹서버 응답 헤더의 PHP 버전을 PHP2Shell 수정 버전과 견준다\n\
-         \x20 remedy-net image 파일 ...      이미지 파일의 PHP · Node.js 를 수정 버전 · 공식 빌드와 견준다\n\
-         \x20 remedy-net container ID ...    실행 중인 컨테이너의 PHP · Node.js 를 같은 기준과 견준다\n\
+         \x20 remedy-net image 파일 ...      이미지 파일의 PHP · Node.js · Apache 를 수정 버전 · 공식 빌드와 견준다\n\
+         \x20 remedy-net container ID ...    실행 중인 컨테이너의 PHP · Node.js · Apache 를 같은 기준과 견준다\n\
          \x20 remedy-net <명령> --help       그 명령의 옵션\n\
          \x20 remedy-net --help              이 도움말\n\
          \x20 remedy-net --version           버전\n\
@@ -151,10 +151,10 @@ fn help(lang: Lang) -> String {
          \x20 --ascii                        기호를 ASCII 로\n\n",
         "  remedy-net url URL ...         compare the PHP version in a web server's response headers with\n\
          \x20                                the PHP2Shell fixed versions\n\
-         \x20 remedy-net image FILE ...      compare PHP and Node.js in image files with the fixed versions\n\
-         \x20                                and official builds\n\
-         \x20 remedy-net container ID ...    compare PHP and Node.js in running containers with the same\n\
-         \x20                                criteria\n\
+         \x20 remedy-net image FILE ...      compare PHP, Node.js and Apache in image files with the fixed\n\
+         \x20                                versions and official builds\n\
+         \x20 remedy-net container ID ...    compare PHP, Node.js and Apache in running containers with the\n\
+         \x20                                same criteria\n\
          \x20 remedy-net <command> --help    options of that command\n\
          \x20 remedy-net --help              this help\n\
          \x20 remedy-net --version           version\n\

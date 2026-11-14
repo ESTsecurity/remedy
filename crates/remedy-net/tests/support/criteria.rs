@@ -1,5 +1,6 @@
-//! 통합 시험의 기준 폴더 — 크레이트의 고정 사본(`testdata/url.json` · `testdata/baseline.json`)을 일회용 키로
-//! 서명하고, 띄우는 `remedy-net` 에 그 자리(`REMEDY_NET_CRITERIA`)와 개발 키(`REMEDY_NET_ANCHOR`)를 준다.
+//! 통합 시험의 기준 폴더 — 크레이트의 고정 사본(`testdata/url.json` · `testdata/baseline.json` ·
+//! `testdata/apache.json`)을 일회용 키로 서명하고, 띄우는 `remedy-net` 에 그 자리(`REMEDY_NET_CRITERIA`)와 개발
+//! 키(`REMEDY_NET_ANCHOR`)를 준다.
 //! 시험 빌드는 개발 빌드라 그 키를 받는다(배포 빌드는 박힌 키만 쓴다 · `src/criteria.rs`).
 
 #![allow(dead_code)]
@@ -24,7 +25,7 @@ pub fn signed() -> &'static Signed {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).expect("기준 폴더");
         let root = env!("CARGO_MANIFEST_DIR");
-        for f in ["url.json", "baseline.json"] {
+        for f in ["url.json", "baseline.json", "apache.json"] {
             std::fs::copy(format!("{root}/testdata/{f}"), dir.join(f)).expect(f);
         }
         sign(&dir, &kp, "remedy-net-criteria");

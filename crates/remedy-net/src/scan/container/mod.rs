@@ -19,6 +19,7 @@
 //! 패키지 DB 64 MiB · 배포판 기록 64 KiB · `.list` · 설정 파일 4 MiB · RPM 쓰기 로그 0 바이트 · 후보 PHP 64 ·
 //! Node.js 4096 · PATH 디렉터리 32 · 설정 파일 8개. 이 모듈은 파일을 쓰지 않는다.
 
+mod apache;
 mod archive;
 mod client;
 mod codec;

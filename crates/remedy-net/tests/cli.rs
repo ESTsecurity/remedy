@@ -182,7 +182,7 @@ fn without_good_criteria_nothing_is_checked() {
     let _ = std::fs::remove_dir_all(&tmp);
     let copy = |to: &Path| {
         std::fs::create_dir_all(to).expect("폴더");
-        for f in ["url.json", "baseline.json"] {
+        for f in ["url.json", "baseline.json", "apache.json"] {
             std::fs::copy(good.dir.join(f), to.join(f)).expect(f);
         }
     };
@@ -260,7 +260,7 @@ fn without_good_criteria_nothing_is_checked() {
 }
 
 /// 서명한 기준 폴더가 있으면 도움말이 그 기준을 적는다 — url 은 같은 표의 룰과 확인 날짜, 이미지 · 컨테이너는
-/// 기준의 버전.
+/// 기준의 버전과 Apache 기준의 확인 날짜(코어 1.18.0).
 #[test]
 fn help_names_the_criteria_it_verified() {
     let url = stdout(&run("ko", &["url", "--help"]));
@@ -271,7 +271,9 @@ fn help_names_the_criteria_it_verified() {
     for cmd in ["image", "container"] {
         let h = stdout(&run("ko", &[cmd, "--help"]));
         assert!(
-            h.contains("기준: 2026-10-30.12 (2026-10-30 발행 · 만료 없음)."),
+            h.contains(
+                "기준: 2026-10-30.12 (2026-10-30 발행 · 만료 없음) · Apache 2026-11-13 확인."
+            ),
             "{cmd}: {h}"
         );
     }

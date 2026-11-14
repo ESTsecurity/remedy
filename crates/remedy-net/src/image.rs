@@ -1,5 +1,5 @@
 //! `remedy-net image` — 이미지 파일(OCI 레이아웃 · OCI 아카이브 · docker save)의 최종 파일 구성에서 PHP · Node.js
-//! 를 찾아 PHP2Shell · PHP 세션 설정 · Node.js 기준과 견준다.
+//! · Apache 를 찾아 PHP2Shell · PHP 세션 설정 · Node.js · Apache HTTP/2 기준과 견준다(Apache 는 코어 1.18.0).
 //!
 //! 사내 runtime-scanner 의 `image` 를 옮겼다. 이미지를 실행하지 않고 네트워크를 쓰지 않는다. 차례: 명령줄 검사 →
 //! 약관 → 결과 폴더 → 점검(따로 도는 스레드 · [`crate::scan::run`]) → 화면 · 결과 파일. 앞 단계에서 멈추면 점검도
@@ -15,8 +15,8 @@ use crate::text::ascii_safe;
 use crate::Outcome;
 use remedy_sdk::i18n::Lang;
 
-/// 결과 파일에 싣는 약관 판(문구는 2026-11-10 카드).
-pub(crate) const TERMS_VERSION: &str = "2026-11-10.1";
+/// 결과 파일에 싣는 약관 판(문구는 2026-11-10 카드 · 2026-11-14 에 점검 대상에 Apache 를 더했다).
+pub(crate) const TERMS_VERSION: &str = "2026-11-14.1";
 /// 한 실행의 이미지 파일 수 — 스캐너와 같다.
 const MAX_INPUTS: usize = 50;
 
@@ -38,7 +38,7 @@ pub(crate) enum Parsed {
 pub(crate) fn parse(args: &[String], lang: Lang) -> Result<Parsed, String> {
     let mut o = Options {
         inputs: Vec::new(),
-        products: vec![Product::Php, Product::Node],
+        products: crate::cmdline::ALL.to_vec(),
         consent: None,
         out_dir: DEFAULT_OUT_DIR.to_string(),
     };
@@ -137,8 +137,8 @@ pub(crate) fn terms(lang: Lang) -> &'static str {
     lang.t(
         "이용 조건\n\
          1. 소유하거나 점검을 허락받은 이미지에만 쓰십시오.\n\
-         2. 지정한 이미지 파일을 읽어 PHP · Node.js 의 일부 취약점과 관련 설정을 점검합니다. 이미지를\n\
-         \x20  실행하거나 바꾸지 않고 네트워크를 쓰지 않습니다.\n\
+         2. 지정한 이미지 파일을 읽어 PHP · Node.js · Apache 의 일부 취약점과 관련 설정을 점검합니다.\n\
+         \x20  이미지를 실행하거나 바꾸지 않고 네트워크를 쓰지 않습니다.\n\
          3. 파일 하나로 받은 이미지는 결과 폴더 아래에 잠시 풀었다가 지웁니다. 이미지 크기만큼 디스크가\n\
          \x20  필요할 수 있습니다.\n\
          4. 결과는 이미지의 최종 파일 구성에 한정됩니다. 양호로 나와도 운영 중인 서비스나 해킹 피해\n\
@@ -147,8 +147,9 @@ pub(crate) fn terms(lang: Lang) -> &'static str {
          \x20  확인하십시오.\n",
         "Terms of use\n\
          1. Use this only on images you own or are authorized to check.\n\
-         2. It reads the image files you give and checks them for some PHP and Node.js vulnerabilities and\n\
-         \x20  related settings. It does not run or change the images and does not use the network.\n\
+         2. It reads the image files you give and checks them for some PHP, Node.js and Apache\n\
+         \x20  vulnerabilities and related settings. It does not run or change the images and does not use\n\
+         \x20  the network.\n\
          3. An image given as a single file is unpacked under the result folder for a while and then\n\
          \x20  deleted. This may need as much disk space as the image.\n\
          4. The result covers only the final file layout of the image. A \"clear\" result says nothing\n\
@@ -188,12 +189,12 @@ pub fn help(lang: Lang) -> String {
         format!(
             "쓰는 법: remedy-net image 파일 [파일 ...] [옵션]\n\n\
              이미지 파일(OCI 레이아웃 폴더 · OCI 아카이브 · docker save 아카이브, 레이어는 gzip · zstd 도)의 최종\n\
-             파일 구성에서 PHP · Node.js 를 찾아 PHP2Shell(CVE-2026-109618 · 109619) · PHP 세션 설정\n\
-             (CVE-2026-115560) · Node.js(CVE-2026-111497) 기준과 견준다. 이미지를 실행하지 않고 네트워크를 쓰지\n\
-             않는다. 다중 플랫폼 이미지는 플랫폼마다 따로 본다.\n\n\
+             파일 구성에서 PHP · Node.js · Apache 를 찾아 PHP2Shell(CVE-2026-109618 · 109619) · PHP 세션 설정\n\
+             (CVE-2026-115560) · Node.js(CVE-2026-111497) · Apache HTTP/2(CVE-2026-119618) 기준과 견준다.\n\
+             이미지를 실행하지 않고 네트워크를 쓰지 않는다. 다중 플랫폼 이미지는 플랫폼마다 따로 본다.\n\n\
              옵션:\n\
              \x20 --path 파일        점검할 이미지 파일. 자리 인자와 함께 모두 50개까지\n\
-             \x20 --runtime 제품     php · node · all (기본: all)\n\
+             \x20 --runtime 제품     php · node · apache · all (기본: all)\n\
              \x20 --consent y|n      약관에 미리 답한다(무인 실행). 빼면 묻는다\n\
              \x20 --out-dir 폴더     결과 JSON 을 쓸 폴더 (기본: results). 파일 하나로 받은 이미지는 이 아래에\n\
              \x20                    잠시 풀었다가 지운다\n\n\
@@ -202,14 +203,14 @@ pub fn help(lang: Lang) -> String {
         ),
         format!(
             "Usage: remedy-net image FILE [FILE ...] [options]\n\n\
-             Finds PHP and Node.js in the final file layout of image files (an OCI layout folder, an OCI archive\n\
-             or a docker save archive; gzip and zstd layers too) and compares them with the PHP2Shell\n\
-             (CVE-2026-109618 · 109619), PHP session setting (CVE-2026-115560) and Node.js (CVE-2026-111497)\n\
-             criteria. The images are not run and the network is not used. A multi-platform image is checked\n\
-             per platform.\n\n\
+             Finds PHP, Node.js and Apache in the final file layout of image files (an OCI layout folder, an OCI\n\
+             archive or a docker save archive; gzip and zstd layers too) and compares them with the PHP2Shell\n\
+             (CVE-2026-109618 · 109619), PHP session setting (CVE-2026-115560), Node.js (CVE-2026-111497) and\n\
+             Apache HTTP/2 (CVE-2026-119618) criteria. The images are not run and the network is not used. A\n\
+             multi-platform image is checked per platform.\n\n\
              Options:\n\
              \x20 --path FILE        an image file to check; up to 50 together with positional files\n\
-             \x20 --runtime PRODUCT  php · node · all (default: all)\n\
+             \x20 --runtime PRODUCT  php · node · apache · all (default: all)\n\
              \x20 --consent y|n      answer the terms in advance (unattended runs); asked if omitted\n\
              \x20 --out-dir DIR      folder for the JSON result (default: results); an image given as a single\n\
              \x20                    file is unpacked below it for a while and then deleted\n\n\
@@ -250,7 +251,10 @@ mod tests {
         let Ok(Parsed::Run(d)) = p(&["a.tar"]) else {
             panic!("거절됐다");
         };
-        assert_eq!(d.products, vec![Product::Php, Product::Node]);
+        assert_eq!(
+            d.products,
+            vec![Product::Php, Product::Node, Product::Apache]
+        );
         assert_eq!(d.out_dir, DEFAULT_OUT_DIR);
     }
 

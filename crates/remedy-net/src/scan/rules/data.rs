@@ -255,8 +255,8 @@ fn check_product(product: Product, p: &ProductData) -> Result<(), String> {
     check_hashes(product, &p.hashes)
 }
 
-/// `CVE-YYYY-N…`(번호 넷 이상). 어느 CVE 를 다루는가는 그 제품의 `cves` 가 밝힌다.
-fn cve_id(s: &str) -> bool {
+/// `CVE-YYYY-N…`(번호 넷 이상). 어느 CVE 를 다루는가는 그 제품의 `cves` 가 밝힌다. Apache 기준(`apache.rs`)도 쓴다.
+pub(super) fn cve_id(s: &str) -> bool {
     let Some((year, n)) = s.strip_prefix("CVE-").and_then(|r| r.split_once('-')) else {
         return false;
     };
@@ -448,8 +448,8 @@ fn sha256_hex(s: &str) -> bool {
     s.len() == 64 && s.bytes().all(|b| b.is_ascii_hexdigit())
 }
 
-/// `https://호스트/…` 인가 — 호스트가 있고 사용자 정보(`이름@`)가 없다.
-fn https(source: &str) -> bool {
+/// `https://호스트/…` 인가 — 호스트가 있고 사용자 정보(`이름@`)가 없다. Apache 기준(`apache.rs`)도 쓴다.
+pub(super) fn https(source: &str) -> bool {
     let Some(rest) = source.strip_prefix("https://") else {
         return false;
     };

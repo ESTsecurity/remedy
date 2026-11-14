@@ -158,10 +158,11 @@
     }
   },
   "remedy-net-criteria": {
-    "version": "1.0.0",
+    "version": "1.1.0",
     "files": {
+      "apache.json": "7aec8b8bb9b983ebe63439e5aede2b980cdf3e82bc6fae16badbf599b8c8fefb",
       "baseline.json": "2fd679f46718d75841747396e71386bf38f31442a61d2344c64dd27dc2eb9b67",
-      "plugin.yaml": "e7d44e2454ef615ac4379b6a946bb6534dc95d1d08f603f449f53f2f4c58bdb1",
+      "plugin.yaml": "67065522eda364be89a04eb5d3d05b96ab8bad0f08acf708a23927e62db5c286",
       "url.json": "de518b078c5438e59b0b9135f0add9c82a2e7228241021b57134b4e55d7aba53"
     }
   },

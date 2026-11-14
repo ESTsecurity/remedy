@@ -97,6 +97,24 @@
     }
   },
   "definitions": {
+    "ApacheBasis": {
+      "description": "견준 Apache 기준.",
+      "type": "object",
+      "required": [
+        "checked",
+        "sha256"
+      ],
+      "properties": {
+        "checked": {
+          "description": "공지를 확인한 날(`YYYY-MM-DD`).",
+          "type": "string"
+        },
+        "sha256": {
+          "description": "읽은 `apache.json` 의 SHA-256.",
+          "type": "string"
+        }
+      }
+    },
     "Consent": {
       "type": "object",
       "required": [
@@ -169,6 +187,17 @@
         "version"
       ],
       "properties": {
+        "apache": {
+          "description": "Apache 기준(`apache.json` · 코어 1.18.0) — Apache 를 고른 점검에만 싣는다(PHP · Node.js 만 고른 결과는 1.17.0 과 같은 꼴이다).",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ApacheBasis"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "cves": {
           "description": "고른 제품마다 보는 CVE. PHP 에는 세션 설정(CVE-2026-115560)도 든다.",
           "type": "object",
@@ -288,12 +317,23 @@
       }
     },
     "Product": {
-      "description": "판정하는 제품. Brotli 는 따로 고르는 제품이 아니라 Node.js 가 연결한 디코더로만 나온다.",
-      "type": "string",
-      "enum": [
-        "php",
-        "node",
-        "brotli"
+      "description": "판정하는 제품. Brotli 는 따로 고르는 제품이 아니라 Node.js 가 연결한 디코더로만 나온다.\n\n차례가 결과 파일의 제품 차례다 — Apache(코어 1.18.0)는 맨 뒤에 두어 앞 셋의 차례를 바꾸지 않는다.",
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "php",
+            "node",
+            "brotli"
+          ]
+        },
+        {
+          "description": "Apache HTTP Server 의 HTTP/2 모듈(mod_http2) — 기준은 데이터 룰의 `apache.json`.",
+          "type": "string",
+          "enum": [
+            "apache"
+          ]
+        }
       ]
     },
     "Status": {

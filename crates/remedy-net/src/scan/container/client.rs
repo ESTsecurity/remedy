@@ -23,6 +23,7 @@ use crate::scan::binary::{self, StaticBinary};
 use crate::scan::budget::{Budget, Clock, ReadKind, SystemClock};
 use remedy_sdk::i18n::Lang;
 use serde_json::Value;
+use sha1::Sha1;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::io::{self, Read};
@@ -81,6 +82,8 @@ pub(crate) struct BinaryFile {
     pub(crate) sha256: String,
     /// 로컬 RPM 기록과 견주는 값 — 출처를 증명하지 않는다.
     pub(crate) md5: String,
+    /// apk 기록(`Z:Q1…`)과 견주는 값(코어 1.18.0 · Apache) — 출처를 증명하지 않는다.
+    pub(crate) sha1: String,
     pub(crate) size: u64,
     pub(crate) info: StaticBinary,
 }
@@ -310,6 +313,19 @@ impl<'a> Client<'a> {
         archive::consume_regular(stream, name, stat.size, consume)
     }
 
+    /// 그 자리의 파일 정보(HEAD 하나) — 본문을 읽지 않는다. 링크면 링크 자신의 정보다(Apache 의 Debian `mods-enabled`
+    /// 이름 · 코어 1.18.0).
+    pub(crate) fn stat(&mut self, id: &str, name: &str) -> Result<PathStat, Failure> {
+        if !paths::container_id(id) || !self.valid_path(name) {
+            return Err(FileFailure::BadRequest.into());
+        }
+        let route = format!("/containers/{id}/archive");
+        let head = self.request("HEAD", &route, &[("path", name)])?;
+        let stat = decode_stat_any(head.header(STAT_HEADER), name);
+        drop(head);
+        stat
+    }
+
     /// 통째로 읽는 파일(64 MiB 까지) — 패키지 DB.
     pub(crate) fn read_file(&mut self, id: &str, name: &str) -> Result<Vec<u8>, Failure> {
         let mut out = Vec::new();
@@ -354,7 +370,7 @@ impl<'a> Client<'a> {
 }
 
 fn hash_stream(r: &mut dyn Read, size: u64) -> Result<BinaryFile, Failure> {
-    let (mut sha, mut md5) = (Sha256::new(), Md5::new());
+    let (mut sha, mut md5, mut sha1) = (Sha256::new(), Md5::new(), Sha1::new());
     let mut prefix = Vec::new();
     let mut buf = vec![0u8; 64 << 10];
     loop {
@@ -366,6 +382,7 @@ fn hash_stream(r: &mut dyn Read, size: u64) -> Result<BinaryFile, Failure> {
         };
         sha.update(&buf[..n]);
         md5.update(&buf[..n]);
+        sha1.update(&buf[..n]);
         let room = (BINARY_PREFIX as usize).saturating_sub(prefix.len()).min(n);
         prefix.extend_from_slice(&buf[..room]);
     }
@@ -373,6 +390,7 @@ fn hash_stream(r: &mut dyn Read, size: u64) -> Result<BinaryFile, Failure> {
     Ok(BinaryFile {
         sha256: codec::hex(&sha.finalize()),
         md5: codec::hex(&md5.finalize()),
+        sha1: codec::hex(&sha1.finalize()),
         prefix,
         size,
         info,
@@ -488,6 +506,33 @@ fn api_minor(v: &str) -> Option<u32> {
 /// 파일 정보 헤더 — base64(표준, 안 되면 URL 알파벳) 의 JSON. 요청한 파일의 이름이고, 링크가 아닌 일반 파일이고,
 /// 크기가 0 ~ 256 MiB 여야 한다.
 pub(crate) fn decode_stat(header: &str, requested: &str) -> Result<PathStat, Failure> {
+    let (stat, size) = read_stat(header)?;
+    let regular = stat.mode & MODE_TYPE == 0;
+    if !paths::valid_file_path(requested)
+        || !paths::same_file_base(&stat.name, requested)
+        || !stat.link_target.is_empty()
+        || !regular
+    {
+        return Err(FileFailure::NotRegular.into());
+    }
+    match u64::try_from(size) {
+        Ok(size) if size <= MAX_FILE => Ok(PathStat { size, ..stat }),
+        _ => Err(FileFailure::FileTooLarge.into()),
+    }
+}
+
+/// 파일 정보 헤더를 종류와 상관없이 — 이름이 요청한 것이어야 한다. 링크 · 폴더도 받는다(코어 1.18.0 ·
+/// [`Client::stat`] — 본문을 읽지 않는 *이름이 있는가* 의 물음). 본문을 읽는 쪽은 [`decode_stat`] 을 쓴다.
+fn decode_stat_any(header: &str, requested: &str) -> Result<PathStat, Failure> {
+    let (stat, _) = read_stat(header)?;
+    if !paths::valid_file_path(requested) || !paths::same_file_base(&stat.name, requested) {
+        return Err(FileFailure::NotRegular.into());
+    }
+    Ok(stat)
+}
+
+/// 헤더의 base64(표준, 안 되면 URL 알파벳) JSON 을 네 칸으로 — 크기는 부호 있는 값으로 따로 준다.
+fn read_stat(header: &str) -> Result<(PathStat, i64), Failure> {
     if header.len() > MAX_STAT_HEADER {
         return Err(FileFailure::StatTooLarge.into());
     }
@@ -502,19 +547,7 @@ pub(crate) fn decode_stat(header: &str, requested: &str) -> Result<PathStat, Fai
     {
         return Err(FileFailure::StatMissing.into());
     }
-    let (stat, size) = stat_fields(&raw).ok_or(Failure::File(FileFailure::StatJson))?;
-    let regular = stat.mode & MODE_TYPE == 0;
-    if !paths::valid_file_path(requested)
-        || !paths::same_file_base(&stat.name, requested)
-        || !stat.link_target.is_empty()
-        || !regular
-    {
-        return Err(FileFailure::NotRegular.into());
-    }
-    match u64::try_from(size) {
-        Ok(size) if size <= MAX_FILE => Ok(PathStat { size, ..stat }),
-        _ => Err(FileFailure::FileTooLarge.into()),
-    }
+    stat_fields(&raw).ok_or(Failure::File(FileFailure::StatJson))
 }
 
 /// 네 칸을 Go 의 구조체처럼 읽는다 — 형이 틀리거나 대소문자만 다른 칸이 겹치면 `None`. 크기는 부호 있는 값으로

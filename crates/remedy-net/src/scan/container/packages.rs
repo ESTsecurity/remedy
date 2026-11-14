@@ -6,6 +6,10 @@
 //! **믿을 수 있는 기록**은 dpkg 의 것 가운데 레코드의 꼴이 온전하고(겹친 칸 · 깨진 줄 · 틀린 아키텍처가 없고)
 //! 관리자가 그 배포판의 공식 주소인 것뿐이다(Debian: `@lists.alioth.debian.org>` · `@tracker.debian.org>`,
 //! Ubuntu: `@lists.ubuntu.com>`). apk 의 설치 기록은 저장소 · 서명 출처를 말하지 않아 늘 믿지 않는다.
+//!
+//! **Apache(코어 1.18.0)** 의 패키지는 이미지 점검과 같은 규칙으로 읽는다 — Debian 의 관리자 주소에
+//! `@lists.debian.org>` 를 더 받는다(Debian 의 Apache 관리자 주소가 그것이다). 그 판을 쓸지는 `super::apache` 가
+//! 실제 모듈 파일을 기록과 견준 뒤 정한다. PHP · Node.js 의 규칙은 바꾸지 않았다.
 
 use super::gostr::lower;
 use crate::scan::linuxmeta;
@@ -44,11 +48,25 @@ fn brotli_package() -> &'static Regex {
     })
 }
 
+/// Apache 의 HTTP/2 모듈을 담는 패키지와 그 하위 패키지(SUSE 의 MPM 패키지) — 판정할 것은 기준이 고른다.
+fn apache_package() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| {
+        Regex::new(
+            r"^(?:apache2|apache2-bin|apache2-http2|mod_http2|apache2-(?:prefork|worker|event))$",
+        )
+        .expect("고정된 정규식")
+    })
+}
+
 /// 패키지 이름이 고른 제품의 것이면 그 제품 — Node.js 를 고르면 Brotli 패키지도 본다.
 pub(crate) fn package_product(name: &str, products: &[Product]) -> Option<Product> {
     for product in products {
         if *product == Product::Php && php_package().is_match(name) {
             return Some(Product::Php);
+        }
+        if *product == Product::Apache && apache_package().is_match(name) {
+            return Some(Product::Apache);
         }
         if *product == Product::Node {
             if node_package().is_match(name) {
@@ -66,7 +84,10 @@ pub(crate) fn package_product(name: &str, products: &[Product]) -> Option<Produc
 pub(crate) fn package_label(product: Product, lang: Lang) -> &'static str {
     match product {
         Product::Php => lang.t("PHP 패키지", "PHP package"),
-        _ => lang.t("Node.js · Brotli 패키지", "Node.js · Brotli package"),
+        Product::Apache => lang.t("Apache 패키지", "Apache package"),
+        Product::Node | Product::Brotli => {
+            lang.t("Node.js · Brotli 패키지", "Node.js · Brotli package")
+        }
     }
 }
 
@@ -105,9 +126,12 @@ pub(crate) fn parse_dpkg(
             continue;
         }
         let maintainer = lower(get("maintainer"));
+        let apache_debian =
+            product == Product::Apache && maintainer.ends_with("@lists.debian.org>");
         let official = (distro == "debian"
             && (maintainer.ends_with("@lists.alioth.debian.org>")
-                || maintainer.ends_with("@tracker.debian.org>")))
+                || maintainer.ends_with("@tracker.debian.org>")
+                || apache_debian))
             || (distro == "ubuntu" && maintainer.ends_with("@lists.ubuntu.com>"));
         let architecture = get("architecture");
         let mut c = Component::new(product);

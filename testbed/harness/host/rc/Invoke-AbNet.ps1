@@ -8,7 +8,9 @@
       url       - 루프백 모의 서버(`testbed/harness/linux/rc/net-mock.py` · python)가 헤더 판 넷을 알린다
       image     - 저장한 이미지 tar(리눅스 `rc/save-images.sh` 가 만든다)
       container - Docker Desktop 에 띄운, 런타임이 계속 도는 컨테이너 둘(여기서 띄우고 끝에 지운다)
-    경우마다 종료 코드와 화면 · 결과 JSON(버전 · 시각 · 회차 · 경로를 가린 뒤)이 같아야 한다.
+    경우마다 종료 코드와 화면 · 결과 JSON(버전 · 시각 · 회차 · 경로를 가린 뒤)이 같아야 한다. image · container 는
+    제품마다(`--runtime php` · `node`) 견준다 — 1.18.0 의 기본(all)은 Apache 도 본다(Apache 는 `Invoke-NetApache.ps1`).
+    이용 조건(화면의 덩이와 결과의 `terms_version`)은 판정이 아니라서 가린다 — 1.18.0 에 Apache 를 더해 문구가 바뀌었다.
     summary.txt: 경우마다 `이름 A=코드 B=코드 screen-diff=… json-diff=… same|DIFFERENT`, 끝 줄 `same N - different M`.
 
 .EXAMPLE
@@ -30,7 +32,12 @@ $script:same = 0
 $script:diff = 0
 function Note([string] $line) { $line; Add-Content -Path $summary -Value $line -Encoding utf8 }
 function Mask([string] $text) {
-    $t = $text -replace '1\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?', 'V'
+    # 이용 조건 ~ 약관 동의: 덩이(ko)와 terms_version — 글자는 코드로 적는다(이 파일의 다른 한글 정규식과 같다)
+    $terms = [string][char]0xC774 + [char]0xC6A9 + ' ' + [char]0xC870 + [char]0xAC74
+    $consent = [string][char]0xC57D + [char]0xAD00 + ' ' + [char]0xB3D9 + [char]0xC758
+    $t = $text -replace ('(?ms)^' + $terms + '\r?$.*?^' + $consent + ':[^\r\n]*\r?\n'), ''
+    $t = $t -replace '"terms_version": *"[^"]*"', '"terms_version": "TV"'
+    $t = $t -replace '1\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?', 'V'
     $t = $t -replace '[0-9]{8}T[0-9]{6}Z(-[0-9]+)?', 'T'
     $t = $t -replace '[0-9]{4}-[0-9]{2}-[0-9]{2}[T ][0-9:.]+Z?', 'T'
     $t = $t -replace 'run-[0-9]+-[0-9a-f]+-[0-9a-f]+', 'RUN'
@@ -90,10 +97,12 @@ foreach ($v in '8.3.38', '8.3.2', '8.2.35-1~deb12u1', '8.2.32-1~deb12u1') {
 # -- image --
 foreach ($tar in Get-ChildItem $ImagesDir -Filter '*.tar' | Sort-Object Name) {
     $n = $tar.BaseName
-    $oa = Join-Path $OutDir "out-image-a-$n"
-    $ob = Join-Path $OutDir "out-image-b-$n"
-    Compare-Case "image-$n" @('image', $tar.FullName, '--consent', 'y', '--out-dir', $oa) `
-        @('image', $tar.FullName, '--consent', 'y', '--out-dir', $ob) $oa $ob
+    foreach ($r in 'php', 'node') {
+        $oa = Join-Path $OutDir "out-image-a-$n-$r"
+        $ob = Join-Path $OutDir "out-image-b-$n-$r"
+        Compare-Case "image-$n-$r" @('image', $tar.FullName, '--runtime', $r, '--consent', 'y', '--out-dir', $oa) `
+            @('image', $tar.FullName, '--runtime', $r, '--consent', 'y', '--out-dir', $ob) $oa $ob
+    }
 }
 
 # -- container (Docker Desktop) --
@@ -102,10 +111,12 @@ $node = (& docker run -d node:22.18.0-bookworm-slim node -e 'setTimeout(function
 foreach ($pair in @(@('php', $php), @('node', $node))) {
     $name, $id = $pair
     if (-not $id) { Note "container-$name : did not start"; $script:diff++; continue }
-    $oa = Join-Path $OutDir "out-container-a-$name"
-    $ob = Join-Path $OutDir "out-container-b-$name"
-    Compare-Case "container-$name" @('container', $id, '--consent', 'y', '--out-dir', $oa) `
-        @('container', $id, '--consent', 'y', '--out-dir', $ob) $oa $ob
+    foreach ($r in 'php', 'node') {
+        $oa = Join-Path $OutDir "out-container-a-$name-$r"
+        $ob = Join-Path $OutDir "out-container-b-$name-$r"
+        Compare-Case "container-$name-$r" @('container', $id, '--runtime', $r, '--consent', 'y', '--out-dir', $oa) `
+            @('container', $id, '--runtime', $r, '--consent', 'y', '--out-dir', $ob) $oa $ob
+    }
 }
 & docker rm -f $php $node 2>$null | Out-Null
 Note ("same {0} - different {1}" -f $script:same, $script:diff)

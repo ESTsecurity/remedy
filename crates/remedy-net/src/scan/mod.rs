@@ -6,6 +6,7 @@
 //! 않는다. 그래서 판정 규칙과 기준 데이터가 이 크레이트 안에 따로 있고, 호스트 룰과 겹치는 값(수정 버전 · 공식
 //! 빌드 해시)은 시험이 룰 파일과 대조한다.
 
+pub mod apacheconf;
 pub mod binary;
 pub mod budget;
 pub mod container;

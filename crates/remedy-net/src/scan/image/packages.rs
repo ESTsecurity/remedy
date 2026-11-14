@@ -24,6 +24,8 @@ type Res<T> = Result<T, String>;
 const DPKG_STATUS: &str = "var/lib/dpkg/status";
 const APK_INSTALLED: &str = "lib/apk/db/installed";
 pub(super) const DPKG_SOURCE: &str = "/var/lib/dpkg/status";
+/// apk 기록의 출처 칸(`Record::source`).
+pub(super) const APK_SOURCE: &str = "/lib/apk/db/installed";
 const DPKG_INFO: &str = "var/lib/dpkg/info/";
 /// 패키지 기록의 단락 수 상한.
 const MAX_PARAGRAPHS: usize = 100_000;
@@ -67,6 +69,9 @@ pub(super) fn inspect(fs: &RootFs, t: &mut Target, cx: &Cx<'_>) {
     }
     if t.products.contains_key(&Product::Node) {
         super::node::inspect(fs, t, cx, &packages, os);
+    }
+    if t.products.contains_key(&Product::Apache) {
+        super::apache::inspect(fs, t, cx, &packages, os);
     }
     super::config::inspect(fs, t, cx, &packages);
 }
@@ -124,7 +129,7 @@ fn databases(fs: &RootFs, t: &mut Target, cx: &Cx<'_>) -> Vec<Record> {
         }
         for record in &mut parsed {
             record.source = format!("/{db}");
-            if db == DPKG_STATUS && wanted(t, &record.name) {
+            if db == DPKG_STATUS && wanted(t, cx, &record.name) {
                 attach_dpkg_files(&info, record, t, lang);
             }
         }
@@ -203,11 +208,16 @@ fn rpm_log_left(fs: &RootFs, db: &str) -> bool {
     })
 }
 
-/// 파일 목록을 읽을 dpkg 패키지인가 — 고른 제품의 패키지만.
-fn wanted(t: &Target, name: &str) -> bool {
+/// 파일 목록을 읽을 dpkg 패키지인가 — 고른 제품의 패키지만. Apache 는 기준이 보는 패키지(`apache2-bin`)다.
+fn wanted(t: &Target, cx: &Cx<'_>, name: &str) -> bool {
     let php = t.products.contains_key(&Product::Php) && is_php_package(name);
     let node = t.products.contains_key(&Product::Node) && is_node_family(name);
-    php || node
+    let apache = t.products.contains_key(&Product::Apache)
+        && cx
+            .rules
+            .apache()
+            .is_some_and(|a| a.watches(crate::scan::rules::PackageManager::Dpkg, name));
+    php || node || apache
 }
 
 fn attach_dpkg_files(info: &DpkgInfo<'_>, record: &mut Record, t: &mut Target, lang: Lang) {
@@ -350,7 +360,9 @@ fn paragraphs(data: &[u8], lang: Lang) -> Res<Vec<Vec<&[u8]>>> {
     Ok(out)
 }
 
-/// apk `installed` — 패키지마다 이름(`P`) · 버전(`V`) · 폴더(`F`) · 파일(`R`). apk 패키지는 믿지 않는다.
+/// apk `installed` — 패키지마다 이름(`P`) · 버전(`V`) · 폴더(`F`) · 파일(`R`)과 그 파일의 체크섬(`Z` · 코어 1.18.0).
+/// apk 패키지는 믿지 않는다(`trusted` 는 늘 거짓) — Apache 기준만 체크섬이 실제 파일과 맞을 때 그 판을 쓴다
+/// (`super::apache`). PHP · Node.js 는 체크섬을 보지 않는다.
 pub(super) fn parse_apk(data: &[u8], lang: Lang) -> Res<Vec<Record>> {
     let bad = |ko: &'static str, en: &'static str| lang.t(ko, en).to_string();
     let mut out = Vec::new();
@@ -358,6 +370,8 @@ pub(super) fn parse_apk(data: &[u8], lang: Lang) -> Res<Vec<Record>> {
         let mut p = Record::default();
         let mut dir = String::new();
         let mut seen = [false; 2];
+        let mut sums: BTreeMap<String, String> = BTreeMap::new();
+        let mut last: Option<String> = None;
         for line in lines {
             if line.len() < 2 || line[1] != b':' {
                 return Err(bad(
@@ -377,8 +391,21 @@ pub(super) fn parse_apk(data: &[u8], lang: Lang) -> Res<Vec<Record>> {
                     }
                     *if i == 0 { &mut p.name } else { &mut p.version } = value;
                 }
-                b'F' => dir = package_path(&value, lang)?,
-                b'R' => p.files.push(apk_file(&dir, &value, lang)?),
+                b'F' => {
+                    dir = package_path(&value, lang)?;
+                    last = None;
+                }
+                b'R' => {
+                    let file = apk_file(&dir, &value, lang)?;
+                    p.files.push(file.clone());
+                    last = Some(file);
+                }
+                // 바로 앞 `R` 의 체크섬 — `Q1` 뒤가 SHA-1 의 base64 다. 앞에 파일이 없으면 폴더의 것이라 버린다.
+                b'Z' => {
+                    if let Some(file) = last.take() {
+                        sums.insert(file, value);
+                    }
+                }
                 _ => {}
             }
         }
@@ -388,6 +415,8 @@ pub(super) fn parse_apk(data: &[u8], lang: Lang) -> Res<Vec<Record>> {
                 "an apk package name or version is missing",
             ));
         }
+        p.checksums = Some(sums);
+        p.checksum_algorithm = "sha1";
         out.push(p);
     }
     Ok(out)

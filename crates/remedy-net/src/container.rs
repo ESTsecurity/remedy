@@ -1,5 +1,6 @@
 //! `remedy-net container` — 이 기계의 컨테이너 엔진(Docker · Podman)에 읽기 요청만 보내, 실행 중인 컨테이너의
-//! 파일에서 PHP · Node.js 를 찾아 PHP2Shell · PHP 세션 설정 · Node.js 기준과 견준다.
+//! 파일에서 PHP · Node.js · Apache 를 찾아 PHP2Shell · PHP 세션 설정 · Node.js · Apache HTTP/2 기준과 견준다(Apache 는
+//! 코어 1.18.0 · 리눅스 엔진만).
 //!
 //! 사내 runtime-scanner 의 `container` 를 옮겼다. 컨테이너 안에서 명령을 실행하지 않고, 꺼져 있는 엔진을 띄우지
 //! 않는다. 컨테이너에서 읽을 수 있는 파일만 보므로 **양호를 내지 않는다** — 취약(2) 또는 확인 필요(6). 차례:
@@ -17,8 +18,8 @@ use crate::text::{ascii_safe, plain};
 use crate::Outcome;
 use remedy_sdk::i18n::Lang;
 
-/// 결과 파일에 싣는 약관 판(문구는 2026-11-10 카드).
-pub(crate) const TERMS_VERSION: &str = "2026-11-10.1";
+/// 결과 파일에 싣는 약관 판(문구는 2026-11-10 카드 · 2026-11-14 에 점검 대상에 Apache 를 더했다).
+pub(crate) const TERMS_VERSION: &str = "2026-11-14.1";
 /// 한 실행의 컨테이너 수 — 스캐너와 같다.
 const MAX_IDS: usize = 50;
 
@@ -44,7 +45,7 @@ pub(crate) fn parse(args: &[String], lang: Lang) -> Result<Parsed, String> {
         ids: Vec::new(),
         list: false,
         endpoint: crate::scan::container::default_endpoint().to_string(),
-        products: vec![Product::Php, Product::Node],
+        products: crate::cmdline::ALL.to_vec(),
         consent: None,
         out_dir: DEFAULT_OUT_DIR.to_string(),
     };
@@ -196,8 +197,8 @@ pub(crate) fn terms(lang: Lang) -> &'static str {
     lang.t(
         "이용 조건\n\
          1. 소유하거나 점검을 허락받은 컨테이너에만 쓰십시오.\n\
-         2. 이 기계의 컨테이너 엔진(Docker · Podman)에 읽기 요청만 보내 PHP · Node.js 의 일부 취약점과\n\
-         \x20  관련 설정을 점검합니다. 컨테이너 안에서 명령을 실행하거나 파일을 바꾸지 않습니다.\n\
+         2. 이 기계의 컨테이너 엔진(Docker · Podman)에 읽기 요청만 보내 PHP · Node.js · Apache 의 일부\n\
+         \x20  취약점과 관련 설정을 점검합니다. 컨테이너 안에서 명령을 실행하거나 파일을 바꾸지 않습니다.\n\
          3. 요청하는 동안 엔진과 컨테이너에 부하가 생기고 엔진 기록에 남을 수 있습니다. 꺼져 있는 엔진은\n\
          \x20  띄우지 않습니다.\n\
          4. 컨테이너에서 읽을 수 있는 파일만 보므로 '양호' 를 내지 않습니다. 취약이 나오지 않아도\n\
@@ -207,8 +208,8 @@ pub(crate) fn terms(lang: Lang) -> &'static str {
         "Terms of use\n\
          1. Use this only on containers you own or are authorized to check.\n\
          2. It sends only read requests to this machine's container engine (Docker · Podman) and checks for\n\
-         \x20  some PHP and Node.js vulnerabilities and related settings. It runs no command inside the\n\
-         \x20  containers and changes no file.\n\
+         \x20  some PHP, Node.js and Apache vulnerabilities and related settings. It runs no command inside\n\
+         \x20  the containers and changes no file.\n\
          3. The requests add some load on the engine and the containers and may appear in the engine's\n\
          \x20  log. An engine that is not running is not started.\n\
          4. Only the files that can be read from the containers are seen, so the result is never \"clear\".\n\
@@ -243,14 +244,15 @@ pub fn help(lang: Lang) -> String {
             "쓰는 법: remedy-net container 컨테이너ID [ID ...] [옵션]\n\
              \x20       remedy-net container --list [--endpoint 주소]\n\n\
              이 기계의 컨테이너 엔진(Docker · Podman)에 읽기 요청만 보내, 실행 중인 컨테이너의 파일에서 PHP ·\n\
-             Node.js 를 찾아 PHP2Shell(CVE-2026-109618 · 109619) · PHP 세션 설정(CVE-2026-115560) · Node.js\n\
-             (CVE-2026-111497) 기준과 견준다. 컨테이너 안에서 명령을 실행하지 않고, 꺼져 있는 엔진을 띄우지 않는다.\n\
-             읽을 수 있는 파일만 보므로 '양호' 는 내지 않는다 — 취약(2) 또는 확인 필요(6).\n\n\
+             Node.js · Apache 를 찾아 PHP2Shell(CVE-2026-109618 · 109619) · PHP 세션 설정(CVE-2026-115560) ·\n\
+             Node.js(CVE-2026-111497) · Apache HTTP/2(CVE-2026-119618 · 리눅스 엔진만) 기준과 견준다. 컨테이너\n\
+             안에서 명령을 실행하지 않고, 꺼져 있는 엔진을 띄우지 않는다. 읽을 수 있는 파일만 보므로 '양호' 는\n\
+             내지 않는다 — 취약(2) 또는 확인 필요(6).\n\n\
              옵션:\n\
              \x20 --id ID            점검할 컨테이너 ID(16진수 12~64자). 자리 인자와 함께 모두 50개까지\n\
              \x20 --list             실행 중인 컨테이너를 보여 준다(점검하지 않아 약관 · 결과 폴더가 없다)\n\
              \x20 --endpoint 주소    엔진 주소 (기본: {endpoint})\n\
-             \x20 --runtime 제품     php · node · all (기본: all)\n\
+             \x20 --runtime 제품     php · node · apache · all (기본: all)\n\
              \x20 --consent y|n      약관에 미리 답한다(무인 실행). 빼면 묻는다\n\
              \x20 --out-dir 폴더     결과 JSON 을 쓸 폴더 (기본: results)\n\n\
              지키는 것: 실행 전체 10분 · 엔진 API 요청 128회 · 받는 양 256 MiB · 초당 10 MiB.\n\
@@ -259,17 +261,18 @@ pub fn help(lang: Lang) -> String {
         format!(
             "Usage: remedy-net container CONTAINER-ID [ID ...] [options]\n\
              \x20      remedy-net container --list [--endpoint ADDRESS]\n\n\
-             Sends only read requests to this machine's container engine (Docker · Podman), finds PHP and\n\
-             Node.js in the files of running containers and compares them with the PHP2Shell (CVE-2026-109618 ·\n\
-             109619), PHP session setting (CVE-2026-115560) and Node.js (CVE-2026-111497) criteria. No command\n\
-             is run inside the containers and an engine that is not running is not started. Only readable files\n\
-             are seen, so the result is never \"clear\" — vulnerable (2) or needs review (6).\n\n\
+             Sends only read requests to this machine's container engine (Docker · Podman), finds PHP, Node.js\n\
+             and Apache in the files of running containers and compares them with the PHP2Shell (CVE-2026-109618\n\
+             · 109619), PHP session setting (CVE-2026-115560), Node.js (CVE-2026-111497) and Apache HTTP/2\n\
+             (CVE-2026-119618, Linux engines only) criteria. No command is run inside the containers and an\n\
+             engine that is not running is not started. Only readable files are seen, so the result is never\n\
+             \"clear\" — vulnerable (2) or needs review (6).\n\n\
              Options:\n\
              \x20 --id ID            a container ID to check (12 to 64 hex digits); up to 50 together with\n\
              \x20                    positional IDs\n\
              \x20 --list             list the running containers (no check, so no terms and no result folder)\n\
              \x20 --endpoint ADDRESS the engine address (default: {endpoint})\n\
-             \x20 --runtime PRODUCT  php · node · all (default: all)\n\
+             \x20 --runtime PRODUCT  php · node · apache · all (default: all)\n\
              \x20 --consent y|n      answer the terms in advance (unattended runs); asked if omitted\n\
              \x20 --out-dir DIR      folder for the JSON result (default: results)\n\n\
              Limits: 10 minutes per run · 128 engine API requests · 256 MiB received · 10 MiB per second.\n\
@@ -317,7 +320,10 @@ mod tests {
         let Ok(Parsed::Run(d)) = p(&[A]) else {
             panic!("거절됐다");
         };
-        assert_eq!(d.products, vec![Product::Php, Product::Node]);
+        assert_eq!(
+            d.products,
+            vec![Product::Php, Product::Node, Product::Apache]
+        );
         assert_eq!(d.out_dir, DEFAULT_OUT_DIR);
         let endpoint = crate::scan::container::default_endpoint();
         let Ok(Parsed::Run(l)) = p(&["--list", "--endpoint", endpoint]) else {

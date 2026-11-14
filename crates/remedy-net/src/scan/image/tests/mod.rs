@@ -6,6 +6,7 @@
 //! - `TestStaticELFDependenciesRequireCompleteDynamicData` 는 실행 파일 머리 해석과 함께 `scan::binary` 에 옮겨 있다.
 //! - 스캐너의 SQLite · 헤더 판독기 안쪽을 부르던 RPM 시험은 같은 DB 를 지어 이미지 쪽 입구(`rpm::parse`)로 본다.
 
+mod apache;
 mod attestation;
 mod fixtures;
 mod images;

@@ -3,7 +3,10 @@
 #
 # 호스트(WSL)에서, 저장소 루트:
 #
-#   bash testbed/harness/linux/musl-dev-build.sh <결과 폴더(WSL 경로)> [--cargo-home <Windows 쪽 CARGO_HOME 의 WSL 경로>]
+#   bash testbed/harness/linux/musl-dev-build.sh <결과 폴더(WSL 경로)> [--cargo-home <Windows 쪽 CARGO_HOME 의 WSL 경로>] [--net]
+#
+# `--net` 이면 동반 프로그램 `remedy-net` 도 같은 꼴로 지어 `<결과 폴더>/remedy-net` 에 둔다(remedy-net 의 이미지 ·
+# 컨테이너 하네스용 · 코어 1.18.0). 기준 폴더의 개발 키 서명은 `REMEDY_NET_ANCHOR`(개발 빌드만 읽는다)로 확인한다.
 #
 # 리눅스 룰의 하네스(`<룰>-verify.sh --bin`)는 Alpine 과 옛 glibc 에서도 도는 musl 정적 실행 파일을 받는다. 배포본도 그
 # 꼴이지만 배포 앵커가 박혀 저장소의 개발 키 서명 룰을 거부한다 — 그래서 PR 전에는 이 개발 빌드로 잰다. 정식 파일로
@@ -21,9 +24,11 @@
 set -u
 OUTDIR=""
 CARGO_HOME_WIN=""
+NET=0
 while [ $# -gt 0 ]; do
     case "$1" in
         --cargo-home) CARGO_HOME_WIN=$2; shift 2 ;;
+        --net) NET=1; shift ;;
         -*) echo "모르는 인자: $1" >&2; exit 2 ;;
         *) OUTDIR=$1; shift ;;
     esac
@@ -51,6 +56,7 @@ docker run --rm --pull=never \
     -v remedy-musl-target:/tmp/remedy-musl \
     -v "$HOME/.rustup/toolchains/$TC:/usr/local/rustup/toolchains/$TC:ro" \
     -e CARGO_TARGET_DIR=/tmp/remedy-musl \
+    -e NET="$NET" \
     -v "$OUTDIR:/out" \
     "$IMAGE" bash -c '
 # 빌드가 실패하면 여기서 멈춘다 — 볼륨에 남은 앞 회차의 실행 파일을 복사해 낡은 빌드로 재지 않게.
@@ -58,10 +64,20 @@ set -o pipefail
 apt-get update -qq >/dev/null 2>&1
 apt-get install -y -qq musl-tools >/dev/null 2>&1 || { echo "musl-tools 를 깔지 못했다"; exit 7; }
 command -v x86_64-linux-musl-gcc >/dev/null || ln -sf "$(command -v musl-gcc)" /usr/local/bin/x86_64-linux-musl-gcc
-cd /repo && cargo build --offline -p remedy-cli --bin remedy --target x86_64-unknown-linux-musl 2>&1 | tail -3
-cp /tmp/remedy-musl/x86_64-unknown-linux-musl/debug/remedy /out/remedy && chmod a+rx /out/remedy'
+rm -f /out/remedy /out/remedy-net
+cd /repo && cargo build --offline -p remedy-cli --bin remedy --target x86_64-unknown-linux-musl 2>&1 | tail -3 || exit 1
+cp /tmp/remedy-musl/x86_64-unknown-linux-musl/debug/remedy /out/remedy && chmod a+rx /out/remedy || exit 1
+if [ "$NET" = 1 ]; then
+    cargo build --offline -p remedy-net --bin remedy-net --target x86_64-unknown-linux-musl 2>&1 | tail -3 || exit 1
+    cp /tmp/remedy-musl/x86_64-unknown-linux-musl/debug/remedy-net /out/remedy-net && chmod a+rx /out/remedy-net
+fi'
 rc=$?
 echo "빌드 종료 $rc · $(( $(date +%s) - t0 ))초"
 [ "$rc" = 0 ] && [ -x "$OUTDIR/remedy" ] || exit 1
 "$OUTDIR/remedy" --version 2>/dev/null | head -1
 echo "실행 파일: $OUTDIR/remedy"
+if [ "$NET" = 1 ]; then
+    [ -x "$OUTDIR/remedy-net" ] || exit 1
+    "$OUTDIR/remedy-net" --version 2>/dev/null | head -1
+    echo "실행 파일: $OUTDIR/remedy-net"
+fi
