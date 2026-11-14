@@ -1331,7 +1331,7 @@ root 권한으로 실행 중입니다.
 [4/9] Apache HTTP/2 점검 (CVE-2026-119618)
 ────────────────────────────────────────────────────────
  ESTsecurity 전용백신 1.17.0
- Apache HTTP/2 점검 (CVE-2026-119618)  (apache-http2-check-linux 0.1.0)
+ Apache HTTP/2 점검 (CVE-2026-119618)  (apache-http2-check-linux 0.1.1)
 ────────────────────────────────────────────────────────
  시작 시각  : <T> UTC
  실행 기계  : <host> (linux)
@@ -1381,7 +1381,7 @@ root 권한으로 실행 중입니다.
 [7/9] OpenSSH 점검 (CVE-2026-123158 · Alpine)
 ────────────────────────────────────────────────────────
  ESTsecurity 전용백신 1.17.0
- OpenSSH 점검 (CVE-2026-123158 · Alpine)  (openssh-musl-check 0.1.0)
+ OpenSSH 점검 (CVE-2026-123158 · Alpine)  (openssh-musl-check 0.1.1)
 ────────────────────────────────────────────────────────
  시작 시각  : <T> UTC
  실행 기계  : <host> (linux)
