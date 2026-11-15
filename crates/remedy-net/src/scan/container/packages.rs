@@ -4,12 +4,12 @@
 //! 판독과 규칙이 다르다 — 이것이 컨테이너의 것이다.
 //!
 //! **믿을 수 있는 기록**은 dpkg 의 것 가운데 레코드의 꼴이 온전하고(겹친 칸 · 깨진 줄 · 틀린 아키텍처가 없고)
-//! 관리자가 그 배포판의 공식 주소인 것뿐이다(Debian: `@lists.alioth.debian.org>` · `@tracker.debian.org>` ·
-//! `@lists.debian.org>`, Ubuntu: `@lists.ubuntu.com>`). apk 의 설치 기록은 저장소 · 서명 출처를 말하지 않아 늘 믿지
-//! 않는다.
+//! 관리자가 그 배포판의 공식 주소인 것뿐이다([`crate::scan::linuxmeta::official_maintainer`]). apk 의 설치 기록은
+//! 저장소 · 서명 출처를 말하지 않아 늘 믿지 않는다.
 //!
 //! Debian 의 `@lists.debian.org>`(Apache 관리자의 주소가 그것이다)는 코어 1.18.0 에서 Apache 만 받았고 1.19.0 부터
-//! 제품을 가리지 않는다 — 이미지 점검의 주소 표와 같다. 그 판을 쓸지는 제품마다 실제 파일을 기록과 견준 뒤 정한다.
+//! 제품을 가리지 않는다. 1.19.1 부터는 이미지 점검도 같은 함수를 쓴다 — 두 점검의 규칙이 같다. 그 판을 쓸지는
+//! 제품마다 실제 파일을 기록과 견준 뒤 정한다.
 
 use super::gostr::lower;
 use crate::scan::linuxmeta;
@@ -125,12 +125,7 @@ pub(crate) fn parse_dpkg(
         if get("status") != "install ok installed" || get("version").is_empty() {
             continue;
         }
-        let maintainer = lower(get("maintainer"));
-        let official = (distro == "debian"
-            && (maintainer.ends_with("@lists.alioth.debian.org>")
-                || maintainer.ends_with("@tracker.debian.org>")
-                || maintainer.ends_with("@lists.debian.org>")))
-            || (distro == "ubuntu" && maintainer.ends_with("@lists.ubuntu.com>"));
+        let official = linuxmeta::official_maintainer(distro, &lower(get("maintainer")));
         let architecture = get("architecture");
         let mut c = Component::new(product);
         c.id = format!("container-package:{name}");

@@ -11,7 +11,7 @@ use super::fault::describe;
 use super::meta::{digest_path, hex};
 use super::names;
 use super::rootfs::{capture_limit, is_selected_binary, Entry, RootFs, SELECTED_DATA_LIMIT};
-use super::source::{archive_path, drive_path, reject_sparse, Source};
+use super::source::{drive_path, entry_path, reject_sparse, Source};
 use super::tarball::{
     Header, TarReader, TYPE_BLOCK, TYPE_CHAR, TYPE_DIR, TYPE_FIFO, TYPE_LINK, TYPE_REG,
     TYPE_SYMLINK,
@@ -185,7 +185,7 @@ fn entry<R: Read>(
 
 /// 항목의 이름 — 크기 · 희소 파일을 거르고, 뿌리 폴더 자체(`.`)면 `None`.
 fn entry_name(h: &Header, fs: &RootFs, lang: Lang) -> Res<Option<String>> {
-    let name = fs.key(&archive_path(&names::from_bytes(&h.name), lang)?);
+    let name = fs.key(&entry_path(&names::from_bytes(&h.name), lang)?);
     if h.size < 0 || h.size as u64 > IMAGE_LIMIT {
         return Err(lang
             .t(
@@ -392,12 +392,13 @@ fn rest_into(
     }
 }
 
-/// 링크 대상을 가상 뿌리 안의 경로로(스캐너의 `virtualLink`). 하드 링크는 아카이브 경로이고, 심볼릭 링크는 그
-/// 항목의 폴더에서 푼다 — 절대 경로 링크는 이미지의 뿌리에서 시작하고, 뿌리 위로 나가면 거절한다.
+/// 링크 대상을 가상 뿌리 안의 경로로(스캐너의 `virtualLink`). 하드 링크는 항목 이름([`entry_path`])이고,
+/// 심볼릭 링크는 그 항목의 폴더에서 푼다 — 절대 경로 링크는 이미지의 뿌리에서 시작하고, 뿌리 위로 나가면
+/// 거절한다. 푼 결과도 메모리의 열쇠라 역슬래시는 받는다(코어 1.19.1 · [`entry_path`] 와 같은 까닭).
 pub(super) fn virtual_link(name: &str, target: &str, hard: bool, lang: Lang) -> Res<String> {
     if target.is_empty()
         || names::raw_len(target) > 4096
-        || target.contains(['\\', '\0'])
+        || target.contains('\0')
         || drive_path(target)
     {
         return Err(lang
@@ -405,7 +406,7 @@ pub(super) fn virtual_link(name: &str, target: &str, hard: bool, lang: Lang) -> 
             .to_string());
     }
     if hard {
-        return archive_path(target, lang);
+        return entry_path(target, lang);
     }
     let parent = slashpath::dir(name);
     let mut parts: Vec<&str> = if !target.starts_with('/') && parent != "." {

@@ -59,19 +59,23 @@ fn apache_findings(t: &Target) -> Vec<&crate::scan::model::Finding> {
         .collect()
 }
 
-/// Debian 의 apache2-bin 과 그 mod_http2.so · 파일 목록 · 검증 기록. `sums` 가 거짓이면 다른 내용의 MD5 를 적는다.
-fn debian(version: &str, sums: bool) -> Vec<Item> {
+/// 배포판의 apache2-bin 과 그 mod_http2.so · 파일 목록 · 검증 기록. `sums` 가 거짓이면 다른 내용의 MD5 를 적는다.
+fn package(os: (&str, &str), version: &str, maintainer: &str, sums: bool) -> Vec<Item> {
     let module = elf(&[]);
     let md5 = if sums {
         md5_hex(&module)
     } else {
         md5_hex(b"other")
     };
+    let (id, release) = os;
     vec![
-        reg("etc/os-release", "ID=debian\nVERSION_ID=\"12\"\n"),
+        reg(
+            "etc/os-release",
+            format!("ID={id}\nVERSION_ID=\"{release}\"\n"),
+        ),
         reg(
             "var/lib/dpkg/status",
-            format!("Package: apache2-bin\nStatus: install ok installed\nVersion: {version}\nArchitecture: amd64\nMaintainer: {DEBIAN_MAINTAINER}\n\n"),
+            format!("Package: apache2-bin\nStatus: install ok installed\nVersion: {version}\nArchitecture: amd64\nMaintainer: {maintainer}\n\n"),
         ),
         reg("var/lib/dpkg/info/apache2-bin.list", format!("/usr/sbin/apache2\n/{MODULE}\n")),
         reg("var/lib/dpkg/info/apache2-bin.md5sums", format!("{md5}  {MODULE}\n")),
@@ -80,6 +84,10 @@ fn debian(version: &str, sums: bool) -> Vec<Item> {
         reg("etc/apache2/mods-available/http2.load", "LoadModule http2_module /usr/lib/apache2/modules/mod_http2.so\n"),
         reg("etc/apache2/mods-available/http2.conf", "Protocols h2 h2c http/1.1\n"),
     ]
+}
+
+fn debian(version: &str, sums: bool) -> Vec<Item> {
+    package(("debian", "12"), version, DEBIAN_MAINTAINER, sums)
 }
 
 /// `a2enmod http2` 가 만드는 두 링크.
@@ -124,6 +132,35 @@ fn a_debian_package_is_judged_with_the_http2_signs() {
     assert_eq!(apache_status(&fixed), Status::Clear, "{fixed:#?}");
     assert_eq!(fixed.status, Status::Clear);
     assert!(fixed.complete);
+}
+
+/// 관리자 주소는 **그 배포판의 것**이어야 믿는다(코어 1.19.1 · 컨테이너 점검과 같은 규칙이다). Ubuntu 위에서
+/// Debian 주소를 받으면, 그 주소로 Ubuntu 용 패키지를 내는 바깥 저장소의 빌드가 Ubuntu 공지로 판정돼 **고치지
+/// 않은 판이 양호가 된다** — `ondrej/apache2` 의 `2.4.58-1+ubuntu22.04.1+deb.sury.org+1` 은 dpkg 의 순서로
+/// Ubuntu 의 고친 판 `2.4.58-1ubuntu8.19` 보다 높다(2026-11-15 실측 · 1.19.0 이 0 을 냈다).
+#[test]
+fn a_maintainer_address_must_be_of_that_distribution() {
+    let ubuntu = ("ubuntu", "22.04");
+    let ppa = "2.4.58-1+ubuntu22.04.1+deb.sury.org+1";
+    let mut outside = package(ubuntu, ppa, DEBIAN_MAINTAINER, true);
+    outside.extend(enabled());
+    let t = scan(&outside, &[], &A);
+    assert_eq!(apache_status(&t), Status::ReviewRequired, "{t:#?}");
+    let f = apache_findings(&t);
+    assert!(
+        f[0].evidence
+            .iter()
+            .any(|e| e.detail.contains("공식 공급사 정보를 확인하지 못했습니다")),
+        "{f:#?}"
+    );
+    // Ubuntu 의 주소를 적은 Ubuntu 패키지는 그대로 판정한다 — 고친 판보다 낮으면 취약이다.
+    let mut own = package(ubuntu, "2.4.58-1ubuntu8.18", UBUNTU_MAINTAINER, true);
+    own.extend(enabled());
+    assert_eq!(
+        apache_status(&scan(&own, &[], &A)),
+        Status::Vulnerable,
+        "{ppa}"
+    );
 }
 
 #[test]

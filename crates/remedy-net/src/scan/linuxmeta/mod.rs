@@ -101,6 +101,34 @@ pub fn rpm_db_unclear(lang: Lang) -> &'static str {
     )
 }
 
+/// Debian 이 패키지에 적는 공식 관리자 주소 — 팀마다 다르다.
+pub const DEBIAN_MAINTAINERS: [&str; 3] = [
+    "@lists.alioth.debian.org>",
+    "@tracker.debian.org>",
+    "@lists.debian.org>",
+];
+
+/// Ubuntu 가 패키지에 적는 공식 관리자 주소.
+pub const UBUNTU_MAINTAINER: &str = "@lists.ubuntu.com>";
+
+/// dpkg 기록의 관리자가 **그 배포판의** 공식 주소인가. `maintainer` 는 소문자로 바꾼 `Maintainer` 칸이고,
+/// `distro` 는 배포판 기록의 `ID` 다([`parse_release`]).
+///
+/// **배포판을 가려 본다**(코어 1.19.1). Debian 의 주소를 Ubuntu 위에서 받으면, 그 주소로 Ubuntu 용 패키지를 내는
+/// 바깥 저장소의 빌드가 그 배포판의 공지로 판정돼 **고치지 않은 판이 양호로 나온다** — `ondrej/apache2` 의
+/// `apache2-bin 2.4.58-1+ubuntu22.04.1+deb.sury.org+1`(관리자는 Debian Apache 팀)이 Ubuntu 의 고친 판
+/// `2.4.58-1ubuntu8.19` 보다 높다(2026-11-15 실측 · 1.19.0 의 이미지 점검이 0 을 냈다). 이름이 다른 파생
+/// 배포판의 기록도 그 공급사 공지의 대상이 아니라 믿지 않는다.
+pub fn official_maintainer(distro: &str, maintainer: &str) -> bool {
+    match distro {
+        "debian" => DEBIAN_MAINTAINERS
+            .iter()
+            .any(|address| maintainer.ends_with(address)),
+        "ubuntu" => maintainer.ends_with(UBUNTU_MAINTAINER),
+        _ => false,
+    }
+}
+
 /// 겹친 `/` · `.` · `..` 를 걷어 낸 절대 경로(Go 의 `path.Clean`). 아는 자리는 모두 절대 경로라, 상대 경로는
 /// 어느 것과도 맞지 않는다.
 fn clean(path: &str) -> Option<String> {

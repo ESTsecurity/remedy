@@ -49,7 +49,7 @@ fn image_legacy_release_fallback_is_captured() {
 #[test]
 fn dpkg_multi_arch_ownership_and_checksums_stay_separate() {
     let status = b"Package: libbrotli1\nStatus: install ok installed\nVersion: 1.2.0-1\nArchitecture: i386\n\nPackage: libbrotli1\nStatus: install ok installed\nVersion: 1.1.0-1\nArchitecture: amd64\n";
-    let packages = parse_dpkg(status, Lang::Ko).unwrap();
+    let packages = parse_dpkg(status, "debian", Lang::Ko).unwrap();
     assert_eq!(packages.len(), 2);
     let mut fs = RootFs::default();
     let cases = [

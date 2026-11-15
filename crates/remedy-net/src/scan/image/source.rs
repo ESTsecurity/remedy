@@ -334,14 +334,16 @@ fn walk_member(root: &Path, stored: &str, lang: Lang) -> Res<(PathBuf, std::fs::
     Ok((path, meta))
 }
 
-/// 아카이브 · 레이어 항목의 이름(스캐너의 `archivePath`) — 비거나 역슬래시 · NUL · 절대 경로 · 드라이브 문자 ·
-/// `..` 이 있으면 거절하고, 정리한 이름을 준다.
-pub(super) fn archive_path(name: &str, lang: Lang) -> Res<String> {
-    if name.is_empty() || name.contains(['\\', '\0']) || name.starts_with('/') || drive_path(name) {
-        return Err(lang.pick(
-            format!("안전하지 않은 아카이브 경로입니다: {name:?}"),
-            format!("unsafe archive path: {name:?}"),
-        ));
+/// 이미지 안의 항목 이름 — 비거나 NUL · 절대 경로 · 드라이브 문자 · `..` 이 있으면 거절하고, 정리한 이름을
+/// 준다. 레이어 항목 · 패키지 기록의 파일 목록처럼 **메모리의 열쇠로만 쓰는** 이름이 이것이다.
+///
+/// **역슬래시는 받는다**(코어 1.19.1). 리눅스 파일 이름에 들 수 있는 글자이고, systemd 가 유닛 이름에 쓴다
+/// (`system-systemd\x2dcryptsetup.slice`). 1.19.0 까지는 거절해서 **그 항목이 든 레이어 전체를 잃었다** —
+/// Ubuntu 20.04 이상에 systemd 가 깔린 이미지에서 취약한 PHP 가 *확인 필요* 로 나왔다(2026-11-15 실측).
+/// 실제 파일 경로가 되는 이름은 [`archive_path`] 가 본다.
+pub(super) fn entry_path(name: &str, lang: Lang) -> Res<String> {
+    if name.is_empty() || name.contains('\0') || name.starts_with('/') || drive_path(name) {
+        return Err(unsafe_path(name, lang));
     }
     if name.split('/').any(|part| part == "..") {
         return Err(lang.pick(
@@ -359,6 +361,22 @@ pub(super) fn archive_path(name: &str, lang: Lang) -> Res<String> {
             .to_string());
     }
     Ok(clean)
+}
+
+/// 실제 파일 경로가 되는 항목의 이름(스캐너의 `archivePath`) — [`entry_path`] 에 **역슬래시 거절**을 더한다.
+/// Windows 는 역슬래시도 가름 문자로 받으므로, `a\..\..\x` 같은 이름이 풀어 둔 폴더를 벗어난다.
+pub(super) fn archive_path(name: &str, lang: Lang) -> Res<String> {
+    if name.contains('\\') {
+        return Err(unsafe_path(name, lang));
+    }
+    entry_path(name, lang)
+}
+
+fn unsafe_path(name: &str, lang: Lang) -> String {
+    lang.pick(
+        format!("안전하지 않은 아카이브 경로입니다: {name:?}"),
+        format!("unsafe archive path: {name:?}"),
+    )
 }
 
 /// `C:` 로 시작하는가.

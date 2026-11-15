@@ -8,7 +8,7 @@
 use super::packages::Record;
 use super::php::is_php_package;
 use super::rootfs::RootFs;
-use super::source::archive_path;
+use super::source::entry_path;
 use super::tarball::TYPE_REG;
 use super::Cx;
 use crate::scan::model::{Product, Target};
@@ -64,7 +64,7 @@ pub(super) fn configure_paths(fs: &mut RootFs, env: &[String]) {
         if (key != "PHPRC" && key != "PHP_INI_DIR") || !value.starts_with('/') {
             continue;
         }
-        let Ok(name) = archive_path(&value[1..], Lang::En) else {
+        let Ok(name) = entry_path(&value[1..], Lang::En) else {
             continue;
         };
         if name == "." {
