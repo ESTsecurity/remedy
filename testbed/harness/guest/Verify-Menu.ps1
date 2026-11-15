@@ -599,7 +599,7 @@ $results = New-Object System.Collections.Generic.List[object]
 $failure = $null
 # 모두 검사만 · 찾기만 하는 룰의 메뉴 — 실험 룰을 받은 회차에서만(`$Keys` 로 좁힐 때는 그 이름으로).
 $withExtra = [bool]$Extra -and (($Keys.Count -eq 0) -or ($Keys -contains "모두 검사"))
-$expected = $steps.Count + $(if ($withExtra) { 2 } else { 0 })
+$expected = $steps.Count + $(if ($withExtra) { 3 } else { 0 })
 try {
 # ── 모두 검사만 · 찾기만 하는 룰의 메뉴 — 룰이 둘일 때만 서는 화면 (기준 3 · 4) ──
 #
@@ -667,6 +667,83 @@ if ($withExtra) {
         $tr.Add("")
         $tr.Add("=== 탐지만 메뉴 — 고르는 화면 $xno 번 ($xName) ===")
         $tr.Add($txt.TrimEnd())
+
+        # 찾은 것 모두 치료하기 — 같은 두 룰의 고르는 화면(목표 remedy_전체검사_운영기반 기준 5). 1(모두 검사만)
+        # → 빈 줄 → 그 줄(룰 목록 뒤 — 룰 수 + 2) → y(승인 한 번) → 빈 줄 → 0. 치료하는 룰만 치료하고 찾기만
+        # 하는 실험 룰은 할 일만 적는다. **뒤 단계가 같은 출발점에서 돌게 끝에 되돌린다** — 그 회차를 명령줄로
+        # 복원하고(복원이 회차마다 지금처럼 되는지를 함께 잰다), 이 장면이 남긴 결과 폴더와 그 회차의 격리
+        # 파일을 치운다. 남기면 뒤의 '치료' · '복원' 이 고르는 첫 후보가 이 장면의 것이 된다. 데모 감염에는
+        # 도는 프로세스가 없어(`Set-InfectedState` — 폴더 · 예약 작업 · Run 값 · 백신 예외) 복원으로 다 돌아온다.
+        $tn = 4
+        if ($all.text -match "검사 항목 (\d+)개를 찾았습니다") { $tn = [int]$Matches[1] + 2 }
+        $outRoot = Join-Path (Split-Path -Parent $Bin) "out"
+        $stateDir = Join-Path (Split-Path -Parent $Bin) "state"
+        $outsBefore = @(Get-ChildItem -LiteralPath $outRoot -Directory -ErrorAction SilentlyContinue |
+                        Select-Object -ExpandProperty FullName)
+        $rqBefore = @(Get-ChildItem -LiteralPath (Join-Path $stateDir "quarantine") -Filter *.rq -ErrorAction SilentlyContinue |
+                      Select-Object -ExpandProperty BaseName)
+        $tl = @("1", "", "$tn", "y", "", "0")
+        $tBefore = Get-Snapshot
+        $ta = Invoke-MenuRun -Lines $tl -TimeoutMs 900000
+        $tAfter = Get-Snapshot
+        $newRuns = @(Get-ChildItem -LiteralPath (Join-Path $stateDir "quarantine") -Filter *.rq -ErrorAction SilentlyContinue |
+                     Where-Object { $rqBefore -notcontains $_.BaseName })
+        $taRun = $(if ($newRuns.Count -eq 1) { $newRuns[0].BaseName } else { "" })
+        $restoreExit = $null
+        $restoreText = ""
+        if ($taRun) {
+            $rp = New-Object System.Diagnostics.ProcessStartInfo
+            $rp.FileName = $Bin
+            $rp.Arguments = "restore --run $taRun --state-dir `"$stateDir`" --yes"
+            $rp.WorkingDirectory = (Split-Path -Parent $Bin)
+            $rp.UseShellExecute = $false
+            $rp.RedirectStandardInput = $true
+            $rp.RedirectStandardOutput = $true
+            $rp.RedirectStandardError = $true
+            $rp.StandardOutputEncoding = [System.Text.Encoding]::UTF8
+            $rp.StandardErrorEncoding = [System.Text.Encoding]::UTF8
+            $rp.EnvironmentVariables["REMEDY_LANG"] = $Lang
+            $rproc = [System.Diagnostics.Process]::Start($rp)
+            $rproc.StandardInput.Close()
+            $ro = $rproc.StandardOutput.ReadToEndAsync()
+            $rerr = $rproc.StandardError.ReadToEndAsync()
+            if (-not $rproc.WaitForExit(180000)) { try { $rproc.Kill() } catch { }; $rproc.WaitForExit() }
+            $restoreExit = $rproc.ExitCode
+            $restoreText = $ro.Result + $rerr.Result
+        }
+        $tRestored = Get-Snapshot
+        $tAt = $ta.text.IndexOf("찾은 것 모두 치료한 결과")
+        $tSum = $(if ($tAt -ge 0) { $ta.text.Substring($tAt) } else { "" })
+        $row = [ordered]@{
+            key = "찾은 것 모두 치료"; needle = "찾은 것 모두 치료하기"; number = $tn; via = ""; lines = $tl
+            found = $true; exit = $ta.exit; expect = 1; timed_out = $ta.timed_out
+            back_menu = [bool]($ta.text -match "메뉴로 돌아갑니다")
+            lead = [bool]($ta.text -match "찾은 것을 모두 치료하려면 (—|-) $tn\. 찾은 것 모두 치료하기 \(항목 1개")
+            line_once = ([regex]::Matches($ta.text, "(?m)^\s+$tn\. 찾은 것 모두 치료하기 \(항목 1개").Count -eq 1)
+            prompt = [bool]($ta.text -match "위 계획 1개\(바꿀 것 \d+건\)를 모두 수행합니다")
+            result = ([regex]::Matches($tSum, "(?m)^\s\s.+ (—|-) 위협 발견, 치료 완료 \(\d+건 수행 완료\)").Count -eq 1)
+            rescan = [bool]($tSum -match "(?m)^\s{4}다시 검사: 위협이 발견되지 않았습니다\.")
+            detect_only = [bool]($tSum -match ("(?m)^\s{4}" + [regex]::Escape($xName) + "\s*$"))
+            treated = (-not $tAfter.payload) -and (-not $tAfter.task) -and (-not $tAfter.run_key)
+            run_id = $taRun; restore_exit = $restoreExit
+            restored = (($tBefore | ConvertTo-Json -Compress) -eq ($tRestored | ConvertTo-Json -Compress))
+            before = $tBefore; after = $tAfter; ok = $false
+        }
+        $row.ok = (-not $row.timed_out) -and ($row.exit -eq 1) -and $row.lead -and $row.line_once -and
+                  $row.prompt -and $row.result -and $row.rescan -and $row.detect_only -and $row.treated -and
+                  [bool]$taRun -and ($restoreExit -eq 0) -and $row.restored
+        $results.Add([pscustomobject]$row)
+        $tr.Add("")
+        $tr.Add("=== 찾은 것 모두 치료 — 고르는 화면 $tn 번 (찾은 것 모두 치료하기) ===")
+        $tr.Add($ta.text.TrimEnd())
+        if ($restoreText) {
+            $tr.Add("--- 명령줄 복원 ($taRun)")
+            $tr.Add($restoreText.TrimEnd())
+        }
+        Get-ChildItem -LiteralPath $outRoot -Directory -ErrorAction SilentlyContinue |
+            Where-Object { $outsBefore -notcontains $_.FullName } |
+            ForEach-Object { Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction SilentlyContinue }
+        foreach ($doneRq in $newRuns) { Remove-Item -LiteralPath $doneRq.FullName -Force -ErrorAction SilentlyContinue }
     } finally {
         Remove-Item $xDst -Recurse -Force -ErrorAction SilentlyContinue
     }

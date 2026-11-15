@@ -63,6 +63,10 @@ pub enum Outcome {
     /// 둘째는 **빼 둔 네트워크 점검 룰의 이름**이다(코어 1.4.0) — 주소를 적어야 돌아 여기 들지 않는다.
     /// 끝의 요약이 그 항목을 *돌리지 않았다* 고 함께 적는다: 적지 않으면 *모두* 가 그것까지 한 것으로 읽힌다.
     ScanAll(Vec<(String, std::path::PathBuf)>, Vec<String>),
+    /// 고르는 화면의 **찾은 것 모두 치료하기** — 이 세션의 *모두 검사만* 이 치료하는 룰에서 찾은 것을 한
+    /// 번에 치료한다(목표 remedy_전체검사_운영기반 기준 5). 첫째는 그 룰(이름 · 경로 — 고르는 화면의
+    /// 차례), 둘째는 바꾸지 않고 할 일만 적을 룰(찾기만 하는 룰 · 점검 룰 가운데 찾은 것)의 이름이다.
+    TreatAll(Vec<(String, std::path::PathBuf)>, Vec<String>),
 }
 
 /// 이 룰이 치료하는가 — `remediate` 가 없으면 **찾기만 한다.** 메뉴가 치료를 약속하는 줄을
@@ -424,6 +428,11 @@ pub fn run(anchor: Option<&str>) -> Outcome {
     };
     let chosen = match choice {
         Choice::One(c) => c,
+        Choice::TreatAll(treat, other) => {
+            // 치료 뒤 *다음 할 일* 은 치료한 룰을 고른 뒤의 메뉴를 가리킨다 — (룰 있음, 치료함).
+            set_menu_shape(true, false);
+            return Outcome::TreatAll(treat, other);
+        }
         Choice::All(all, skipped) => {
             set_menu_shape(true, false);
             // 빼 둔 네트워크 점검은 **끝의 요약**이 적는다(`main` 의 `scan_all`) — 검사 앞에 적으면
@@ -495,12 +504,14 @@ struct Chosen {
     network: bool,
 }
 
-/// 고르는 화면의 답 — 룰 하나, 또는 **전부로 검사만**.
+/// 고르는 화면의 답 — 룰 하나, **전부로 검사만**, 또는 **찾은 것 모두 치료하기**.
 enum Choice {
     One(Chosen),
     /// 이 기계를 보는 룰 전부와, **빼 둔 네트워크 점검 룰의 이름** — 그 룰은 주소를 적어야 돌아서
     /// 한꺼번에 돌릴 수 없다. 빼 두었다는 것을 말해야 *모두* 가 거짓이 되지 않는다.
     All(Vec<Chosen>, Vec<String>),
+    /// [`Outcome::TreatAll`] 그대로.
+    TreatAll(Vec<(String, std::path::PathBuf)>, Vec<String>),
 }
 
 /// 데이터 룰(`kind: data` · 코어 1.12.0)인가 — 서명을 확인한 뒤에 부른다.
@@ -662,6 +673,13 @@ fn choose(ok: &[discover::Found]) -> Option<Choice> {
         Row::Item(all_label)
     });
     rows.extend(all.iter().map(|c| Row::Item(shown(c))));
+    set_chooser(&all);
+    // **찾은 것 모두 치료하기는 룰 목록 뒤에 선다** — 룰의 번호가 2 부터라는 것이 안내문 · 하네스에
+    // 적혀 있다. 이 세션의 *모두 검사만* 이 치료하는 룰에서 무언가를 찾았을 때만 선다.
+    let (treat, other) = found();
+    if !treat.is_empty() {
+        rows.push(Row::Item(treat_all_label(lang, treat.len())));
+    }
     // 작업 뒤에도 이 화면으로 돌아오므로 끝내는 줄이 보여야 한다 — 전에는 번호가 아닌 것을
     // 쳐야 끝났다.
     let Answer::Num(n) = crate::term::choose(&rows, Some(lang.t("그만두기", "Quit"))) else {
@@ -670,6 +688,10 @@ fn choose(ok: &[discover::Found]) -> Option<Choice> {
     if n == 1 {
         set_picked(None);
         return Some(Choice::All(local, remote));
+    }
+    if Some(n) == treat_all_number(all.len(), treat.len()) {
+        set_picked(None);
+        return Some(Choice::TreatAll(treat, other));
     }
     let c = all.get(n.checked_sub(2)?)?;
     set_picked(Some((n, c.label.clone())));
@@ -685,6 +707,72 @@ fn choose(ok: &[discover::Found]) -> Option<Choice> {
 /// 꾸러미와 *모두 검사만* 뒤에는 비어 있다 — 그때의 화면은 지금 그대로다.
 static PICKED: std::sync::Mutex<Option<(usize, String)>> = std::sync::Mutex::new(None);
 
+/// 찾은 것 한 덩어리 — (치료하는 룰에서 찾은 것의 이름 · 경로, 할 일만 적을 룰의 이름).
+type Found = (Vec<(String, std::path::PathBuf)>, Vec<String>);
+
+/// 이 세션의 *모두 검사만* 이 찾은 것 — 고르는 화면의 **찾은 것 모두 치료하기** 줄이 이것으로 선다
+/// ([`Outcome::TreatAll`] 의 두 칸). 그 줄은 룰마다 다시 검사해 계획을 세우므로 낡은 목록이 기계를
+/// 잘못 바꾸지는 않는다. 그래도 기계를 바꾸는 작업이 돌면 `main` 이 비운다 — 그 뒤의 목록은 지난
+/// 화면의 것이다.
+static FOUND: std::sync::Mutex<Found> = std::sync::Mutex::new((Vec::new(), Vec::new()));
+
+pub(crate) fn set_found(treat: Vec<(String, std::path::PathBuf)>, other: Vec<String>) {
+    if let Ok(mut g) = FOUND.lock() {
+        *g = (treat, other);
+    }
+}
+
+fn found() -> Found {
+    FOUND.lock().map(|g| g.clone()).unwrap_or_default()
+}
+
+/// 지금 고르는 화면에 선 룰 — (번호, 이름, 경로). 작업이 끝나면 그 화면이 다시 서므로 *다음 할 일* 이
+/// 먼저 고를 룰과 **찾은 것 모두 치료하기** 의 번호를 이것으로 센다. 룰이 하나인 꾸러미는 그 화면이
+/// 서지 않아 비어 있다.
+static CHOOSER: std::sync::Mutex<Vec<(usize, String, std::path::PathBuf)>> =
+    std::sync::Mutex::new(Vec::new());
+
+fn set_chooser(all: &[Chosen]) {
+    if let Ok(mut g) = CHOOSER.lock() {
+        *g = all
+            .iter()
+            .enumerate()
+            .map(|(i, c)| (i + 2, c.label.clone(), c.path.clone()))
+            .collect();
+    }
+}
+
+/// 고르는 화면에서 이 룰의 번호와 이름.
+pub(crate) fn chooser_entry(path: &std::path::Path) -> Option<(usize, String)> {
+    CHOOSER.lock().ok().and_then(|g| {
+        g.iter()
+            .find(|(_, _, p)| p == path)
+            .map(|(n, label, _)| (*n, label.clone()))
+    })
+}
+
+/// 고르는 화면이 다시 설 때 **찾은 것 모두 치료하기** 의 번호와 이름 — 그 줄이 설 때만.
+pub(crate) fn treat_all_line() -> Option<(usize, String)> {
+    let (treat, _) = found();
+    let rules = CHOOSER.lock().map(|g| g.len()).unwrap_or(0);
+    treat_all_number(rules, treat.len()).map(|n| (n, treat_all_label(ui().lang, treat.len())))
+}
+
+/// 그 줄의 번호 — 1 번은 *모두 검사만*, 2 번부터 룰 `rules` 개, 그 뒤가 이 줄이다. 룰이 하나면 고르는
+/// 화면이 서지 않고, 찾은 것이 없으면 이 줄이 서지 않는다. 고르는 화면의 답과 *다음 할 일* 이 이것 하나로
+/// 센다 — 둘이 따로 세면 갈린다.
+fn treat_all_number(rules: usize, treat: usize) -> Option<usize> {
+    (treat > 0 && rules > 1).then_some(rules + 2)
+}
+
+/// 그 줄의 이름. `이름 — 까닭` 꼴로 잇지 않는다 — 이 화면에서 그 꼴은 고를 수 없는 줄이다(`shown`).
+fn treat_all_label(lang: remedy_sdk::i18n::Lang, n: usize) -> String {
+    lang.pick(
+        format!("찾은 것 모두 치료하기 (항목 {n}개 · 바꿀 것을 먼저 보여 드립니다)"),
+        format!("Treat everything found ({n} item(s) · shows the changes first)"),
+    )
+}
+
 fn set_picked(v: Option<(usize, String)>) {
     if let Ok(mut g) = PICKED.lock() {
         *g = v;
@@ -694,4 +782,32 @@ fn set_picked(v: Option<(usize, String)>) {
 /// 지금 세션에서 마지막으로 고른 룰(고르는 화면의 번호 · 이름). [`PICKED`] 참고.
 pub(crate) fn picked_rule() -> Option<(usize, String)> {
     PICKED.lock().ok().and_then(|g| g.clone())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 기준 5 — *찾은 것 모두 치료하기* 는 **룰 목록 뒤**에 선다. 1 번(*모두 검사만*)과 룰의 번호(2 부터)는
+    /// 안내문 · 하네스가 적어 두었으므로 그대로다.
+    #[test]
+    fn treat_everything_found_stands_after_the_rules() {
+        assert_eq!(treat_all_number(7, 1), Some(9));
+        assert_eq!(treat_all_number(2, 3), Some(4));
+        // 찾은 것이 없으면 서지 않는다.
+        assert_eq!(treat_all_number(7, 0), None);
+        // 룰이 하나면 고르는 화면이 서지 않는다.
+        assert_eq!(treat_all_number(1, 1), None);
+    }
+
+    /// 그 줄의 이름은 `이름 — 까닭` 꼴이 아니다 — 이 화면에서 그 꼴은 **고를 수 없는 줄**이고, 메뉴 하네스도
+    /// 그 줄을 꺼진 줄로 센다(`shown` 의 2026-11-10 랩 실측).
+    #[test]
+    fn the_treat_everything_line_does_not_look_like_a_disabled_line() {
+        for lang in [remedy_sdk::i18n::Lang::Ko, remedy_sdk::i18n::Lang::En] {
+            let l = treat_all_label(lang, 2);
+            assert!(!l.contains(" — ") && !l.contains(" - "), "{l}");
+            assert!(l.contains('2'), "{l}");
+        }
+    }
 }

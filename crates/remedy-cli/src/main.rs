@@ -305,6 +305,13 @@ fn main() -> ExitCode {
                 let mut treats = treats_of(&picked);
                 // 그때 가리킬 받은 폴더 안의 기록 — 모두 검사만은 찾은 룰의 것으로 끝난 뒤에 정한다.
                 let mut notes = notes_of(&picked);
+                // *다음 할 일* 의 앞줄 — 모두 검사만 · 찾은 것 모두 치료하기가 끝난 뒤에 정한다.
+                let mut lead: Vec<String> = Vec::new();
+                // **찾은 것 모두 치료하기의 목록은 기계를 바꾸는 작업이 돌면 비운다** — 그 목록은 지난
+                // 화면의 것이다. 그 줄 자신은 끝난 뒤 스스로 정한다(승인을 거절하면 다시 고를 수 있게 둔다).
+                if changes_system(&picked) && !matches!(flow, Flow::TreatAll) {
+                    guided::set_found(Vec::new(), Vec::new());
+                }
                 // **하기 전에 무엇을 하는지** — 치료 · 복원은 목록과 승인이 그 자리다.
                 // 검사만 그것이 없었다(목표 remedy_제품화 기준 6(a)).
                 if session && matches!(flow, Flow::Scan) {
@@ -386,11 +393,24 @@ fn main() -> ExitCode {
                     // **모두 검사만** — 관리자 문을 한 번 지나고, 룰마다 메뉴의 *검사만 하기* 와
                     // 같은 `scan` 을 부른다(`scan_all`).
                     guided::Outcome::ScanAll(list, skipped) => admin_gate().map(|()| {
-                        let (code, treatable, found) = scan_all(&list, &skipped);
-                        treats = treatable;
-                        notes = found;
-                        code
+                        let done = scan_all(&list, &skipped);
+                        treats = !done.treat.is_empty();
+                        notes = done.notes;
+                        // 고르는 화면이 *찾은 것 모두 치료하기* 를 세우는 근거 — 그 줄의 번호를 앞줄이 센다.
+                        guided::set_found(done.treat, done.other);
+                        lead = scan_all_lead(done.code, treats, guided::treat_all_line());
+                        done.code
                     }),
+                    // **찾은 것 모두 치료하기** — `run` 과 같은 두 문(관리자 · 자기무결성)을 한 번 지나고,
+                    // 룰마다 *검사하고 치료하기* 와 같은 길을 지난다(`treat_all`).
+                    guided::Outcome::TreatAll(treat, other) => admin_gate()
+                        .and_then(|()| integrity_gate(&integrity))
+                        .map(|()| {
+                            let done = treat_all(&treat, &other, &integrity);
+                            notes = done.notes;
+                            lead = done.lead;
+                            done.code
+                        }),
                     // **묶음 A — 같은 자리로 보낸다.** 위 `Some("selftest")` 갈래와
                     // 똑같은 호출이다. 메뉴가 자기 화면이나 자기 가드를 갖지 않는
                     // 이유는 `RunWith` 와 같다 — 두 벌이 되면 갈라지고, 갈라지면
@@ -688,7 +708,7 @@ fn main() -> ExitCode {
                 tee::close();
                 term::task_end(code);
                 last = Some(code);
-                back_to_menu(flow, code, treats, &notes);
+                back_to_menu(flow, code, treats, &notes, &lead);
             }
         }
         Some(other) => {
@@ -986,7 +1006,7 @@ fn integrity_gate(i: &remedy_core::integrity::SelfIntegrity) -> Result<(), Failu
 /// 을 말할 수 없음(6)이다(`term`). 목록 반입도 상태 파일을 고쳐 쓰므로 바꾸는 쪽이다.
 fn changes_system(o: &guided::Outcome) -> bool {
     match o {
-        guided::Outcome::RunWith(_) => true,
+        guided::Outcome::RunWith(_) | guided::Outcome::TreatAll(..) => true,
         guided::Outcome::WithPlugin(w) => matches!(w, menu::WithPlugin::Run(_)),
         guided::Outcome::WithRun(r) => {
             matches!(r, menu::WithRun::Restore(_) | menu::WithRun::Resume(_))
@@ -1007,6 +1027,8 @@ enum Flow {
     Scan,
     ScanAll,
     Treat,
+    /// 찾은 것 모두 치료하기 — *다음 할 일* 은 [`treat_all`] 이 룰마다 지어 앞줄로 준다.
+    TreatAll,
     Restore,
     Verify,
     /// 룰 서명 확인(`plugin verify --dir`) — 성공했을 때 끝줄을 풀이한다(`guidance`).
@@ -1037,6 +1059,7 @@ fn flow_of(p: &guided::Outcome) -> Flow {
     match p {
         guided::Outcome::WithPlugin(menu::WithPlugin::Scan(_)) => Flow::Scan,
         guided::Outcome::ScanAll(..) => Flow::ScanAll,
+        guided::Outcome::TreatAll(..) => Flow::TreatAll,
         guided::Outcome::WithPlugin(menu::WithPlugin::Run(_))
         | guided::Outcome::RunWith(..)
         | guided::Outcome::WithFile(menu::WithFile::Apply(_), _) => Flow::Treat,
@@ -1056,11 +1079,13 @@ fn next_steps(flow: Flow, code: Code, treats: bool) -> Vec<(&'static str, menu::
     let lang = ui().lang;
     match (flow, code) {
         (Flow::Scan | Flow::ScanAll, Code::FoundNotRemediated) if !treats => Vec::new(),
-        // 모두 검사만 뒤에는 고르는 화면으로 돌아간다 — 치료는 그 룰을 고른 뒤의 1 번이다.
+        // 모두 검사만 뒤에는 고르는 화면으로 돌아간다. 그 앞줄은 그 화면의 *찾은 것 모두 치료하기* 다
+        // ([`scan_all_lead`] — 메뉴 줄이 아니라 고르는 화면의 줄이라 따로 짓는다). 이 줄은 하나씩
+        // 치료하는 길 — 그 룰을 고른 뒤의 1 번이다.
         (Flow::ScanAll, Code::FoundNotRemediated) => vec![(
             lang.t(
-                "찾은 것을 치료하려면 그 룰을 고른 뒤",
-                "To treat what was found, pick that rule, then",
+                "하나씩 치료하려면 그 룰을 고른 뒤",
+                "To treat one at a time, pick that rule, then",
             ),
             menu::Line::Treat,
         )],
@@ -1144,7 +1169,10 @@ fn guidance(flow: Flow, code: Code, treats: bool, notes: &[std::path::PathBuf]) 
         (flow, code),
         (Flow::Scan | Flow::ScanAll, Code::FoundNotRemediated)
     ) && !treats;
-    let treated = matches!((flow, code), (Flow::Treat, Code::Remediated));
+    let treated = matches!(
+        (flow, code),
+        (Flow::Treat | Flow::TreatAll, Code::Remediated)
+    );
     // **깨끗하게 끝난 결과도 범위를 밝힌다**(2026-11-08 — 룰 대 공개 보도 대조). 룰은 공개 보도가
     // 밝힌 꼴을 찾는다. 같은 위협의 다른 설치 방법 · 다른 키 · 다른 자리는 이름 그대로 찾지 못하는데,
     // 화면은 *"위협이 발견되지 않았습니다"* 로만 끝나 그 결과가 기계의 무죄로 읽혔다(실측: Ebury 는
@@ -1152,7 +1180,10 @@ fn guidance(flow: Flow, code: Code, treats: bool, notes: &[std::path::PathBuf]) 
     // 종료 코드와 결과 줄은 그대로다 — 더하는 것은 무엇을 보았는지 읽을 곳 한 줄이다.
     let clean = matches!(
         (flow, code),
-        (Flow::Scan | Flow::ScanAll | Flow::Treat, Code::NoThreat)
+        (
+            Flow::Scan | Flow::ScanAll | Flow::Treat | Flow::TreatAll,
+            Code::NoThreat
+        )
     );
     if !found_by_a_checker && !treated && !clean {
         return None;
@@ -1223,16 +1254,12 @@ fn notes_beside(plugin: &std::path::Path) -> Option<std::path::PathBuf> {
 ///
 /// 찾은 룰마다 메뉴의 *검사만 하기* 와 **같은 인자로** `scan` 을 차례대로 부르고, 끝에 룰마다의
 /// 결과를 한 덩어리로 다시 적는다 — 룰 셋의 화면이 이어지면 앞 룰의 결과는 창 밖으로 밀린다.
-/// 아무것도 바꾸지 않으므로 치료는 지금처럼 룰을 골라서 한다. 둘째 값은 *치료하는 룰이 무언가를
-/// 찾았는가* 이고, 다음 할 일이 그것으로 갈린다. 셋째 값은 *찾기만 하는 룰이 찾았을 때* 그 룰
-/// 폴더의 기록이다(`guidance`).
+/// 아무것도 바꾸지 않는다 — 치료는 끝난 뒤 고르는 화면의 *찾은 것 모두 치료하기*([`treat_all`])나
+/// 룰을 골라서 한다. 무엇을 찾았는지는 [`ScanAllDone`] 이 돌려준다.
 ///
 /// `skipped` 는 **빼 둔 네트워크 점검 룰의 이름**이다(코어 1.4.0) — 주소를 적어야 돌아 여기서 돌리지
 /// 않는다. 끝의 요약에 그 항목도 한 줄씩 적는다.
-fn scan_all(
-    list: &[(String, std::path::PathBuf)],
-    skipped: &[String],
-) -> (Code, bool, Vec<std::path::PathBuf>) {
+fn scan_all(list: &[(String, std::path::PathBuf)], skipped: &[String]) -> ScanAllDone {
     let lang = ui().lang;
     let d = remedy_sdk::i18n::deco();
     outln!(
@@ -1250,6 +1277,8 @@ fn scan_all(
     );
     let mut done: Vec<ScanAllRow> = Vec::new();
     let mut found_notes: Vec<std::path::PathBuf> = Vec::new();
+    let mut treat_found: Vec<(String, std::path::PathBuf)> = Vec::new();
+    let mut other_found: Vec<String> = Vec::new();
     for (i, (label, path)) in list.iter().enumerate() {
         if i > 0 {
             // 룰마다 결과 폴더와 회차 로그를 따로 둔다 — 한 폴더면 뒤 룰의 `scan.json` 이 앞
@@ -1298,11 +1327,17 @@ fn scan_all(
         if !treats && code == Code::FoundNotRemediated {
             found_notes.extend(notes_beside(path));
         }
+        if code == Code::FoundNotRemediated {
+            if treats {
+                treat_found.push((label.clone(), path.clone()));
+            } else {
+                other_found.push(label.clone());
+            }
+        }
         done.push(ScanAllRow {
             label,
             code,
             kind,
-            treats,
             absent,
             review,
         });
@@ -1349,10 +1384,332 @@ fn scan_all(
         );
     }
     let codes: Vec<Code> = done.iter().map(|r| r.code).collect();
-    let treatable = done
+    ScanAllDone {
+        code: all_scans_code(&codes),
+        treat: treat_found,
+        other: other_found,
+        notes: found_notes,
+    }
+}
+
+/// *모두 검사만* 이 찾은 것 — 메뉴 고리가 *다음 할 일* 과 고르는 화면의 *찾은 것 모두 치료하기* 에 쓴다.
+struct ScanAllDone {
+    code: Code,
+    /// 치료하는 룰 가운데 무언가를 찾은 것 — (이름, 경로). 비어 있지 않으면 *찾은 것 모두 치료하기* 가 선다.
+    treat: Vec<(String, std::path::PathBuf)>,
+    /// 찾기만 하는 룰 · 점검 룰 가운데 찾은 것의 이름 — 바꾸지 않고 할 일만 적는다.
+    other: Vec<String>,
+    /// 그 룰 폴더의 기록(`RELEASE.md`) — 찾기만 하는 룰이 찾았을 때 `guidance` 가 가리킨다.
+    notes: Vec<std::path::PathBuf>,
+}
+
+/// *모두 검사만* 뒤 *다음 할 일* 의 앞줄 — 치료하는 룰이 찾았으면 고르는 화면의 *찾은 것 모두
+/// 치료하기*(그 화면의 번호 · 이름 — `line`). 그 줄이 서지 않으면 비어 있다.
+fn scan_all_lead(code: Code, treats: bool, line: Option<(usize, String)>) -> Vec<String> {
+    let lang = ui().lang;
+    match line {
+        Some((n, label)) if treats && code == Code::FoundNotRemediated => vec![step_line(
+            lang.t("찾은 것을 모두 치료하려면", "To treat everything found"),
+            None,
+            n,
+            &label,
+            remedy_sdk::i18n::deco(),
+        )],
+        _ => Vec::new(),
+    }
+}
+
+/// 메뉴가 룰 하나를 부를 때의 인자 — 결과 폴더는 부를 때마다 새로(`menu_out`), 상태 폴더는 메뉴의 것.
+fn menu_rule_args(path: &std::path::Path) -> Vec<String> {
+    vec![
+        "--plugin".to_string(),
+        path.to_string_lossy().to_string(),
+        "--out-dir".to_string(),
+        menu_out().to_string_lossy().to_string(),
+        "--state-dir".to_string(),
+        menu_state().to_string_lossy().to_string(),
+    ]
+}
+
+/// *찾은 것 모두 치료하기* 의 룰 하나 — 계획부터 다시 검사까지.
+struct TreatAllRow<'a> {
+    label: &'a str,
+    path: &'a std::path::Path,
+    kind: Option<PluginKind>,
+    /// 바꿀 것이 있는 계획을 세웠으면 그 준비. 없으면 그 까닭이 `code` 다.
+    prepared: Option<Prepared>,
+    code: Code,
+    /// 수행을 마친 Action 의 수.
+    done: usize,
+    /// 수행에 들어간 회차.
+    run_id: Option<String>,
+    /// 다시 검사한 결과 — 치료한 룰만.
+    rescan: Option<Code>,
+}
+
+/// [`treat_all`] 의 결과 — 메뉴 고리가 끝 코드와 *다음 할 일* 에 쓴다.
+struct TreatAllDone {
+    code: Code,
+    /// *다음 할 일* 의 앞줄 — 수행한 룰마다 먼저 고를 룰을 붙인 메뉴 줄, 승인을 거절했으면 고르는 화면의
+    /// *찾은 것 모두 치료하기* 줄.
+    lead: Vec<String>,
+    /// 수행한 룰 폴더의 기록(`RELEASE.md`) — 치료 뒤 할 일(`guidance`).
+    notes: Vec<std::path::PathBuf>,
+}
+
+/// **찾은 것 모두 치료하기** (목표 remedy_전체검사_운영기반 기준 5 · 결정 2).
+///
+/// *모두 검사만* 이 치료하는 룰에서 찾은 것을 한 번에 치료한다. 룰마다 *검사하고 치료하기* 와 같은
+/// 길이다 — 다시 검사해 계획을 세우고([`prepare_run`]) 그 계획을 보인다. 다른 것은 둘이다: **바꿀 것을
+/// 모두 보인 뒤 승인을 한 번 받는다**([`approved_all`]) · 끝에 **치료한 룰을 다시 검사해** 결과를 한
+/// 덩어리로 적는다. 수행 · 격리 · 회차는 룰마다 따로다([`execute`]) — 그래서 복원 · 유지 확인 ·
+/// 신고는 회차마다 지금처럼 한다.
+///
+/// **찾기만 하는 룰 · 점검 룰의 발견은 바꾸지 않는다**(`other`) — 끝에 할 일만 적는다. 설정을 고치는
+/// 조치는 서비스를 멈출 수 있어, 점검 룰에 조치를 여는 것은 별도의 결정이다.
+///
+/// 화면 기록은 **로그 하나**다 — 승인 한 번이 계획 여럿을 덮으므로 회차마다 나누면 어느 로그에도 그
+/// 승인의 화면이 다 남지 않는다. 다시 검사하기 전에 그 로그를 수행한 회차마다 `logs/<회차>.log` 로
+/// 복사한다(신고 묶음이 그 자리를 '사람이 본 화면' 으로 담는다). 다시 검사는 [`cmd_scan`] 이라 룰마다
+/// 자기 로그를 연다 — *모두 검사만* 과 같다.
+fn treat_all(
+    treat: &[(String, std::path::PathBuf)],
+    other: &[String],
+    integrity: &remedy_core::integrity::SelfIntegrity,
+) -> TreatAllDone {
+    let lang = ui().lang;
+    let d = remedy_sdk::i18n::deco();
+    let state = menu_state();
+    // 같은 세션에서 다시 돌려도 앞 회차의 화면이 이어 붙지 않게 작업 차례까지 이름에 넣는다.
+    tee::open(
+        &state,
+        &format!("treat-all-{}-{}", std::process::id(), term::task_seq()),
+    );
+    outln!(
+        "{}",
+        lang.pick(
+            format!(
+                "찾은 것 모두 치료하기 — 항목 {}개를 다시 검사해 바꿀 것을 모두 보여 드린 뒤, '예' 한 번으로 \
+                 치료합니다.",
+                treat.len()
+            ),
+            format!(
+                "Treat everything found — {} item(s) are scanned again and every change is shown; one 'yes' \
+                 then treats them all.",
+                treat.len()
+            )
+        )
+    );
+
+    // ── 계획 — 룰마다 다시 검사해 세운다. 아무것도 바꾸지 않는다.
+    let mut rows: Vec<TreatAllRow> = Vec::new();
+    for (i, (label, path)) in treat.iter().enumerate() {
+        if i > 0 {
+            // 룰마다 결과 폴더를 따로 둔다 — `menu_out` 은 작업 차례마다 폴더 하나라, 차례를 올리지 않으면
+            // 뒤 룰의 `scan.json` · `plan.json` 이 앞 룰의 것을 덮는다(*모두 검사만* 과 같은 까닭).
+            // 이 작업은 기계를 바꾸는 작업이다 — 강제로 끝나면 부분(3)이라는 뜻은 그대로 둔다.
+            term::task_begin(true);
+        }
+        outln!();
+        outln!("{}", d.rule());
+        outln!("[{}/{}] {label}", i + 1, treat.len());
+        let mut row = TreatAllRow {
+            label,
+            path,
+            kind: None,
+            prepared: None,
+            code: Code::InternalError,
+            done: 0,
+            run_id: None,
+            rescan: None,
+        };
+        match prepare_run(&menu_rule_args(path), false) {
+            Ok(p) => {
+                outln!();
+                report_plan(&p.plan, lang, &p.a);
+                row.kind = p.kind;
+                if p.plan.body.actions.is_empty() {
+                    // 다시 검사한 사이에 사라졌거나 허용 목록 · 가드가 다 걸렀다 — 한 룰의 치료와 같은 말.
+                    row.code = outcome(&p.plan.body.verdicts, &p.plan.body.observation, p.kind);
+                    outln!("{}", lang.t("수행할 항목이 없습니다.", "Nothing to do."));
+                } else {
+                    row.code = Code::FoundNotRemediated;
+                    row.prepared = Some(p);
+                }
+            }
+            Err(f) => {
+                errln!("{}: {}", lang.t("실패", "Error"), f.message);
+                row.code = f.code;
+            }
+        }
+        rows.push(row);
+    }
+
+    // ── 승인 한 번
+    let planned = rows.iter().any(|r| r.prepared.is_some());
+    let approved = if planned {
+        let plans: Vec<&remedy_sdk::artifact::PlanEnvelope> = rows
+            .iter()
+            .filter_map(|r| r.prepared.as_ref().map(|p| &p.plan))
+            .collect();
+        outln!();
+        outln!("{}", d.rule());
+        approved_all(&plans).unwrap_or_else(|f| {
+            errln!("{}: {}", lang.t("실패", "Error"), f.message);
+            false
+        })
+    } else {
+        outln!();
+        outln!(
+            "{}",
+            lang.t(
+                "바꿀 것이 없어 아무것도 하지 않았습니다.",
+                "Nothing to change, so nothing was done."
+            )
+        );
+        false
+    };
+
+    // ── 수행 — 룰마다 지금의 치료(잠금 · 격리 · 회차 · 마무리 표)
+    if approved {
+        for row in rows.iter_mut() {
+            let Some(p) = &row.prepared else { continue };
+            outln!();
+            outln!("{}", d.rule());
+            outln!("{}", row.label);
+            match execute(&p.a, &p.plan, integrity, p.started, p.kind) {
+                Ok((code, done)) => {
+                    row.code = code;
+                    row.done = done;
+                }
+                Err(f) => {
+                    errln!("{}: {}", lang.t("실패", "Error"), f.message);
+                    row.code = f.code;
+                }
+            }
+            row.run_id = Some(p.plan.run_id.clone());
+        }
+        if let Some(log) = tee::path() {
+            for id in rows.iter().filter_map(|r| r.run_id.as_deref()) {
+                let to = remedy_core::runlog::path(&state, id);
+                if to != log {
+                    let _ = std::fs::copy(&log, &to);
+                }
+            }
+        }
+        // ── 다시 검사 — 읽기만 한다. 여기서 끊기면 '위협 없음' 을 말할 수 없음(6)이다. 룰마다 차례를
+        // 올려 결과 폴더도 따로 받는다.
+        let treated: Vec<usize> = (0..rows.len())
+            .filter(|&i| matches!(rows[i].code, Code::Remediated | Code::PartialFailure))
+            .collect();
+        for (k, &i) in treated.iter().enumerate() {
+            tee::close();
+            term::task_begin(false);
+            outln!();
+            outln!("{}", d.rule());
+            outln!(
+                "[{}/{}] {}{}{}",
+                k + 1,
+                treated.len(),
+                lang.t("다시 검사", "Scan again"),
+                d.dash(),
+                rows[i].label
+            );
+            let code = cmd_scan(&menu_rule_args(rows[i].path)).unwrap_or_else(|f| {
+                errln!("{}: {}", lang.t("실패", "Error"), f.message);
+                f.code
+            });
+            rows[i].rescan = Some(code);
+        }
+    }
+
+    // ── 한 덩어리
+    outln!();
+    outln!("{}", d.rule());
+    outln!(
+        "{}",
+        lang.pick(
+            format!("찾은 것 모두 치료한 결과 — 항목 {}개", rows.len()),
+            format!(
+                "Results of treating everything found — {} item(s)",
+                rows.len()
+            )
+        )
+    );
+    for row in &rows {
+        let result =
+            remedy_core::report::result_line_for(row.code, row.done, lang, row.kind, false);
+        outln!("  {}{}{result}", row.label, d.dash());
+        if let Some(c) = row.rescan {
+            outln!(
+                "    {}{}",
+                lang.t("다시 검사: ", "Scanned again: "),
+                remedy_core::report::result_line_for(c, 0, lang, row.kind, false)
+            );
+        }
+    }
+    if !other.is_empty() {
+        outln!(
+            "  {}",
+            lang.t(
+                "아래 항목은 찾기만 합니다 — 바꾸지 않았습니다. 할 일은 README 의 '위협별 안내'에 있습니다:",
+                "These items only detect — nothing was changed. What to do is in the README's per-threat notes:"
+            )
+        );
+        for l in other {
+            outln!("    {l}");
+        }
+    }
+
+    let code = treat_all_code(&rows.iter().map(|r| r.code).collect::<Vec<_>>());
+    let ran: Vec<&TreatAllRow> = rows.iter().filter(|r| r.run_id.is_some()).collect();
+    let declined = planned && !approved;
+    // 승인을 거절했으면 목록을 둔다 — 고르는 화면의 그 줄로 다시 고를 수 있다. 아니면 거둔다.
+    if !declined {
+        guided::set_found(Vec::new(), Vec::new());
+    }
+    let lead = if declined {
+        scan_all_lead(Code::FoundNotRemediated, true, guided::treat_all_line())
+    } else {
+        let after = guided::next_offer();
+        ran.iter()
+            .flat_map(|r| {
+                let pick = guided::chooser_entry(r.path);
+                next_steps(Flow::Treat, r.code, true)
+                    .into_iter()
+                    .filter_map(|(why, l)| {
+                        menu::line(l, &after)
+                            .map(|(n, label)| step_line(why, pick.as_ref(), n, &label, d))
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect()
+    };
+    let notes = ran.iter().filter_map(|r| notes_beside(r.path)).collect();
+    TreatAllDone { code, lead, notes }
+}
+
+/// *찾은 것 모두 치료하기* 의 끝 코드 — **새 코드를 만들지 않는다**(불변식 I3). 마치지 못한 룰(4 · 5 · 7
+/// 중 큰 것)이 먼저, 그다음 일부 실패(3), 치료하지 않은 발견(2), 치료(1), 다 보지 못함(6), 없음(0).
+/// 다시 검사의 결과는 들지 않는다 — 한 룰의 *검사하고 치료하기* 가 수행의 코드로 끝나는 것과 같다.
+fn treat_all_code(codes: &[Code]) -> Code {
+    let worst = codes
         .iter()
-        .any(|r| r.treats && r.code == Code::FoundNotRemediated);
-    (all_scans_code(&codes), treatable, found_notes)
+        .copied()
+        .filter(|c| matches!(c, Code::UsageError | Code::GuardStop | Code::InternalError))
+        .max();
+    if let Some(c) = worst {
+        return c;
+    }
+    [
+        Code::PartialFailure,
+        Code::FoundNotRemediated,
+        Code::Remediated,
+        Code::IncompleteObservation,
+    ]
+    .into_iter()
+    .find(|c| codes.contains(c))
+    .unwrap_or(Code::NoThreat)
 }
 
 /// *모두 검사만* 의 룰 하나 — 요약 줄을 짓는 재료.
@@ -1360,8 +1717,6 @@ struct ScanAllRow<'a> {
     label: &'a str,
     code: Code,
     kind: Option<PluginKind>,
-    /// 치료하는 룰인가.
-    treats: bool,
     /// 다 보지 못한 까닭이 *검사할 경로가 전부 없음* 하나뿐 — **해당 없음**.
     absent: bool,
     /// 다 보지 못한 까닭이 *룰이 선언한 확인 필요* 하나뿐 — [`remedy_core::report::review_line`].
@@ -1392,7 +1747,13 @@ fn all_scans_code(codes: &[Code]) -> Code {
 /// 작업이 끝나고 메뉴로 돌아간다. 구분선 · 다음 할 일을 남기고 **Enter 를 기다린다** —
 /// 메뉴가 곧바로 다시 서면 결과 줄이 창 밖으로 밀린다(21줄 메뉴 · 30줄 창 · 2026-11-06
 /// 이미지). 기다리는 줄은 화면을 붙잡는 장치라 stderr 로 낸다(`wait_before_closing` 과 같다).
-fn back_to_menu(flow: Flow, code: Code, treats: bool, notes: &[std::path::PathBuf]) {
+fn back_to_menu(
+    flow: Flow,
+    code: Code,
+    treats: bool,
+    notes: &[std::path::PathBuf],
+    lead: &[String],
+) {
     let lang = ui().lang;
     let d = remedy_sdk::i18n::deco();
     outln!();
@@ -1407,8 +1768,12 @@ fn back_to_menu(flow: Flow, code: Code, treats: bool, notes: &[std::path::PathBu
         .collect();
     let read = guidance(flow, code, treats, notes);
     let pick = guided::picked_rule();
-    if !next.is_empty() || read.is_some() {
+    if !lead.is_empty() || !next.is_empty() || read.is_some() {
         outln!("{}", lang.t("다음 할 일", "Next"));
+        // **앞줄이 먼저다** — 고르는 화면의 줄(*찾은 것 모두 치료하기*)과 룰마다 먼저 고를 룰을 붙인 줄.
+        for l in lead {
+            outln!("{l}");
+        }
         for (why, n, label) in next {
             outln!("{}", step_line(why, pick.as_ref(), n, &label, d));
         }
@@ -2395,39 +2760,8 @@ fn approved(a: &Args, plan: &remedy_sdk::artifact::PlanEnvelope) -> Result<bool,
         );
         return Ok(false);
     }
-    if !removable.is_empty() {
-        errln!();
-        errln!(
-            "  {} {}",
-            lang.t("주의:", "Note:"),
-            lang.t(
-                "이동식 매체 위의 대상이 있습니다:",
-                "targets on removable media:"
-            )
-        );
-        for r in &removable {
-            errln!("     {r}");
-        }
-        eprint!(
-            "     {}",
-            lang.t(
-                "지금 꽂혀 있는 매체가 맞는가. 맞으면 '예' 입력: ",
-                "Is the inserted media the right one? Type 'yes' to confirm: "
-            )
-        );
-        use std::io::Write;
-        std::io::stderr().flush().ok();
-        let mut line = String::new();
-        std::io::stdin()
-            .read_line(&mut line)
-            .map_err(|e| Failure::from(e.to_string()))?;
-        if !matches!(line.trim(), "예" | "yes" | "y" | "Y") {
-            errln!(
-                "  {}",
-                lang.t("아무것도 하지 않았습니다.", "Nothing was done.")
-            );
-            return Ok(false);
-        }
+    if !removable.is_empty() && !confirm_removable(&removable)? {
+        return Ok(false);
     }
 
     // "진행하려면" 은 리눅스 하네스가 읽는 문구다.
@@ -2435,7 +2769,7 @@ fn approved(a: &Args, plan: &remedy_sdk::artifact::PlanEnvelope) -> Result<bool,
     // **되돌리는 길을 메뉴의 말로도 적고, `y` 도 받는다고 적는다.** 메뉴에는 'restore' 라는
     // 낱말이 없고, 영문 입력 상태로 '예' 를 치면 `dP` 가 되어 취소된다 — 코드는 `y` 도 받는데
     // 화면은 '예' 만 적었다(v1.1.0 적대적 검토).
-    eprint!(
+    ask_yes(&format!(
         "\n{}",
         lang.t(
             "위 계획을 수행합니다. 나중에 되돌릴 수 있습니다(메뉴의 '치료 전으로 복원하기' · restore 명령). \
@@ -2443,8 +2777,78 @@ fn approved(a: &Args, plan: &remedy_sdk::artifact::PlanEnvelope) -> Result<bool,
             "The plan above will run. It can be undone later (the menu's 'Undo a treatment' or the restore \
              command). Type 'yes' (or y) to proceed: "
         )
+    ))
+}
+
+/// 계획 여럿을 **한 번에** 승인받는다 — *찾은 것 모두 치료하기*([`treat_all`]). 규칙은 [`approved`]
+/// 그대로다: 터미널이 아니면 하지 않고, 이동식 매체 위의 대상은 따로 묻는다(계획 모두의 것을 한 번에).
+/// 다른 것은 문장이 계획의 수와 바꿀 것의 수를 말한다는 것 하나다.
+fn approved_all(plans: &[&remedy_sdk::artifact::PlanEnvelope]) -> Result<bool, Failure> {
+    use std::io::IsTerminal;
+    let lang = ui().lang;
+    if !std::io::stdin().is_terminal() {
+        errln!();
+        errln!(
+            "  {} {}",
+            lang.t("주의:", "Note:"),
+            lang.t(
+                "승인할 사람이 없습니다 (터미널이 아닙니다).",
+                "nobody is here to approve (not a terminal)."
+            )
+        );
+        errln!(
+            "     {}",
+            lang.t("아무것도 하지 않았습니다.", "Nothing was done.")
+        );
+        return Ok(false);
+    }
+    let removable: Vec<String> = plans.iter().flat_map(|p| removable_in(p)).collect();
+    if !removable.is_empty() && !confirm_removable(&removable)? {
+        return Ok(false);
+    }
+    let changes: usize = plans.iter().map(|p| p.body.actions.len()).sum();
+    // "진행하려면" 은 하네스가 읽는 낱말이다 — 한 룰의 승인과 같게 둔다.
+    let ko = format!(
+        "위 계획 {}개(바꿀 것 {changes}건)를 모두 수행합니다. 나중에 되돌릴 수 있습니다(메뉴의 \
+         '치료 전으로 복원하기' — 항목마다 · restore 명령). 진행하려면 '예'(또는 y) 입력: ",
+        plans.len()
     );
+    let en = format!(
+        "The {} plans above ({changes} change(s)) will all run. Each can be undone later (the menu's \
+         'Undo a treatment', per item, or the restore command). Type 'yes' (or y) to proceed: ",
+        plans.len()
+    );
+    ask_yes(&format!("\n{}", lang.pick(ko, en)))
+}
+
+/// 이동식 매체 위의 대상을 따로 묻는다(설계-03 §4) — 사람이 '예' 라고 하면 참.
+fn confirm_removable(removable: &[String]) -> Result<bool, Failure> {
+    let lang = ui().lang;
+    errln!();
+    errln!(
+        "  {} {}",
+        lang.t("주의:", "Note:"),
+        lang.t(
+            "이동식 매체 위의 대상이 있습니다:",
+            "targets on removable media:"
+        )
+    );
+    for r in removable {
+        errln!("     {r}");
+    }
+    ask_yes(&format!(
+        "     {}",
+        lang.t(
+            "지금 꽂혀 있는 매체가 맞는가. 맞으면 '예' 입력: ",
+            "Is the inserted media the right one? Type 'yes' to confirm: "
+        )
+    ))
+}
+
+/// 묻고 한 줄을 받는다 — '예'(또는 yes · y)면 참, 아니면 *"아무것도 하지 않았습니다"* 를 적고 거짓.
+fn ask_yes(prompt: &str) -> Result<bool, Failure> {
     use std::io::Write;
+    eprint!("{prompt}");
     std::io::stderr().flush().ok();
     let mut line = String::new();
     std::io::stdin()
@@ -2454,7 +2858,8 @@ fn approved(a: &Args, plan: &remedy_sdk::artifact::PlanEnvelope) -> Result<bool,
     if !ok {
         errln!(
             "  {}",
-            lang.t("아무것도 하지 않았습니다.", "Nothing was done.")
+            ui().lang
+                .t("아무것도 하지 않았습니다.", "Nothing was done.")
         );
     }
     Ok(ok)
@@ -2521,16 +2926,36 @@ fn cmd_run(
     raw: &[String],
     integrity: &remedy_core::integrity::SelfIntegrity,
 ) -> Result<Code, Failure> {
+    let p = prepare_run(raw, true)?;
+    run_apply(&p.a, &p.plan, integrity, p.started, p.kind, true)
+}
+
+/// `run` 의 앞 절반 — 수집 · 평가 · 계획 · 결과 파일 · 검사 화면. **바꾸지 않는다.**
+struct Prepared {
+    a: Args,
+    plan: remedy_sdk::artifact::PlanEnvelope,
+    kind: Option<PluginKind>,
+    started: std::time::Instant,
+}
+
+/// [`Prepared`] 를 만든다. `own_log` 가 참이면 회차 로그를 여기서 연다(`run`). *찾은 것 모두
+/// 치료하기* 는 룰 여럿의 화면을 로그 하나에 담으므로 거짓으로 부른다 — 그 로그는 부르는 쪽이
+/// 이미 열었다([`treat_all`]).
+fn prepare_run(raw: &[String], own_log: bool) -> Result<Prepared, Failure> {
     let a = parse_args(raw)?;
     let limits = load_limits(&a)?;
     let m = load_local(a.need("plugin")?)?;
     let started = std::time::Instant::now();
-    tee::open(&state_dir(&a), &format!("run-{}", std::process::id()));
+    if own_log {
+        tee::open(&state_dir(&a), &format!("run-{}", std::process::id()));
+    }
     banner(Some(&m));
     warn_unsupported(&m);
 
     let meta = RunMeta::now();
-    tee::rename(&meta.run_id);
+    if own_log {
+        tee::rename(&meta.run_id);
+    }
     let rules = load_rules(a.need("plugin")?)?;
     scan_started();
     let (artifacts, scan, unresolved) = tee::with_heartbeat(ui().verbose, tee::Beat::Scan, || {
@@ -2553,7 +2978,12 @@ fn cmd_run(
         }
     }
     report_scan(&scan, m.kind, m.remediate.is_none());
-    run_apply(&a, &plan, integrity, started, m.kind, true)
+    Ok(Prepared {
+        a,
+        plan,
+        kind: m.kind,
+        started,
+    })
 }
 
 /// `integrity` 는 **다시 재지 않고 받아 온다.** `main` 이 시작할 때 한 번
@@ -2574,10 +3004,6 @@ fn run_apply(
     scan_warned: bool,
 ) -> Result<Code, Failure> {
     let lang = ui().lang;
-    let state_dir = a
-        .get("state-dir")
-        .map(std::path::PathBuf::from)
-        .unwrap_or_else(remedy_core::restore::default_state_dir);
 
     outln!();
     report_plan(plan, lang, a);
@@ -2638,6 +3064,26 @@ fn run_apply(
     if !approved(a, plan)? {
         return Ok(Code::FoundNotRemediated);
     }
+    execute(a, plan, integrity, started, kind).map(|(code, _)| code)
+}
+
+/// 승인을 받은 계획을 수행한다 — 잠금 · 실행 · 진행 줄 · 재시작 조언 · 마무리 표. 둘째 값은 수행을
+/// 마친 Action 의 수다(*찾은 것 모두 치료하기* 의 결과 줄이 쓴다).
+///
+/// **승인은 여기서 묻지 않는다** — 부르는 쪽이 받았다(`run_apply` 는 계획 하나를 [`approved`] 로,
+/// [`treat_all`] 은 계획 여럿을 [`approved_all`] 로 한 번에).
+fn execute(
+    a: &Args,
+    plan: &remedy_sdk::artifact::PlanEnvelope,
+    integrity: &remedy_core::integrity::SelfIntegrity,
+    started: std::time::Instant,
+    kind: Option<PluginKind>,
+) -> Result<(Code, usize), Failure> {
+    let lang = ui().lang;
+    let state_dir = a
+        .get("state-dir")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(remedy_core::restore::default_state_dir);
 
     // 승인 **뒤에** 잠근다. 사람이 화면을 보는 동안 다른 인스턴스를 막아 둘
     // 이유가 없고, 승인을 기다리는 사이 잠금을 쥐고 있으면 무인 배포가 막힌다.
@@ -2797,7 +3243,7 @@ fn run_apply(
             lang
         )
     );
-    Ok(code)
+    Ok((code, report.done()))
 }
 
 /// 재부팅 뒤 재평가 요청 (설계-03 §8). **거는 것은 실행기다** — `End` 앞에서
@@ -5156,6 +5602,67 @@ mod tests {
             [L::Treat, L::Report]
         );
         assert_eq!(lines(Flow::Restore, Code::PartialFailure), [L::Report]);
+        // 찾은 것 모두 치료하기의 다음 할 일은 룰마다 `treat_all` 이 앞줄로 짓는다 — 메뉴 줄은 없다.
+        assert!(lines(Flow::TreatAll, Code::Remediated).is_empty());
+    }
+
+    /// 기준 5 — *모두 검사만* 이 **치료하는 룰에서** 찾았을 때만 다음 할 일 첫 줄이 *찾은 것 모두
+    /// 치료하기* 다. 그 번호는 고르는 화면의 것이다(메뉴 줄이 아니다 — `step_line` 에 고를 룰이 없다).
+    #[test]
+    fn scan_all_leads_with_treat_everything_only_when_a_treating_rule_found_something() {
+        let line = || Some((9, "찾은 것 모두 치료하기 (항목 1개)".to_string()));
+        let got = scan_all_lead(Code::FoundNotRemediated, true, line());
+        assert_eq!(got.len(), 1, "{got:?}");
+        assert!(
+            got[0].ends_with("9. 찾은 것 모두 치료하기 (항목 1개)"),
+            "{got:?}"
+        );
+        // 찾기만 하는 룰 · 점검 룰만 찾았다 — 치료할 것이 없다.
+        assert!(scan_all_lead(Code::FoundNotRemediated, false, line()).is_empty());
+        // 찾은 것이 없다.
+        assert!(scan_all_lead(Code::NoThreat, true, line()).is_empty());
+        assert!(scan_all_lead(Code::IncompleteObservation, true, line()).is_empty());
+        // 그 줄이 서지 않는다(룰이 하나인 꾸러미 — 고르는 화면이 없다).
+        assert!(scan_all_lead(Code::FoundNotRemediated, true, None).is_empty());
+    }
+
+    /// 기준 5 — *찾은 것 모두 치료하기* 의 끝 코드는 **새 코드를 만들지 않는다**(불변식 I3). 마치지
+    /// 못한 룰(4 · 5 · 7 중 큰 것)이 먼저, 그다음 일부 실패 · 치료하지 않은 발견 · 치료 · 다 보지 못함.
+    #[test]
+    fn treat_all_ends_with_the_weightiest_existing_code() {
+        use Code as C;
+        assert_eq!(
+            treat_all_code(&[C::Remediated, C::Remediated]),
+            C::Remediated
+        );
+        assert_eq!(
+            treat_all_code(&[C::Remediated, C::PartialFailure]),
+            C::PartialFailure
+        );
+        // 승인을 거절했다 — 찾은 것이 그대로 남았다.
+        assert_eq!(
+            treat_all_code(&[C::FoundNotRemediated, C::FoundNotRemediated]),
+            C::FoundNotRemediated
+        );
+        // 하나는 치료했고 하나는 바꿀 것이 없어 찾은 것이 남았다.
+        assert_eq!(
+            treat_all_code(&[C::Remediated, C::FoundNotRemediated]),
+            C::FoundNotRemediated
+        );
+        assert_eq!(
+            treat_all_code(&[C::PartialFailure, C::GuardStop]),
+            C::GuardStop
+        );
+        assert_eq!(
+            treat_all_code(&[C::GuardStop, C::InternalError]),
+            C::InternalError
+        );
+        assert_eq!(
+            treat_all_code(&[C::NoThreat, C::IncompleteObservation]),
+            C::IncompleteObservation
+        );
+        assert_eq!(treat_all_code(&[C::NoThreat]), C::NoThreat);
+        assert_eq!(treat_all_code(&[]), C::NoThreat);
     }
 
     /// 되돌리기 · 신고 안내의 `--state-dir` — 기본 자리면 붙이지 않고(무인 배포 출력 그대로),

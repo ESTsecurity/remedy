@@ -23,7 +23,11 @@
 # 일회용 키로 서명해 한 꾸러미에 담고(목표 remedy_출시_20261111 기준 3 · 4), 고르는 화면의
 # 1번 *모두 검사만* 과 찾기만 하는 Ebury 룰의 메뉴를 띄운다 — scan-all.txt · detect-only.txt.
 # 깨끗한 컨테이너라 CWP 가 없다: CWPdoor 룰 둘은 6(선언한 자리가 없다 — 설계대로), Ebury 는
-# 0 이고 모두 검사만의 끝 코드는 6 이다.
+# 0 이고 모두 검사만의 끝 코드는 6 이다. 그 화면에는 *찾은 것 모두 치료하기* 가 서지 않는다.
+#
+# 마지막으로 같은 꾸러미에서 **감염된 CWP**(cwpdoor-verify.sh 의 자리 채우기 — 실검체 없음)를 세우고
+# 1번 → *찾은 것 모두 치료하기* → y 로 끝까지 간다(목표 remedy_전체검사_운영기반 기준 5): 승인 한 번 ·
+# 치료 · 다시 검사 · 한 덩어리 · 회차 로그 · 회차마다의 복원 — treat-all.txt · treat-all-restore.txt.
 #
 # 그 꾸러미에는 **동반 프로그램 `remedy-net`** 도 든다(코어 1.4.0) — 네트워크 점검 룰이 목록에 있어
 # 없이는 지어지지 않는다. 메뉴에서 그 항목을 골라 원격 점검을 끝까지 돌린다(닫힌 포트 127.0.0.1:9 —
@@ -164,6 +168,49 @@ inside() {
             ./remedy </dev/null >/out/net-only-noterm.txt 2>&1)
         echo "net_noterm_exit=$?"
     fi
+
+    # ── 감염된 CWP 에서 '찾은 것 모두 치료하기' (목표 remedy_전체검사_운영기반 기준 5) ──────────────
+    #
+    # cwpdoor-verify.sh 의 C 와 같은 자리 채우기다 — **실검체가 없다**(ELF 머리 · 표시 문자열 · XLab 보고의
+    # 공개 지표 · 이 하네스가 지어낸 유닛). 깨끗한 장면을 다 잰 뒤에 세운다. 같은 통합 꾸러미의 고르는
+    # 화면에서 1(모두 검사만) → 빈 줄 → *찾은 것 모두 치료하기* → y(승인 한 번) → 빈 줄 → 0.
+    # 그 줄은 **룰 목록 뒤**다(룰 `count` 개 + 2) — 화면의 다음 할 일이 같은 번호를 적는지 판정에서 본다.
+    python3 - <<'PY'
+import os
+pem = open("/repo/testbed/harness/linux/fixtures/cwpdoor/pubkey.pem", "rb").read()
+x55 = bytes(b ^ 0x55 for b in pem)
+head = b"\x7fELF\x02\x01\x01" + b"\0" * 57
+mark = b"remedy-lab CWPdoor placeholder - not a program\0"
+infected = head + mark + b"\0" * 4096 + b"X-Ngx-Integrity-Data\0X-Ngx-Integrity-Time\0X-Ngx-Integrity-Sig\0" \
+    + b"\0" * 4096 + x55 + b"\0" * 4096
+os.makedirs("/usr/local/cwpsrv/bin", exist_ok=True)
+open("/usr/local/cwpsrv/bin/cwpsrv", "wb").write(infected.ljust(820848, b"\0"))
+PY
+    mkdir -p /lib/systemd/system /etc/systemd/system/multi-user.target.wants
+    printf '%s\n' "[Unit]" "Description=remedy-lab CWP panel placeholder" "[Service]" \
+        "Type=forking" "ExecStart=/usr/local/cwpsrv/bin/cwpsrv" "Restart=always" "RestartSec=5" \
+        "[Install]" "WantedBy=multi-user.target" >/lib/systemd/system/cwpsrv.service
+    ln -sf /lib/systemd/system/cwpsrv.service /etc/systemd/system/multi-user.target.wants/cwpsrv.service
+    sha256sum /usr/local/cwpsrv/bin/cwpsrv /lib/systemd/system/cwpsrv.service >/out/treat-all-before.txt
+    cd "$w/pkg-all" || return 12
+    rm -rf out state
+    local ta=$((count + 2))
+    echo "treat_all_item=$ta"
+    printf '1\n\n%s\ny\n\n0\n' "$ta" | LANG=ko_KR.UTF-8 script -q -e -c "./remedy > /out/treat-all.txt 2>&1" /dev/null
+    echo "treat_all_exit=$?"
+    echo "treat_all_binary_gone=$([ ! -e /usr/local/cwpsrv/bin/cwpsrv ] && echo 1 || echo 0)"
+    echo "treat_all_unit_gone=$([ ! -e /lib/systemd/system/cwpsrv.service ] \
+        && [ ! -L /etc/systemd/system/multi-user.target.wants/cwpsrv.service ] && echo 1 || echo 0)"
+    # 회차는 치료한 룰마다 하나 — 그 회차 로그에 묶음의 화면(계획 · 결과)이 있어야 한다(신고 묶음이 담는 자리).
+    local id
+    id=$(ls state/quarantine 2>/dev/null | sed -n 's/\.rq$//p' | head -1)
+    echo "treat_all_runs=$(ls state/quarantine 2>/dev/null | grep -c '\.rq$')"
+    echo "treat_all_runlog=$(grep -c '찾은 것 모두 치료하기 — 항목 1개' "state/logs/$id.log" 2>/dev/null)"
+    # 복원은 회차마다 지금처럼 — 같은 바이트가 돌아와야 한다.
+    LANG=ko_KR.UTF-8 ./remedy restore --run "$id" --state-dir state --yes >/out/treat-all-restore.txt 2>&1
+    echo "treat_all_restore_exit=$?"
+    sha256sum /usr/local/cwpsrv/bin/cwpsrv /lib/systemd/system/cwpsrv.service >/out/treat-all-restored.txt 2>/dev/null
+    echo "treat_all_restored=$(cmp -s /out/treat-all-before.txt /out/treat-all-restored.txt && echo 1 || echo 0)"
 }
 
 if [ "$INSIDE" = 1 ]; then
@@ -243,6 +290,25 @@ items "$REPO/testbed/harness/baseline/console/console-win.txt" >"$OUT/items-win.
     echo "net_noterm_exit=$(sed -n 's/^net_noterm_exit=//p' "$OUT/run.txt")"
     echo "net_noterm_told=$(grep -c '점검할 주소를 받아야 해서' "$OUT/net-only-noterm.txt" 2>/dev/null)"
     echo "net_noterm_gate=$(grep -c '권한이 필요합니다' "$OUT/net-only-noterm.txt" 2>/dev/null)"
+    # 찾은 것 모두 치료하기(기준 5) — 깨끗한 기계의 모두 검사만에는 그 줄이 서지 않는다(바꾸는 것 0).
+    # 감염된 기계에서는 모두 검사만 뒤 다음 할 일 첫 줄 → 고르는 화면에 그 줄 한 번(치료 뒤에는 거둔다) →
+    # 승인 한 번 → 치료 · 다시 검사 · 한 덩어리 · 찾기만 하는 항목은 할 일만 → 치료한 룰의 다음 할 일.
+    tf="$OUT/treat-all.txt"
+    tn=$(sed -n 's/^treat_all_item=//p' "$OUT/run.txt")
+    echo "scan_all_treat_line=$(grep -c '찾은 것 모두 치료하기' "$OUT/scan-all.txt")"
+    echo "treat_all_exit=$(sed -n 's/^treat_all_exit=//p' "$OUT/run.txt")"
+    echo "treat_all_lead=$(grep -c -E "찾은 것을 모두 치료하려면 (—|-) ${tn}\. 찾은 것 모두 치료하기 \(항목 1개" "$tf" 2>/dev/null)"
+    echo "treat_all_line=$(grep -c -E "^ +${tn}\. 찾은 것 모두 치료하기 \(항목 1개" "$tf" 2>/dev/null)"
+    echo "treat_all_header=$(grep -c '찾은 것 모두 치료하기 — 항목 1개를 다시 검사해' "$tf" 2>/dev/null)"
+    echo "treat_all_prompt=$(grep -c -E '위 계획 1개\(바꿀 것 [0-9]+건\)를 모두 수행합니다' "$tf" 2>/dev/null)"
+    echo "treat_all_summary=$(grep -c '찾은 것 모두 치료한 결과 — 항목 1개' "$tf" 2>/dev/null)"
+    echo "treat_all_result=$(grep -c -E '^  CWPdoor 제거 (—|-) 위협 발견, 치료 완료 \([0-9]+건 수행 완료\)' "$tf" 2>/dev/null)"
+    echo "treat_all_rescan=$(grep -c -E "^    다시 검사: (위협이 발견되지 않았습니다|관측이 불완전해 '위협 없음' 을 말할 수 없습니다)\.$" "$tf" 2>/dev/null)"
+    echo "treat_all_detect_only=$(sed -n '/아래 항목은 찾기만 합니다/,/다음 할 일/p' "$tf" 2>/dev/null | grep -c -E '^    CWPdoor 점검 \(탐지만\)$')"
+    echo "treat_all_next=$(grep -c -E "치료가 유지되는지 보려면 (—|-) [0-9]+\. CWPdoor 제거 (→|->) [0-9]+\. 치료가 유지됐는지 다시 보기" "$tf" 2>/dev/null)"
+    for k in binary_gone unit_gone runs runlog restore_exit restored; do
+        echo "treat_all_$k=$(sed -n "s/^treat_all_$k=//p" "$OUT/run.txt")"
+    done
 } | tee "$OUT/verdict.txt"
 v() { sed -n "s/^$1=//p" "$OUT/verdict.txt"; }
 [ "$(v items_diff)" = 0 ] && [ -n "$(v linux_rules)" ] \
@@ -260,4 +326,13 @@ v() { sed -n "s/^$1=//p" "$OUT/verdict.txt"; }
     && [ "$(v net_kept_exit)" = 6 ] && [ "$(v net_kept_said)" = 1 ] \
     && [ "$(v net_kept_owner)" = 1 ] && [ "$(v net_kept_others)" = 0 ] \
     && [ "$(v net_noterm_exit)" = 4 ] && [ "$(v net_noterm_told)" = 1 ] \
-    && [ "$(v net_noterm_gate)" = 0 ]
+    && [ "$(v net_noterm_gate)" = 0 ] \
+    && [ "$(v scan_all_treat_line)" = 0 ] && [ "$(v treat_all_exit)" = 1 ] \
+    && [ "$(v treat_all_lead)" = 1 ] && [ "$(v treat_all_line)" = 1 ] \
+    && [ "$(v treat_all_header)" = 1 ] && [ "$(v treat_all_prompt)" = 1 ] \
+    && [ "$(v treat_all_summary)" = 1 ] && [ "$(v treat_all_result)" = 1 ] \
+    && [ "$(v treat_all_rescan)" = 1 ] && [ "$(v treat_all_detect_only)" = 1 ] \
+    && [ "$(v treat_all_next)" = 1 ] && [ "$(v treat_all_binary_gone)" = 1 ] \
+    && [ "$(v treat_all_unit_gone)" = 1 ] && [ "$(v treat_all_runs)" = 1 ] \
+    && [ "$(v treat_all_runlog)" -ge 1 ] && [ "$(v treat_all_restore_exit)" = 0 ] \
+    && [ "$(v treat_all_restored)" = 1 ]
