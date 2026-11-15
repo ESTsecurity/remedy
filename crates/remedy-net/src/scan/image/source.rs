@@ -334,24 +334,35 @@ fn walk_member(root: &Path, stored: &str, lang: Lang) -> Res<(PathBuf, std::fs::
     Ok((path, meta))
 }
 
-/// 이미지 안의 항목 이름 — 비거나 NUL · 절대 경로 · 드라이브 문자 · `..` 이 있으면 거절하고, 정리한 이름을
-/// 준다. 레이어 항목 · 패키지 기록의 파일 목록처럼 **메모리의 열쇠로만 쓰는** 이름이 이것이다.
+/// 이미지 안의 항목 이름 — 비거나 NUL · 드라이브 문자 · `..` 이 있으면 거절하고, 정리한 이름을 준다. 레이어
+/// 항목 · 하드 링크 대상 · 패키지 기록의 파일 목록처럼 **메모리의 열쇠로만 쓰는** 이름이 이것이다.
 ///
 /// **역슬래시는 받는다**(코어 1.19.1). 리눅스 파일 이름에 들 수 있는 글자이고, systemd 가 유닛 이름에 쓴다
 /// (`system-systemd\x2dcryptsetup.slice`). 1.19.0 까지는 거절해서 **그 항목이 든 레이어 전체를 잃었다** —
 /// Ubuntu 20.04 이상에 systemd 가 깔린 이미지에서 취약한 PHP 가 *확인 필요* 로 나왔다(2026-11-15 실측).
+///
+/// **절대 경로는 이미지의 뿌리에서 시작한다**(코어 1.19.2) — 앞의 `/` 를 떼고 읽는다. Docker · containerd 가 레이어를
+/// 풀 때와 GNU tar 가 그렇게 푼다. Nix 의 dockerTools 는 레이어 항목을 `/nix/store/…` 로 쓰는데, 1.19.1 까지는 그
+/// 이름을 거절해 역시 레이어를 통째로 잃었다(`nixos/nix` — 항목 100,464개 가운데 100,417개 · 2026-11-15 실측).
+///
 /// 실제 파일 경로가 되는 이름은 [`archive_path`] 가 본다.
 pub(super) fn entry_path(name: &str, lang: Lang) -> Res<String> {
-    if name.is_empty() || name.contains('\0') || name.starts_with('/') || drive_path(name) {
+    let relative = name.trim_start_matches('/');
+    let relative = if relative.is_empty() && !name.is_empty() {
+        "."
+    } else {
+        relative
+    };
+    if relative.is_empty() || relative.contains('\0') || drive_path(relative) {
         return Err(unsafe_path(name, lang));
     }
-    if name.split('/').any(|part| part == "..") {
+    if relative.split('/').any(|part| part == "..") {
         return Err(lang.pick(
             format!("상위 경로를 참조하는 아카이브 항목입니다: {name:?}"),
             format!("an archive entry refers to a parent path: {name:?}"),
         ));
     }
-    let clean = slashpath::clean(name);
+    let clean = slashpath::clean(relative);
     if names::raw_len(&clean) > MAX_PATH {
         return Err(lang
             .t(
@@ -363,10 +374,11 @@ pub(super) fn entry_path(name: &str, lang: Lang) -> Res<String> {
     Ok(clean)
 }
 
-/// 실제 파일 경로가 되는 항목의 이름(스캐너의 `archivePath`) — [`entry_path`] 에 **역슬래시 거절**을 더한다.
-/// Windows 는 역슬래시도 가름 문자로 받으므로, `a\..\..\x` 같은 이름이 풀어 둔 폴더를 벗어난다.
+/// 실제 파일 경로가 되는 항목의 이름(스캐너의 `archivePath`) — [`entry_path`] 에 **역슬래시 · 절대 경로 거절**을
+/// 더한다. Windows 는 역슬래시도 가름 문자로 받으므로 `a\..\..\x` 같은 이름이 풀어 둔 폴더를 벗어나고, 이미지
+/// 아카이브 · 폴더의 항목(`index.json` · `blobs/sha256/…`)은 절대 경로로 오지 않는다.
 pub(super) fn archive_path(name: &str, lang: Lang) -> Res<String> {
-    if name.contains('\\') {
+    if name.contains('\\') || name.starts_with('/') {
         return Err(unsafe_path(name, lang));
     }
     entry_path(name, lang)
