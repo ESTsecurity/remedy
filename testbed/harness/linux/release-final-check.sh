@@ -13,7 +13,8 @@
 #
 #   1  체크섬 — 받은 `SHA256SUMS`
 #   2  정식 파일 — 엔진 · 동반 프로그램의 버전, 꾸러미에 든 룰 전부와 동반 프로그램 폴더의 서명(`plugin verify`), 동반
-#      프로그램이 판정 기준을 알아보는가(`url` · `image` · `container` 도움말의 기준 줄)
+#      프로그램이 판정 기준을 알아보는가(`url` · `image` · `container` 도움말마다 확인한 기준 줄이 있고 '확인하지 못했다'
+#      는 줄이 없다 — url 은 1.19.0 부터 PHP · Apache 두 줄)
 #   3  rc 와 같은가 — 파일마다 바이트 대조. 서명 파일(`MANIFEST.minisig`)은 서명 주석이 같은지 본다 — minisign 이
 #      서명마다 난수를 섞어 같은 키 · 같은 내용이라도 서명 값이 다르다(v1.16.0 에서 처음 쟀다). 그 서명이 맞는지는 2 가
 #      잰다. 다른 파일 · 한쪽에만 있는 파일이 0 이어야 한다
@@ -73,16 +74,20 @@ bad=0
 for d in plugins/*/ remedy-net/; do ./remedy plugin verify --dir "$d" >/dev/null 2>&1; r=$?; echo "$d verify exit=$r"; [ "$r" = 0 ] || bad=1; done
 for c in url image container; do
   out=$(./remedy-net/remedy-net "$c" --help 2>&1); r=$?
-  echo "$out" | grep "Criteria:"
+  echo "$out" | grep -E "^Criteria( \([A-Za-z]+\))?:"
+  # 확인한 기준 줄이 있고 확인하지 못했다는 줄이 없으면 그 명령은 기준을 알아본다(url 은 1.19.0 부터 PHP · Apache 두 줄)
+  if echo "$out" | grep -qE "^Criteria( \([A-Za-z]+\))?: " && ! echo "$out" | grep -q "could not be verified"; then
+    echo "$c criteria ok"
+  fi
   echo "$c help exit=$r"
   [ "$r" = 0 ] || bad=1
 done
 exit $bad' >"$OUT/package.log" 2>&1
 rc=$?
 rules=$(grep -c 'verify exit=' "$OUT/package.log")
-crit=$(grep -c '^Criteria:' "$OUT/package.log")
+crit=$(grep -c ' criteria ok$' "$OUT/package.log")
 { [ "$rc" = 0 ] && [ "$rules" -gt 0 ] && [ "$crit" = 3 ]; } || fail=1
-note "2 정식 파일 · 종료 $rc · 서명(룰 · 동반 프로그램) $(grep -c 'verify exit=0' "$OUT/package.log")/$rules · 판정 기준 줄 $crit/3"
+note "2 정식 파일 · 종료 $rc · 서명(룰 · 동반 프로그램) $(grep -c 'verify exit=0' "$OUT/package.log")/$rules · 기준을 알아본 명령 $crit/3"
 
 # ── 3. rc 와 같은가 ────────────────────────────────────────────────────────────
 # 서명 파일만은 바이트가 같을 수 없다 — 서명 주석(서명한 이름 · 판 · 시각)이 같으면 같은 것을 다시 서명한 것이다. 그
