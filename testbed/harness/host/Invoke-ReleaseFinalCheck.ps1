@@ -10,7 +10,8 @@
 
       1  체크섬 — `-Sums`(릴리스의 SHA256SUMS)를 주면 그 안의 `remedy-windows-x64.zip` 줄과 `-Zip`(받은 zip)을 견준다
       2  정식 파일 — 엔진 · 동반 프로그램의 버전, 꾸러미에 든 룰 전부와 동반 프로그램 폴더의 서명(`plugin verify`), 동반
-         프로그램이 판정 기준을 알아보는가(`url` · `image` · `container` 도움말의 기준 줄)
+         프로그램이 판정 기준을 알아보는가(`url` · `image` · `container` 도움말마다 확인한 기준 줄이 있고 '확인하지
+         못했다' 는 줄이 없다 — url 은 1.19.0 부터 PHP · Apache 두 줄)
       3  rc 와 같은가 — 파일마다 SHA-256 대조. 빌드마다 새로 쓰이는 칸은 둘이다(v1.16.0 에서 처음 쟀다):
          서명 파일(`MANIFEST.minisig`)은 minisign 이 서명마다 난수를 섞어 서명 값이 다르므로 서명 주석이 같은지 보고(그
          서명이 맞는지는 2 가 잰다), 실행 파일(`.exe`)은 MSVC 링크가 시각과 PDB 의 GUID 를 새로 쓰므로 그 칸만 가리고
@@ -70,7 +71,13 @@ foreach ($d in $signed) {
 foreach ($c in @('url', 'image', 'container')) {
     $out = & $net $c --help 2>&1
     $code = $LASTEXITCODE
-    foreach ($l in @($out | ForEach-Object { "$_" } | Where-Object { $_ -like 'Criteria:*' })) { $lines.Add($l) }
+    $text = @($out | ForEach-Object { "$_" })
+    $found = @($text | Where-Object { $_ -match '^Criteria( \([A-Za-z]+\))?: ' })
+    foreach ($l in $found) { $lines.Add($l) }
+    # 확인한 기준 줄이 있고 확인하지 못했다는 줄이 없으면 그 명령은 기준을 알아본다(url 은 1.19.0 부터 PHP · Apache 두 줄)
+    if ($found.Count -gt 0 -and @($text | Where-Object { $_ -like '*could not be verified*' }).Count -eq 0) {
+        $lines.Add("$c criteria ok")
+    }
     $lines.Add(('{0} help exit={1}' -f $c, $code))
 }
 Remove-Item Env:REMEDY_LANG -ErrorAction SilentlyContinue
@@ -78,11 +85,11 @@ Remove-Item Env:REMEDY_LANG -ErrorAction SilentlyContinue
 $verify = @($lines | Where-Object { $_ -match ' verify exit=' })
 $good = @($verify | Where-Object { $_ -match ' verify exit=0$' })
 $helpGood = @($lines | Where-Object { $_ -match ' help exit=0$' })
-$crit = @($lines | Where-Object { $_ -like 'Criteria:*' })
+$crit = @($lines | Where-Object { $_ -match ' criteria ok$' })
 $ver = @($lines | Where-Object { $_ -match '\(exit=0\)$' })
 $pkgOk = ($verify.Count -gt 0) -and ($good.Count -eq $verify.Count) -and ($helpGood.Count -eq 3) -and ($crit.Count -eq 3) -and ($ver.Count -eq 2)
 if (-not $pkgOk) { $failed += 'package' }
-Note ('2 정식 파일  {0}  버전 {1}/2 · 서명(룰 · 동반 프로그램) {2}/{3} · 판정 기준 도움말 {4}/3 · 기준 줄 {5}/3' -f $(if ($pkgOk) { '통과' } else { '실패' }),
+Note ('2 정식 파일  {0}  버전 {1}/2 · 서명(룰 · 동반 프로그램) {2}/{3} · 판정 기준 도움말 {4}/3 · 기준을 알아본 명령 {5}/3' -f $(if ($pkgOk) { '통과' } else { '실패' }),
     $ver.Count, $good.Count, $verify.Count, $helpGood.Count, $crit.Count)
 
 # ── 3. rc 와 같은가 ──
