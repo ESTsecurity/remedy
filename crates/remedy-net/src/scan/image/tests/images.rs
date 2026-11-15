@@ -193,7 +193,7 @@ fn unsafe_and_malformed_layers_are_rejected() {
     huge.size = Some(IMAGE_LIMIT + 1);
     let cases: Vec<(&str, Vec<Item>)> = vec![
         ("traversal", vec![reg("../escape", "x")]),
-        ("absolute", vec![reg("/escape", "x")]),
+        ("rooted_traversal", vec![reg("/../escape", "x")]),
         ("drive", vec![reg("C:/escape", "x")]),
         ("symlink_escape", vec![kind("link", b'2', "../escape")]),
         (
@@ -266,6 +266,31 @@ fn an_entry_named_with_a_backslash_is_read() {
             "/usr/lib/systemd/system/system-systemd\\x2dcryptsetup.slice",
         ),
     ]);
+    let (dir, _) = oci(&[tar(&items)], Raw, &[]);
+    let targets = php_scan(dir.path());
+    single(&targets, Vulnerable);
+    assert!(targets[0].gaps.is_empty(), "{:?}", targets[0].gaps);
+    let found = runtime(&targets[0]);
+    assert_eq!(found.len(), 1, "{found:#?}");
+    assert_eq!(
+        (found[0].path.as_deref(), found[0].status),
+        (Some("/usr/bin/php8.3"), Vulnerable)
+    );
+}
+
+/// 절대 경로 항목은 이미지의 뿌리에서 시작한다(코어 1.19.2) — Docker · containerd 가 레이어를 푸는 방법이다. Nix 의
+/// dockerTools 가 항목을 `/nix/store/…` 로 쓰는데, 1.19.1 까지는 그 레이어를 통째로 거절했다(2026-11-15 실측). 하드
+/// 링크의 절대 경로 대상도 같다.
+#[test]
+fn absolute_entry_names_start_at_the_image_root() {
+    let mut items: Vec<Item> = php_entries(BEFORE)
+        .into_iter()
+        .map(|mut item| {
+            item.name.insert(0, b'/');
+            item
+        })
+        .collect();
+    items.push(kind("/usr/share/doc/os-release", b'1', "/etc/os-release"));
     let (dir, _) = oci(&[tar(&items)], Raw, &[]);
     let targets = php_scan(dir.path());
     single(&targets, Vulnerable);
