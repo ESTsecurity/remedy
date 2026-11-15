@@ -134,9 +134,9 @@
     }
   },
   "php2shell-url-check": {
-    "version": "0.1.1",
+    "version": "0.2.0",
     "files": {
-      "plugin.yaml": "6064beb4aea1be2bcd161b3eef682283471f97f8012d927e2ef76172f4126d45"
+      "plugin.yaml": "baada57689646a3c2284e7cb4873d7356752255dd7fc42d390746abefd24bb27"
     }
   },
   "proxy-dns-hijack": {

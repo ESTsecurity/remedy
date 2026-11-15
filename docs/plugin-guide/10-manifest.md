@@ -327,7 +327,8 @@ platforms: [windows]
 ## `kind: data` — 기준만 담는 룰 (코어 1.12.0)
 
 동반 프로그램 `remedy-net` 이 견주는 **판정 기준**을 담는 룰이다 — 지금은 `plugins/remedy-net-criteria`
-(원격 점검의 수정 버전 표 `url.json` · 이미지 · 컨테이너 기준 `baseline.json`) 하나다. 기준은 폴더의 데이터
+(원격 점검의 수정 버전 표 `url.json` · 이미지 · 컨테이너 기준 `baseline.json` · 둘이 함께 읽는 Apache 기준
+`apache.json`) 하나다. 기준은 폴더의 데이터
 파일에 있고, 매니페스트는 그 폴더가 서명 · 잠금 · 꾸러미를 다른 룰과 같이 타게 하는 머리다.
 
 - **이 기계를 읽는 칸은 전부 비운다** — `scan_roots` · `subjects` · `detect` 는 `[]`, `verdict` · `remediate` ·
