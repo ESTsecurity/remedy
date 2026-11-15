@@ -75,6 +75,18 @@ pub(crate) struct PathStat {
     pub(crate) link_target: String,
 }
 
+impl PathStat {
+    /// 링크가 아닌 일반 파일인가.
+    pub(crate) fn regular(&self) -> bool {
+        self.mode & MODE_TYPE == 0 && self.link_target.is_empty()
+    }
+
+    /// 링크가 아닌 폴더인가 — 종류 비트가 Go `os.ModeDir`(1 << 31) 하나뿐(RPM DB 의 옛 자리 · 코어 1.19.0).
+    pub(crate) fn directory(&self) -> bool {
+        self.mode & MODE_TYPE == 1 << 31 && self.link_target.is_empty()
+    }
+}
+
 /// 읽은 실행 파일 — 전체의 해시 둘과 앞부분, 그 머리를 읽은 것.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct BinaryFile {

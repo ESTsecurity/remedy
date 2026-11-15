@@ -1,4 +1,5 @@
-//! `remedy-net url` — 웹서버가 응답 헤더로 알리는 PHP 버전을 PHP2Shell 수정 버전과 견준다.
+//! `remedy-net url` — 웹서버가 응답 헤더로 알리는 PHP 버전을 PHP2Shell 수정 버전과, Apache 버전과 HTTP/2 알림을
+//! Apache HTTP/2(CVE-2026-119618) 영향 범위와 견준다(Apache 는 코어 1.19.0 · `--runtime php|apache|all`).
 //!
 //! 사내 runtime-scanner 의 `url` 을 옮겼다(동작 · 상한 · 시험). 헤더는 남이 적은 글자라 **양호를 내지
 //! 않는다** — 영향 버전이면 *취약*(2), 그 밖은 *확인 필요*(6)다. 확인은 그 서버에서 remedy 의 점검 룰로 한다.
@@ -26,8 +27,10 @@ mod wire;
 mod tests;
 
 use crate::output::{fail, prepare_dir, run_id};
+use crate::scan::rules::ApacheCriteria;
 use crate::text::ascii_safe;
 use crate::{clock, Outcome};
+use args::Products;
 use policy::{Budget, Cancel, SLICE, URL_TIMEOUT};
 use remedy_sdk::i18n::Lang;
 use report::{Report, Target, Verdict};
@@ -57,7 +60,7 @@ pub fn run(args: &[String], lang: Lang) -> Outcome {
         }
     };
     // 기준부터 — 받은 파일이 온전하지 않으면 약관을 묻기 전에 멈춘다(요청도 결과 폴더도 없다).
-    let criteria = match load() {
+    let criteria = match load(opts.products) {
         Ok(c) => c,
         Err(why) => {
             eprintln!("{}", ascii_safe(why.message(lang)));
@@ -131,14 +134,46 @@ pub(crate) fn check_table(text: &str) -> Result<(), String> {
     criteria::UrlCriteria::from_json(text).map(|_| ())
 }
 
-/// 서명을 확인한 데이터 룰의 url 표 — 실행마다 한 번 읽는다(코어 1.12.0 · `crate::criteria`).
-fn load() -> Result<&'static criteria::UrlCriteria, crate::criteria::Refusal> {
+/// 서명을 확인한 데이터 룰에서 읽은 표 — 고른 제품의 것만.
+#[derive(Clone, Copy)]
+struct Tables {
+    /// PHP2Shell 의 url 표(`url.json`).
+    php: Option<&'static criteria::UrlCriteria>,
+    /// Apache HTTP/2 의 기준(`apache.json` — image · container 와 같은 파일 · 코어 1.19.0).
+    apache: Option<&'static ApacheCriteria>,
+}
+
+impl Tables {
+    fn products(self) -> Products {
+        Products {
+            php: self.php.is_some(),
+            apache: self.apache.is_some(),
+        }
+    }
+}
+
+/// 서명을 확인한 데이터 룰의 표 — 고른 제품의 것만, 실행마다 한 번 읽는다(코어 1.12.0 · `crate::criteria` ·
+/// Apache 는 1.19.0).
+fn load(products: Products) -> Result<Tables, crate::criteria::Refusal> {
+    use crate::criteria::{leak, Refusal, APACHE_FILE, URL_FILE};
     let verified = crate::criteria::open()?;
-    let text = verified.read(crate::criteria::URL_FILE)?;
-    let table = criteria::UrlCriteria::from_json(&text).map_err(|why| {
-        crate::criteria::Refusal::Unreadable(crate::criteria::URL_FILE.to_string(), why)
-    })?;
-    Ok(crate::criteria::leak(table))
+    let php = if products.php {
+        let text = verified.read(URL_FILE)?;
+        let table = criteria::UrlCriteria::from_json(&text)
+            .map_err(|why| Refusal::Unreadable(URL_FILE.to_string(), why))?;
+        Some(leak(table))
+    } else {
+        None
+    };
+    let apache = if products.apache {
+        let text = verified.read(APACHE_FILE)?;
+        let table = ApacheCriteria::from_json(&text)
+            .map_err(|why| Refusal::Unreadable(APACHE_FILE.to_string(), why))?;
+        Some(leak(table))
+    } else {
+        None
+    };
+    Ok(Tables { php, apache })
 }
 
 /// 약관을 지난 한 번의 실행.
@@ -149,7 +184,7 @@ struct Run {
     accepted_at: SystemTime,
     dir: PathBuf,
     lang: Lang,
-    criteria: &'static criteria::UrlCriteria,
+    criteria: Tables,
 }
 
 enum Msg {
@@ -186,7 +221,8 @@ impl Run {
                     cancel: &cancel,
                     url_timeout: URL_TIMEOUT,
                     lang,
-                    criteria,
+                    criteria: criteria.php,
+                    apache: criteria.apache,
                 };
                 let all = scan.run(&urls, &mut |t| {
                     let _ = tx.send(Msg::Done(t.clone()));
@@ -258,6 +294,7 @@ impl Run {
                     lang.t("점검을 마치지 못한 범위", "unfinished scope")
                         .to_string(),
                     lang,
+                    self.criteria.products(),
                 );
                 pending.reason = why.to_string();
                 pending.gaps.push(why.to_string());
@@ -308,13 +345,20 @@ impl Run {
                 accepted_at: clock::rfc3339(self.accepted_at),
                 via: self.via.as_str().to_string(),
             },
-            criteria: report::Criteria {
+            criteria: self.criteria.php.map(|c| report::Criteria {
                 name: "PHP2Shell".to_string(),
-                cves: self.criteria.cves.clone(),
-                checked: self.criteria.checked.clone(),
-                same_as: self.criteria.same_as.clone(),
-                sources: self.criteria.sources.clone(),
-            },
+                cves: c.cves.clone(),
+                checked: c.checked.clone(),
+                same_as: c.same_as.clone(),
+                sources: c.sources.clone(),
+            }),
+            apache_criteria: self.criteria.apache.map(|a| report::Criteria {
+                name: "Apache HTTP/2".to_string(),
+                cves: a.cves().to_vec(),
+                checked: a.checked().to_string(),
+                same_as: a.same_as().to_string(),
+                sources: vec![a.source().to_string()],
+            }),
             verdict,
             exit_code: outcome.exit().code(),
             interrupted,
@@ -323,19 +367,13 @@ impl Run {
                 http_requests: budget.requests(),
                 stops: budget.stops(),
             },
-            limitations: limitations(self.cacert, lang),
+            limitations: limitations(self.cacert, self.criteria.products(), lang),
         };
         println!();
         println!("{}", ascii_safe(report::header_caveat(lang).to_string()));
         println!(
             "{}",
-            ascii_safe(
-                lang.t(
-                    "URL 점검은 '양호' 를 내지 않습니다 — 그 서버에서 remedy 의 PHP2Shell · PHP 세션 점검으로 확인하십시오.",
-                    "URL checks never say \"clear\" — confirm on that server with remedy's PHP2Shell and PHP session checks.",
-                )
-                .to_string()
-            )
+            ascii_safe(never_clear(self.criteria.products(), lang).to_string())
         );
         println!(
             "{}",
@@ -393,21 +431,45 @@ fn unique(urls: &[String]) -> usize {
     seen.len().min(policy::MAX_URLS) + usize::from(seen.len() > policy::MAX_URLS)
 }
 
-fn limitations(cacert: bool, lang: Lang) -> Vec<String> {
-    let mut v = vec![
-        lang.t(
-            "URL 의 취약 판정은 응답 헤더가 알리는 버전에 따른 경고입니다. 실제 설치 버전과 백포트 패치 적용 여부는 그 서버에서 직접 확인해야 하며, URL 만으로 양호를 판정하지 않습니다.",
-            "A vulnerable verdict for a URL is a warning from the version the headers announce. The installed version and any backported patch must be confirmed on that server; a URL alone never yields clear.",
+/// 끝의 한 줄 — 양호를 내지 않으니 그 서버에서 무엇으로 확인하는지.
+fn never_clear(products: Products, lang: Lang) -> &'static str {
+    match (products.php, products.apache) {
+        (true, true) => lang.t(
+            "URL 점검은 '양호' 를 내지 않습니다 — 그 서버에서 remedy 의 PHP2Shell · PHP 세션 · Apache HTTP/2 점검으로 확인하십시오.",
+            "URL checks never say \"clear\" — confirm on that server with remedy's PHP2Shell, PHP session and Apache HTTP/2 checks.",
         ),
-        lang.t(
+        (false, true) => lang.t(
+            "URL 점검은 '양호' 를 내지 않습니다 — 그 서버에서 remedy 의 Apache HTTP/2 점검으로 확인하십시오.",
+            "URL checks never say \"clear\" — confirm on that server with remedy's Apache HTTP/2 check.",
+        ),
+        _ => lang.t(
+            "URL 점검은 '양호' 를 내지 않습니다 — 그 서버에서 remedy 의 PHP2Shell · PHP 세션 점검으로 확인하십시오.",
+            "URL checks never say \"clear\" — confirm on that server with remedy's PHP2Shell and PHP session checks.",
+        ),
+    }
+}
+
+fn limitations(cacert: bool, products: Products, lang: Lang) -> Vec<String> {
+    let mut v = vec![lang.t(
+        "URL 의 취약 판정은 응답 헤더가 알리는 버전에 따른 경고입니다. 실제 설치 버전과 백포트 패치 적용 여부는 그 서버에서 직접 확인해야 하며, URL 만으로 양호를 판정하지 않습니다.",
+        "A vulnerable verdict for a URL is a warning from the version the headers announce. The installed version and any backported patch must be confirmed on that server; a URL alone never yields clear.",
+    )];
+    if products.php {
+        v.push(lang.t(
             "CVE-2026-115560(PHP 세션 설정)은 URL 로 점검하지 않습니다. 그 서버에서 remedy 의 PHP 세션 점검으로 보십시오.",
             "CVE-2026-115560 (PHP session settings) is not checked from a URL. Use remedy's PHP session check on that server.",
-        ),
-        lang.t(
-            "일반적인 HTTP 요청으로도 서버의 처리와 접속 기록이 생길 수 있습니다.",
-            "Even ordinary HTTP requests are processed and logged by the server.",
-        ),
-    ];
+        ));
+    }
+    if products.apache {
+        v.push(lang.t(
+            "Apache 는 Server 헤더가 상류 빌드(Unix · Win32 · Win64)의 영향 버전을 알리고 같은 응답의 Upgrade 가 HTTP/2(h2 · h2c)를 알릴 때만 취약으로 봅니다. 배포판이 지은 Apache 는 헤더로 백포트를 가릴 수 없어 확인 필요로 두고, H2Upgrade 를 끈 서버는 HTTP/2 를 켰어도 알리지 않습니다.",
+            "Apache is vulnerable only when the Server header announces an affected upstream build (Unix · Win32 · Win64) and the same response's Upgrade announces HTTP/2 (h2 · h2c). A distribution build cannot be told apart by its headers (backports), so it stays needs review; a server with H2Upgrade off does not announce HTTP/2 even when it is on.",
+        ));
+    }
+    v.push(lang.t(
+        "일반적인 HTTP 요청으로도 서버의 처리와 접속 기록이 생길 수 있습니다.",
+        "Even ordinary HTTP requests are processed and logged by the server.",
+    ));
     if cacert {
         v.push(lang.t(
             "지정한 CA 인증서 파일을 이 실행에만 추가로 신뢰했습니다. 올바른 사설 CA 인지는 사용자가 확인해야 합니다.",
@@ -420,24 +482,33 @@ fn limitations(cacert: bool, lang: Lang) -> Vec<String> {
 /// `remedy-net url --help`. 명령 설명은 본체의 도움말처럼 해라체다.
 pub fn help(lang: Lang) -> String {
     // 기준 줄은 받은 기준 폴더에서 읽는다 — 확인하지 못하면 그렇다고 적는다(도움말은 기준 없이도 선다).
-    let basis = match load() {
-        Ok(c) => lang.pick(
+    let basis = match load(Products::ALL) {
+        Ok(Tables {
+            php: Some(c),
+            apache: Some(a),
+        }) => lang.pick(
             format!(
-                "기준: {} 와 같은 수정 버전 ({} 확인).",
-                c.same_as, c.checked
+                "기준(PHP): {} 와 같은 수정 버전 ({} 확인).\n기준(Apache): {} 와 같은 영향 범위 ({} 확인).",
+                c.same_as,
+                c.checked,
+                a.same_as(),
+                a.checked()
             ),
             format!(
-                "Criteria: the fixed versions of {} (checked {}).",
-                c.same_as, c.checked
+                "Criteria (PHP): the fixed versions of {} (checked {}).\nCriteria (Apache): the affected range of {} (checked {}).",
+                c.same_as,
+                c.checked,
+                a.same_as(),
+                a.checked()
             ),
         ),
-        Err(_) => lang.pick(
+        _ => lang.pick(
             format!(
-                "기준: 데이터 룰 {} 의 url 표 — 이 자리에서 확인하지 못했다.",
+                "기준: 데이터 룰 {} 의 url 표 · Apache 기준 — 이 자리에서 확인하지 못했다.",
                 crate::criteria::ID
             ),
             format!(
-                "Criteria: the url table of the data rule {} — could not be verified here.",
+                "Criteria: the url table and the Apache criteria of the data rule {} — could not be verified here.",
                 crate::criteria::ID
             ),
         ),
@@ -445,11 +516,14 @@ pub fn help(lang: Lang) -> String {
     lang.pick(
         format!(
             "쓰는 법: remedy-net url URL [URL ...] [옵션]\n\n\
-             웹서버가 응답 헤더(Server · X-Powered-By)로 알리는 PHP 버전을 PHP2Shell(CVE-2026-109618 ·\n\
-             109619) 수정 버전과 견준다. 헤더만 읽으므로 '양호' 는 내지 않는다 — 취약(2) 또는 확인 필요(6).\n\n\
+             웹서버가 응답 헤더로 알리는 버전을 견준다 — PHP(Server · X-Powered-By)는 PHP2Shell(CVE-2026-109618 ·\n\
+             109619) 수정 버전과, Apache(Server)는 HTTP/2(CVE-2026-119618) 영향 범위와. Apache 는 상류 빌드(Unix ·\n\
+             Win32 · Win64)의 영향 버전이고 같은 응답이 HTTP/2(Upgrade: h2 · h2c)를 알릴 때만 취약이다. 헤더만\n\
+             읽으므로 '양호' 는 내지 않는다 — 취약(2) 또는 확인 필요(6).\n\n\
              옵션:\n\
              \x20 --url URL          점검할 URL. 자리 인자와 함께 모두 50개까지\n\
              \x20 --ask              점검할 URL 을 명령줄 대신 물어서 받는다 (remedy 의 메뉴가 이렇게 띄운다)\n\
+             \x20 --runtime 제품     php · apache · all 가운데 하나 (기본: all — 둘 다. 요청 수는 같다)\n\
              \x20 --cacert 파일     이 실행에만 더 믿을 CA 인증서(PEM). 기본 신뢰 목록은 그대로이고 검증을 끄지 않는다\n\
              \x20 --consent y|n      약관에 미리 답한다(무인 실행). 빼면 묻는다\n\
              \x20 --out-dir 폴더     결과 JSON 을 쓸 폴더 (기본: results)\n\n\
@@ -460,12 +534,15 @@ pub fn help(lang: Lang) -> String {
         ),
         format!(
             "Usage: remedy-net url URL [URL ...] [options]\n\n\
-             Compares the PHP version a web server announces in its response headers (Server ·\n\
-             X-Powered-By) with the PHP2Shell (CVE-2026-109618 · 109619) fixed versions. Only headers are\n\
-             read, so the result is never \"clear\" — vulnerable (2) or needs review (6).\n\n\
+             Compares the versions a web server announces in its response headers — PHP (Server ·\n\
+             X-Powered-By) with the PHP2Shell (CVE-2026-109618 · 109619) fixed versions, and Apache (Server)\n\
+             with the HTTP/2 (CVE-2026-119618) affected range. Apache is vulnerable only for an affected\n\
+             upstream build (Unix · Win32 · Win64) whose response also announces HTTP/2 (Upgrade: h2 · h2c).\n\
+             Only headers are read, so the result is never \"clear\" — vulnerable (2) or needs review (6).\n\n\
              Options:\n\
              \x20 --url URL          a URL to check; up to 50 together with positional URLs\n\
              \x20 --ask              ask for the URLs instead of taking them from the command line (how remedy's menu starts it)\n\
+             \x20 --runtime NAME     one of php · apache · all (default: all — both; the requests are the same)\n\
              \x20 --cacert FILE     a CA certificate (PEM) to trust for this run only; the default trust list stays and verification is never turned off\n\
              \x20 --consent y|n      answer the terms in advance (unattended runs); asked if omitted\n\
              \x20 --out-dir DIR      folder for the JSON result (default: results)\n\n\

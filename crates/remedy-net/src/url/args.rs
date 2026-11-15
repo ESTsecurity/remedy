@@ -17,6 +17,42 @@ pub(crate) struct Options {
     pub(crate) out_dir: String,
     /// 점검할 주소를 명령줄이 아니라 **물어서** 받는다(`--ask`) — 본체의 메뉴가 띄울 때 쓴다.
     pub(crate) ask: bool,
+    pub(crate) products: Products,
+}
+
+/// url 이 견주는 제품 — `--runtime php|apache|all`, 기본은 둘 다(코어 1.19.0 · 목표 `remedy_net엔진보완` 결정 2).
+/// image · container 와 같은 옵션 이름이다. 응답 헤더로 보는 것은 PHP 와 Apache 뿐이라 `node` 는 받지 않는다.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) struct Products {
+    pub(crate) php: bool,
+    pub(crate) apache: bool,
+}
+
+impl Products {
+    pub(crate) const ALL: Products = Products {
+        php: true,
+        apache: true,
+    };
+
+    fn parse(value: &str, lang: Lang) -> Result<Products, String> {
+        match value {
+            "php" => Ok(Products {
+                php: true,
+                apache: false,
+            }),
+            "apache" => Ok(Products {
+                php: false,
+                apache: true,
+            }),
+            "all" => Ok(Products::ALL),
+            _ => Err(lang
+                .t(
+                    "--runtime 에는 php · apache · all 만 적을 수 있습니다(url 은 Node.js 를 보지 않습니다).",
+                    "--runtime takes only php, apache or all (url does not check Node.js).",
+                )
+                .to_string()),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -32,6 +68,7 @@ pub(crate) fn parse(args: &[String], lang: Lang) -> Result<Parsed, String> {
         consent: None,
         out_dir: DEFAULT_OUT_DIR.to_string(),
         ask: false,
+        products: Products::ALL,
     };
     let mut positional_only = false;
     let mut it = args.iter();
@@ -56,7 +93,9 @@ pub(crate) fn parse(args: &[String], lang: Lang) -> Result<Parsed, String> {
             None => (arg.as_str(), None),
         };
         let key = name.trim_start_matches('-');
-        if !name.starts_with("--") || !matches!(key, "url" | "cacert" | "consent" | "out-dir") {
+        if !name.starts_with("--")
+            || !matches!(key, "url" | "cacert" | "consent" | "out-dir" | "runtime")
+        {
             return Err(lang.pick(
                 format!("알 수 없는 옵션입니다: {}", crate::text::plain(name, 40)),
                 format!("unknown option: {}", crate::text::plain(name, 40)),
@@ -81,6 +120,7 @@ pub(crate) fn parse(args: &[String], lang: Lang) -> Result<Parsed, String> {
             "url" => push_url(&mut o.urls, &value, lang)?,
             "cacert" => o.cacert = Some(local_path(value, lang)?),
             "out-dir" => o.out_dir = local_path(value, lang)?,
+            "runtime" => o.products = Products::parse(&value, lang)?,
             _ => o.consent = Some(Answer::parse(&value, lang)?),
         }
     }
@@ -200,6 +240,38 @@ mod tests {
         let many: Vec<&str> = many.iter().map(String::as_str).collect();
         assert!(p(&many).is_err(), "51개를 받았다");
         assert!(p(&many[..50]).is_ok());
+    }
+
+    #[test]
+    fn runtime_picks_php_apache_or_both() {
+        let run = |extra: &[&str]| {
+            let mut v = vec!["http://a.example/"];
+            v.extend_from_slice(extra);
+            match p(&v) {
+                Ok(Parsed::Run(o)) => Some(o.products),
+                _ => None,
+            }
+        };
+        let php = Products {
+            php: true,
+            apache: false,
+        };
+        let apache = Products {
+            php: false,
+            apache: true,
+        };
+        assert_eq!(run(&[]), Some(Products::ALL), "기본은 둘 다");
+        assert_eq!(run(&["--runtime", "all"]), Some(Products::ALL));
+        assert_eq!(run(&["--runtime=php"]), Some(php));
+        assert_eq!(run(&["--runtime", "apache"]), Some(apache));
+        for bad in [
+            &["--runtime", "node"][..],
+            &["--runtime", "PHP"][..],
+            &["--runtime"][..],
+            &["--runtime", ""][..],
+        ] {
+            assert_eq!(run(bad), None, "{bad:?} 를 받았다");
+        }
     }
 
     #[test]

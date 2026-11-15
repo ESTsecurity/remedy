@@ -24,7 +24,7 @@
 | Node2Shell 점검 (CVE-2026-111497) | 찾기만 합니다 | `node2shell-check-windows` 0.4.0 | `node2shell-check-linux` 0.6.0 | [nodejs.org](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases) |
 | PHP 세션 업로드 진행 설정 점검 (CVE-2026-115560) | 찾기만 합니다 | `php-session-check-windows` 0.4.0 | `php-session-check-linux` 0.5.0 | [www.php.net](https://www.php.net/archive/2026.php) |
 | PHP2Shell 점검 (CVE-2026-109618 · 109619) | 찾기만 합니다 | `php2shell-check-windows` 0.4.0 | `php2shell-check-linux` 0.6.0 | [www.php.net](https://www.php.net/archive/2026.php) |
-| PHP2Shell 원격 점검 (웹서버 응답 헤더) | 적어 주신 주소의 서버를 바깥에서 봅니다 (네트워크 사용) | `php2shell-url-check` 0.1.1 | `php2shell-url-check` 0.1.1 | [www.php.net](https://www.php.net/archive/2026.php) |
+| PHP2Shell · Apache HTTP/2 원격 점검 (웹서버 응답 헤더) | 적어 주신 주소의 서버를 바깥에서 봅니다 (네트워크 사용) | `php2shell-url-check` 0.2.0 | `php2shell-url-check` 0.2.0 | [www.php.net](https://www.php.net/archive/2026.php) |
 | CWPdoor 점검 (탐지만) | 찾기만 합니다 | — | `cwpdoor-1-check` 0.1.2 | [blog.xlab.qianxin.com](https://blog.xlab.qianxin.com/cwpdoor-the-invisible-backdoor-living-inside-control-web-panel/) |
 | CWPdoor 제거 | 찾아서 치료합니다 (복원할 수 있습니다) | — | `cwpdoor-2-clean` 0.1.2 | [blog.xlab.qianxin.com](https://blog.xlab.qianxin.com/cwpdoor-the-invisible-backdoor-living-inside-control-web-panel/) |
 | Ebury 점검 (탐지만) | 찾기만 합니다 | — | `ebury-check` 0.2.0 | [www.welivesecurity.com](https://www.welivesecurity.com/en/eset-research/ebury-alive-unseen-400k-linux-servers-compromised-cryptotheft-financial-gain/) |
@@ -112,9 +112,9 @@ sudo ./remedy
 - 치료는 그 항목(예: Windows 의 *EvilAI(Locust) 제거*)을 고른 뒤 **1. 검사하고 치료하기** 로 합니다. 바꾸기
   전에 먼저 보려면 **2. 검사만 하기** 입니다. 치료는 바꿀 것을 모두 보여 드린 뒤 `예` 를 받아야 시작합니다.
 - *점검* · *탐지만* 항목은 고르면 **1. 검사만 하기** 가 맨 위에 섭니다 — 바꾸는 것이 없습니다.
-- 이름 뒤에 **[네트워크 사용]** 이 붙은 항목(*PHP2Shell 원격 점검*)은 이 기계가 아니라 **적어 주신 주소의
-  웹서버**를 봅니다. 고르면 **1. 원격 점검하기** 가 서고, 네트워크를 쓴다고 알린 뒤 이용 조건 동의와 주소를
-  묻습니다. *모두 검사만* 에는 들지 않고, 그 요약에 *돌리지 않았습니다* 로 적힙니다([원격 점검 안내](#php2shell-원격-점검--웹서버-응답-헤더-네트워크를-씁니다)).
+- 이름 뒤에 **[네트워크 사용]** 이 붙은 항목(*PHP2Shell · Apache HTTP/2 원격 점검*)은 이 기계가 아니라 **적어 주신
+  주소의 웹서버**를 봅니다. 고르면 **1. 원격 점검하기** 가 서고, 네트워크를 쓴다고 알린 뒤 이용 조건 동의와 주소를
+  묻습니다. *모두 검사만* 에는 들지 않고, 그 요약에 *돌리지 않았습니다* 로 적힙니다([원격 점검 안내](#php2shell--apache-http2-원격-점검--웹서버-응답-헤더-네트워크를-씁니다)).
 
 치료한 뒤에는 *치료 전으로 복원하기 · 치료가 유지됐는지 다시 보기 · 신고에 붙일 것 모으기* 가 메뉴에
 나타납니다. 그 밖의 명령(프로그램 자체 점검 · 명령줄 사용법 · 룰 작성자 · 운영자 명령)은 메뉴 마지막의
@@ -447,16 +447,21 @@ sudo bash detect_ebury.sh
 
 </details>
 
-### PHP2Shell 원격 점검 — 웹서버 응답 헤더 (네트워크를 씁니다)
+### PHP2Shell · Apache HTTP/2 원격 점검 — 웹서버 응답 헤더 (네트워크를 씁니다)
 
-- **바깥에서 봅니다** — 적어 주신 주소(URL)의 웹서버가 응답 헤더로 알리는 PHP 버전을 PHP2Shell
-  (CVE-2026-109618 · 109619)의 고친 버전과 견줍니다. 이 기계는 검사하지 않고, 그 서버에도 아무것도 바꾸지
-  않습니다. **소유하거나 점검을 허락받은 서버에만** 쓰십시오 — 시작할 때 이용 조건에 동의를 받습니다.
-- **꼭 할 일** *취약* 이든 *확인 필요* 든 **그 서버에서** remedy 의 *PHP2Shell 점검* 으로 확인합니다. 헤더는
-  서버가 스스로 적는 글자라, 이 점검은 '괜찮다' 를 말하지 않습니다 — *취약* 이 나오지 않아도 안전하다는
-  뜻이 아닙니다.
-- **못 보는 것** 버전을 숨긴 서버 · 리버스 프록시 뒤의 실제 서버 · 배포판이 고쳐 넣은 패치(백포트) · PHP
-  세션 설정.
+- **바깥에서 봅니다** — 적어 주신 주소(URL)의 웹서버가 응답 헤더로 알리는 버전을 견줍니다. PHP 는 PHP2Shell
+  (CVE-2026-109618 · 109619)의 고친 버전과, Apache 는 HTTP/2 모듈 원격 코드 실행(CVE-2026-119618)의 영향 범위와
+  봅니다. 이 기계는 검사하지 않고, 그 서버에도 아무것도 바꾸지 않습니다. **소유하거나 점검을 허락받은 서버에만**
+  쓰십시오 — 시작할 때 이용 조건에 동의를 받습니다.
+- **Apache 는 HTTP/2 를 켰을 때만 취약입니다** — 헤더가 아파치 재단 소스로 지은 버전(OS 표시 `Unix` · `Win32` ·
+  `Win64`)의 영향 버전(2.4.55 ~ 2.4.70)을 알리고, 같은 응답이 HTTP/2 를 알리면(`Upgrade: h2` · `h2c`) *취약* 입니다.
+  배포판이 지은 Apache(`Debian` · `Ubuntu` · `Rocky Linux` 등)는 버전을 그대로 두고 패치를 넣어 헤더로는 가릴 수
+  없으므로 *확인 필요* 로 나옵니다. 요청은 PHP 와 같은 HEAD 한 번입니다.
+- **꼭 할 일** *취약* 이든 *확인 필요* 든 **그 서버에서** remedy 의 *PHP2Shell 점검* · *Apache HTTP/2 점검* 으로
+  확인합니다. 헤더는 서버가 스스로 적는 글자라, 이 점검은 '괜찮다' 를 말하지 않습니다 — *취약* 이 나오지 않아도
+  안전하다는 뜻이 아닙니다.
+- **못 보는 것** 버전을 숨긴 서버 · 리버스 프록시 뒤의 실제 서버 · 배포판이 고쳐 넣은 패치(백포트) · HTTP/2 를
+  알리지 않게 한 Apache(`H2Upgrade off`) · PHP 세션 설정.
 
 <details>
 <summary>자세히 — 누가 통신하나 · 보내는 요청 · 네트워크를 쓰지 않으려면 · 명령으로 돌리기</summary>
@@ -476,6 +481,8 @@ sudo bash detect_ebury.sh
 - **명령으로 돌리기** — Windows: `.\remedy.exe scan --plugin .\plugins\php2shell-url-check\plugin.yaml --out-dir
   .\out --url https://<주소>` · 리눅스: `./remedy scan --plugin ./plugins/php2shell-url-check/plugin.yaml --out-dir
   ./out --url https://<주소>` (`--url` 은 여러 번 줄 수 있습니다). 결과는 화면과 `out` 폴더의 JSON 파일에 남습니다.
+  `remedy-net` 을 직접 실행하면(`./remedy-net/remedy-net url https://<주소>`) `--runtime php` · `apache` 로 하나만
+  고를 수 있습니다 — 주지 않으면 둘 다 봅니다.
 
 </details>
 
@@ -491,8 +498,8 @@ sudo bash detect_ebury.sh
 - **꼭 할 일** *취약* 이면 고친 버전으로 이미지를 다시 짓고 컨테이너를 새로 띄웁니다. 컨테이너 점검은 엔진에서
   읽을 수 있는 파일만 보므로 '괜찮다' 를 말하지 않습니다 — *취약* 이 나오지 않아도 안전하다는 뜻이 아닙니다.
 - **못 보는 것** 지금 도는 프로세스가 실제로 실은 것 · 바깥에서 붙인 폴더(마운트) 안 · 기준(2026-10-30 버전) 뒤에
-  다시 지어진 공식 이미지(그 파일은 *확인 필요* 로 나옵니다). Apache 는 Windows 컨테이너와 원격 주소를 보지 않고,
-  컨테이너에서는 배포판의 기본 자리에 있는 설정만 읽습니다. 공식 `httpd` 이미지의 표지가 없는 직접 빌드는
+  다시 지어진 공식 이미지(그 파일은 *확인 필요* 로 나옵니다). Apache 는 Windows 컨테이너를 보지 않고(원격 주소는 위
+  *원격 점검* 이 봅니다), 컨테이너에서는 배포판의 기본 자리에 있는 설정만 읽습니다. 공식 `httpd` 이미지의 표지가 없는 직접 빌드는
   *확인 필요* 로 나옵니다.
 
 <details>

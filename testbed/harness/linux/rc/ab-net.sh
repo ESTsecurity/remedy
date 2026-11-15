@@ -9,6 +9,8 @@
 #               9p 경로는 설계대로 거부된다)
 #   container - docker:dind(진짜 리눅스 엔진) 안에서 저장한 tar 로 띄운 컨테이너 둘
 # image · container 는 제품마다(`--runtime php` · `node`) 견준다 — 1.18.0 의 기본(all)은 Apache 도 본다(ab-net-inside.sh).
+# url 은 PHP 만 견준다 — 1.19.0 의 url 기본(all)은 Apache 도 보고, 그 앞의 판은 url 에 `--runtime` 이 없다(PHP 만 본다).
+# 그래서 `url --help` 가 `--runtime` 을 아는 판에만 `--runtime php` 를 준다.
 # 경우마다 종료 코드와 화면 · 결과 JSON(버전 · 시각 · 회차 · 경로를 가린 뒤)이 같아야 한다. 이미지 tar 는
 # `save-images.sh` 가 만든다. 망은 쓰지 않는다(dind 는 tar 로 싣는다).
 #
@@ -34,6 +36,9 @@ note "B: $("$W/b/remedy-net/remedy-net" --version 2>/dev/null | grep -m1 -E '[0-
 . "$HERE/ab-net-mask.sh"
 
 # ── url ─────────────────────────────────────────────────────────────
+url_rt() { "$W/$1/remedy-net/remedy-net" url --help 2>/dev/null | grep -q -- '--runtime' && echo "--runtime php"; }
+declare -A RT=([a]="$(url_rt a)" [b]="$(url_rt b)")
+note "url: A ${RT[a]:-(기본 · PHP 만)} · B ${RT[b]:-(기본 · PHP 만)}"
 port=18360
 for v in 8.3.38 8.3.2 8.2.35-1~deb12u1 8.2.32-1~deb12u1; do
     port=$((port + 1))
@@ -42,8 +47,9 @@ for v in 8.3.38 8.3.2 8.2.35-1~deb12u1 8.2.32-1~deb12u1; do
     sleep 0.5
     for s in a b; do
         o="$W/out-url-$s-$port"
-        LANG=C.UTF-8 REMEDY_LANG=ko "$W/$s/remedy-net/remedy-net" url --url "http://127.0.0.1:$port/" --consent y \
-            --out-dir "$o" > "$W/url-$s-$port.txt" 2>&1
+        # RT 는 비었거나 옵션 둘이라 따옴표를 씌우지 않는다.
+        LANG=C.UTF-8 REMEDY_LANG=ko "$W/$s/remedy-net/remedy-net" url ${RT[$s]} --url "http://127.0.0.1:$port/" \
+            --consent y --out-dir "$o" > "$W/url-$s-$port.txt" 2>&1
         echo $? > "$W/url-$s-$port.rc"
     done
     kill "$mock" 2>/dev/null

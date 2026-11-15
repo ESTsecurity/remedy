@@ -489,3 +489,39 @@ fn edge_cases_answer_as_the_scanner_does() {
         assert_eq!(parse_release(file, data), want, "{file}: {text:?}");
     }
 }
+
+/// `%_dbpath` — 실제 이미지의 두 꼴(2026-11-15 실측)과 받지 않는 꼴(코어 1.19.0).
+#[test]
+fn rpm_dbpath_reads_the_definition_rpm_uses() {
+    let rows: [(&str, Option<&str>); 9] = [
+        // RHEL 계열 · Amazon Linux(rpm 4.16 의 원문 — 탭 둘)와 Fedora · SUSE.
+        (
+            "%_dbpath\t\t%{_var}/lib/rpm\n%_dbpath_rebuild\t%{_dbpath}\n",
+            Some("/var/lib/rpm"),
+        ),
+        (
+            "%_dbpath\t\t%{_usr}/lib/sysimage/rpm\n%_dbpath_rebuild\t%{_dbpath}\n",
+            Some("/usr/lib/sysimage/rpm"),
+        ),
+        // 마지막 정의가 이긴다 · 끝의 `/` · CRLF.
+        (
+            "%_dbpath %{_var}/lib/rpm\n%_dbpath /usr/lib/sysimage/rpm/\r\n",
+            Some("/usr/lib/sysimage/rpm"),
+        ),
+        // 정의가 없다 · 다른 이름뿐이다 · 모르는 매크로 · 두 자리 밖 · 주석 · 빈 값.
+        ("%_var /var\n", None),
+        ("%_dbpath_rebuild %{_dbpath}\n", None),
+        ("%_dbpath %{_localstatedir}/lib/rpm\n", None),
+        ("%_dbpath /opt/rpmdb\n", None),
+        ("#%_dbpath %{_var}/lib/rpm\n", None),
+        ("%_dbpath \n", None),
+    ];
+    for (text, want) in rows {
+        assert_eq!(rpm_dbpath(text.as_bytes()), want, "{text:?}");
+    }
+    assert_eq!(
+        rpm_dbpath(b"%_dbpath\t\xff/var/lib/rpm\n"),
+        None,
+        "UTF-8 이 아니다"
+    );
+}

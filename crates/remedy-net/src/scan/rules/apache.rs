@@ -151,8 +151,35 @@ impl ApacheCriteria {
         &self.sha256
     }
 
-    pub(super) fn cves(&self) -> &[String] {
+    /// 기준의 CVE 번호들.
+    pub fn cves(&self) -> &[String] {
         &self.data.cves
+    }
+
+    /// 같은 값을 든 본체의 점검 룰과 그 버전.
+    pub fn same_as(&self) -> &str {
+        &self.data.same_as
+    }
+
+    /// 상류 공지.
+    pub fn source(&self) -> &str {
+        &self.data.source
+    }
+
+    /// 상류 httpd 의 영향 범위(양 끝 포함).
+    pub fn upstream_range(&self) -> (&str, &str) {
+        let [low, high] = &self.data.upstream.affected;
+        (low, high)
+    }
+
+    /// 상류 httpd 판(`X.Y.Z`)이 영향 범위 안인가 — url 이 응답 헤더의 판을 견준다(코어 1.19.0). `X.Y.Z` 가 아니면
+    /// `None`.
+    pub fn upstream_affected(&self, version: &str) -> Option<bool> {
+        match self.judge_upstream(version) {
+            Judgement::UpstreamAffected => Some(true),
+            Judgement::NotAffected | Judgement::UpstreamFixed => Some(false),
+            _ => None,
+        }
     }
 
     /// 판정하는 패키지인가 — 줄에 그 관리자 · 이름이 있는 패키지만 본다.

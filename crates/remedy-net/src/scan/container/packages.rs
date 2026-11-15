@@ -4,12 +4,12 @@
 //! 판독과 규칙이 다르다 — 이것이 컨테이너의 것이다.
 //!
 //! **믿을 수 있는 기록**은 dpkg 의 것 가운데 레코드의 꼴이 온전하고(겹친 칸 · 깨진 줄 · 틀린 아키텍처가 없고)
-//! 관리자가 그 배포판의 공식 주소인 것뿐이다(Debian: `@lists.alioth.debian.org>` · `@tracker.debian.org>`,
-//! Ubuntu: `@lists.ubuntu.com>`). apk 의 설치 기록은 저장소 · 서명 출처를 말하지 않아 늘 믿지 않는다.
+//! 관리자가 그 배포판의 공식 주소인 것뿐이다(Debian: `@lists.alioth.debian.org>` · `@tracker.debian.org>` ·
+//! `@lists.debian.org>`, Ubuntu: `@lists.ubuntu.com>`). apk 의 설치 기록은 저장소 · 서명 출처를 말하지 않아 늘 믿지
+//! 않는다.
 //!
-//! **Apache(코어 1.18.0)** 의 패키지는 이미지 점검과 같은 규칙으로 읽는다 — Debian 의 관리자 주소에
-//! `@lists.debian.org>` 를 더 받는다(Debian 의 Apache 관리자 주소가 그것이다). 그 판을 쓸지는 `super::apache` 가
-//! 실제 모듈 파일을 기록과 견준 뒤 정한다. PHP · Node.js 의 규칙은 바꾸지 않았다.
+//! Debian 의 `@lists.debian.org>`(Apache 관리자의 주소가 그것이다)는 코어 1.18.0 에서 Apache 만 받았고 1.19.0 부터
+//! 제품을 가리지 않는다 — 이미지 점검의 주소 표와 같다. 그 판을 쓸지는 제품마다 실제 파일을 기록과 견준 뒤 정한다.
 
 use super::gostr::lower;
 use crate::scan::linuxmeta;
@@ -126,12 +126,10 @@ pub(crate) fn parse_dpkg(
             continue;
         }
         let maintainer = lower(get("maintainer"));
-        let apache_debian =
-            product == Product::Apache && maintainer.ends_with("@lists.debian.org>");
         let official = (distro == "debian"
             && (maintainer.ends_with("@lists.alioth.debian.org>")
                 || maintainer.ends_with("@tracker.debian.org>")
-                || apache_debian))
+                || maintainer.ends_with("@lists.debian.org>")))
             || (distro == "ubuntu" && maintainer.ends_with("@lists.ubuntu.com>"));
         let architecture = get("architecture");
         let mut c = Component::new(product);
@@ -302,5 +300,50 @@ mod tests {
             )[0]
             .trusted
         );
+    }
+
+    /// Debian 의 공식 주소 셋은 제품을 가리지 않는다 — 이미지 점검의 주소 표와 같다(코어 1.19.0 · 1.18.0 은
+    /// `@lists.debian.org>` 를 Apache 만 받았다). Ubuntu 의 규칙은 그대로다.
+    #[test]
+    fn debian_addresses_are_the_same_for_every_product() {
+        let all = [Product::Php, Product::Node, Product::Apache];
+        for (package, maintainer) in [
+            (
+                "php8.2-cli",
+                "Debian PHP Maintainers <team+pkg-php@tracker.debian.org>",
+            ),
+            (
+                "nodejs",
+                "Debian Javascript Maintainers <pkg-javascript-devel@lists.alioth.debian.org>",
+            ),
+            (
+                "php8.2-cli",
+                "Debian PHP Team <debian-php@lists.debian.org>",
+            ),
+            ("nodejs", "Debian JS Team <debian-js@lists.debian.org>"),
+            ("libbrotli1", "Debian Team <debian-team@lists.debian.org>"),
+            (
+                "apache2-bin",
+                "Debian Apache Maintainers <debian-apache@lists.debian.org>",
+            ),
+        ] {
+            let data = format!("Package: {package}\nStatus: install ok installed\nVersion: 1.0-1\nMaintainer: {maintainer}\n");
+            let debian = parse_dpkg(data.as_bytes(), "debian", "12", "s", &all, Lang::Ko);
+            assert!(debian[0].trusted, "{package} · {maintainer}");
+            let ubuntu = parse_dpkg(data.as_bytes(), "ubuntu", "24.04", "s", &all, Lang::Ko);
+            assert!(
+                !ubuntu[0].trusted,
+                "Ubuntu 에서 받았다: {package} · {maintainer}"
+            );
+        }
+        for maintainer in [
+            "Tomasz Buchert <tomasz@debian.org>",
+            "Someone <x@lists.debian.org.example>",
+            "Someone <x@notlists.debian.org>",
+        ] {
+            let data = format!("Package: php8.2-cli\nStatus: install ok installed\nVersion: 1.0-1\nMaintainer: {maintainer}\n");
+            let got = parse_dpkg(data.as_bytes(), "debian", "12", "s", &all, Lang::Ko);
+            assert!(!got[0].trusted, "{maintainer}");
+        }
     }
 }

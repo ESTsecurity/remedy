@@ -6,14 +6,23 @@
 //! `Packages.db` 차례이고, 없는 것(404)만 다음으로 넘어간다 — 다른 실패는 옛 DB 를 고르지 않고 멈춘다. SQLite DB 는
 //! 쓰기 로그(`-wal` · `-journal`)가 0 바이트여야 한다.
 //!
+//! **새 자리에서 찾았으면 옛 자리도 본다**(코어 1.19.0). 옛 자리가 링크(Fedora · SUSE — 새 자리로 간다)이거나
+//! 없으면 새 자리의 것이고, 실제 폴더에 DB 가 또 있으면 rpm 설정 `%_dbpath`(`/usr/lib/rpm/macros`)가 고른다 —
+//! Oracle Linux 9 는 쓰지 않는 빈 DB 를 새 자리에 둔다. 그 쪽을 정하지 못하면 어느 DB 도 고르지 않는다. 새 자리에
+//! 없는 배포판(RHEL 계열 9 까지 · Amazon Linux)의 요청은 그대로다.
+//!
 //! **실행 파일과 기록을 견준다.** 패키지가 그 경로를 제 것으로 적고 있고, 그 파일의 다이제스트(MD5 · SHA-256)가 실제
 //! 바이트와 같을 때만 그 패키지의 버전 · 공급사를 믿는다. 로컬 DB 의 일관성일 뿐 패키지 서명을 확인한 것은 아니다.
 
 use super::client::{BinaryFile, Client};
+use super::failure::Failure;
 use super::packages::package_product;
 use super::paths;
 use super::php::{php_module, php_runtime_path};
 use crate::scan::binary::{is_brotli_decoder, is_node_runtime};
+use crate::scan::linuxmeta::{
+    rpm_db_unclear, rpm_dbpath, RPM_DB_ROOTS, RPM_MACROS, RPM_MACROS_LIMIT,
+};
 use crate::scan::model::{Product, Target};
 use crate::scan::rules::{Component, PackageManager};
 use crate::scan::slashpath;
@@ -21,7 +30,9 @@ use remedy_rpmdb::{DigestAlgorithm, RpmDbError};
 use remedy_sdk::i18n::Lang;
 use std::collections::{BTreeMap, HashMap};
 
-const ROOTS: [&str; 2] = ["/usr/lib/sysimage/rpm", "/var/lib/rpm"];
+/// 새 자리(`/usr/lib/sysimage/rpm`)와 옛 자리(`/var/lib/rpm`).
+const NEW_ROOT: &str = RPM_DB_ROOTS[0];
+const OLD_ROOT: &str = RPM_DB_ROOTS[1];
 const NAMES: [&str; 3] = ["rpmdb.sqlite", "Packages", "Packages.db"];
 /// `read_untrusted` 가 읽지 않는 알고리즘을 말하는 글 — 그 갈래만 따로 말한다.
 const UNSUPPORTED_ALGORITHM: RpmDbError =
@@ -122,47 +133,146 @@ pub(crate) fn read_rpm_packages(
     release: &str,
     products: &[Product],
 ) -> (Vec<Component>, RpmRecords) {
-    let lang = c.lang;
-    for root in ROOTS {
-        for base in NAMES {
-            let name = format!("{root}/{base}");
-            let data = match c.read_file(id, &name) {
-                Ok(data) => data,
-                Err(e) => {
-                    if c.budget.check().is_err() {
-                        return Default::default();
-                    }
-                    if e.is_missing() {
-                        continue;
-                    }
-                    let why = e.message(lang);
-                    let (ko, en) = (
-                        format!("RPM 패키지 DB 를 읽지 못했습니다: {name}: {why}"),
-                        format!("The RPM package database could not be read: {name}: {why}"),
-                    );
-                    gap(t, ko, en, lang);
-                    return Default::default();
-                }
-            };
-            if base == "rpmdb.sqlite" && !write_log_clean(c, t, id, &name) {
-                return Default::default();
+    let Some((name, data)) = locate(c, t, id) else {
+        return Default::default();
+    };
+    let place = Place {
+        id,
+        name: &name,
+        distro,
+        release,
+    };
+    parse_database(c, t, &place, &data, products)
+}
+
+/// 한 자리를 찾아 본 결과.
+enum Probe {
+    /// 그 자리의 DB(이름 · 바이트) — 쓰기 로그까지 확인했다.
+    Found(String, Vec<u8>),
+    /// 세 이름 모두 없다(404).
+    Missing,
+    /// 까닭을 적었거나 예산이 다 됐다 — 더 보지 않는다.
+    Stop,
+}
+
+/// 읽을 DB — 새 자리, 없으면 옛 자리. 새 자리에서 찾았으면 [`settle`] 이 옛 자리를 본다.
+fn locate(c: &mut Client<'_>, t: &mut Target, id: &str) -> Option<(String, Vec<u8>)> {
+    match read_root(c, t, id, NEW_ROOT) {
+        Probe::Found(name, data) => settle(c, t, id, (name, data)),
+        Probe::Stop => None,
+        Probe::Missing => match read_root(c, t, id, OLD_ROOT) {
+            Probe::Found(name, data) => Some((name, data)),
+            Probe::Stop => None,
+            Probe::Missing => {
+                gap(
+                    t,
+                    "RPM 패키지 DB 를 읽지 못했습니다.".into(),
+                    "The RPM package database could not be read.".into(),
+                    c.lang,
+                );
+                None
             }
-            let place = Place {
-                id,
-                name: &name,
-                distro,
-                release,
-            };
-            return parse_database(c, t, &place, &data, products);
+        },
+    }
+}
+
+/// 한 자리의 세 이름을 차례로 읽는다 — 없는 것(404)만 다음으로 넘어간다.
+fn read_root(c: &mut Client<'_>, t: &mut Target, id: &str, root: &str) -> Probe {
+    let lang = c.lang;
+    for base in NAMES {
+        let name = format!("{root}/{base}");
+        let data = match c.read_file(id, &name) {
+            Ok(data) => data,
+            Err(e) => {
+                if c.budget.check().is_err() {
+                    return Probe::Stop;
+                }
+                if e.is_missing() {
+                    continue;
+                }
+                let why = e.message(lang);
+                let (ko, en) = (
+                    format!("RPM 패키지 DB 를 읽지 못했습니다: {name}: {why}"),
+                    format!("The RPM package database could not be read: {name}: {why}"),
+                );
+                gap(t, ko, en, lang);
+                return Probe::Stop;
+            }
+        };
+        if base == "rpmdb.sqlite" && !write_log_clean(c, t, id, &name) {
+            return Probe::Stop;
+        }
+        return Probe::Found(name, data);
+    }
+    Probe::Missing
+}
+
+/// 새 자리의 DB 를 읽은 뒤 옛 자리를 본다(코어 1.19.0). 링크이거나 없으면 새 자리의 것이 rpm 의 DB 다. 실제 폴더면
+/// rpm 설정이 고르고, 설정을 읽지 못했는데 옛 자리에도 DB 가 있으면 어느 것도 고르지 않는다.
+fn settle(
+    c: &mut Client<'_>,
+    t: &mut Target,
+    id: &str,
+    newer: (String, Vec<u8>),
+) -> Option<(String, Vec<u8>)> {
+    match c.stat(id, OLD_ROOT) {
+        Ok(stat) if stat.directory() => {}
+        Ok(_) => return Some(newer),
+        Err(e) if e.is_missing() => return Some(newer),
+        Err(e) => return stopped(c, t, OLD_ROOT, &e),
+    }
+    let dbpath = c
+        .read_metadata(id, RPM_MACROS, RPM_MACROS_LIMIT)
+        .ok()
+        .and_then(|macros| rpm_dbpath(&macros));
+    if c.budget.check().is_err() {
+        return None;
+    }
+    match dbpath {
+        Some(root) if root == NEW_ROOT => Some(newer),
+        Some(_) => match read_root(c, t, id, OLD_ROOT) {
+            Probe::Found(name, data) => Some((name, data)),
+            Probe::Missing => Some(newer),
+            Probe::Stop => None,
+        },
+        None => match old_root_has_db(c, t, id) {
+            Some(false) => Some(newer),
+            Some(true) => {
+                t.add_gap(rpm_db_unclear(c.lang).to_string());
+                None
+            }
+            None => None,
+        },
+    }
+}
+
+/// 옛 자리에 DB 가 있는가 — 본문을 읽지 않는다(HEAD). 알지 못하면 까닭을 적고 `None`.
+fn old_root_has_db(c: &mut Client<'_>, t: &mut Target, id: &str) -> Option<bool> {
+    for base in NAMES {
+        let name = format!("{OLD_ROOT}/{base}");
+        match c.stat(id, &name) {
+            Ok(stat) if stat.regular() => return Some(true),
+            Ok(_) => {}
+            Err(e) if e.is_missing() => {}
+            Err(e) => return stopped(c, t, &name, &e),
         }
     }
-    gap(
-        t,
-        "RPM 패키지 DB 를 읽지 못했습니다.".into(),
-        "The RPM package database could not be read.".into(),
-        lang,
-    );
-    Default::default()
+    Some(false)
+}
+
+/// 옛 자리를 확인하지 못했다 — 예산 탓이 아니면 그 까닭을 적는다. 늘 `None`.
+fn stopped<T>(c: &Client<'_>, t: &mut Target, name: &str, e: &Failure) -> Option<T> {
+    if c.budget.check().is_ok() {
+        let why = e.message(c.lang);
+        let (ko, en) = (
+            format!("RPM 패키지 DB 의 자리를 확인하지 못했습니다: {name}: {why}"),
+            format!(
+                "The location of the RPM package database could not be confirmed: {name}: {why}"
+            ),
+        );
+        gap(t, ko, en, c.lang);
+    }
+    None
 }
 
 /// SQLite 의 쓰기 로그 — 비어 있지 않거나 읽지 못하면 DB 의 상태가 일관되다고 할 수 없다. 0 바이트 상한이라 비어

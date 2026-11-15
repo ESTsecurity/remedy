@@ -4,17 +4,19 @@
 //! [`super::headers`] 의 시험에 있다. 나머지는 여기 — 서버 없이 응답을 지어 넣는 시험과, 127.0.0.1 에 연
 //! 시험 서버로 실제 전송을 보는 시험이다.
 
+use super::args::Products;
 use super::input::Input;
 use super::policy::{wait_until, Budget, Cancel, Gate, Halt};
-use super::report::{Target, Verdict};
+use super::report::{FindingKind, Target, Verdict};
 use super::scan::Scan;
 use super::trust;
 use super::wire::{classify, Failure, Head, Method, Net, Transport};
+use crate::scan::rules::ApacheCriteria;
 use remedy_sdk::i18n::Lang;
 use std::io::{self, Read, Write};
 use std::net::{IpAddr, SocketAddr, TcpListener};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 // ── 지어 넣는 전송 · 상한 ────────────────────────────────────────────────
@@ -104,7 +106,22 @@ fn head(status: u16, headers: &[(&str, &str)]) -> Head {
     }
 }
 
+/// PHP 만 — 옮겨 온 시험들은 1.18.0 의 url(PHP2Shell 만)을 그대로 본다.
 fn scan(t: &dyn Transport, g: &dyn Gate, urls: &[&str], timeout: Duration) -> Vec<Target> {
+    let php = Products {
+        php: true,
+        apache: false,
+    };
+    scan_with(t, g, urls, timeout, php)
+}
+
+fn scan_with(
+    t: &dyn Transport,
+    g: &dyn Gate,
+    urls: &[&str],
+    timeout: Duration,
+    products: Products,
+) -> Vec<Target> {
     let cancel = Cancel::default();
     let urls: Vec<String> = urls.iter().map(|s| s.to_string()).collect();
     Scan {
@@ -113,9 +130,18 @@ fn scan(t: &dyn Transport, g: &dyn Gate, urls: &[&str], timeout: Duration) -> Ve
         cancel: &cancel,
         url_timeout: timeout,
         lang: Lang::Ko,
-        criteria: super::criteria::fixture(),
+        criteria: products.php.then(super::criteria::fixture),
+        apache: products.apache.then(apache_fixture),
     }
     .run(&urls, &mut |_| {})
+}
+
+/// 시험의 Apache 기준(`testdata/apache.json` — 영향 2.4.55 ~ 2.4.70 · 고침 2.4.71).
+fn apache_fixture() -> &'static ApacheCriteria {
+    static C: OnceLock<ApacheCriteria> = OnceLock::new();
+    C.get_or_init(|| {
+        ApacheCriteria::from_json(crate::criteria::testkit::APACHE).expect("시험 기준")
+    })
 }
 
 const SECOND: Duration = Duration::from_secs(1);
@@ -394,7 +420,8 @@ fn a_head_warning_survives_an_interrupted_fallback() {
                 cancel: &cancel,
                 url_timeout: Duration::from_secs(5),
                 lang: Lang::Ko,
-                criteria: super::criteria::fixture(),
+                criteria: Some(super::criteria::fixture()),
+                apache: None,
             }
             .run(&["https://example.com/".to_string()], &mut |_| {})
         });
@@ -894,4 +921,183 @@ fn each_request_opens_its_own_connection() {
     );
     assert_eq!(server.requests.load(Ordering::SeqCst), 2, "HEAD 405 → GET");
     assert_eq!(server.connections.load(Ordering::SeqCst), 2);
+}
+
+// ── Apache(코어 1.19.0 · 목표 remedy_net엔진보완 결정 1) ─────────────────────────────
+
+/// 판정 표 — 상류 빌드(Unix · Win32 · Win64)의 영향 버전이고 같은 응답이 HTTP/2 를 알릴 때만 취약. 요청은 HEAD 하나
+/// 그대로다. 값은 2026-11-15 의 실측(공식 httpd 2.4.65 · Debian 2.4.69)과 그 꼴들.
+#[test]
+fn apache_is_vulnerable_only_for_an_affected_upstream_build_that_announces_http2() {
+    use Verdict::{ReviewRequired as Review, Vulnerable};
+    /// 이름 · 응답 헤더 · 기대 판정 · 까닭에 있어야 할 글.
+    type Case<'a> = (&'a str, &'a [(&'a str, &'a str)], Verdict, &'a str);
+    let cases: [Case; 11] = [
+        (
+            "h2c",
+            &[("Server", "Apache/2.4.65 (Unix)"), ("Upgrade", "h2c")],
+            Vulnerable,
+            "HTTP/2 를 알립니다",
+        ),
+        (
+            "tls_h2",
+            &[
+                ("Server", "Apache/2.4.65 (Unix) OpenSSL/3.5.4"),
+                ("Upgrade", "h2,h2c"),
+            ],
+            Vulnerable,
+            "HTTP/2 를 알립니다",
+        ),
+        (
+            "win64",
+            &[("Server", "Apache/2.4.62 (Win64)"), ("Upgrade", "h2")],
+            Vulnerable,
+            "HTTP/2 를 알립니다",
+        ),
+        (
+            "http2_off",
+            &[("Server", "Apache/2.4.65 (Unix)")],
+            Review,
+            "HTTP/2 를 알리지 않습니다",
+        ),
+        (
+            "debian",
+            &[("Server", "Apache/2.4.69 (Debian)"), ("Upgrade", "h2c")],
+            Review,
+            "백포트",
+        ),
+        (
+            "rhel",
+            &[
+                ("Server", "Apache/2.4.62 (Red Hat Enterprise Linux)"),
+                ("Upgrade", "h2"),
+            ],
+            Review,
+            "백포트",
+        ),
+        (
+            "no_os",
+            &[("Server", "Apache/2.4.65"), ("Upgrade", "h2c")],
+            Review,
+            "OS 표시",
+        ),
+        (
+            "fixed",
+            &[("Server", "Apache/2.4.71 (Unix)"), ("Upgrade", "h2c")],
+            Review,
+            "영향 범위",
+        ),
+        (
+            "below",
+            &[("Server", "Apache/2.4.54 (Unix)"), ("Upgrade", "h2c")],
+            Review,
+            "영향 범위",
+        ),
+        (
+            "prod",
+            &[("Server", "Apache"), ("Upgrade", "h2c")],
+            Review,
+            "ServerTokens Prod",
+        ),
+        (
+            "minor",
+            &[("Server", "Apache/2.4"), ("Upgrade", "h2c")],
+            Review,
+            "버전을 다 알리지",
+        ),
+    ];
+    for (name, headers, want, why) in cases {
+        let t = fake(|_, _, _| Ok(head(200, headers)));
+        let out = scan_with(
+            &t,
+            &Count::default(),
+            &["http://a.example/"],
+            SECOND,
+            Products::ALL,
+        );
+        let f = out[0]
+            .findings
+            .iter()
+            .find(|f| f.kind == FindingKind::Apache)
+            .unwrap_or_else(|| panic!("{name}: Apache 항목이 없다"));
+        assert_eq!(f.verdict, want, "{name}: {}", f.reason);
+        assert!(f.reason.contains(why), "{name}: {}", f.reason);
+        assert_eq!(out[0].verdict, want, "{name}");
+        assert_eq!(t.calls(), 1, "{name}: 요청이 늘었다");
+    }
+    // 다른 제품의 Server · Server 없음은 Apache 항목이 없다.
+    for headers in [
+        &[("Server", "nginx/1.27.0"), ("Upgrade", "h2c")][..],
+        &[("Server", "Apache-Coyote/1.1")][..],
+        &[][..],
+    ] {
+        let t = fake(|_, _, _| Ok(head(200, headers)));
+        let out = scan_with(
+            &t,
+            &Count::default(),
+            &["http://a.example/"],
+            SECOND,
+            Products::ALL,
+        );
+        assert!(
+            !out[0]
+                .findings
+                .iter()
+                .any(|f| f.kind == FindingKind::Apache),
+            "{headers:?}"
+        );
+        assert_eq!(out[0].verdict, Verdict::ReviewRequired, "{headers:?}");
+    }
+}
+
+/// 할 일은 영향 버전을 본 제품의 점검을 말한다 — PHP 만 고르면 1.18.0 의 글 그대로이고 Apache 항목이 없다.
+#[test]
+fn the_action_names_the_checks_of_the_products() {
+    let headers: &[(&str, &str)] = &[
+        ("Server", "Apache/2.4.65 (Unix) PHP/8.3.2"),
+        ("Upgrade", "h2c"),
+    ];
+    let run = |products: Products| {
+        let t = fake(|_, _, _| Ok(head(200, headers)));
+        scan_with(
+            &t,
+            &Count::default(),
+            &["http://a.example/"],
+            SECOND,
+            products,
+        )
+        .remove(0)
+    };
+    let php = run(Products {
+        php: true,
+        apache: false,
+    });
+    assert_eq!(php.action, "그 서버에서 remedy 의 PHP2Shell 점검으로 직접 확인한 뒤, 패치가 빠졌으면 공급사 보안 패치를 적용하십시오.");
+    assert!(!php.findings.iter().any(|f| f.kind == FindingKind::Apache));
+    let apache = run(Products {
+        php: false,
+        apache: true,
+    });
+    assert_eq!(apache.action, "그 서버에서 remedy 의 Apache HTTP/2 점검으로 직접 확인한 뒤, 패치가 빠졌으면 공급사 보안 패치를 적용하십시오.");
+    assert!(apache
+        .findings
+        .iter()
+        .all(|f| f.kind == FindingKind::Apache));
+    let both = run(Products::ALL);
+    assert_eq!(both.action, "그 서버에서 remedy 의 PHP2Shell · Apache HTTP/2 점검으로 직접 확인한 뒤, 패치가 빠졌으면 공급사 보안 패치를 적용하십시오.");
+    // PHP 가 먼저 취약이면 대상의 까닭은 PHP 의 것이다.
+    assert!(both.reason.contains("PHP2Shell"), "{}", both.reason);
+
+    let t = fake(|_, _, _| Ok(head(200, &[("Server", "nginx")])));
+    let quiet = scan_with(
+        &t,
+        &Count::default(),
+        &["http://a.example/"],
+        SECOND,
+        Products::ALL,
+    );
+    assert_eq!(
+        quiet[0].action,
+        "그 서버에서 remedy 의 PHP2Shell · Apache HTTP/2 점검으로 직접 확인하십시오."
+    );
 }

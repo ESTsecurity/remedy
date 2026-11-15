@@ -22,13 +22,15 @@ use crate::scan::rules::{Component, RuleSet};
 
 /// 배포판 기록 하나의 상한.
 const RELEASE_LIMIT: u64 = 64 << 10;
-const RPM_DISTROS: [&str; 12] = [
+/// RPM 패키지 DB 를 읽는 배포판(os-release 의 `ID`) — `amzn`(Amazon Linux 2 · 2023)은 코어 1.19.0 에서 더했다.
+const RPM_DISTROS: [&str; 13] = [
     "rhel",
     "redhat",
     "centos",
     "ol",
     "rocky",
     "almalinux",
+    "amzn",
     "fedora",
     "sles",
     "sled",

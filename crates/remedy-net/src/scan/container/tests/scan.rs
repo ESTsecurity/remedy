@@ -214,6 +214,55 @@ fn an_rpm_read_failure_does_not_fall_back_to_an_older_database() {
     assert_eq!(files, ["/usr/lib/sysimage/rpm/rpmdb.sqlite"]);
 }
 
+/// Amazon Linux(os-release `ID=amzn` · 2 · 2023)의 RPM DB 를 읽는다 — 1.18.0 은 배포판 목록에 없어 '패키지 DB 를
+/// 해석할 수 없습니다' 로 남겼다(코어 1.19.0).
+#[test]
+fn an_amazon_linux_container_reads_its_rpm_database() {
+    const TINY: &[u8] =
+        include_bytes!("../../../../../remedy-rpmdb/src/testdata/tiny-rpmdb.sqlite");
+    for version in ["2", "2023"] {
+        let (b, _, _) = budget();
+        let files: HashMap<String, Vec<u8>> = [
+            (
+                "/etc/os-release".to_string(),
+                format!("ID=\"amzn\"\nVERSION_ID=\"{version}\"\n").into_bytes(),
+            ),
+            ("/var/lib/rpm/rpmdb.sqlite".to_string(), TINY.to_vec()),
+        ]
+        .into_iter()
+        .collect();
+        let engine = Engine::new(move |s| match files.get(&s.file) {
+            Some(content) => Ok(file_answer(s, &paths::base(&s.file), content, 0o644)),
+            None => Ok(Answer::status(404)),
+        });
+        let mut c = client(&b, &engine, "linux");
+        let mut t = target(&[]);
+        scan_container_files(
+            &mut c,
+            &mut t,
+            TEST_ID,
+            &inspect_path("/usr/bin/php"),
+            RuleSet::fixture(),
+            &[Product::Php],
+        );
+        assert_eq!(
+            t.metadata.get("distribution").map(String::as_str),
+            Some("amzn")
+        );
+        let scope = &t.scope;
+        assert!(
+            scope.contains(&"/var/lib/rpm/rpmdb.sqlite".to_string()),
+            "{version}: {scope:?} · {:?}",
+            t.gaps
+        );
+        assert!(
+            !t.gaps.iter().any(|g| g.contains("해석할 수 없습니다")),
+            "{version}: {:?}",
+            t.gaps
+        );
+    }
+}
+
 /// 원본 `TestCombinedContainerProductsReadCommonMetadataOnce` — 두 제품이 함께 쓰는 기록과 실행 파일은 한 번씩만
 /// 읽고, PHP 설정 조회는 Node.js 를 다 읽은 뒤에 한다.
 #[test]
