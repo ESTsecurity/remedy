@@ -10,6 +10,8 @@
       container - Docker Desktop 에 띄운, 런타임이 계속 도는 컨테이너 둘(여기서 띄우고 끝에 지운다)
     경우마다 종료 코드와 화면 · 결과 JSON(버전 · 시각 · 회차 · 경로를 가린 뒤)이 같아야 한다. image · container 는
     제품마다(`--runtime php` · `node`) 견준다 — 1.18.0 의 기본(all)은 Apache 도 본다(Apache 는 `Invoke-NetApache.ps1`).
+    url 은 PHP 만 견준다 — 1.19.0 의 url 기본(all)은 Apache 도 보고, 그 앞의 판은 url 에 `--runtime` 이 없다(PHP 만 본다).
+    그래서 `url --help` 가 `--runtime` 을 아는 판에만 `--runtime php` 를 준다.
     이용 조건(화면의 덩이와 결과의 `terms_version`)은 판정이 아니라서 가린다 — 1.18.0 에 Apache 를 더해 문구가 바뀌었다.
     summary.txt: 경우마다 `이름 A=코드 B=코드 screen-diff=… json-diff=… same|DIFFERENT`, 끝 줄 `same N - different M`.
 
@@ -81,6 +83,13 @@ Note ("A: " + (& (Join-Path $PackageA 'remedy-net\remedy-net.exe') --version 2>$
 Note ("B: " + (& (Join-Path $PackageB 'remedy-net\remedy-net.exe') --version 2>$null | Select-Object -Last 1))
 
 # -- url --
+function UrlRuntime([string] $pkg) {
+    $help = (& (Join-Path $pkg 'remedy-net\remedy-net.exe') url --help 2>$null) -join "`n"
+    if ($help -match '--runtime') { @('--runtime', 'php') } else { @() }
+}
+$rtA = @(UrlRuntime $PackageA)
+$rtB = @(UrlRuntime $PackageB)
+Note ('url: A ' + ($rtA -join ' ') + ' / B ' + ($rtB -join ' '))
 $port = 18370
 foreach ($v in '8.3.38', '8.3.2', '8.2.35-1~deb12u1', '8.2.32-1~deb12u1') {
     $port++
@@ -89,8 +98,9 @@ foreach ($v in '8.3.38', '8.3.2', '8.2.35-1~deb12u1', '8.2.32-1~deb12u1') {
     Start-Sleep -Milliseconds 700
     $oa = Join-Path $OutDir "out-url-a-$port"
     $ob = Join-Path $OutDir "out-url-b-$port"
-    Compare-Case "url-$v" @('url', '--url', "http://127.0.0.1:$port/", '--consent', 'y', '--out-dir', $oa) `
-        @('url', '--url', "http://127.0.0.1:$port/", '--consent', 'y', '--out-dir', $ob) $oa $ob
+    $argA = @('url') + $rtA + @('--url', "http://127.0.0.1:$port/", '--consent', 'y', '--out-dir', $oa)
+    $argB = @('url') + $rtB + @('--url', "http://127.0.0.1:$port/", '--consent', 'y', '--out-dir', $ob)
+    Compare-Case "url-$v" $argA $argB $oa $ob
     Stop-Process -Id $mock.Id -Force -ErrorAction SilentlyContinue
 }
 

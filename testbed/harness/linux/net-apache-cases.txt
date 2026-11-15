@@ -2,6 +2,8 @@
 # (Windows)가 함께 읽는다. 칸: 이름 · 이미지 tar(이미지 폴더 안) · 기대 종료 코드 · 결과 JSON 에 있어야 할 글(없으면 -).
 # 판정은 리눅스 Apache 점검 룰과 같다(목표 remedy_net아파치 결정 2) — 영향 판 + HTTP/2 흔적 2 · 흔적 없음 6 · 고친 판 0.
 # tar 는 `net-apache-verify.sh` 가 짓고 저장한다(하네스 이미지 · 공식 httpd · 그 위에 HTTP/2 를 켜거나 모듈을 바꾼 꼴).
+# ol9(코어 1.19.0)는 rpm 이 쓰지 않는 빈 DB 가 /usr/lib/sysimage/rpm 에 있는 꼴이다 — 근거 글(mod_http2 의 판)은 rpm 이
+# 쓰는 /var/lib/rpm 을 읽어야 결과에 실린다(1.18.0 은 빈 DB 를 읽어 패키지를 하나도 보지 못했다).
 rocky9             apache-rocky9.tar              6   RLSA-2026:98981
 debian12           apache-debian12.tar            0   2.4.71-1~deb12u1
 debian12-tampered  net-apache-debian12-tampered.tar  6   일치하지 않습니다
@@ -11,6 +13,7 @@ al2023             apache-al2023.tar              6   1:2.4.71-1.amzn2023.0.1
 rocky8             apache-rocky8.tar              0   영향 범위 밖
 alma9              apache-alma9.tar               6   고친 판을 기준이 모릅니다
 leap156            apache-leap156.tar             6   고침 대기
+ol9                apache-ol9.tar                 6   2.0.26-6.el9_8.2
 php82apache        php-8.2-apache.tar             6   2.4.71-1~deb13u1
 php82apache-h2     net-apache-php-8.2-apache-h2.tar  2   mods-enabled/http2.load
 httpd2465          httpd-2.4.65.tar               6   HTTPD_VERSION=2.4.65
