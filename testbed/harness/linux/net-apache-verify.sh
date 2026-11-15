@@ -1,6 +1,7 @@
 #!/bin/bash
 # remedy-net 의 Apache(코어 1.18.0) — 이미지 · 컨테이너 점검의 판정을 실제 이미지로 잰다(목표 remedy_net아파치 기준 1 · 2).
 # 코어 1.19.0(목표 remedy_net엔진보완)에서 RPM DB 의 자리(Oracle Linux 9) · Amazon Linux 컨테이너 · url 의 Apache 를 더했다.
+# 코어 1.19.1 에서 이미지 칸 둘 — Ubuntu 위의 Debian 관리자 주소(바깥 저장소의 빌드)와 이름에 역슬래시가 든 항목.
 #
 # 호스트(WSL · 기본 사용자)에서, 저장소 루트:
 #
@@ -21,7 +22,9 @@
 #
 # # 무엇을 재나
 #
-#   I  이미지 15 — `net-apache-cases.txt` 의 표(종료 코드 · 결과 JSON 의 근거 글)
+#   I  이미지 17 — `net-apache-cases.txt` 의 표(종료 코드 · 결과 JSON 의 근거 글). 1.19.1 의 둘: Ubuntu 22.04 의 기록을
+#      `ondrej/apache2` PPA 의 빌드 꼴(그 판 · Debian Apache 팀 주소)로 바꿔 6(1.19.0 은 0) · Ubuntu 24.04 에 systemd 꼴의
+#      유닛 파일(`system-systemd\x2dcryptsetup.slice`)을 두고 영향 판 + HTTP/2 로 2(1.19.0 은 그 레이어를 거절해 6)
 #   C  컨테이너 9 — Rocky 9 6 · Debian 12 6(고친 판이어도 컨테이너는 양호를 내지 않는다) · Alpine 6 ·
 #      php:8.2-apache 에서 `a2enmod http2` 2 · 공식 httpd 6 · 도는 컨테이너 안에서 HTTP/2 를 켠 httpd 2 ·
 #      Oracle Linux 9 6(rpm 이 쓰는 DB 의 mod_http2 판) · Amazon Linux 2023 에서 HTTP/2 를 켜 2 · Amazon Linux 2 6
@@ -47,7 +50,7 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 CASES="$HERE/net-apache-cases.txt"
 docker info >/dev/null 2>&1 || { echo "docker 가 돌지 않는다" >&2; exit 2; }
 for i in remedy-harness/apache:rocky9 remedy-harness/apache:debian12 remedy-harness/apache:ubuntu2404 \
-    remedy-harness/apache:alpine322 remedy-harness/apache:al2023 remedy-harness/apache:rocky8 remedy-harness/apache:alma9 \
+    remedy-harness/apache:ubuntu2204 remedy-harness/apache:alpine322 remedy-harness/apache:al2023 remedy-harness/apache:rocky8 remedy-harness/apache:alma9 \
     remedy-harness/apache:leap156 remedy-harness/apache:ol9 remedy-harness/apache:al2; do
     docker image inspect "$i" >/dev/null 2>&1 || { echo "$i 가 없다 — apache-verify.sh 를 먼저 돌려 짓는다" >&2; exit 2; }
 done
@@ -76,6 +79,13 @@ variant httpd-2.4.65-h2 httpd:2.4.65 \
     'sed -i "s/^#LoadModule http2_module/LoadModule http2_module/" conf/httpd.conf && echo "Protocols h2 http/1.1" >> conf/httpd.conf' || exit 2
 variant php-8.2-apache-h2 php:8.2-apache 'a2enmod http2 >/dev/null' || exit 2
 variant debian12-tampered remedy-harness/apache:debian12 'printf X >> /usr/lib/apache2/modules/mod_http2.so' || exit 2
+# 코어 1.19.1 — 바깥 저장소(ondrej/apache2 PPA)가 Ubuntu 22.04 용으로 낸 빌드의 판 · 관리자 주소(Launchpad 의 공개 기록 ·
+# 2023-10 ~ 2024-05 게시). dpkg 의 순서로는 Ubuntu 의 고친 판 2.4.58-1ubuntu8.19 보다 높다 — 1.19.0 은 그것을 양호로 냈다.
+variant ubuntu2204-ppa remedy-harness/apache:ubuntu2204 \
+    'for p in apache2 apache2-bin apache2-data apache2-utils; do sed -i "/^Package: $p\$/,/^\$/ s/^Version: .*/Version: 2.4.58-1+ubuntu22.04.1+deb.sury.org+1/; /^Package: $p\$/,/^\$/ s/^Maintainer: .*/Maintainer: Debian Apache Maintainers <debian-apache@lists.debian.org>/" /var/lib/dpkg/status || exit 1; done && a2enmod -q http2 >/dev/null' || exit 2
+# 코어 1.19.1 — systemd 가 유닛 이름에 쓰는 역슬래시(`\x2d`). 1.19.0 은 그 항목이 든 레이어를 통째로 거절했다.
+variant ubuntu2404-systemd remedy-harness/apache:ubuntu2404 \
+    'mkdir -p /usr/lib/systemd/system && printf "[Unit]\n" >"/usr/lib/systemd/system/system-systemd\x2dcryptsetup.slice" && sed -i "/^Package: apache2-bin\$/,/^\$/ s/^Version: .*/Version: 2.4.58-1ubuntu8.18/" /var/lib/dpkg/status && a2enmod -q http2 >/dev/null' || exit 2
 
 # ── tar — 없는 것만 ──────────────────────────────────────────────────────────────────────
 save() { # tar 이름 · 이미지
@@ -87,7 +97,7 @@ for n in rocky9 debian12 ubuntu2404 alpine322 al2023 rocky8 alma9 leap156 ol9 al
     save "apache-$n.tar" "remedy-harness/apache:$n" || { echo "apache-$n.tar 를 만들지 못했다" >&2; exit 2; }
 done
 save php-8.2-apache.tar php:8.2-apache && save httpd-2.4.65.tar httpd:2.4.65 && save httpd-2.4.71.tar httpd:2.4.71 || exit 2
-for n in httpd-2.4.65-h2 php-8.2-apache-h2 debian12-tampered; do
+for n in httpd-2.4.65-h2 php-8.2-apache-h2 debian12-tampered ubuntu2204-ppa ubuntu2404-systemd; do
     save "net-apache-$n.tar" "remedy-harness/net-apache:$n" || { echo "net-apache-$n.tar 를 만들지 못했다" >&2; exit 2; }
 done
 note "remedy-net: $("$BIN" --version 2>/dev/null | head -1)"
