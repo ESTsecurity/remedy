@@ -1,19 +1,21 @@
 //! 최종 구성의 배포판과 패키지 기록 — dpkg · apk · RPM DB. 스캐너의 `packages.go` 를 옮겼다.
 //!
-//! 패키지는 출처를 믿을 근거가 있을 때만 판정의 근거가 된다(`trusted`). dpkg 는 공식 배포판의 관리자 주소
-//! (`Maintainer`)로 끝나는 것, RPM 은 공급사와 아키텍처가 적힌 것이고, apk 는 믿지 않는다. 믿을 수 있어도 실행
-//! 파일이 패키지 기록과 같은지(dpkg 의 `.md5sums` · RPM 의 파일 다이제스트)를 따로 본다 — 서명을 확인한 것은 아니다.
+//! 패키지는 출처를 믿을 근거가 있을 때만 판정의 근거가 된다(`trusted`). dpkg 는 **그 배포판의** 공식 관리자
+//! 주소(`Maintainer`)로 끝나는 것([`crate::scan::linuxmeta::official_maintainer`] — 코어 1.19.1 부터 배포판을
+//! 가린다 · 컨테이너 점검과 같은 규칙이다), RPM 은 공급사와 아키텍처가 적힌 것이고, apk 는 믿지 않는다. 믿을 수
+//! 있어도 실행 파일이 패키지 기록과 같은지(dpkg 의 `.md5sums` · RPM 의 파일 다이제스트)를 따로 본다 — 서명을
+//! 확인한 것은 아니다.
 
 use super::names;
 use super::node::is_node_family;
 use super::php::is_php_package;
 use super::rootfs::{Entry, RootFs};
-use super::source::archive_path;
+use super::source::entry_path;
 use super::tarball::TYPE_REG;
 use super::Cx;
 use crate::scan::linuxmeta::{
-    lower, parse_release, rpm_db_unclear, rpm_dbpath, trim, valid_package_architecture,
-    RELEASE_FILES, RPM_DB_ROOTS, RPM_MACROS,
+    lower, official_maintainer, parse_release, rpm_db_unclear, rpm_dbpath, trim,
+    valid_package_architecture, RELEASE_FILES, RPM_DB_ROOTS, RPM_MACROS,
 };
 use crate::scan::model::{Product, Target};
 use crate::scan::slashpath;
@@ -63,7 +65,7 @@ pub(super) fn inspect(fs: &RootFs, t: &mut Target, cx: &Cx<'_>) {
     t.metadata.insert("distribution".into(), distro.clone());
     t.metadata
         .insert("distribution_version".into(), release.clone());
-    let packages = databases(fs, t, cx);
+    let packages = databases(fs, t, cx, &distro);
     let os = (distro.as_str(), release.as_str());
     if t.products.contains_key(&Product::Php) {
         super::php::inspect(fs, t, cx, &packages, os);
@@ -98,8 +100,9 @@ fn release(fs: &RootFs, t: &mut Target) -> (String, String) {
     (String::new(), String::new())
 }
 
-/// 패키지 DB 들 — dpkg · apk 와, RPM 은 rpm 이 쓰는 자리 하나([`rpm_database`]).
-fn databases(fs: &RootFs, t: &mut Target, cx: &Cx<'_>) -> Vec<Record> {
+/// 패키지 DB 들 — dpkg · apk 와, RPM 은 rpm 이 쓰는 자리 하나([`rpm_database`]). `distro` 는 dpkg 기록의 관리자
+/// 주소를 가리는 데 쓴다.
+fn databases(fs: &RootFs, t: &mut Target, cx: &Cx<'_>, distro: &str) -> Vec<Record> {
     let lang = cx.lang;
     let mut dbs = vec![DPKG_STATUS.to_string(), APK_INSTALLED.to_string()];
     let mut found = false;
@@ -127,7 +130,7 @@ fn databases(fs: &RootFs, t: &mut Target, cx: &Cx<'_>) -> Vec<Record> {
             ));
             continue;
         }
-        let Some(mut parsed) = parse_database(fs, &db, e, t, cx) else {
+        let Some(mut parsed) = parse_database(fs, &db, e, t, cx, distro) else {
             continue;
         };
         let products: Vec<Product> = t.products.keys().copied().collect();
@@ -187,6 +190,7 @@ fn parse_database(
     e: &Entry,
     t: &mut Target,
     cx: &Cx<'_>,
+    distro: &str,
 ) -> Option<Vec<Record>> {
     let lang = cx.lang;
     let fail = |why: String| {
@@ -196,7 +200,7 @@ fn parse_database(
         )
     };
     let result = match db {
-        DPKG_STATUS => parse_dpkg(&e.data, lang).map(|r| (r, None)),
+        DPKG_STATUS => parse_dpkg(&e.data, distro, lang).map(|r| (r, None)),
         APK_INSTALLED => parse_apk(&e.data, lang).map(|r| (r, None)),
         _ => {
             if rpm_log_left(fs, db) {
@@ -254,8 +258,9 @@ fn attach_dpkg_files(info: &DpkgInfo<'_>, record: &mut Record, t: &mut Target, l
     }
 }
 
-/// dpkg `status` — 설치된(`install ok installed`) 패키지만(스캐너의 `parseDPKG`).
-pub(super) fn parse_dpkg(data: &[u8], lang: Lang) -> Res<Vec<Record>> {
+/// dpkg `status` — 설치된(`install ok installed`) 패키지만(스캐너의 `parseDPKG`). `distro` 는 관리자 주소를
+/// 가리는 배포판 식별자다.
+pub(super) fn parse_dpkg(data: &[u8], distro: &str, lang: Lang) -> Res<Vec<Record>> {
     let bad = |ko: &'static str, en: &'static str| lang.t(ko, en).to_string();
     let mut out = Vec::new();
     let mut seen = BTreeSet::new();
@@ -295,7 +300,7 @@ pub(super) fn parse_dpkg(data: &[u8], lang: Lang) -> Res<Vec<Record>> {
             name,
             version: names::from_bytes(field("Version")),
             architecture: arch,
-            trusted: official_maintainer(field("Maintainer")),
+            trusted: official_maintainer(distro, &lower(field("Maintainer"))),
             ..Record::default()
         });
     }
@@ -324,19 +329,6 @@ fn dpkg_fields<'a>(lines: &[&'a [u8]], lang: Lang) -> Res<BTreeMap<&'a [u8], &'a
         }
     }
     Ok(fields)
-}
-
-/// 공식 배포판의 관리자 주소로 끝나는가(대소문자 무시).
-fn official_maintainer(maintainer: &[u8]) -> bool {
-    let m = lower(maintainer);
-    [
-        "@lists.alioth.debian.org>",
-        "@tracker.debian.org>",
-        "@lists.debian.org>",
-        "@lists.ubuntu.com>",
-    ]
-    .iter()
-    .any(|suffix| m.ends_with(suffix))
 }
 
 /// 빈 줄로 나눈 단락들 — Go 의 `bufio.Scanner`(줄 끝의 CR 을 걷고, 줄이 1 MiB 를 넘으면 오류)와 같다.
@@ -454,9 +446,9 @@ fn apk_file(dir: &str, value: &str, lang: Lang) -> Res<String> {
     package_path(&slashpath::join(&[dir, value]), lang)
 }
 
-/// 패키지 기록의 경로 — 앞의 `/` 하나를 떼고 아카이브 경로 규칙으로 정리한다.
+/// 패키지 기록의 경로 — 앞의 `/` 하나를 떼고 항목 이름 규칙으로 정리한다.
 pub(super) fn package_path(name: &str, lang: Lang) -> Res<String> {
-    archive_path(name.strip_prefix('/').unwrap_or(name), lang)
+    entry_path(name.strip_prefix('/').unwrap_or(name), lang)
 }
 
 /// `var/lib/dpkg/info` 의 파일 목록 · 검증 기록(이름 → 항목들).
@@ -590,7 +582,7 @@ fn md5sum_line(line: &[u8], pkg: &str, sums: &mut BTreeMap<String, String>, lang
         return Err(wrong("해시가 잘못됐습니다", "has an invalid digest"));
     }
     let hash = String::from_utf8_lossy(&hash).into_owned();
-    let name = archive_path(&names::from_bytes(&line[34..]), lang)
+    let name = entry_path(&names::from_bytes(&line[34..]), lang)
         .ok()
         .filter(|n| n != ".")
         .ok_or_else(|| wrong("경로가 잘못됐습니다", "has an invalid path"))?;

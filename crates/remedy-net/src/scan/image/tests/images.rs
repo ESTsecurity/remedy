@@ -195,7 +195,6 @@ fn unsafe_and_malformed_layers_are_rejected() {
         ("traversal", vec![reg("../escape", "x")]),
         ("absolute", vec![reg("/escape", "x")]),
         ("drive", vec![reg("C:/escape", "x")]),
-        ("backslash", vec![reg("dir\\php", "x")]),
         ("symlink_escape", vec![kind("link", b'2', "../escape")]),
         (
             "hardlink_cycle",
@@ -247,6 +246,35 @@ fn device_and_fifo_entries_are_accepted_without_content() {
     assert_eq!(
         (found[0].path.as_deref(), found[0].status),
         (Some("/usr/bin/php8.3"), Clear)
+    );
+}
+
+/// 이름에 역슬래시가 든 항목은 받는다(코어 1.19.1) — 리눅스 파일 이름에 들 수 있고, systemd 가 유닛 이름에 쓴다
+/// (`system-systemd\x2dcryptsetup.slice`). 1.19.0 까지는 그 항목이 든 레이어를 통째로 거절해, Ubuntu 20.04 이상에
+/// systemd 가 깔린 이미지의 **취약한 PHP 가 확인 필요로 나왔다**(2026-11-15 실측). 링크 대상도 같다.
+#[test]
+fn an_entry_named_with_a_backslash_is_read() {
+    let mut items = php_entries(BEFORE);
+    items.extend([
+        reg(
+            "usr/lib/systemd/system/system-systemd\\x2dcryptsetup.slice",
+            "[Unit]\n",
+        ),
+        kind(
+            "etc/systemd/system/slices.target.wants/system-systemd\\x2dcryptsetup.slice",
+            b'2',
+            "/usr/lib/systemd/system/system-systemd\\x2dcryptsetup.slice",
+        ),
+    ]);
+    let (dir, _) = oci(&[tar(&items)], Raw, &[]);
+    let targets = php_scan(dir.path());
+    single(&targets, Vulnerable);
+    assert!(targets[0].gaps.is_empty(), "{:?}", targets[0].gaps);
+    let found = runtime(&targets[0]);
+    assert_eq!(found.len(), 1, "{found:#?}");
+    assert_eq!(
+        (found[0].path.as_deref(), found[0].status),
+        (Some("/usr/bin/php8.3"), Vulnerable)
     );
 }
 
