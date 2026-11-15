@@ -12,7 +12,8 @@ use super::source::archive_path;
 use super::tarball::TYPE_REG;
 use super::Cx;
 use crate::scan::linuxmeta::{
-    lower, parse_release, trim, valid_package_architecture, RELEASE_FILES,
+    lower, parse_release, rpm_db_unclear, rpm_dbpath, trim, valid_package_architecture,
+    RELEASE_FILES, RPM_DB_ROOTS, RPM_MACROS,
 };
 use crate::scan::model::{Product, Target};
 use crate::scan::slashpath;
@@ -97,15 +98,21 @@ fn release(fs: &RootFs, t: &mut Target) -> (String, String) {
     (String::new(), String::new())
 }
 
-/// 패키지 DB 들 — dpkg · apk 와, RPM 은 처음 찾은 자리 하나.
+/// 패키지 DB 들 — dpkg · apk 와, RPM 은 rpm 이 쓰는 자리 하나([`rpm_database`]).
 fn databases(fs: &RootFs, t: &mut Target, cx: &Cx<'_>) -> Vec<Record> {
     let lang = cx.lang;
     let mut dbs = vec![DPKG_STATUS.to_string(), APK_INSTALLED.to_string()];
-    if let Some(rpm) = rpm_database(fs) {
-        dbs.push(rpm);
+    let mut found = false;
+    match rpm_database(fs) {
+        Ok(Some(rpm)) => dbs.push(rpm),
+        Ok(None) => {}
+        Err(()) => {
+            // DB 는 있다 — 어느 것인지 몰라 읽지 않는다.
+            found = true;
+            t.add_gap(rpm_db_unclear(lang).to_string());
+        }
     }
     let info = DpkgInfo::index(fs);
-    let mut found = false;
     let mut out = Vec::new();
     for db in dbs {
         // 내용 없는 장치 · FIFO 는 패키지 DB 후보가 아니다 — 없는 것과 같다.
@@ -144,16 +151,32 @@ fn databases(fs: &RootFs, t: &mut Target, cx: &Cx<'_>) -> Vec<Record> {
     out
 }
 
-fn rpm_database(fs: &RootFs) -> Option<String> {
-    for root in ["usr/lib/sysimage/rpm", "var/lib/rpm"] {
-        for base in ["rpmdb.sqlite", "Packages", "Packages.db"] {
-            let name = format!("{root}/{base}");
-            if fs.entries.get(&name).is_some_and(|e| !e.special()) {
-                return Some(name);
-            }
-        }
+/// RPM DB — 자리마다 `rpmdb.sqlite` · `Packages` · `Packages.db` 차례로 처음 찾은 것. 한 자리에만 있으면(옛 자리가
+/// 새 자리로 가는 링크인 Fedora · SUSE 도) 그것이고, 두 자리에 따로 있으면 rpm 이 쓰는 쪽(`%_dbpath` ·
+/// [`rpm_dbpath`])이다 — Oracle Linux 9 는 쓰지 않는 빈 DB 를 새 자리에 둔다(코어 1.19.0). 그 쪽을 정하지 못하면
+/// `Err` — 어느 DB 도 고르지 않는다.
+pub(super) fn rpm_database(fs: &RootFs) -> Result<Option<String>, ()> {
+    let found: Vec<String> = RPM_DB_ROOTS
+        .iter()
+        .filter_map(|root| {
+            let root = root.trim_start_matches('/');
+            ["rpmdb.sqlite", "Packages", "Packages.db"]
+                .iter()
+                .map(|base| format!("{root}/{base}"))
+                .find(|name| fs.entries.get(name).is_some_and(|e| !e.special()))
+        })
+        .collect();
+    if found.len() < 2 {
+        return Ok(found.into_iter().next());
     }
-    None
+    let root = fs
+        .resolve(RPM_MACROS.trim_start_matches('/'))
+        .ok()
+        .filter(|(_, e)| e.kind == TYPE_REG && !e.truncated)
+        .and_then(|(_, e)| rpm_dbpath(&e.data))
+        .ok_or(())?;
+    let prefix = format!("{}/", root.trim_start_matches('/'));
+    Ok(found.into_iter().find(|name| name.starts_with(&prefix)))
 }
 
 /// DB 하나를 읽는다. 읽지 못하면 *보지 못한 것* 을 남기고 `None` — 다만 RPM 이 한도에 닿아 앞의 패키지만 읽은

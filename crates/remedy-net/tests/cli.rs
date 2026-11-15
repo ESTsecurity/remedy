@@ -259,15 +259,17 @@ fn without_good_criteria_nothing_is_checked() {
     let _ = std::fs::remove_dir_all(&tmp);
 }
 
-/// 서명한 기준 폴더가 있으면 도움말이 그 기준을 적는다 — url 은 같은 표의 룰과 확인 날짜, 이미지 · 컨테이너는
-/// 기준의 버전과 Apache 기준의 확인 날짜(코어 1.18.0).
+/// 서명한 기준 폴더가 있으면 도움말이 그 기준을 적는다 — url 은 PHP 와 Apache(코어 1.19.0) 의 같은 값을 쓰는 룰과
+/// 확인 날짜, 이미지 · 컨테이너는 기준의 버전과 Apache 기준의 확인 날짜(코어 1.18.0).
 #[test]
 fn help_names_the_criteria_it_verified() {
     let url = stdout(&run("ko", &["url", "--help"]));
-    assert!(
-        url.contains("기준: php2shell-check-linux 0.6.0 와 같은 수정 버전 (2026-11-09 확인)."),
-        "{url}"
-    );
+    for line in [
+        "기준(PHP): php2shell-check-linux 0.6.0 와 같은 수정 버전 (2026-11-09 확인).",
+        "기준(Apache): apache-http2-check-linux 0.1.1 와 같은 영향 범위 (2026-11-13 확인).",
+    ] {
+        assert!(url.contains(line), "{line}: {url}");
+    }
     for cmd in ["image", "container"] {
         let h = stdout(&run("ko", &[cmd, "--help"]));
         assert!(

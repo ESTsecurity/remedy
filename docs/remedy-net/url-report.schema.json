@@ -6,7 +6,6 @@
   "required": [
     "command",
     "consent",
-    "criteria",
     "exit_code",
     "finished_at",
     "interrupted",
@@ -21,6 +20,17 @@
     "verdict"
   ],
   "properties": {
+    "apache_criteria": {
+      "description": "Apache HTTP/2 의 기준 — Apache 를 볼 때만(`--runtime apache` · `all` · 코어 1.19.0).",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Criteria"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "command": {
       "description": "`url`.",
       "type": "string"
@@ -29,7 +39,15 @@
       "$ref": "#/definitions/Consent"
     },
     "criteria": {
-      "$ref": "#/definitions/Criteria"
+      "description": "PHP2Shell 의 기준 — PHP 를 볼 때만(`--runtime php` · `all`).",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Criteria"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "exit_code": {
       "description": "이 실행의 종료 코드 — 취약 2 · 확인 필요 6(본체 표).",
@@ -162,7 +180,7 @@
           "type": "string"
         },
         "id": {
-          "description": "`header:<head|get>:<헤더 이름>:<차례>` · `php-presence`.",
+          "description": "`header:<head|get>:<헤더 이름>:<차례>` · `php-presence` · `apache:<head|get>`.",
           "type": "string"
         },
         "kind": {
@@ -179,7 +197,7 @@
           "$ref": "#/definitions/Verdict"
         },
         "version": {
-          "description": "헤더에서 읽은 PHP 버전.",
+          "description": "헤더에서 읽은 버전 — `header` 는 PHP 의 것, `apache` 는 Apache 의 것.",
           "type": [
             "string",
             "null"
@@ -190,7 +208,7 @@
     "FindingKind": {
       "oneOf": [
         {
-          "description": "`Server` · `X-Powered-By` 헤더 한 줄.",
+          "description": "`Server` · `X-Powered-By` 헤더 한 줄(PHP).",
           "type": "string",
           "enum": [
             "header"
@@ -201,6 +219,13 @@
           "type": "string",
           "enum": [
             "php_presence"
+          ]
+        },
+        {
+          "description": "`Server` 의 Apache 와 같은 응답의 HTTP/2 알림(`Upgrade`) — 응답마다 하나(코어 1.19.0).",
+          "type": "string",
+          "enum": [
+            "apache"
           ]
         }
       ]

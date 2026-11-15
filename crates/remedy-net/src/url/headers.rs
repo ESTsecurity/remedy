@@ -1,4 +1,5 @@
-//! 응답 헤더에서 읽는 것 — PHP 버전 표기와, 버전 없이 PHP 를 쓴다고 짐작할 단서.
+//! 응답 헤더에서 읽는 것 — PHP 버전 표기와, 버전 없이 PHP 를 쓴다고 짐작할 단서, `Server` 의 Apache 와
+//! `Upgrade` 의 HTTP/2 알림(코어 1.19.0).
 //!
 //! 본문은 읽지 않는다. 단서는 **제품을 특정하는 것만** 센다 — 흔한 캐시 헤더 · 이름 없는 세션 쿠키 ·
 //! `_csrf` 같은 것은 PHP 가 아닌 앱도 낸다(스캐너가 실제 컨테이너로 가린 목록).
@@ -32,6 +33,53 @@ pub(crate) fn php_version(value: &str) -> Option<String> {
     re.captures(value)
         .and_then(|c| c.get(1))
         .map(|m| m.as_str().to_string())
+}
+
+/// `Server` 가 알리는 Apache HTTP Server(코어 1.19.0).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ApacheBanner {
+    /// `ServerTokens` 에 따라 `2` · `2.4` · `2.4.65` — `Prod` 면 없다.
+    pub(crate) version: Option<String>,
+    /// 판 뒤 괄호 안의 OS 표시 — 상류 빌드는 `Unix` · `Win32` · `Win64`, 배포판은 제 이름(`Debian` …).
+    pub(crate) os: Option<String>,
+}
+
+/// `Server` 값이 Apache 의 것이면 그 판과 OS 표시. 값의 맨 앞이 `Apache/<판>` 이거나 값 전체가 `Apache`
+/// (`ServerTokens Prod`)일 때만 받는다 — `Apache-Coyote/1.1`(Tomcat) 같은 다른 제품은 아니다.
+pub(crate) fn apache_banner(value: &str) -> Option<ApacheBanner> {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    let value = value.trim();
+    if value.eq_ignore_ascii_case("apache") {
+        return Some(ApacheBanner {
+            version: None,
+            os: None,
+        });
+    }
+    let re = RE.get_or_init(|| {
+        Regex::new(r"(?i)^Apache/([0-9][0-9A-Za-z.+~_-]*)(?:\s+\(([^()]*)\))?(?:\s|$)")
+            .expect("고정된 정규식")
+    });
+    let c = re.captures(value)?;
+    Some(ApacheBanner {
+        version: c.get(1).map(|m| m.as_str().to_string()),
+        os: c.get(2).map(|m| m.as_str().trim().to_string()),
+    })
+}
+
+/// 상류(아파치 재단 소스) 빌드의 OS 표시 — 배포판은 제 이름을 적는다(목표 `remedy_net엔진보완` 결정 1).
+pub(crate) fn upstream_os(os: &str) -> bool {
+    ["Unix", "Win32", "Win64"]
+        .iter()
+        .any(|o| o.eq_ignore_ascii_case(os))
+}
+
+/// HTTP/2 를 알리는 `Upgrade` 값 — 낱말 가운데 `h2` · `h2c` 가 있는 첫 값. HTTP/2 를 켠 Apache 는 HTTP/1.1
+/// 응답에 이것을 싣는다(2026-11-15 실측 — 공식 `httpd:2.4.65` 의 평문 `h2c` · TLS `h2` · 끄면 없다).
+pub(crate) fn http2_upgrade(h: &Headers) -> Option<&str> {
+    values(h, "Upgrade").find(|v| {
+        v.split(',')
+            .any(|t| t.trim().eq_ignore_ascii_case("h2") || t.trim().eq_ignore_ascii_case("h2c"))
+    })
 }
 
 /// PHP 의 세션 기본 `Expires` — `expose_php` 를 꺼도 남는다.
@@ -323,6 +371,71 @@ mod tests {
             for w in wants {
                 assert!(joined.contains(w), "{name}: {w:?} 가 {got:?} 에 없다");
             }
+        }
+    }
+
+    /// `Server` 의 Apache — 실제 값(2026-11-15 실측 · 배포판 이름)과 다른 제품 · 꼴(코어 1.19.0).
+    #[test]
+    fn apache_banners_give_the_version_and_the_os_mark() {
+        let some = |v: Option<&str>, os: Option<&str>| {
+            Some(ApacheBanner {
+                version: v.map(str::to_string),
+                os: os.map(str::to_string),
+            })
+        };
+        let rows = [
+            ("Apache/2.4.65 (Unix)", some(Some("2.4.65"), Some("Unix"))),
+            (
+                "Apache/2.4.65 (Unix) OpenSSL/3.5.4",
+                some(Some("2.4.65"), Some("Unix")),
+            ),
+            (
+                "Apache/2.4.69 (Debian)",
+                some(Some("2.4.69"), Some("Debian")),
+            ),
+            (
+                "Apache/2.4.62 (Red Hat Enterprise Linux) OpenSSL/3.2.2",
+                some(Some("2.4.62"), Some("Red Hat Enterprise Linux")),
+            ),
+            (
+                "apache/2.4.58 (Ubuntu)",
+                some(Some("2.4.58"), Some("Ubuntu")),
+            ),
+            ("Apache/2.4.65 (Win64)", some(Some("2.4.65"), Some("Win64"))),
+            ("Apache/2.4.65", some(Some("2.4.65"), None)),
+            ("Apache/2.4", some(Some("2.4"), None)),
+            ("Apache", some(None, None)),
+            (" Apache ", some(None, None)),
+            ("Apache-Coyote/1.1", None),
+            ("Apache Tomcat/9.0", None),
+            ("nginx/1.27.0", None),
+            ("MyApache/2.4.65 (Unix)", None),
+            ("Apache/ (Unix)", None),
+            ("", None),
+        ];
+        for (value, want) in rows {
+            assert_eq!(apache_banner(value), want, "{value:?}");
+        }
+        assert!(upstream_os("Unix") && upstream_os("win64") && upstream_os("Win32"));
+        assert!(!upstream_os("Debian") && !upstream_os("Linux/SUSE") && !upstream_os(""));
+    }
+
+    #[test]
+    fn http2_is_read_from_the_upgrade_header_only() {
+        for (pairs, want) in [
+            (vec![("Upgrade", "h2c")], Some("h2c")),
+            (vec![("Upgrade", "h2")], Some("h2")),
+            (vec![("upgrade", "h2,h2c")], Some("h2,h2c")),
+            (
+                vec![("Upgrade", "websocket"), ("Upgrade", "H2C")],
+                Some("H2C"),
+            ),
+            (vec![("Upgrade", "websocket")], None),
+            (vec![("Upgrade", "h2x")], None),
+            (vec![("Connection", "Upgrade, close")], None),
+            (vec![("Alt-Svc", "h2=\":443\"")], None),
+        ] {
+            assert_eq!(http2_upgrade(&h(&pairs)), want, "{pairs:?}");
         }
     }
 }

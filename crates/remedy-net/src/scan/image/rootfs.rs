@@ -234,6 +234,8 @@ pub(super) fn capture_limit(name: &str, products: &[Product]) -> i64 {
         | "var/lib/rpm/Packages.db"
         | "usr/lib/sysimage/rpm/Packages"
         | "usr/lib/sysimage/rpm/Packages.db" => return 64 << 20,
+        // RPM DB 가 두 자리에 따로 있을 때 rpm 이 쓰는 쪽을 가른다(코어 1.19.0 · `linuxmeta::rpm_dbpath`).
+        "usr/lib/rpm/macros" => return crate::scan::linuxmeta::RPM_MACROS_LIMIT as i64,
         _ => {}
     }
     let dpkg_info = name.starts_with("var/lib/dpkg/info/")

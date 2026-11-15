@@ -347,6 +347,7 @@ fn a_real_sqlite_database_is_read_after_the_write_log_checks() {
     assert!(t
         .scope
         .contains(&"/usr/lib/sysimage/rpm/rpmdb.sqlite".to_string()));
+    // 새 자리에서 찾았으니 옛 자리를 하나 더 본다(코어 1.19.0) — 없으면(404) 새 자리의 것이다.
     assert_eq!(
         engine.lines(),
         [
@@ -354,8 +355,137 @@ fn a_real_sqlite_database_is_read_after_the_write_log_checks() {
             "GET /usr/lib/sysimage/rpm/rpmdb.sqlite",
             "HEAD /usr/lib/sysimage/rpm/rpmdb.sqlite-wal",
             "HEAD /usr/lib/sysimage/rpm/rpmdb.sqlite-journal",
+            "HEAD /var/lib/rpm",
         ]
     );
+}
+
+/// 파일 · 폴더 · 링크를 주는 엔진 — 없는 이름은 404.
+fn layout_engine(files: Vec<(&str, Vec<u8>)>, dirs: &[&str], links: &[(&str, &str)]) -> Engine {
+    let files: HashMap<String, Vec<u8>> =
+        files.into_iter().map(|(k, v)| (k.to_string(), v)).collect();
+    let dirs: Vec<String> = dirs.iter().map(|d| d.to_string()).collect();
+    let links: HashMap<String, String> = links
+        .iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect();
+    Engine::new(move |s| {
+        let base = s.file.rsplit('/').next().unwrap_or_default().to_string();
+        if let Some(content) = files.get(&s.file) {
+            return Ok(file_answer(s, &base, content, 0o644));
+        }
+        if dirs.contains(&s.file) {
+            let stat = encoded_stat(&base, 4096, MODE_DIR | 0o755, "");
+            return Ok(Answer::ok(Vec::new()).stat(&stat));
+        }
+        if let Some(target) = links.get(&s.file) {
+            let stat = encoded_stat(&base, target.len() as i64, MODE_SYMLINK | 0o777, target);
+            return Ok(Answer::ok(Vec::new()).stat(&stat));
+        }
+        Ok(Answer::status(404))
+    })
+}
+
+const NEW_DB: &str = "/usr/lib/sysimage/rpm/rpmdb.sqlite";
+const OLD_DB: &str = "/var/lib/rpm/rpmdb.sqlite";
+const MACROS: &str = "/usr/lib/rpm/macros";
+const VAR_DBPATH: &[u8] = b"%_dbpath\t\t%{_var}/lib/rpm\n%_dbpath_rebuild\t%{_dbpath}\n";
+const USR_DBPATH: &[u8] = b"%_dbpath\t\t%{_usr}/lib/sysimage/rpm\n";
+/// rpm 이 쓰지 않는 새 자리의 DB — 읽어 해석하면 실패로 드러난다.
+const STALE: &[u8] = b"stale, not a database";
+
+fn read_php(engine: &Engine) -> (Vec<String>, Target) {
+    let (b, _, _) = budget();
+    let mut c = client(&b, engine, "linux");
+    let mut t = target(&[Product::Php]);
+    let (packages, _) = read_rpm_packages(&mut c, &mut t, TEST_ID, "ol", "9.6", &[Product::Php]);
+    (packages.into_iter().map(|p| p.package).collect(), t)
+}
+
+/// Oracle Linux 9 꼴(2026-11-15 실측) — 새 자리에 rpm 이 쓰지 않는 DB, 옛 자리(실제 폴더)에 진짜 DB, 설정이 옛
+/// 자리를 가리킨다. 옛 자리의 DB 를 읽는다(코어 1.19.0).
+#[test]
+fn the_database_rpm_uses_is_read_when_both_places_have_one() {
+    let engine = layout_engine(
+        vec![
+            (NEW_DB, STALE.to_vec()),
+            (OLD_DB, TINY.to_vec()),
+            (MACROS, VAR_DBPATH.to_vec()),
+        ],
+        &["/var/lib/rpm"],
+        &[],
+    );
+    let (names, t) = read_php(&engine);
+    assert_eq!(names, ["php-cli", "php-fpm"], "{:?}", t.gaps);
+    assert!(t.gaps.is_empty(), "{:?}", t.gaps);
+    assert!(t.scope.contains(&OLD_DB.to_string()), "{:?}", t.scope);
+    assert!(!t.scope.contains(&NEW_DB.to_string()), "{:?}", t.scope);
+    let lines = engine.lines();
+    for want in ["GET /usr/lib/rpm/macros", "GET /var/lib/rpm/rpmdb.sqlite"] {
+        assert!(lines.contains(&want.to_string()), "{want}: {lines:?}");
+    }
+}
+
+/// 옛 자리가 링크(Fedora · SUSE)이거나 설정이 새 자리를 가리키면 새 자리의 것이다 — 옛 자리의 DB 는 받지 않는다.
+#[test]
+fn a_link_or_the_setting_keeps_the_new_place() {
+    let link = layout_engine(
+        vec![(NEW_DB, TINY.to_vec())],
+        &[],
+        &[("/var/lib/rpm", "../../usr/lib/sysimage/rpm")],
+    );
+    let (names, t) = read_php(&link);
+    assert_eq!(names, ["php-cli", "php-fpm"], "{:?}", t.gaps);
+    assert!(t.gaps.is_empty(), "{:?}", t.gaps);
+    assert_eq!(
+        link.lines().last().map(String::as_str),
+        Some("HEAD /var/lib/rpm")
+    );
+
+    let setting = layout_engine(
+        vec![
+            (NEW_DB, TINY.to_vec()),
+            (OLD_DB, STALE.to_vec()),
+            (MACROS, USR_DBPATH.to_vec()),
+        ],
+        &["/var/lib/rpm"],
+        &[],
+    );
+    let (names, t) = read_php(&setting);
+    assert_eq!(names, ["php-cli", "php-fpm"], "{:?}", t.gaps);
+    assert!(t.gaps.is_empty(), "{:?}", t.gaps);
+    assert!(
+        !setting.lines().iter().any(|l| l.ends_with(OLD_DB)),
+        "{:?}",
+        setting.lines()
+    );
+}
+
+/// 설정을 읽지 못했다 — 옛 자리에도 DB 가 있으면 어느 것도 고르지 않고(본문을 받지 않는다), 없으면 새 자리의 것이다.
+#[test]
+fn an_unclear_pair_reads_neither_database() {
+    let both = layout_engine(
+        vec![(NEW_DB, TINY.to_vec()), (OLD_DB, TINY.to_vec())],
+        &["/var/lib/rpm"],
+        &[],
+    );
+    let (names, t) = read_php(&both);
+    assert!(names.is_empty(), "{names:?}");
+    assert!(
+        t.gaps.iter().any(|g| g.contains("%_dbpath")),
+        "{:?}",
+        t.gaps
+    );
+    assert!(
+        !both.lines().contains(&format!("GET {OLD_DB}")),
+        "{:?}",
+        both.lines()
+    );
+
+    let empty_dir = layout_engine(vec![(NEW_DB, TINY.to_vec())], &["/var/lib/rpm"], &[]);
+    let (names, t) = read_php(&empty_dir);
+    assert_eq!(names, ["php-cli", "php-fpm"], "{:?}", t.gaps);
+    assert!(t.gaps.is_empty(), "{:?}", t.gaps);
 }
 
 #[test]

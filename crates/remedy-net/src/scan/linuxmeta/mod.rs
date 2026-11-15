@@ -1,6 +1,6 @@
-//! 배포판 식별과 ELF 식별.
+//! 배포판 식별 · RPM DB 의 자리 · ELF 식별.
 //!
-//! 사내 runtime-scanner 의 `internal/linuxmeta` 를 옮겼다.
+//! 사내 runtime-scanner 의 `internal/linuxmeta` 를 옮겼다. RPM DB 의 자리([`rpm_dbpath`])는 코어 1.19.0 에서 더했다.
 //!
 //! **배포판은 파일에 적힌 기록을 데이터로만 읽는다.** 셸 문법을 풀지 않고(`$(...)` 는 그저 글자다), 런타임이
 //! 내는 배너로 배포판을 짐작하지 않는다. 아는 자리의 아는 꼴만 받는다 — 꼴이 어긋난 기록은 없는 것으로 치고,
@@ -13,6 +13,7 @@
 //! 같은 입력에 같은 답을 내려면 여기서도 글자로 바꾸지 않는다.
 
 use regex::bytes::Regex;
+use remedy_sdk::i18n::Lang;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::OnceLock;
@@ -65,6 +66,39 @@ pub fn valid_package_architecture(value: &str) -> bool {
     let b = value.as_bytes();
     let word = |c: &u8| c.is_ascii_lowercase() || c.is_ascii_digit();
     b.len() <= 64 && b.first().is_some_and(word) && b.iter().all(|c| word(c) || b"_-".contains(c))
+}
+
+/// rpm 이 패키지 DB 를 두는 두 자리 — 새 꼴(Fedora 36 · SUSE)이 앞이고, 엔진은 앞자리부터 찾는다.
+pub const RPM_DB_ROOTS: [&str; 2] = ["/usr/lib/sysimage/rpm", "/var/lib/rpm"];
+/// rpm 패키지가 싣는 기본 설정 — `%_dbpath` 의 정의가 있는 곳.
+pub const RPM_MACROS: &str = "/usr/lib/rpm/macros";
+/// [`RPM_MACROS`] 를 읽는 상한(실제 파일은 수십 KiB).
+pub const RPM_MACROS_LIMIT: u64 = 256 << 10;
+
+/// [`RPM_MACROS`] 의 `%_dbpath` 가 가리키는 자리 — [`RPM_DB_ROOTS`] 가운데 하나일 때만(코어 1.19.0).
+///
+/// 두 자리에 서로 다른 DB 가 있을 때 rpm 이 어느 것을 쓰는지 가른다. Oracle Linux 9 이미지는 쓰지 않는 빈 DB(패키지
+/// 0개)를 새 자리에 두고 진짜 DB 는 `/var/lib/rpm` 에 있다(2026-11-15 실측 — RHEL 계열 · Amazon Linux · Fedora · SUSE
+/// 이미지 20개 모두 정의가 이 파일의 한 줄이고 `/etc/rpm` 에는 없었다). 마지막 정의가 이기고 `%_dbpath_rebuild` 같은
+/// 다른 이름은 보지 않는다. 펴는 것은 그 줄이 쓰는 `%{_var}` · `%{_usr}` 둘뿐이라, 다른 매크로가 든 값은 모른다.
+pub fn rpm_dbpath(macros: &[u8]) -> Option<&'static str> {
+    let text = std::str::from_utf8(macros).ok()?;
+    let value = text
+        .lines()
+        .filter_map(|line| line.strip_prefix("%_dbpath"))
+        .rfind(|rest| rest.starts_with([' ', '\t']))?
+        .trim();
+    let path = value.replace("%{_var}", "/var").replace("%{_usr}", "/usr");
+    let path = path.trim_end_matches('/');
+    RPM_DB_ROOTS.into_iter().find(|root| *root == path)
+}
+
+/// 두 자리에 RPM DB 가 따로 있는데 rpm 이 쓰는 자리를 정하지 못했을 때의 까닭 — 이미지 · 컨테이너가 함께 쓴다.
+pub fn rpm_db_unclear(lang: Lang) -> &'static str {
+    lang.t(
+        "RPM 패키지 DB 가 두 자리(/usr/lib/sysimage/rpm · /var/lib/rpm)에 따로 있는데, rpm 이 쓰는 자리(/usr/lib/rpm/macros 의 %_dbpath)를 확인하지 못했습니다.",
+        "RPM package databases exist in two places (/usr/lib/sysimage/rpm and /var/lib/rpm), and the one rpm uses (%_dbpath in /usr/lib/rpm/macros) could not be confirmed.",
+    )
 }
 
 /// 겹친 `/` · `.` · `..` 를 걷어 낸 절대 경로(Go 의 `path.Clean`). 아는 자리는 모두 절대 경로라, 상대 경로는

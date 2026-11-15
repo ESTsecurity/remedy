@@ -3,14 +3,22 @@
 //!
 //! 서버가 429 · 5xx 를 주거나 시간이 다 되거나 연결을 끊으면 **그 서버에는 더 요청하지 않는다** — 스킴 ·
 //! 포트가 달라도, 이름이 달라도 연결한 IP 가 같으면 같은 서버다([`super::stop`]).
+//!
+//! **Apache**(코어 1.19.0 · 목표 `remedy_net엔진보완` 결정 1)는 같은 응답으로 본다 — 요청이 늘지 않는다. `Server` 가
+//! 상류 빌드(`Unix` · `Win32` · `Win64`)의 영향 버전을 알리고 그 응답의 `Upgrade` 가 HTTP/2(`h2` · `h2c`)를 알릴
+//! 때만 *취약* 이다. 배포판이 지은 Apache 는 버전을 그대로 두고 패치를 넣어(백포트) 헤더로 가릴 수 없다.
 
+use super::args::Products;
 use super::criteria::UrlCriteria;
-use super::headers::{php_hints, php_version, values};
+use super::headers::{
+    apache_banner, http2_upgrade, php_hints, php_version, upstream_os, values, ApacheBanner,
+};
 use super::input::Input;
 use super::policy::{Cancel, Gate, Halt, MAX_URLS};
 use super::report::{header_caveat, Finding, FindingKind, Requests, Statuses, Target, Verdict};
 use super::stop::Stopped;
 use super::wire::{Failure, Method, Transport};
+use crate::scan::rules::ApacheCriteria;
 use remedy_sdk::i18n::Lang;
 use sha2::{Digest, Sha256};
 use std::collections::HashSet;
@@ -23,11 +31,21 @@ pub(crate) struct Scan<'a> {
     pub(crate) cancel: &'a Cancel,
     pub(crate) url_timeout: Duration,
     pub(crate) lang: Lang,
-    /// 서명을 확인한 url 표(데이터 룰 `remedy-net-criteria`).
-    pub(crate) criteria: &'a UrlCriteria,
+    /// 서명을 확인한 url 표(데이터 룰 `remedy-net-criteria`) — PHP 를 볼 때만.
+    pub(crate) criteria: Option<&'a UrlCriteria>,
+    /// 같은 폴더의 Apache 기준(`apache.json`) — Apache 를 볼 때만(코어 1.19.0).
+    pub(crate) apache: Option<&'a ApacheCriteria>,
 }
 
 impl Scan<'_> {
+    /// 보는 제품 — 기준을 받은 것.
+    fn products(&self) -> Products {
+        Products {
+            php: self.criteria.is_some(),
+            apache: self.apache.is_some(),
+        }
+    }
+
     /// 다 돌고 대상 목록을 준다. `done` 은 대상 하나를 마칠 때마다 불린다(화면이 진행을 보인다).
     pub(crate) fn run(&self, urls: &[String], done: &mut dyn FnMut(&Target)) -> Vec<Target> {
         let lang = self.lang;
@@ -54,7 +72,7 @@ impl Scan<'_> {
                     // 명령줄은 요청 전에 거절한다 — 여기에 닿는 것은 라이브러리로 부른 경우뿐이다.
                     let name =
                         lang.pick(format!("입력 URL {unique}"), format!("input URL {unique}"));
-                    let mut t = blank(id_for(&key), name, lang);
+                    let mut t = blank(id_for(&key), name, lang, self.products());
                     t.gaps.push(e.message(lang).to_string());
                     self.gate.record(&t);
                     t
@@ -68,6 +86,7 @@ impl Scan<'_> {
                 "url:input-limit".to_string(),
                 lang.t("URL 입력 제한", "URL input limit").to_string(),
                 lang,
+                self.products(),
             );
             t.reason = lang
                 .t(
@@ -91,7 +110,7 @@ impl Scan<'_> {
 
     fn one(&self, input: &Input, key: &str, stopped: &mut Stopped) -> Target {
         let lang = self.lang;
-        let mut t = blank(id_for(key), input.display(lang), lang);
+        let mut t = blank(id_for(key), input.display(lang), lang, self.products());
         let host = input.server_host();
         if let Some(reason) = stopped.reason(&host) {
             t.gaps.push(lang.pick(
@@ -167,7 +186,7 @@ impl Scan<'_> {
                 }
             };
             t.status.set(method, head.status);
-            collect(&mut t, method, &head.headers, self.criteria, lang);
+            self.collect(&mut t, method, &head.headers);
             // GET 이 막히거나 시간을 넘겨도 HEAD 에서 본 경고는 남는다.
             self.gate.record(&t);
             if should_stop(method, head.status) {
@@ -223,18 +242,13 @@ pub(crate) fn id_for(key: &str) -> String {
 }
 
 /// 아무것도 보지 못한 대상 — 헤더만으로는 패치 여부를 가릴 수 없으니 출발점이 *확인 필요* 다.
-pub(crate) fn blank(id: String, url: String, lang: Lang) -> Target {
+pub(crate) fn blank(id: String, url: String, lang: Lang, products: Products) -> Target {
     Target {
         id,
         url,
         verdict: Verdict::ReviewRequired,
         reason: review_reason(lang).to_string(),
-        action: lang
-            .t(
-                "그 서버에서 remedy 의 PHP2Shell 점검으로 직접 확인하십시오.",
-                "Check that server directly with remedy's PHP2Shell check.",
-            )
-            .to_string(),
+        action: action(products, Products::default(), lang),
         requests: Requests::default(),
         status: Statuses::default(),
         addresses: Vec::new(),
@@ -251,8 +265,151 @@ fn review_reason(lang: Lang) -> &'static str {
     )
 }
 
+/// 할 일 — 그 서버에서 돌릴 remedy 의 점검. 영향 버전을 본 제품이 있으면 그 제품의 점검과 패치를 말한다.
+fn action(selected: Products, vulnerable: Products, lang: Lang) -> String {
+    let hit = vulnerable.php || vulnerable.apache;
+    let named = if hit { vulnerable } else { selected };
+    let (ko, en) = match (named.php, named.apache) {
+        (true, true) => (
+            "PHP2Shell · Apache HTTP/2 점검",
+            "PHP2Shell and Apache HTTP/2 checks",
+        ),
+        (false, true) => ("Apache HTTP/2 점검", "Apache HTTP/2 check"),
+        _ => ("PHP2Shell 점검", "PHP2Shell check"),
+    };
+    if hit {
+        lang.pick(
+            format!("그 서버에서 remedy 의 {ko}으로 직접 확인한 뒤, 패치가 빠졌으면 공급사 보안 패치를 적용하십시오."),
+            format!("Check that server directly with remedy's {en}, and apply the vendor's security patch if it is missing."),
+        )
+    } else {
+        lang.pick(
+            format!("그 서버에서 remedy 의 {ko}으로 직접 확인하십시오."),
+            format!("Check that server directly with remedy's {en}."),
+        )
+    }
+}
+
+impl Scan<'_> {
+    /// 응답 하나에서 읽는다 — PHP 는 헤더 줄마다, Apache 는 응답마다 항목 하나. 할 일은 영향 버전을 본 제품으로.
+    fn collect(&self, t: &mut Target, method: Method, headers: &[(String, String)]) {
+        if let Some(criteria) = self.criteria {
+            collect_php(t, method, headers, criteria, self.lang);
+        }
+        if let Some(apache) = self.apache {
+            collect_apache(t, method, headers, apache, self.lang);
+        }
+        let hit = |kinds: &[FindingKind]| {
+            t.findings
+                .iter()
+                .any(|f| f.verdict == Verdict::Vulnerable && kinds.contains(&f.kind))
+        };
+        let vulnerable = Products {
+            php: hit(&[FindingKind::Header, FindingKind::PhpPresence]),
+            apache: hit(&[FindingKind::Apache]),
+        };
+        t.action = action(self.products(), vulnerable, self.lang);
+    }
+}
+
+/// `Server` 의 Apache 와 같은 응답의 HTTP/2 알림 — 응답마다 항목 하나(코어 1.19.0). Apache 가 아니면 없다.
+fn collect_apache(
+    t: &mut Target,
+    method: Method,
+    headers: &[(String, String)],
+    criteria: &ApacheCriteria,
+    lang: Lang,
+) {
+    let Some((server, banner)) =
+        values(headers, "Server").find_map(|v| apache_banner(v).map(|b| (v, b)))
+    else {
+        return;
+    };
+    let upgrade = http2_upgrade(headers);
+    let (verdict, reason) = apache_judgement(&banner, upgrade.is_some(), criteria, lang);
+    let mut evidence = format!("Server: {server}");
+    if let Some(u) = upgrade {
+        evidence.push_str(&format!(" · Upgrade: {u}"));
+    }
+    if verdict == Verdict::Vulnerable {
+        // PHP 가 먼저 취약이었으면 그 까닭을 둔다 — 항목마다의 까닭은 항목에 있다.
+        if t.verdict != Verdict::Vulnerable {
+            t.reason = reason.clone();
+        }
+        t.verdict = Verdict::Vulnerable;
+    }
+    t.findings.push(Finding {
+        id: format!("apache:{}", method.as_str().to_ascii_lowercase()),
+        kind: FindingKind::Apache,
+        method: method.as_str().to_string(),
+        evidence: lang.pick(
+            format!("Apache 근거: {evidence}"),
+            format!("signs of Apache: {evidence}"),
+        ),
+        version: banner.version.clone(),
+        verdict,
+        reason,
+    });
+}
+
+/// 판정 표(목표 `remedy_net엔진보완` §3) — 상류 빌드의 영향 버전이고 HTTP/2 를 알릴 때만 취약.
+fn apache_judgement(
+    b: &ApacheBanner,
+    http2: bool,
+    c: &ApacheCriteria,
+    lang: Lang,
+) -> (Verdict, String) {
+    let review = |ko: String, en: String| (Verdict::ReviewRequired, lang.pick(ko, en));
+    let cve = c.cves().join(" · ");
+    let Some(version) = b.version.as_deref() else {
+        return review(
+            "Apache 가 버전을 알리지 않아(ServerTokens Prod) 헤더로는 영향 여부를 알 수 없습니다.".into(),
+            "Apache does not announce its version (ServerTokens Prod), so the headers cannot show whether it is affected.".into(),
+        );
+    };
+    let Some(affected) = c.upstream_affected(version) else {
+        return review(
+            format!("Apache 가 버전을 다 알리지 않아({version}) 헤더로는 영향 여부를 알 수 없습니다."),
+            format!("Apache does not announce its full version ({version}), so the headers cannot show whether it is affected."),
+        );
+    };
+    match b.os.as_deref() {
+        None => {
+            return review(
+                "Apache 가 OS 표시를 알리지 않아 배포판이 지은 것인지 가릴 수 없습니다 — 배포판은 버전을 그대로 두고 보안 패치를 넣습니다(백포트).".into(),
+                "Apache does not announce its OS mark, so a distribution build cannot be told apart — distributions keep the version and add the security patch (backport).".into(),
+            )
+        }
+        Some(os) if !upstream_os(os) => {
+            return review(
+                format!("배포판이 지은 Apache({os})는 버전을 그대로 두고 보안 패치를 넣으므로(백포트), 헤더의 버전으로는 패치 여부를 가릴 수 없습니다."),
+                format!("A distribution build of Apache ({os}) keeps the version and adds the security patch (backport), so the header version cannot show whether it is patched."),
+            )
+        }
+        Some(_) => {}
+    }
+    let (low, high) = c.upstream_range();
+    match (affected, http2) {
+        (false, _) => review(
+            format!("헤더 기준으로 {cve} 영향 범위({low} ~ {high}) 밖의 버전입니다. 헤더만으로는 설치 상태를 확인할 수 없습니다."),
+            format!("By its header this version is outside the {cve} affected range ({low} - {high}). The headers alone cannot confirm what is installed."),
+        ),
+        (true, true) => (
+            Verdict::Vulnerable,
+            lang.pick(
+                format!("헤더 기준으로 {cve} 영향 버전이고 같은 응답이 HTTP/2 를 알립니다. 실제 설치 버전 · 백포트 패치 · HTTP/2 모듈 버전은 확인하지 못했습니다."),
+                format!("By its header this is a {cve}-affected version, and the same response announces HTTP/2. The installed version, any backported patch and the HTTP/2 module version were not confirmed."),
+            ),
+        ),
+        (true, false) => review(
+            format!("헤더 기준으로 {cve} 영향 버전이지만 응답이 HTTP/2 를 알리지 않습니다. HTTP/2 를 켰는지는 그 서버에서 확인해야 합니다."),
+            format!("By its header this is a {cve}-affected version, but the response does not announce HTTP/2. Whether HTTP/2 is on must be checked on that server."),
+        ),
+    }
+}
+
 /// `Server` · `X-Powered-By` 한 줄마다 항목 하나. 영향 버전이면 그 항목과 대상이 *취약* 이 된다.
-fn collect(
+fn collect_php(
     t: &mut Target,
     method: Method,
     headers: &[(String, String)],
@@ -284,12 +441,6 @@ fn collect(
                 f.reason = why.to_string();
                 t.verdict = Verdict::Vulnerable;
                 t.reason = why.to_string();
-                t.action = lang
-                    .t(
-                        "그 서버에서 remedy 의 PHP2Shell 점검으로 직접 확인한 뒤, 패치가 빠졌으면 공급사 보안 패치를 적용하십시오.",
-                        "Check that server directly with remedy's PHP2Shell check, and apply the vendor's security patch if it is missing.",
-                    )
-                    .to_string();
             }
             t.findings.push(f);
         }

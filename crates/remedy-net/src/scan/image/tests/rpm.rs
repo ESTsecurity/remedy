@@ -5,7 +5,7 @@
 
 use super::fixtures::*;
 use crate::scan::image::node::{Links, Owner, Owners};
-use crate::scan::image::packages::{file_problem, Record, DPKG_SOURCE};
+use crate::scan::image::packages::{file_problem, rpm_database, Record, DPKG_SOURCE};
 use crate::scan::image::rootfs::RootFs;
 use crate::scan::image::{php, rpm, Cx};
 use crate::scan::model::{Product, Status, Target, TargetKind};
@@ -567,5 +567,76 @@ fn image_rpm_digest_matches_final_file_bytes() {
     assert!(
         file_problem(&packages[0], "usr/bin/php", &entry, Lang::Ko).is_some(),
         "지원하지 않는 해시가 파일 검증을 지났다"
+    );
+}
+
+/// RPM DB 의 자리(코어 1.19.0) — 한 자리면 그것, 두 자리에 따로 있으면 rpm 설정(`%_dbpath`)이 고르고, 정하지
+/// 못하면 어느 것도 고르지 않는다. Oracle Linux 9 는 쓰지 않는 빈 DB 를 새 자리에 둔다(2026-11-15 실측).
+#[test]
+fn rpm_database_follows_the_dbpath_rpm_uses() {
+    const NEW: &str = "usr/lib/sysimage/rpm/rpmdb.sqlite";
+    const OLD: &str = "var/lib/rpm/rpmdb.sqlite";
+    const OLD_BDB: &str = "var/lib/rpm/Packages";
+    const MACROS: &str = "usr/lib/rpm/macros";
+    let db: &[u8] = b"db";
+    let var: &[u8] = b"%_dbpath\t\t%{_var}/lib/rpm\n%_dbpath_rebuild\t%{_dbpath}\n";
+    let usr: &[u8] = b"%_dbpath\t\t%{_usr}/lib/sysimage/rpm\n";
+    let fs_of = |items: &[(&str, &[u8])]| {
+        let mut fs = RootFs::default();
+        for (name, data) in items {
+            put(&mut fs, name, data.to_vec());
+        }
+        fs
+    };
+    let some = |name: &str| -> Result<Option<String>, ()> { Ok(Some(name.to_string())) };
+    // 한 자리 — 매크로를 보지 않는다. 옛 자리가 새 자리로 가는 링크인 Fedora · SUSE 는 새 자리에만 항목이 있다.
+    assert_eq!(rpm_database(&fs_of(&[(OLD, db)])), some(OLD));
+    assert_eq!(rpm_database(&fs_of(&[(NEW, db)])), some(NEW));
+    assert_eq!(rpm_database(&fs_of(&[(OLD_BDB, db)])), some(OLD_BDB));
+    assert_eq!(rpm_database(&fs_of(&[(MACROS, var)])), Ok(None));
+    // 두 자리 — Oracle Linux 9 꼴(옛 자리) · 새 자리를 가리키는 설정 · 옛 자리의 다른 이름.
+    let ol9 = fs_of(&[(NEW, db), (OLD, db), (MACROS, var)]);
+    assert_eq!(rpm_database(&ol9), some(OLD));
+    assert_eq!(
+        rpm_database(&fs_of(&[(NEW, db), (OLD, db), (MACROS, usr)])),
+        some(NEW)
+    );
+    assert_eq!(
+        rpm_database(&fs_of(&[(NEW, db), (OLD_BDB, db), (MACROS, var)])),
+        some(OLD_BDB)
+    );
+    // 정하지 못한다 — 설정이 없다 · 두 자리 밖을 가리킨다.
+    let unclear = fs_of(&[(NEW, db), (OLD, db)]);
+    assert_eq!(rpm_database(&unclear), Err(()));
+    let elsewhere: &[u8] = b"%_dbpath /opt/rpm\n";
+    assert_eq!(
+        rpm_database(&fs_of(&[(NEW, db), (OLD, db), (MACROS, elsewhere)])),
+        Err(())
+    );
+
+    // 정하지 못한 이미지는 그 까닭을 남기고, '패키지 DB 를 찾지 못했다' 로 적지 않는다.
+    let (b, rules) = (budget(), php_rules());
+    let cx = Cx {
+        budget: &b,
+        rules: &rules,
+        lang: Lang::Ko,
+        products: &[Product::Php],
+    };
+    let mut t = Target::new(
+        "rpm-unclear",
+        TargetKind::Image,
+        "rpm-unclear",
+        &[Product::Php],
+    );
+    crate::scan::image::packages::inspect(&unclear, &mut t, &cx);
+    assert!(
+        t.gaps.iter().any(|g| g.contains("%_dbpath")),
+        "{:?}",
+        t.gaps
+    );
+    assert!(
+        !t.gaps.iter().any(|g| g.contains("찾지 못했습니다")),
+        "{:?}",
+        t.gaps
     );
 }

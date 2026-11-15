@@ -37,7 +37,12 @@ pub struct Report {
     pub started_at: String,
     pub finished_at: String,
     pub consent: Consent,
-    pub criteria: Criteria,
+    /// PHP2Shell 의 기준 — PHP 를 볼 때만(`--runtime php` · `all`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub criteria: Option<Criteria>,
+    /// Apache HTTP/2 의 기준 — Apache 를 볼 때만(`--runtime apache` · `all` · 코어 1.19.0).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub apache_criteria: Option<Criteria>,
     /// 대상 중 하나라도 취약이면 취약, 아니면 확인 필요.
     pub verdict: Verdict,
     /// 이 실행의 종료 코드 — 취약 2 · 확인 필요 6(본체 표).
@@ -114,14 +119,14 @@ pub struct Statuses {
 
 #[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
 pub struct Finding {
-    /// `header:<head|get>:<헤더 이름>:<차례>` · `php-presence`.
+    /// `header:<head|get>:<헤더 이름>:<차례>` · `php-presence` · `apache:<head|get>`.
     pub id: String,
     pub kind: FindingKind,
     /// `HEAD` · `GET` — 어느 응답에서 읽었나.
     pub method: String,
     /// `X-Powered-By: PHP/8.3.6` 처럼 받은 그대로, 또는 단서의 이름.
     pub evidence: String,
-    /// 헤더에서 읽은 PHP 버전.
+    /// 헤더에서 읽은 버전 — `header` 는 PHP 의 것, `apache` 는 Apache 의 것.
     pub version: Option<String>,
     pub verdict: Verdict,
     pub reason: String,
@@ -130,10 +135,12 @@ pub struct Finding {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum FindingKind {
-    /// `Server` · `X-Powered-By` 헤더 한 줄.
+    /// `Server` · `X-Powered-By` 헤더 한 줄(PHP).
     Header,
     /// 버전 없이 PHP 를 쓴다고 짐작할 단서.
     PhpPresence,
+    /// `Server` 의 Apache 와 같은 응답의 HTTP/2 알림(`Upgrade`) — 응답마다 하나(코어 1.19.0).
+    Apache,
 }
 
 #[derive(Debug, Clone, Default, Serialize, JsonSchema)]
