@@ -76,5 +76,5 @@ body:
       options:
         - label: "사용자 이름 · 호스트명 · 고객사 이름을 가렸습니다."
           required: true
-        - label: "결과 파일(`scan.json` · `plan.json`) · 신고 묶음 · 로그 · 검체를 이 이슈에 붙이지 않았습니다."
+        - label: "결과 파일(scan.json · plan.json) · 신고 묶음 · 로그 · 검체를 이 이슈에 붙이지 않았습니다."
           required: true

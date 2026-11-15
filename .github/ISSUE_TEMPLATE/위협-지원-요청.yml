@@ -74,5 +74,5 @@ body:
       options:
         - label: "고객사 이름 · 호스트명 · 사용자 이름 · 내부 주소를 적지 않았습니다."
           required: true
-        - label: "검체 · `artifacts.json` · 고객 환경에서 본 값을 이 이슈에 붙이지 않았습니다."
+        - label: "검체 · artifacts.json · 고객 환경에서 본 값을 이 이슈에 붙이지 않았습니다."
           required: true
