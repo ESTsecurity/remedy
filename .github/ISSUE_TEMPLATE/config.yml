@@ -1,3 +1,8 @@
-# 템플릿을 거치지 않은 빈 이슈를 막는다 — 고객 환경 자료와 보안 신고는 공개
-# 이슈가 아니라 `SECURITY.md` 의 비공개 경로로 간다(두 템플릿의 머리말).
+# 양식을 거치지 않은 빈 이슈를 막는다(쓰기 권한자는 'Maintainers only' 로 열 수 있다) — 고객 환경
+# 자료와 보안 신고는 공개 이슈가 아니라 `SECURITY.md` 의 비공개 경로로 간다(양식 셋의 머리말 · 아래 링크).
+# 받은 이슈를 처리하는 절차는 docs/이슈-처리.md.
 blank_issues_enabled: false
+contact_links:
+  - name: 보안 취약점 · 검체 · 신고 묶음 (비공개)
+    url: https://github.com/ESTsecurity/remedy/blob/main/SECURITY.md
+    about: "공개 이슈에 올리지 마십시오. 보안 취약점과, 이슈에 붙이지 않는 파일(신고 묶음 · 결과 파일 · 검체)은 이 문서의 비공개 경로로 보내 주십시오."

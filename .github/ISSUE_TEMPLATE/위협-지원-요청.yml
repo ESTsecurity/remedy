@@ -1,0 +1,78 @@
+# 새 위협 대응 요청 — 팀원의 '이 취약점 · 악성코드를 지원해야 한다' 도 여기로 받는다.
+# 담당자의 판단(이미 있는 룰 · 자립률 분류 T1/T2/T3 · 평소 / 긴급 경로)은 docs/이슈-처리.md 의 분류 댓글로 남긴다.
+name: 위협 지원 요청
+description: "이 취약점 · 악성코드를 remedy 로 점검하거나 치료하게 해 달라는 요청입니다 — 팀원의 지원 요청도 여기로"
+labels: ["위협 지원", "접수"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **이 이슈는 누구나 볼 수 있습니다.** 고객사 이름 · 기계 이름 · 내부 주소, 고객 환경에서 직접 본 값(파일 경로 · 해시 ·
+        접속 주소), 검체와 `artifacts.json`(`remedy collect`) 은 여기에 적지 마시고, 이슈를 연 뒤 그 번호를 적어
+        [`SECURITY.md`](https://github.com/ESTsecurity/remedy/blob/main/SECURITY.md) 의 비공개 경로로 보내 주십시오.
+
+        이 이슈에는 **공개된 출처에 있는 것만** 적습니다. 룰은 배포 파일에 그대로 담겨 공개되므로 룰에도 공개된 지표만 씁니다.
+        이미 다루는 위협인지 README 의 [다루는 위협](https://github.com/ESTsecurity/remedy#다루는-위협) 표를 먼저 봐 주십시오.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: 종류
+      options:
+        - 취약점
+        - 악성코드
+        - 모르겠습니다
+    validations:
+      required: true
+  - type: input
+    id: name
+    attributes:
+      label: 위협 이름 · CVE
+      placeholder: "예: Log4Shell (CVE-2021-44228)"
+    validations:
+      required: true
+  - type: textarea
+    id: sources
+    attributes:
+      label: 공개 출처
+      description: 공급사 보안 공지 · 배포판 보안 추적기 · 보안 업체 분석 보고서 같은 링크입니다.
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: 대상 OS
+      multiple: true
+      options:
+        - Windows
+        - Linux
+    validations:
+      required: true
+  - type: textarea
+    id: target
+    attributes:
+      label: 영향받는 소프트웨어 · 공개된 흔적
+      description: "취약점이면 영향받는 제품과 버전, 악성코드면 공개 출처에 있는 흔적(지속성 · 파일 · 레지스트리 · 서비스)입니다. 고객 환경에서 본 값은 비공개로 보내 주십시오."
+  - type: dropdown
+    id: urgency
+    attributes:
+      label: 공개 시연 · 실제 공격
+      description: 공개 시연(PoC)이나 실제 공격이 있으면 룰만 바꾸는 긴급 출시를 검토합니다.
+      options:
+        - 있습니다
+        - 없거나 모르겠습니다
+    validations:
+      required: true
+  - type: textarea
+    id: need
+    attributes:
+      label: 필요한 곳 · 기한
+      description: "몇 대 · 어떤 환경(사내 · 고객사)에 언제까지 필요한지입니다. 고객사 이름은 적지 마십시오."
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: 올리기 전에 확인
+      options:
+        - label: "고객사 이름 · 호스트명 · 사용자 이름 · 내부 주소를 적지 않았습니다."
+          required: true
+        - label: "검체 · `artifacts.json` · 고객 환경에서 본 값을 이 이슈에 붙이지 않았습니다."
+          required: true

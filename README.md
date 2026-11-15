@@ -649,15 +649,20 @@ sudo ./remedy run --plugin ./plugins/ebury-check/plugin.yaml --out-dir ./out    
 | 룰을 **쓰는** 사람 | [`docs/plugin-guide/`](docs/plugin-guide/README.md) |
 | 코어를 **고치는** 사람 | [`docs/개발-안내.md`](docs/개발-안내.md) — 설계의 척추 · 저장소 규칙 · 설계 문서 · 커밋 전 검증 |
 | 화면이 궁금한 사람 | [`docs/design/콘솔은-이렇게-보인다.md`](docs/design/콘솔은-이렇게-보인다.md) |
+| 이슈를 **처리하는** 사람 | [`docs/이슈-처리.md`](docs/이슈-처리.md) — 버그 · 오탐 · 위협 지원 요청을 받아 분류 · 판단 · 닫기까지 |
 
 ## 지원 · 신고
 
-- **보안 취약점** — 공개 이슈로 올리지 마시고 [`SECURITY.md`](SECURITY.md) 의 신고 경로로
-  보내 주십시오.
-- **오탐 · 치료 문의** — 메뉴의 *신고에 붙일 것 모으기*(`remedy support-bundle`)로 신고 묶음을
-  만들어, 이 도구를 나눠 준 조직의 담당자에게 전달해 주십시오. GitHub 에서 직접 받으셨다면
+- **버그 · 오탐 · 위협 지원 요청** — [Issues](https://github.com/ESTsecurity/remedy/issues/new/choose) 에서 맞는
+  양식(*버그 신고* · *오탐 신고* · *위협 지원 요청*)을 골라 올려 주십시오. **이슈는 누구나 볼 수 있습니다** — 화면
+  문구의 사용자 이름 · 호스트명은 가려 적고, 파일은 이슈에 붙이지 마십시오. 받은 이슈를 처리하는 절차는
+  [`docs/이슈-처리.md`](docs/이슈-처리.md) 에 있습니다.
+- **파일** — 메뉴의 *신고에 붙일 것 모으기*(`remedy support-bundle`)로 만든 신고 묶음 · 결과 파일 · 검체는 이슈
+  번호를 적어, 이 도구를 나눠 준 조직의 담당자에게 전달해 주십시오. GitHub 에서 직접 받으셨다면
   `security@estsecurity.com` 으로 보내 주십시오. **신고 묶음에는 경로 · 호스트명 · 사용자명이 가려지지
   않고 들어 있으므로 공개된 곳(공개 이슈 · 게시판)에 올리지 마십시오.**
+- **보안 취약점** — 공개 이슈로 올리지 마시고 [`SECURITY.md`](SECURITY.md) 의 신고 경로로
+  보내 주십시오.
 - **기여** — 이 저장소는 ESTsecurity 가 관리하는 독점 소프트웨어라 외부 기여(Pull Request)는
   받지 않습니다.
 

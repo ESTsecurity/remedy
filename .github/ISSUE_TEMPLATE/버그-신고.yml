@@ -1,0 +1,80 @@
+# remedy 가 잘못 동작할 때. 처리 절차: docs/이슈-처리.md
+name: 버그 신고
+description: "remedy 가 잘못 동작합니다 — 멈춤 · 오류 · 화면이나 결과가 안내와 다를 때"
+labels: ["버그", "접수"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **이 이슈는 누구나 볼 수 있습니다.** 화면 문구와 결과 파일 · 신고 묶음에는 이 기계의 경로 · 호스트명 · 사용자명이
+        가려지지 않은 채 들어 있습니다. 화면 문구는 사용자 이름을 `<사용자>`, 기계 이름을 `<호스트>` 로 바꿔 적어 주시고,
+        파일은 이 이슈에 붙이지 마십시오 — 이슈를 연 뒤 그 번호를 적어
+        [`SECURITY.md`](https://github.com/ESTsecurity/remedy/blob/main/SECURITY.md) 의 비공개 경로로 보내 주십시오.
+
+        - 정상 파일을 위협으로 찾았거나 치료했다면 **오탐 신고** 양식을 써 주십시오.
+        - 보안 취약점(서명 확인 우회 · 보호 경로를 지우는 길 등)은 공개 이슈로 올리지 마시고 `SECURITY.md` 로 보내 주십시오.
+  - type: input
+    id: version
+    attributes:
+      label: remedy 버전
+      description: "메뉴 첫 화면이나 `remedy --version` 에 보이는 버전입니다."
+      placeholder: "예: 1.19.1"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: OS
+      options:
+        - Windows
+        - Linux
+    validations:
+      required: true
+  - type: input
+    id: os-version
+    attributes:
+      label: OS 버전
+      placeholder: "예: Windows 11 23H2 · Ubuntu 22.04"
+  - type: dropdown
+    id: how
+    attributes:
+      label: 실행한 방법
+      options:
+        - 메뉴 (받은 폴더에서 실행)
+        - 명령 (인자를 붙여 실행)
+        - remedy-net (이미지 · 컨테이너 · 원격 점검)
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 한 일
+      description: 고른 메뉴 번호나 실행한 명령을 차례로 적어 주십시오.
+      placeholder: |
+        1. 받은 폴더에서 remedy 를 실행
+        2. 메뉴에서 '1. 모두 검사만 하기' 를 고름
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 기대한 것
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: 실제로 본 것
+      description: "화면 문구를 그대로 붙여 주십시오(명령으로 실행했다면 종료 코드도). 사용자 이름 · 호스트명은 가려 주십시오."
+      render: text
+    validations:
+      required: true
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: 올리기 전에 확인
+      options:
+        - label: "사용자 이름 · 호스트명 · 고객사 이름을 가렸습니다."
+          required: true
+        - label: "결과 파일(`scan.json` · `plan.json`) · 신고 묶음 · 로그 · 검체를 이 이슈에 붙이지 않았습니다."
+          required: true

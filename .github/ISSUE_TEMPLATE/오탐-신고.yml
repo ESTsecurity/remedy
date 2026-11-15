@@ -1,0 +1,95 @@
+# 설계-04 §6 의 오탐 대응 경로 — 무엇을 비공개로 보내야 하는지를 이 양식이 구조화한다.
+# 담당자가 할 일(재현 · 청정 코퍼스 편입 · 폐기 목록 · 게이트 승격)은 docs/이슈-처리.md 의 분류 댓글로 남긴다.
+name: 오탐 신고
+description: "정상 항목을 위협으로 찾았거나 치료 · 격리했을 때 — 먼저 복원하고, 파일은 비공개 경로로 보냅니다"
+labels: ["오탐", "접수"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **먼저 복원하십시오.** 격리한 파일은 자동으로 지워지지 않아 지금 되돌릴 수 있습니다 — 메뉴의 *치료 전으로 복원하기*,
+        또는 `remedy restore --run <회차>` 입니다.
+
+        **이 이슈는 누구나 볼 수 있습니다.** 결과 파일(`scan.json` · `plan.json`)과 신고 묶음에는 이 기계의 경로 · 호스트명 ·
+        사용자명이 가려지지 않은 채 들어 있습니다. 이 이슈에 붙이지 마시고, 이슈를 연 뒤 그 번호를 적어
+        [`SECURITY.md`](https://github.com/ESTsecurity/remedy/blob/main/SECURITY.md) 의 비공개 경로로 보내 주십시오 — 아래 *비공개로 보낼 것*.
+  - type: dropdown
+    id: state
+    attributes:
+      label: remedy 가 한 일
+      options:
+        - 치료했고, 복원했습니다
+        - 치료했고, 아직 복원하지 않았습니다
+        - 찾기만 했습니다 (바꾼 것이 없습니다)
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: remedy 버전
+      description: "메뉴 첫 화면이나 `remedy --version` 에 보이는 버전입니다."
+      placeholder: "예: 1.19.1"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: OS
+      options:
+        - Windows
+        - Linux
+    validations:
+      required: true
+  - type: input
+    id: os-version
+    attributes:
+      label: OS 버전
+      placeholder: "예: Windows 11 23H2 · Ubuntu 22.04"
+  - type: input
+    id: rule
+    attributes:
+      label: 잡은 항목
+      description: "화면에 보인 항목 이름이나 룰 이름 · 버전입니다(README 의 *다루는 위협* 표)."
+      placeholder: "예: EvilAI(Locust) 제거 — evilai-locust 0.2.0"
+    validations:
+      required: true
+  - type: textarea
+    id: target
+    attributes:
+      label: 잘못 잡힌 것
+      description: "경로나 항목 이름입니다. 경로의 사용자 이름은 `<사용자>` 로 바꿔 적어 주십시오."
+    validations:
+      required: true
+  - type: textarea
+    id: why-normal
+    attributes:
+      label: 정상이라는 근거
+      description: 그 파일이나 항목이 속한 제품 이름과 용도입니다.
+    validations:
+      required: true
+  - type: dropdown
+    id: broken
+    attributes:
+      label: 그 프로그램이 지금 동작합니까
+      options:
+        - 동작하지 않습니다
+        - 동작합니다
+        - 모르겠습니다
+  - type: markdown
+    attributes:
+      value: |
+        **비공개로 보낼 것** — 이 이슈의 번호를 적어 `SECURITY.md` 의 비공개 경로로 보내 주십시오.
+
+        - 신고 묶음 — 메뉴의 *신고에 붙일 것 모으기*(`remedy support-bundle`). 계획 · 실행 기록 · 화면 기록 · 환경이 담기고,
+          격리한 파일과 봉인 키는 일부러 담지 않습니다
+        - 결과 폴더(`out`)의 `scan.json` · `plan.json`
+        - 설치된 보안 제품과, 도메인(AD)에 든 기계인지
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: 올리기 전에 확인
+      options:
+        - label: "사용자 이름 · 호스트명 · 고객사 이름을 가렸습니다."
+          required: true
+        - label: "결과 파일 · 신고 묶음 · 로그 · 격리한 파일을 이 이슈에 붙이지 않았습니다."
+          required: true
