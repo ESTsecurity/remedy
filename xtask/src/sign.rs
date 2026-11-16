@@ -36,7 +36,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
 
 const USAGE: &str = "사용법:\n  \
     cargo xtask sign keygen --public-key <파일> --secret-key <파일>\n  \
-    cargo xtask sign plugin --dir <플러그인 디렉터리> --secret-key <파일> \
+    cargo xtask sign plugin --dir <플러그인 디렉터리> [--dir <또 하나> …] --secret-key <파일> \
     --signed-at <RFC3339>\n  \
     cargo xtask sign companion --dir <remedy-net 폴더> --secret-key <파일> \
     --signed-at <RFC3339>\n  \
@@ -96,15 +96,30 @@ fn keygen(args: &[String]) -> Result<(), String> {
     Ok(())
 }
 
+/// **`--dir` 을 여러 번 받는다 — 개인키는 한 번만 푼다.** 풀 때마다 scrypt 를 돌아 한 번에 수 초가 든다
+/// (2026-11-16 실측 — 한 번 2.5초). 합성 룰 1,000개(룰이 늘어도 버티는지 재는 벤치마크)를 하나씩 서명하면
+/// 서명만 40분이 넘었고, 나란히 돌리면 그 KDF 가 회차마다 메모리를 크게 쥔다.
+///
+/// 폴더마다의 id · 버전을 **먼저 다 읽는다** — 뒤 폴더가 틀렸을 때 앞 폴더만 서명된 채 멈추지 않게.
 fn sign_plugin(args: &[String]) -> Result<(), String> {
-    let dir = PathBuf::from(need(args, "--dir")?);
+    let dirs = crate::package::all_of(args, "--dir")?;
+    if dirs.is_empty() {
+        return Err(format!("--dir 가 없다\n{USAGE}"));
+    }
     let sk_path = PathBuf::from(need(args, "--secret-key")?);
     let signed_at = need(args, "--signed-at")?;
 
     check_rfc3339(&signed_at)?;
 
-    let (id, version) = read_plugin_identity(&dir)?;
-    sign_tree(&dir, &id, &version, &sk_path, &signed_at)
+    let idents = dirs
+        .iter()
+        .map(|d| read_plugin_identity(d))
+        .collect::<Result<Vec<_>, _>>()?;
+    let sk = open_secret_key(&sk_path)?;
+    for (dir, (id, version)) in dirs.iter().zip(&idents) {
+        sign_tree_with(dir, id, version, &sk, &signed_at)?;
+    }
+    Ok(())
 }
 
 /// 동반 프로그램(`remedy-net`)의 폴더를 서명한다 — 본체가 그 프로그램을 띄우기 전에 확인하는 서명이다
@@ -151,19 +166,34 @@ fn sign_tree(
     sk_path: &Path,
     signed_at: &str,
 ) -> Result<(), String> {
+    let sk = open_secret_key(sk_path)?;
+    sign_tree_with(dir, id, version, &sk, signed_at)
+}
+
+/// 암호로 잠근 개인키를 연다 — 부를 때마다 KDF 를 돈다([`sign_plugin`] 이 한 번만 부르는 까닭).
+fn open_secret_key(sk_path: &Path) -> Result<minisign::SecretKey, String> {
+    minisign::SecretKey::from_file(sk_path, password())
+        .map_err(|e| format!("{} 를 열지 못했다: {e}", sk_path.display()))
+}
+
+/// [`sign_tree`] 의 몸통 — 연 키로 서명한다.
+fn sign_tree_with(
+    dir: &Path,
+    id: &str,
+    version: &str,
+    sk: &minisign::SecretKey,
+    signed_at: &str,
+) -> Result<(), String> {
     let files = remedy_trust::collect(dir).map_err(|e| format!("{e}"))?;
     if files.is_empty() {
         return Err(format!("{} 에 서명할 파일이 없다", dir.display()));
     }
     let manifest = remedy_trust::Manifest::render(&files);
 
-    let sk = minisign::SecretKey::from_file(sk_path, password())
-        .map_err(|e| format!("{} 를 열지 못했다: {e}", sk_path.display()))?;
-
     let comment = remedy_trust::TrustedComment::render(id, version, signed_at);
     let sig = minisign::sign(
         None,
-        &sk,
+        sk,
         manifest.as_bytes(),
         Some(&comment),
         Some("remedy plugin signature"),
@@ -366,5 +396,44 @@ mod tests {
         ] {
             assert!(check_rfc3339(bad).is_err(), "받아들이면 안 된다: {bad:?}");
         }
+    }
+
+    /// 폴더 여럿을 **연 키 하나로** 서명한다(`--dir` 을 여러 번 — 키는 한 번만 푼다). 폴더마다 매니페스트와
+    /// 서명이 서서 제품의 검증(`verify_manifest`)을 지나고, 서명 주석의 id 는 그 폴더의 것이다 — 앞 폴더의
+    /// 것이 뒤로 새지 않는다. 암호 없는 키쌍을 쓴다 — 암호를 걸면 시험이 KDF 를 돈다(`leaks` 시험과 같은 까닭).
+    #[test]
+    fn 연_키_하나로_폴더_여럿을_서명한다() {
+        let repo = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("저장소 뿌리");
+        let root = std::env::temp_dir().join(format!("xtask-sign-many-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let kp = minisign::KeyPair::generate_unencrypted_keypair().expect("키쌍");
+        let anchor = remedy_trust::Anchor::from_public_key_file(
+            &kp.pk.to_box().expect("공개키 상자").into_string(),
+        )
+        .expect("앵커");
+        let srcs = ["ebury-check", "cwpdoor-1-check"];
+        for src in srcs {
+            let dir = root.join(src);
+            std::fs::create_dir_all(&dir).expect("폴더");
+            std::fs::copy(
+                repo.join("plugins").join(src).join("plugin.yaml"),
+                dir.join("plugin.yaml"),
+            )
+            .expect("복사");
+            let (id, version) = read_plugin_identity(&dir).expect("id");
+            sign_tree_with(&dir, &id, &version, &kp.sk, "2026-11-16T00:00:00Z").expect("서명");
+        }
+        for src in srcs {
+            let dir = root.join(src);
+            let manifest =
+                std::fs::read(dir.join(remedy_trust::MANIFEST_NAME)).expect("매니페스트");
+            let sig =
+                std::fs::read_to_string(dir.join(remedy_trust::SIGNATURE_NAME)).expect("서명");
+            let v = remedy_trust::verify_manifest(&anchor, &manifest, &sig).expect("검증");
+            assert_eq!(v.comment().id, src);
+        }
+        let _ = std::fs::remove_dir_all(&root);
     }
 }
