@@ -115,6 +115,8 @@ inside() {
     # 1 = 모두 검사만 · 빈 줄 = 작업 뒤의 멈춤 · 0 = 고르는 화면에서 그만두기.
     printf '1\n\n0\n' | LANG=ko_KR.UTF-8 script -q -e -c "./remedy > /out/scan-all.txt 2>&1" /dev/null
     echo "scan_all_exit=$?"
+    # 모두 검사만은 찾은 룰 · 확인 필요 룰의 결과 파일만 남긴다(D11) — 깨끗한 컨테이너라 남은 폴더가 없어야 한다.
+    echo "scan_all_out_dirs=$(find out -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l)"
     # Ebury 의 번호는 고르는 화면에서 읽는다 — 룰이 늘면 바뀐다.
     local e
     e=$(grep -m1 -E '^ +[0-9]+\. Ebury ' /out/scan-all.txt | sed -E 's/^ +([0-9]+)\..*/\1/')
@@ -246,7 +248,7 @@ items "$REPO/testbed/harness/baseline/console/console-win.txt" >"$OUT/items-win.
     fi
     echo "linux_privilege=$(grep -m1 -E '권한으로 실행 중입니다|권한이 없습니다' "$OUT/menu.txt")"
     echo "linux_notice=$(grep -m1 -E '^알림:' "$OUT/menu.txt")"
-    # 모두 검사만 — 결과 한 덩어리에 룰마다 한 줄 · 룰마다 따로인 결과 폴더 · 작업 뒤 끝내는 말.
+    # 모두 검사만 — 결과 한 덩어리에 룰마다 한 줄 · 깨끗한 룰은 결과 폴더를 남기지 않음(D11) · 작업 뒤 끝내는 말.
     # **세는 것은 이 기계를 보는 룰이다** — 네트워크 점검은 주소를 적어야 돌아 여기 들지 않고(1.4.0),
     # 끝의 요약에 *돌리지 않았습니다* 로 한 줄씩 선다(그래서 요약의 줄 수는 룰 전부다).
     all=$(sed -n 's/^linux_rules=//p' "$OUT/run.txt")
@@ -259,7 +261,9 @@ items "$REPO/testbed/harness/baseline/console/console-win.txt" >"$OUT/items-win.
     echo "scan_all_exit=$(sed -n 's/^scan_all_exit=//p' "$OUT/run.txt")"
     echo "scan_all_summary=$(grep -c "모두 검사한 결과 — 룰 ${rules}개" "$OUT/scan-all.txt")"
     echo "scan_all_lines=$(sed -n '/모두 검사한 결과/,/Enter 를 누르면/p' "$OUT/scan-all.txt" | grep -c -E '^  .+ (—|-) ')"
+    # 결과 폴더를 적는 줄 — 남긴 룰만 적는다(D11). 깨끗한 컨테이너라 0 이다.
     echo "scan_all_dirs=$(grep -o -E '결과 폴더 : [^ ]+' "$OUT/scan-all.txt" | sort -u | wc -l)"
+    echo "scan_all_out_dirs=$(sed -n 's/^scan_all_out_dirs=//p' "$OUT/run.txt")"
     echo "scan_all_ended=$(grep -c '끝냅니다\.' "$OUT/scan-all.txt")"
     # 찾기만 하는 룰의 메뉴 — 머리말의 이름 · 1 번이 검사만 하기 · 치료를 약속하는 두 줄은 서지 않는다
     # (목표 remedy_사용자메뉴 기준 1 — v1.2.0 은 그 둘이 까닭을 달고 흐렸다).
@@ -315,7 +319,7 @@ v() { sed -n "s/^$1=//p" "$OUT/verdict.txt"; }
     && [ "$(v chooser_total)" -ge 1 ] && [ "$(v scan_all_skipped)" = "$(v network_rules)" ] \
     && [ "$(v scan_all_exit)" = 6 ] && [ "$(v scan_all_summary)" = 1 ] \
     && [ "$(v scan_all_lines)" = "$(( $(v linux_rules) + $(v network_rules) ))" ] \
-    && [ "$(v scan_all_dirs)" = "$(v linux_rules)" ] \
+    && [ "$(v scan_all_dirs)" = 0 ] && [ "$(v scan_all_out_dirs)" = 0 ] \
     && [ "$(v scan_all_ended)" = 1 ] && [ "$(v detect_only_exit)" = 0 ] \
     && [ "$(v detect_only_named)" = 1 ] && [ "$(v detect_only_first)" = 1 ] \
     && [ "$(v detect_only_treat)" = 0 ] \

@@ -95,6 +95,10 @@ param(
     # 서명한 것). 주면 **모두 검사만** 과 **찾기만 하는 룰의 메뉴**를 잰다 — 그 두 단계 동안만
     # 꾸러미의 plugins 옆에 두고 치운다(목표 remedy_출시_20261111 기준 3 · 4).
     [string] $Extra = "",
+    # 벤치만 돈다(룰이 늘어도 버티는가 — 목표 remedy_전체검사_운영기반 기준 6). 고르는 화면에서 그만두기와
+    # 모두 검사만 두 번만 띄워 시간 · 최대 메모리 · 화면 줄 수 · 결과 폴더 크기를 재고 끝낸다. 호스트는
+    # `host\Invoke-ScanAllBench.ps1` 이다 — 합성 룰 꾸러미를 지어 넘긴다.
+    [switch] $Bench,
     [string] $TaskName = "Locust",
     [string] $TaskPath = "\Microsoft\Windows\",
     [string] $RunName  = "SystemSoftwareUpdater"
@@ -248,7 +252,9 @@ function Start-WithRealConsole {
 # 번호들을 눌러 한 회차를 끝까지 돌린다. **마지막 빈 줄은 부르는 쪽이 넣는다** —
 # 넣지 않으면 창을 붙잡는 자리에서 멈춘다.
 function Invoke-MenuRun {
-    param([string[]] $Lines, [int] $TimeoutMs = 180000)
+    # `-Peak` 는 도는 동안 0.2초마다 최대 작업 집합(PeakWorkingSet64)을 읽는다 — 끝난 프로세스에서는 그 값을
+    # 읽을 수 없다. 리눅스 벤치의 VmHWM 과 같은 뜻이다.
+    param([string[]] $Lines, [int] $TimeoutMs = 180000, [switch] $Peak)
     # **앞 회차의 잔재를 먼저 버린다** — 까닭은 `FlushInput` 의 주석에 있다.
     $flushed = [RemedyLab.Menu]::FlushInput()
     $p = Start-WithRealConsole
@@ -262,7 +268,17 @@ function Invoke-MenuRun {
         $typed += [RemedyLab.Menu]::TypeLine($l)
         Start-Sleep -Milliseconds 120
     }
-    $done = $p.WaitForExit($TimeoutMs)
+    $peakWs = 0
+    if ($Peak) {
+        $deadline = (Get-Date).AddMilliseconds($TimeoutMs)
+        while ((-not $p.HasExited) -and ((Get-Date) -lt $deadline)) {
+            try { $p.Refresh(); if ($p.PeakWorkingSet64 -gt $peakWs) { $peakWs = $p.PeakWorkingSet64 } } catch { }
+            Start-Sleep -Milliseconds 200
+        }
+        $done = $p.HasExited
+    } else {
+        $done = $p.WaitForExit($TimeoutMs)
+    }
     if (-not $done) { try { $p.Kill() } catch { }; $p.WaitForExit() }
     [ordered]@{
         lines     = $Lines
@@ -270,6 +286,7 @@ function Invoke-MenuRun {
         flushed   = $flushed
         timed_out = (-not $done)
         exit      = $p.ExitCode
+        peak_ws   = $peakWs
         text      = ($o.Result + $e.Result)
     }
 }
@@ -412,6 +429,62 @@ if ($rc -ne 0) {
     [System.IO.File]::WriteAllText($OutFile, ($report | ConvertTo-Json -Depth 8),
                                    (New-Object System.Text.UTF8Encoding($false)))
     exit 1
+}
+
+# ── 벤치 — 룰이 늘어도 버티는가 (`-Bench` · 기준 6) ─────────────────────────
+#
+# 두 번만 띄운다: 고르는 화면에서 그만두기(서명 확인 N 개 · 화면 그리기까지)와 모두 검사만. 요약 줄은 '모두 검사한
+# 결과' 머리에서 다음 구분선까지의 `  이름 — 결과` 줄이다(그 뒤의 다음 할 일 · 안내 줄을 세지 않는다).
+if ($Bench) {
+    # **`$bench` 로 쓰지 않는다** — PowerShell 변수는 대소문자를 가리지 않아 [switch] 매개변수 `$Bench` 와 같은
+    # 변수가 되고, 사전을 넣는 순간 형 변환에 실패한다(2026-11-16 첫 회차가 거기서 죽었다).
+    $benchOut = [ordered]@{}
+    foreach ($b in @(
+            [ordered]@{ name = "start"; lines = @("0"); timeout = 600000 },
+            [ordered]@{ name = "scan_all"; lines = @("1", "", "0"); timeout = 7200000 })) {
+        $sw = [System.Diagnostics.Stopwatch]::StartNew()
+        $br = Invoke-MenuRun -Lines $b.lines -TimeoutMs $b.timeout -Peak
+        $sw.Stop()
+        $all = @($br.text -split "`r?`n")
+        $one = [ordered]@{
+            secs = [math]::Round($sw.Elapsed.TotalSeconds, 1); exit = $br.exit; timed_out = $br.timed_out
+            peak_ws_kib = [math]::Round($br.peak_ws / 1KB); lines = $all.Count
+            chooser_lines = @($all | Where-Object { $_ -match '^\s+\d+\.\s' }).Count
+            summary = 0
+            listed = 0
+        }
+        $at = [array]::IndexOf($all, ($all | Where-Object { $_ -match '^모두 검사한 결과' } | Select-Object -First 1))
+        if ($at -ge 0) {
+            # 요약이 덮는 룰 수 — 줄로 적힌 룰 + '나머지 N개'(룰이 한 화면을 넘으면 깨끗한 룰은 수로만 선다 · D10).
+            $n = 0
+            $rest = 0
+            for ($k = $at + 1; $k -lt $all.Count; $k++) {
+                if ($all[$k] -match '^[─\-]{10,}') { break }
+                if ($all[$k] -match '^\s\s나머지 (\d+)개 ') { $rest = [int]$Matches[1]; continue }
+                if ($all[$k] -match '^\s\s.+ (—|-) ') { $n++ }
+            }
+            $one.summary = $n + $rest
+            $one.listed = $n
+        }
+        $benchOut[$b.name] = $one
+        $tr.Add("=== bench $($b.name) ===")
+        $tr.Add($br.text.TrimEnd())
+    }
+    $home0 = Split-Path -Parent $Bin
+    foreach ($d in @("out", "state")) {
+        $files = @(Get-ChildItem -LiteralPath (Join-Path $home0 $d) -Recurse -File -ErrorAction SilentlyContinue)
+        $benchOut["${d}_bytes"] = [long](($files | Measure-Object -Property Length -Sum).Sum)
+    }
+    $benchOut.out_dirs = @(Get-ChildItem -LiteralPath (Join-Path $home0 "out") -Directory -ErrorAction SilentlyContinue).Count
+    $report.bench = $benchOut
+    $report.verdict = (-not $benchOut.scan_all.timed_out) -and (@(0, 2, 6) -contains $benchOut.scan_all.exit)
+    $dir = Split-Path -Parent $OutFile
+    if ($dir -and -not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+    [System.IO.File]::WriteAllText($OutFile, ($report | ConvertTo-Json -Depth 8),
+                                   (New-Object System.Text.UTF8Encoding($false)))
+    [System.IO.File]::WriteAllText($TranscriptFile, ($tr -join "`r`n"),
+                                   (New-Object System.Text.UTF8Encoding($false)))
+    exit 0
 }
 
 # ── 0. 메뉴가 뜨는가 · 몇 줄인가 ─────────────────────────────────────

@@ -785,7 +785,7 @@ fn value_after(args: &[String], at: usize, name: &str) -> Result<String, String>
 ///
 /// **값 없는 것도 거부한다.** 넘기면 바로 위 문장이 거짓이 된다 —
 /// `--plugin a --plugin` 이 조용히 하나짜리 꾸러미를 낸다.
-fn all_of(args: &[String], name: &str) -> Result<Vec<PathBuf>, String> {
+pub(crate) fn all_of(args: &[String], name: &str) -> Result<Vec<PathBuf>, String> {
     let mut out = Vec::new();
     let mut i = 0;
     while i < args.len() {

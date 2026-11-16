@@ -502,7 +502,13 @@ struct Chosen {
     path: std::path::PathBuf,
     /// 네트워크로 점검하는 룰인가(`network`) — 이 기계를 보지 않고 동반 프로그램이 맡는다.
     network: bool,
+    /// 하는 일 묶음 — [`discover::menu_group`] 과 같은 값(0 악성코드 탐지 · 제거 · 1 취약점 점검 · 2 원격 점검).
+    group: u8,
 }
+
+/// 고르는 화면이 **한 화면을 넘는** 룰 수 — 넘으면 고르는 화면은 하는 일 묶음과 찾기로, *모두 검사만* 은 룰마다
+/// 한 줄 진행으로 간다(목표 remedy_전체검사_운영기반 D10). 그 아래(지금 배포 파일의 7 · 11개)는 지금 화면 그대로다.
+pub(crate) const MANY_RULES: usize = 20;
 
 /// 고르는 화면의 답 — 룰 하나, **전부로 검사만**, 또는 **찾은 것 모두 치료하기**.
 enum Choice {
@@ -563,6 +569,12 @@ fn choose(ok: &[discover::Found]) -> Option<Choice> {
         // 여기서 실패해 전체를 세우지 않는다.
         let m = load_manifest(&f.path.to_string_lossy()).ok();
         let network = m.as_ref().is_some_and(|m| m.network.is_some());
+        // `discover::menu_group` 과 같은 갈래 — 이미 읽은 매니페스트로 센다(룰 수천 개에서 다시 읽지 않게).
+        let group = match &m {
+            Some(_) if network => 2,
+            Some(m) if m.kind == Some(remedy_sdk::manifest::PluginKind::Check) => 1,
+            _ => 0,
+        };
         let label = m
             .and_then(|m| {
                 m.name
@@ -582,6 +594,7 @@ fn choose(ok: &[discover::Found]) -> Option<Choice> {
             label,
             path: f.path.clone(),
             network,
+            group,
         }
     };
     // 한 번만 읽는다 — 줄을 그릴 때와 고른 뒤가 같은 것을 본다.
@@ -672,8 +685,13 @@ fn choose(ok: &[discover::Found]) -> Option<Choice> {
     } else {
         Row::Item(all_label)
     });
+    // **룰이 한 화면을 넘으면 묶음과 찾기로 간다**(D10) — 그 아래는 지금 화면 · 번호 그대로다.
+    if all.len() > MANY_RULES {
+        return choose_grouped(rows, &all, local, remote, &shown);
+    }
     rows.extend(all.iter().map(|c| Row::Item(shown(c))));
-    set_chooser(&all);
+    set_chooser(&all, true);
+    set_treat_all_at(1 + all.len());
     // **찾은 것 모두 치료하기는 룰 목록 뒤에 선다** — 룰의 번호가 2 부터라는 것이 안내문 · 하네스에
     // 적혀 있다. 이 세션의 *모두 검사만* 이 치료하는 룰에서 무언가를 찾았을 때만 선다.
     let (treat, other) = found();
@@ -689,7 +707,7 @@ fn choose(ok: &[discover::Found]) -> Option<Choice> {
         set_picked(None);
         return Some(Choice::All(local, remote));
     }
-    if Some(n) == treat_all_number(all.len(), treat.len()) {
+    if Some(n) == treat_all_number(1 + all.len(), treat.len()) {
         set_picked(None);
         return Some(Choice::TreatAll(treat, other));
     }
@@ -727,22 +745,28 @@ fn found() -> Found {
 }
 
 /// 지금 고르는 화면에 선 룰 — (번호, 이름, 경로). 작업이 끝나면 그 화면이 다시 서므로 *다음 할 일* 이
-/// 먼저 고를 룰과 **찾은 것 모두 치료하기** 의 번호를 이것으로 센다. 룰이 하나인 꾸러미는 그 화면이
-/// 서지 않아 비어 있다.
+/// 먼저 고를 룰을 이것으로 센다. 룰이 한 화면을 넘어 묶음 · 찾기로 고르면 번호가 없다(0) — 그때 다음 할 일은
+/// 이름으로 적는다(`main` 의 `step_line`). 룰이 하나인 꾸러미는 그 화면이 서지 않아 비어 있다.
 static CHOOSER: std::sync::Mutex<Vec<(usize, String, std::path::PathBuf)>> =
     std::sync::Mutex::new(Vec::new());
 
-fn set_chooser(all: &[Chosen]) {
+fn set_chooser(all: &[Chosen], numbered: bool) {
     if let Ok(mut g) = CHOOSER.lock() {
         *g = all
             .iter()
             .enumerate()
-            .map(|(i, c)| (i + 2, c.label.clone(), c.path.clone()))
+            .map(|(i, c)| {
+                (
+                    if numbered { i + 2 } else { 0 },
+                    c.label.clone(),
+                    c.path.clone(),
+                )
+            })
             .collect();
     }
 }
 
-/// 고르는 화면에서 이 룰의 번호와 이름.
+/// 고르는 화면에서 이 룰의 번호와 이름 — 번호가 0 이면 묶음 · 찾기로 고르는 화면이다.
 pub(crate) fn chooser_entry(path: &std::path::Path) -> Option<(usize, String)> {
     CHOOSER.lock().ok().and_then(|g| {
         g.iter()
@@ -751,18 +775,199 @@ pub(crate) fn chooser_entry(path: &std::path::Path) -> Option<(usize, String)> {
     })
 }
 
+/// 고르는 화면에서 **찾은 것 모두 치료하기 앞에 선 번호 줄의 수** — 그린 화면이 센다. 룰 목록이면 1 + 룰 수,
+/// 묶음 · 찾기면 2 + 묶음 수. 고르는 화면이 서지 않으면(룰이 하나) 0 이다.
+static TREAT_ALL_AT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+fn set_treat_all_at(rows_before: usize) {
+    TREAT_ALL_AT.store(rows_before, std::sync::atomic::Ordering::SeqCst);
+}
+
 /// 고르는 화면이 다시 설 때 **찾은 것 모두 치료하기** 의 번호와 이름 — 그 줄이 설 때만.
 pub(crate) fn treat_all_line() -> Option<(usize, String)> {
     let (treat, _) = found();
-    let rules = CHOOSER.lock().map(|g| g.len()).unwrap_or(0);
-    treat_all_number(rules, treat.len()).map(|n| (n, treat_all_label(ui().lang, treat.len())))
+    let before = TREAT_ALL_AT.load(std::sync::atomic::Ordering::SeqCst);
+    treat_all_number(before, treat.len()).map(|n| (n, treat_all_label(ui().lang, treat.len())))
 }
 
-/// 그 줄의 번호 — 1 번은 *모두 검사만*, 2 번부터 룰 `rules` 개, 그 뒤가 이 줄이다. 룰이 하나면 고르는
-/// 화면이 서지 않고, 찾은 것이 없으면 이 줄이 서지 않는다. 고르는 화면의 답과 *다음 할 일* 이 이것 하나로
-/// 센다 — 둘이 따로 세면 갈린다.
-fn treat_all_number(rules: usize, treat: usize) -> Option<usize> {
-    (treat > 0 && rules > 1).then_some(rules + 2)
+/// 그 줄의 번호 — 그 앞의 번호 줄 `rows_before` 개 바로 뒤다. 고르는 화면이 서지 않았거나(0) 찾은 것이 없으면
+/// 이 줄이 서지 않는다. 고르는 화면의 답과 *다음 할 일* 이 이것 하나로 센다 — 둘이 따로 세면 갈린다.
+fn treat_all_number(rows_before: usize, treat: usize) -> Option<usize> {
+    (treat > 0 && rows_before > 0).then_some(rows_before + 1)
+}
+
+/// 하는 일 묶음의 이름 — [`Chosen::group`] 의 값마다.
+fn group_label(lang: remedy_sdk::i18n::Lang, group: u8) -> &'static str {
+    match group {
+        1 => lang.t("취약점 점검", "Vulnerability checks"),
+        2 => lang.t("원격 점검", "Remote checks"),
+        _ => lang.t("악성코드 탐지 · 제거", "Malware detection · removal"),
+    }
+}
+
+/// 룰이 한 화면([`MANY_RULES`])을 넘을 때의 고르는 화면 — **하는 일 묶음과 찾기**(목표 remedy_전체검사_운영기반
+/// D10). 1 번(모두 검사만)은 그대로이고, 2 번이 찾기(룰 이름 · 폴더 이름에서 — 이름에 제품 · CVE 가 든다), 그
+/// 뒤가 묶음마다 한 줄(그 묶음의 룰 수)이다. 묶음 · 찾기는 룰을 [`MANY_RULES`] 개씩 넘겨 보인다. 룰을 고른 뒤의
+/// 화면은 지금과 같다. 이 화면에는 룰의 번호가 없으므로 다음 할 일은 먼저 고를 룰을 이름으로 적는다.
+fn choose_grouped(
+    base: Vec<crate::term::Row>,
+    all: &[Chosen],
+    local: Vec<Chosen>,
+    remote: Vec<String>,
+    shown: &dyn Fn(&Chosen) -> String,
+) -> Option<Choice> {
+    use crate::term::{Answer, Row};
+    let lang = ui().lang;
+    let mut groups: Vec<(u8, usize)> = Vec::new();
+    for g in 0..=2u8 {
+        let n = all.iter().filter(|c| c.group == g).count();
+        if n > 0 {
+            groups.push((g, n));
+        }
+    }
+    set_chooser(all, false);
+    let rows_before = 2 + groups.len();
+    set_treat_all_at(rows_before);
+    loop {
+        let mut rows = base.clone();
+        rows.push(Row::Item(
+            lang.t(
+                "이름 · 제품 · CVE 로 찾기",
+                "Search by name · product · CVE",
+            )
+            .to_string(),
+        ));
+        for (g, n) in &groups {
+            rows.push(Row::Item(lang.pick(
+                format!("{} ({n}개)", group_label(lang, *g)),
+                format!("{} ({n})", group_label(lang, *g)),
+            )));
+        }
+        let (treat, other) = found();
+        if !treat.is_empty() {
+            rows.push(Row::Item(treat_all_label(lang, treat.len())));
+        }
+        let Answer::Num(n) = crate::term::choose(&rows, Some(lang.t("그만두기", "Quit")))
+        else {
+            return None;
+        };
+        let picked = match n {
+            0 => return None,
+            1 => {
+                set_picked(None);
+                return Some(Choice::All(local, remote));
+            }
+            2 => match search_rules(all) {
+                Some(hits) => pick_from(lang.t("찾은 항목", "Matches"), &hits, shown),
+                None => Picked::Back,
+            },
+            k if k <= rows_before => {
+                let (g, _) = groups[k - 3];
+                let members: Vec<&Chosen> = all.iter().filter(|c| c.group == g).collect();
+                pick_from(group_label(lang, g), &members, shown)
+            }
+            k if Some(k) == treat_all_number(rows_before, treat.len()) => {
+                set_picked(None);
+                return Some(Choice::TreatAll(treat, other));
+            }
+            _ => return None,
+        };
+        match picked {
+            Picked::Got(c) => {
+                set_picked(Some((0, c.label.clone())));
+                return Some(Choice::One(c));
+            }
+            Picked::Back => continue,
+            Picked::End => return None,
+        }
+    }
+}
+
+/// 묶음 · 찾기의 하위 화면이 돌려주는 것.
+enum Picked {
+    Got(Chosen),
+    /// `0` · 찾는 낱말 없음 · 읽지 못함 — 고르는 화면으로 돌아간다.
+    Back,
+    /// Ctrl+C 두 번 — 세션을 끝낸다.
+    End,
+}
+
+/// 룰 목록을 [`MANY_RULES`] 개씩 넘겨 보이고 하나를 고르게 한다. `0` 은 돌아가기, 마지막 번호는 다음 쪽이다.
+/// **되묻지 않는다** — 읽지 못하면 돌아간다(불변식 I7 과 같은 까닭).
+fn pick_from(title: &str, members: &[&Chosen], shown: &dyn Fn(&Chosen) -> String) -> Picked {
+    use crate::term::{Answer, Row};
+    let lang = ui().lang;
+    let mut start = 0;
+    loop {
+        let end = (start + MANY_RULES).min(members.len());
+        let mut rows = vec![
+            Row::Blank,
+            Row::Text(lang.pick(
+                format!("{title} — {}개 가운데 {}~{}", members.len(), start + 1, end),
+                format!("{title} — {}–{} of {}", start + 1, end, members.len()),
+            )),
+        ];
+        rows.extend(members[start..end].iter().map(|c| Row::Item(shown(c))));
+        let more = end < members.len();
+        if more {
+            rows.push(Row::Item(lang.t("다음 쪽 보기", "Next page").to_string()));
+        }
+        match crate::term::choose(&rows, Some(lang.t("돌아가기", "Back"))) {
+            Answer::Num(n) if n >= 1 && n <= end - start => {
+                return Picked::Got(members[start + n - 1].clone())
+            }
+            Answer::Num(n) if more && n == end - start + 1 => start = end,
+            Answer::End => return Picked::End,
+            _ => return Picked::Back,
+        }
+    }
+}
+
+/// 찾을 낱말을 받아 룰 이름 · 폴더 이름에 그 낱말이 든 룰을 돌려준다(대소문자를 가리지 않는다). 비우거나
+/// 맞는 것이 없으면 `None` — 고르는 화면으로 돌아간다.
+fn search_rules(all: &[Chosen]) -> Option<Vec<&Chosen>> {
+    use std::io::Write;
+    let lang = ui().lang;
+    eprint!(
+        "{}",
+        lang.t(
+            "찾을 낱말 (이름 · 제품 · CVE · 비우면 돌아갑니다): ",
+            "Search for (name · product · CVE · empty to go back): "
+        )
+    );
+    std::io::stderr().flush().ok();
+    let mut line = String::new();
+    std::io::stdin().read_line(&mut line).ok()?;
+    let hits = matching(all, &line);
+    if hits.is_empty() && !line.trim().is_empty() {
+        errln!(
+            "  {}",
+            lang.pick(
+                format!("'{}' 이 든 항목이 없습니다.", line.trim()),
+                format!("Nothing matches '{}'.", line.trim())
+            )
+        );
+    }
+    (!hits.is_empty()).then_some(hits)
+}
+
+/// 낱말이 이름 · 폴더 이름에 든 룰 — 대소문자를 가리지 않는다. 낱말이 비면 아무것도 없다.
+fn matching<'a>(all: &'a [Chosen], query: &str) -> Vec<&'a Chosen> {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() {
+        return Vec::new();
+    }
+    all.iter()
+        .filter(|c| {
+            let dir = c
+                .path
+                .parent()
+                .and_then(|d| d.file_name())
+                .map(|n| n.to_string_lossy().to_lowercase())
+                .unwrap_or_default();
+            c.label.to_lowercase().contains(&q) || dir.contains(&q)
+        })
+        .collect()
 }
 
 /// 그 줄의 이름. `이름 — 까닭` 꼴로 잇지 않는다 — 이 화면에서 그 꼴은 고를 수 없는 줄이다(`shown`).
@@ -792,12 +997,65 @@ mod tests {
     /// 안내문 · 하네스가 적어 두었으므로 그대로다.
     #[test]
     fn treat_everything_found_stands_after_the_rules() {
-        assert_eq!(treat_all_number(7, 1), Some(9));
-        assert_eq!(treat_all_number(2, 3), Some(4));
+        // 룰 목록 — 앞에 1 번(모두 검사만)과 룰 7개, 그 뒤가 이 줄이다.
+        assert_eq!(treat_all_number(1 + 7, 1), Some(9));
+        assert_eq!(treat_all_number(1 + 2, 3), Some(4));
+        // 묶음 · 찾기 — 앞에 1 번 · 찾기 · 묶음 셋.
+        assert_eq!(treat_all_number(2 + 3, 1), Some(6));
         // 찾은 것이 없으면 서지 않는다.
-        assert_eq!(treat_all_number(7, 0), None);
-        // 룰이 하나면 고르는 화면이 서지 않는다.
-        assert_eq!(treat_all_number(1, 1), None);
+        assert_eq!(treat_all_number(1 + 7, 0), None);
+        // 고르는 화면이 서지 않았다(룰이 하나).
+        assert_eq!(treat_all_number(0, 1), None);
+    }
+
+    fn rule(label: &str, dir: &str, group: u8) -> Chosen {
+        Chosen {
+            label: label.to_string(),
+            path: std::path::Path::new("plugins")
+                .join(dir)
+                .join("plugin.yaml"),
+            network: group == 2,
+            group,
+        }
+    }
+
+    /// D10 — 찾기는 룰 이름 · 폴더 이름에서 낱말을 찾는다(대소문자 없이 — 이름에 제품 · CVE 가 든다). 비운
+    /// 낱말은 아무것도 고르지 않는다(고르는 화면으로 돌아간다).
+    #[test]
+    fn search_matches_the_name_and_the_folder_without_case() {
+        let all = vec![
+            rule("Log4j 점검 (CVE-2021-44228 등)", "log4j-check", 1),
+            rule("EvilAI(Locust) 제거", "evilai-locust", 0),
+            rule(
+                "PHP2Shell 점검 (CVE-2026-109618 · 109619)",
+                "php2shell-check-windows",
+                1,
+            ),
+        ];
+        let names = |q: &str| -> Vec<String> {
+            matching(&all, q).iter().map(|c| c.label.clone()).collect()
+        };
+        assert_eq!(names("cve-2021"), ["Log4j 점검 (CVE-2021-44228 등)"]);
+        assert_eq!(names("LOCUST"), ["EvilAI(Locust) 제거"]);
+        assert_eq!(
+            names("windows"),
+            ["PHP2Shell 점검 (CVE-2026-109618 · 109619)"]
+        );
+        assert_eq!(names("점검").len(), 2);
+        assert!(names("   ").is_empty());
+        assert!(names("없는 낱말").is_empty());
+    }
+
+    /// 묶음의 이름은 `이름 — 까닭` 꼴이 아니다(고를 수 없는 줄의 꼴) — 수는 괄호로 붙는다.
+    #[test]
+    fn group_labels_are_the_three_jobs() {
+        use remedy_sdk::i18n::Lang;
+        assert_eq!(group_label(Lang::Ko, 0), "악성코드 탐지 · 제거");
+        assert_eq!(group_label(Lang::Ko, 1), "취약점 점검");
+        assert_eq!(group_label(Lang::Ko, 2), "원격 점검");
+        for g in 0..=2 {
+            assert!(!group_label(Lang::Ko, g).contains(" — "));
+        }
     }
 
     /// 그 줄의 이름은 `이름 — 까닭` 꼴이 아니다 — 이 화면에서 그 꼴은 **고를 수 없는 줄**이고, 메뉴 하네스도

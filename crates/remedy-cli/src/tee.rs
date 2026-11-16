@@ -71,13 +71,42 @@ pub(crate) fn ascii_safe(text: String) -> String {
 /// 제자리에 그린 진행 줄이 화면에 떠 있는가 — 다음 줄을 찍기 전에 걷는다.
 static LIVE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
+/// **화면에 내지 않고 회차 로그에만 적는 동안인가** — 룰이 한 화면을 넘을 때 *모두 검사만* 이 룰마다의 검사
+/// 화면을 접는다(목표 remedy_전체검사_운영기반 D10). 진행 줄([`progress`])은 이것과 상관없이 화면에 선다.
+static QUIET: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// 룰마다의 화면을 접는다 · 편다 — 켜 둔 동안 `outln!` · `errln!` · `out!` 과 심장박동 줄은 로그에만 간다.
+pub fn quiet(on: bool) {
+    QUIET.store(on, std::sync::atomic::Ordering::SeqCst);
+}
+
+fn quiet_now() -> bool {
+    QUIET.load(std::sync::atomic::Ordering::SeqCst)
+}
+
+/// 진행 줄을 화면에 낸다 — **접은 동안에도**([`quiet`]). 그리는 자리면 제자리에, 아니면 한 줄을 더한다.
+pub fn progress(text: String) {
+    draw_progress(text);
+}
+
+/// 심장박동의 진행 줄 — 접은 동안에는 로그에만 간다.
+fn emit_progress(text: String) {
+    if quiet_now() {
+        let _ = with_log(|l| l.lines("|", &format!("{}\n", ascii_safe(text))));
+        return;
+    }
+    draw_progress(text);
+}
+
 /// 진행 줄. 그리는 자리면 **제자리에** 다시 그린다 — 줄을 더하지 않고, 창 폭에서
 /// 자른다(목표 remedy_제품화 기준 6(b) · 벤치마크 축 6). 아니면 지금처럼 한 줄을
 /// 더한다(파이프 · 파일 · 불변식 I1). 로그에는 늘 한 줄씩 남는다.
-fn emit_progress(text: String) {
+fn draw_progress(text: String) {
     let text = ascii_safe(text);
     if !crate::term::fancy() {
-        emit(false, text);
+        clear_progress();
+        println!("{text}");
+        let _ = with_log(|l| l.lines("|", &format!("{text}\n")));
         return;
     }
     use std::io::Write;
@@ -101,6 +130,11 @@ fn clear_progress() {
 /// 한 줄을 찍고 로그에 복사한다. **색은 화면으로 나가는 쪽에만** 얹는다
 /// ([`crate::term::paint`]) — 로그와 파이프에는 지금 글자 그대로 간다.
 pub fn emit(stderr: bool, text: String) {
+    if quiet_now() {
+        let mark = if stderr { "!" } else { "|" };
+        let _ = with_log(|l| l.lines(mark, &format!("{}\n", ascii_safe(text))));
+        return;
+    }
     clear_progress();
     let text = ascii_safe(text);
     let shown = crate::term::paint(&text, stderr);
@@ -115,6 +149,10 @@ pub fn emit(stderr: bool, text: String) {
 }
 
 pub fn emit_raw(text: String) {
+    if quiet_now() {
+        let _ = with_log(|l| l.lines("|", &ascii_safe(text)));
+        return;
+    }
     clear_progress();
     let text = ascii_safe(text);
     match crate::term::paint_block(&text) {

@@ -1262,6 +1262,10 @@ fn notes_beside(plugin: &std::path::Path) -> Option<std::path::PathBuf> {
 fn scan_all(list: &[(String, std::path::PathBuf)], skipped: &[String]) -> ScanAllDone {
     let lang = ui().lang;
     let d = remedy_sdk::i18n::deco();
+    // **룰이 한 화면을 넘으면 룰마다의 검사 화면을 접는다**(목표 remedy_전체검사_운영기반 D10) — 화면에는 룰마다
+    // 진행 한 줄만 서고(그리는 자리면 제자리에), 그 룰의 화면은 회차 로그에 그대로 남는다. 요약은 찾은 것 · 확인
+    // 필요 · 마치지 못한 룰만 줄로 적고 나머지는 수로 적는다. 룰 1,000개에서 화면이 약 1만 9천 줄이었다(벤치).
+    let many = list.len() > guided::MANY_RULES;
     outln!(
         "{}",
         lang.pick(
@@ -1275,6 +1279,15 @@ fn scan_all(list: &[(String, std::path::PathBuf)], skipped: &[String]) -> ScanAl
             )
         )
     );
+    if many {
+        outln!(
+            "{}",
+            lang.t(
+                "룰이 많아 룰마다 한 줄로 적습니다 — 룰마다의 검사 화면은 상태 폴더의 기록(logs)에 남습니다.",
+                "Many rules, so one line each — each rule's scan screen stays in the run logs (logs) in the state folder."
+            )
+        );
+    }
     let mut done: Vec<ScanAllRow> = Vec::new();
     let mut found_notes: Vec<std::path::PathBuf> = Vec::new();
     let mut treat_found: Vec<(String, std::path::PathBuf)> = Vec::new();
@@ -1286,9 +1299,17 @@ fn scan_all(list: &[(String, std::path::PathBuf)], skipped: &[String]) -> ScanAl
             tee::close();
             term::task_begin(false);
         }
-        outln!();
-        outln!("{}", d.rule());
-        outln!("[{}/{}] {label}", i + 1, list.len());
+        let head = format!("[{}/{}] {label}", i + 1, list.len());
+        if many {
+            if term::fancy() {
+                tee::progress(head.clone());
+            }
+            tee::quiet(true);
+        } else {
+            outln!();
+            outln!("{}", d.rule());
+            outln!("{head}");
+        }
         let out = menu_out();
         let args = vec![
             "--plugin".to_string(),
@@ -1298,31 +1319,23 @@ fn scan_all(list: &[(String, std::path::PathBuf)], skipped: &[String]) -> ScanAl
             "--state-dir".to_string(),
             menu_state().to_string_lossy().to_string(),
         ];
-        let code = cmd_scan(&args).unwrap_or_else(|f| {
-            errln!("{}: {}", lang.t("실패", "Error"), f.message);
-            f.code
-        });
-        let kind = load_manifest(&path.to_string_lossy())
-            .ok()
-            .and_then(|m| m.kind);
-        // 다 보지 못한 까닭을 결과 파일에서 읽는다 — 요약 줄의 말이 그것으로 갈린다.
-        let obs = (code == Code::IncompleteObservation)
-            .then(|| {
-                read_json::<remedy_sdk::artifact::ScanEnvelope>(
-                    &out.join("scan.json").to_string_lossy(),
-                )
-                .ok()
-            })
-            .flatten()
-            .map(|s| s.body.observation);
-        // 까닭이 **검사할 경로가 이 기계에 전부 없음** 하나뿐인가 — 그 룰의 대상 제품이 없는 서버다
-        // (CWP 가 없는 서버의 CWPdoor). 다른 사유(잘림 · 거부 · 미평가 …)가 섞이면 해당 없음이
-        // 아니다 — 점검 룰이 '대상 없음' 을 말할 때와 같은 규칙(`note_not_applicable`).
-        let absent = obs
-            .as_ref()
-            .is_some_and(|o| o.all_roots_missing() && o.is_complete_for_check());
-        // 까닭이 **룰이 선언한 확인 필요**뿐인가(`verdict.unconfirmed` · 2026-11-09).
-        let review = obs.as_ref().is_some_and(|o| o.only_unconfirmed());
+        // 결과 파일은 찾은 룰 · 확인 필요 룰의 것만 남긴다(D11) — 깨끗한 룰 · 해당 없는 룰은 요약과 회차 로그에만.
+        let one = scan_one(&args, Keep::Findings);
+        tee::quiet(false);
+        let (code, kind, absent, review, kept) = match one {
+            Ok(s) => (s.code, s.kind, s.absent, s.review, s.kept),
+            Err(f) => {
+                errln!("{}: {}", lang.t("실패", "Error"), f.message);
+                let kind = load_manifest(&path.to_string_lossy())
+                    .ok()
+                    .and_then(|m| m.kind);
+                (f.code, kind, false, false, false)
+            }
+        };
+        if many {
+            let result = scan_all_result(code, kind, absent, review);
+            tee::progress(format!("{head}{}{result}", d.dash()));
+        }
         let treats = guided::treats(path);
         if !treats && code == Code::FoundNotRemediated {
             found_notes.extend(notes_beside(path));
@@ -1340,6 +1353,7 @@ fn scan_all(list: &[(String, std::path::PathBuf)], skipped: &[String]) -> ScanAl
             kind,
             absent,
             review,
+            out: kept.then_some(out),
         });
     }
     outln!();
@@ -1354,21 +1368,40 @@ fn scan_all(list: &[(String, std::path::PathBuf)], skipped: &[String]) -> ScanAl
             format!("Results for all {} rules — nothing was changed", list.len())
         )
     );
+    let (mut clean, mut not_here) = (0usize, 0usize);
     for row in &done {
-        // **해당 없음** — 검사할 경로가 전부 없어 다 보지 못한 룰은 그 대상이 없는 서버다
-        // (2026-11-07 결정). *"관측이 불완전해 '위협 없음' 을 말할 수 없습니다"* 로 끝나면 CWP 가
-        // 없는 서버의 점검자가 '이상 없음' 으로 보고하지 못했다. 이 줄은 메뉴 화면에만 있고
-        // 종료 코드(6)와 룰마다의 결과 화면은 그대로다.
-        let result = if row.absent {
-            lang.t(
-                "해당 없음 (검사할 경로가 이 기계에 없습니다)",
-                "not applicable (the paths to scan do not exist on this machine)",
-            )
-            .to_string()
-        } else {
-            remedy_core::report::result_line_for(row.code, 0, lang, row.kind, row.review)
-        };
+        // 줄인 요약 — 깨끗한 룰 · 해당 없는 룰은 수로만 센다. 룰마다의 화면이 접혀 있으므로 남긴 결과 폴더를
+        // 그 줄 밑에 적는다(찾은 것의 근거가 거기 있다).
+        if many && (row.absent || row.code == Code::NoThreat) {
+            if row.absent {
+                not_here += 1;
+            } else {
+                clean += 1;
+            }
+            continue;
+        }
+        let result = scan_all_result(row.code, row.kind, row.absent, row.review);
         outln!("  {}{}{result}", row.label, d.dash());
+        if many {
+            if let Some(o) = &row.out {
+                outln!("    {} : {}", lang.t("결과 폴더", "Output   "), o.display());
+            }
+        }
+    }
+    if many {
+        outln!(
+            "  {}",
+            lang.pick(
+                format!(
+                    "나머지 {}개 — 찾은 것 없음 {clean} · 해당 없음 {not_here}",
+                    clean + not_here
+                ),
+                format!(
+                    "The other {} — nothing found {clean} · not applicable {not_here}",
+                    clean + not_here
+                )
+            )
+        );
     }
     // **빼 둔 네트워크 점검도 한 줄씩 적는다** — 적지 않으면 *모두* 가 그것까지 본 것으로 읽힌다.
     // 검사 앞이 아니라 여기 적는 까닭은 이 요약이 있는 까닭과 같다: 앞에 적은 줄은 룰마다의 화면에
@@ -1389,6 +1422,23 @@ fn scan_all(list: &[(String, std::path::PathBuf)], skipped: &[String]) -> ScanAl
         treat: treat_found,
         other: other_found,
         notes: found_notes,
+    }
+}
+
+/// *모두 검사만* 의 룰 하나의 결과 줄. **해당 없음** — 검사할 경로가 전부 없어 다 보지 못한 룰은 그 대상이
+/// 없는 서버다(2026-11-07 결정). *"관측이 불완전해 '위협 없음' 을 말할 수 없습니다"* 로 끝나면 CWP 가 없는
+/// 서버의 점검자가 '이상 없음' 으로 보고하지 못했다. 이 줄은 메뉴 화면에만 있고 종료 코드(6)와 룰마다의
+/// 결과 화면은 그대로다.
+fn scan_all_result(code: Code, kind: Option<PluginKind>, absent: bool, review: bool) -> String {
+    let lang = ui().lang;
+    if absent {
+        lang.t(
+            "해당 없음 (검사할 경로가 이 기계에 없습니다)",
+            "not applicable (the paths to scan do not exist on this machine)",
+        )
+        .to_string()
+    } else {
+        remedy_core::report::result_line_for(code, 0, lang, kind, review)
     }
 }
 
@@ -1721,6 +1771,8 @@ struct ScanAllRow<'a> {
     absent: bool,
     /// 다 보지 못한 까닭이 *룰이 선언한 확인 필요* 하나뿐 — [`remedy_core::report::review_line`].
     review: bool,
+    /// 남긴 결과 폴더 — 찾은 룰 · 확인 필요 룰만(D11).
+    out: Option<std::path::PathBuf>,
 }
 
 /// 모두 검사만의 종료 코드 — **새 코드를 만들지 않는다**(불변식 I3). 찾은 것이 하나라도 있으면
@@ -1806,6 +1858,8 @@ fn step_line(
     d: remedy_sdk::i18n::Deco,
 ) -> String {
     match pick {
+        // 룰이 한 화면을 넘어 묶음 · 찾기로 고른 룰에는 고르는 화면의 번호가 없다(0) — 이름으로 적는다.
+        Some((0, rule)) => format!("  {why}{}{rule} {} {n}. {label}", d.dash(), d.arrow()),
         Some((rn, rule)) => format!("  {why}{}{rn}. {rule} {} {n}. {label}", d.dash(), d.arrow()),
         None => format!("  {why}{}{n}. {label}", d.dash()),
     }
@@ -2563,6 +2617,35 @@ fn report_plan(p: &remedy_sdk::artifact::PlanEnvelope, lang: remedy_core::report
 }
 
 fn cmd_scan(raw: &[String]) -> Result<Code, Failure> {
+    scan_one(raw, Keep::Always).map(|s| s.code)
+}
+
+/// 결과 파일(`artifacts.json` · `scan.json` · `plan.json`)을 남기는 규칙.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Keep {
+    /// 늘 남긴다 — 명령줄 `scan` · 메뉴의 *검사만 하기*.
+    Always,
+    /// **찾은 룰 · 확인 필요 룰의 것만** 남긴다 — *모두 검사만*(목표 remedy_전체검사_운영기반 D11). 깨끗한 룰 ·
+    /// 해당 없는 룰은 요약과 회차 로그에만 남는다. 룰 1,000개에서 한 번에 Windows 1.25 GB · 리눅스 284 MB 가
+    /// 쌓였다(2026-11-16 벤치) — 치료 · 복원 · 신고는 상태 폴더를 쓰므로 이 파일과 상관없다.
+    Findings,
+}
+
+/// `scan` 한 번 — *모두 검사만* 이 요약 줄과 결과 폴더를 정하는 재료.
+struct ScanOne {
+    code: Code,
+    kind: Option<PluginKind>,
+    /// 다 보지 못한 까닭이 *검사할 경로가 전부 없음* 하나뿐 — **해당 없음**.
+    absent: bool,
+    /// 다 보지 못한 까닭이 *룰이 선언한 확인 필요* 하나뿐 — [`remedy_core::report::review_line`].
+    review: bool,
+    /// 결과 파일을 남겼다.
+    kept: bool,
+}
+
+/// [`cmd_scan`] 의 몸통. 화면과 차례는 `keep` 과 상관없이 같고, 다른 것은 결과 파일을 쓰는가와 그 폴더를 적는
+/// 줄뿐이다 — 남기지 않으면 그 줄도 적지 않는다(없는 폴더를 가리키지 않게). 만들어 둔 빈 폴더는 치운다.
+fn scan_one(raw: &[String], keep: Keep) -> Result<ScanOne, Failure> {
     let a = parse_args(raw)?;
     // 설정 검증을 **가장 먼저** 한다. 수집을 다 끝낸 뒤 설정이 틀렸다고
     // 말하면 그 시간이 통째로 버려진다.
@@ -2587,25 +2670,36 @@ fn cmd_scan(raw: &[String]) -> Result<Code, Failure> {
     )?;
     let plan = remedy_core::plan_with(&scan, Some(&m), &allow, &limits, run_mode(&a))?;
 
-    write_json(&format!("{dir}/artifacts.json"), &artifacts)?;
-    write_json(&format!("{dir}/scan.json"), &scan)?;
-    write_json(&format!("{dir}/plan.json"), &plan)?;
-    output_dir_line(dir);
+    let obs = &scan.body.observation;
+    let code = outcome(&scan.body.verdicts, obs, m.kind);
+    let absent = code == Code::IncompleteObservation
+        && obs.all_roots_missing()
+        && obs.is_complete_for_check();
+    let review = obs.only_unconfirmed();
+    let kept = keep == Keep::Always || !(code == Code::NoThreat || absent);
+    if kept {
+        write_json(&format!("{dir}/artifacts.json"), &artifacts)?;
+        write_json(&format!("{dir}/scan.json"), &scan)?;
+        write_json(&format!("{dir}/plan.json"), &plan)?;
+        output_dir_line(dir);
+    } else {
+        // 비어 있을 때만 지운다 — 다른 무엇이 들어 있으면 그대로 둔다.
+        let _ = std::fs::remove_dir(dir);
+    }
     report_scan(&scan, m.kind, m.remediate.is_none());
     report_plan(&plan, lang(&a), &a);
-    let code = outcome(&scan.body.verdicts, &scan.body.observation, m.kind);
     outln!();
     outln!(
         "{}",
-        remedy_core::report::result_line_for(
-            code,
-            0,
-            ui().lang,
-            m.kind,
-            scan.body.observation.only_unconfirmed()
-        )
+        remedy_core::report::result_line_for(code, 0, ui().lang, m.kind, review)
     );
-    Ok(code)
+    Ok(ScanOne {
+        code,
+        kind: m.kind,
+        absent,
+        review,
+        kept,
+    })
 }
 
 /// 산출 폴더. 셸 중괄호 축약(`{a,b}.json`)이나 하드코딩한 역슬래시를 쓰지
