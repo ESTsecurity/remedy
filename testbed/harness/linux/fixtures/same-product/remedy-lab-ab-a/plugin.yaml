@@ -1,0 +1,31 @@
+# 같은 제품 묶음의 합성 짝 A — 실검체 없음(목표 remedy_기본검사_룰관리 기준 4).
+#
+# menu-verify.sh 가 컨테이너의 dpkg 기록에 가짜 패키지 줄 `remedy-lab-ab` 를 세우고 그 판을 바꿔 가며 *모두 검사만* 을
+# 돌린다. A 는 1.5-1 에서, B 는 2.0-1 에서 고친 취약점이다 — 같은 모듈에 시기가 다른 취약점이 나온 꼴(A → B).
+# B 를 고치며 2.0-1 로 올리면 A 도 양호가 되고, A 만 고친 1.7-1 은 B 로 여전히 취약이다.
+schema_version: 1
+id: remedy-lab-ab-a
+version: 0.1.0
+min_core: "1.21.0"  # product 는 1.21.0
+platforms: [linux]
+
+kind: check
+product: Remedy Lab AB
+
+name:
+  ko: "실험 A 점검 (1.5 에서 고침)"
+  en: "Lab A check (fixed in 1.5)"
+
+scan_roots: ["/var/lib/dpkg"]
+subjects: [package]
+
+detect:
+  - id: a_vuln
+    subject: package
+    where:
+      all:
+        - { field: name, op: equals, value: "remedy-lab-ab" }
+        - { field: version, op: pkg_version_lt, value: "1.5-1" }
+
+verdict:
+  require: "a_vuln"

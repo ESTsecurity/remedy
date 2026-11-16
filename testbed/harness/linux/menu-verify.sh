@@ -240,6 +240,49 @@ PY
         echo "treat_full_exit=$?"
         echo "treat_full_binary_gone=$([ ! -e /usr/local/cwpsrv/bin/cwpsrv ] && echo 1 || echo 0)"
     fi
+
+    # ── 같은 제품 — 합성 A/B 짝 · 실제 PHP 짝 (목표 remedy_기본검사_룰관리 기준 4) ──────────────
+    #
+    # **실검체가 없다** — 컨테이너의 dpkg 기록에 가짜 패키지 줄을 더할 뿐이다(실행 파일 · 설정 파일 없음). 끝에 기록을
+    # 되돌린다. 판정은 룰마다 그대로이고, 끝 요약 밑의 *제품마다 — 올리면 해결되는 버전* 이 묶음이다.
+    #
+    # 1) 합성 A/B — 같은 패키지 `remedy-lab-ab` 를 보는 점검 룰 둘(A 는 1.5-1 · B 는 2.0-1 에서 고침 · 같은 product ·
+    #    fixtures/same-product)을 따로 꾸러미에 담고 판을 1.2-1 → 1.7-1 → 2.0-1 로 바꿔 가며 모두 검사만. 1.2-1: 둘 다
+    #    취약 · 묶음 줄 하나가 2.0-1 로 둘을 푼다. 1.7-1: B 를 고치며 올린 판이 아니라 A 만 고친 판 — A 는 양호 · B 만.
+    #    2.0-1: 둘 다 양호 · 묶음 줄 없음.
+    # 2) 실제 PHP 짝 — 통합 꾸러미로. php8.2-cli 8.2.20-1~deb12u1(source php8.2)을 세우면 PHP2Shell 점검은 취약(고친 판
+    #    8.2.35-1~deb12u1), PHP 세션 점검은 확인 필요(판정을 세우지 않는다) — 묶음이 판 줄 밑에 세션 점검을 따로 적는다.
+    local status=/var/lib/dpkg/status
+    cp "$status" "$w/dpkg-status.orig" || return 13
+    fake_pkg() {
+        cp "$w/dpkg-status.orig" "$status"
+        printf '\nPackage: %s\nStatus: install ok installed\nPriority: optional\nSection: misc\nInstalled-Size: 1\nMaintainer: remedy-lab <lab@remedy.invalid>\nArchitecture: amd64\nSource: %s\nVersion: %s\nDescription: remedy-lab placeholder - not a program\n' \
+            "$1" "$2" "$3" >>"$status"
+    }
+    cd /repo || return 13
+    local ab_args=() v
+    mkdir -p "$w/ab"
+    for n in remedy-lab-ab-a remedy-lab-ab-b; do
+        cp -a "testbed/harness/linux/fixtures/same-product/$n" "$w/ab/$n"
+        cargo run -q -p xtask -- sign plugin --dir "$w/ab/$n" --secret-key "$w/sec.key" \
+            --signed-at 2026-11-06T00:00:00Z >/dev/null || { echo "error=$n 을 서명하지 못했다"; return 13; }
+        ab_args+=(--plugin "$w/ab/$n")
+    done
+    cargo run -q -p xtask -- package "${ab_args[@]}" --bin "$CARGO_TARGET_DIR/release/remedy" \
+        --out "$w/pkg-ab" --public-key "$w/pub.key" >/dev/null || { echo "error=A/B 꾸러미를 짓지 못했다"; return 13; }
+    cd "$w/pkg-ab" || return 13
+    for v in 1.2-1 1.7-1 2.0-1; do
+        fake_pkg remedy-lab-ab remedy-lab-ab "$v"
+        rm -rf out state
+        printf '1\n\n0\n' | LANG=ko_KR.UTF-8 script -q -e -c "./remedy > /out/same-ab-$v.txt 2>&1" /dev/null
+        echo "same_ab_${v//[.-]/_}_exit=$?"
+    done
+    fake_pkg php8.2-cli php8.2 8.2.20-1~deb12u1
+    cd "$w/pkg-all" || return 14
+    rm -rf out state
+    printf '1\n\n0\n' | LANG=ko_KR.UTF-8 script -q -e -c "./remedy > /out/same-php.txt 2>&1" /dev/null
+    echo "same_php_exit=$?"
+    cp "$w/dpkg-status.orig" "$status"
 }
 
 if [ "$INSIDE" = 1 ]; then
@@ -375,6 +418,23 @@ items "$REPO/testbed/harness/baseline/console/console-win.txt" >"$OUT/items-win.
     echo "treat_full_summary=$(grep -c '찾은 것 모두 치료한 결과 — 항목 1개' "$ff" 2>/dev/null)"
     echo "treat_full_result=$(grep -c -E '^  CWPdoor 제거 (—|-) 위협 발견, 치료 완료 \([0-9]+건 수행 완료\)' "$ff" 2>/dev/null)"
     echo "treat_full_binary_gone=$(sed -n 's/^treat_full_binary_gone=//p' "$OUT/run.txt")"
+    # 같은 제품(기준 4) — 합성 A/B 세 판과 실제 PHP 짝. 묶음은 끝 요약 밑의 *제품마다* 머리줄 아래다.
+    hp='제품마다 — 올리면 해결되는 버전'
+    an='실험 A 점검 (1.5 에서 고침)'; bn='실험 B 점검 (2.0 에서 고침)'
+    s12="$OUT/same-ab-1.2-1.txt"; s17="$OUT/same-ab-1.7-1.txt"; s20="$OUT/same-ab-2.0-1.txt"; sp="$OUT/same-php.txt"
+    for k in 1_2_1 1_7_1 2_0_1; do
+        echo "same_ab_${k}_exit=$(sed -n "s/^same_ab_${k}_exit=//p" "$OUT/run.txt")"
+    done
+    echo "same_ab_12_both=$(grep -c -E '^  실험 [AB] 점검 \([^)]*\) (—|-) 취약합니다\.' "$s12" 2>/dev/null)"
+    echo "same_ab_12_line=$(grep -c -F "  Remedy Lab AB — remedy-lab-ab 의 버전을 2.0-1 이상으로 올리면 이 2개 항목이 모두 해결됩니다: $an · $bn" "$s12" 2>/dev/null)"
+    echo "same_ab_17_a_clean=$(grep -c -E '^  실험 A 점검 \([^)]*\) (—|-) 취약한 곳을 찾지 못했습니다\.' "$s17" 2>/dev/null)"
+    echo "same_ab_17_b_only=$(grep -c -F "  Remedy Lab AB — remedy-lab-ab 의 버전을 2.0-1 이상으로 올리면 이 항목이 해결됩니다: $bn" "$s17" 2>/dev/null)"
+    echo "same_ab_20_clean=$(grep -c -E '^  실험 [AB] 점검 \([^)]*\) (—|-) 취약한 곳을 찾지 못했습니다\.' "$s20" 2>/dev/null)"
+    echo "same_ab_20_block=$(grep -c -F "$hp" "$s20" 2>/dev/null)"
+    echo "same_php_exit=$(sed -n 's/^same_php_exit=//p' "$OUT/run.txt")"
+    echo "same_php_block=$(grep -c -F "$hp" "$sp" 2>/dev/null)"
+    echo "same_php_upgrade=$(grep -c -E '^  PHP (—|-) php8\.2-cli 의 버전을 8\.2\.35-1~deb12u1 이상으로 올리면 이 항목이 해결됩니다: PHP2Shell 점검' "$sp" 2>/dev/null)"
+    echo "same_php_rest=$(grep -c -E '^  PHP (—|-) 버전으로 판정하지 않는 항목입니다\(올려도 남을 수 있습니다\): PHP 세션 업로드 진행 설정 점검' "$sp" 2>/dev/null)"
 } | tee "$OUT/verdict.txt"
 v() { sed -n "s/^$1=//p" "$OUT/verdict.txt"; }
 [ "$(v items_diff)" = 0 ] && [ -n "$(v linux_rules)" ] \
@@ -414,4 +474,9 @@ v() { sed -n "s/^$1=//p" "$OUT/verdict.txt"; }
     && [ "$(v treat_full_exit)" = 1 ] && [ "$(v treat_full_after_full)" = 1 ] \
     && [ "$(v treat_full_lead)" = 1 ] && [ "$(v treat_full_line)" = 1 ] \
     && [ "$(v treat_full_summary)" = 1 ] && [ "$(v treat_full_result)" = 1 ] \
-    && [ "$(v treat_full_binary_gone)" = 1 ]
+    && [ "$(v treat_full_binary_gone)" = 1 ] \
+    && [ "$(v same_ab_1_2_1_exit)" = 2 ] && [ "$(v same_ab_12_both)" = 2 ] && [ "$(v same_ab_12_line)" = 1 ] \
+    && [ "$(v same_ab_1_7_1_exit)" = 2 ] && [ "$(v same_ab_17_a_clean)" = 1 ] && [ "$(v same_ab_17_b_only)" = 1 ] \
+    && [ "$(v same_ab_2_0_1_exit)" = 0 ] && [ "$(v same_ab_20_clean)" = 2 ] && [ "$(v same_ab_20_block)" = 0 ] \
+    && [ "$(v same_php_exit)" = 2 ] && [ "$(v same_php_block)" = 1 ] \
+    && [ "$(v same_php_upgrade)" = 1 ] && [ "$(v same_php_rest)" = 1 ]

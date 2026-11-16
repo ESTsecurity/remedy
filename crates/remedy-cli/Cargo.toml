@@ -20,6 +20,9 @@ remedy-core = { path = "../remedy-core" }
 # 없어(루트 Cargo.toml 의 `minisign-verify` 주석) 배포 표면이 늘지 않는다.
 remedy-trust = { path = "../remedy-trust" }
 remedy-sdk = { path = "../remedy-sdk" }
+# 판 비교(`compare`)만 쓴다 — *모두 검사* 가 같은 제품의 고친 판 가운데 가장 높은 것을 고른다(`product.rs`).
+# `remedy-core` 가 이미 끌어오는 크레이트라 배포 표면이 늘지 않는다.
+remedy-detect = { path = "../remedy-detect" }
 serde.workspace = true
 serde_json.workspace = true
 serde_yaml_ng.workspace = true
