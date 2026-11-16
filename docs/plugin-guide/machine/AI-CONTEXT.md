@@ -49,7 +49,7 @@ remediate:
 
 ## 매니페스트 칸 (닫힌 집합 · 스키마에서 생성)
 
-- 최상위: `allow_removable` · `archive_members` · `collect_extra` · `detect` · `file_names` · `hash_large` · `id` · `kind` · `min_core` · `name` · `network` · `platforms` · `references` · `remediate` · `scan_roots` · `schema_version` · `signed_malware` · `subject_roots` · `subjects` · `submit_hint` · `text_config_dirs` · `verdict` · `version`
+- 최상위: `allow_removable` · `archive_members` · `collect_extra` · `detect` · `file_names` · `hash_large` · `id` · `kind` · `min_core` · `name` · `network` · `platforms` · `product` · `references` · `remediate` · `scan_roots` · `schema_version` · `signed_malware` · `subject_roots` · `subjects` · `submit_hint` · `text_config_dirs` · `verdict` · `version`
 - `collect_extra[]`: `content` · `glob` · `max_size` · `path` · `ref` · `subject`
 - `detect[]`: `capture` · `exclude` · `from` · `id` · `label` · `score` · `subject` · `where`
 - `detect[].exclude[]`: `field` · `op` · `value` · `yara`

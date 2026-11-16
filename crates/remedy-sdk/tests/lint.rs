@@ -257,6 +257,88 @@ fn a_label_needs_core_1_13_0() {
     );
 }
 
+// ───────────────────────────── 같은 제품의 묶음 (`product` · 2026-11-16 · 코어 1.21.0)
+
+/// 점검 룰에 제품 이름을 단 모양 — 각 시험이 한 곳만 비튼다.
+fn with_product() -> String {
+    BASE.replace("min_core: '1.0.0'", "min_core: '1.21.0'")
+        .replace("name: {", "kind: check\nproduct: PHP\nname: {")
+}
+
+fn product_warned(yaml: &str) -> bool {
+    warnings(yaml).iter().any(|w| w.starts_with("product ::"))
+}
+
+#[test]
+fn a_check_rule_with_a_product_is_clean() {
+    let y = with_product();
+    assert!(errors(&y).is_empty(), "{:?}", errors(&y));
+    assert!(!product_warned(&y), "{:?}", warnings(&y));
+}
+
+#[test]
+fn a_check_rule_without_a_product_is_warned_not_refused() {
+    // 판정은 그대로라 오류가 아니다 — 같은 제품의 다른 점검 룰과 묶이지 못한다는 것을 알린다.
+    let y = with_product().replace("product: PHP\n", "");
+    assert!(errors(&y).is_empty(), "{:?}", errors(&y));
+    assert!(product_warned(&y), "{:?}", warnings(&y));
+    // 점검 룰이 아니면(치료 룰) · 네트워크 점검 룰이면 묻지 않는다 — 둘 다 *모두 검사* 의 묶음에 들지 않는다.
+    assert!(!product_warned(BASE));
+    assert!(!product_warned(NETWORK));
+}
+
+#[test]
+fn a_product_belongs_to_check_rules_only() {
+    let e = errors(&with_product().replace("kind: check\n", ""));
+    assert!(
+        e.iter()
+            .any(|x| x.starts_with("product ::") && x.contains("점검 룰")),
+        "{e:?}"
+    );
+}
+
+#[test]
+fn a_product_is_a_short_single_line_name() {
+    let long = format!("product: '{}'", "가".repeat(41));
+    for (bad, why) in [
+        ("product: ''", "비어"),
+        ("product: ' PHP'", "빈칸"),
+        ("product: \"PH\\nP\"", "줄바꿈"),
+        (long.as_str(), "40자"),
+    ] {
+        let e = errors(&with_product().replace("product: PHP", bad));
+        assert!(
+            e.iter()
+                .any(|x| x.starts_with("product ::") && x.contains(why)),
+            "{bad}: {e:?}"
+        );
+    }
+    // 40자 꼭 맞는 이름은 받는다 — 상한이 한 글자 어긋나지 않았는지.
+    let fits = format!("product: '{}'", "가".repeat(40));
+    assert!(errors(&with_product().replace("product: PHP", &fits)).is_empty());
+}
+
+#[test]
+fn an_empty_product_value_is_refused_not_silently_dropped() {
+    // `kind:` 와 같은 까닭 — 키만 적고 값을 비우면 묶음에서 조용히 빠진다.
+    for empty in ["product:\n", "product: null\n", "product: ~\n"] {
+        let y = with_product().replace("product: PHP\n", empty);
+        let r = serde_yaml_ng::from_str::<PluginManifest>(&y);
+        assert!(r.is_err(), "{empty:?} 가 통과했다 — 열쇠가 조용히 사라진다");
+    }
+}
+
+#[test]
+fn a_product_needs_core_1_21_0() {
+    // 낮은 코어는 이 칸을 모른다 — 요구 판을 적어야 로드 단계가 그 차이를 말한다.
+    let e = errors(&with_product().replace("min_core: '1.21.0'", "min_core: '1.20.0'"));
+    assert!(
+        e.iter()
+            .any(|x| x.starts_with("min_core ::") && x.contains("1.21.0")),
+        "{e:?}"
+    );
+}
+
 // ───────────────────────────── 네트워크 점검 (`network` · 2026-11-10 · 코어 1.4.0)
 
 /// 네트워크 점검 룰의 온전한 모양 — 이 기계를 읽는 칸이 전부 비어 있다. 각 시험이 한 곳만 비튼다.

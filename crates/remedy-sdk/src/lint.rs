@@ -118,7 +118,24 @@ pub fn lint(m: &PluginManifest) -> Vec<LintIssue> {
     check_subject_platform(m, &mut out);
     check_edit_platform(m, &mut out);
     check_name(m, &mut out);
+    check_product_missing(m, &mut out);
     out
+}
+
+/// **점검 룰에 `product` 가 없으면 경고**(코어 1.21.0 · 목표 remedy_기본검사_룰관리 결정 ④). 없으면 화면이 같은 제품의
+/// 다른 점검 룰과 발견을 묶지 못해 '어디까지 올리면 모두 해결되는가' 에서 그 룰이 빠진다. 판정은 그대로라 오류가
+/// 아니다. 네트워크 점검 룰은 *모두 검사* 에 들지 않아 묻지 않는다.
+fn check_product_missing(m: &PluginManifest, out: &mut Vec<LintIssue>) {
+    if m.kind == Some(crate::manifest::PluginKind::Check)
+        && m.network.is_none()
+        && m.product.is_none()
+    {
+        out.push(warn(
+            "product",
+            "점검 룰에 product 가 없다 — 같은 제품의 다른 점검 룰과 발견을 묶지 못한다. 제품 이름을 적는다(product: PHP)",
+            "docs/plugin-guide/24-check-plugins.md",
+        ));
+    }
 }
 
 /// `name` 은 **고객 화면의 첫 줄**이다 (2026-09-06 부터). 두 언어가 다 있어야
@@ -3510,6 +3527,7 @@ mod doc_coverage_tests {
             ("check_subject_platform", Box::new(check_subject_platform)),
             ("check_edit_platform", Box::new(check_edit_platform)),
             ("check_name", Box::new(check_name)),
+            ("check_product_missing", Box::new(check_product_missing)),
         ]
     }
 

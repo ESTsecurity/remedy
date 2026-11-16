@@ -1,0 +1,27 @@
+# 같은 제품 묶음의 합성 짝 B — 실검체 없음(목표 remedy_기본검사_룰관리 기준 4). 짝 A 의 머리말을 보라.
+schema_version: 1
+id: remedy-lab-ab-b
+version: 0.1.0
+min_core: "1.21.0"  # product 는 1.21.0
+platforms: [linux]
+
+kind: check
+product: Remedy Lab AB
+
+name:
+  ko: "실험 B 점검 (2.0 에서 고침)"
+  en: "Lab B check (fixed in 2.0)"
+
+scan_roots: ["/var/lib/dpkg"]
+subjects: [package]
+
+detect:
+  - id: b_vuln
+    subject: package
+    where:
+      all:
+        - { field: name, op: equals, value: "remedy-lab-ab" }
+        - { field: version, op: pkg_version_lt, value: "2.0-1" }
+
+verdict:
+  require: "b_vuln"

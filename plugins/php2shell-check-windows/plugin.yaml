@@ -59,11 +59,12 @@
 # - 실행 중인 PHP 가 고친 판을 실었는가 — 고친 뒤에는 IIS · Apache · PHP 를 다시 시작한다.
 schema_version: 1
 id: php2shell-check-windows
-version: 0.4.0
-min_core: "1.10.0"  # 가운데 별표 레지스트리 루트(`Services\*\Parameters`)는 1.10.0 · 실린 모듈은 1.9.0 · IIS 설정(XML)은 1.6.0
+version: 0.4.1
+min_core: "1.21.0"  # product 는 1.21.0 · 가운데 별표 레지스트리 루트(`Services\*\Parameters`)는 1.10.0 · 실린 모듈은 1.9.0 · IIS 설정(XML)은 1.6.0
 platforms: [windows]
 
 kind: check
+product: PHP
 
 name:
   ko: "PHP2Shell 점검 (CVE-2026-109618 · 109619)"

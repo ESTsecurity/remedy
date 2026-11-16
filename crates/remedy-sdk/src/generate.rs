@@ -739,6 +739,13 @@ pub(crate) fn lint_cases() -> Vec<Case> {
             "name: { ko: '린트 기준' }",
         ),
         case(
+            "점검 룰에 제품 이름을 적는다",
+            "`kind: check` 에 `product` 가 없다. 판정은 같지만 같은 제품의 발견과 묶이지 않는다",
+            "`product: PHP` 처럼 한 줄로 적고 `min_core` 를 1.21.0 으로 올린다",
+            "name: { ko: '린트 기준', en: 'lint base' }",
+            "kind: check\nname: { ko: '린트 기준', en: 'lint base' }",
+        ),
+        case(
             "드롭인 디렉터리를 확장자 없이 읽는다",
             "`text_config_dirs` 가 `scan_roots` 밖이다",
             "상한 안의 디렉터리로 적는다. 넓혀야 하면 `scan_roots` 를 고친다",

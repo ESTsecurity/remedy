@@ -2334,12 +2334,14 @@ mod tests {
         },
         // 첫 점검 위협(2026-11-14). 여기서는 린트 · 청정 코퍼스까지 — 판정은 하네스가 잰다(54/55 · 떨어진
         // S1 은 위협 설명이 그 화면 문구를 주지 않은 출제 쪽 빈칸이었다). 자세한 것은 NOTES.md.
+        // 경고 1 은 `product` 가 없다는 것이다(2026-11-16 · 코어 1.21.0 의 검사) — 회차가 그 칸이 생기기 전이라
+        // 옳은 경고다. 판정 · 청정 · 미탐은 그대로다. r2 도 같다.
         Expected {
             dir: "2026-11-14-opus-5.5-apache-r1",
             threat: "apache-h2",
             parses: true,
             errors: 0,
-            warnings: 0,
+            warnings: 1,
             dirty: 0,
             missed: 0,
             lacking: 0,
@@ -2350,7 +2352,7 @@ mod tests {
             threat: "apache-h2",
             parses: true,
             errors: 0,
-            warnings: 0,
+            warnings: 1,
             dirty: 0,
             missed: 0,
             lacking: 0,

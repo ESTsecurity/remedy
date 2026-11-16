@@ -19,6 +19,7 @@
 | `detect` | ● | 탐지 규칙 (`20-detect-recipes.md`) |
 | `verdict` | ● | 판정식 |
 | `kind` | | `check` = **점검 전용**(`24-check-plugins.md`). `data` = **기준만 담는다**(아래). 없으면 치료 |
+| `product` | | 점검 룰만 — 같은 제품의 룰을 묶는 열쇠. 제품 이름 한 줄(코어 1.21.0 · `24-check-plugins.md` 규약 7) |
 | `allow_removable` | | 이동식 매체. 기본 `false` |
 | `references` | | 근거 링크 |
 | `signed_malware` | | 서명된 악성코드 예외 (`22-remediate-recipes.md`) |

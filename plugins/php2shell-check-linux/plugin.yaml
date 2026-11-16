@@ -50,11 +50,12 @@
 # 줄. 선언한 자리 밖이면 *확인 필요* 로 그 경로를 적는다 — 그 파일은 열지 않는다.
 schema_version: 1
 id: php2shell-check-linux
-version: 0.6.0
-min_core: "1.10.0"  # 시작 스크립트의 서비스는 1.10.0 · 패키지 파일 대조(file.package · package_match)는 1.7.0
+version: 0.6.1
+min_core: "1.21.0"  # product 는 1.21.0 · 시작 스크립트의 서비스는 1.10.0 · 패키지 파일 대조(file.package · package_match)는 1.7.0
 platforms: [linux]
 
 kind: check
+product: PHP
 
 name:
   ko: "PHP2Shell 점검 (CVE-2026-109618 · 109619)"
