@@ -1,15 +1,15 @@
 {
   "apache-http2-check-linux": {
-    "version": "0.1.1",
+    "version": "0.1.2",
     "files": {
-      "plugin.yaml": "a8e62e899baeaaa220a01409ff8ee3f3e785e284dd166bfab39228b94d6c9fe9",
+      "plugin.yaml": "b97fe420dba14cddc0c78f83263415d7f57a9639a7b2f7deac244f8fd56f7921",
       "rules/apache.yar": "c0f4415a088e0e22579790915f0405c676a78af9eab7a52936e3e40265fa9372"
     }
   },
   "apache-http2-check-windows": {
-    "version": "0.1.0",
+    "version": "0.1.1",
     "files": {
-      "plugin.yaml": "f0bd728697620013038e079d368d5d97230e0034840cfa87afec8f315de98ad5",
+      "plugin.yaml": "1093dd1826a51b019d0d633bc45d53bc3d190e5b1f4fdf44e9dd1cf277d3d1c7",
       "rules/apache.yar": "62e74fe014841c2ba7dabec654e371d108c64dbb9e52b0c39f92325a9bcc8878"
     }
   },
@@ -79,21 +79,21 @@
     }
   },
   "log4j-check": {
-    "version": "0.2.0",
+    "version": "0.2.1",
     "files": {
-      "plugin.yaml": "d2ba4161e9a7b74de36b7f075f0717548adb4e05c450b68a24df25055ebeaf72"
+      "plugin.yaml": "b0c59ed6d2d2d10e8c22fcbd0a28b48aa6c978633065c5b4da86c19ea520055b"
     }
   },
   "node2shell-check-linux": {
-    "version": "0.6.0",
+    "version": "0.6.1",
     "files": {
-      "plugin.yaml": "df238367a9801fc157cc92b02c93885717882aeb8f1321fc882d9d66bf508f1e"
+      "plugin.yaml": "8b29cf69d711a43fd017040012eb109f06b17fdf88d285539e6dd40fa871d1e0"
     }
   },
   "node2shell-check-windows": {
-    "version": "0.4.0",
+    "version": "0.4.1",
     "files": {
-      "plugin.yaml": "7b4de0697e70a5a4562be104284d7005823c66e2b9a71e237d7ca43d884f5d2a"
+      "plugin.yaml": "83c7a06cfc932feac904058d1754aa3b46e3e76363c3b150ee379df4c08f257b"
     }
   },
   "npm-posthook": {
@@ -103,34 +103,34 @@
     }
   },
   "openssh-musl-check": {
-    "version": "0.1.1",
+    "version": "0.1.2",
     "files": {
-      "plugin.yaml": "d9dd86b1f40bb04b93a7e8d019ca4bb46b8ee956b3d97fec30cec5c6c24200d4",
+      "plugin.yaml": "224a0dd91d2a2092376d496d8cef7a18d34857e54df4906e99b04e3e31e7b9aa",
       "rules/sshd.yar": "4d94a1f41baab8732e41067125282d213eaf742209b48bf89acb575939c292ec"
     }
   },
   "php-session-check-linux": {
-    "version": "0.5.0",
+    "version": "0.5.1",
     "files": {
-      "plugin.yaml": "6f3932d4077061c45ce5c77733d269a524eab07759f9ef34394b7f895235880b"
+      "plugin.yaml": "0d155287b75df7d0c79f9a5c0c2415a0a0821d6a8c57113d90ff4ef25990dac0"
     }
   },
   "php-session-check-windows": {
-    "version": "0.4.0",
+    "version": "0.4.1",
     "files": {
-      "plugin.yaml": "b8d4705d786b872bd17d791d7b2ca07d23f34c446bb49df909d7cff77ded7ba9"
+      "plugin.yaml": "41013fbb6bc13ae2a6e432056b5117089e43b751c617f0df8fbb5192a3a675cb"
     }
   },
   "php2shell-check-linux": {
-    "version": "0.6.0",
+    "version": "0.6.1",
     "files": {
-      "plugin.yaml": "9aa09f2093ec3d9f929a4374c3379d876daa048663454de1362324c20c9118d0"
+      "plugin.yaml": "e3b68a541d5b10001a78739a8f5ac1b3c445561c058213dedabf9f2dca5faf9d"
     }
   },
   "php2shell-check-windows": {
-    "version": "0.4.0",
+    "version": "0.4.1",
     "files": {
-      "plugin.yaml": "0fa07aed13275c9122bd03432ce2ec6284f34b3bda0ce653299fbc1fdd065957"
+      "plugin.yaml": "d67a3c88b9992a1360a71c17a003276923985a20569d8df2131c076d3cc90c83"
     }
   },
   "php2shell-url-check": {
@@ -158,12 +158,12 @@
     }
   },
   "remedy-net-criteria": {
-    "version": "1.1.0",
+    "version": "1.1.1",
     "files": {
-      "apache.json": "7aec8b8bb9b983ebe63439e5aede2b980cdf3e82bc6fae16badbf599b8c8fefb",
+      "apache.json": "5c6140ac1d08673353b5544ff523b3ffef7fd0fd1ac59e0a39b8790d908129fd",
       "baseline.json": "2fd679f46718d75841747396e71386bf38f31442a61d2344c64dd27dc2eb9b67",
-      "plugin.yaml": "67065522eda364be89a04eb5d3d05b96ab8bad0f08acf708a23927e62db5c286",
-      "url.json": "de518b078c5438e59b0b9135f0add9c82a2e7228241021b57134b4e55d7aba53"
+      "plugin.yaml": "9fc152b0a426ebd5041458113e55ca8ad1eecaa6ec59c5074b25f8940ce23b0c",
+      "url.json": "6ddc2108f0fb029cff583d035e63dae625f83dd1e7882089d50f08eec8ce5977"
     }
   },
   "search-hijack": {

@@ -95,6 +95,10 @@ param(
     # 서명한 것). 주면 **모두 검사만** 과 **찾기만 하는 룰의 메뉴**를 잰다 — 그 두 단계 동안만
     # 꾸러미의 plugins 옆에 두고 치운다(목표 remedy_출시_20261111 기준 3 · 4).
     [string] $Extra = "",
+    # 디스크 전체를 걷는 룰의 폴더(호스트가 배포 룰 Log4j 점검을 같은 일회용 키로 서명한 것 · 목표 remedy_기본검사_룰관리
+    # ①②). 주면 실험 룰과 같은 단계 동안 함께 둔다 — 고르는 화면 맨 위가 둘(1 빠른 검사 · 2 정밀 검사)이 되고 룰은 3번부터다.
+    # 빠른 검사가 그 룰을 빼고 요약 · 다음 할 일에 적는지, 정밀 검사(`정밀 검사` 단계)가 그 룰까지 끝까지 도는지를 잰다.
+    [string] $Disk = "",
     # 벤치만 돈다(룰이 늘어도 버티는가 — 목표 remedy_전체검사_운영기반 기준 6). 고르는 화면에서 그만두기와
     # 모두 검사만 두 번만 띄워 시간 · 최대 메모리 · 화면 줄 수 · 결과 폴더 크기를 재고 끝낸다. 호스트는
     # `host\Invoke-ScanAllBench.ps1` 이다 — 합성 룰 꾸러미를 지어 넘긴다.
@@ -476,6 +480,23 @@ if ($Bench) {
         $benchOut["${d}_bytes"] = [long](($files | Measure-Object -Property Length -Sum).Sum)
     }
     $benchOut.out_dirs = @(Get-ChildItem -LiteralPath (Join-Path $home0 "out") -Directory -ErrorAction SilentlyContinue).Count
+    # 룰마다 검사 시간의 내역 — 회차 로그(`state\logs`)의 '검사 시간' 줄(걷기 · 읽기 · 해시 · 서명 · 그 밖). VM 을 되돌린
+    # 직후의 첫 회차가 왜 느린지(같은 룰 5개가 데워진 뒤에는 9초 · 첫 회차는 160 ~ 173초)를 룰 · 단계로 가른다(목표
+    # remedy_기본검사_룰관리 기준 3). 룰이 많으면 앞의 40개만.
+    $timing = New-Object System.Collections.Generic.List[string]
+    $runLogs = @(Get-ChildItem -LiteralPath (Join-Path $home0 "state\logs") -Filter *.log -ErrorAction SilentlyContinue |
+                 Sort-Object LastWriteTime | Select-Object -First 40)
+    foreach ($runLog in $runLogs) {
+        $logLines = [System.IO.File]::ReadAllLines($runLog.FullName, [System.Text.Encoding]::UTF8)
+        $ruleId = $runLog.BaseName
+        foreach ($x in $logLines) {
+            if ($x -match '\(([a-z0-9-]+) [0-9]+\.[0-9]+\.[0-9]+\)') { $ruleId = $Matches[1]; break }
+        }
+        foreach ($x in $logLines) { if ($x -match '검사 시간|scan time') { $timing.Add("$ruleId  $($x.Trim())") } }
+    }
+    $benchOut.timing = @($timing)
+    $tr.Add("=== bench timing ===")
+    foreach ($x in $timing) { $tr.Add($x) }
     $report.bench = $benchOut
     $report.verdict = (-not $benchOut.scan_all.timed_out) -and (@(0, 2, 6) -contains $benchOut.scan_all.exit)
     $dir = Split-Path -Parent $OutFile
@@ -675,7 +696,10 @@ $failure = $null
 # 부르는 콘솔 캡처(A11)가 그 장면까지 돌면 고를 줄이 없는 번호를 쳐 뜻 없는 화면이 기준선에 들었다(2026-11-16).
 $withExtra = [bool]$Extra -and (($Keys.Count -eq 0) -or ($Keys -contains "모두 검사"))
 $withTreatAll = $withExtra -and (($Keys.Count -eq 0) -or ($Keys -contains "찾은 것 모두 치료"))
-$expected = $steps.Count + $(if ($withExtra) { 2 } else { 0 }) + $(if ($withTreatAll) { 1 } else { 0 })
+# 정밀 검사 — 디스크 전체 룰을 받은 회차에서만(그 룰이 없으면 고르는 화면에 그 줄이 없다).
+$withFull = $withExtra -and [bool]$Disk -and (($Keys.Count -eq 0) -or ($Keys -contains "정밀 검사"))
+$expected = $steps.Count + $(if ($withExtra) { 2 } else { 0 }) + $(if ($withTreatAll) { 1 } else { 0 }) +
+            $(if ($withFull) { 1 } else { 0 })
 try {
 # ── 모두 검사만 · 찾기만 하는 룰의 메뉴 — 룰이 둘일 때만 서는 화면 (기준 3 · 4) ──
 #
@@ -688,35 +712,91 @@ if ($withExtra) {
     if ($xYaml -match '(?m)^\s+ko:\s*"([^"]+)"') { $xName = $Matches[1] }
     $xDst = Join-Path (Split-Path -Parent $Bin) ("plugins\" + (Split-Path -Leaf $Extra))
     Copy-Item $Extra -Destination $xDst -Recurse -Force
+    $dDst = $null
+    if ($Disk) {
+        $dDst = Join-Path (Split-Path -Parent $Bin) ("plugins\" + (Split-Path -Leaf $Disk))
+        Copy-Item $Disk -Destination $dDst -Recurse -Force
+    }
     try {
-        # 1 = 모두 검사만 · 빈 줄 = 작업 뒤의 멈춤 · 0 = 고르는 화면에서 그만두기.
+        # 1 = 빠른 검사(디스크 전체 룰이 없으면 모두 검사만) · 빈 줄 = 작업 뒤의 멈춤 · 0 = 고르는 화면에서 그만두기.
         $before = Get-Snapshot
         $all = Invoke-MenuRun -Lines @("1", "", "0") -TimeoutMs 600000
         $after = Get-Snapshot
+        $nRules = $(if ($Disk) { 3 } else { 2 })
+        # 맨 위의 검사 줄 수 — 디스크 전체 룰이 함께 들면 둘(1 빠른 · 2 정밀)이고 룰은 그 뒤부터다.
+        $scanLines = $(if ($all.text -match '(?m)^\s+2\. 정밀 검사 \(') { 2 } else { 1 })
         $sum = ""
-        $at = $all.text.IndexOf("모두 검사한 결과")
+        $at = $all.text.IndexOf($(if ($Disk) { "빠른 검사 결과" } else { "모두 검사한 결과" }))
         if ($at -ge 0) { $sum = $all.text.Substring($at) }
         $hits = @(($sum -split "`r?`n") | Where-Object { $_ -match '^\s\s.+ (—|-) 위협 발견, 치료하지 않았습니다\.' }).Count
         # 룰마다 결과 폴더가 따로다 — 한 폴더면 뒤 룰의 scan.json 이 앞 룰의 것을 덮는다.
         $outs = @([regex]::Matches($all.text, '결과 폴더 : (\S+)') | ForEach-Object { $_.Groups[1].Value } |
                   Select-Object -Unique).Count
         $row = [ordered]@{
-            key = "모두 검사"; needle = "모두 검사만 하기"; number = 1; via = ""; lines = @("1", "", "0")
+            key = "모두 검사"; needle = $(if ($Disk) { "빠른 검사" } else { "모두 검사만 하기" }); number = 1; via = ""
+            lines = @("1", "", "0")
             found = $true; exit = $all.exit; expect = 2; timed_out = $all.timed_out
             summary = [bool]($sum -match "룰 2개"); found_both = ($hits -eq 2); out_dirs = $outs
             unchanged = (($before | ConvertTo-Json -Compress) -eq ($after | ConvertTo-Json -Compress))
             ended = [bool]($all.text -match "끝냅니다\.")
             # 작업 뒤 고르는 화면으로 돌아왔다 — 멈춤 줄이 있고 그 화면이 두 번 섰다.
             back_menu = [bool]($all.text -match "메뉴로 돌아갑니다") -and
-                        ([regex]::Matches($all.text, "검사 항목 2개를 찾았습니다").Count -ge 2)
+                        ([regex]::Matches($all.text, "검사 항목 ${nRules}개를 찾았습니다").Count -ge 2)
+            # 디스크 전체 룰이 함께 들면 — 맨 위가 1 빠른 검사 · 2 정밀 검사이고, 빠른 검사는 그 룰을 빼고 요약에 그렇게
+            # 적고 다음 할 일이 2번을 가리킨다(목표 remedy_기본검사_룰관리 ①②). 없으면 지금 그대로 한 줄이다.
+            scan_lines = $scanLines
+            disk_skipped = [regex]::Matches($sum, '(?m)^\s\s.+ (—|-) 정밀 검사에서만 합니다 \(디스크 전체를 봅니다\)').Count
+            # `${}` 로 감싼다 — 문자열 안에서 변수 뒤에 한글이 붙으면 PowerShell 이 그 글자까지 이름으로 읽는다.
+            full_lead = [bool]($sum -match "디스크 전체까지 보려면 (—|-) 2\. 정밀 검사 \(룰 ${nRules}개")
             before = $before; after = $after; ok = $false
         }
+        $diskOk = $(if ($Disk) { ($scanLines -eq 2) -and ($row.disk_skipped -eq 1) -and $row.full_lead }
+                    else { $scanLines -eq 1 })
         $row.ok = (-not $row.timed_out) -and ($row.exit -eq 2) -and $row.summary -and $row.found_both -and
-                  ($outs -eq 2) -and $row.unchanged -and $row.ended -and $row.back_menu
+                  ($outs -eq 2) -and $row.unchanged -and $row.ended -and $row.back_menu -and $diskOk
         $results.Add([pscustomobject]$row)
         $tr.Add("")
-        $tr.Add("=== 모두 검사 — 고르는 화면 1 번 (2개 모두 검사만 하기) ===")
+        $tr.Add("=== 모두 검사 — 고르는 화면 1 번 ($(if ($Disk) { '빠른 검사' } else { '2개 모두 검사만 하기' })) ===")
         $tr.Add($all.text.TrimEnd())
+
+        # 정밀 검사 — 2 = 디스크 전체 룰까지 전부(목표 remedy_기본검사_룰관리 ②). 검사만 하므로 기계를 바꾸지 않는다.
+        # 그 룰은 C: 를 끝까지 걷는다(랩 VM 의 깨끗한 C: 83초 · 2026-11-16) — 요약에 그 룰의 결과 줄이 서고, *정밀 검사에서만*
+        # 과 2번으로 가는 길은 서지 않는다. 이 장면이 남긴 결과 폴더는 치운다 — 뒤 단계의 출발점을 지금처럼 둔다.
+        if ($withFull) {
+            $dName = ""
+            $dYaml = [System.IO.File]::ReadAllText((Join-Path $Disk "plugin.yaml"))
+            if ($dYaml -match '(?m)^\s+ko:\s*"([^"]+)"') { $dName = $Matches[1] }
+            $fOutRoot = Join-Path (Split-Path -Parent $Bin) "out"
+            $fOutsBefore = @(Get-ChildItem -LiteralPath $fOutRoot -Directory -ErrorAction SilentlyContinue |
+                             Select-Object -ExpandProperty FullName)
+            $fBefore = Get-Snapshot
+            $full = Invoke-MenuRun -Lines @("2", "", "0") -TimeoutMs 900000
+            $fAfter = Get-Snapshot
+            $fAt = $full.text.IndexOf("정밀 검사 결과")
+            $fSum = $(if ($fAt -ge 0) { $full.text.Substring($fAt) } else { "" })
+            $fHits = @(($fSum -split "`r?`n") | Where-Object { $_ -match '^\s\s.+ (—|-) 위협 발견, 치료하지 않았습니다\.' }).Count
+            $row = [ordered]@{
+                key = "정밀 검사"; needle = "정밀 검사"; number = 2; via = ""; lines = @("2", "", "0")
+                found = ($scanLines -eq 2); exit = $full.exit; expect = 2; timed_out = $full.timed_out
+                summary = [bool]($fSum -match "룰 3개"); found_both = ($fHits -eq 2)
+                disk_ran = [bool]$dName -and [bool]($fSum -match ("(?m)^\s\s" + [regex]::Escape($dName) + " (—|-) (?!정밀 검사에서만)"))
+                no_skip = -not [bool]($fSum -match "정밀 검사에서만")
+                no_lead = -not [bool]($fSum -match "디스크 전체까지 보려면")
+                unchanged = (($fBefore | ConvertTo-Json -Compress) -eq ($fAfter | ConvertTo-Json -Compress))
+                ended = [bool]($full.text -match "끝냅니다\.")
+                ok = $false
+            }
+            $row.ok = $row.found -and (-not $row.timed_out) -and ($row.exit -eq 2) -and $row.summary -and
+                      $row.found_both -and $row.disk_ran -and $row.no_skip -and $row.no_lead -and $row.unchanged -and
+                      $row.ended
+            $results.Add([pscustomobject]$row)
+            $tr.Add("")
+            $tr.Add("=== 정밀 검사 — 고르는 화면 2 번 (디스크 전체까지) ===")
+            $tr.Add($full.text.TrimEnd())
+            Get-ChildItem -LiteralPath $fOutRoot -Directory -ErrorAction SilentlyContinue |
+                Where-Object { $fOutsBefore -notcontains $_.FullName } |
+                ForEach-Object { Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction SilentlyContinue }
+        }
 
         # 찾기만 하는 룰을 고르면 머리말에 그 이름이 서고, 치료를 약속하는 줄(치료 · 유지 확인)은
         # 서지 않는다 — 1 번이 검사만 하기다(목표 remedy_사용자메뉴 기준 1).
@@ -744,15 +824,15 @@ if ($withExtra) {
         $tr.Add("=== 탐지만 메뉴 — 고르는 화면 $xno 번 ($xName) ===")
         $tr.Add($txt.TrimEnd())
 
-        # 찾은 것 모두 치료하기 — 같은 두 룰의 고르는 화면(목표 remedy_전체검사_운영기반 기준 5). 1(모두 검사만)
-        # → 빈 줄 → 그 줄(룰 목록 뒤 — 룰 수 + 2) → y(승인 한 번) → 빈 줄 → 0. 치료하는 룰만 치료하고 찾기만
+        # 찾은 것 모두 치료하기 — 같은 룰들의 고르는 화면(목표 remedy_전체검사_운영기반 기준 5). 1(빠른 검사)
+        # → 빈 줄 → 그 줄(룰 목록 뒤 — 검사 줄 수 + 룰 수 + 1) → y(승인 한 번) → 빈 줄 → 0. 치료하는 룰만 치료하고 찾기만
         # 하는 실험 룰은 할 일만 적는다. **뒤 단계가 같은 출발점에서 돌게 끝에 되돌린다** — 그 회차를 명령줄로
         # 복원하고(복원이 회차마다 지금처럼 되는지를 함께 잰다), 이 장면이 남긴 결과 폴더와 그 회차의 격리
         # 파일을 치운다. 남기면 뒤의 '치료' · '복원' 이 고르는 첫 후보가 이 장면의 것이 된다. 데모 감염에는
         # 도는 프로세스가 없어(`Set-InfectedState` — 폴더 · 예약 작업 · Run 값 · 백신 예외) 복원으로 다 돌아온다.
         if ($withTreatAll) {
-        $tn = 4
-        if ($all.text -match "검사 항목 (\d+)개를 찾았습니다") { $tn = [int]$Matches[1] + 2 }
+        $tn = $nRules + $scanLines + 1
+        if ($all.text -match "검사 항목 (\d+)개를 찾았습니다") { $tn = [int]$Matches[1] + $scanLines + 1 }
         $outRoot = Join-Path (Split-Path -Parent $Bin) "out"
         $stateDir = Join-Path (Split-Path -Parent $Bin) "state"
         $outsBefore = @(Get-ChildItem -LiteralPath $outRoot -Directory -ErrorAction SilentlyContinue |
@@ -791,6 +871,9 @@ if ($withExtra) {
         $tRestored = Get-Snapshot
         $tAt = $ta.text.IndexOf("찾은 것 모두 치료한 결과")
         $tSum = $(if ($tAt -ge 0) { $ta.text.Substring($tAt) } else { "" })
+        # 빠른 검사 뒤 다음 할 일의 차례 — 찾은 것을 다루는 두 줄(모두 치료 · 하나씩 치료)이 붙어 먼저, 정밀 검사 줄이 끝.
+        $iOne = $ta.text.IndexOf("하나씩 치료하려면")
+        $iDisk = $ta.text.IndexOf("디스크 전체까지 보려면")
         $row = [ordered]@{
             key = "찾은 것 모두 치료"; needle = "찾은 것 모두 치료하기"; number = $tn; via = ""; lines = $tl
             found = $true; exit = $ta.exit; expect = 1; timed_out = $ta.timed_out
@@ -804,11 +887,12 @@ if ($withExtra) {
             treated = (-not $tAfter.payload) -and (-not $tAfter.task) -and (-not $tAfter.run_key)
             run_id = $taRun; restore_exit = $restoreExit
             restored = (($tBefore | ConvertTo-Json -Compress) -eq ($tRestored | ConvertTo-Json -Compress))
+            full_last = (-not $Disk) -or (($iOne -ge 0) -and ($iDisk -gt $iOne))
             before = $tBefore; after = $tAfter; ok = $false
         }
         $row.ok = (-not $row.timed_out) -and ($row.exit -eq 1) -and $row.lead -and $row.line_once -and
                   $row.prompt -and $row.result -and $row.rescan -and $row.detect_only -and $row.treated -and
-                  [bool]$taRun -and ($restoreExit -eq 0) -and $row.restored
+                  [bool]$taRun -and ($restoreExit -eq 0) -and $row.restored -and $row.full_last
         $results.Add([pscustomobject]$row)
         $tr.Add("")
         $tr.Add("=== 찾은 것 모두 치료 — 고르는 화면 $tn 번 (찾은 것 모두 치료하기) ===")
@@ -824,6 +908,7 @@ if ($withExtra) {
         }
     } finally {
         Remove-Item $xDst -Recurse -Force -ErrorAction SilentlyContinue
+        if ($dDst) { Remove-Item $dDst -Recurse -Force -ErrorAction SilentlyContinue }
     }
 }
 foreach ($s in $steps) {

@@ -67,6 +67,18 @@ pub struct PluginManifest {
     #[schemars(with = "PluginKind")]
     pub kind: Option<PluginKind>,
 
+    /// **같은 제품의 점검 룰을 묶는 열쇠**(선택 · 점검 룰만 · 코어 1.21.0). 제품 이름을 그대로 적는다 — `PHP` ·
+    /// `Node.js` · `Apache HTTP Server` · `Log4j` · `OpenSSH`. 화면이 같은 값(대소문자는 가리지 않는다)의 발견을 한
+    /// 덩어리로 묶어 '어디까지 올리면 모두 해결되는가' 를 한 번 적는다(목표 remedy_기본검사_룰관리 결정 ③④). 판정은
+    /// 바꾸지 않는다 — 화면에서만 쓴다. 없으면 묶지 않는다.
+    ///
+    /// 대체 관계(`supersedes`)는 적지 않는다 — 배포판이 CVE 를 따로 고치면(RHEL 7.9 의 공지 하나가 CVE 하나만 고쳤다)
+    /// 대체로 숨긴 발견이 조용히 빠진다. 키가 있으면 값이 있어야 한다 — [`PluginManifest::kind`] 와 같은 까닭이다
+    /// (`product:` 만 적으면 묶음에서 조용히 빠진다).
+    #[serde(default, deserialize_with = "product_if_present")]
+    #[schemars(with = "String")]
+    pub product: Option<String>,
+
     /// 스캔·읽기가 허용되는 경로 상한.
     ///
     /// **성능 최적화가 아니라 권한 상한이다.** 서명된 플러그인이 임의 경로를
@@ -269,6 +281,21 @@ pub struct PluginManifest {
     pub submit_hint: Option<SubmitHint>,
 }
 
+/// 디스크 전체를 뜻하는 뿌리 낱말(코어 1.11.0) — 플랫폼이 고정 디스크 전부로 편다.
+pub const FIXED_DISKS: &str = "%FIXED_DISKS%";
+
+impl PluginManifest {
+    /// **디스크 전체를 걷는 룰인가** — 뿌리 하나라도 [`FIXED_DISKS`] 로 시작하면 그렇다. 플랫폼이 그 낱말을 펴는 꼴과
+    /// 같게 앞자리만 보고 대소문자를 가리지 않는다(뒤에 하위 경로가 붙을 수 있다). 메뉴의 빠른 검사가 이 룰을 빼고,
+    /// 꾸러미 README 가 그것을 적는다 — 둘이 따로 가리면 화면과 글이 갈린다.
+    pub fn walks_whole_disks(&self) -> bool {
+        self.scan_roots.iter().any(|r| {
+            r.get(..FIXED_DISKS.len())
+                .is_some_and(|head| head.eq_ignore_ascii_case(FIXED_DISKS))
+        })
+    }
+}
+
 /// `kind:` 가 있으면 값이 열거값이어야 한다 — [`PluginManifest::kind`] 를 보라.
 ///
 /// 키가 아예 없는 경우는 `#[serde(default)]` 가 `None` 을 주므로 여기 오지 않는다.
@@ -277,6 +304,22 @@ where
     D: serde::Deserializer<'de>,
 {
     PluginKind::deserialize(d).map(Some)
+}
+
+/// `product:` 가 있으면 값이 글이어야 한다 — [`kind_if_present`] 와 같다(빈 값 · `null` 이 키를 지운 것과 같아지지 않게).
+///
+/// `String` 으로 바로 읽지 않는다 — YAML 의 `~` · `null` 은 글을 바라는 자리에서 그 글자 그대로 읽혀 통과했다
+/// (2026-11-16 시험). `Option` 으로 읽어 비었는지를 먼저 가른다.
+fn product_if_present<'de, D>(d: D) -> Result<Option<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    match Option::<String>::deserialize(d)? {
+        Some(name) => Ok(Some(name)),
+        None => Err(serde::de::Error::custom(
+            "product 를 적었으면 제품 이름이 있어야 한다 — 묶지 않으려면 키를 지운다",
+        )),
+    }
 }
 
 /// `network:` 가 있으면 값이 열거값이어야 한다 — [`kind_if_present`] 와 같다.
@@ -690,5 +733,46 @@ mod reference_tests {
         let mut v = Vec::new();
         references("${a.b} and ${broken", &mut v);
         assert_eq!(v, vec!["a.b"]);
+    }
+}
+
+#[cfg(test)]
+mod whole_disk_tests {
+    use super::PluginManifest;
+
+    fn with_roots(roots: &str) -> PluginManifest {
+        let y = format!(
+            r#"schema_version: 1
+id: t
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [linux]
+name: {{ en: "t" }}
+scan_roots: {roots}
+subjects: [file]
+detect:
+  - id: r
+    subject: file
+    where:
+      - {{ field: path, op: exists }}
+verdict: {{ require: r }}
+"#
+        );
+        serde_yaml_ng::from_str(&y).unwrap_or_else(|e| panic!("{e}\n{y}"))
+    }
+
+    /// 플랫폼이 펴는 꼴(앞자리 · 대소문자 무시 · 하위 경로)과 같게 가린다 — 낱말이 가운데 있으면 펴지지 않으므로 아니다.
+    #[test]
+    fn a_root_that_starts_with_the_disk_token_walks_whole_disks() {
+        for roots in [
+            r#"["%FIXED_DISKS%"]"#,
+            r#"["/etc/ssh", "%fixed_disks%"]"#,
+            r#"['%FIXED_DISKS%\opt\app']"#,
+        ] {
+            assert!(with_roots(roots).walks_whole_disks(), "{roots}");
+        }
+        for roots in [r#"["/etc/ssh"]"#, r#"["/srv/%FIXED_DISKS%"]"#, "[]"] {
+            assert!(!with_roots(roots).walks_whole_disks(), "{roots}");
+        }
     }
 }
