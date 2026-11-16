@@ -1,7 +1,7 @@
 schema_version: 1
 id: example-check-only                # 예제 고유 값 — 대상에 맞게 교체
 version: 1.0.0
-min_core: "1.0.0"
+min_core: "1.21.0"                    # product 는 코어 1.21.0 부터
 platforms: [linux]
 
 # **점검 전용임을 선언한다.** 이 한 줄이 코어에게 둘을 준다 — 선언한 자리가 전부
@@ -9,6 +9,10 @@ platforms: [linux]
 # **취약**이라고 말한다. 적지 않으면 치료 플러그인이고, `remediate` 와 함께
 # 적으면 린트 오류다.
 kind: check
+
+# **같은 제품의 점검 룰을 묶는 열쇠** — 제품 이름 그대로. 화면이 같은 값의 발견을 묶어
+# 어디까지 올리면 모두 해결되는지 한 번 적는다. 판정은 바꾸지 않는다. 없으면 린트 경고다.
+product: PHP
 
 name:
   ko: "예제 — 점검 전용: PHP-FPM 이 세션 업로드 진행 표시를 꺼 두지 않았다"

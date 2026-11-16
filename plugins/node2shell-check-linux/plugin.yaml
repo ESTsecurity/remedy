@@ -44,11 +44,12 @@
 # 실행하지 않고 풀어 서비스로 낸다(아래 `service_node`).
 schema_version: 1
 id: node2shell-check-linux
-version: 0.6.0
-min_core: "1.10.0"  # 시작 스크립트의 서비스는 1.10.0 · 패키지 파일 대조는 1.7.0 · verdict.unconfirmed · hash_large 는 1.3.0
+version: 0.6.1
+min_core: "1.21.0"  # product 는 1.21.0 · 시작 스크립트의 서비스는 1.10.0 · 패키지 파일 대조는 1.7.0 · verdict.unconfirmed · hash_large 는 1.3.0
 platforms: [linux]
 
 kind: check
+product: Node.js
 
 name:
   ko: "Node2Shell 점검 (CVE-2026-111497)"

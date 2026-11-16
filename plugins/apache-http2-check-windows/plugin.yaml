@@ -43,11 +43,12 @@
 # - TLS 개인키 — 실행 파일은 `libhttpd.dll` 만, 설정은 줄 단위로 설정 접미사(`.conf` 등)만 읽는다. `conf\private` 의 키는 읽지 않는다
 schema_version: 1
 id: apache-http2-check-windows
-version: 0.1.0
-min_core: "1.13.0"  # label 은 1.13.0 · file_names 는 1.11.0
+version: 0.1.1
+min_core: "1.21.0"  # product 는 1.21.0 · label 은 1.13.0 · file_names 는 1.11.0
 platforms: [windows]
 
 kind: check
+product: Apache HTTP Server
 
 name:
   ko: "Apache HTTP/2 점검 (CVE-2026-119618)"

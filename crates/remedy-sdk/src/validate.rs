@@ -102,6 +102,8 @@ pub fn validate(m: &PluginManifest) -> Vec<SchemaIssue> {
     }
 
     check_min_core(m, &mut issues);
+    // 데이터 · 네트워크 룰의 갈래보다 먼저 본다 — 그 갈래는 아래에서 일찍 끝난다.
+    check_product(m, &mut issues);
 
     // 동반 프로그램의 이름은 룰이 쓰지 못한다 — 본체는 그 이름으로 서명된 폴더의 실행 파일을 띄운다
     // (설계-04 §1 *동반 모듈*). 룰에 그 이름의 서명이 생기는 길을 문법에서 닫는다.
@@ -302,6 +304,62 @@ fn check_unconfirmed(m: &PluginManifest, issues: &mut Vec<SchemaIssue>) {
                 "설계-02 §10",
             )
             .with_valid("min_core: \"1.3.0\" 이상".to_string()),
+        );
+    }
+}
+
+/// 제품 이름의 글자 상한 — 화면의 한 줄(*"PHP 를 … 이상으로 올리면"*)에 이름 그대로 적힌다.
+const PRODUCT_MAX_CHARS: usize = 40;
+
+/// `product` — 같은 제품의 점검 룰을 묶는 열쇠 (2026-11-16 · 코어 1.21.0 · 목표 remedy_기본검사_룰관리 결정 ④).
+///
+/// - **점검 룰(`kind: check`)에만.** 묶음은 점검의 발견을 모아 '어디까지 올리면 모두 해결되는가' 를 적는 자리다 —
+///   다른 룰에 적으면 아무 데도 쓰이지 않는데 쓰인 줄 안다.
+/// - **한 줄 · 40자 안 · 앞뒤 빈칸 없이.** 화면에 이름 그대로 적힌다.
+/// - **`min_core` 는 1.21.0 이상.** 낮은 코어는 이 칸을 모른다(매니페스트를 읽다 멈춘다).
+fn check_product(m: &PluginManifest, issues: &mut Vec<SchemaIssue>) {
+    const GUIDE: &str = "docs/plugin-guide/24-check-plugins.md";
+    let Some(p) = &m.product else {
+        return;
+    };
+    if m.kind != Some(crate::manifest::PluginKind::Check) {
+        issues.push(SchemaIssue::new(
+            "product",
+            "점검 룰(kind: check)에만 적는다 — 다른 룰에서는 묶음에 쓰이지 않는다",
+            GUIDE,
+        ));
+    }
+    let problem = if p.trim().is_empty() {
+        Some("비어 있다 — 제품 이름을 적는다".to_string())
+    } else if p.trim() != p {
+        Some("앞뒤에 빈칸이 있다 — 화면에 이름 그대로 적힌다".to_string())
+    } else if p.chars().any(char::is_control) {
+        Some("줄바꿈 · 제어 문자가 있다 — 화면의 한 줄에 적힌다".to_string())
+    } else if p.chars().count() > PRODUCT_MAX_CHARS {
+        Some(format!(
+            "{PRODUCT_MAX_CHARS}자를 넘는다 — 제품 이름만 적는다"
+        ))
+    } else {
+        None
+    };
+    if let Some(why) = problem {
+        issues.push(
+            SchemaIssue::new("product", why, GUIDE)
+                .with_valid("product: PHP — 제품 이름 한 줄".to_string()),
+        );
+    }
+    const SINCE: (u64, u64, u64) = (1, 21, 0);
+    if semver3(&m.min_core).is_some_and(|v| v < SINCE) {
+        issues.push(
+            SchemaIssue::new(
+                "min_core",
+                format!(
+                    "product 는 코어 1.21.0 부터 있다 — min_core '{}' 로는 낮은 코어가 이 룰을 읽다 멈춘다",
+                    m.min_core
+                ),
+                "설계-02 §10",
+            )
+            .with_valid("min_core: \"1.21.0\" 이상".to_string()),
         );
     }
 }

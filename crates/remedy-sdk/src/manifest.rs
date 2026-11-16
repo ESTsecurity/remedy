@@ -67,6 +67,18 @@ pub struct PluginManifest {
     #[schemars(with = "PluginKind")]
     pub kind: Option<PluginKind>,
 
+    /// **같은 제품의 점검 룰을 묶는 열쇠**(선택 · 점검 룰만 · 코어 1.21.0). 제품 이름을 그대로 적는다 — `PHP` ·
+    /// `Node.js` · `Apache HTTP Server` · `Log4j` · `OpenSSH`. 화면이 같은 값(대소문자는 가리지 않는다)의 발견을 한
+    /// 덩어리로 묶어 '어디까지 올리면 모두 해결되는가' 를 한 번 적는다(목표 remedy_기본검사_룰관리 결정 ③④). 판정은
+    /// 바꾸지 않는다 — 화면에서만 쓴다. 없으면 묶지 않는다.
+    ///
+    /// 대체 관계(`supersedes`)는 적지 않는다 — 배포판이 CVE 를 따로 고치면(RHEL 7.9 의 공지 하나가 CVE 하나만 고쳤다)
+    /// 대체로 숨긴 발견이 조용히 빠진다. 키가 있으면 값이 있어야 한다 — [`PluginManifest::kind`] 와 같은 까닭이다
+    /// (`product:` 만 적으면 묶음에서 조용히 빠진다).
+    #[serde(default, deserialize_with = "product_if_present")]
+    #[schemars(with = "String")]
+    pub product: Option<String>,
+
     /// 스캔·읽기가 허용되는 경로 상한.
     ///
     /// **성능 최적화가 아니라 권한 상한이다.** 서명된 플러그인이 임의 경로를
@@ -292,6 +304,22 @@ where
     D: serde::Deserializer<'de>,
 {
     PluginKind::deserialize(d).map(Some)
+}
+
+/// `product:` 가 있으면 값이 글이어야 한다 — [`kind_if_present`] 와 같다(빈 값 · `null` 이 키를 지운 것과 같아지지 않게).
+///
+/// `String` 으로 바로 읽지 않는다 — YAML 의 `~` · `null` 은 글을 바라는 자리에서 그 글자 그대로 읽혀 통과했다
+/// (2026-11-16 시험). `Option` 으로 읽어 비었는지를 먼저 가른다.
+fn product_if_present<'de, D>(d: D) -> Result<Option<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    match Option::<String>::deserialize(d)? {
+        Some(name) => Ok(Some(name)),
+        None => Err(serde::de::Error::custom(
+            "product 를 적었으면 제품 이름이 있어야 한다 — 묶지 않으려면 키를 지운다",
+        )),
+    }
 }
 
 /// `network:` 가 있으면 값이 열거값이어야 한다 — [`kind_if_present`] 와 같다.

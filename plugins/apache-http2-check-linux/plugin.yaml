@@ -47,11 +47,12 @@
 # - TLS 개인키 — 이름(`*.conf` · `http2.load` · `httpd`)으로만 기록 · 해시하므로 `*.key` · `*.pem` 은 읽지 않는다
 schema_version: 1
 id: apache-http2-check-linux
-version: 0.1.1
-min_core: "1.14.0"  # apk_version_lt 는 1.14.0 · label 은 1.13.0 · file_names 는 1.11.0
+version: 0.1.2
+min_core: "1.21.0"  # product 는 1.21.0 · apk_version_lt 는 1.14.0 · label 은 1.13.0 · file_names 는 1.11.0
 platforms: [linux]
 
 kind: check
+product: Apache HTTP Server
 
 name:
   ko: "Apache HTTP/2 점검 (CVE-2026-119618)"

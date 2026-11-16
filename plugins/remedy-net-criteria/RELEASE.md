@@ -1,7 +1,13 @@
 # remedy-net-criteria — 릴리스 기록
 
-**버전 1.1.0** · 데이터 룰(`kind: data`) — 동반 프로그램 `remedy-net` 이 읽는 판정 기준 · Windows · 리눅스 ·
+**버전 1.1.1** · 데이터 룰(`kind: data`) — 동반 프로그램 `remedy-net` 이 읽는 판정 기준 · Windows · 리눅스 ·
 **이 기계를 보지 않는다**(메뉴 · 위협 표에 서지 않는다)
+
+## 1.1.1 — 같은 표를 가진 점검 룰의 판 (2026-11)
+
+`url.json` · `apache.json` 의 `same_as` 를 본체의 점검 룰이 올린 판(`php2shell-check-linux` 0.6.1 ·
+`apache-http2-check-linux` 0.1.2 — 같은 제품의 묶음 열쇠 `product` 만 더한 판)에 맞췄다. 기준의 값(고친 판 · 영향 범위)과
+`baseline.json` 은 1.1.0 과 같다.
 
 ## 1.1.0 — Apache HTTP/2 기준 (2026-11 · 코어 1.18.0)
 

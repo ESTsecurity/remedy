@@ -40,6 +40,17 @@
 
 **고치는 법.** `name: { ko: …, en: … }` 둘 다 채운다. 룰만 고쳤어도 `version` 을 올린다
 
+## 점검 룰에 제품 이름을 적는다
+
+**무엇이 잘못됐나.** `kind: check` 에 `product` 가 없다. 판정은 같지만 같은 제품의 발견과 묶이지 않는다
+
+```
+경고 product: 점검 룰에 product 가 없다 — 같은 제품의 다른 점검 룰과 발견을 묶지 못한다. 제품 이름을 적는다(product: PHP)
+      근거: docs/plugin-guide/24-check-plugins.md
+```
+
+**고치는 법.** `product: PHP` 처럼 한 줄로 적고 `min_core` 를 1.21.0 으로 올린다
+
 ## 드롭인 디렉터리를 확장자 없이 읽는다
 
 **무엇이 잘못됐나.** `text_config_dirs` 가 `scan_roots` 밖이다
