@@ -840,6 +840,41 @@ else
     echo "[통합 꾸러미가 없어 이 절은 비었다]"
 fi
 
+# ── 찾은 것 모두 치료하기 — 감염된 CWP 자리 채우기 (목표 remedy_전체검사_운영기반 기준 5 · 코어 1.20.0) ──────────
+#
+# `menu-verify.sh` 의 감염 장면과 같은 자리 채우기다 — **실검체가 없다**(ELF 머리 · 표시 문자열 · XLab 보고의 공개
+# 지표 · 이 캡처가 지어낸 유닛). A11 의 꾸러미로 고르는 화면에서 1(모두 검사만) → 빈 줄 → *찾은 것 모두 치료하기*
+# (룰 목록 뒤 — 룰 수 + 2) → y(승인 한 번) → 빈 줄 → 0. **맨 끝에 둔다** — 이 절이 컨테이너에 CWP 자리를 세웠다가
+# 치료한다(되돌리지 않는다 — 컨테이너와 함께 버린다). 화면은 파일로 받는다(A11 과 같은 까닭).
+sep "A13. 찾은 것 모두 치료하기 — 감염된 CWP 자리 채우기 (pty)"
+if [ -x "$AW/pkg/remedy" ] && command -v python3 >/dev/null 2>&1; then
+    python3 - <<'PY'
+import os
+pem = open("/repo/testbed/harness/linux/fixtures/cwpdoor/pubkey.pem", "rb").read()
+x55 = bytes(b ^ 0x55 for b in pem)
+head = b"\x7fELF\x02\x01\x01" + b"\0" * 57
+mark = b"remedy-lab CWPdoor placeholder - not a program\0"
+infected = head + mark + b"\0" * 4096 + b"X-Ngx-Integrity-Data\0X-Ngx-Integrity-Time\0X-Ngx-Integrity-Sig\0" \
+    + b"\0" * 4096 + x55 + b"\0" * 4096
+os.makedirs("/usr/local/cwpsrv/bin", exist_ok=True)
+open("/usr/local/cwpsrv/bin/cwpsrv", "wb").write(infected.ljust(820848, b"\0"))
+PY
+    mkdir -p /lib/systemd/system /etc/systemd/system/multi-user.target.wants
+    printf '%s\n' "[Unit]" "Description=remedy-lab CWP panel placeholder" "[Service]" \
+        "Type=forking" "ExecStart=/usr/local/cwpsrv/bin/cwpsrv" "Restart=always" "RestartSec=5" \
+        "[Install]" "WantedBy=multi-user.target" >/lib/systemd/system/cwpsrv.service
+    ln -sf /lib/systemd/system/cwpsrv.service /etc/systemd/system/multi-user.target.wants/cwpsrv.service
+    # 고르는 화면의 룰 수 — 데이터 룰은 검사 항목이 아니라 세지 않는다(menu-verify.sh 와 같다).
+    n=0
+    for d in "$AW/pkg/plugins"/*/; do grep -q '^kind: data' "$d/plugin.yaml" || n=$((n + 1)); done
+    (cd "$AW/pkg" && rm -rf out state && { printf '1\n\n%s\ny\n\n0\n' $((n + 2)); sleep 30; } | timeout 180 script -qec \
+        "LANG=C.UTF-8 REMEDY_LANG=$L ./remedy >$AW/treat-all.txt 2>&1" /dev/null >/dev/null 2>&1)
+    ec
+    tr -d "\r" < "$AW/treat-all.txt"
+else
+    echo "[통합 꾸러미나 python3 가 없어 이 절은 비었다]"
+fi
+
 sep "끝"
 
 # ── 캡처가 자기 산출물을 센다 ──────────────────────────────────
@@ -857,7 +892,8 @@ sep "끝"
 # 47 → 48: `--help-all` 본문 절을 더했다 (A9 · 2026-10-28).
 # 48 → 49: 모두 검사만 절을 더했다 (A11 · 목표 remedy_출시_20261111 기준 3 · 2026-11-06).
 # 49 → 50: 원격 점검 절을 더했다 (A12 · 본체가 동반 프로그램을 띄운다 · 2026-11-10).
-EXPECT_SECTIONS=50
+# 50 → 51: 찾은 것 모두 치료하기 절을 더했다 (A13 · 목표 remedy_전체검사_운영기반 기준 5 · 2026-11-16).
+EXPECT_SECTIONS=51
 EXPECT_CODES="0 1 2 3 4 5 6 7"
 got_codes=$(echo $CODES | tr ' ' '\n' | grep -v '^$' | sort -u | tr '\n' ' ' | sed 's/ $//')
 {
