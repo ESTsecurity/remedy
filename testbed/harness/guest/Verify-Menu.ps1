@@ -480,6 +480,23 @@ if ($Bench) {
         $benchOut["${d}_bytes"] = [long](($files | Measure-Object -Property Length -Sum).Sum)
     }
     $benchOut.out_dirs = @(Get-ChildItem -LiteralPath (Join-Path $home0 "out") -Directory -ErrorAction SilentlyContinue).Count
+    # 룰마다 검사 시간의 내역 — 회차 로그(`state\logs`)의 '검사 시간' 줄(걷기 · 읽기 · 해시 · 서명 · 그 밖). VM 을 되돌린
+    # 직후의 첫 회차가 왜 느린지(같은 룰 5개가 데워진 뒤에는 9초 · 첫 회차는 160 ~ 173초)를 룰 · 단계로 가른다(목표
+    # remedy_기본검사_룰관리 기준 3). 룰이 많으면 앞의 40개만.
+    $timing = New-Object System.Collections.Generic.List[string]
+    $runLogs = @(Get-ChildItem -LiteralPath (Join-Path $home0 "state\logs") -Filter *.log -ErrorAction SilentlyContinue |
+                 Sort-Object LastWriteTime | Select-Object -First 40)
+    foreach ($runLog in $runLogs) {
+        $logLines = [System.IO.File]::ReadAllLines($runLog.FullName, [System.Text.Encoding]::UTF8)
+        $ruleId = $runLog.BaseName
+        foreach ($x in $logLines) {
+            if ($x -match '\(([a-z0-9-]+) [0-9]+\.[0-9]+\.[0-9]+\)') { $ruleId = $Matches[1]; break }
+        }
+        foreach ($x in $logLines) { if ($x -match '검사 시간|scan time') { $timing.Add("$ruleId  $($x.Trim())") } }
+    }
+    $benchOut.timing = @($timing)
+    $tr.Add("=== bench timing ===")
+    foreach ($x in $timing) { $tr.Add($x) }
     $report.bench = $benchOut
     $report.verdict = (-not $benchOut.scan_all.timed_out) -and (@(0, 2, 6) -contains $benchOut.scan_all.exit)
     $dir = Split-Path -Parent $OutFile
