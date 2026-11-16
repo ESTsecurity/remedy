@@ -134,11 +134,7 @@ fn main() -> ExitCode {
 
     let outcome = match cmd {
         Some("--version") | Some("-V") => {
-            outln!(
-                "{} {} (remedy)",
-                remedy_core::report::brand::product(ui().lang),
-                env!("CARGO_PKG_VERSION")
-            );
+            print_version();
             Ok(Code::NoThreat)
         }
         Some("--help") | Some("-h") | Some("help") => {
@@ -418,11 +414,7 @@ fn main() -> ExitCode {
                     guided::Outcome::Plain(p) => match p {
                         menu::Plain::SelfTest => Ok(selftest()),
                         menu::Plain::Version => {
-                            outln!(
-                                "{} {} (remedy)",
-                                remedy_core::report::brand::product(ui().lang),
-                                env!("CARGO_PKG_VERSION")
-                            );
+                            print_version();
                             Ok(Code::NoThreat)
                         }
                         menu::Plain::Help => {
@@ -1885,6 +1877,20 @@ fn wait_before_closing() {
     std::io::stderr().flush().ok();
     let mut line = String::new();
     let _ = std::io::stdin().read_line(&mut line);
+}
+
+/// `--version` — 첫 줄은 `<제품> <엔진 버전> (remedy)` 그대로이고, 꾸러미에 룰 버전이 있으면 그 아래 줄에
+/// 적는다(`menu::version_rules_line`).
+fn print_version() {
+    let lang = ui().lang;
+    outln!(
+        "{} {} (remedy)",
+        remedy_core::report::brand::product(lang),
+        env!("CARGO_PKG_VERSION")
+    );
+    if let Some(line) = menu::version_rules_line(lang) {
+        outln!("{line}");
+    }
 }
 
 /// 사용법 화면.

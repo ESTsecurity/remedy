@@ -731,14 +731,7 @@ pub fn run(offer: &Offer) -> Pick {
 
     // **머리말 한 덩어리** — 제품 이름 · 판 · 권한(목표 remedy_제품화 기준 3(a) ·
     // 벤치마크 축 2 · 3). 권한은 고른 뒤에 거절당하지 않게 먼저 보인다.
-    let mut rows = vec![
-        Row::Blank,
-        Row::Text(format!(
-            "{} {}",
-            remedy_core::report::brand::product(lang),
-            env!("CARGO_PKG_VERSION")
-        )),
-    ];
+    let mut rows = vec![Row::Blank, Row::Text(title_line(lang))];
     if let Some(name) = &offer.name {
         rows.push(Row::Text(
             lang.pick(format!("검사 항목: {name}"), format!("Rule: {name}")),
@@ -863,6 +856,30 @@ fn choose_more(groups: &[Group]) -> Sub<(usize, usize)> {
 
 /// 머리말의 권한 줄. 재지 못했으면 내지 않는다 — 모르는 것을 말하지 않는다.
 /// 룰을 고르는 화면(`guided::choose`)도 같은 줄을 쓴다.
+/// 머리말의 첫 줄 — 제품 이름 · 엔진 버전, 꾸러미에 룰 버전이 있으면 그것까지(`discover::rules_version`). 룰 버전은
+/// 엔진 버전과 따로 오른다 — 룰만 바뀐 출시는 엔진 버전이 그대로다(`docs/개발-안내.md` "버전 번호").
+pub(crate) fn title_line(lang: remedy_sdk::i18n::Lang) -> String {
+    title_with(lang, crate::discover::rules_version_here().as_deref())
+}
+
+fn title_with(lang: remedy_sdk::i18n::Lang, rules: Option<&str>) -> String {
+    let head = format!(
+        "{} {}",
+        remedy_core::report::brand::product(lang),
+        env!("CARGO_PKG_VERSION")
+    );
+    match rules {
+        Some(r) => format!("{head} · {} {r}", lang.pick("룰", "rules")),
+        None => head,
+    }
+}
+
+/// `--version` 의 룰 줄 — 첫 줄(`<제품> <엔진 버전> (remedy)`)은 그대로 두고 그 아래에 적는다. 첫 줄을 읽는 스크립트가
+/// 있고(첫 숫자 셋을 버전으로 고른다), 날짜도 숫자 셋이라 그 앞에 두면 그것을 엔진 버전으로 읽는다.
+pub(crate) fn version_rules_line(lang: remedy_sdk::i18n::Lang) -> Option<String> {
+    crate::discover::rules_version_here().map(|r| format!("{} {r}", lang.pick("룰", "rules")))
+}
+
 pub(crate) fn privilege_line(lang: remedy_sdk::i18n::Lang) -> Option<String> {
     let who = if cfg!(windows) {
         lang.t("관리자", "administrator")
@@ -936,11 +953,25 @@ fn two_parts(p: &std::path::Path) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        line, screens, Candidates, Line, Main, Offer, Plain, Run, Tag, WithFile, WithPlugin,
-        WithRun, AUTHOR_ITEMS, FILE_ITEMS, GROUPS, MAIN_ITEMS, NET_ITEM, PROGRAM_ITEMS,
+        line, screens, title_with, Candidates, Line, Main, Offer, Plain, Run, Tag, WithFile,
+        WithPlugin, WithRun, AUTHOR_ITEMS, FILE_ITEMS, GROUPS, MAIN_ITEMS, NET_ITEM, PROGRAM_ITEMS,
         RECORD_ITEM,
     };
     use remedy_sdk::i18n::Lang;
+
+    /// 머리말 첫 줄 — 룰 버전이 없으면 지금 글자 그대로, 있으면 엔진 버전 뒤에 ` · 룰 <버전>`.
+    #[test]
+    fn the_title_adds_the_rules_version_after_the_engine_version() {
+        let v = env!("CARGO_PKG_VERSION");
+        let plain = title_with(Lang::Ko, None);
+        assert!(plain.ends_with(&format!(" {v}")), "{plain}");
+        assert_eq!(
+            title_with(Lang::Ko, Some("2026.11.15")),
+            format!("{plain} · 룰 2026.11.15")
+        );
+        let en = title_with(Lang::En, Some("2026.11.15"));
+        assert!(en.ends_with(&format!(" {v} · rules 2026.11.15")), "{en}");
+    }
 
     fn a_run(id: &str) -> Run {
         Run {

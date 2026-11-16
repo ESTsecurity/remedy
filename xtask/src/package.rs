@@ -60,6 +60,9 @@ pub fn run(root: &Path, args: &[String]) -> Result<(), String> {
         ));
     }
 
+    // 룰 버전 — 꼴이 틀렸으면 붓기 전에 멈춘다(아래 서명 확인과 같은 까닭).
+    let rules = rules_version(root)?;
+
     // ── 1. 서명이 맞는가 ─────────────────────────────────────────
     //
     // **꾸러미를 만드는 자리에서 막는다.** 여기서 통과시키면 그다음 방어선은
@@ -205,6 +208,15 @@ pub fn run(root: &Path, args: &[String]) -> Result<(), String> {
         }
     }
 
+    // 룰 버전은 룰 폴더들 옆(`plugins/`)에 둔다 — 룰 폴더를 통째로 바꿔 넣으면 함께 바뀐다. 어느 룰의 서명에도
+    // 들지 않는 자리라 `plugin verify` 가 보지 않고, 엔진은 화면에 적기만 한다(`remedy_sdk::rules_version`).
+    if let Some(v) = &rules {
+        let rel = PathBuf::from("plugins").join(remedy_sdk::rules_version::FILE);
+        std::fs::write(out.join(&rel), format!("{v}\n"))
+            .map_err(|e| format!("{} 를 쓰지 못했다: {e}", rel.display()))?;
+        files.push(rel.to_string_lossy().to_string());
+    }
+
     // 동반 프로그램도 **검증이 쓴 그 목록**으로 붓는다 — 룰과 같은 까닭이다.
     if let Some(c) = &companion {
         let nest = PathBuf::from(crate::sign::COMPANION);
@@ -319,6 +331,25 @@ fn verified_companion(dir: &Path, pubkey: &Path, bin: &Path) -> Result<Companion
     })
 }
 
+/// 룰 버전 — 저장소의 `plugins/RULES-VERSION`(`remedy_sdk::rules_version`). 없으면 `None`(저장소 밖의 뿌리 ·
+/// 시험), 꼴이 틀리면 거부한다 — 배포 워크플로의 `ci/version-check.sh` 와 같은 꼴이다.
+fn rules_version(root: &Path) -> Result<Option<String>, String> {
+    let p = root.join("plugins").join(remedy_sdk::rules_version::FILE);
+    match std::fs::read_to_string(&p) {
+        Ok(t) => remedy_sdk::rules_version::parse(&t)
+            .map(|v| Some(v.to_string()))
+            .ok_or_else(|| {
+                format!(
+                    "{} 의 꼴이 틀렸다: {:?} — YYYY.MM.DD(같은 날 둘째부터 .2)",
+                    p.display(),
+                    t.trim()
+                )
+            }),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(format!("{}: {e}", p.display())),
+    }
+}
+
 /// 서명을 확인하고 (id, version, 확인된 파일 목록) 을 돌려준다.
 ///
 /// **공개키를 인자로 받는다.** 꾸러미를 만드는 사람은 방금 그 키로 서명했으므로
@@ -429,6 +460,10 @@ fn readme(
     s.push_str("ESTsecurity 전용백신 — 사용 방법\r\n");
     s.push_str("========================================\r\n\r\n");
     s.push_str(&format!("프로그램  {core}\r\n"));
+    // 룰 버전은 프로그램 버전과 따로 오른다 — 룰만 바뀐 출시는 프로그램 버전이 그대로다. 값은 아래 줄들과 같은 칸에.
+    if let Ok(Some(v)) = rules_version(root) {
+        s.push_str(&format!("룰        {v}\r\n"));
+    }
     // **하나일 때의 글자는 그대로 둔다.** `docs/operator.md` 와 화면 캡처가 그 꼴로
     // 돌고 있고, 여럿을 담을 수 있게 되었다는 사실이 하나짜리 꾸러미의 안내문을
     // 바꿀 이유는 없다.
@@ -903,6 +938,38 @@ mod tests {
     /// 리눅스 판. **`--bin` 의 이름이 플랫폼을 말한다** — 호스트가 아니다.
     fn make_nix(plugins: usize, anchored: bool) -> String {
         make_for(plugins, anchored, "remedy")
+    }
+
+    /// 룰 버전 — 뿌리의 `plugins/RULES-VERSION` 을 '프로그램' 줄 바로 아래 같은 칸에 적는다. 파일이 없으면 줄도
+    /// 없고(지금까지의 글 그대로), 꼴이 틀리면 꾸러미를 짓지 않는다.
+    #[test]
+    fn the_readme_carries_the_rules_version_under_the_program_line() {
+        let root = std::env::temp_dir().join(format!("xtask-rules-version-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join("plugins")).expect("폴더");
+        std::fs::write(
+            root.join("Cargo.toml"),
+            "[workspace.package]\nversion = \"1.20.0\"\n",
+        )
+        .expect("Cargo.toml");
+        let file = root.join("plugins").join(remedy_sdk::rules_version::FILE);
+        let one = |root: &Path| readme(root, &[packed("rule0")], "remedy.exe", &[], true, false);
+
+        assert_eq!(rules_version(&root), Ok(None));
+        let r = one(&root);
+        assert!(r.contains("프로그램  1.20.0\r\n검사 항목"), "{r}");
+
+        std::fs::write(&file, "2026.11.15\r\n").expect("룰 버전");
+        assert_eq!(rules_version(&root), Ok(Some("2026.11.15".into())));
+        let r = one(&root);
+        assert!(
+            r.contains("프로그램  1.20.0\r\n룰        2026.11.15\r\n검사 항목"),
+            "{r}"
+        );
+
+        std::fs::write(&file, "2026.11.5\n").expect("틀린 꼴");
+        assert!(rules_version(&root).is_err());
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     /// 받는 사람이 **가장 먼저 읽는 글이 가장 먼저 보는 화면과 같아야 한다.**

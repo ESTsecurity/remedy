@@ -1,7 +1,7 @@
 # remedy — ESTsecurity 전용백신
 
 [![CI](https://github.com/ESTsecurity/remedy/actions/workflows/ci.yml/badge.svg)](https://github.com/ESTsecurity/remedy/actions/workflows/ci.yml)
-[![최신 버전](https://img.shields.io/github/v/release/ESTsecurity/remedy?label=%EC%B5%9C%EC%8B%A0%20%EB%B2%84%EC%A0%84)](https://github.com/ESTsecurity/remedy/releases/latest)
+[![최신 버전](https://img.shields.io/github/v/release/ESTsecurity/remedy?label=%EC%B5%9C%EC%8B%A0%20%EB%B2%84%EC%A0%84&display_name=release)](https://github.com/ESTsecurity/remedy/releases/latest)
 ![플랫폼](https://img.shields.io/badge/%ED%94%8C%EB%9E%AB%ED%8F%BC-Windows%20%7C%20Linux%20x64-informational)
 ![라이선스](https://img.shields.io/badge/%EB%9D%BC%EC%9D%B4%EC%84%A0%EC%8A%A4-%EB%8F%85%EC%A0%90-lightgrey)
 
@@ -38,6 +38,10 @@
 [**최신 버전**](https://github.com/ESTsecurity/remedy/releases/latest)에서 쓰는 곳에 맞는 파일
 **하나**를 받습니다. 파일 하나에 프로그램과 그 OS 용 룰이 모두 들어 있습니다. 이전 버전과 달라진 점은 그
 화면 맨 위와 [업데이트 내역](docs/업데이트-내역.md)에 있습니다.
+
+버전은 둘입니다 — **프로그램 버전**(예: `1.20.0`)과 **룰 버전**(날짜 · 예: `2026.11.15`). 룰만 더하거나 고친
+버전은 프로그램 버전이 그대로이고 룰 버전만 오릅니다. 둘 다 실행하면 화면 맨 위에 보입니다
+(`ESTsecurity 전용백신 1.20.0 · 룰 2026.11.15`).
 
 | 쓰는 곳 | 받을 파일 |
 |---|---|

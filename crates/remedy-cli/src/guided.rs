@@ -654,11 +654,7 @@ fn choose(ok: &[discover::Found]) -> Option<Choice> {
     // **이 화면이 룰이 여럿인 꾸러미의 첫 화면이다**(리눅스 공식 배포가 그렇다). 작업 메뉴의
     // 머리말처럼 이름 · 버전 · 권한을 먼저 말한다 — 전에는 sudo 를 빠뜨려도 여기서는 말이 없고
     // 항목을 고른 뒤에야 알았다(README *"메뉴 맨 위에서 지금 권한을 먼저"* · v1.1.0 적대적 검토).
-    let mut head = vec![Row::Text(format!(
-        "{} {}",
-        remedy_core::report::brand::product(lang),
-        env!("CARGO_PKG_VERSION")
-    ))];
+    let mut head = vec![Row::Text(crate::menu::title_line(lang))];
     if let Some(line) = crate::menu::privilege_line(lang) {
         head.push(Row::Text(line));
     }
