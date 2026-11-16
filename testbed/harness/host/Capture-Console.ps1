@@ -501,6 +501,13 @@ verdict:
             & cargo run -q -p xtask -- sign plugin --dir "$gStage\remedy-lab-evilai-check" `
                 --secret-key "$gStage\sec.key" --signed-at "2026-09-10T00:00:00Z" | Out-Null
             if ($LASTEXITCODE -ne 0) { throw "실험 룰 서명 실패" }
+
+            # 디스크 전체를 걷는 룰 — 배포 룰 Log4j 점검(같은 일회용 키). A11 이 셋째로 둔다 — 고르는 화면 맨 위가
+            # 1 빠른 검사 · 2 정밀 검사가 되는 꼴(목표 remedy_기본검사_룰관리 ①②). A11 은 빠른 검사만 싣는다.
+            Copy-Item (Join-Path $repoRoot "plugins\log4j-check") "$gStage\log4j-check" -Recurse -Force
+            & cargo run -q -p xtask -- sign plugin --dir "$gStage\log4j-check" `
+                --secret-key "$gStage\sec.key" --signed-at "2026-09-10T00:00:00Z" | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw "디스크 전체 룰 서명 실패" }
         } finally { Pop-Location }
 
         Invoke-Command -Session $session -ArgumentList $LabRoot -ScriptBlock {
@@ -511,6 +518,7 @@ verdict:
         Copy-Item "$gStage\pkg" -Destination "$LabRoot\pkg-signed" -ToSession $session -Recurse -Force
         Copy-Item "$gStage\remedy-lab-evilai-check" -Destination "$LabRoot\pkg-extra" -ToSession $session `
                   -Recurse -Force
+        Copy-Item "$gStage\log4j-check" -Destination "$LabRoot\pkg-extra" -ToSession $session -Recurse -Force
 
         Emit (Invoke-Command -Session $session -ArgumentList $LabRoot -ScriptBlock {
             param($lab)
@@ -629,25 +637,26 @@ verdict:
         $text
     })
 
-    # **모두 검사만 — 항목이 둘인 꾸러미** (목표 remedy_출시_20261111 기준 3). A8 이 같은 일회용
-    # 키로 서명해 둔 찾기만 하는 실험 룰을 메뉴 하네스가 그 두 단계 동안만 꾸러미 옆에 두고
-    # `모두 검사` · `탐지만 메뉴` 를 돈다 — 검사만 하므로 기계를 바꾸지 않는다(하네스가 앞뒤
-    # 지문을 견준다). 첫 화면 · 더 보기는 A10 이 싣는다 — 여기서는 모두 검사부터 싣는다.
+    # **모두 검사만 — 항목이 셋인 꾸러미** (목표 remedy_출시_20261111 기준 3). A8 이 같은 일회용
+    # 키로 서명해 둔 찾기만 하는 실험 룰과 디스크 전체 룰(Log4j 점검)을 메뉴 하네스가 그 단계 동안만 꾸러미
+    # 옆에 두고 `모두 검사`(1 빠른 검사) · `탐지만 메뉴` 를 돈다 — 검사만 하므로 기계를 바꾸지 않는다(하네스가
+    # 앞뒤 지문을 견준다). 첫 화면 · 더 보기는 A10 이 싣는다 — 여기서는 모두 검사부터 싣는다.
     # 그 검사가 꾸러미 옆에 남긴 결과 폴더와 회차 로그는 지운다 — B2 가 같은 꾸러미를 쓴다.
-    Sep "A11. 모두 검사만 — 항목이 둘인 꾸러미 (진짜 콘솔)"
+    Sep "A11. 모두 검사만 — 항목이 셋인 꾸러미 · 빠른 검사 (진짜 콘솔)"
     Emit (Invoke-Command -Session $session -ArgumentList $LabRoot, $L -ScriptBlock {
         param($lab, $lang)
         $tr = "$lab\scan-all-capture.txt"
         $js = "$lab\scan-all-capture.json"
         Remove-Item $tr, $js -Force -ErrorAction SilentlyContinue
         $extra = "$lab\pkg-extra\remedy-lab-evilai-check"
-        if (-not (Test-Path "$lab\pkg-signed\remedy.exe") -or -not (Test-Path $extra)) {
-            return "[A8 의 꾸러미나 실험 룰이 없다 — 그 절이 실패했으면 여기도 잴 수 없다]"
+        $disk = "$lab\pkg-extra\log4j-check"
+        if (-not (Test-Path "$lab\pkg-signed\remedy.exe") -or -not (Test-Path $extra) -or -not (Test-Path $disk)) {
+            return "[A8 의 꾸러미나 실험 룰 · 디스크 전체 룰이 없다 — 그 절이 실패했으면 여기도 잴 수 없다]"
         }
         & powershell.exe -NoProfile -ExecutionPolicy Bypass `
             -File "$lab\scripts\Verify-Menu.ps1" `
             -Bin "$lab\pkg-signed\remedy.exe" -PayloadDir $lab `
-            -OutFile $js -TranscriptFile $tr -Keys "모두 검사" -Extra $extra -Lang $lang *> $null
+            -OutFile $js -TranscriptFile $tr -Keys "모두 검사" -Extra $extra -Disk $disk -Lang $lang *> $null
         Remove-Item "$lab\pkg-signed\out", "$lab\pkg-signed\state" -Recurse -Force -ErrorAction SilentlyContinue
         if (-not (Test-Path $tr)) { return "[전사가 없다 — 콘솔을 만들지 못했다]" }
         $text = (Get-Content $tr -Raw -Encoding UTF8).TrimEnd()

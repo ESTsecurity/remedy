@@ -92,6 +92,7 @@ pub fn run(root: &Path, args: &[String]) -> Result<(), String> {
             treats: m.remediate.is_some(),
             network: m.network.is_some(),
             data: m.kind == Some(remedy_sdk::manifest::PluginKind::Data),
+            full_disk: m.walks_whole_disks(),
         });
     }
 
@@ -277,6 +278,9 @@ struct Packed {
     /// 데이터 룰인가(`kind: data` · 코어 1.12.0) — 검사 항목이 아니라 동반 프로그램이 읽는 기준이다.
     /// README 의 검사 항목 · 실행 명령 · 할 일 안내에 서지 않고, 서명 확인 줄에만 선다.
     data: bool,
+    /// 디스크 전체를 걷는 룰인가(`PluginManifest::walks_whole_disks`) — 메뉴의 빠른 검사가 빼서, 그 밖의 룰과
+    /// 함께 들면 고르는 화면의 첫 줄이 둘(1 빠른 검사 · 2 정밀 검사)이 된다. README 가 그 화면을 따라 적는다.
+    full_disk: bool,
 }
 
 /// 꾸러미에 담기로 확인된 동반 프로그램 폴더.
@@ -515,25 +519,45 @@ fn readme(
         // 그 질문의 1번은 **전부로 검사만**이다(목표 remedy_출시_20261111 기준 3) — 무엇을 노린
         // 위협인지 모르는 사람이 항목을 하나씩 골라 다시 띄우지 않게. 작업이 끝나면 그 질문으로
         // 돌아오므로 *"한 번 더 실행해 고릅니다"* 는 이제 틀린 말이다.
+        //
+        // 디스크 전체를 걷는 항목이 그 밖의 항목과 함께 들면 그 줄이 **둘**이다(목표 remedy_기본검사_룰관리 ①②) —
+        // 1 빠른 검사(그 항목을 뺀다) · 2 정밀 검사(전부). 화면(`guided::scan_lines`)과 같은 갈래로 적는다.
         if checks.len() > 1 {
             let n = checks.len();
             // 화면의 그 줄은 **이 기계를 보는 항목**만 센다(`guided::choose`) — 네트워크 점검은
             // 주소를 적어야 돌아서 한꺼번에 돌리지 않는다. 글이 화면과 같은 수를 말해야 한다.
             let local = checks.iter().filter(|p| !p.network).count();
+            let disk = checks.iter().filter(|p| !p.network && p.full_disk).count();
+            let two = disk > 0 && disk < local;
             s.push_str(&format!(
                 "   이 폴더에는 검사 항목이 {n}개 들어 있어, 먼저 어느 것을 볼지\r\n"
             ));
             s.push_str("   번호로 묻습니다.\r\n");
-            s.push_str(&format!(
-                "     1번 '{local}개 모두 검사만 하기' 는 전부 검사하고 결과를 한 번에\r\n"
-            ));
-            s.push_str(
-                "     보여 줍니다(아무것도 바꾸지 않습니다). 치료는 항목을 골라서 합니다.\r\n",
-            );
-            if local != n {
+            if two {
+                s.push_str(&format!(
+                    "     1번 '빠른 검사' 는 디스크 전체를 보는 항목 {disk}개를 빼고 검사해\r\n"
+                ));
+                s.push_str("     결과를 한 번에 보여 줍니다(아무것도 바꾸지 않습니다).\r\n");
+                s.push_str(&format!(
+                    "     2번 '정밀 검사' 는 그 항목까지 {local}개 모두 검사합니다 — 디스크\r\n"
+                ));
                 s.push_str(
-                    "     '네트워크 사용' 이 붙은 항목은 주소를 적어야 해서 거기에 들지 않습니다.\r\n",
+                    "     전체를 보므로 오래 걸릴 수 있습니다. 치료는 항목을 골라서 합니다.\r\n",
                 );
+            } else {
+                s.push_str(&format!(
+                    "     1번 '{local}개 모두 검사만 하기' 는 전부 검사하고 결과를 한 번에\r\n"
+                ));
+                s.push_str(
+                    "     보여 줍니다(아무것도 바꾸지 않습니다). 치료는 항목을 골라서 합니다.\r\n",
+                );
+            }
+            if local != n {
+                s.push_str(if two {
+                    "     '네트워크 사용' 이 붙은 항목은 주소를 적어야 해서 어느 쪽에도 들지 않습니다.\r\n"
+                } else {
+                    "     '네트워크 사용' 이 붙은 항목은 주소를 적어야 해서 거기에 들지 않습니다.\r\n"
+                });
             }
             s.push_str("   항목을 고르면 무엇을 할지 번호로 묻습니다.\r\n");
         } else {
@@ -870,6 +894,16 @@ mod tests {
             treats: true,
             network: false,
             data: false,
+            full_disk: false,
+        }
+    }
+
+    /// 디스크 전체를 걷는 룰 하나(`%FIXED_DISKS%`) — 찾기만 한다(Log4j 점검과 같은 꼴).
+    fn disk(name: &str) -> Packed {
+        Packed {
+            treats: false,
+            full_disk: true,
+            ..packed(name)
         }
     }
 
@@ -1007,6 +1041,38 @@ mod tests {
         // 하나면 묻지 않으므로 그 줄을 내지 않는다.
         assert!(!make(1, true).contains("먼저 어느 것을 볼지"));
         assert!(!make(1, true).contains("모두 검사만"));
+    }
+
+    /// 디스크 전체를 걷는 항목이 그 밖의 항목과 함께 들면 화면의 첫 줄이 둘이다(1 빠른 검사 · 2 정밀 검사 —
+    /// `guided::scan_lines`). 글도 그 둘을 적고 *모두 검사만* 한 줄을 말하지 않는다.
+    #[test]
+    fn a_whole_disk_rule_splits_the_first_line_into_quick_and_full() {
+        let ps = vec![packed("php2shell"), disk("log4j"), remote("php2shell-url")];
+        let r = readme(Path::new("."), &ps, "remedy", &[], true, true);
+        assert!(
+            r.contains("1번 '빠른 검사' 는 디스크 전체를 보는 항목 1개를 빼고"),
+            "{r}"
+        );
+        assert!(
+            r.contains("2번 '정밀 검사' 는 그 항목까지 2개 모두 검사합니다"),
+            "{r}"
+        );
+        assert!(
+            r.contains("주소를 적어야 해서 어느 쪽에도 들지 않습니다"),
+            "{r}"
+        );
+        assert!(!r.contains("모두 검사만 하기"), "{r}");
+        // 디스크 전체 항목만 이 기계를 보면 두 검사가 같다 — 화면도 글도 한 줄이다.
+        let only = readme(
+            Path::new("."),
+            &[disk("log4j"), remote("php2shell-url")],
+            "remedy",
+            &[],
+            true,
+            true,
+        );
+        assert!(only.contains("1번 '1개 모두 검사만 하기'"), "{only}");
+        assert!(!only.contains("빠른 검사"), "{only}");
     }
 
     /// 앵커가 없으면 우클릭 길이 막힌다 — **메뉴를 약속하면 안 된다.**

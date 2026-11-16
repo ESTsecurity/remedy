@@ -157,6 +157,8 @@ $pkgSource = $null
 $lists = $false
 # 찾기만 하는 실험 룰 — 일회용 키로 서명한 회차에서만 있다(모두 검사만 · 탐지만 메뉴).
 $extraDir = $null
+# 디스크 전체를 걷는 룰(배포 룰 Log4j 점검) — 같은 회차에서만 있다(빠른 검사 · 정밀 검사).
+$diskDir = $null
 try {
     New-Item -ItemType Directory -Force $gStage | Out-Null
     if ($Package) {
@@ -233,6 +235,16 @@ try {
                 --secret-key "$gStage\sec.key" --signed-at "2026-11-06T00:00:00Z" | Out-Null
             if ($LASTEXITCODE -ne 0) { throw "실험 룰 서명 실패" }
             Write-Ok "찾기만 하는 실험 룰 (EvilAI 룰 - remediate · 같은 일회용 키)"
+
+            # 디스크 전체를 걷는 룰 — 배포 룰 Log4j 점검을 **같은 일회용 키**로 서명한다(목표 remedy_기본검사_룰관리 ①②).
+            # 그 룰이 함께 들면 고르는 화면 맨 위가 둘(1 빠른 검사 · 2 정밀 검사)이 된다. 게스트가 실험 룰과 같은 단계
+            # 동안만 둔다.
+            $diskDir = "$gStage\log4j-check"
+            Copy-Item (Join-Path $repoRoot "plugins\log4j-check") $diskDir -Recurse -Force
+            & cargo run -q -p xtask -- sign plugin --dir $diskDir `
+                --secret-key "$gStage\sec.key" --signed-at "2026-11-06T00:00:00Z" | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw "디스크 전체 룰 서명 실패" }
+            Write-Ok "디스크 전체를 걷는 룰 (Log4j 점검 · 같은 일회용 키)"
         } finally { Pop-Location }
 
         $nowHash = (Get-FileHash $binPath -Algorithm SHA256).Hash
@@ -271,6 +283,9 @@ try {
             New-Item -ItemType Directory -Force "$lab\menu-extra" | Out-Null
         }
         Copy-Item $extraDir -Destination "$LabRoot\menu-extra" -ToSession $session -Recurse -Force
+        if ($diskDir) {
+            Copy-Item $diskDir -Destination "$LabRoot\menu-extra" -ToSession $session -Recurse -Force
+        }
     }
     $guestDir = Join-Path (Split-Path -Parent $PSScriptRoot) "guest"
     foreach ($s in @("Verify-Menu.ps1", "Verify-DoubleClick.ps1")) {
@@ -319,6 +334,7 @@ try {
     # **값을 괄호로 묶는다** — PowerShell 은 쉼표를 `+` 보다 먼저 묶어, 묶지 않으면 경로가
     # 두 인자로 갈라진다(2026-11-06 첫 회차: 떨어진 폴더 이름이 게스트의 `$Lead` 로 붙었다).
     if ($extraDir) { $guestArgs += @("-Extra", (Join-Path "$LabRoot\menu-extra" (Split-Path -Leaf $extraDir))) }
+    if ($diskDir) { $guestArgs += @("-Disk", (Join-Path "$LabRoot\menu-extra" (Split-Path -Leaf $diskDir))) }
     # 룰이 여럿인 꾸러미(1.3.0 부터 Windows 배포본 — EvilAI 와 점검 셋)는 고르는 화면부터 선다.
     # 아래 작업은 EvilAI 감염을 다루므로 그 룰을 고른다 — 번호는 게스트가 화면에서 읽는다.
     if ($shape.Plugin -gt 1) { $guestArgs += @("-Pick", "EvilAI") }

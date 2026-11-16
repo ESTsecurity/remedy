@@ -57,16 +57,41 @@ pub enum Outcome {
     WithFile(crate::menu::WithFile, Option<std::path::PathBuf>),
     /// 메뉴에서 고른 **수집만** (묶음 A 성격 — 입력이 없다)과 그때 고른 플러그인.
     Collect(std::path::PathBuf),
-    /// 룰을 고르는 화면의 첫 줄 — 이 기계를 보는 룰 **전부로 검사만** 한다(목표 remedy_출시_20261111
-    /// 기준 3). 화면에 쓸 이름과 경로를 고르는 화면의 차례대로 든다.
+    /// 룰을 고르는 화면 맨 위의 검사 줄 — 이 기계를 보는 룰로 **검사만** 한다(목표 remedy_출시_20261111
+    /// 기준 3 · remedy_기본검사_룰관리 결정 ①②). 화면에 쓸 이름과 경로를 고르는 화면의 차례대로 든다.
     ///
-    /// 둘째는 **빼 둔 네트워크 점검 룰의 이름**이다(코어 1.4.0) — 주소를 적어야 돌아 여기 들지 않는다.
-    /// 끝의 요약이 그 항목을 *돌리지 않았다* 고 함께 적는다: 적지 않으면 *모두* 가 그것까지 한 것으로 읽힌다.
-    ScanAll(Vec<(String, std::path::PathBuf)>, Vec<String>),
+    /// 둘째는 **돌리지 않는 룰과 그 까닭**이다 — 네트워크 점검(주소를 적어야 돈다 · 코어 1.4.0)과, 빠른 검사가
+    /// 빼는 디스크 전체 룰. 끝의 요약이 그 항목을 *돌리지 않았다* 고 함께 적는다: 적지 않으면 *모두* 가 그것까지
+    /// 한 것으로 읽힌다. 셋째는 고른 검사의 꼴이다.
+    ScanAll(
+        Vec<(String, std::path::PathBuf)>,
+        Vec<(String, Skip)>,
+        ScanKind,
+    ),
     /// 고르는 화면의 **찾은 것 모두 치료하기** — 이 세션의 *모두 검사만* 이 치료하는 룰에서 찾은 것을 한
     /// 번에 치료한다(목표 remedy_전체검사_운영기반 기준 5). 첫째는 그 룰(이름 · 경로 — 고르는 화면의
     /// 차례), 둘째는 바꾸지 않고 할 일만 적을 룰(찾기만 하는 룰 · 점검 룰 가운데 찾은 것)의 이름이다.
     TreatAll(Vec<(String, std::path::PathBuf)>, Vec<String>),
+}
+
+/// 모두 검사의 꼴(목표 remedy_기본검사_룰관리 결정 ①②). 디스크 전체(`%FIXED_DISKS%`)를 걷는 룰과 그 밖의 룰이 함께
+/// 있으면 고르는 화면에 **빠른 검사**(그 룰을 뺀다 · 권장)와 **정밀 검사**(전부)가 따로 서고, 아니면 지금처럼 한
+/// 줄(`All`)이다 — 두 검사가 같은 것을 돈다면 줄을 둘로 세우지 않는다. 시간은 룰 수보다 디스크 전체를 걷는 룰이
+/// 정한다(랩 VM 의 Log4j 점검 83초 · 다른 룰 2 ~ 5초 · 2026-11-16).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum ScanKind {
+    All,
+    Quick,
+    Full,
+}
+
+/// 모두 검사가 돌리지 않는 룰의 까닭 — 끝의 요약이 한 줄씩 적는다(종료 코드에는 들지 않는다).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Skip {
+    /// 네트워크로 점검하는 룰 — 주소를 적어야 돈다(코어 1.4.0).
+    Network,
+    /// 디스크 전체를 걷는 룰 — 빠른 검사가 빼고 정밀 검사가 돈다.
+    FullDisk,
 }
 
 /// 이 룰이 치료하는가 — `remediate` 가 없으면 **찾기만 한다.** 메뉴가 치료를 약속하는 줄을
@@ -433,13 +458,14 @@ pub fn run(anchor: Option<&str>) -> Outcome {
             set_menu_shape(true, false);
             return Outcome::TreatAll(treat, other);
         }
-        Choice::All(all, skipped) => {
+        Choice::All(all, skipped, kind) => {
             set_menu_shape(true, false);
-            // 빼 둔 네트워크 점검은 **끝의 요약**이 적는다(`main` 의 `scan_all`) — 검사 앞에 적으면
-            // 룰마다의 화면에 밀려 결과를 읽는 자리에서는 보이지 않는다.
+            // 빼 둔 룰은 **끝의 요약**이 적는다(`main` 의 `scan_all`) — 검사 앞에 적으면 룰마다의 화면에
+            // 밀려 결과를 읽는 자리에서는 보이지 않는다.
             return Outcome::ScanAll(
                 all.into_iter().map(|c| (c.label, c.path)).collect(),
                 skipped,
+                kind,
             );
         }
     };
@@ -504,18 +530,20 @@ struct Chosen {
     network: bool,
     /// 하는 일 묶음 — [`discover::menu_group`] 과 같은 값(0 악성코드 탐지 · 제거 · 1 취약점 점검 · 2 원격 점검).
     group: u8,
+    /// 디스크 전체(`%FIXED_DISKS%`)를 걷는 룰인가 — 빠른 검사가 뺀다([`ScanKind`]).
+    full_disk: bool,
 }
 
 /// 고르는 화면이 **한 화면을 넘는** 룰 수 — 넘으면 고르는 화면은 하는 일 묶음과 찾기로, *모두 검사만* 은 룰마다
 /// 한 줄 진행으로 간다(목표 remedy_전체검사_운영기반 D10). 그 아래(지금 배포 파일의 7 · 11개)는 지금 화면 그대로다.
 pub(crate) const MANY_RULES: usize = 20;
 
-/// 고르는 화면의 답 — 룰 하나, **전부로 검사만**, 또는 **찾은 것 모두 치료하기**.
+/// 고르는 화면의 답 — 룰 하나, **모두 검사**(빠른 · 정밀 · 한 줄), 또는 **찾은 것 모두 치료하기**.
 enum Choice {
     One(Chosen),
-    /// 이 기계를 보는 룰 전부와, **빼 둔 네트워크 점검 룰의 이름** — 그 룰은 주소를 적어야 돌아서
-    /// 한꺼번에 돌릴 수 없다. 빼 두었다는 것을 말해야 *모두* 가 거짓이 되지 않는다.
-    All(Vec<Chosen>, Vec<String>),
+    /// 돌릴 룰과, **빼 둔 룰과 그 까닭** — 네트워크 점검은 주소를 적어야 돌고, 디스크 전체 룰은 빠른 검사가
+    /// 뺀다. 빼 두었다는 것을 말해야 *모두* 가 거짓이 되지 않는다.
+    All(Vec<Chosen>, Vec<(String, Skip)>, ScanKind),
     /// [`Outcome::TreatAll`] 그대로.
     TreatAll(Vec<(String, std::path::PathBuf)>, Vec<String>),
 }
@@ -559,9 +587,10 @@ fn report_rejections(rejected: &[(discover::Found, Unusable)]) {
 
 /// 하나면 그것, 여럿이면 고르게 한다 (결정 2026-09-08).
 ///
-/// 여럿일 때 **첫 줄은 전부로 검사만**이다(목표 remedy_출시_20261111 기준 3) — 어떤 위협인지
-/// 모르는 사람이 룰을 하나씩 골라 다시 띄우지 않게. 맨 위에 두어 룰이 늘어도 그 번호는
-/// 1 이다. 치료는 지금처럼 룰을 골라서 한다.
+/// 여럿일 때 **맨 위가 검사 줄**이다(목표 remedy_출시_20261111 기준 3) — 어떤 위협인지 모르는 사람이 룰을
+/// 하나씩 골라 다시 띄우지 않게. 디스크 전체 룰과 그 밖의 룰이 함께 들면 1 빠른 검사 · 2 정밀 검사, 아니면
+/// *모두 검사만* 한 줄이다(`scan_lines` · 목표 remedy_기본검사_룰관리 ①②). 맨 위에 두어 룰이 늘어도 그 번호는
+/// 그대로다. 치료는 룰을 골라서 하거나, 검사가 찾은 것이 있으면 *찾은 것 모두 치료하기* 로 한다.
 fn choose(ok: &[discover::Found]) -> Option<Choice> {
     let lang = ui().lang;
     let chosen = |f: &discover::Found| -> Chosen {
@@ -569,6 +598,8 @@ fn choose(ok: &[discover::Found]) -> Option<Choice> {
         // 여기서 실패해 전체를 세우지 않는다.
         let m = load_manifest(&f.path.to_string_lossy()).ok();
         let network = m.as_ref().is_some_and(|m| m.network.is_some());
+        // 꾸러미 README 와 같은 판단이다(SDK 의 한 함수) — 둘이 따로 가리면 화면과 글이 갈린다.
+        let full_disk = m.as_ref().is_some_and(|m| m.walks_whole_disks());
         // `discover::menu_group` 과 같은 갈래 — 이미 읽은 매니페스트로 센다(룰 수천 개에서 다시 읽지 않게).
         let group = match &m {
             Some(_) if network => 2,
@@ -595,6 +626,7 @@ fn choose(ok: &[discover::Found]) -> Option<Choice> {
             path: f.path.clone(),
             network,
             group,
+            full_disk,
         }
     };
     // 한 번만 읽는다 — 줄을 그릴 때와 고른 뒤가 같은 것을 본다.
@@ -660,36 +692,22 @@ fn choose(ok: &[discover::Found]) -> Option<Choice> {
     }
     head.push(Row::Blank);
     rows.splice(1..1, head);
-    // 첫 줄의 수는 **이 기계를 보는 항목**의 수다. 네트워크 점검만 든 폴더에서는 돌릴 것이 없어 꺼진다 —
-    // 줄을 빼지 않는 것은 항목의 번호가 2 부터라는 것이 안내문 · 하네스에 적혀 있어서다.
-    let all_label = lang.pick(
-        format!(
-            "{}개 모두 검사만 하기 (아무것도 바꾸지 않습니다)",
-            local.len()
-        ),
-        format!("Scan with all {} (changes nothing)", local.len()),
-    );
-    rows.push(if local.is_empty() {
-        Row::Off(
-            all_label,
-            lang.t(
-                "이 기계를 검사하는 항목이 없습니다",
-                "nothing here scans this machine",
-            )
-            .to_string(),
-        )
-    } else {
-        Row::Item(all_label)
-    });
+    // **맨 위가 검사 줄이다** — 디스크 전체 룰이 있으면 1 빠른 검사 · 2 정밀 검사, 없으면 지금 그대로 한 줄
+    // (`scan_lines`). 룰의 번호는 그 뒤부터다. 네트워크 점검만 든 폴더에서는 돌릴 것이 없어 그 한 줄이 꺼진다 —
+    // 줄을 빼지 않는 것은 항목의 번호가 검사 줄 뒤부터라는 것이 안내문 · 하네스에 적혀 있어서다.
+    let mut scans = scan_lines(&local, &remote);
+    let lines = scans.len();
+    set_full_scan_line(&scans);
+    rows.extend(scans.iter().map(|s| s.row.clone()));
     // **룰이 한 화면을 넘으면 묶음과 찾기로 간다**(D10) — 그 아래는 지금 화면 · 번호 그대로다.
     if all.len() > MANY_RULES {
-        return choose_grouped(rows, &all, local, remote, &shown);
+        return choose_grouped(rows, &all, scans, &shown);
     }
     rows.extend(all.iter().map(|c| Row::Item(shown(c))));
-    set_chooser(&all, true);
-    set_treat_all_at(1 + all.len());
-    // **찾은 것 모두 치료하기는 룰 목록 뒤에 선다** — 룰의 번호가 2 부터라는 것이 안내문 · 하네스에
-    // 적혀 있다. 이 세션의 *모두 검사만* 이 치료하는 룰에서 무언가를 찾았을 때만 선다.
+    set_chooser(&all, lines + 1);
+    set_treat_all_at(lines + all.len());
+    // **찾은 것 모두 치료하기는 룰 목록 뒤에 선다** — 룰의 번호가 검사 줄 뒤부터라는 것이 안내문 · 하네스에
+    // 적혀 있다. 이 세션의 *모두 검사* 가 치료하는 룰에서 무언가를 찾았을 때만 선다.
     let (treat, other) = found();
     if !treat.is_empty() {
         rows.push(Row::Item(treat_all_label(lang, treat.len())));
@@ -699,17 +717,127 @@ fn choose(ok: &[discover::Found]) -> Option<Choice> {
     let Answer::Num(n) = crate::term::choose(&rows, Some(lang.t("그만두기", "Quit"))) else {
         return None;
     };
-    if n == 1 {
+    if (1..=lines).contains(&n) {
         set_picked(None);
-        return Some(Choice::All(local, remote));
+        let s = scans.swap_remove(n - 1);
+        return Some(Choice::All(s.run, s.skipped, s.kind));
     }
-    if Some(n) == treat_all_number(1 + all.len(), treat.len()) {
+    if Some(n) == treat_all_number(lines + all.len(), treat.len()) {
         set_picked(None);
         return Some(Choice::TreatAll(treat, other));
     }
-    let c = all.get(n.checked_sub(2)?)?;
+    let c = all.get(n.checked_sub(lines + 1)?)?;
     set_picked(Some((n, c.label.clone())));
     Some(Choice::One(c.clone()))
+}
+
+/// 고르는 화면 맨 위의 검사 줄 하나 — 그 줄의 글과, 고르면 돌릴 룰 · 빼는 룰 · 꼴.
+struct ScanLine {
+    row: crate::term::Row,
+    run: Vec<Chosen>,
+    skipped: Vec<(String, Skip)>,
+    kind: ScanKind,
+}
+
+/// 검사 줄을 짓는다(목표 remedy_기본검사_룰관리 결정 ①②). 이 기계를 보는 룰 가운데 디스크 전체를 걷는 룰과 그 밖의
+/// 룰이 함께 있으면 **둘** — 1 빠른 검사(그 룰을 빼고 요약에 *정밀 검사에서만* · 권장) · 2 정밀 검사(전부). 아니면
+/// 지금처럼 **하나**(두 검사가 같은 것을 돈다 · 디스크 전체 룰만 든 폴더도 그렇다). 네트워크 점검은 어느 쪽에서도
+/// 빼 두고 요약에 적는다.
+fn scan_lines(local: &[Chosen], remote: &[String]) -> Vec<ScanLine> {
+    use crate::term::Row;
+    let lang = ui().lang;
+    let net: Vec<(String, Skip)> = remote.iter().map(|r| (r.clone(), Skip::Network)).collect();
+    let quick: Vec<Chosen> = local.iter().filter(|c| !c.full_disk).cloned().collect();
+    let disk: Vec<(String, Skip)> = local
+        .iter()
+        .filter(|c| c.full_disk)
+        .map(|c| (c.label.clone(), Skip::FullDisk))
+        .collect();
+    if disk.is_empty() || quick.is_empty() {
+        let label = lang.pick(
+            format!(
+                "{}개 모두 검사만 하기 (아무것도 바꾸지 않습니다)",
+                local.len()
+            ),
+            format!("Scan with all {} (changes nothing)", local.len()),
+        );
+        let row = if local.is_empty() {
+            Row::Off(
+                label,
+                lang.t(
+                    "이 기계를 검사하는 항목이 없습니다",
+                    "nothing here scans this machine",
+                )
+                .to_string(),
+            )
+        } else {
+            Row::Item(label)
+        };
+        return vec![ScanLine {
+            row,
+            run: local.to_vec(),
+            skipped: net,
+            kind: ScanKind::All,
+        }];
+    }
+    let quick_label = lang.pick(
+        format!(
+            "빠른 검사 (권장 · 룰 {}개 · 아무것도 바꾸지 않습니다)",
+            quick.len()
+        ),
+        format!(
+            "Quick scan (recommended · {} rules · changes nothing)",
+            quick.len()
+        ),
+    );
+    let mut quick_skipped = disk;
+    quick_skipped.extend(net.iter().cloned());
+    vec![
+        ScanLine {
+            row: Row::Item(quick_label),
+            run: quick,
+            skipped: quick_skipped,
+            kind: ScanKind::Quick,
+        },
+        ScanLine {
+            row: Row::Item(full_scan_label(lang, local.len())),
+            run: local.to_vec(),
+            skipped: net,
+            kind: ScanKind::Full,
+        },
+    ]
+}
+
+/// 정밀 검사 줄의 글 — 고르는 화면과 빠른 검사 뒤 *다음 할 일* 이 같은 글을 쓴다.
+fn full_scan_label(lang: remedy_sdk::i18n::Lang, rules: usize) -> String {
+    lang.pick(
+        format!("정밀 검사 (룰 {rules}개 · 디스크 전체까지 · 오래 걸릴 수 있습니다)"),
+        format!("Full scan ({rules} rules · whole disks too · can take a long time)"),
+    )
+}
+
+/// 고르는 화면에 선 **정밀 검사** 줄 — (번호, 글). 빠른 검사 뒤 *다음 할 일* 이 이것으로 그 줄을 가리킨다.
+/// 검사 줄이 하나인 화면이면 비어 있다.
+static FULL_SCAN_LINE: std::sync::Mutex<Option<(usize, String)>> = std::sync::Mutex::new(None);
+
+fn set_full_scan_line(scans: &[ScanLine]) {
+    let line = scans
+        .iter()
+        .position(|s| s.kind == ScanKind::Full)
+        .map(|i| {
+            let crate::term::Row::Item(label) = &scans[i].row else {
+                return (i + 1, String::new());
+            };
+            (i + 1, label.clone())
+        });
+    if let Ok(mut g) = FULL_SCAN_LINE.lock() {
+        *g = line;
+    }
+}
+
+/// 빠른 검사 뒤 *다음 할 일* 이 가리킬 정밀 검사 줄 — 그 줄이 설 때만.
+pub(crate) fn full_scan_line() -> Option<(usize, String)> {
+    FULL_SCAN_LINE.lock().ok().and_then(|g| g.clone())
 }
 
 /// 룰이 여럿인 화면에서 고른 룰 — **그 화면의 번호와 이름.**
@@ -746,14 +874,15 @@ fn found() -> Found {
 static CHOOSER: std::sync::Mutex<Vec<(usize, String, std::path::PathBuf)>> =
     std::sync::Mutex::new(Vec::new());
 
-fn set_chooser(all: &[Chosen], numbered: bool) {
+/// `first` 는 목록의 첫 룰의 번호(검사 줄 뒤)다 — 0 이면 번호가 없는 화면(묶음 · 찾기)이다.
+fn set_chooser(all: &[Chosen], first: usize) {
     if let Ok(mut g) = CHOOSER.lock() {
         *g = all
             .iter()
             .enumerate()
             .map(|(i, c)| {
                 (
-                    if numbered { i + 2 } else { 0 },
+                    if first > 0 { first + i } else { 0 },
                     c.label.clone(),
                     c.path.clone(),
                 )
@@ -771,8 +900,8 @@ pub(crate) fn chooser_entry(path: &std::path::Path) -> Option<(usize, String)> {
     })
 }
 
-/// 고르는 화면에서 **찾은 것 모두 치료하기 앞에 선 번호 줄의 수** — 그린 화면이 센다. 룰 목록이면 1 + 룰 수,
-/// 묶음 · 찾기면 2 + 묶음 수. 고르는 화면이 서지 않으면(룰이 하나) 0 이다.
+/// 고르는 화면에서 **찾은 것 모두 치료하기 앞에 선 번호 줄의 수** — 그린 화면이 센다. 룰 목록이면 검사 줄(1 · 2) +
+/// 룰 수, 묶음 · 찾기면 검사 줄 + 1 + 묶음 수. 고르는 화면이 서지 않으면(룰이 하나) 0 이다.
 static TREAT_ALL_AT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 
 fn set_treat_all_at(rows_before: usize) {
@@ -802,14 +931,14 @@ fn group_label(lang: remedy_sdk::i18n::Lang, group: u8) -> &'static str {
 }
 
 /// 룰이 한 화면([`MANY_RULES`])을 넘을 때의 고르는 화면 — **하는 일 묶음과 찾기**(목표 remedy_전체검사_운영기반
-/// D10). 1 번(모두 검사만)은 그대로이고, 2 번이 찾기(룰 이름 · 폴더 이름에서 — 이름에 제품 · CVE 가 든다), 그
-/// 뒤가 묶음마다 한 줄(그 묶음의 룰 수)이다. 묶음 · 찾기는 룰을 [`MANY_RULES`] 개씩 넘겨 보인다. 룰을 고른 뒤의
-/// 화면은 지금과 같다. 이 화면에는 룰의 번호가 없으므로 다음 할 일은 먼저 고를 룰을 이름으로 적는다.
+/// D10). 맨 위 검사 줄(`base` 의 끝 · 1 또는 1 · 2)은 그대로이고, 그다음이 찾기(룰 이름 · 폴더 이름에서 — 이름에
+/// 제품 · CVE 가 든다), 그 뒤가 묶음마다 한 줄(그 묶음의 룰 수)이다. 묶음 · 찾기는 룰을 [`MANY_RULES`] 개씩 넘겨
+/// 보인다. 룰을 고른 뒤의 화면은 지금과 같다. 이 화면에는 룰의 번호가 없으므로 다음 할 일은 먼저 고를 룰을 이름으로
+/// 적는다.
 fn choose_grouped(
     base: Vec<crate::term::Row>,
     all: &[Chosen],
-    local: Vec<Chosen>,
-    remote: Vec<String>,
+    mut scans: Vec<ScanLine>,
     shown: &dyn Fn(&Chosen) -> String,
 ) -> Option<Choice> {
     use crate::term::{Answer, Row};
@@ -821,8 +950,10 @@ fn choose_grouped(
             groups.push((g, n));
         }
     }
-    set_chooser(all, false);
-    let rows_before = 2 + groups.len();
+    set_chooser(all, 0);
+    let lines = scans.len();
+    let search = lines + 1;
+    let rows_before = search + groups.len();
     set_treat_all_at(rows_before);
     loop {
         let mut rows = base.clone();
@@ -849,16 +980,17 @@ fn choose_grouped(
         };
         let picked = match n {
             0 => return None,
-            1 => {
+            k if k <= lines => {
                 set_picked(None);
-                return Some(Choice::All(local, remote));
+                let s = scans.swap_remove(k - 1);
+                return Some(Choice::All(s.run, s.skipped, s.kind));
             }
-            2 => match search_rules(all) {
+            k if k == search => match search_rules(all) {
                 Some(hits) => pick_from(lang.t("찾은 항목", "Matches"), &hits, shown),
                 None => Picked::Back,
             },
             k if k <= rows_before => {
-                let (g, _) = groups[k - 3];
+                let (g, _) = groups[k - search - 1];
                 let members: Vec<&Chosen> = all.iter().filter(|c| c.group == g).collect();
                 pick_from(group_label(lang, g), &members, shown)
             }
@@ -989,14 +1121,16 @@ pub(crate) fn picked_rule() -> Option<(usize, String)> {
 mod tests {
     use super::*;
 
-    /// 기준 5 — *찾은 것 모두 치료하기* 는 **룰 목록 뒤**에 선다. 1 번(*모두 검사만*)과 룰의 번호(2 부터)는
-    /// 안내문 · 하네스가 적어 두었으므로 그대로다.
+    /// 기준 5 — *찾은 것 모두 치료하기* 는 **룰 목록 뒤**에 선다. 맨 위 검사 줄(1 모두 검사만, 또는 1 빠른 검사 ·
+    /// 2 정밀 검사)과 룰의 번호(그 뒤부터)는 안내문 · 하네스가 적어 두었으므로 그대로다.
     #[test]
     fn treat_everything_found_stands_after_the_rules() {
-        // 룰 목록 — 앞에 1 번(모두 검사만)과 룰 7개, 그 뒤가 이 줄이다.
+        // 룰 목록 — 앞에 검사 줄 하나(모두 검사만)와 룰 7개, 그 뒤가 이 줄이다.
         assert_eq!(treat_all_number(1 + 7, 1), Some(9));
         assert_eq!(treat_all_number(1 + 2, 3), Some(4));
-        // 묶음 · 찾기 — 앞에 1 번 · 찾기 · 묶음 셋.
+        // 검사 줄 둘(1 빠른 · 2 정밀)과 룰 10개 — 리눅스 통합 꾸러미의 화면에서 13번이다(2026-11-16 메뉴 하네스).
+        assert_eq!(treat_all_number(2 + 10, 1), Some(13));
+        // 묶음 · 찾기 — 앞에 검사 줄 하나 · 찾기 · 묶음 셋.
         assert_eq!(treat_all_number(2 + 3, 1), Some(6));
         // 찾은 것이 없으면 서지 않는다.
         assert_eq!(treat_all_number(1 + 7, 0), None);
@@ -1012,7 +1146,90 @@ mod tests {
                 .join("plugin.yaml"),
             network: group == 2,
             group,
+            full_disk: false,
         }
+    }
+
+    fn disk_rule(label: &str, dir: &str) -> Chosen {
+        Chosen {
+            full_disk: true,
+            ..rule(label, dir, 1)
+        }
+    }
+
+    fn labels(v: &[Chosen]) -> Vec<String> {
+        v.iter().map(|c| c.label.clone()).collect()
+    }
+
+    /// 결정 ①② — 디스크 전체 룰과 그 밖의 룰이 함께 있으면 검사 줄이 둘이다: 1 빠른 검사는 그 룰을 빼고 요약에
+    /// *정밀 검사에서만* 으로 적을 이름을 넘기고, 2 정밀 검사는 이 기계를 보는 룰 전부를 돈다. 네트워크 점검은
+    /// 어느 쪽에서도 빠진다.
+    #[test]
+    fn a_full_disk_rule_splits_the_scan_into_quick_and_full() {
+        let local = vec![
+            rule("EvilAI(Locust) 제거", "evilai-locust", 0),
+            disk_rule("Log4j 점검", "log4j-check"),
+            rule("PHP2Shell 점검", "php2shell-check-windows", 1),
+        ];
+        let remote = vec!["PHP2Shell 원격 점검".to_string()];
+        let s = scan_lines(&local, &remote);
+        assert_eq!(s.len(), 2);
+        assert_eq!(s[0].kind, ScanKind::Quick);
+        assert_eq!(labels(&s[0].run), ["EvilAI(Locust) 제거", "PHP2Shell 점검"]);
+        assert_eq!(
+            s[0].skipped,
+            [
+                ("Log4j 점검".to_string(), Skip::FullDisk),
+                ("PHP2Shell 원격 점검".to_string(), Skip::Network)
+            ]
+        );
+        assert_eq!(s[1].kind, ScanKind::Full);
+        assert_eq!(labels(&s[1].run), labels(&local));
+        assert_eq!(
+            s[1].skipped,
+            [("PHP2Shell 원격 점검".to_string(), Skip::Network)]
+        );
+    }
+
+    /// 두 검사가 같은 것을 돌면 줄을 둘로 세우지 않는다 — 디스크 전체 룰이 없거나, 그 룰만 있는 폴더. 그 한 줄은
+    /// 지금 글 그대로다(안내문 · 하네스가 '1 = 모두 검사' 를 적는다).
+    #[test]
+    fn one_scan_line_when_quick_and_full_would_be_the_same() {
+        let plain = vec![
+            rule("EvilAI(Locust) 제거", "evilai-locust", 0),
+            rule("PHP2Shell 점검", "php2shell-check-windows", 1),
+        ];
+        let s = scan_lines(&plain, &[]);
+        assert_eq!(s.len(), 1);
+        assert_eq!(s[0].kind, ScanKind::All);
+        assert_eq!(labels(&s[0].run), labels(&plain));
+        assert!(s[0].skipped.is_empty());
+        let only_disk = vec![disk_rule("Log4j 점검", "log4j-check")];
+        let s = scan_lines(&only_disk, &[]);
+        assert_eq!(s.len(), 1);
+        assert_eq!(s[0].kind, ScanKind::All);
+        assert_eq!(labels(&s[0].run), ["Log4j 점검"]);
+    }
+
+    /// 검사 줄이 둘이면 룰의 번호와 *찾은 것 모두 치료하기* 가 하나씩 뒤로 간다 — 셋이 같은 수(검사 줄 수)로 센다.
+    #[test]
+    fn rules_are_numbered_after_the_scan_lines() {
+        let all = vec![
+            rule("EvilAI(Locust) 제거", "evilai-locust", 0),
+            disk_rule("Log4j 점검", "log4j-check"),
+        ];
+        set_chooser(&all, 2 + 1);
+        assert_eq!(
+            chooser_entry(&all[0].path),
+            Some((3, "EvilAI(Locust) 제거".to_string()))
+        );
+        assert_eq!(
+            chooser_entry(&all[1].path),
+            Some((4, "Log4j 점검".to_string()))
+        );
+        assert_eq!(treat_all_number(2 + all.len(), 1), Some(5));
+        set_chooser(&all, 0);
+        assert_eq!(chooser_entry(&all[0].path).map(|(n, _)| n), Some(0));
     }
 
     /// D10 — 찾기는 룰 이름 · 폴더 이름에서 낱말을 찾는다(대소문자 없이 — 이름에 제품 · CVE 가 든다). 비운

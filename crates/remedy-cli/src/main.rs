@@ -303,6 +303,8 @@ fn main() -> ExitCode {
                 let mut notes = notes_of(&picked);
                 // *다음 할 일* 의 앞줄 — 모두 검사만 · 찾은 것 모두 치료하기가 끝난 뒤에 정한다.
                 let mut lead: Vec<String> = Vec::new();
+                // *다음 할 일* 의 끝줄 — 찾은 것을 다루는 줄(치료 둘 · 읽을 기록) 뒤에 선다. 빠른 검사 뒤의 정밀 검사 줄.
+                let mut tail: Vec<String> = Vec::new();
                 // **찾은 것 모두 치료하기의 목록은 기계를 바꾸는 작업이 돌면 비운다** — 그 목록은 지난
                 // 화면의 것이다. 그 줄 자신은 끝난 뒤 스스로 정한다(승인을 거절하면 다시 고를 수 있게 둔다).
                 if changes_system(&picked) && !matches!(flow, Flow::TreatAll) {
@@ -388,13 +390,29 @@ fn main() -> ExitCode {
                     }
                     // **모두 검사만** — 관리자 문을 한 번 지나고, 룰마다 메뉴의 *검사만 하기* 와
                     // 같은 `scan` 을 부른다(`scan_all`).
-                    guided::Outcome::ScanAll(list, skipped) => admin_gate().map(|()| {
-                        let done = scan_all(&list, &skipped);
+                    guided::Outcome::ScanAll(list, skipped, kind) => admin_gate().map(|()| {
+                        let done = scan_all(&list, &skipped, kind);
                         treats = !done.treat.is_empty();
                         notes = done.notes;
                         // 고르는 화면이 *찾은 것 모두 치료하기* 를 세우는 근거 — 그 줄의 번호를 앞줄이 센다.
                         guided::set_found(done.treat, done.other);
                         lead = scan_all_lead(done.code, treats, guided::treat_all_line());
+                        // 빠른 검사가 디스크 전체 룰을 뺐으면 정밀 검사 줄을 가리킨다 — 뺀 것을 말하고 그리로 가는
+                        // 길까지 준다(목표 remedy_기본검사_룰관리 결정 ①). 끝줄이다 — 찾은 것을 다루는 줄(모두 치료 ·
+                        // 하나씩 치료)이 서로 붙어 먼저 서야 한다(리눅스 메뉴 하네스 화면 · 2026-11-16).
+                        let disk = skipped.iter().any(|(_, w)| *w == guided::Skip::FullDisk);
+                        if kind == guided::ScanKind::Quick && disk {
+                            if let Some((n, label)) = guided::full_scan_line() {
+                                tail.push(step_line(
+                                    ui().lang
+                                        .t("디스크 전체까지 보려면", "To look at whole disks too"),
+                                    None,
+                                    n,
+                                    &label,
+                                    remedy_sdk::i18n::deco(),
+                                ));
+                            }
+                        }
                         done.code
                     }),
                     // **찾은 것 모두 치료하기** — `run` 과 같은 두 문(관리자 · 자기무결성)을 한 번 지나고,
@@ -700,7 +718,7 @@ fn main() -> ExitCode {
                 tee::close();
                 term::task_end(code);
                 last = Some(code);
-                back_to_menu(flow, code, treats, &notes, &lead);
+                back_to_menu(flow, code, treats, &notes, &lead, &tail);
             }
         }
         Some(other) => {
@@ -1249,28 +1267,44 @@ fn notes_beside(plugin: &std::path::Path) -> Option<std::path::PathBuf> {
 /// 아무것도 바꾸지 않는다 — 치료는 끝난 뒤 고르는 화면의 *찾은 것 모두 치료하기*([`treat_all`])나
 /// 룰을 골라서 한다. 무엇을 찾았는지는 [`ScanAllDone`] 이 돌려준다.
 ///
-/// `skipped` 는 **빼 둔 네트워크 점검 룰의 이름**이다(코어 1.4.0) — 주소를 적어야 돌아 여기서 돌리지
-/// 않는다. 끝의 요약에 그 항목도 한 줄씩 적는다.
-fn scan_all(list: &[(String, std::path::PathBuf)], skipped: &[String]) -> ScanAllDone {
+/// `skipped` 는 **빼 둔 룰과 그 까닭**이다 — 네트워크 점검(주소를 적어야 돈다 · 코어 1.4.0)과, 빠른 검사가 빼는
+/// 디스크 전체 룰(정밀 검사가 돈다). 끝의 요약에 그 항목도 한 줄씩 적는다. `kind` 는 고른 검사의 꼴이다 — 머리줄과
+/// 요약의 이름만 다르고 도는 길은 같다(목표 remedy_기본검사_룰관리 결정 ①②).
+fn scan_all(
+    list: &[(String, std::path::PathBuf)],
+    skipped: &[(String, guided::Skip)],
+    kind: guided::ScanKind,
+) -> ScanAllDone {
     let lang = ui().lang;
     let d = remedy_sdk::i18n::deco();
     // **룰이 한 화면을 넘으면 룰마다의 검사 화면을 접는다**(목표 remedy_전체검사_운영기반 D10) — 화면에는 룰마다
     // 진행 한 줄만 서고(그리는 자리면 제자리에), 그 룰의 화면은 회차 로그에 그대로 남는다. 요약은 찾은 것 · 확인
     // 필요 · 마치지 못한 룰만 줄로 적고 나머지는 수로 적는다. 룰 1,000개에서 화면이 약 1만 9천 줄이었다(벤치).
     let many = list.len() > guided::MANY_RULES;
-    outln!(
-        "{}",
-        lang.pick(
+    let n = list.len();
+    let opening = match kind {
+        guided::ScanKind::All => lang.pick(
+            format!("룰 {n}개로 모두 검사만 합니다 — 아무것도 바꾸지 않습니다."),
+            format!("Scanning with all {n} rules — nothing is changed."),
+        ),
+        guided::ScanKind::Quick => lang.pick(
             format!(
-                "룰 {}개로 모두 검사만 합니다 — 아무것도 바꾸지 않습니다.",
-                list.len()
+                "빠른 검사 — 룰 {n}개로 검사만 합니다(디스크 전체를 보는 룰은 정밀 검사에서). 아무것도 바꾸지 않습니다."
             ),
             format!(
-                "Scanning with all {} rules — nothing is changed.",
-                list.len()
-            )
-        )
-    );
+                "Quick scan — scanning with {n} rules (rules that read whole disks are in the full scan). Nothing is changed."
+            ),
+        ),
+        guided::ScanKind::Full => lang.pick(
+            format!(
+                "정밀 검사 — 룰 {n}개로 디스크 전체까지 검사만 합니다. 아무것도 바꾸지 않습니다 · 오래 걸릴 수 있습니다."
+            ),
+            format!(
+                "Full scan — scanning with {n} rules, whole disks too. Nothing is changed · this can take a long time."
+            ),
+        ),
+    };
+    outln!("{opening}");
     if many {
         outln!(
             "{}",
@@ -1350,16 +1384,21 @@ fn scan_all(list: &[(String, std::path::PathBuf)], skipped: &[String]) -> ScanAl
     }
     outln!();
     outln!("{}", d.rule());
-    outln!(
-        "{}",
-        lang.pick(
-            format!(
-                "모두 검사한 결과 — 룰 {}개 · 아무것도 바꾸지 않았습니다",
-                list.len()
-            ),
-            format!("Results for all {} rules — nothing was changed", list.len())
-        )
-    );
+    let title = match kind {
+        guided::ScanKind::All => lang.pick(
+            format!("모두 검사한 결과 — 룰 {n}개 · 아무것도 바꾸지 않았습니다"),
+            format!("Results for all {n} rules — nothing was changed"),
+        ),
+        guided::ScanKind::Quick => lang.pick(
+            format!("빠른 검사 결과 — 룰 {n}개 · 아무것도 바꾸지 않았습니다"),
+            format!("Quick scan results — {n} rules · nothing was changed"),
+        ),
+        guided::ScanKind::Full => lang.pick(
+            format!("정밀 검사 결과 — 룰 {n}개 · 아무것도 바꾸지 않았습니다"),
+            format!("Full scan results — {n} rules · nothing was changed"),
+        ),
+    };
+    outln!("{title}");
     let (mut clean, mut not_here) = (0usize, 0usize);
     for row in &done {
         // 줄인 요약 — 깨끗한 룰 · 해당 없는 룰은 수로만 센다. 룰마다의 화면이 접혀 있으므로 남긴 결과 폴더를
@@ -1398,15 +1437,18 @@ fn scan_all(list: &[(String, std::path::PathBuf)], skipped: &[String]) -> ScanAl
     // **빼 둔 네트워크 점검도 한 줄씩 적는다** — 적지 않으면 *모두* 가 그것까지 본 것으로 읽힌다.
     // 검사 앞이 아니라 여기 적는 까닭은 이 요약이 있는 까닭과 같다: 앞에 적은 줄은 룰마다의 화면에
     // 밀려 창 밖으로 나간다. 종료 코드에는 들지 않는다 — 돌리지 않은 것은 결과가 아니다.
-    for label in skipped {
-        outln!(
-            "  {label}{}{}",
-            d.dash(),
-            lang.t(
+    for (label, why) in skipped {
+        let note = match why {
+            guided::Skip::Network => lang.t(
                 "돌리지 않았습니다 (네트워크 점검은 그 항목을 골라 주소를 적어야 합니다)",
                 "not run (a network check: pick that item and enter the addresses)",
-            )
-        );
+            ),
+            guided::Skip::FullDisk => lang.t(
+                "정밀 검사에서만 합니다 (디스크 전체를 봅니다)",
+                "full scan only (it reads whole disks)",
+            ),
+        };
+        outln!("  {label}{}{note}", d.dash());
     }
     let codes: Vec<Code> = done.iter().map(|r| r.code).collect();
     ScanAllDone {
@@ -1797,6 +1839,7 @@ fn back_to_menu(
     treats: bool,
     notes: &[std::path::PathBuf],
     lead: &[String],
+    tail: &[String],
 ) {
     let lang = ui().lang;
     let d = remedy_sdk::i18n::deco();
@@ -1812,7 +1855,7 @@ fn back_to_menu(
         .collect();
     let read = guidance(flow, code, treats, notes);
     let pick = guided::picked_rule();
-    if !lead.is_empty() || !next.is_empty() || read.is_some() {
+    if !lead.is_empty() || !next.is_empty() || read.is_some() || !tail.is_empty() {
         outln!("{}", lang.t("다음 할 일", "Next"));
         // **앞줄이 먼저다** — 고르는 화면의 줄(*찾은 것 모두 치료하기*)과 룰마다 먼저 고를 룰을 붙인 줄.
         for l in lead {
@@ -1823,6 +1866,10 @@ fn back_to_menu(
         }
         if let Some(r) = read {
             outln!("  {r}");
+        }
+        // 끝줄 — 찾은 것을 다 다룬 뒤의 일(빠른 검사 뒤의 정밀 검사).
+        for l in tail {
+            outln!("{l}");
         }
         outln!();
     }

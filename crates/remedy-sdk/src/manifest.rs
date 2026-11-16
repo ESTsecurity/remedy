@@ -269,6 +269,21 @@ pub struct PluginManifest {
     pub submit_hint: Option<SubmitHint>,
 }
 
+/// 디스크 전체를 뜻하는 뿌리 낱말(코어 1.11.0) — 플랫폼이 고정 디스크 전부로 편다.
+pub const FIXED_DISKS: &str = "%FIXED_DISKS%";
+
+impl PluginManifest {
+    /// **디스크 전체를 걷는 룰인가** — 뿌리 하나라도 [`FIXED_DISKS`] 로 시작하면 그렇다. 플랫폼이 그 낱말을 펴는 꼴과
+    /// 같게 앞자리만 보고 대소문자를 가리지 않는다(뒤에 하위 경로가 붙을 수 있다). 메뉴의 빠른 검사가 이 룰을 빼고,
+    /// 꾸러미 README 가 그것을 적는다 — 둘이 따로 가리면 화면과 글이 갈린다.
+    pub fn walks_whole_disks(&self) -> bool {
+        self.scan_roots.iter().any(|r| {
+            r.get(..FIXED_DISKS.len())
+                .is_some_and(|head| head.eq_ignore_ascii_case(FIXED_DISKS))
+        })
+    }
+}
+
 /// `kind:` 가 있으면 값이 열거값이어야 한다 — [`PluginManifest::kind`] 를 보라.
 ///
 /// 키가 아예 없는 경우는 `#[serde(default)]` 가 `None` 을 주므로 여기 오지 않는다.
@@ -690,5 +705,46 @@ mod reference_tests {
         let mut v = Vec::new();
         references("${a.b} and ${broken", &mut v);
         assert_eq!(v, vec!["a.b"]);
+    }
+}
+
+#[cfg(test)]
+mod whole_disk_tests {
+    use super::PluginManifest;
+
+    fn with_roots(roots: &str) -> PluginManifest {
+        let y = format!(
+            r#"schema_version: 1
+id: t
+version: 1.0.0
+min_core: "1.0.0"
+platforms: [linux]
+name: {{ en: "t" }}
+scan_roots: {roots}
+subjects: [file]
+detect:
+  - id: r
+    subject: file
+    where:
+      - {{ field: path, op: exists }}
+verdict: {{ require: r }}
+"#
+        );
+        serde_yaml_ng::from_str(&y).unwrap_or_else(|e| panic!("{e}\n{y}"))
+    }
+
+    /// 플랫폼이 펴는 꼴(앞자리 · 대소문자 무시 · 하위 경로)과 같게 가린다 — 낱말이 가운데 있으면 펴지지 않으므로 아니다.
+    #[test]
+    fn a_root_that_starts_with_the_disk_token_walks_whole_disks() {
+        for roots in [
+            r#"["%FIXED_DISKS%"]"#,
+            r#"["/etc/ssh", "%fixed_disks%"]"#,
+            r#"['%FIXED_DISKS%\opt\app']"#,
+        ] {
+            assert!(with_roots(roots).walks_whole_disks(), "{roots}");
+        }
+        for roots in [r#"["/etc/ssh"]"#, r#"["/srv/%FIXED_DISKS%"]"#, "[]"] {
+            assert!(!with_roots(roots).walks_whole_disks(), "{roots}");
+        }
     }
 }

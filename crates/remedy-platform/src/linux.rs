@@ -100,7 +100,72 @@ fn local_disk_mounts() -> (Vec<String>, Vec<String>) {
             }
         })
         .collect();
-    pick_disk_mounts(&found)
+    let (mounts, skipped) = pick_disk_mounts(&found);
+    // 같은 장치를 다시 붙인 마운트는 한 번만 걷는다 — 표를 읽지 못하면 지금처럼 다 걷는다(더 걷는 쪽).
+    let mounts = match std::fs::read(MOUNTINFO) {
+        Ok(table) => drop_rebinds(mounts, &table),
+        Err(_) => mounts,
+    };
+    (mounts, skipped)
+}
+
+/// 마운트 하나의 출처 — (장치 `major:minor`, 그 마운트가 붙인 파일 시스템 안의 자리 `root`).
+type MountSource = (Vec<u8>, std::path::PathBuf);
+
+/// 마운트 표의 한 줄에서 (자리, 출처) — `proc(5)` 의 `ID 부모 major:minor root 자리 …` 셋째 · 넷째 · 다섯째 칸.
+/// 같은 자리가 여러 번이면 뒤엣것이 이긴다(나중 마운트가 가린다).
+fn mount_sources(table: &[u8]) -> std::collections::HashMap<std::path::PathBuf, MountSource> {
+    let mut out = std::collections::HashMap::new();
+    for line in table.split(|&c| c == b'\n') {
+        let f: Vec<&[u8]> = line.split(|&c| c == b' ').collect();
+        let (Some(dev), Some(root), Some(at)) = (f.get(2), f.get(3), f.get(4)) else {
+            continue;
+        };
+        out.insert(
+            unescape_mount_field(at),
+            (dev.to_vec(), unescape_mount_field(root)),
+        );
+    }
+    out
+}
+
+/// **같은 장치를 다시 붙인 마운트를 뺀다**(목표 remedy_기본검사_룰관리 결정 ⑤). 이미 고른 뿌리와 장치가 같고, 그 뿌리가
+/// 붙인 자리 아래를 다시 붙인 마운트는 그 뿌리를 걸을 때 이미 지나간다 — 따로 걸으면 같은 파일을 두 번 걷고 같은 발견을
+/// 경로만 달리 두 번 낸다. 2026-11-16 이 기계의 WSL 에서 뿌리가 2,761개(Docker Desktop 의 바인드 마운트)였고, WSLg 가
+/// 배포판 뿌리를 통째로 다시 붙인 `/mnt/wslg/distro` 에서 같은 jar 를 두 경로로 냈다. 쿠버네티스 노드의 파드 볼륨도 같은 꼴이다.
+///
+/// 붙인 자리가 얕은 것부터 남긴다(같으면 자리 이름순 — `/` 가 먼저). 자리 비교는 경로 조각으로 한다 — btrfs 하위 볼륨
+/// (`/@` 와 `/@home`)은 장치가 같아도 서로 아래가 아니라 둘 다 남는다. 장치가 다른 마운트(컨테이너에 붙인 호스트 폴더)는
+/// 그대로 남고, 표에 없는 마운트도 남긴다(더 걷는 쪽). **잃을 수 있는 것** — 다른 마운트가 덮어 보통 경로로는 닿지 않는
+/// 디스크의 파일(마운트 자리 밑에 가려진 파일)은 뿌리째 다시 붙인 자리로만 보인다. 그날 그런 파일은 없었다 — 같은 jar 가 두
+/// 경로로 나와 열 줄 목록에서 다른 발견을 밀어냈을 뿐이고, 고친 뒤 뿌리 4개 · 흔적 806 → 274건에 그 발견들이 제자리에 섰다.
+fn drop_rebinds(roots: Vec<String>, table: &[u8]) -> Vec<String> {
+    let src = mount_sources(table);
+    let mut keyed: Vec<(String, Option<MountSource>)> = roots
+        .into_iter()
+        .map(|r| {
+            let k = src.get(std::path::Path::new(&r)).cloned();
+            (r, k)
+        })
+        .collect();
+    let depth =
+        |k: &Option<MountSource>| k.as_ref().map_or(0, |(_, root)| root.components().count());
+    keyed.sort_by(|a, b| depth(&a.1).cmp(&depth(&b.1)).then_with(|| a.0.cmp(&b.0)));
+    let mut kept: Vec<(String, Option<MountSource>)> = Vec::new();
+    for (at, key) in keyed {
+        let covered = key.as_ref().is_some_and(|(dev, root)| {
+            kept.iter().any(|(_, k)| {
+                k.as_ref()
+                    .is_some_and(|(kd, kr)| kd == dev && root.starts_with(kr))
+            })
+        });
+        if !covered {
+            kept.push((at, key));
+        }
+    }
+    let mut out: Vec<String> = kept.into_iter().map(|(at, _)| at).collect();
+    out.sort();
+    out
 }
 
 /// 마운트 하나 — 자리 · 형식 · 폴더인가.
@@ -1735,6 +1800,61 @@ mod tests {
 
         // 아무것도 고르지 못해도 `/` 는 든다.
         assert_eq!(pick_disk_mounts(&[]).0, ["/"]);
+    }
+
+    /// 결정 ⑤ — 같은 장치를 다시 붙인 마운트는 한 번만 걷는다. 이 기계의 WSL 에서 본 꼴(2026-11-16): 배포판 뿌리를
+    /// 통째로 다시 붙인 `/mnt/wslg/distro` 와 Docker Desktop 의 바인드 마운트는 `/` 를 걸을 때 이미 지나간다. 장치가 다른
+    /// `/home` 은 남고, 그 아래를 다시 붙인 `/srv/data` 는 빠진다. 표에 없는 자리는 남긴다(더 걷는 쪽).
+    #[test]
+    fn a_mount_that_rebinds_a_walked_disk_is_walked_once() {
+        let table = "\
+22 1 8:64 / / rw,relatime - ext4 /dev/sde rw
+30 22 8:64 / /mnt/wslg/distro rw - ext4 /dev/sde rw
+31 22 8:64 /home/u/proj /mnt/wsl/docker-desktop-bind-mounts/Ubuntu/abc rw - ext4 /dev/sde rw
+40 22 8:80 / /home rw - ext4 /dev/sdf rw
+41 22 8:80 /u/data /srv/data rw - ext4 /dev/sdf rw
+50 22 8:96 / /scan rw - ext4 /dev/sdg rw
+";
+        let roots = [
+            "/",
+            "/mnt/wslg/distro",
+            "/mnt/wsl/docker-desktop-bind-mounts/Ubuntu/abc",
+            "/home",
+            "/srv/data",
+            "/scan",
+            "/not-in-table",
+        ]
+        .map(String::from)
+        .to_vec();
+        assert_eq!(
+            drop_rebinds(roots, table.as_bytes()),
+            ["/", "/home", "/not-in-table", "/scan"]
+        );
+    }
+
+    /// 빼면 안 되는 둘 — 컨테이너의 뿌리(overlay)와 장치가 다른 호스트 폴더 바인드(하네스가 시료를 이 꼴로 붙인다), 그리고
+    /// 장치가 같아도 서로 아래가 아닌 btrfs 하위 볼륨(`/@` · `/@home`). 표를 읽지 못한 것처럼 비어 있으면 그대로다.
+    #[test]
+    fn container_binds_and_btrfs_subvolumes_are_kept() {
+        let container = "\
+900 800 0:50 / / rw - overlay overlay rw
+901 900 8:1 /tmp/x /scan rw - ext4 /dev/sda1 rw
+";
+        let roots = ["/", "/scan"].map(String::from).to_vec();
+        assert_eq!(
+            drop_rebinds(roots.clone(), container.as_bytes()),
+            ["/", "/scan"]
+        );
+        let btrfs = "\
+26 1 0:30 /@ / rw - btrfs /dev/nvme0n1p2 rw
+27 26 0:30 /@home /home rw - btrfs /dev/nvme0n1p2 rw
+";
+        let roots = ["/", "/home"].map(String::from).to_vec();
+        assert_eq!(
+            drop_rebinds(roots.clone(), btrfs.as_bytes()),
+            ["/", "/home"]
+        );
+        assert_eq!(drop_rebinds(roots, b""), ["/", "/home"]);
     }
 
     /// 토큰을 펴되 **주석이 영어 회차에서 한글로 나오지 않는가**를 함께 잰다.

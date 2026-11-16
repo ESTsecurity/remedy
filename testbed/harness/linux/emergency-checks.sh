@@ -117,16 +117,20 @@ t0=$(date +%s)
 for img in debian:12 ubuntu:24.04; do
     t=$(echo "$img" | tr ':/.' '___')
     for side in prev new; do
-        # 메뉴 1번(모두 검사만 하기) → 끝나면 메뉴로 돌아오므로 빈 줄 · 0(그만두기)으로 닫는다.
+        # 이 기계를 보는 룰 전부를 도는 줄을 고른다 — 고르는 화면을 먼저 한 번 띄워(0 = 그만두기) 읽는다. 2번이 정밀
+        # 검사면 그 줄이다(엔진 1.21.0 · 맨 위가 1 빠른 검사 · 2 정밀 검사). 아니면 1번(모두 검사만 하기)이다. 끝나면
+        # 메뉴로 돌아오므로 빈 줄 · 0(그만두기)으로 닫는다.
         docker run --rm --pull=never --network none -v "$W/$side:/p:ro" -v "$OUT/scan-all:/out" "$img" sh -c \
-            "cp -r /p /tmp/p && cd /tmp/p && { printf '1\n\n0\n'; sleep 8; } | LANG=C.UTF-8 REMEDY_LANG=ko timeout 300 script -q -e -c './remedy > /out/$t-$side.txt 2>&1' /dev/null; echo \$? > /out/$t-$side.rc; chmod a+r /out/$t-$side.*" \
+            "cp -r /p /tmp/p && cd /tmp/p && printf '0\n' | LANG=C.UTF-8 REMEDY_LANG=ko timeout 60 script -q -e -c './remedy > /tmp/chooser.txt 2>&1' /dev/null; k=1; grep -q -E '^ +2\. 정밀 검사 \(' /tmp/chooser.txt && k=2; echo \$k > /out/$t-$side.key; { printf \"\$k\n\n0\n\"; sleep 8; } | LANG=C.UTF-8 REMEDY_LANG=ko timeout 300 script -q -e -c './remedy > /out/$t-$side.txt 2>&1' /dev/null; echo \$? > /out/$t-$side.rc; chmod a+r /out/$t-$side.*" \
             </dev/null >/dev/null 2>&1
     done
     rp=$(cat "$OUT/scan-all/$t-prev.rc" 2>/dev/null || echo 없음)
     rn=$(cat "$OUT/scan-all/$t-new.rc" 2>/dev/null || echo 없음)
+    kp=$(cat "$OUT/scan-all/$t-prev.key" 2>/dev/null || echo '?')
+    kn=$(cat "$OUT/scan-all/$t-new.key" 2>/dev/null || echo '?')
     diff <(mask "$OUT/scan-all/$t-prev.txt") <(mask "$OUT/scan-all/$t-new.txt") >"$OUT/scan-all/$t.diff"
     [ "$rp" = "$rn" ] && [ "$rp" != 없음 ] || fail=1
-    note "3 모두 검사 · $img · 지난 공개본 $rp · 새 파일 $rn · 화면 차이 $(grep -c '^[<>]' "$OUT/scan-all/$t.diff")줄"
+    note "3 모두 검사 · $img · 지난 공개본 $rp(${kp}번) · 새 파일 $rn(${kn}번) · 화면 차이 $(grep -c '^[<>]' "$OUT/scan-all/$t.diff")줄"
 done
 note "3 모두 검사 · $(( $(date +%s) - t0 ))초 — 화면 차이는 $OUT/scan-all/*.diff 를 보고 새 룰의 줄뿐인지 정한다"
 

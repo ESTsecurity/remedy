@@ -760,7 +760,9 @@ ls "$W/orgout" 2>&1
 #
 # 배포 잡과 같은 룰 목록(`xtask threats --dirs linux`)을 일회용 키로 서명해 한 꾸러미에 담고,
 # 고르는 화면의 1번을 진짜 터미널(pty)에서 고른다 — 빈 줄은 작업 뒤의 멈춤, `0` 은 고르는
-# 화면에서 그만두기다. 깨끗한 컨테이너라 CWP 가 없다: CWPdoor 둘은 6(검사할 경로가 없다 —
+# 화면에서 그만두기다. 디스크 전체를 걷는 룰(Log4j 점검)이 들어 1번은 **빠른 검사**다(그 룰을 빼고 요약에
+# *정밀 검사에서만* · 다음 할 일에 2번 정밀 검사 — 목표 remedy_기본검사_룰관리 ①②). 정밀 검사의 화면은
+# `menu-verify.sh` 가 pty 로 잰다. 깨끗한 컨테이너라 CWP 가 없다: CWPdoor 둘은 6(검사할 경로가 없다 —
 # 설계대로), Ebury 는 0 이고 모두 검사만의 끝 코드는 6 이다. PHP · Node.js 도 없어 점검 셋은
 # 0 이다(1.3.0). 룰 수는 제목에 적지 않는다 — 목록이 늘 때마다 제목이 낡았다(셋 → 여섯).
 # 네트워크 점검 하나(1.4.0)는 고르는 화면에 *네트워크 사용* 이 붙어 서고, 모두 검사만에는 들지
@@ -843,8 +845,8 @@ fi
 # ── 찾은 것 모두 치료하기 — 감염된 CWP 자리 채우기 (목표 remedy_전체검사_운영기반 기준 5 · 코어 1.20.0) ──────────
 #
 # `menu-verify.sh` 의 감염 장면과 같은 자리 채우기다 — **실검체가 없다**(ELF 머리 · 표시 문자열 · XLab 보고의 공개
-# 지표 · 이 캡처가 지어낸 유닛). A11 의 꾸러미로 고르는 화면에서 1(모두 검사만) → 빈 줄 → *찾은 것 모두 치료하기*
-# (룰 목록 뒤 — 룰 수 + 2) → y(승인 한 번) → 빈 줄 → 0. **맨 끝에 둔다** — 이 절이 컨테이너에 CWP 자리를 세웠다가
+# 지표 · 이 캡처가 지어낸 유닛). A11 의 꾸러미로 고르는 화면에서 1(빠른 검사) → 빈 줄 → *찾은 것 모두 치료하기*
+# (룰 목록 뒤 — 맨 위 검사 줄 수 + 룰 수 + 1) → y(승인 한 번) → 빈 줄 → 0. **맨 끝에 둔다** — 이 절이 컨테이너에 CWP 자리를 세웠다가
 # 치료한다(되돌리지 않는다 — 컨테이너와 함께 버린다). 화면은 파일로 받는다(A11 과 같은 까닭).
 sep "A13. 찾은 것 모두 치료하기 — 감염된 CWP 자리 채우기 (pty)"
 if [ -x "$AW/pkg/remedy" ] && command -v python3 >/dev/null 2>&1; then
@@ -864,10 +866,13 @@ PY
         "Type=forking" "ExecStart=/usr/local/cwpsrv/bin/cwpsrv" "Restart=always" "RestartSec=5" \
         "[Install]" "WantedBy=multi-user.target" >/lib/systemd/system/cwpsrv.service
     ln -sf /lib/systemd/system/cwpsrv.service /etc/systemd/system/multi-user.target.wants/cwpsrv.service
-    # 고르는 화면의 룰 수 — 데이터 룰은 검사 항목이 아니라 세지 않는다(menu-verify.sh 와 같다).
+    # 고르는 화면의 룰 수 — 데이터 룰은 검사 항목이 아니라 세지 않는다(menu-verify.sh 와 같다). 맨 위 검사 줄 수는
+    # A11 의 화면에서 읽는다 — 2번이 정밀 검사면 둘이다.
     n=0
     for d in "$AW/pkg/plugins"/*/; do grep -q '^kind: data' "$d/plugin.yaml" || n=$((n + 1)); done
-    (cd "$AW/pkg" && rm -rf out state && { printf '1\n\n%s\ny\n\n0\n' $((n + 2)); sleep 30; } | timeout 180 script -qec \
+    lines=1
+    if grep -q -E '^ +2\. (정밀 검사|Full scan) \(' "$AW/out.txt" 2>/dev/null; then lines=2; fi
+    (cd "$AW/pkg" && rm -rf out state && { printf '1\n\n%s\ny\n\n0\n' $((n + lines + 1)); sleep 30; } | timeout 180 script -qec \
         "LANG=C.UTF-8 REMEDY_LANG=$L ./remedy >$AW/treat-all.txt 2>&1" /dev/null >/dev/null 2>&1)
     ec
     tr -d "\r" < "$AW/treat-all.txt"

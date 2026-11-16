@@ -20,14 +20,17 @@
 # OS 마다 다른 것이 맞아 견주지 않고 verdict.txt 에 따로 적는다.
 #
 # 둘째 꾸러미 — **리눅스 룰 전부**(배포 잡과 같은 목록 `xtask threats --dirs linux`)를 같은
-# 일회용 키로 서명해 한 꾸러미에 담고(목표 remedy_출시_20261111 기준 3 · 4), 고르는 화면의
-# 1번 *모두 검사만* 과 찾기만 하는 Ebury 룰의 메뉴를 띄운다 — scan-all.txt · detect-only.txt.
+# 일회용 키로 서명해 한 꾸러미에 담고(목표 remedy_출시_20261111 기준 3 · 4), 고르는 화면 맨 위의
+# 검사 줄과 찾기만 하는 Ebury 룰의 메뉴를 띄운다 — scan-all.txt · scan-full.txt · detect-only.txt.
+# 디스크 전체를 걷는 룰(Log4j 점검)이 함께 들어 그 줄이 **둘**이다(목표 remedy_기본검사_룰관리 ①②):
+# 1 빠른 검사(그 룰을 빼고 요약에 *정밀 검사에서만* · 다음 할 일에 2번) · 2 정밀 검사(전부) · 룰은 3번부터.
 # 깨끗한 컨테이너라 CWP 가 없다: CWPdoor 룰 둘은 6(선언한 자리가 없다 — 설계대로), Ebury 는
-# 0 이고 모두 검사만의 끝 코드는 6 이다. 그 화면에는 *찾은 것 모두 치료하기* 가 서지 않는다.
+# 0 이고 두 검사의 끝 코드는 6 이다. 그 화면에는 *찾은 것 모두 치료하기* 가 서지 않는다.
 #
 # 마지막으로 같은 꾸러미에서 **감염된 CWP**(cwpdoor-verify.sh 의 자리 채우기 — 실검체 없음)를 세우고
-# 1번 → *찾은 것 모두 치료하기* → y 로 끝까지 간다(목표 remedy_전체검사_운영기반 기준 5): 승인 한 번 ·
+# 1번(빠른 검사) → *찾은 것 모두 치료하기* → y 로 끝까지 간다(목표 remedy_전체검사_운영기반 기준 5): 승인 한 번 ·
 # 치료 · 다시 검사 · 한 덩어리 · 회차 로그 · 회차마다의 복원 — treat-all.txt · treat-all-restore.txt.
+# 복원으로 감염이 돌아오면 2번(정밀 검사)으로 같은 길을 한 번 더 간다 — treat-full.txt(치료로 잇기는 두 검사 모두).
 #
 # 그 꾸러미에는 **동반 프로그램 `remedy-net`** 도 든다(코어 1.4.0) — 네트워크 점검 룰이 목록에 있어
 # 없이는 지어지지 않는다. 메뉴에서 그 항목을 골라 원격 점검을 끝까지 돌린다(닫힌 포트 127.0.0.1:9 —
@@ -83,7 +86,7 @@ inside() {
 
     # ── 둘째 꾸러미 — 리눅스 룰 전부 ──────────────────────────────────
     cd /repo || return 7
-    local args=() d n count=0 remote=0
+    local args=() d n count=0 remote=0 disk=0
     mkdir -p "$w/all"
     for d in $(cargo run -q -p xtask -- threats --dirs linux); do
         n=$(basename "$d")
@@ -95,10 +98,19 @@ inside() {
         if grep -q '^kind: data' "$w/all/$n/plugin.yaml"; then continue; fi
         count=$((count + 1))
         # 네트워크로 점검하는 룰(코어 1.4.0)은 주소를 적어야 돌아 *모두 검사만* 에 들지 않는다 — 따로 센다.
-        if grep -q '^network:' "$w/all/$n/plugin.yaml"; then remote=$((remote + 1)); fi
+        if grep -q '^network:' "$w/all/$n/plugin.yaml"; then remote=$((remote + 1)); continue; fi
+        # 디스크 전체를 걷는 룰(`%FIXED_DISKS%`)은 빠른 검사가 뺀다 — 주석 줄은 세지 않는다.
+        if grep -v -E '^[[:space:]]*#' "$w/all/$n/plugin.yaml" | grep -q -i '%FIXED_DISKS%'; then
+            disk=$((disk + 1))
+        fi
     done
     echo "linux_rules=$count"
     echo "network_rules=$remote"
+    echo "disk_rules=$disk"
+    # 고르는 화면 맨 위의 검사 줄 — 디스크 전체 룰과 그 밖의 룰이 함께 있으면 둘(1 빠른 · 2 정밀), 아니면 하나.
+    local lines=1
+    if [ "$disk" -gt 0 ] && [ $((count - remote - disk)) -gt 0 ]; then lines=2; fi
+    echo "scan_lines=$lines"
     # 동반 프로그램 — 본체와 따로 짓고 같은 키로 서명한다(배포 잡과 같은 차례). 네트워크 점검 룰을
     # 담는 꾸러미는 이것 없이 지어지지 않는다(`xtask package` 가 멈춘다). **같은 공개키를 박는다** —
     # 판정 기준(데이터 룰 `remedy-net-criteria`)의 서명을 동반 프로그램이 직접 확인한다(코어 1.12.0).
@@ -112,11 +124,18 @@ inside() {
         --companion "$w/companion/remedy-net" --out "$w/pkg-all" --public-key "$w/pub.key" \
         >/dev/null || { echo "error=통합 꾸러미를 짓지 못했다"; return 9; }
     cd "$w/pkg-all" || return 10
-    # 1 = 모두 검사만 · 빈 줄 = 작업 뒤의 멈춤 · 0 = 고르는 화면에서 그만두기.
+    # 1 = 빠른 검사(검사 줄이 하나면 모두 검사만) · 빈 줄 = 작업 뒤의 멈춤 · 0 = 고르는 화면에서 그만두기.
     printf '1\n\n0\n' | LANG=ko_KR.UTF-8 script -q -e -c "./remedy > /out/scan-all.txt 2>&1" /dev/null
     echo "scan_all_exit=$?"
     # 모두 검사만은 찾은 룰 · 확인 필요 룰의 결과 파일만 남긴다(D11) — 깨끗한 컨테이너라 남은 폴더가 없어야 한다.
     echo "scan_all_out_dirs=$(find out -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l)"
+    # 2 = 정밀 검사 — 디스크 전체 룰까지 전부(검사 줄이 둘일 때만 선다).
+    if [ "$lines" = 2 ]; then
+        rm -rf out
+        printf '2\n\n0\n' | LANG=ko_KR.UTF-8 script -q -e -c "./remedy > /out/scan-full.txt 2>&1" /dev/null
+        echo "scan_full_exit=$?"
+        echo "scan_full_out_dirs=$(find out -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l)"
+    fi
     # Ebury 의 번호는 고르는 화면에서 읽는다 — 룰이 늘면 바뀐다.
     local e
     e=$(grep -m1 -E '^ +[0-9]+\. Ebury ' /out/scan-all.txt | sed -E 's/^ +([0-9]+)\..*/\1/')
@@ -175,8 +194,8 @@ inside() {
     #
     # cwpdoor-verify.sh 의 C 와 같은 자리 채우기다 — **실검체가 없다**(ELF 머리 · 표시 문자열 · XLab 보고의
     # 공개 지표 · 이 하네스가 지어낸 유닛). 깨끗한 장면을 다 잰 뒤에 세운다. 같은 통합 꾸러미의 고르는
-    # 화면에서 1(모두 검사만) → 빈 줄 → *찾은 것 모두 치료하기* → y(승인 한 번) → 빈 줄 → 0.
-    # 그 줄은 **룰 목록 뒤**다(룰 `count` 개 + 2) — 화면의 다음 할 일이 같은 번호를 적는지 판정에서 본다.
+    # 화면에서 1(빠른 검사) → 빈 줄 → *찾은 것 모두 치료하기* → y(승인 한 번) → 빈 줄 → 0.
+    # 그 줄은 **룰 목록 뒤**다(검사 줄 `lines` 개 + 룰 `count` 개 + 1) — 화면의 다음 할 일이 같은 번호를 적는지 판정에서 본다.
     python3 - <<'PY'
 import os
 pem = open("/repo/testbed/harness/linux/fixtures/cwpdoor/pubkey.pem", "rb").read()
@@ -196,7 +215,7 @@ PY
     sha256sum /usr/local/cwpsrv/bin/cwpsrv /lib/systemd/system/cwpsrv.service >/out/treat-all-before.txt
     cd "$w/pkg-all" || return 12
     rm -rf out state
-    local ta=$((count + 2))
+    local ta=$((count + lines + 1))
     echo "treat_all_item=$ta"
     printf '1\n\n%s\ny\n\n0\n' "$ta" | LANG=ko_KR.UTF-8 script -q -e -c "./remedy > /out/treat-all.txt 2>&1" /dev/null
     echo "treat_all_exit=$?"
@@ -213,6 +232,14 @@ PY
     echo "treat_all_restore_exit=$?"
     sha256sum /usr/local/cwpsrv/bin/cwpsrv /lib/systemd/system/cwpsrv.service >/out/treat-all-restored.txt 2>/dev/null
     echo "treat_all_restored=$(cmp -s /out/treat-all-before.txt /out/treat-all-restored.txt && echo 1 || echo 0)"
+    # 정밀 검사에서도 같은 길 — 복원으로 감염이 돌아왔다. 2 → 빈 줄 → 같은 번호 → y → 빈 줄 → 0.
+    if [ "$lines" = 2 ]; then
+        rm -rf out state
+        printf '2\n\n%s\ny\n\n0\n' "$ta" \
+            | LANG=ko_KR.UTF-8 script -q -e -c "./remedy > /out/treat-full.txt 2>&1" /dev/null
+        echo "treat_full_exit=$?"
+        echo "treat_full_binary_gone=$([ ! -e /usr/local/cwpsrv/bin/cwpsrv ] && echo 1 || echo 0)"
+    fi
 }
 
 if [ "$INSIDE" = 1 ]; then
@@ -253,18 +280,40 @@ items "$REPO/testbed/harness/baseline/console/console-win.txt" >"$OUT/items-win.
     # 끝의 요약에 *돌리지 않았습니다* 로 한 줄씩 선다(그래서 요약의 줄 수는 룰 전부다).
     all=$(sed -n 's/^linux_rules=//p' "$OUT/run.txt")
     net=$(sed -n 's/^network_rules=//p' "$OUT/run.txt")
+    disk=$(sed -n 's/^disk_rules=//p' "$OUT/run.txt")
     rules=$((all - net))
+    quick=$((rules - disk))
     echo "linux_rules=$rules"
     echo "network_rules=$net"
+    echo "disk_rules=$disk"
+    echo "scan_lines=$(sed -n 's/^scan_lines=//p' "$OUT/run.txt")"
     echo "chooser_total=$(grep -c "검사 항목 ${all}개를 찾았습니다" "$OUT/scan-all.txt")"
-    echo "scan_all_skipped=$(sed -n '/모두 검사한 결과/,/Enter 를 누르면/p' "$OUT/scan-all.txt" | grep -c -E '^  .+ (—|-) 돌리지 않았습니다 \(네트워크 점검')"
+    # 맨 위의 검사 줄 둘 — 1 빠른 검사(디스크 전체 룰을 뺀 수 · 권장) · 2 정밀 검사(전부 · 오래 걸릴 수 있다).
+    echo "chooser_quick=$(grep -c -E "^ +1\. 빠른 검사 \(권장 · 룰 ${quick}개 · 아무것도 바꾸지 않습니다\)" "$OUT/scan-all.txt")"
+    echo "chooser_full=$(grep -c -E "^ +2\. 정밀 검사 \(룰 ${rules}개 · 디스크 전체까지 · 오래 걸릴 수 있습니다\)" "$OUT/scan-all.txt")"
+    # 끝 요약 — 제목부터 빈 줄까지(그 뒤의 *다음 할 일* 줄도 `이름 — 까닭` 꼴이라 세지 않는다).
+    summary_of() { sed -n -E '/(모두 검사한|빠른 검사|정밀 검사) 결과 — /,/^$/p' "$1" 2>/dev/null; }
+    echo "scan_all_skipped=$(summary_of "$OUT/scan-all.txt" | grep -c -E '^  .+ (—|-) 돌리지 않았습니다 \(네트워크 점검')"
+    echo "scan_all_disk_skipped=$(summary_of "$OUT/scan-all.txt" | grep -c -E '^  .+ (—|-) 정밀 검사에서만 합니다 \(디스크 전체를 봅니다\)$')"
     echo "scan_all_exit=$(sed -n 's/^scan_all_exit=//p' "$OUT/run.txt")"
-    echo "scan_all_summary=$(grep -c "모두 검사한 결과 — 룰 ${rules}개" "$OUT/scan-all.txt")"
-    echo "scan_all_lines=$(sed -n '/모두 검사한 결과/,/Enter 를 누르면/p' "$OUT/scan-all.txt" | grep -c -E '^  .+ (—|-) ')"
+    echo "scan_all_summary=$(grep -c "빠른 검사 결과 — 룰 ${quick}개 · 아무것도 바꾸지 않았습니다" "$OUT/scan-all.txt")"
+    echo "scan_all_lines=$(summary_of "$OUT/scan-all.txt" | grep -c -E '^  .+ (—|-) ')"
+    # 빠른 검사 뒤 다음 할 일 — 뺀 것으로 가는 길(2번)을 같은 글로 가리킨다.
+    echo "scan_all_full_lead=$(grep -c -E "^  디스크 전체까지 보려면 (—|-) 2\. 정밀 검사 \(룰 ${rules}개 · 디스크 전체까지" "$OUT/scan-all.txt")"
     # 결과 폴더를 적는 줄 — 남긴 룰만 적는다(D11). 깨끗한 컨테이너라 0 이다.
     echo "scan_all_dirs=$(grep -o -E '결과 폴더 : [^ ]+' "$OUT/scan-all.txt" | sort -u | wc -l)"
     echo "scan_all_out_dirs=$(sed -n 's/^scan_all_out_dirs=//p' "$OUT/run.txt")"
     echo "scan_all_ended=$(grep -c '끝냅니다\.' "$OUT/scan-all.txt")"
+    # 정밀 검사 — 전부 돌고(빼는 것은 네트워크 점검뿐) 같은 끝 코드 · 결과 폴더 없음 · 2번을 다시 권하지 않는다.
+    sf="$OUT/scan-full.txt"
+    echo "scan_full_exit=$(sed -n 's/^scan_full_exit=//p' "$OUT/run.txt")"
+    echo "scan_full_summary=$(grep -c "정밀 검사 결과 — 룰 ${rules}개 · 아무것도 바꾸지 않았습니다" "$sf" 2>/dev/null)"
+    echo "scan_full_lines=$(summary_of "$sf" | grep -c -E '^  .+ (—|-) ')"
+    echo "scan_full_skipped=$(summary_of "$sf" | grep -c -E '^  .+ (—|-) 돌리지 않았습니다 \(네트워크 점검')"
+    echo "scan_full_disk_skipped=$(grep -c '정밀 검사에서만 합니다' "$sf" 2>/dev/null)"
+    echo "scan_full_lead=$(grep -c '디스크 전체까지 보려면' "$sf" 2>/dev/null)"
+    echo "scan_full_out_dirs=$(sed -n 's/^scan_full_out_dirs=//p' "$OUT/run.txt")"
+    echo "scan_full_ended=$(grep -c '끝냅니다\.' "$sf" 2>/dev/null)"
     # 찾기만 하는 룰의 메뉴 — 머리말의 이름 · 1 번이 검사만 하기 · 치료를 약속하는 두 줄은 서지 않는다
     # (목표 remedy_사용자메뉴 기준 1 — v1.2.0 은 그 둘이 까닭을 달고 흐렸다).
     echo "detect_only_exit=$(sed -n 's/^detect_only_exit=//p' "$OUT/run.txt")"
@@ -313,14 +362,35 @@ items "$REPO/testbed/harness/baseline/console/console-win.txt" >"$OUT/items-win.
     for k in binary_gone unit_gone runs runlog restore_exit restored; do
         echo "treat_all_$k=$(sed -n "s/^treat_all_$k=//p" "$OUT/run.txt")"
     done
+    # 그 치료가 빠른 검사 뒤였는가 — 그리고 정밀 검사 뒤에도 같은 번호 · 같은 길인가(복원으로 감염이 돌아온 뒤).
+    echo "treat_all_after_quick=$(grep -c "빠른 검사 결과 — 룰 ${quick}개" "$tf" 2>/dev/null)"
+    # 빠른 검사 뒤 다음 할 일의 차례 — 찾은 것을 다루는 두 줄(모두 치료 · 하나씩 치료)이 붙어 먼저, 정밀 검사 줄이 끝.
+    one=$(line '하나씩 치료하려면' "$tf"); dl=$(line '^  디스크 전체까지 보려면' "$tf")
+    echo "treat_all_full_last=$([ -n "$one" ] && [ -n "$dl" ] && [ "$dl" -gt "$one" ] && echo 1 || echo 0)"
+    ff="$OUT/treat-full.txt"
+    echo "treat_full_exit=$(sed -n 's/^treat_full_exit=//p' "$OUT/run.txt")"
+    echo "treat_full_after_full=$(grep -c "정밀 검사 결과 — 룰 ${rules}개" "$ff" 2>/dev/null)"
+    echo "treat_full_lead=$(grep -c -E "찾은 것을 모두 치료하려면 (—|-) ${tn}\. 찾은 것 모두 치료하기 \(항목 1개" "$ff" 2>/dev/null)"
+    echo "treat_full_line=$(grep -c -E "^ +${tn}\. 찾은 것 모두 치료하기 \(항목 1개" "$ff" 2>/dev/null)"
+    echo "treat_full_summary=$(grep -c '찾은 것 모두 치료한 결과 — 항목 1개' "$ff" 2>/dev/null)"
+    echo "treat_full_result=$(grep -c -E '^  CWPdoor 제거 (—|-) 위협 발견, 치료 완료 \([0-9]+건 수행 완료\)' "$ff" 2>/dev/null)"
+    echo "treat_full_binary_gone=$(sed -n 's/^treat_full_binary_gone=//p' "$OUT/run.txt")"
 } | tee "$OUT/verdict.txt"
 v() { sed -n "s/^$1=//p" "$OUT/verdict.txt"; }
 [ "$(v items_diff)" = 0 ] && [ -n "$(v linux_rules)" ] \
     && [ "$(v chooser_total)" -ge 1 ] && [ "$(v scan_all_skipped)" = "$(v network_rules)" ] \
+    && [ "$(v scan_lines)" = 2 ] && [ "$(v disk_rules)" -ge 1 ] \
+    && [ "$(v chooser_quick)" -ge 1 ] && [ "$(v chooser_full)" -ge 1 ] \
+    && [ "$(v scan_all_disk_skipped)" = "$(v disk_rules)" ] && [ "$(v scan_all_full_lead)" = 1 ] \
     && [ "$(v scan_all_exit)" = 6 ] && [ "$(v scan_all_summary)" = 1 ] \
     && [ "$(v scan_all_lines)" = "$(( $(v linux_rules) + $(v network_rules) ))" ] \
     && [ "$(v scan_all_dirs)" = 0 ] && [ "$(v scan_all_out_dirs)" = 0 ] \
-    && [ "$(v scan_all_ended)" = 1 ] && [ "$(v detect_only_exit)" = 0 ] \
+    && [ "$(v scan_all_ended)" = 1 ] \
+    && [ "$(v scan_full_exit)" = 6 ] && [ "$(v scan_full_summary)" = 1 ] \
+    && [ "$(v scan_full_lines)" = "$(( $(v linux_rules) + $(v network_rules) ))" ] \
+    && [ "$(v scan_full_skipped)" = "$(v network_rules)" ] && [ "$(v scan_full_disk_skipped)" = 0 ] \
+    && [ "$(v scan_full_lead)" = 0 ] && [ "$(v scan_full_out_dirs)" = 0 ] \
+    && [ "$(v scan_full_ended)" = 1 ] && [ "$(v detect_only_exit)" = 0 ] \
     && [ "$(v detect_only_named)" = 1 ] && [ "$(v detect_only_first)" = 1 ] \
     && [ "$(v detect_only_treat)" = 0 ] \
     && [ "$(v net_check_exit)" = 6 ] && [ "$(v net_check_menu_line)" = 1 ] \
@@ -339,4 +409,9 @@ v() { sed -n "s/^$1=//p" "$OUT/verdict.txt"; }
     && [ "$(v treat_all_next)" = 1 ] && [ "$(v treat_all_binary_gone)" = 1 ] \
     && [ "$(v treat_all_unit_gone)" = 1 ] && [ "$(v treat_all_runs)" = 1 ] \
     && [ "$(v treat_all_runlog)" -ge 1 ] && [ "$(v treat_all_restore_exit)" = 0 ] \
-    && [ "$(v treat_all_restored)" = 1 ]
+    && [ "$(v treat_all_restored)" = 1 ] && [ "$(v treat_all_after_quick)" = 1 ] \
+    && [ "$(v treat_all_full_last)" = 1 ] \
+    && [ "$(v treat_full_exit)" = 1 ] && [ "$(v treat_full_after_full)" = 1 ] \
+    && [ "$(v treat_full_lead)" = 1 ] && [ "$(v treat_full_line)" = 1 ] \
+    && [ "$(v treat_full_summary)" = 1 ] && [ "$(v treat_full_result)" = 1 ] \
+    && [ "$(v treat_full_binary_gone)" = 1 ]
