@@ -671,8 +671,11 @@ if ($Keys.Count -gt 0) { $steps = @($steps | Where-Object { $Keys -contains $_.k
 $results = New-Object System.Collections.Generic.List[object]
 $failure = $null
 # 모두 검사만 · 찾기만 하는 룰의 메뉴 — 실험 룰을 받은 회차에서만(`$Keys` 로 좁힐 때는 그 이름으로).
+# 찾은 것 모두 치료는 그 뒤에 따로 이름이 있다 — 감염된 채 도는 장면이라, 깨끗한 랩에서 `-Keys "모두 검사"` 로
+# 부르는 콘솔 캡처(A11)가 그 장면까지 돌면 고를 줄이 없는 번호를 쳐 뜻 없는 화면이 기준선에 들었다(2026-11-16).
 $withExtra = [bool]$Extra -and (($Keys.Count -eq 0) -or ($Keys -contains "모두 검사"))
-$expected = $steps.Count + $(if ($withExtra) { 3 } else { 0 })
+$withTreatAll = $withExtra -and (($Keys.Count -eq 0) -or ($Keys -contains "찾은 것 모두 치료"))
+$expected = $steps.Count + $(if ($withExtra) { 2 } else { 0 }) + $(if ($withTreatAll) { 1 } else { 0 })
 try {
 # ── 모두 검사만 · 찾기만 하는 룰의 메뉴 — 룰이 둘일 때만 서는 화면 (기준 3 · 4) ──
 #
@@ -747,6 +750,7 @@ if ($withExtra) {
         # 복원하고(복원이 회차마다 지금처럼 되는지를 함께 잰다), 이 장면이 남긴 결과 폴더와 그 회차의 격리
         # 파일을 치운다. 남기면 뒤의 '치료' · '복원' 이 고르는 첫 후보가 이 장면의 것이 된다. 데모 감염에는
         # 도는 프로세스가 없어(`Set-InfectedState` — 폴더 · 예약 작업 · Run 값 · 백신 예외) 복원으로 다 돌아온다.
+        if ($withTreatAll) {
         $tn = 4
         if ($all.text -match "검사 항목 (\d+)개를 찾았습니다") { $tn = [int]$Matches[1] + 2 }
         $outRoot = Join-Path (Split-Path -Parent $Bin) "out"
@@ -817,6 +821,7 @@ if ($withExtra) {
             Where-Object { $outsBefore -notcontains $_.FullName } |
             ForEach-Object { Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction SilentlyContinue }
         foreach ($doneRq in $newRuns) { Remove-Item -LiteralPath $doneRq.FullName -Force -ErrorAction SilentlyContinue }
+        }
     } finally {
         Remove-Item $xDst -Recurse -Force -ErrorAction SilentlyContinue
     }

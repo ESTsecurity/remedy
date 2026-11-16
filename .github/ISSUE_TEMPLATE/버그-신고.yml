@@ -16,9 +16,9 @@ body:
   - type: input
     id: version
     attributes:
-      label: remedy 버전
-      description: "메뉴 첫 화면이나 `remedy --version` 에 보이는 버전입니다."
-      placeholder: "예: 1.19.1"
+      label: remedy 버전 (프로그램 · 룰)
+      description: "메뉴 첫 화면의 첫 줄이나 `remedy --version` 의 두 줄에 보이는 버전입니다 — 프로그램 버전과 룰 버전(날짜)을 함께 적어 주십시오."
+      placeholder: "예: 1.20.0 · 룰 2026.11.15"
     validations:
       required: true
   - type: dropdown
