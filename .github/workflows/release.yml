@@ -1,6 +1,10 @@
-# 배포 — `v<코어 버전>` 태그를 밀면 앵커를 박은 엔진과 그 OS 의 룰 전부를 담은 통합 꾸러미를 짓고,
-# 룰에 서명하고, 잡 안에서 잰 뒤(기준 5b) **초안** Release 에 올린다. 공개는 조직 Owner 가 한다 —
-# 릴리스 전 게이트(G9 · 설계-03 §10)와 내려받은 그 파일의 확인을 마친 뒤에.
+# 배포 — 태그를 밀면 앵커를 박은 엔진과 그 OS 의 룰 전부를 담은 통합 꾸러미를 짓고, 룰에 서명하고,
+# 잡 안에서 잰 뒤(기준 5b) **초안** Release 에 올린다. 공개는 조직 Owner 가 한다 — 릴리스 전
+# 게이트(G9 · 설계-03 §10)와 내려받은 그 파일의 확인을 마친 뒤에.
+#
+# 태그는 둘이다(`docs/개발-안내.md` "버전 번호" · `ci/version-check.sh` 가 본다) — 엔진이 바뀐 출시는
+# `v<엔진 버전>`(Cargo.toml 의 SemVer), 룰만 바뀐 출시는 `rules-<룰 버전>`(plugins/RULES-VERSION 의 날짜).
+# 어느 쪽이든 꾸러미는 같은 차례로 짓는다 — 엔진도 다시 짓고, 룰만 바뀐 출시는 엔진 코드가 지난 공개본과 같다.
 #
 # 차례는 `docs/operator.md` §9 그대로다 — 앵커를 박아 빌드 → 룰에 서명 → `xtask
 # package`. 빌드와 꾸러미는 같은 `REMEDY_TRUST_ANCHOR` 아래에서 한다: `package` 가 그
@@ -16,13 +20,13 @@
 #   하는 점검을 맡는 별도 실행 파일이고, 본체는 서명이 맞는 것만 띄운다. 그래서 그 폴더도 룰과 같은
 #   키로 서명하고, 잡 안에서 **본체가 실제로 띄우는지 · 바뀐 것은 띄우지 않는지**를 잰다. 본체와 따로
 #   짓는다 — 한 번에 지으면 두 크레이트의 기능이 합쳐져 본체가 혼자 지은 것과 달라질 수 있다.
-# - 시험판은 `v<코어 버전>-rc.<N>` 태그다. 같은 차례를 돌고 초안을 **시험판**으로
-#   표시한다. 엔진과 README 의 '코어' 줄은 코어 버전 그대로다 — 그 버전의 후보다.
+# - 시험판은 꼬리 `-rc.<N>` 을 붙인 태그다(`v1.20.0-rc.1` · `rules-2026.11.18-rc.1`). 같은 차례를 돌고
+#   초안을 **시험판**으로 표시한다. 엔진과 README 의 '프로그램' · '룰' 줄은 그 버전 그대로다 — 그 버전의 후보다.
 # - 산출물을 잡 사이에 넘기지 않는다. 공개 저장소의 Actions 산출물은 로그인한 누구나
 #   받는다 — OS 잡마다 자기 것을 초안에 직접 올리고, 체크섬 잡은 초안에서 받아 잰다.
 #   초안은 push 권한자만 본다.
-# - 서명 비밀은 Environment `release` 에 있고 `v*` 태그에서 도는 잡만 받는다. 태그는
-#   룰셋으로 조직 Owner 만 만든다. 비밀은 서명 단계에만 넣는다 — 서드파티 빌드
+# - 서명 비밀은 Environment `release` 에 있고 `v*` · `rules-*` 태그에서 도는 잡만 받는다. 두 태그 모두
+#   룰셋(`release-tags`)으로 조직 Owner 만 만든다. 비밀은 서명 단계에만 넣는다 — 서드파티 빌드
 #   스크립트는 그 전에 다 돈다.
 # - 캐시를 쓰지 않는다 — 배포물은 빈 자리에서 짓는다.
 #
@@ -33,7 +37,7 @@ name: Release
 
 on:
   push:
-    tags: ["v*"]
+    tags: ["v*", "rules-*"]
   pull_request:
     paths:
       - .github/workflows/release.yml
@@ -65,26 +69,17 @@ jobs:
     permissions:
       contents: write
     steps:
-      # 역사와 태그를 다 받는다 — 아래 '새 룰은 마이너' 가 지난 공개본의 태그와 견준다.
+      # 역사와 태그를 다 받는다 — 아래 버전 검사가 지난 공개본의 태그와 견준다.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           fetch-depth: 0
-      # 태그가 코어 버전과 다르면 README 의 '코어' 줄과 Release 이름이 갈린다. 버전은
-      # `xtask package` 가 README 에 적는 것과 같은 줄에서 읽는다. 더 받는 것은 시험판
-      # 꼬리 `-rc.<N>` 하나다. 따옴표 안의 버전은 글자 그대로 견준다 — `.` 이 아무
-      # 글자에나 맞지 않는다.
-      - name: tag = v<core version>[-rc.<N>]
-        run: |
-          version=$(grep -m1 -E '^\s*version' Cargo.toml | cut -d'"' -f2)
-          if ! [[ "$GITHUB_REF_NAME" =~ ^v"$version"(-rc\.[0-9]+)?$ ]]; then
-            echo "::error::태그 $GITHUB_REF_NAME 가 코어 버전 v$version(시험판은 v$version-rc.<N>)과 다르다"
-            exit 1
-          fi
-      # 지난 공개본에 없던 룰 폴더가 있는데 패치만 올렸으면 멈춘다(docs/개발-안내.md "판 번호").
-      # 시험판 태그에서도 돈다 — 정식 태그를 밀기 전에 걸린다.
-      - name: new rule = minor
-        run: bash ci/new-rule-minor.sh
+      # 태그의 꼴과 버전이 정책을 따르는가 — 태그 = 엔진 버전(v) · 룰 버전(rules), 엔진이 바뀌었으면 v 로 버전을
+      # 올렸는가, 룰만 바뀌었으면 엔진이 그대로인가, 룰이 바뀌었으면 룰 버전을 올렸는가(docs/개발-안내.md "버전 번호").
+      # 시험판 태그에서도 돈다 — 정식 태그를 밀기 전에 걸린다. 엔진 버전은 `xtask package` 가 README 에 적는 것과
+      # 같은 줄에서, 룰 버전은 같은 파일에서 읽는다.
+      - name: version policy
+        run: bash ci/version-check.sh "$GITHUB_REF_NAME"
       # 다시 돌릴 때를 위해 — 같은 태그의 초안이 있으면 그것에 올리고, 이미 공개된
       # Release 면 건드리지 않고 멈춘다. 시험판 태그의 초안은 시험판으로 만든다 — 누가
       # 공개해도 최신 Release 로 걸리지 않는다.
@@ -107,11 +102,22 @@ jobs:
           # 맨 위는 이전 버전과 달라진 점이다 — 새 버전 페이지에 온 사람이 먼저 찾는 것이다.
           # 출처는 docs/업데이트-내역.md 의 이 버전 칸 하나다(README 도 그 파일을 가리킨다).
           # 칸이 없으면 멈춘다 — 달라진 점이 빠진 본문을 올리지 않는다.
+          #
+          # 칸의 이름은 머리의 앞 낱말이다 — 엔진이 바뀐 출시는 `## <엔진 버전> · 룰 <룰 버전> — <날짜>` 의
+          # `<엔진 버전>`, 룰만 바뀐 출시는 `## 룰 <룰 버전> · 프로그램 <엔진 버전> — <날짜>` 의 `룰 <룰 버전>`.
+          # Release 이름은 두 버전을 함께 적는다(시험판은 꼬리 `-rc.<N>` 까지).
           version=$(grep -m1 -E '^\s*version' Cargo.toml | cut -d'"' -f2)
+          rules=$(tr -d '\r\n' <plugins/RULES-VERSION)
+          rc=
+          if [[ "$GITHUB_REF_NAME" =~ (-rc\.[0-9]+)$ ]]; then rc=${BASH_REMATCH[1]}; fi
+          case "$GITHUB_REF_NAME" in
+            rules-*) key="룰 $rules"; title="룰 $rules$rc · 프로그램 $version" ;;
+            *) key=$version; title="$version$rc · 룰 $rules" ;;
+          esac
           log=docs/업데이트-내역.md
-          head="## $version"
+          head="## $key"
           changes=$(awk -v h="$head" 'f && /^## / { exit } f { print } index($0, h " ") == 1 || $0 == h { f = 1 }' "$log" | sed '/./,$!d')
-          prev=$(awk -v h="$head" 'f && /^## / { print $2; exit } index($0, h " ") == 1 || $0 == h { f = 1 }' "$log")
+          prev=$(awk -v h="$head" 'f && /^## / { print ($2 == "룰" ? $2 " " $3 : $2); exit } index($0, h " ") == 1 || $0 == h { f = 1 }' "$log")
           if [ -z "$changes" ]; then
             echo "::error::$log 에 '$head' 칸이 없다 — 이 버전에서 달라진 점을 먼저 적는다"
             exit 1
@@ -126,7 +132,7 @@ jobs:
           # CentOS 7 급(8.22)이 거부한다. 한국어 환경의 `성공` 은 coreutils 번역 그대로다.
           {
             printf '## 이전 버전과 달라진 점 (%s%s)\n\n%s\n\n버전마다 달라진 점 전부 — [업데이트 내역](%s)\n\n' \
-              "${prev:+$prev → }" "$version" "$changes" "$history"
+              "${prev:+$prev → }" "$key" "$changes" "$history"
             cat <<'EOF'
           ## 무엇을 받나요
 
@@ -160,7 +166,7 @@ jobs:
           pre=
           if [[ "$GITHUB_REF_NAME" == *-rc.* ]]; then pre=--prerelease; fi
           gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft $pre --verify-tag \
-            --title "$GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/notes.md"
+            --title "$title" --notes-file "$RUNNER_TEMP/notes.md"
 
   release-windows:
     needs: draft

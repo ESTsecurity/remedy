@@ -19,6 +19,7 @@ pub mod lint;
 pub mod manifest;
 pub mod normalize;
 pub mod quarantine;
+pub mod rules_version;
 pub mod validate;
 
 pub use artifact::{

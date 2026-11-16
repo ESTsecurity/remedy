@@ -88,6 +88,27 @@ pub fn beside(exe: &Path) -> Vec<Found> {
     out
 }
 
+/// 꾸러미의 룰 버전 — 실행 파일 옆 `plugins/RULES-VERSION`(`remedy_sdk::rules_version`). **화면에 적기만 한다** —
+/// 서명 밖의 파일이라 무엇을 돌릴지 정하는 데 쓰지 않는다. 없거나 · 보통 파일이 아니거나(장치 · 파이프는 읽다가
+/// 멈출 수 있다) · 64바이트를 넘거나 · 꼴이 틀리면 `None` 이고, 머리말은 지금처럼 엔진 버전만 적는다.
+pub fn rules_version(exe: &Path) -> Option<String> {
+    let p = exe
+        .parent()?
+        .join("plugins")
+        .join(remedy_sdk::rules_version::FILE);
+    let meta = std::fs::metadata(&p).ok()?;
+    if !meta.is_file() || meta.len() > 64 {
+        return None;
+    }
+    let text = std::fs::read_to_string(&p).ok()?;
+    remedy_sdk::rules_version::parse(&text).map(str::to_string)
+}
+
+/// 이 실행 파일 옆의 룰 버전 — 머리말과 `--version` 이 부른다.
+pub fn rules_version_here() -> Option<String> {
+    rules_version(&std::env::current_exe().ok()?)
+}
+
 /// 메뉴의 묶음 — **하는 일로 가른다**(코어 1.16.0): 악성코드 탐지 · 제거(0) → 취약점 점검(1) → 원격 점검(2).
 ///
 /// 이름순 하나였을 때는 새 룰이 이름이 놓이는 자리에 끼어 뒤 번호가 밀렸고(1.15.0 의 Apache 가 2번), 치료 ·
@@ -163,6 +184,27 @@ mod tests {
             std::fs::create_dir_all(parent).expect("상위");
         }
         std::fs::write(p, "schema_version: 1\n").expect("파일");
+    }
+
+    /// 룰 버전은 `plugins/RULES-VERSION` 의 꼴이 맞을 때만 — 없거나 · 틀리거나 · 크거나 · 폴더면 적지 않는다.
+    /// 룰 폴더로 세지도 않는다(폴더가 아니다).
+    #[test]
+    fn the_rules_version_is_read_only_when_it_is_a_small_well_formed_file() {
+        let d = lab("rules-version");
+        let exe = d.join("remedy.exe");
+        let file = d.join("plugins").join(remedy_sdk::rules_version::FILE);
+        assert_eq!(rules_version(&exe), None);
+        touch(&d.join("plugins").join("alpha").join("plugin.yaml"));
+        std::fs::write(&file, "2026.11.15\r\n").expect("룰 버전");
+        assert_eq!(rules_version(&exe).as_deref(), Some("2026.11.15"));
+        assert_eq!(beside(&exe).len(), 1, "룰 버전 파일을 룰로 셌다");
+        std::fs::write(&file, "1.20.0\n").expect("틀린 꼴");
+        assert_eq!(rules_version(&exe), None);
+        std::fs::write(&file, format!("2026.11.15{}", " ".repeat(80))).expect("큰 파일");
+        assert_eq!(rules_version(&exe), None);
+        std::fs::remove_file(&file).expect("지움");
+        std::fs::create_dir_all(&file).expect("같은 이름의 폴더");
+        assert_eq!(rules_version(&exe), None);
     }
 
     #[test]

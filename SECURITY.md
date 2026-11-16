@@ -27,7 +27,7 @@ remedy는 파일을 삭제하고 프로세스를 종료하는 도구다. 이 도
 
 - `remedy support-bundle` 산출물
 - 재현에 사용한 `plugin.yaml` · `plan.json`
-- 코어 버전 (`remedy --version`) 과 빌드 타깃
+- 프로그램 버전과 룰 버전 (`remedy --version` 의 두 줄) 과 빌드 타깃
 
 ## 처리
 
