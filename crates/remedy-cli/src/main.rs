@@ -34,6 +34,9 @@ mod term;
 // 네트워크 점검 — 본체는 통신하지 않고, 서명이 맞는 동반 프로그램(`remedy-net`)을 띄워 맡긴다.
 mod net;
 
+// 같은 제품의 점검 발견을 묶는다 — *모두 검사* 끝 요약 밑의 '제품마다 — 올리면 해결되는 버전'.
+mod product;
+
 /// 화면 전체에 걸리는 설정. 시작할 때 한 번 정하고 어디서든 읽는다.
 ///
 /// `--lang`·`--ascii`·`--verbose` 는 어느 자리에 와도 된다 — 사용자는
@@ -1348,14 +1351,16 @@ fn scan_all(
         // 결과 파일은 찾은 룰 · 확인 필요 룰의 것만 남긴다(D11) — 깨끗한 룰 · 해당 없는 룰은 요약과 회차 로그에만.
         let one = scan_one(&args, Keep::Findings);
         tee::quiet(false);
-        let (code, kind, absent, review, kept) = match one {
-            Ok(s) => (s.code, s.kind, s.absent, s.review, s.kept),
+        let (code, kind, absent, review, kept, product, fixes) = match one {
+            Ok(s) => (
+                s.code, s.kind, s.absent, s.review, s.kept, s.product, s.fixes,
+            ),
             Err(f) => {
                 errln!("{}: {}", lang.t("실패", "Error"), f.message);
                 let kind = load_manifest(&path.to_string_lossy())
                     .ok()
                     .and_then(|m| m.kind);
-                (f.code, kind, false, false, false)
+                (f.code, kind, false, false, false, None, Vec::new())
             }
         };
         if many {
@@ -1380,6 +1385,8 @@ fn scan_all(
             absent,
             review,
             out: kept.then_some(out),
+            product,
+            fixes,
         });
     }
     outln!();
@@ -1449,6 +1456,34 @@ fn scan_all(
             ),
         };
         outln!("  {label}{}{note}", d.dash());
+    }
+    // **같은 제품의 발견을 묶는다**(목표 remedy_기본검사_룰관리 결정 ③④) — 요약 밑에 빈 줄을 두고 따로 선다. 판정은
+    // 룰마다 위 줄 그대로이고, 이 묶음은 '어디까지 올리면 모두 해결되는가' 를 한 번 적을 뿐이다. 룰이 선언한 확인
+    // 필요만 남은 룰(PHP 세션 점검 — 판정을 세우지 않는다)도 든다 — 판으로 풀리지 않아 그 제품의 판 줄 밑에 선다.
+    let found: Vec<product::Found> = done
+        .iter()
+        .filter(|r| r.code == Code::FoundNotRemediated || r.review)
+        .filter_map(|r| {
+            r.product.as_deref().map(|p| product::Found {
+                label: r.label,
+                product: p,
+                fixes: &r.fixes,
+            })
+        })
+        .collect();
+    let by_product = product::lines(&found, lang, d.dash());
+    if !by_product.is_empty() {
+        outln!();
+        outln!(
+            "{}",
+            lang.t(
+                "제품마다 — 올리면 해결되는 버전",
+                "By product — the version that resolves it"
+            )
+        );
+        for l in by_product {
+            outln!("{l}");
+        }
     }
     let codes: Vec<Code> = done.iter().map(|r| r.code).collect();
     ScanAllDone {
@@ -1807,6 +1842,9 @@ struct ScanAllRow<'a> {
     review: bool,
     /// 남긴 결과 폴더 — 찾은 룰 · 확인 필요 룰만(D11).
     out: Option<std::path::PathBuf>,
+    /// 같은 제품의 점검 룰을 묶는 열쇠 · 찾았을 때의 고친 판([`ScanOne`] 그대로).
+    product: Option<String>,
+    fixes: Vec<product::Fix>,
 }
 
 /// 모두 검사만의 종료 코드 — **새 코드를 만들지 않는다**(불변식 I3). 찾은 것이 하나라도 있으면
@@ -2694,6 +2732,10 @@ struct ScanOne {
     review: bool,
     /// 결과 파일을 남겼다.
     kept: bool,
+    /// 같은 제품의 점검 룰을 묶는 열쇠(`product` · 코어 1.21.0).
+    product: Option<String>,
+    /// 점검 룰이 찾았을 때 — 판정이 선 증거의 고친 판([`product::fixes_of`]). 그 밖에는 빈다.
+    fixes: Vec<product::Fix>,
 }
 
 /// [`cmd_scan`] 의 몸통. 화면과 차례는 `keep` 과 상관없이 같고, 다른 것은 결과 파일을 쓰는가와 그 폴더를 적는
@@ -2746,12 +2788,19 @@ fn scan_one(raw: &[String], keep: Keep) -> Result<ScanOne, Failure> {
         "{}",
         remedy_core::report::result_line_for(code, 0, ui().lang, m.kind, review)
     );
+    let fixes = if m.kind == Some(PluginKind::Check) && code == Code::FoundNotRemediated {
+        product::fixes_of(&scan.body)
+    } else {
+        Vec::new()
+    };
     Ok(ScanOne {
         code,
         kind: m.kind,
         absent,
         review,
         kept,
+        product: m.product.clone(),
+        fixes,
     })
 }
 
