@@ -143,14 +143,14 @@ pub fn arm() {
         if press() {
             let _ = crossterm::terminal::disable_raw_mode();
             if fancy() {
-                print!("{ESC}[?25h");
+                screen_out!("{ESC}[?25h");
             }
-            eprintln!();
+            screen_errln!();
             std::process::exit(i32::from(forced_exit_code()));
         }
-        eprintln!();
+        screen_errln!();
         let hint = hint_again(TASK.load(Ordering::SeqCst) != TASK_NONE);
-        eprintln!("{}", crate::tee::ascii_safe(hint));
+        screen_errln!("{}", crate::tee::ascii_safe(hint));
     });
 }
 
@@ -504,8 +504,8 @@ fn choose_line(rows: &[Row], zero: Option<&str>, n: usize) -> Answer {
     let lang = ui().lang;
     let lo = usize::from(zero.is_none());
     loop {
-        eprintln!();
-        eprint!(
+        screen_errln!();
+        screen_err!(
             "{}",
             lang.pick(
                 format!("번호를 고르십시오 ({lo}-{n}): "),
@@ -524,7 +524,7 @@ fn choose_line(rows: &[Row], zero: Option<&str>, n: usize) -> Answer {
         };
         // 고를 수 없는 줄 — 까닭을 보이고 다시 묻는다. 읽을 줄이 없으면 위에서 끝난다.
         match off_note(rows, v) {
-            Some(note) => eprintln!("{}", crate::tee::ascii_safe(note)),
+            Some(note) => screen_errln!("{}", crate::tee::ascii_safe(note)),
             None => return Answer::Num(v),
         }
     }

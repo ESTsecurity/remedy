@@ -23,6 +23,8 @@
 #   C  감염 CWP — 점검 2 · 그대로 · 치료 1(격리 · 유닛 비활성화와 삭제 · 백업은 남는다) ·
 #      치료 뒤 다시 점검 · 복원 0(바이너리 · 유닛이 같은 바이트로 돌아온다)
 #   D  룰에 IP 주소 · 해시가 없다 — 공개 보도에 없는 지표(드로퍼 해시 등)를 싣지 않는다
+#   F  화면을 읽는 쪽이 치료 도중에 닫힌다(`remedy … | head` 꼴) — 치료가 1 로 끝까지 가고 · 회차 로그가 끊긴 까닭과
+#      마무리를 적고 · 크래시 기록이 없고 · 복원이 같은 바이트로 돌린다. 1.20.0 · 1.21.0 은 그 자리에서 7 로 멈췄다
 #
 # 서비스 **중지의 효과**는 여기서 재지 못한다 — 계획에 들고 수행도 되지만, 컨테이너에는
 # systemd 가 PID 1 이 아니어서 멈출 패널이 돌고 있지 않다.
@@ -129,6 +131,36 @@ PY
     check "C10 복원이 0 으로 끝난다" "$([ $c = 0 ] && echo 1 || echo 0)" "exit=$c"
     check "C11 바이너리 · 유닛이 같은 바이트로 돌아왔다" \
         "$([ "$(sha /usr/local/cwpsrv/bin/cwpsrv)" = "$i0" ] && [ "$(sha /lib/systemd/system/cwpsrv.service)" = "$u0" ] && echo 1 || echo 0)" ""
+
+    echo "── F. 화면을 읽는 쪽이 치료 도중에 닫힌다 ──"
+    # C 의 복원으로 다시 감염된 기계다. 부팅 표지와 4초를 자는 대역 systemctl 을 이 컨테이너 안에만 둔다 — 치료가 그
+    # 도구를 기다리는 동안 진행 줄(심장박동 1초)이 서고, 읽는 쪽은 첫 진행 줄을 받자마자 닫는다. 그 뒤의 화면 쓰기는
+    # 모두 실패한다. stderr 는 파일로 받아 stdout 만 끊는다(`remedy … | head` 의 꼴).
+    mkdir -p /run/systemd/system
+    printf '#!/bin/sh\necho "$*" >> /tmp/systemctl.calls\nsleep 4\nexit 0\n' >/usr/bin/systemctl
+    chmod +x /usr/bin/systemctl
+    rm -f /tmp/systemctl.calls /tmp/f-closed /tmp/f-exit
+    { REMEDY_LANG=ko LANG=C.UTF-8 REMEDY_HEARTBEAT_SECS=1 "$R" run --plugin "$CLEAN" --yes --out-dir /tmp/out-f \
+        --state-dir /tmp/state 2>"$O/f-clean.err"; echo $? >/tmp/f-exit; } |
+        { while IFS= read -r l; do
+            printf '%s\n' "$l" >>"$O/f-clean.txt"
+            case "$l" in *"치료 중 · "*) : >/tmp/f-closed; break ;; esac
+        done; }
+    c=$(cat /tmp/f-exit 2>/dev/null)
+    local flog frun; flog=$(ls -t /tmp/state/logs/run-*.log 2>/dev/null | head -1)
+    frun=$(basename "${flog:-none}" .log)
+    check "F1 읽는 쪽이 치료 도중에 닫혔다 (첫 진행 줄에서)" "$([ -e /tmp/f-closed ] && echo 1 || echo 0)" \
+        "$(head -1 /tmp/systemctl.calls 2>/dev/null)"
+    check "F2 치료가 C4 와 같은 1 로 끝난다 (7 이 아니다)" "$([ "$c" = 1 ] && echo 1 || echo 0)" "exit=${c:-?}"
+    check "F3 바이너리 · 유닛이 없어졌다 (치료가 끝까지 갔다)" \
+        "$([ ! -e /usr/local/cwpsrv/bin/cwpsrv ] && [ ! -e /lib/systemd/system/cwpsrv.service ] && echo 1 || echo 0)" ""
+    check "F4 회차 로그가 끝까지 적었다 — 끊긴 까닭과 치료 완료" \
+        "$(grep -q '화면 출력(stdout)이 끊겨' "${flog:-/dev/null}" && grep -q '치료 완료' "${flog:-/dev/null}" && echo 1 || echo 0)" "$frun"
+    check "F5 크래시 기록이 없다" "$([ -z "$(ls /tmp/state/logs/crash-*.txt 2>/dev/null)" ] && echo 1 || echo 0)" \
+        "$(ls /tmp/state/logs/crash-*.txt 2>/dev/null | wc -l)개"
+    REMEDY_LANG=ko LANG=C.UTF-8 "$R" restore --run "$frun" --yes --state-dir /tmp/state >"$O/f-restore.txt" 2>&1; c=$?
+    check "F6 복원이 0 이고 바이너리 · 유닛이 같은 바이트로 돌아왔다" \
+        "$([ $c = 0 ] && [ "$(sha /usr/local/cwpsrv/bin/cwpsrv)" = "$i0" ] && [ "$(sha /lib/systemd/system/cwpsrv.service)" = "$u0" ] && echo 1 || echo 0)" "exit=$c"
 
     if [ "$MENU_CTRLC" = 1 ]; then
         echo "── E. 메뉴 세션 — 치료 도중 Ctrl+C 한 번 ──"

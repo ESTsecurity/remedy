@@ -92,7 +92,7 @@ pub(crate) fn save_json<T: Serialize>(
 
 /// 처리 실패 — 까닭을 표준 오류에 한 줄로 내고 7 로 끝낸다.
 pub(crate) fn fail(lang: Lang, why: &str) -> Outcome {
-    eprintln!(
+    crate::errln!(
         "{}",
         ascii_safe(lang.pick(format!("오류: {why}"), format!("error: {why}")))
     );

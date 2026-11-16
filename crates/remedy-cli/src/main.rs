@@ -1911,7 +1911,7 @@ fn back_to_menu(
         }
         outln!();
     }
-    eprint!(
+    screen_err!(
         "{}",
         lang.t(
             "Enter 를 누르면 메뉴로 돌아갑니다. ",
@@ -1950,8 +1950,8 @@ fn wait_before_closing() {
     let lang = ui().lang;
     // stdout 은 화면의 결과이고 이 줄은 화면을 붙잡는 장치다 — stderr 로 낸다.
     // 그래야 `remedy > 화면.txt` 로 갈무리한 파일에 프롬프트가 섞이지 않는다.
-    eprintln!();
-    eprint!(
+    screen_errln!();
+    screen_err!(
         "{}",
         lang.t(
             "이 창을 닫으려면 Enter 를 누르십시오. ",
@@ -3044,7 +3044,7 @@ fn confirm_removable(removable: &[String]) -> Result<bool, Failure> {
 /// 묻고 한 줄을 받는다 — '예'(또는 yes · y)면 참, 아니면 *"아무것도 하지 않았습니다"* 를 적고 거짓.
 fn ask_yes(prompt: &str) -> Result<bool, Failure> {
     use std::io::Write;
-    eprint!("{prompt}");
+    screen_err!("{prompt}");
     std::io::stderr().flush().ok();
     let mut line = String::new();
     std::io::stdin()
@@ -3095,7 +3095,7 @@ fn confirm_restore() -> bool {
     let en = "The list above will be restored to the state before treatment — quarantined files \
               go back in place and overwrite whatever is there now. Proceed only if you judged \
               it a false positive. Type 'yes' (or y) to proceed: ";
-    eprint!("\n{}", lang.t(ko, en));
+    screen_err!("\n{}", lang.t(ko, en));
     std::io::stderr().flush().ok();
     let mut line = String::new();
     if std::io::stdin().read_line(&mut line).is_err() {
