@@ -44,12 +44,12 @@ const GRACE: Duration = Duration::from_millis(500);
 pub fn run(args: &[String], lang: Lang) -> Outcome {
     let opts = match args::parse(args, lang) {
         Ok(args::Parsed::Help) => {
-            print!("{}", ascii_safe(help(lang)));
+            crate::out!("{}", ascii_safe(help(lang)));
             return Outcome::Clear;
         }
         Ok(args::Parsed::Run(o)) => o,
         Err(why) => {
-            eprintln!(
+            crate::errln!(
                 "{}",
                 ascii_safe(lang.pick(
                     format!("입력 오류: {why}\n쓰는 법은 'remedy-net url --help' 로 보십시오."),
@@ -63,7 +63,7 @@ pub fn run(args: &[String], lang: Lang) -> Outcome {
     let criteria = match load(opts.products) {
         Ok(c) => c,
         Err(why) => {
-            eprintln!("{}", ascii_safe(why.message(lang)));
+            crate::errln!("{}", ascii_safe(why.message(lang)));
             return Outcome::BadInput;
         }
     };
@@ -84,7 +84,7 @@ pub fn run(args: &[String], lang: Lang) -> Outcome {
         consent::ask(opts.consent, lang, &mut stdin.lock(), &mut out)
     };
     let Some(via) = via else {
-        println!("{}", lang.t("점검을 취소했습니다.", "Check cancelled."));
+        crate::outln!("{}", lang.t("점검을 취소했습니다.", "Check cancelled."));
         return Outcome::BadInput;
     };
     let accepted_at = SystemTime::now();
@@ -94,7 +94,7 @@ pub fn run(args: &[String], lang: Lang) -> Outcome {
         let mut out = std::io::stdout();
         let typed = ask::urls(lang, &mut stdin.lock(), &mut out);
         if typed.is_empty() {
-            println!(
+            crate::outln!(
                 "{}",
                 lang.t(
                     "점검할 주소를 받지 못해 아무것도 점검하지 않았습니다.",
@@ -198,7 +198,7 @@ impl Run {
         let started = SystemTime::now();
         let budget = Arc::new(Budget::new(Instant::now(), lang));
         let total = unique(&self.urls);
-        println!(
+        crate::outln!(
             "{}",
             ascii_safe(lang.pick(
                 format!("점검 시작: URL {total}개 — 요청은 2초 간격, URL 하나에 10초까지 기다립니다."),
@@ -237,7 +237,7 @@ impl Run {
         loop {
             match rx.recv_timeout(SLICE) {
                 Ok(Msg::Done(t)) => {
-                    print!(
+                    crate::out!(
                         "{}",
                         ascii_safe(report::render(&t, shown.len() + 1, total, lang))
                     );
@@ -283,7 +283,7 @@ impl Run {
                         continue;
                     }
                     p.gaps.push(why.to_string());
-                    print!(
+                    crate::out!(
                         "{}",
                         ascii_safe(report::render(&p, ts.len() + 1, total, lang))
                     );
@@ -369,13 +369,13 @@ impl Run {
             },
             limitations: limitations(self.cacert, self.criteria.products(), lang),
         };
-        println!();
-        println!("{}", ascii_safe(report::header_caveat(lang).to_string()));
-        println!(
+        crate::outln!();
+        crate::outln!("{}", ascii_safe(report::header_caveat(lang).to_string()));
+        crate::outln!(
             "{}",
             ascii_safe(never_clear(self.criteria.products(), lang).to_string())
         );
-        println!(
+        crate::outln!(
             "{}",
             ascii_safe(remedy_report::result_line_for(
                 outcome.exit(),
@@ -387,7 +387,7 @@ impl Run {
         );
         match report::save(&self.dir, &report) {
             Ok(path) => {
-                println!("{}: {}", lang.t("결과 파일", "Report"), path.display());
+                crate::outln!("{}: {}", lang.t("결과 파일", "Report"), path.display());
                 outcome
             }
             Err(_) => fail(

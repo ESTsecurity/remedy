@@ -133,6 +133,30 @@ fn image_declined_terms_end_with_four_and_no_folder() {
     assert!(!out.exists(), "동의하지 않았는데 결과 폴더가 생겼다");
 }
 
+/// 화면을 **읽는 쪽이 이미 닫힌 파이프**에 써도 그 명령의 종료 코드로 끝난다(`remedy-net … | head`). 1.21.0
+/// 까지는 `println!` 이 패닉해 SIGABRT(134)로 죽었다 — 종료 코드 표 밖이다.
+#[test]
+fn a_closed_screen_does_not_crash_the_program() {
+    for args in [
+        &["--version"][..],
+        &["--help"][..],
+        &["url", "--help"][..],
+        &["image", "--help"][..],
+    ] {
+        let (reader, writer) = std::io::pipe().expect("파이프");
+        drop(reader);
+        let o = criteria::command()
+            .args(args)
+            .env("REMEDY_LANG", "en")
+            .env("REMEDY_ASCII", "0")
+            .stdout(writer)
+            .output()
+            .expect("remedy-net 을 띄우지 못했다");
+        assert_eq!(o.status.code(), Some(0), "{args:?}: {}", stderr(&o));
+        assert!(!stderr(&o).contains("panicked"), "{args:?}: {}", stderr(&o));
+    }
+}
+
 #[test]
 fn every_command_has_its_own_help() {
     for (cmd, line) in [

@@ -77,7 +77,7 @@ fn main() {
     };
     i18n::init(lang, ascii);
     if let Some(v) = unknown_lang {
-        eprintln!(
+        remedy_net::errln!(
             "--lang '{v}': 모르는 언어라 무시했습니다 (ko | en) / unknown language, ignored (ko | en)"
         );
     }
@@ -89,11 +89,11 @@ fn main() {
 fn run(args: &[String], lang: Lang) -> Outcome {
     match args.first().map(String::as_str) {
         None | Some("--help" | "-h" | "help") => {
-            print!("{}", ascii_safe(help(lang)));
+            remedy_net::out!("{}", ascii_safe(help(lang)));
             Outcome::Clear
         }
         Some("--version" | "-V" | "version") => {
-            println!("{}", ascii_safe(version_line(lang)));
+            remedy_net::outln!("{}", ascii_safe(version_line(lang)));
             Outcome::Clear
         }
         Some("url") => remedy_net::url::run(&args[1..], lang),
@@ -106,7 +106,7 @@ fn run(args: &[String], lang: Lang) -> Outcome {
                 ),
                 format!("unknown command: {other} — see 'remedy-net --help'."),
             );
-            eprintln!("{}", ascii_safe(why));
+            remedy_net::errln!("{}", ascii_safe(why));
             Outcome::BadInput
         }
     }

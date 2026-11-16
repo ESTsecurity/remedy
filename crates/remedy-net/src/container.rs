@@ -97,12 +97,12 @@ fn push_id(ids: &mut Vec<String>, raw: String, lang: Lang) -> Result<(), String>
 pub fn run(args: &[String], lang: Lang) -> Outcome {
     let o = match parse(args, lang) {
         Ok(Parsed::Help) => {
-            print!("{}", ascii_safe(help(lang)));
+            crate::out!("{}", ascii_safe(help(lang)));
             return Outcome::Clear;
         }
         Ok(Parsed::Run(o)) => o,
         Err(why) => {
-            eprintln!(
+            crate::errln!(
                 "{}",
                 ascii_safe(lang.pick(
                     format!(
@@ -121,7 +121,7 @@ pub fn run(args: &[String], lang: Lang) -> Outcome {
     let rules = match RuleSet::load() {
         Ok(r) => r,
         Err(why) => {
-            eprintln!("{}", ascii_safe(why.message(lang)));
+            crate::errln!("{}", ascii_safe(why.message(lang)));
             return Outcome::BadInput;
         }
     };
@@ -164,26 +164,26 @@ fn list(endpoint: &str, lang: Lang) -> Outcome {
         Ok(f) => f,
         Err(why) => return fail(lang, &why),
     };
-    println!("{}", lang.t("실행 중인 컨테이너:", "Running containers:"));
+    crate::outln!("{}", lang.t("실행 중인 컨테이너:", "Running containers:"));
     if found.is_empty() {
-        println!(
+        crate::outln!(
             "{}",
             lang.t("실행 중인 컨테이너가 없습니다.", "No container is running.")
         );
     }
     for c in &found {
-        println!("{}  {}", plain(&c.id, 64), plain(&c.name, 200));
+        crate::outln!("{}  {}", plain(&c.id, 64), plain(&c.name, 200));
     }
     if let Some(first) = found.first() {
         let short = first.id.get(..12).unwrap_or(&first.id);
-        println!(
+        crate::outln!(
             "{}: remedy-net container {}",
             lang.t("점검 예", "example"),
             plain(short, 12)
         );
     }
     let requests = budget.usage().container_requests;
-    println!(
+    crate::outln!(
         "{}",
         lang.pick(
             format!("컨테이너 API 요청 {requests}회"),

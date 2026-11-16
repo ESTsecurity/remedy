@@ -1,11 +1,14 @@
 //! 죽거나 멈추면 무엇이 남는가 — 관측성 (2026-09-07 Phase 1).
 //!
-//! 세 가지를 잰다.
+//! 네 가지를 잰다.
 //! 1. 패닉이 나면 **종료 코드 7** 로 나가고 `logs/crash-*.txt` 에 무엇이 어디서
 //!    죽었는지 남는다 (개발 빌드의 `REMEDY_PANIC_TEST=1` 로 일으킨다).
 //! 2. 기계를 만지는 명령은 화면에 나간 줄을 `logs/<run_id>.log` 에 시각과 함께
 //!    복사한다.
 //! 3. `support-bundle` 이 그 로그를 `run.log` 로 담는다.
+//! 4. 화면을 읽는 쪽이 먼저 닫혀도(`remedy … | head`) 죽지 않는다 — 작업은 끝까지
+//!    가고 회차 로그가 끊긴 까닭과 나머지를 적는다. 1.21.0 까지는 `println!` 이
+//!    패닉해 치료 도중에도 7 로 멈췄다.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -258,6 +261,100 @@ fn lookup_commands_leave_no_log() {
     let out = run(&["--version"], &[]);
     assert_eq!(out.code, 0);
     assert!(!state.join("logs").exists());
+    let _ = std::fs::remove_dir_all(&base);
+}
+
+/// stdout 을 **읽는 쪽이 이미 닫힌 파이프**로 두고 띄운다 — 화면 쓰기가 모두 실패한다(유닉스 EPIPE ·
+/// Windows ERROR_NO_DATA). `remedy … | head` 에서 head 가 먼저 끝난 뒤와 같다.
+fn run_unread(args: &[&str]) -> Out {
+    let (reader, writer) = std::io::pipe().expect("파이프");
+    drop(reader);
+    let out = Command::new(EXE)
+        .args(args)
+        .env("REMEDY_ELEVATION", "yes")
+        .env("REMEDY_LANG", "ko")
+        .stdout(writer)
+        .output()
+        .unwrap_or_else(|e| panic!("{EXE} 실행 실패: {e}"));
+    Out {
+        code: out.status.code().unwrap_or(-1),
+        stdout: String::new(),
+        stderr: String::from_utf8_lossy(&out.stderr).into_owned(),
+    }
+}
+
+#[test]
+fn lookup_commands_end_normally_when_nobody_reads_the_screen() {
+    for args in [&["--version"][..], &["--help"][..]] {
+        let out = run_unread(args);
+        assert_eq!(out.code, 0, "{args:?}\n{}", out.stderr);
+        assert!(
+            !out.stderr.contains("내부 오류"),
+            "{args:?}\n{}",
+            out.stderr
+        );
+    }
+}
+
+#[test]
+fn treatment_goes_to_the_end_when_nobody_reads_the_screen() {
+    let base = work("unread");
+    let root = base.join("tree");
+    std::fs::create_dir_all(&root).expect("트리");
+    std::fs::write(root.join("a.evil"), b"junk").expect("검체");
+    let p = base.join("plugin.yaml");
+    std::fs::write(
+        &p,
+        format!(
+            r#"schema_version: 1
+id: observability-unread
+version: 1.0.0
+min_core: '1.0.0'
+platforms: [windows, linux]
+name: {{ ko: '끊긴 화면 시험', en: 'unread screen test' }}
+scan_roots: ['{root}']
+subjects: [file]
+detect:
+  - id: junk
+    subject: file
+    where:
+      - {{ field: path, op: ends_with, value: '.evil' }}
+verdict: {{ require: 'junk' }}
+remediate:
+  remove:
+    - {{ ref: junk }}
+"#,
+            root = root.display().to_string().replace('\\', "/")
+        ),
+    )
+    .expect("플러그인");
+    let state = base.join("state");
+    let out = run_unread(&[
+        "run",
+        "--plugin",
+        &s(&p),
+        "--out-dir",
+        &s(&base.join("out")),
+        "--yes",
+        "--state-dir",
+        &s(&state),
+    ]);
+    // 치료가 서면 1 — 화면이 있을 때와 같은 코드다(restore_list 의 treat_once).
+    assert_eq!(out.code, 1, "치료가 끝까지 가지 않았다:\n{}", out.stderr);
+    assert!(!root.join("a.evil").exists(), "검체가 그대로다");
+    let logs = files_in(&state.join("logs"), "run-", ".log");
+    assert_eq!(logs.len(), 1, "회차 로그: {logs:?}");
+    let text = std::fs::read_to_string(&logs[0]).unwrap();
+    assert!(
+        text.contains("화면 출력(stdout)이 끊겨"),
+        "끊긴 까닭이 없다:\n{text}"
+    );
+    assert!(text.contains("치료 완료"), "마무리가 없다:\n{text}");
+    assert!(
+        files_in(&state.join("logs"), "crash-", ".txt").is_empty(),
+        "크래시 기록이 남았다:\n{}",
+        out.stderr
+    );
     let _ = std::fs::remove_dir_all(&base);
 }
 

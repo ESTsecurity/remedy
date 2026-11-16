@@ -1056,7 +1056,7 @@ fn pick_from(title: &str, members: &[&Chosen], shown: &dyn Fn(&Chosen) -> String
 fn search_rules(all: &[Chosen]) -> Option<Vec<&Chosen>> {
     use std::io::Write;
     let lang = ui().lang;
-    eprint!(
+    screen_err!(
         "{}",
         lang.t(
             "찾을 낱말 (이름 · 제품 · CVE · 비우면 돌아갑니다): ",

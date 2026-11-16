@@ -78,12 +78,12 @@ fn push_input(inputs: &mut Vec<String>, raw: String, lang: Lang) -> Result<(), S
 pub fn run(args: &[String], lang: Lang) -> Outcome {
     let o = match parse(args, lang) {
         Ok(Parsed::Help) => {
-            print!("{}", ascii_safe(help(lang)));
+            crate::out!("{}", ascii_safe(help(lang)));
             return Outcome::Clear;
         }
         Ok(Parsed::Run(o)) => o,
         Err(why) => {
-            eprintln!(
+            crate::errln!(
                 "{}",
                 ascii_safe(lang.pick(
                     format!("입력 오류: {why}\n쓰는 법은 'remedy-net image --help' 로 보십시오."),
@@ -97,7 +97,7 @@ pub fn run(args: &[String], lang: Lang) -> Outcome {
     let rules = match RuleSet::load() {
         Ok(r) => r,
         Err(why) => {
-            eprintln!("{}", ascii_safe(why.message(lang)));
+            crate::errln!("{}", ascii_safe(why.message(lang)));
             return Outcome::BadInput;
         }
     };

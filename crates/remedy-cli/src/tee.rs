@@ -15,14 +15,87 @@
 //! (3) 화면에 두 언어로 알린 뒤, (4) **종료 코드 7** 로 나간다 (결정 2026-09-07).
 //! `process::exit` 는 소멸자를 돌리지 않지만 저널은 줄마다 `sync_data` 했고
 //! 잠금 파일은 OS 가 푼다.
+//!
+//! # 끊긴 화면
+//!
+//! 화면을 읽는 쪽이 먼저 끝나면(`remedy … | head` · `| grep -q`) 그 뒤의 화면 쓰기는 실패한다.
+//! **화면은 사본이다** — 끊긴 스트림에는 더 쓰지 않고, 작업과 회차 로그는 끝까지 가고, 종료 코드는
+//! 그 작업의 것이다([`write_screen`]). 1.20.0 · 1.21.0 은 `println!` 이 패닉해 치료 도중에도 7 로
+//! 멈췄다 — 서비스는 멈췄는데 파일은 격리하지 않은 채였다(CWPdoor 하네스 F).
 
 use remedy_core::runlog::RunLog;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::Ordering::SeqCst;
 use std::sync::{Mutex, OnceLock};
 
 static RUNLOG: Mutex<Option<RunLog>> = Mutex::new(None);
 /// 마지막으로 정해진 상태 폴더. 크래시 기록이 갈 곳이다.
 static STATE_DIR: OnceLock<PathBuf> = OnceLock::new();
+
+/// 화면의 stdout · stderr 가 끊겼는가 — 끊긴 스트림에는 더 쓰지 않는다.
+static OUT_GONE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+static ERR_GONE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// 처음 끊긴 까닭 — 그 뒤에 여는 회차 로그에도 적는다([`open`]).
+static OUT_WHY: OnceLock<String> = OnceLock::new();
+static ERR_WHY: OnceLock<String> = OnceLock::new();
+
+/// 화면에 그대로 쓴다(줄바꿈은 `text` 가 가진다). 쓰지 못하면 그 스트림을 끊긴 것으로 두고 열린 회차
+/// 로그에 까닭을 한 줄 남긴다 — **패닉하지 않는다**(위 '끊긴 화면').
+pub fn write_screen(stderr: bool, text: &str) {
+    let (gone, why) = if stderr {
+        (&ERR_GONE, &ERR_WHY)
+    } else {
+        (&OUT_GONE, &OUT_WHY)
+    };
+    if gone.load(SeqCst) {
+        return;
+    }
+    let wrote = if stderr {
+        std::io::Write::write_all(&mut std::io::stderr().lock(), text.as_bytes())
+    } else {
+        std::io::Write::write_all(&mut std::io::stdout().lock(), text.as_bytes())
+    };
+    if let Err(e) = wrote {
+        if !gone.swap(true, SeqCst) {
+            let e = e.to_string();
+            let _ = with_log(|l| l.line("#", &gone_note(stderr, &e)));
+            let _ = why.set(e);
+        }
+    }
+}
+
+/// 회차 로그에 남기는 '화면이 끊겼다' 한 줄.
+fn gone_note(stderr: bool, why: &str) -> String {
+    let stream = if stderr { "stderr" } else { "stdout" };
+    remedy_sdk::i18n::current().pick(
+        format!("화면 출력({stream})이 끊겨 이 뒤의 줄은 이 로그에만 남깁니다 — {why}"),
+        format!("screen output ({stream}) is gone; the rest goes to this log only — {why}"),
+    )
+}
+
+/// 화면에만 — `print!` 과 같되 끊긴 화면에서 패닉하지 않는다. 로그에는 복사하지 않는다.
+macro_rules! screen_out {
+    ($($arg:tt)*) => {
+        $crate::tee::write_screen(false, &format!($($arg)*))
+    };
+}
+
+/// 화면에만 — `eprint!` 과 같되 끊긴 화면에서 패닉하지 않는다(프롬프트 · Ctrl+C 안내).
+macro_rules! screen_err {
+    ($($arg:tt)*) => {
+        $crate::tee::write_screen(true, &format!($($arg)*))
+    };
+}
+
+/// 화면에만 — `eprintln!` 과 같되 끊긴 화면에서 패닉하지 않는다.
+macro_rules! screen_errln {
+    () => {
+        $crate::tee::write_screen(true, "\n")
+    };
+    ($($arg:tt)*) => {
+        $crate::tee::write_screen(true, &format!("{}\n", format_args!($($arg)*)))
+    };
+}
 
 /// stdout 한 줄. 로그가 열려 있으면 `|` 로 복사한다.
 macro_rules! outln {
@@ -105,7 +178,7 @@ fn draw_progress(text: String) {
     let text = ascii_safe(text);
     if !crate::term::fancy() {
         clear_progress();
-        println!("{text}");
+        write_screen(false, &format!("{text}\n"));
         let _ = with_log(|l| l.lines("|", &format!("{text}\n")));
         return;
     }
@@ -139,11 +212,7 @@ pub fn emit(stderr: bool, text: String) {
     let text = ascii_safe(text);
     let shown = crate::term::paint(&text, stderr);
     let screen = shown.as_deref().unwrap_or(&text);
-    if stderr {
-        eprintln!("{screen}");
-    } else {
-        println!("{screen}");
-    }
+    write_screen(stderr, &format!("{screen}\n"));
     let mark = if stderr { "!" } else { "|" };
     let _ = with_log(|l| l.lines(mark, &format!("{text}\n")));
 }
@@ -156,8 +225,8 @@ pub fn emit_raw(text: String) {
     clear_progress();
     let text = ascii_safe(text);
     match crate::term::paint_block(&text) {
-        Some(p) => print!("{p}"),
-        None => print!("{text}"),
+        Some(p) => write_screen(false, &p),
+        None => write_screen(false, &text),
     }
     let _ = with_log(|l| l.lines("|", &text));
 }
@@ -177,17 +246,26 @@ pub fn open(state_dir: &Path, name: &str) {
         std::env::args().skip(1).collect::<Vec<_>>().join(" ")
     );
     match RunLog::open(state_dir, name, &header) {
-        Ok(l) => {
+        Ok(mut l) => {
+            // 로그를 열기 전에 화면이 끊겼으면 그 까닭부터 — 이 로그에는 화면에 없는 줄이 있다.
+            for (stderr, why) in [(false, &OUT_WHY), (true, &ERR_WHY)] {
+                if let Some(why) = why.get() {
+                    let _ = l.line("#", &gone_note(stderr, why));
+                }
+            }
             let mut guard = RUNLOG.lock().unwrap_or_else(|e| e.into_inner());
             *guard = Some(l);
         }
-        Err(e) => eprintln!(
-            "{}: {} ({e})",
-            remedy_sdk::i18n::t("알림", "Notice"),
-            remedy_sdk::i18n::t(
-                "회차 로그를 열지 못해 화면에만 남깁니다",
-                "could not open the run log; output goes to the screen only"
-            )
+        Err(e) => write_screen(
+            true,
+            &format!(
+                "{}: {} ({e})\n",
+                remedy_sdk::i18n::t("알림", "Notice"),
+                remedy_sdk::i18n::t(
+                    "회차 로그를 열지 못해 화면에만 남깁니다",
+                    "could not open the run log; output goes to the screen only"
+                )
+            ),
         ),
     }
 }
@@ -274,10 +352,14 @@ pub fn install_panic_hook() {
                 let _ = l.line("#", &format!("PANIC {where_}: {what}"));
             }
         }
-        // 3) 화면.
+        // 3) 화면 — 쓰기 실패를 삼킨다(끊긴 화면에서 훅이 다시 패닉하면 7 없이 죽는다). [`write_screen`]
+        // 은 쓰지 않는다 — 로그 잠금을 다시 잡아, 패닉이 로그를 쓰던 중이었으면 멈춘다.
+        use std::io::Write as _;
         let lang = remedy_sdk::i18n::current();
-        eprintln!();
-        eprintln!(
+        let mut err = std::io::stderr().lock();
+        let _ = writeln!(err);
+        let _ = writeln!(
+            err,
             "{}: {}",
             lang.t("실패", "Error"),
             lang.t(
@@ -285,24 +367,27 @@ pub fn install_panic_hook() {
                 "internal error: the tool itself crashed. The machine is as the journal recorded up to this point"
             )
         );
-        eprintln!("  {where_}: {what}");
-        match &written {
-            Some(p) => eprintln!("  {}: {}", lang.t("기록", "Record"), p.display()),
-            None => eprintln!(
+        let _ = writeln!(err, "  {where_}: {what}");
+        let _ = match &written {
+            Some(p) => writeln!(err, "  {}: {}", lang.t("기록", "Record"), p.display()),
+            None => writeln!(
+                err,
                 "  {}",
                 lang.t(
                     "기록을 남길 폴더가 없었습니다",
                     "no writable folder for the record"
                 )
             ),
-        }
+        };
         let code = remedy_sdk::artifact::ExitCode::InternalError;
-        eprintln!(
+        let _ = writeln!(
+            err,
             "  ({} {}: {})",
             lang.t("종료 코드", "exit code"),
             code.code(),
             code.meaning_in(lang)
         );
+        drop(err);
         std::process::exit(i32::from(code.code()));
     }));
 }
