@@ -100,7 +100,16 @@ fn split_global(args: Vec<String>) -> (Vec<String>, Option<String>, Option<bool>
 }
 
 fn main() -> ExitCode {
-    let (args, lang_flag, ascii, verbose) = split_global(std::env::args().skip(1).collect());
+    // UTF-8 이 아닌 인자는 사용법 오류다 — `std::env::args()` 는 그 자리에서 패닉하고 배포 빌드는 그대로 죽는다
+    // (`remedy_sdk::cmdline::utf8_args` 의 주석).
+    let raw = match remedy_sdk::cmdline::utf8_args() {
+        Ok(raw) => raw,
+        Err(bad) => {
+            errln!("{}", remedy_sdk::cmdline::not_utf8_message(&bad));
+            return ExitCode::from(Code::UsageError.code());
+        }
+    };
+    let (args, lang_flag, ascii, verbose) = split_global(raw);
     // Windows 는 `LANG` 을 설정하지 않는다 — 받아서 더블클릭한 한국어 PC 가 영어로 떨어졌다(실측
     // 2026-09-09). OS 가 말하는 로케일을 넘긴다. `--lang kr` 처럼 모르는 값은 무시하되 **말한다** —
     // 알림은 두 언어로, 어느 쪽을 읽든 이해되게.

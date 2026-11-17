@@ -13,6 +13,7 @@
 
 pub mod artifact;
 pub mod catalog;
+pub mod cmdline;
 pub mod generate;
 pub mod i18n;
 pub mod lint;

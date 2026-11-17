@@ -56,7 +56,15 @@ fn split_global(args: Vec<String>) -> Global {
 }
 
 fn main() {
-    let g = split_global(std::env::args().skip(1).collect());
+    // UTF-8 이 아닌 인자는 사용법 오류다 — 본체와 같다(`remedy_sdk::cmdline::utf8_args` 의 주석).
+    let raw = match remedy_sdk::cmdline::utf8_args() {
+        Ok(raw) => raw,
+        Err(bad) => {
+            remedy_net::errln!("{}", remedy_sdk::cmdline::not_utf8_message(&bad));
+            std::process::exit(i32::from(Outcome::BadInput.exit().code()));
+        }
+    };
+    let g = split_global(raw);
     // 언어 · 장식은 본체와 같은 한 벌이 정한다. 모르는 `--lang` 값은 무시하되 **말한다**.
     let (lang, unknown_lang) =
         i18n::init_from(g.lang.as_deref(), g.ascii, user_locale().as_deref());
