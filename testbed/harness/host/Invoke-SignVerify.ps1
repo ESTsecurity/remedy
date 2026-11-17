@@ -36,7 +36,9 @@
     # 키
 
     **임시 키다.** 매번 새로 만들어 stage 에 두고 끝에서 지운다. 릴리스 키는
-    조직 절차가 필요한 일이라 여기서 다루지 않는다.
+    조직 절차가 필요한 일이라 여기서 다루지 않는다. 단 `-Package` 로 받은 꾸러미를
+    잴 때(rc 묶음의 `exit5-sign`)는 키를 만들지 않는다 — 그 꾸러미의 룰(배포 키로 서명된
+    그대로)을 실행 파일에 **박힌 앵커**로 확인한다.
 
 .EXAMPLE
     .\Invoke-SignVerify.ps1
@@ -57,6 +59,8 @@ $triple = "x86_64-pc-windows-msvc"
 $binPath = Join-Path $repoRoot "target\$triple\release\remedy.exe"
 if ($Package) {
     if ($Build) { throw "-Package 와 -Build 는 함께 줄 수 없다" }
+    # 절대 경로로 푼다 — `Process.Start` 는 PowerShell 위치가 아니라 프로세스의 현재 폴더로 상대 경로를 푼다.
+    $Package = (Resolve-Path -LiteralPath $Package).ProviderPath
     $binPath = Join-Path $Package "remedy.exe"
 }
 

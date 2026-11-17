@@ -58,6 +58,8 @@ $pluginSrc = Join-Path $repoRoot "plugins\evilai-locust"
 # 꾸러미로 잴 때는 짓지 않고, 룰도 그 꾸러미의 것(서명된 그대로)을 쓴다 — rc 묶음의 계약과 같다.
 if ($Package) {
     if ($Build) { throw "-Package 와 -Build 는 함께 줄 수 없다" }
+    # 절대 경로로 푼다 — 룰을 읽는 `[IO.File]` 은 PowerShell 위치가 아니라 프로세스의 현재 폴더로 상대 경로를 푼다.
+    $Package = (Resolve-Path -LiteralPath $Package).ProviderPath
     $binPath = Join-Path $Package "remedy.exe"
     $pluginSrc = Join-Path $Package "plugins\evilai-locust"
 }

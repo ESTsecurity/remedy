@@ -101,6 +101,8 @@ $binPath = Join-Path $repoRoot "target\$triple\release\remedy.exe"
 # 꾸러미로 잴 때는 짓지 않는다 — rc 묶음의 계약(빌드는 하지 않는다)과 같다.
 if ($Package) {
     if ($Build) { throw "-Package 와 -Build 는 함께 줄 수 없다" }
+    # 절대 경로로 푼다 — .NET 호출은 PowerShell 위치가 아니라 프로세스의 현재 폴더로 상대 경로를 푼다.
+    $Package = (Resolve-Path -LiteralPath $Package).ProviderPath
     $binPath = Join-Path $Package "remedy.exe"
 }
 
