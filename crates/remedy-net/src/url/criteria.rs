@@ -215,11 +215,9 @@ fn compare_core(a: &str, b: &str) -> std::cmp::Ordering {
     std::cmp::Ordering::Equal
 }
 
-/// 앞의 0 을 떼고 길이 → 사전순으로 견준다(긴 숫자도 넘치지 않는다).
+/// 앞의 0 을 떼고 길이 → 사전순으로 견준다(긴 숫자도 넘치지 않는다 · `remedy_sdk::pkgver::digits_cmp`).
 fn compare_digits(a: &str, b: &str) -> std::cmp::Ordering {
-    let a = a.trim_start_matches('0');
-    let b = b.trim_start_matches('0');
-    a.len().cmp(&b.len()).then_with(|| a.cmp(b))
+    remedy_sdk::pkgver::digits_cmp(a, b)
 }
 
 /// `8.2.` 꼴의 앞머리 → `8.2`.
@@ -305,63 +303,10 @@ fn numeric(s: &str) -> bool {
     !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit())
 }
 
-/// dpkg 의 판 비교 — epoch → 상류 → 개정. `~` 는 무엇보다 앞선다.
+/// dpkg 의 판 비교 — epoch → 상류 → 개정. `~` 는 무엇보다 앞선다(`remedy_sdk::pkgver::dpkg_cmp` 한 벌 — 이미지 ·
+/// 컨테이너 점검과 본체의 `pkg_version_lt` 가 같은 것을 부른다).
 fn compare_debian(a: &str, b: &str) -> std::cmp::Ordering {
-    let (ae, au, ar) = split_debian(a);
-    let (be, bu, br) = split_debian(b);
-    compare_digits(ae, be)
-        .then_with(|| debian_part(au, bu))
-        .then_with(|| debian_part(ar, br))
-}
-
-fn split_debian(s: &str) -> (&str, &str, &str) {
-    let (epoch, rest) = match s.find(':') {
-        Some(i) => (&s[..i], &s[i + 1..]),
-        None => ("0", s),
-    };
-    match rest.rfind('-') {
-        Some(i) => (epoch, &rest[..i], &rest[i + 1..]),
-        None => (epoch, rest, "0"),
-    }
-}
-
-fn order(c: Option<u8>) -> i32 {
-    match c {
-        Some(b'~') => -1,
-        None => 0,
-        Some(c) if c.is_ascii_digit() => 0,
-        Some(c) if c.is_ascii_alphabetic() => i32::from(c),
-        Some(c) => i32::from(c) + 256,
-    }
-}
-
-fn debian_part(a: &str, b: &str) -> std::cmp::Ordering {
-    let (mut a, mut b) = (a.as_bytes(), b.as_bytes());
-    while !a.is_empty() || !b.is_empty() {
-        while a.first().is_some_and(|c| !c.is_ascii_digit())
-            || b.first().is_some_and(|c| !c.is_ascii_digit())
-        {
-            let c = order(a.first().copied()).cmp(&order(b.first().copied()));
-            if c.is_ne() {
-                return c;
-            }
-            a = a.get(1..).unwrap_or_default();
-            b = b.get(1..).unwrap_or_default();
-        }
-        let i = a.iter().take_while(|c| c.is_ascii_digit()).count();
-        let j = b.iter().take_while(|c| c.is_ascii_digit()).count();
-        let (x, y) = (
-            std::str::from_utf8(&a[..i]).unwrap_or_default(),
-            std::str::from_utf8(&b[..j]).unwrap_or_default(),
-        );
-        let c = compare_digits(x, y);
-        if c.is_ne() {
-            return c;
-        }
-        a = &a[i..];
-        b = &b[j..];
-    }
-    std::cmp::Ordering::Equal
+    remedy_sdk::pkgver::dpkg_cmp(a, b)
 }
 
 /// 시험이 쓰는 표 — `testdata/url.json`(1.11.0 까지 바이너리에 들던 값의 고정 사본).
