@@ -414,39 +414,63 @@ pub enum Denial {
     StaleRevocations { serial: u64, seen: u64 },
 }
 
+/// **두 언어다.** 검사 · 치료 · 유지 확인 · 계획이 룰을 읽기 전에 이 판정을 하므로(본체의 `revocation_gate`)
+/// 거부 사유가 고객 화면에 닿는다 — 허용 목록의 [`crate::allowlist::StaleAllowlist`] 와 같은 규칙이다.
+/// 한국어 낱말 `폐기` · `되돌릴 수 없습니다` 는 실기기 하네스(`Invoke-P10Verify.ps1` 판정 6 · 7)가 읽는다.
 impl fmt::Display for Denial {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Denial::UnreadableVersion { plugin, raw } => write!(
-                f,
-                "'{plugin}' 의 버전 {raw:?} 를 읽지 못했다 — x.y.z 여야 폐기 여부를 판정할 수 있다"
+        let lang = remedy_sdk::i18n::current();
+        let text = match self {
+            Denial::UnreadableVersion { plugin, raw } => lang.pick(
+                format!(
+                    "'{plugin}' 의 버전 {raw:?} 를 읽지 못했습니다 — x.y.z 여야 폐기 여부를 판정할 수 있습니다"
+                ),
+                format!(
+                    "cannot read the version {raw:?} of '{plugin}' — it must be x.y.z to check revocation"
+                ),
             ),
             Denial::Revoked {
                 plugin,
                 version,
                 reason,
-            } => write!(f, "'{plugin}' {version} 은 폐기됐습니다: {reason}"),
+            } => lang.pick(
+                format!("'{plugin}' {version} 은 폐기됐습니다: {reason}"),
+                format!("'{plugin}' {version} has been revoked: {reason}"),
+            ),
             Denial::BelowMinimum {
                 plugin,
                 version,
                 minimum,
-            } => write!(
-                f,
-                "'{plugin}' {version} 은 이 코어가 요구하는 최소 버전 {minimum} 보다 낮습니다"
+            } => lang.pick(
+                format!(
+                    "'{plugin}' {version} 은 이 코어가 요구하는 최소 버전 {minimum} 보다 낮습니다"
+                ),
+                format!(
+                    "'{plugin}' {version} is below the minimum version {minimum} this core requires"
+                ),
             ),
             Denial::Rollback {
                 plugin,
                 version,
                 seen,
-            } => write!(
-                f,
-                "'{plugin}' {version} 은 이 기계가 전에 본 {seen} 보다 낮습니다 — 되돌리기는 받지 않습니다"
+            } => lang.pick(
+                format!(
+                    "'{plugin}' {version} 은 이 기계가 전에 본 {seen} 보다 낮습니다 — 되돌리기는 받지 않습니다"
+                ),
+                format!(
+                    "'{plugin}' {version} is lower than {seen}, already seen on this machine — rollbacks are refused"
+                ),
             ),
-            Denial::StaleRevocations { serial, seen } => write!(
-                f,
-                "폐기 목록 serial {serial} 이 전에 본 {seen} 보다 낮습니다 — 옛 목록으로 되돌릴 수 없습니다"
+            Denial::StaleRevocations { serial, seen } => lang.pick(
+                format!(
+                    "폐기 목록 serial {serial} 이 전에 본 {seen} 보다 낮습니다 — 옛 목록으로 되돌릴 수 없습니다"
+                ),
+                format!(
+                    "the revocation list serial {serial} is lower than {seen}, already seen — an older list cannot be restored"
+                ),
             ),
-        }
+        };
+        f.write_str(&text)
     }
 }
 

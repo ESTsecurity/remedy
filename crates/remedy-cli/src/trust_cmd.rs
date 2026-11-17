@@ -103,10 +103,12 @@ pub(super) const MIN_PLUGIN_VERSIONS: &[(&str, &str)] = &[
 
 /// 플러그인 디렉터리의 서명을 확인한다 (설계-03 §10 G8).
 ///
-/// **아직 로드 경로를 막지는 않는다.** 이 명령은 "서명이 맞는가" 를 사람이
-/// 물어볼 수 있게 하는 자리이고, 서명되지 않은 플러그인의 실행을 거부하는 것은
-/// 릴리스 키가 서고 저장소의 플러그인들이 서명된 뒤의 일이다. 그 순서를
-/// 뒤집으면 아무 플러그인도 못 돌린 채 키 발급을 기다리게 된다.
+/// **서명은 아직 명령줄의 로드 경로를 막지 않는다.** 이 명령은 "서명이 맞는가" 를
+/// 사람이 물어볼 수 있게 하는 자리이고, 서명되지 않은 플러그인의 실행을 거부하는
+/// 것은 릴리스 키가 서고 저장소의 플러그인들이 서명된 뒤의 일이다. 그 순서를
+/// 뒤집으면 아무 플러그인도 못 돌린 채 키 발급을 기다리게 된다. 폐기 목록 · 내장
+/// 최소 버전은 다르다 — [`revocation_gate`] 가 검사 · 치료 · 유지 확인 · 계획 앞에서
+/// 같은 판정으로 막는다.
 pub(super) fn cmd_plugin_verify(raw: &[String]) -> Result<Code, Failure> {
     let arg = simple_arg(raw);
 
@@ -369,6 +371,90 @@ pub(super) fn load_allowed(
         message: format!("{}: {d}", p.display()),
     })?;
     Ok(remedy_trust::allowlist::flatten(&list))
+}
+
+/// 이 룰로 검사 · 치료 · 유지 확인 · 계획을 해도 되는가 — `plugin verify` 와 같은 판정(설계-03 §6 · 반입한
+/// 폐기 목록과 코어 내장 최소 버전)을 **룰을 읽기 전에** 한다. 막으면 종료 코드 5 다. 신원은 그 룰의
+/// `plugin.yaml` 의 id · version 이다 — 명령줄은 룰의 서명을 보지 않는 모델이고(`state_dir` 의 주석), 메뉴로
+/// 온 룰은 고르는 화면에서 이미 서명과 파일 대조를 지났다(`discover::usable`).
+///
+/// # 목록이 없으면 아무것도 읽지 않는다
+///
+/// 앵커도 상태 파일도 읽지 않고 버전도 해석하지 않는다 — [`load_allowed`] 와 같은 규칙이다. 지금은 발행한
+/// 목록이 없고 내장 표도 비어 있어, 오늘의 실행은 모두 이 갈래로 지나간다.
+///
+/// # 겨눈 룰만 판정한다
+///
+/// 목록이 있어도 그 목록이 이 룰의 id 를 겨누지 않으면 판정하지 않는다 — 판정하면 `x.y.z` 가 아닌 버전을 쓰는
+/// 다른 룰까지 5 로 멈춘다. 목록 자체(서명 · 옛 목록 되밀기)는 그래도 확인한다: 바꿔치기된 목록을 조용히
+/// 넘기지 않는다([`load_allowed`] 가 읽을 때 한 번 더 보는 것과 같다). 그래서 목록이 서명 확인을 통과하지
+/// 못하면 그 상태 폴더를 쓰는 실행은 룰과 상관없이 멈춘다 — 의도한 fail-closed 다.
+///
+/// # 메뉴는 두 자리를 본다
+///
+/// 메뉴는 실행 파일 옆 `state` 를 상태 폴더로 넘긴다. 문서가 안내하는 반입(`revocation import`)은 기본 자리에
+/// 들어가므로, 그 자리일 때는 [`menu_state_dirs`] 의 두 자리를 다 읽고 어느 목록이든 겨누면 막는다. 이 함수를
+/// 부르는 검사 · 치료 · 유지 확인은 관리자 문을 지난 뒤라 기계 공용 자리도 읽힌다. 관리자 문이 없는 `plan` 은
+/// [`revocation_gate_at`] 으로 그 명령의 상태 폴더 하나만 본다. 명령줄은 어느 쪽이든 그 명령의 상태 폴더 한
+/// 자리다.
+pub(super) fn revocation_gate(a: &Args, m: &PluginManifest) -> Result<(), Failure> {
+    revocation_gate_at(a, m, &trust_dirs(&state_dir(a)))
+}
+
+/// [`revocation_gate`] 의 판정을 준 자리들에서 한다.
+pub(super) fn revocation_gate_at(
+    a: &Args,
+    m: &PluginManifest,
+    dirs: &[std::path::PathBuf],
+) -> Result<(), Failure> {
+    let min = remedy_trust::revocation::MinVersions::from_pairs(MIN_PLUGIN_VERSIONS)
+        .map_err(|e| Failure::from(e.to_string()))?;
+    let arg = |k: &str| a.get(k.trim_start_matches("--")).map(str::to_string);
+    let deny = |d: remedy_trust::revocation::Denial| Failure {
+        code: Code::GuardStop,
+        message: d.to_string(),
+    };
+    for dir in dirs {
+        let p = dir.join(remedy_trust::revocation::LIST_FILE);
+        match std::fs::metadata(&p) {
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(e) => {
+                return Err(Failure::from(format!(
+                    "{} 를 읽지 못했습니다: {e}",
+                    p.display()
+                )))
+            }
+            Ok(_) => {}
+        }
+        let Some(list) = load_revocations(&anchor_from(arg)?, dir)? else {
+            continue;
+        };
+        let state = read_state(dir)?;
+        remedy_trust::revocation::check_revocations(&list, &state).map_err(|d| Failure {
+            code: Code::GuardStop,
+            message: format!("{}: {d}", p.display()),
+        })?;
+        if list.entries().any(|e| e.plugin == m.id) {
+            remedy_trust::revocation::check_plugin(&m.id, &m.version, Some(&list), &min, &state)
+                .map_err(deny)?;
+        }
+    }
+    if min.get(&m.id).is_some() {
+        let none = remedy_trust::TrustState::default();
+        remedy_trust::revocation::check_plugin(&m.id, &m.version, None, &min, &none)
+            .map_err(deny)?;
+    }
+    Ok(())
+}
+
+/// 폐기 목록을 읽을 자리 — 메뉴의 상태 폴더(실행 파일 옆 `state`)면 메뉴가 회차를 찾는 두 자리, 아니면 그
+/// 폴더 하나.
+pub(super) fn trust_dirs(dir: &std::path::Path) -> Vec<std::path::PathBuf> {
+    if dir == beside_exe("state") {
+        menu_state_dirs()
+    } else {
+        vec![dir.to_path_buf()]
+    }
 }
 
 /// 인자에서 앵커를 얻는다. `plugin verify` 와 `revocation` 이 같은 규칙을 쓴다.

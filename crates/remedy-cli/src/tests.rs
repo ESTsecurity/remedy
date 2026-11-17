@@ -833,3 +833,166 @@ fn the_screen_says_the_sample_is_not_the_whole() {
     assert!(en[0].contains("denied at"), "{en:?}");
     assert!(en[4].contains("and 2 more"), "{en:?}");
 }
+
+// ── 폐기 목록 · 내장 최소 버전의 문(`revocation_gate` · 설계-03 §6) ──────────────────────────
+
+/// 상태 폴더 하나와 공개키 파일. `entries` 가 있으면 시험이 스스로 만든 키쌍으로 폐기 목록에 서명해 그 폴더에
+/// 둔다(remedy-trust 시험과 같은 꼴 — 개인키를 저장소에 두지 않고 실제 서명으로 잰다).
+fn gate_lab(
+    name: &str,
+    serial: u64,
+    entries: Option<&[remedy_trust::revocation::Entry]>,
+) -> (std::path::PathBuf, std::path::PathBuf) {
+    let d = std::env::temp_dir()
+        .join("remedy-cli-revocation-gate")
+        .join(name);
+    let _ = std::fs::remove_dir_all(&d);
+    let state = d.join("state");
+    std::fs::create_dir_all(&state).expect("상태 폴더");
+    let kp = minisign::KeyPair::generate_unencrypted_keypair().expect("키쌍");
+    if let Some(entries) = entries {
+        let body = remedy_trust::revocation::render_body(entries).expect("본문");
+        let comment = remedy_trust::revocation::render_comment(serial, "2026-11-17T00:00:00Z");
+        let sig = minisign::sign(
+            Some(&kp.pk),
+            &kp.sk,
+            body.as_bytes(),
+            Some(&comment),
+            Some("remedy revocation list"),
+        )
+        .expect("서명");
+        let mut text = sig.to_string();
+        if !text.ends_with('\n') {
+            text.push('\n');
+        }
+        text.push('\n');
+        text.push_str(&body);
+        std::fs::write(state.join(remedy_trust::revocation::LIST_FILE), text).expect("목록");
+    }
+    let pk = d.join("pub.key");
+    std::fs::write(&pk, kp.pk.to_box().expect("공개키 상자").to_string()).expect("공개키");
+    (state, pk)
+}
+
+fn revoke(plugin: &str, exact: &str, reason: &str) -> remedy_trust::revocation::Entry {
+    remedy_trust::revocation::Entry {
+        plugin: plugin.into(),
+        below: None,
+        exact: Some(exact.into()),
+        reason: reason.into(),
+    }
+}
+
+/// 판정에 쓰는 것은 id · version 뿐이다 — 나머지는 읽히기만 하면 된다.
+fn gate_manifest(id: &str, version: &str) -> PluginManifest {
+    serde_yaml_ng::from_str(&format!(
+        "schema_version: 1\nid: {id}\nversion: '{version}'\nmin_core: '1.0.0'\n\
+         platforms: [windows, linux]\nname: {{ en: 'gate' }}\nscan_roots: ['/nowhere']\n\
+         subjects: [file]\ndetect:\n  - id: r\n    subject: file\n    where:\n\
+         \x20     - {{ field: path, op: ends_with, value: '.x' }}\nverdict: {{ require: 'r' }}\n"
+    ))
+    .expect("매니페스트")
+}
+
+fn gate_args(state: &std::path::Path, pk: Option<&std::path::Path>) -> Args {
+    let mut v = vec!["--state-dir".to_string(), state.display().to_string()];
+    if let Some(pk) = pk {
+        v.push("--public-key".to_string());
+        v.push(pk.display().to_string());
+    }
+    parse_args(&v).unwrap()
+}
+
+#[test]
+fn the_built_in_minimum_table_parses() {
+    // 문은 이 표를 맨 앞에서 읽는다 — 꼴이 틀린 값이 들어가면 모든 검사 · 치료가 4 로 멈춘다.
+    assert!(remedy_trust::revocation::MinVersions::from_pairs(MIN_PLUGIN_VERSIONS).is_ok());
+}
+
+#[test]
+fn without_a_list_the_gate_reads_nothing() {
+    // 목록이 없으면 앵커도 상태 파일도 버전도 보지 않는다 — 깨진 상태 파일 · 공개키 없음 · 읽을 수 없는 버전이
+    // 함께 있어도 통과한다. 오늘의 모든 실행이 지나는 길이다.
+    let (state, _) = gate_lab("no-list", 1, None);
+    std::fs::write(state.join(remedy_trust::revocation::STATE_FILE), "{").expect("상태");
+    let r = revocation_gate(&gate_args(&state, None), &gate_manifest("gate-demo", "v1"));
+    assert!(
+        r.is_ok(),
+        "{}",
+        r.err().map(|f| f.message).unwrap_or_default()
+    );
+}
+
+#[test]
+fn a_list_naming_the_rule_stops_it_with_five() {
+    let (state, pk) = gate_lab(
+        "named",
+        1,
+        Some(&[revoke("gate-demo", "1.0.0", "lab reason")]),
+    );
+    let a = gate_args(&state, Some(&pk));
+    let f = revocation_gate(&a, &gate_manifest("gate-demo", "1.0.0")).unwrap_err();
+    assert_eq!(f.code, Code::GuardStop, "{}", f.message);
+    assert!(
+        f.message.contains("gate-demo") && f.message.contains("lab reason"),
+        "{}",
+        f.message
+    );
+    // 고친 판은 지난다 — 목록은 1.0.0 만 겨눴다.
+    assert!(revocation_gate(&a, &gate_manifest("gate-demo", "1.0.1")).is_ok());
+}
+
+#[test]
+fn a_list_naming_other_rules_does_not_judge_this_one() {
+    // 판정하면 `x.y.z` 가 아닌 버전을 쓰는 이 룰까지 5 로 멈춘다 — 겨눈 룰만 판정한다.
+    let (state, pk) = gate_lab("other", 1, Some(&[revoke("other-rule", "1.0.0", "x")]));
+    let r = revocation_gate(
+        &gate_args(&state, Some(&pk)),
+        &gate_manifest("gate-demo", "v1"),
+    );
+    assert!(
+        r.is_ok(),
+        "{}",
+        r.err().map(|f| f.message).unwrap_or_default()
+    );
+}
+
+#[test]
+fn a_list_signed_by_another_key_stops_with_five() {
+    // 목록 자체는 겨누는 룰이 없어도 확인한다 — 바꿔치기된 목록을 조용히 넘기지 않는다.
+    let (state, pk) = gate_lab("other-key", 1, Some(&[revoke("other-rule", "1.0.0", "x")]));
+    let (_, wrong) = gate_lab("other-key-pk", 1, None);
+    std::fs::copy(&wrong, &pk).expect("다른 공개키");
+    let f = revocation_gate(
+        &gate_args(&state, Some(&pk)),
+        &gate_manifest("gate-demo", "1.0.0"),
+    )
+    .unwrap_err();
+    assert_eq!(f.code, Code::GuardStop, "{}", f.message);
+}
+
+#[test]
+fn an_older_list_than_already_seen_stops_with_five() {
+    // 반입 때 막는 옛 목록 되밀기를 파일을 직접 바꿔 넣는 길에서도 막는다(`load_allowed` 와 같다).
+    let (state, pk) = gate_lab("stale", 3, Some(&[revoke("other-rule", "1.0.0", "x")]));
+    std::fs::write(
+        state.join(remedy_trust::revocation::STATE_FILE),
+        r#"{"revocation_serial":9}"#,
+    )
+    .expect("상태");
+    let f = revocation_gate(
+        &gate_args(&state, Some(&pk)),
+        &gate_manifest("gate-demo", "1.0.0"),
+    )
+    .unwrap_err();
+    assert_eq!(f.code, Code::GuardStop, "{}", f.message);
+}
+
+#[test]
+fn the_menu_folder_reads_both_places() {
+    // 메뉴는 실행 파일 옆 `state` 를 넘긴다 — 문서가 안내하는 명령줄 반입(기본 자리)도 메뉴에 걸리게 두 자리를
+    // 다 읽는다. 다른 폴더는 그 하나다(시험 · 하네스가 기계 공용 자리를 건드리지 않는다).
+    assert_eq!(trust_dirs(&beside_exe("state")), menu_state_dirs());
+    let given = std::path::Path::new("given-state");
+    assert_eq!(trust_dirs(given), vec![given.to_path_buf()]);
+}

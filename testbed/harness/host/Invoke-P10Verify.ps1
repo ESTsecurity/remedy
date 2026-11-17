@@ -9,7 +9,7 @@
     명령이 실행조차 되지 않는 상태였다. 둘 다 **실기기에서 한 번 돌려 보고**
     나왔다.
 
-    그 자리를 만든다. 여기서 재는 것 아홉:
+    그 자리를 만든다. 여기서 재는 것 아홉(폐기는 6b · 6c 가 더해 열하나):
 
       자기무결성 (E)
         1. 서명이 없어도 **파괴를 막지 않는다** (2026-09-02 뒤집힘) · 그 사실을 말한다
@@ -20,6 +20,8 @@
         5. 서명이 아예 없으면 거부한다
       폐기 목록 (D)
         6. 폐기하면 그 플러그인을 거부한다
+        6b. 폐기한 룰로는 **검사하지 않는다** (scan · 종료 5 · 결과 폴더 없음)
+        6c. 폐기한 룰로는 `--yes` 여도 **치료하지 않는다** (run · 종료 5 · 대상 그대로)
         7. 옛 목록을 되밀 수 없다 (역행 금지)
       조직 허용 목록 (H)
         8. 면제가 **파괴를 계획에서 뺀다** (설계-03 §3 5층)
@@ -204,6 +206,13 @@ $gPlug = "$LabRoot\p10\plug"
 $gState = "$LabRoot\p10state"
 Invoke-Command -Session $session -ArgumentList $LabRoot, $labDir -ScriptBlock {
     param($root, $lab)
+    # **지난 회차의 상태 폴더를 비운다.** `-NoRevert` 로 다시 돌면 거기 지난 회차의 일회용 키로 서명한 폐기
+    # 목록이 남아 있고, 이제 scan 도 그 목록을 읽으므로 판정 2 가 서명 불일치(5)로 떨어진다. 랩 뿌리 아래의
+    # 이 두 이름만 지운다.
+    if (-not $root) { throw "랩 뿌리가 비어 있다" }
+    foreach ($prevState in @("$root\p10state", "$root\p10state-allow")) {
+        if (Test-Path -LiteralPath $prevState) { Remove-Item -LiteralPath $prevState -Recurse -Force }
+    }
     New-Item -ItemType Directory -Force "$root\bin", "$root\p10\plug", "$root\p10\unsigned", $lab | Out-Null
     # 치료 대상 하나. 판정이 서야 5층이 뺄 것이 생긴다.
     [System.IO.File]::WriteAllText("$lab\evil.exe", "payload")
@@ -302,9 +311,22 @@ $imp = Run-Remedy @("revocation", "import", "--file", "$LabRoot\p10\rev.signed",
                     "--state-dir", $gState, "--public-key", $gKey)
 $v = Run-Remedy @("plugin", "verify", "--dir", $gPlug, "--public-key", $gKey,
                   "--state-dir", $gState)
+# 사유는 두 언어다(게스트 로케일을 따른다) — 거부 문구가 검사 · 치료 화면에도 닿게 되면서 영어판이 생겼다.
 Add-Check "6 폐기하면 그 플러그인을 거부한다" `
-          (($imp.exit -eq 0) -and ($v.exit -ne 0) -and ($v.text -match "폐기")) `
+          (($imp.exit -eq 0) -and ($v.exit -ne 0) -and ($v.text -match "폐기|revoked")) `
           "import exit=$($imp.exit) · verify exit=$($v.exit)"
+
+# **검사도 그 룰로는 서지 않는다** — 판정 2 와 같은 scan 이 이제 목록이 놓인 상태 폴더에서 돈다.
+# 결과 폴더는 거부한 회차가 남기지 않는다(만들어 둔 빈 폴더를 치운다).
+$revOut = "$LabRoot\p10\out-rev"
+$s = Run-Remedy @("scan", "--plugin", "$gPlug\plugin.yaml", "--out-dir", $revOut,
+                  "--state-dir", $gState, "--public-key", $gKey)
+$leftOut = Invoke-Command -Session $session -ArgumentList $revOut -ScriptBlock {
+    param($p) Test-Path $p
+}
+Add-Check "6b 폐기한 룰로는 검사하지 않는다" `
+          (($s.exit -eq 5) -and ($s.text -match "폐기됐습니다|has been revoked") -and (-not $leftOut)) `
+          "scan exit=$($s.exit) · 결과 폴더 남음=$leftOut"
 
 $old = Run-Remedy @("revocation", "import", "--file", "$LabRoot\p10\rev-old.signed",
                     "--state-dir", $gState, "--public-key", $gKey)
@@ -313,7 +335,7 @@ $old = Run-Remedy @("revocation", "import", "--file", "$LabRoot\p10\rev-old.sign
 # 제품 문구에 그 낱말이 박혀 있어 **다른 이유로 실패해도 통과**했다 — 예컨대
 # `serial 이 수가 아니다` 는 파일이 깨진 것이지 되밀기를 막은 것이 아니다.
 Add-Check "7 옛 폐기 목록을 되밀 수 없다" `
-          (($old.exit -ne 0) -and ($old.text -match "되돌릴 수 없(다|습니다)")) "exit=$($old.exit)"
+          (($old.exit -ne 0) -and ($old.text -match "되돌릴 수 없(다|습니다)|older list cannot be restored")) "exit=$($old.exit)"
 
 # ── 8·9. 조직 허용 목록 (P10-H) ─────────────────────────────
 #
@@ -328,6 +350,16 @@ Invoke-Command -Session $session -ArgumentList $labDir -ScriptBlock {
     New-Item -ItemType Directory -Force $lab | Out-Null
     [System.IO.File]::WriteAllText("$lab\evil.exe", "payload")
 }
+
+# **6c — 치료도 그 룰로는 서지 않는다.** 대상이 다시 선 지금이라야 잴 수 있다(판정 1 의 apply 가 이미
+# 격리했다). 목록이 놓인 상태 폴더(`$gState`)에서 `--yes` 로 돌려도 검사 · 계획 · 승인보다 앞에서 멈춘다.
+$r = Run-Remedy @("run", "--plugin", "$gPlug\plugin.yaml", "--yes",
+                  "--state-dir", $gState, "--public-key", $gKey)
+$stillThere = Invoke-Command -Session $session -ArgumentList "$labDir\evil.exe" -ScriptBlock {
+    param($p) Test-Path $p
+}
+Add-Check "6c 폐기한 룰로는 --yes 여도 치료하지 않는다" `
+          (($r.exit -eq 5) -and $stillThere) "run exit=$($r.exit) · 대상 그대로=$stillThere"
 
 Write-Step "조직 허용 목록 (P10-H · 설계-03 §3 5층)"
 $hash = Invoke-Command -Session $session -ArgumentList "$labDir\evil.exe" -ScriptBlock {

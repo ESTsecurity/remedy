@@ -139,8 +139,9 @@ pub fn in_menu_order(found: &mut [Found]) {
 ///
 /// # 폐기 목록은 여기서 보지 않는다
 ///
-/// 그것은 상태 디렉터리를 읽는 일이고 부르는 쪽이 그 경로를 안다. 여기는
-/// **꾸러미 자체가 우리 것인가** 만 답한다 — `plugin verify` 도 그 순서다.
+/// 그것은 상태 디렉터리를 읽는 일이고 부르는 쪽이 그 경로를 안다 — 검사 · 치료 ·
+/// 유지 확인이 룰을 읽기 전에 `revocation_gate` 로 본다. 여기는 **꾸러미 자체가
+/// 우리 것인가** 만 답한다 — `plugin verify` 도 그 순서다.
 pub fn usable(dir: &Path, anchor_b64: Option<&str>) -> Result<(), Unusable> {
     let Some(b64) = anchor_b64 else {
         return Err(Unusable::NoAnchor);
