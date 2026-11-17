@@ -80,7 +80,7 @@ remedy plugin lint plugin.yaml
 
 ```
 remedy evaluate --artifacts snapshot.json --plugin plugin.yaml --out scan.json
-remedy plan --scan scan.json --out plan.json
+remedy plan --scan scan.json --plugin plugin.yaml --out plan.json
 ```
 
 `scan.json` 에서 볼 것:
