@@ -64,8 +64,10 @@ fn every_machine_touching_command_refuses_without_privilege() {
             "`{}` 의 거절이 이유를 말하지 않는다:\n{text}",
             args[0]
         );
+        // Windows 는 우클릭 · 관리자 터미널 뒤 *다시 부르십시오*, 리눅스는 1.22.0 부터
+        // *sudo ./remedy 처럼 sudo 로 다시 실행하십시오* 다.
         assert!(
-            text.contains("다시 부르십시오"),
+            text.contains("다시 부르십시오") || text.contains("다시 실행하십시오"),
             "`{}` 의 거절이 다음 행동을 말하지 않는다:\n{text}",
             args[0]
         );
