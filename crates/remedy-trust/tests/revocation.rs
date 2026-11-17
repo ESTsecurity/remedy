@@ -253,6 +253,40 @@ fn 읽을_수_없는_버전은_판정_불가이므로_거부한다() {
     }
 }
 
+#[test]
+fn 거부_사유는_고객_화면에_닿으므로_영어판이_있다() {
+    // 본체가 검사 · 치료 · 유지 확인 · 계획 앞에서 이 판정을 하므로(`revocation_gate`) 사유가 고객 화면에
+    // 닿는다. 이 시험 프로세스는 언어를 정하지 않으므로 기본값(영어)이다 — 영어 화면에 한글이 없어야 한다.
+    // 폐기 사유(`reason`)는 목록을 낸 쪽의 글이라 여기서는 영어로 준다.
+    let all = [
+        Denial::UnreadableVersion {
+            plugin: "x".into(),
+            raw: "1.0".into(),
+        },
+        Denial::Revoked {
+            plugin: "x".into(),
+            version: v("1.0.0"),
+            reason: "false positive".into(),
+        },
+        Denial::BelowMinimum {
+            plugin: "x".into(),
+            version: v("1.0.0"),
+            minimum: v("2.0.0"),
+        },
+        Denial::Rollback {
+            plugin: "x".into(),
+            version: v("1.0.0"),
+            seen: v("1.5.0"),
+        },
+        Denial::StaleRevocations { serial: 3, seen: 7 },
+    ];
+    for d in all {
+        let s = d.to_string();
+        assert!(!s.chars().any(|c| ('가'..='힣').contains(&c)), "{s}");
+        assert!(s.contains("'x'") || s.contains("serial 3"), "{s}");
+    }
+}
+
 // ────────────────────────────────────────────── 신선도
 
 #[test]

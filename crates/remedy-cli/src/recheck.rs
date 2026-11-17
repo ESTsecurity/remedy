@@ -23,6 +23,8 @@ pub(super) fn cmd_verify(raw: &[String]) -> Result<Code, Failure> {
     banner(None);
     let m = load_local(a.need("plugin")?)?;
     warn_unsupported(&m);
+    // 폐기된 룰로는 다시 판정하지 않는다 — 회차 로그는 이미 열려 거부 사유가 거기에도 남는다.
+    revocation_gate(&a, &m)?;
     let rules = load_rules(a.need("plugin")?)?;
 
     // 치료 전 증거. 있으면 "일부만 잔존" 을 가려낼 수 있고, 없으면 재발 여부와

@@ -6,6 +6,9 @@
 //!
 //! 그래서 여기서는 `scan.json` 을 손으로 지어 `plan` 에 먹인다. 계획기가 무엇을
 //! 받든 가드를 통과해야 산출물이 나온다는 성질을 CLI 끝까지 확인한다.
+//!
+//! 끝의 절은 G8 의 폐기다 — 반입한 폐기 목록이 겨눈 룰로는 검사 · 치료 · 유지
+//! 확인 · 계획이 시작하지 않는가(설계-03 §6).
 
 use std::path::PathBuf;
 use std::process::Command;
@@ -226,4 +229,184 @@ fn without_a_config_the_defaults_apply() {
         out.to_str().unwrap(),
     ]);
     assert_eq!(code, 0, "{text}");
+}
+
+// ─────────────────────────────────────────────── 폐기 목록 (설계-03 §6 · G8)
+//
+// 반입한 폐기 목록이 겨누는 룰 버전으로는 검사 · 치료 · 유지 확인 · 계획이 시작하지 않는다 — 종료 5.
+// 시험이 스스로 키쌍을 만들어 목록에 서명하고 공개키를 `--public-key` 로 준다(개인키를 저장소에 두지 않는다).
+// 단위 시험(`src/tests.rs`)은 판정 규칙을, 여기서는 네 진입점이 실제로 그 문을 지나는지를 바이너리 끝에서 잰다.
+
+struct Gated {
+    dir: PathBuf,
+    plugin: PathBuf,
+    tree: PathBuf,
+    state: PathBuf,
+    pk: PathBuf,
+}
+
+/// `.evil` 하나를 겨누는 룰(`gate-demo` 1.0.0)과 대상 트리 · 상태 폴더 · 공개키. `revoked` 면 그 판을 겨누는
+/// 서명된 목록을 상태 폴더에 둔다.
+fn gated(name: &str, revoked: bool) -> Gated {
+    let dir = work().join(name);
+    let _ = std::fs::remove_dir_all(&dir);
+    let tree = dir.join("tree");
+    let state = dir.join("state");
+    std::fs::create_dir_all(&tree).expect("트리");
+    std::fs::create_dir_all(&state).expect("상태 폴더");
+    std::fs::write(tree.join("a.evil"), "junk").expect("검체");
+    let plugin = dir.join("plugin.yaml");
+    // YAML 작은따옴표는 역슬래시를 그대로 둔다 — Windows 경로가 그대로 들어간다.
+    let yaml = [
+        "schema_version: 1",
+        "id: gate-demo",
+        "version: 1.0.0",
+        "min_core: '1.0.0'",
+        "platforms: [windows, linux]",
+        "name: { ko: '문 시험', en: 'gate demo' }",
+        &format!("scan_roots: ['{}']", tree.display()),
+        "subjects: [file]",
+        "detect:",
+        "  - id: junk",
+        "    subject: file",
+        "    where:",
+        "      - { field: path, op: ends_with, value: '.evil' }",
+        "verdict:",
+        "  require: 'junk'",
+        "remediate:",
+        "  remove:",
+        "    - { ref: junk }",
+    ]
+    .join("\n")
+        + "\n";
+    std::fs::write(&plugin, yaml).expect("플러그인");
+
+    let kp = minisign::KeyPair::generate_unencrypted_keypair().expect("키쌍");
+    if revoked {
+        let entries = [remedy_trust::revocation::Entry {
+            plugin: "gate-demo".into(),
+            below: None,
+            exact: Some("1.0.0".into()),
+            reason: "lab reason".into(),
+        }];
+        let body = remedy_trust::revocation::render_body(&entries).expect("본문");
+        let comment = remedy_trust::revocation::render_comment(1, "2026-11-17T00:00:00Z");
+        let sig = minisign::sign(
+            Some(&kp.pk),
+            &kp.sk,
+            body.as_bytes(),
+            Some(&comment),
+            Some("remedy revocation list"),
+        )
+        .expect("서명");
+        let mut text = sig.to_string();
+        if !text.ends_with('\n') {
+            text.push('\n');
+        }
+        text.push('\n');
+        text.push_str(&body);
+        std::fs::write(state.join(remedy_trust::revocation::LIST_FILE), text).expect("목록");
+    }
+    let pk = dir.join("pub.key");
+    std::fs::write(&pk, kp.pk.to_box().expect("공개키 상자").to_string()).expect("공개키");
+    Gated {
+        dir,
+        plugin,
+        tree,
+        state,
+        pk,
+    }
+}
+
+#[test]
+fn a_revoked_rule_does_not_scan() {
+    let g = gated("revoked-scan", true);
+    let out = g.dir.join("out");
+    let (code, text) = run(&[
+        "scan",
+        "--plugin",
+        g.plugin.to_str().unwrap(),
+        "--out-dir",
+        out.to_str().unwrap(),
+        "--state-dir",
+        g.state.to_str().unwrap(),
+        "--public-key",
+        g.pk.to_str().unwrap(),
+    ]);
+    assert_eq!(code, 5, "{text}");
+    assert!(
+        text.contains("폐기됐습니다") && text.contains("lab reason"),
+        "사유를 말해야 한다:\n{text}"
+    );
+    assert!(!out.exists(), "거부한 검사가 빈 결과 폴더를 남겼다");
+}
+
+#[test]
+fn a_revoked_rule_does_not_treat_even_with_yes() {
+    // `--yes` 는 승인을 대신할 뿐 폐기를 넘지 못한다 — 검사 · 계획 · 승인보다 앞에서 멈춘다.
+    let g = gated("revoked-run", true);
+    let (code, text) = run(&[
+        "run",
+        "--plugin",
+        g.plugin.to_str().unwrap(),
+        "--yes",
+        "--state-dir",
+        g.state.to_str().unwrap(),
+        "--public-key",
+        g.pk.to_str().unwrap(),
+    ]);
+    assert_eq!(code, 5, "{text}");
+    assert!(g.tree.join("a.evil").exists(), "폐기된 룰이 치료했다");
+}
+
+#[test]
+fn a_revoked_rule_does_not_recheck_or_plan() {
+    let g = gated("revoked-verify-plan", true);
+    let (code, text) = run(&[
+        "verify",
+        "--plugin",
+        g.plugin.to_str().unwrap(),
+        "--state-dir",
+        g.state.to_str().unwrap(),
+        "--public-key",
+        g.pk.to_str().unwrap(),
+    ]);
+    assert_eq!(code, 5, "verify:\n{text}");
+
+    // `plan` → `apply` 가 `run` 을 돌아가는 길이 되지 않는다.
+    let scan = write_scan("revoked-plan-scan.json", &crafted_scan(1));
+    let out = g.dir.join("plan.json");
+    let (code, text) = run(&[
+        "plan",
+        "--scan",
+        scan.to_str().unwrap(),
+        "--plugin",
+        g.plugin.to_str().unwrap(),
+        "--out",
+        out.to_str().unwrap(),
+        "--state-dir",
+        g.state.to_str().unwrap(),
+        "--public-key",
+        g.pk.to_str().unwrap(),
+    ]);
+    assert_eq!(code, 5, "plan:\n{text}");
+    assert!(!out.exists(), "거부한 계획이 파일로 남았다");
+}
+
+#[test]
+fn without_a_list_the_same_rule_scans_as_before() {
+    // 목록이 없으면 공개키도 요구하지 않고 전과 같다 — 오늘의 모든 실행이 지나는 길이다.
+    let g = gated("revoked-none", false);
+    let out = g.dir.join("out");
+    let (code, text) = run(&[
+        "scan",
+        "--plugin",
+        g.plugin.to_str().unwrap(),
+        "--out-dir",
+        out.to_str().unwrap(),
+        "--state-dir",
+        g.state.to_str().unwrap(),
+    ]);
+    assert_eq!(code, 2, "{text}");
+    assert!(!text.contains("폐기됐습니다"), "{text}");
 }

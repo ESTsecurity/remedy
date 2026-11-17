@@ -284,10 +284,10 @@ mod tests {
         s.chars().any(|c| ('가'..='힣').contains(&c))
     }
 
-    /// **이 크레이트에서 고객 화면에 닿는 것은 허용 목록뿐이다.**
-    /// `main.rs` 의 `load_allowed` 가 `scan`·`run` 에서 불러 종료 코드 5 로 낸다.
-    /// 나머지(`revocation`·`manifest`)는 도구 명령에서만 나오므로 09-06 결정대로
-    /// 한국어로 남는다.
+    /// **이 크레이트에서 고객 화면에 닿는 것은 허용 목록과 폐기 판정(`revocation::Denial`)이다.**
+    /// 본체의 `load_allowed` · `revocation_gate` 가 `scan`·`run` 에서 불러 종료 코드 5 로 낸다
+    /// (`Denial` 의 두 언어는 `tests/revocation.rs` 가 본다). 나머지(목록 · 매니페스트를 해석하다 난
+    /// 오류)는 09-06 결정대로 한국어로 남는다.
     ///
     /// **이름을 그대로 둔 것**은 아래 시험들을 고치지 않기 위해서다.
     fn render_body(entries: &[Entry]) -> Result<String, TrustError> {

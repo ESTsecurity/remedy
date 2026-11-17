@@ -1505,6 +1505,10 @@ fn cmd_plan(raw: &[String]) -> Result<Code, Failure> {
             None
         }
     };
+    // 폐기된 룰로 치료 계획을 만들지 않는다 — `plan` → `apply` 가 `run` 을 돌아가는 길이 되지 않게.
+    if let Some(m) = &m {
+        revocation_gate(&a, m)?;
+    }
 
     let allow = load_allowed(
         |k| a.get(k.trim_start_matches("--")).map(str::to_string),
@@ -1622,6 +1626,12 @@ fn scan_one(raw: &[String], keep: Keep) -> Result<ScanOne, Failure> {
     tee::open(&state_dir(&a), &meta.run_id);
     banner(Some(&m));
     warn_unsupported(&m);
+    // 폐기된 룰로는 검사하지 않는다(설계-03 §6). 거부 사유는 회차 로그에도 남고, 위에서 만든 결과 폴더는
+    // 비어 있을 때만 치운다(아래 남기지 않는 갈래와 같은 꼴).
+    if let Err(f) = revocation_gate(&a, &m) {
+        let _ = std::fs::remove_dir(dir);
+        return Err(f);
+    }
 
     let rules = load_rules(a.need("plugin")?)?;
     scan_started();
@@ -2038,6 +2048,8 @@ fn prepare_run(raw: &[String], own_log: bool) -> Result<Prepared, Failure> {
     if own_log {
         tee::rename(&meta.run_id);
     }
+    // 폐기된 룰로는 치료하지 않는다 — 검사 · 계획 · 승인보다 앞이다(설계-03 §6). `--yes` 든 아니든 같다.
+    revocation_gate(&a, &m)?;
     let rules = load_rules(a.need("plugin")?)?;
     scan_started();
     let (artifacts, scan, unresolved) = tee::with_heartbeat(ui().verbose, tee::Beat::Scan, || {
@@ -2693,8 +2705,8 @@ fn state_dir(a: &Args) -> std::path::PathBuf {
     // 잠금이 지키려는 것은 **기계 공용 자리**(`%PROGRAMDATA%\remedy` ·
     // `/var/lib/remedy`)다. 거기에는 계획·저널·봉인 키가 모이고 아무나 쓸 수
     // 있어서는 안 된다. 반면 `--state-dir` 로 이름을 준 것은 운영자의 선택이고,
-    // 이 저장소의 모델은 **운영자가 준 것을 믿는다**(`run` 이 `--plugin` 을
-    // 검증하지 않는 것과 같은 선).
+    // 이 저장소의 모델은 **운영자가 준 것을 믿는다**(`run` 이 `--plugin` 의
+    // 서명을 보지 않는 것과 같은 선).
     let is_default = given.is_none();
     let dir = given.unwrap_or_else(remedy_core::restore::default_state_dir);
     static LOCKED: std::sync::OnceLock<()> = std::sync::OnceLock::new();

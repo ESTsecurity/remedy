@@ -123,8 +123,8 @@ pub fn run(root: &Path, args: &[String]) -> Result<(), String> {
     //
     // id 가 같으면 **기록이 둘을 가려 세우지 못한다.** `plugin_id` 는 저널
     // (`Event::Start`) · 검증 기록 · 격리물 매니페스트 · 복원 계획이 쓰는 유일한
-    // 플러그인 신원이고, `plugin verify` 의 폐기·하한 판정도 `(id, version)` 으로
-    // 묻는다 — 같은 id 가 둘이면 어느 룰이 남긴 기록인지, 폐기 항목이 어느 쪽을
+    // 플러그인 신원이고, `plugin verify` 와 검사·치료 앞의 폐기·하한 판정도
+    // `(id, version)` 으로 묻는다 — 같은 id 가 둘이면 어느 룰이 남긴 기록인지, 폐기 항목이 어느 쪽을
     // 겨눈 것인지 되물을 수 없다. (안내 모드의 목록은 id 를 쓰지 않는다 —
     // 매니페스트의 사람 읽는 이름과 번호로 고른다.)
     for (i, a) in plugins.iter().enumerate() {
