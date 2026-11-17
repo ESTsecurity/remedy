@@ -385,7 +385,8 @@ try {
     # ── 코어를 손대지 않고 새 위협을 치료한다 ──
     $nrun = D "run --plugin .\newthreat\plugin-fixed.yaml --out-dir .\out3 --state-dir .\state --yes"
     Add-Check "9 새 위협 치료가 1 로 끝난다" ($nrun.Code -eq 1) "exit=$($nrun.Code)"
-    Add-Check "9 대본대로 2 건을 수행한다" ($nrun.Text -match "2 건을 수행합니다") "계획"
+    # 수와 단위는 붙여 쓴다(코어 1.22.0 — 전에는 `2 건`). 둘 다 받는다.
+    Add-Check "9 대본대로 2 건을 수행한다" ($nrun.Text -match "2\s*건을 수행합니다") "계획"
     Add-Check "9 치료 완료 표가 나온다" `
     ($nrun.Text -match "위협 발견, 치료 완료 \(2건 수행 완료\)") "결과"
     Add-Check "9 마무리 표가 되돌리는 법을 적는다" `

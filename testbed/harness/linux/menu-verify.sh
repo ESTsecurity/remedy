@@ -139,7 +139,8 @@ inside() {
     # Ebury 의 번호는 고르는 화면에서 읽는다 — 룰이 늘면 바뀐다.
     local e
     e=$(grep -m1 -E '^ +[0-9]+\. Ebury ' /out/scan-all.txt | sed -E 's/^ +([0-9]+)\..*/\1/')
-    printf '%s\n0\n' "$e" | LANG=ko_KR.UTF-8 script -q -e -c "./remedy > /out/detect-only.txt 2>&1" /dev/null
+    # 작업 메뉴의 0 은 고르는 화면으로 돌아간다(코어 1.22.0) — 거기서 0 으로 그만둔다.
+    printf '%s\n0\n0\n' "$e" | LANG=ko_KR.UTF-8 script -q -e -c "./remedy > /out/detect-only.txt 2>&1" /dev/null
     echo "detect_only_exit=$?"
 
     # ── 원격 점검 — 본체가 동반 프로그램을 띄운다 (코어 1.4.0 · 설계-04 §1) ──────────
@@ -330,19 +331,20 @@ items "$REPO/testbed/harness/baseline/console/console-win.txt" >"$OUT/items-win.
     echo "network_rules=$net"
     echo "disk_rules=$disk"
     echo "scan_lines=$(sed -n 's/^scan_lines=//p' "$OUT/run.txt")"
-    echo "chooser_total=$(grep -c "검사 항목 ${all}개를 찾았습니다" "$OUT/scan-all.txt")"
+    # 고르는 화면의 머리줄 — 코어 1.22.0 부터 *무엇을 검사할까요? (검사 항목 N개)* · 화면은 '룰' 대신 '항목' 이다.
+    echo "chooser_total=$(grep -c "검사 항목 ${all}개)" "$OUT/scan-all.txt")"
     # 맨 위의 검사 줄 둘 — 1 빠른 검사(디스크 전체 룰을 뺀 수 · 권장) · 2 정밀 검사(전부 · 오래 걸릴 수 있다).
-    echo "chooser_quick=$(grep -c -E "^ +1\. 빠른 검사 \(권장 · 룰 ${quick}개 · 아무것도 바꾸지 않습니다\)" "$OUT/scan-all.txt")"
-    echo "chooser_full=$(grep -c -E "^ +2\. 정밀 검사 \(룰 ${rules}개 · 디스크 전체까지 · 오래 걸릴 수 있습니다\)" "$OUT/scan-all.txt")"
+    echo "chooser_quick=$(grep -c -E "^ +1\. 빠른 검사 \(권장 · 항목 ${quick}개 · 아무것도 바꾸지 않습니다\)" "$OUT/scan-all.txt")"
+    echo "chooser_full=$(grep -c -E "^ +2\. 정밀 검사 \(항목 ${rules}개 · 디스크 전체까지 · 오래 걸릴 수 있습니다\)" "$OUT/scan-all.txt")"
     # 끝 요약 — 제목부터 빈 줄까지(그 뒤의 *다음 할 일* 줄도 `이름 — 까닭` 꼴이라 세지 않는다).
     summary_of() { sed -n -E '/(모두 검사한|빠른 검사|정밀 검사) 결과 — /,/^$/p' "$1" 2>/dev/null; }
     echo "scan_all_skipped=$(summary_of "$OUT/scan-all.txt" | grep -c -E '^  .+ (—|-) 돌리지 않았습니다 \(네트워크 점검')"
     echo "scan_all_disk_skipped=$(summary_of "$OUT/scan-all.txt" | grep -c -E '^  .+ (—|-) 정밀 검사에서만 합니다 \(디스크 전체를 봅니다\)$')"
     echo "scan_all_exit=$(sed -n 's/^scan_all_exit=//p' "$OUT/run.txt")"
-    echo "scan_all_summary=$(grep -c "빠른 검사 결과 — 룰 ${quick}개 · 아무것도 바꾸지 않았습니다" "$OUT/scan-all.txt")"
+    echo "scan_all_summary=$(grep -c "빠른 검사 결과 — 항목 ${quick}개 · 아무것도 바꾸지 않았습니다" "$OUT/scan-all.txt")"
     echo "scan_all_lines=$(summary_of "$OUT/scan-all.txt" | grep -c -E '^  .+ (—|-) ')"
     # 빠른 검사 뒤 다음 할 일 — 뺀 것으로 가는 길(2번)을 같은 글로 가리킨다.
-    echo "scan_all_full_lead=$(grep -c -E "^  디스크 전체까지 보려면 (—|-) 2\. 정밀 검사 \(룰 ${rules}개 · 디스크 전체까지" "$OUT/scan-all.txt")"
+    echo "scan_all_full_lead=$(grep -c -E "^  디스크 전체까지 보려면 (—|-) 2\. 정밀 검사 \(항목 ${rules}개 · 디스크 전체까지" "$OUT/scan-all.txt")"
     # 결과 폴더를 적는 줄 — 남긴 룰만 적는다(D11). 깨끗한 컨테이너라 0 이다.
     echo "scan_all_dirs=$(grep -o -E '결과 폴더 : [^ ]+' "$OUT/scan-all.txt" | sort -u | wc -l)"
     echo "scan_all_out_dirs=$(sed -n 's/^scan_all_out_dirs=//p' "$OUT/run.txt")"
@@ -350,7 +352,7 @@ items "$REPO/testbed/harness/baseline/console/console-win.txt" >"$OUT/items-win.
     # 정밀 검사 — 전부 돌고(빼는 것은 네트워크 점검뿐) 같은 끝 코드 · 결과 폴더 없음 · 2번을 다시 권하지 않는다.
     sf="$OUT/scan-full.txt"
     echo "scan_full_exit=$(sed -n 's/^scan_full_exit=//p' "$OUT/run.txt")"
-    echo "scan_full_summary=$(grep -c "정밀 검사 결과 — 룰 ${rules}개 · 아무것도 바꾸지 않았습니다" "$sf" 2>/dev/null)"
+    echo "scan_full_summary=$(grep -c "정밀 검사 결과 — 항목 ${rules}개 · 아무것도 바꾸지 않았습니다" "$sf" 2>/dev/null)"
     echo "scan_full_lines=$(summary_of "$sf" | grep -c -E '^  .+ (—|-) ')"
     echo "scan_full_skipped=$(summary_of "$sf" | grep -c -E '^  .+ (—|-) 돌리지 않았습니다 \(네트워크 점검')"
     echo "scan_full_disk_skipped=$(grep -c '정밀 검사에서만 합니다' "$sf" 2>/dev/null)"
@@ -360,7 +362,8 @@ items "$REPO/testbed/harness/baseline/console/console-win.txt" >"$OUT/items-win.
     # 찾기만 하는 룰의 메뉴 — 머리말의 이름 · 1 번이 검사만 하기 · 치료를 약속하는 두 줄은 서지 않는다
     # (목표 remedy_사용자메뉴 기준 1 — v1.2.0 은 그 둘이 까닭을 달고 흐렸다).
     echo "detect_only_exit=$(sed -n 's/^detect_only_exit=//p' "$OUT/run.txt")"
-    echo "detect_only_named=$(grep -c '검사 항목: Ebury 점검 (탐지만)' "$OUT/detect-only.txt")"
+    # 고르는 화면에서 들어온 작업 메뉴의 머리줄 — *<이름> — 무엇을 할까요?*(코어 1.22.0 · 전에는 *검사 항목: <이름>*).
+    echo "detect_only_named=$(grep -c -E 'Ebury 점검 \(탐지만\) (—|-) 무엇을 할까요' "$OUT/detect-only.txt")"
     echo "detect_only_first=$(grep -c -E '^ +1\. 검사만 하기' "$OUT/detect-only.txt")"
     echo "detect_only_treat=$(grep -c -E '^ +[0-9]+\. (검사하고 치료하기|치료가 유지됐는지 다시 보기)' "$OUT/detect-only.txt")"
     # 원격 점검 — 알리고 띄웠는가 · 끝까지 돌았는가(닫힌 포트라 6) · 누구의 권한으로 돌았는가.
@@ -401,18 +404,24 @@ items "$REPO/testbed/harness/baseline/console/console-win.txt" >"$OUT/items-win.
     echo "treat_all_result=$(grep -c -E '^  CWPdoor 제거 (—|-) 위협 발견, 치료 완료 \([0-9]+건 수행 완료\)' "$tf" 2>/dev/null)"
     echo "treat_all_rescan=$(grep -c -E "^    다시 검사: (위협이 발견되지 않았습니다|관측이 불완전해 '위협 없음' 을 말할 수 없습니다)\.$" "$tf" 2>/dev/null)"
     echo "treat_all_detect_only=$(sed -n '/아래 항목은 찾기만 합니다/,/다음 할 일/p' "$tf" 2>/dev/null | grep -c -E '^    CWPdoor 점검 \(탐지만\)$')"
-    echo "treat_all_next=$(grep -c -E "치료가 유지되는지 보려면 (—|-) [0-9]+\. CWPdoor 제거 (→|->) [0-9]+\. 치료가 유지됐는지 다시 보기" "$tf" 2>/dev/null)"
+    # 치료한 룰의 다음 할 일 — 먼저 고를 룰을 한 번 적고 그 아래에 메뉴 줄을 들인다(코어 1.22.0 · 전에는 줄마다
+    # *"치료가 유지되는지 보려면 — 4. CWPdoor 제거 → 3. …"*).
+    if grep -q -E '먼저 [0-9]+\. CWPdoor 제거를 고른 뒤' "$tf" 2>/dev/null; then
+        echo "treat_all_next=$(grep -c -E '^ +치료가 유지되는지 보려면 (—|-) [0-9]+\. 치료가 유지됐는지 다시 보기' "$tf")"
+    else
+        echo "treat_all_next=0"
+    fi
     for k in binary_gone unit_gone runs runlog restore_exit restored; do
         echo "treat_all_$k=$(sed -n "s/^treat_all_$k=//p" "$OUT/run.txt")"
     done
     # 그 치료가 빠른 검사 뒤였는가 — 그리고 정밀 검사 뒤에도 같은 번호 · 같은 길인가(복원으로 감염이 돌아온 뒤).
-    echo "treat_all_after_quick=$(grep -c "빠른 검사 결과 — 룰 ${quick}개" "$tf" 2>/dev/null)"
+    echo "treat_all_after_quick=$(grep -c "빠른 검사 결과 — 항목 ${quick}개" "$tf" 2>/dev/null)"
     # 빠른 검사 뒤 다음 할 일의 차례 — 찾은 것을 다루는 두 줄(모두 치료 · 하나씩 치료)이 붙어 먼저, 정밀 검사 줄이 끝.
     one=$(line '하나씩 치료하려면' "$tf"); dl=$(line '^  디스크 전체까지 보려면' "$tf")
     echo "treat_all_full_last=$([ -n "$one" ] && [ -n "$dl" ] && [ "$dl" -gt "$one" ] && echo 1 || echo 0)"
     ff="$OUT/treat-full.txt"
     echo "treat_full_exit=$(sed -n 's/^treat_full_exit=//p' "$OUT/run.txt")"
-    echo "treat_full_after_full=$(grep -c "정밀 검사 결과 — 룰 ${rules}개" "$ff" 2>/dev/null)"
+    echo "treat_full_after_full=$(grep -c "정밀 검사 결과 — 항목 ${rules}개" "$ff" 2>/dev/null)"
     echo "treat_full_lead=$(grep -c -E "찾은 것을 모두 치료하려면 (—|-) ${tn}\. 찾은 것 모두 치료하기 \(항목 1개" "$ff" 2>/dev/null)"
     echo "treat_full_line=$(grep -c -E "^ +${tn}\. 찾은 것 모두 치료하기 \(항목 1개" "$ff" 2>/dev/null)"
     echo "treat_full_summary=$(grep -c '찾은 것 모두 치료한 결과 — 항목 1개' "$ff" 2>/dev/null)"
