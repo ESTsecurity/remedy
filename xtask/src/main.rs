@@ -18,6 +18,7 @@ mod metrics;
 mod netcriteria;
 mod package;
 mod pluginlock;
+mod ps1vars;
 mod schema;
 mod screens;
 mod sign;
@@ -81,6 +82,8 @@ fn main() -> ExitCode {
         Some("plugin-lock") => pluginlock::run(&root, write),
         // 동반 프로그램의 판정 기준(데이터 룰)이 읽히고 본체의 점검 룰과 같은 값인가 (코어 1.12.0).
         Some("net-criteria") => netcriteria::run(&root),
+        // 하네스 `.ps1` 의 `"$n개"` — PowerShell 이 한글까지 변수 이름으로 읽어 빈 값으로 편다.
+        Some("ps1-vars") => ps1vars::run(&root),
         // 공개 전 누출 검사. **`all` 에 넣지 않는다** — 옛 사본은 로컬 전용 파일을
         // 추적하고 있어 실패가 맞는 상태다. 공개 저장소에서는 CI 의 따로 선 잡이다.
         Some("leaks") => {
@@ -106,7 +109,9 @@ fn main() -> ExitCode {
             // README 의 *다루는 위협* 표가 룰 매니페스트와 같은가 — 손으로 쓴 표는 룰이 늘면 어긋난다.
             .and_then(|()| threats::run(&root, &[]))
             // 동반 프로그램의 기준과 본체의 점검 룰이 같은 공지의 같은 값인가 — 한쪽만 고치면 여기서 걸린다.
-            .and_then(|()| netcriteria::run(&root)),
+            .and_then(|()| netcriteria::run(&root))
+            // 하네스의 판정 문구가 빈 값으로 펴지는 자리 — 2026-11-16 메뉴 하네스에서 한 칸을 실패시키고 한 칸을 공허하게 만든 것.
+            .and_then(|()| ps1vars::run(&root)),
         // VM 검증용 격리 컨테이너. 격리물을 **만드는** 것은 P6 의 몫이라
         // 제품 CLI 에 넣지 않고 개발 도구 쪽에 둔다.
         Some("fixture") => {
@@ -173,7 +178,7 @@ fn main() -> ExitCode {
             console::doc(&root, &args)
         }
         Some(other) => Err(format!("알 수 없는 작업: {other}")),
-        None => Err("사용법: cargo xtask <arch|trace|schema|guide|snapshots|exam-apply|plugin-lock|net-criteria|all> [--write]\n\
+        None => Err("사용법: cargo xtask <arch|trace|schema|guide|snapshots|exam-apply|plugin-lock|net-criteria|ps1-vars|all> [--write]\n\
                      cargo xtask metrics [--state-dir <디렉터리>] [--lang ko|en]\n\
                      cargo xtask static <바이너리 경로>...\n\
                      cargo xtask exam --dir <플러그인 디렉터리>

@@ -85,6 +85,13 @@ jobs:
         run: cargo xtask all
       - name: clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
+      # 실행 파일에 들어가는 코드는 화면에 `println!` 류로 쓰지 않는다 — 읽는 쪽이 먼저 닫힌 파이프(`| head`)에서
+      # 패닉해, 1.21.0 까지는 치료 도중에 7 로 멈췄다. 쓰는 길은 본체의 `outln!` · `screen_err!` 등과 remedy-net 의
+      # `crate::outln!` 등이다(`tee::write_screen` · `text::write_screen`). `-p` 로 두 실행 파일을 고르면 그것이
+      # 링크하는 작업 공간 크레이트까지 린트를 받는다. 시험 · 예제 · xtask 는 짓지 않고, 빌드 스크립트가 cargo 에
+      # 주는 stdout 은 `print_stdout` 이 보지 않는다.
+      - name: screen macros
+        run: cargo clippy -p remedy-cli -p remedy-net -- -D clippy::print_stdout -D clippy::print_stderr -D clippy::dbg_macro
       - name: test
         run: cargo test --workspace
       # 디스크가 찬 일이 있다 — 끝에 남은 자리와 크기를 적어 둔다.
@@ -120,6 +127,9 @@ jobs:
         run: cargo xtask all
       - name: clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
+      # 리눅스 잡과 같은 검사 — `cfg(windows)` 코드는 여기서만 컴파일된다.
+      - name: screen macros
+        run: cargo clippy -p remedy-cli -p remedy-net -- -D clippy::print_stdout -D clippy::print_stderr -D clippy::dbg_macro
       - name: test
         run: cargo test --workspace
       - name: disk
