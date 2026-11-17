@@ -57,6 +57,12 @@ ignore = [
     # 재검토 조건: unsafe-libyaml 에 취약점이 공지되거나, 공격자가 쥔 입력을 YAML 로
     # 읽게 되거나, serde_yaml_ng 가 다른 파서로 옮기면 즉시.
     { id = "RUSTSEC-2024-0449", reason = "미유지보수 공지이며 취약점 아님. 파서가 읽는 YAML 은 서명 검증 뒤의 매니페스트 · 운영자 입력 · 분석가 초안뿐이라 공격자 입력이 닿지 않는다. 대체는 해석 호환을 따로 재야 한다" },
+
+    # chrono 0.4 — 미유지보수(취약점 아님 · 2026-11-17 공지). yara-x 의 **빌드 의존** yara-x-proto(프로토콜 코드
+    # 생성)만 쓴다 — `cargo tree -p remedy-cli -e normal -i chrono` 와 `-p remedy-net` 이 비어 있다. 실행 파일에
+    # 들지 않고, 빌드 때도 우리 입력이 닿지 않는다(yara-x 가 싣고 온 .proto 를 읽을 뿐).
+    # 재검토 조건: chrono 가 실행 파일의 일반 의존으로 들어오거나, chrono 에 취약점이 공지되거나, yara-x 가 대체하면 즉시.
+    { id = "RUSTSEC-2026-0543", reason = "yara-x 의 빌드 의존(yara-x-proto)만 쓰고 실행 파일에 들지 않는다. 미유지보수 공지이며 취약점 아님" },
 ]
 
 [licenses]
