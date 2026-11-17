@@ -342,6 +342,28 @@ fn a_revoked_rule_does_not_scan() {
 }
 
 #[test]
+fn a_refused_scan_keeps_an_out_dir_it_did_not_make() {
+    // 치우는 것은 이번에 만든 결과 폴더뿐이다 — 운영자가 미리 만든 빈 폴더(Windows 에서는 정션 · 디렉터리
+    // 링크도 `remove_dir` 한 번에 링크째 사라진다)는 거부한 검사가 지우지 않는다.
+    let g = gated("revoked-prepared-out", true);
+    let out = g.dir.join("prepared");
+    std::fs::create_dir_all(&out).expect("미리 만든 결과 폴더");
+    let (code, text) = run(&[
+        "scan",
+        "--plugin",
+        g.plugin.to_str().unwrap(),
+        "--out-dir",
+        out.to_str().unwrap(),
+        "--state-dir",
+        g.state.to_str().unwrap(),
+        "--public-key",
+        g.pk.to_str().unwrap(),
+    ]);
+    assert_eq!(code, 5, "{text}");
+    assert!(out.is_dir(), "미리 만든 결과 폴더를 지웠다");
+}
+
+#[test]
 fn a_revoked_rule_does_not_treat_even_with_yes() {
     // `--yes` 는 승인을 대신할 뿐 폐기를 넘지 못한다 — 검사 · 계획 · 승인보다 앞에서 멈춘다.
     let g = gated("revoked-run", true);

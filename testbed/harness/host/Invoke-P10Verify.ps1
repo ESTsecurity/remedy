@@ -206,6 +206,13 @@ $gPlug = "$LabRoot\p10\plug"
 $gState = "$LabRoot\p10state"
 Invoke-Command -Session $session -ArgumentList $LabRoot, $labDir -ScriptBlock {
     param($root, $lab)
+    # **지난 회차의 상태 폴더를 비운다.** `-NoRevert` 로 다시 돌면 거기 지난 회차의 일회용 키로 서명한 폐기
+    # 목록이 남아 있고, 이제 scan 도 그 목록을 읽으므로 판정 2 가 서명 불일치(5)로 떨어진다. 랩 뿌리 아래의
+    # 이 두 이름만 지운다.
+    if (-not $root) { throw "랩 뿌리가 비어 있다" }
+    foreach ($prevState in @("$root\p10state", "$root\p10state-allow")) {
+        if (Test-Path -LiteralPath $prevState) { Remove-Item -LiteralPath $prevState -Recurse -Force }
+    }
     New-Item -ItemType Directory -Force "$root\bin", "$root\p10\plug", "$root\p10\unsigned", $lab | Out-Null
     # 치료 대상 하나. 판정이 서야 5층이 뺄 것이 생긴다.
     [System.IO.File]::WriteAllText("$lab\evil.exe", "payload")

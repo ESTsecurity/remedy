@@ -1505,9 +1505,11 @@ fn cmd_plan(raw: &[String]) -> Result<Code, Failure> {
             None
         }
     };
-    // 폐기된 룰로 치료 계획을 만들지 않는다 — `plan` → `apply` 가 `run` 을 돌아가는 길이 되지 않게.
+    // 폐기된 룰로 치료 계획을 만들지 않는다 — `plan` → `apply` 가 `run` 을 돌아가는 길이 되지 않게. `plan` 은
+    // 관리자 문을 지나지 않으므로 아래 `load_allowed` 가 읽는 그 상태 폴더 하나만 본다(기계 공용 자리를 새로
+    // 읽으면 권한 없는 계획 세우기가 목록이 없어도 막힌다).
     if let Some(m) = &m {
-        revocation_gate(&a, m)?;
+        revocation_gate_at(&a, m, &[state_dir(&a)])?;
     }
 
     let allow = load_allowed(
@@ -1621,15 +1623,19 @@ fn scan_one(raw: &[String], keep: Keep) -> Result<ScanOne, Failure> {
     let limits = load_limits(&a)?;
     let m = load_local(a.need("plugin")?)?;
     let dir = a.need("out-dir")?;
+    // 거부한 검사가 치울 것은 **이번에 만든 폴더**뿐이다 — 운영자가 미리 만든 빈 폴더나 Windows 정션 ·
+    // 디렉터리 링크(`remove_dir` 는 대상과 상관없이 링크째 지운다)는 그대로 둔다.
+    let made_here = std::fs::symlink_metadata(dir).is_err();
     std::fs::create_dir_all(dir).map_err(|e| format!("{dir}: {e}"))?;
     let meta = RunMeta::now();
     tee::open(&state_dir(&a), &meta.run_id);
     banner(Some(&m));
     warn_unsupported(&m);
-    // 폐기된 룰로는 검사하지 않는다(설계-03 §6). 거부 사유는 회차 로그에도 남고, 위에서 만든 결과 폴더는
-    // 비어 있을 때만 치운다(아래 남기지 않는 갈래와 같은 꼴).
+    // 폐기된 룰로는 검사하지 않는다(설계-03 §6). 거부 사유는 회차 로그에도 남는다.
     if let Err(f) = revocation_gate(&a, &m) {
-        let _ = std::fs::remove_dir(dir);
+        if made_here {
+            let _ = std::fs::remove_dir(dir);
+        }
         return Err(f);
     }
 

@@ -387,15 +387,26 @@ pub(super) fn load_allowed(
 ///
 /// 목록이 있어도 그 목록이 이 룰의 id 를 겨누지 않으면 판정하지 않는다 — 판정하면 `x.y.z` 가 아닌 버전을 쓰는
 /// 다른 룰까지 5 로 멈춘다. 목록 자체(서명 · 옛 목록 되밀기)는 그래도 확인한다: 바꿔치기된 목록을 조용히
-/// 넘기지 않는다([`load_allowed`] 가 읽을 때 한 번 더 보는 것과 같다).
+/// 넘기지 않는다([`load_allowed`] 가 읽을 때 한 번 더 보는 것과 같다). 그래서 목록이 서명 확인을 통과하지
+/// 못하면 그 상태 폴더를 쓰는 실행은 룰과 상관없이 멈춘다 — 의도한 fail-closed 다.
 ///
 /// # 메뉴는 두 자리를 본다
 ///
 /// 메뉴는 실행 파일 옆 `state` 를 상태 폴더로 넘긴다. 문서가 안내하는 반입(`revocation import`)은 기본 자리에
-/// 들어가므로, 그 자리일 때는 [`menu_state_dirs`] 의 두 자리를 다 읽고 어느 목록이든 겨누면 막는다. 메뉴의
-/// 검사 · 치료 · 유지 확인은 관리자 문을 지난 뒤라 기계 공용 자리도 읽힌다. 명령줄은 그 명령의 상태 폴더
-/// 한 자리다.
+/// 들어가므로, 그 자리일 때는 [`menu_state_dirs`] 의 두 자리를 다 읽고 어느 목록이든 겨누면 막는다. 이 함수를
+/// 부르는 검사 · 치료 · 유지 확인은 관리자 문을 지난 뒤라 기계 공용 자리도 읽힌다. 관리자 문이 없는 `plan` 은
+/// [`revocation_gate_at`] 으로 그 명령의 상태 폴더 하나만 본다. 명령줄은 어느 쪽이든 그 명령의 상태 폴더 한
+/// 자리다.
 pub(super) fn revocation_gate(a: &Args, m: &PluginManifest) -> Result<(), Failure> {
+    revocation_gate_at(a, m, &trust_dirs(&state_dir(a)))
+}
+
+/// [`revocation_gate`] 의 판정을 준 자리들에서 한다.
+pub(super) fn revocation_gate_at(
+    a: &Args,
+    m: &PluginManifest,
+    dirs: &[std::path::PathBuf],
+) -> Result<(), Failure> {
     let min = remedy_trust::revocation::MinVersions::from_pairs(MIN_PLUGIN_VERSIONS)
         .map_err(|e| Failure::from(e.to_string()))?;
     let arg = |k: &str| a.get(k.trim_start_matches("--")).map(str::to_string);
@@ -403,7 +414,7 @@ pub(super) fn revocation_gate(a: &Args, m: &PluginManifest) -> Result<(), Failur
         code: Code::GuardStop,
         message: d.to_string(),
     };
-    for dir in trust_dirs(&state_dir(a)) {
+    for dir in dirs {
         let p = dir.join(remedy_trust::revocation::LIST_FILE);
         match std::fs::metadata(&p) {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => continue,
@@ -415,10 +426,10 @@ pub(super) fn revocation_gate(a: &Args, m: &PluginManifest) -> Result<(), Failur
             }
             Ok(_) => {}
         }
-        let Some(list) = load_revocations(&anchor_from(arg)?, &dir)? else {
+        let Some(list) = load_revocations(&anchor_from(arg)?, dir)? else {
             continue;
         };
-        let state = read_state(&dir)?;
+        let state = read_state(dir)?;
         remedy_trust::revocation::check_revocations(&list, &state).map_err(|d| Failure {
             code: Code::GuardStop,
             message: format!("{}: {d}", p.display()),
