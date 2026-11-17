@@ -194,7 +194,8 @@ Update · Chrome · Store 갱신기가 회차 도중에 움직여 "치료가 만
 
 remedy 의 실제 구현은 `testbed/harness/host/VmSession.ps1`(연결 · 배포 · 실행 공용 함수, 진단
 문구 포함) · `Reset-Vm.ps1` · `Invoke-VmTest.ps1` 이고, 하네스 열아홉을 한 번에 도는
-`Invoke-Sweep.ps1` 이 그 위에 있다(한 바퀴 약 50분). 리눅스 짝은 VM 이 아니라 **docker 컨테이너**
+`Invoke-Sweep.ps1` 이 그 위에 있다(한 바퀴 약 50분 · 2026-11-18 부터 보관 — 종료 코드 회귀 넷은 출시의 rc 묶음으로
+옮겼다). 리눅스 짝은 VM 이 아니라 **docker 컨테이너**
 (`rust:1.96-bookworm`)다 — 새 컨테이너가 스냅샷 복원과 같은 청정 기준을 준다.
 
 ## 못 재는 것 · 이 문서의 한계

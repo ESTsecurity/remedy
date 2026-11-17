@@ -38,13 +38,20 @@ param(
     [pscredential] $Credential,
     [switch] $SaveCredential,
     [string] $LabRoot = "C:\remedy-lab",
-    [switch] $Build
+    [switch] $Build,
+    # 받은 꾸러미(풀어 둔 `remedy-windows-x64` 폴더)의 `remedy.exe` 로 잰다 — rc 묶음이 이것으로 부른다.
+    [string] $Package
 )
 
 $ErrorActionPreference = "Stop"
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
 $triple = "x86_64-pc-windows-msvc"
 $binPath = Join-Path $repoRoot "target\$triple\release\remedy.exe"
+# 꾸러미로 잴 때는 짓지 않는다 — rc 묶음의 계약(빌드는 하지 않는다)과 같다.
+if ($Package) {
+    if ($Build) { throw "-Package 와 -Build 는 함께 줄 수 없다" }
+    $binPath = Join-Path $Package "remedy.exe"
+}
 
 . (Join-Path $PSScriptRoot "VmSession.ps1")
 
@@ -61,6 +68,7 @@ if ($Build) {
     Write-Ok "완료"
 }
 if (-not (Test-Path $binPath)) { throw "바이너리가 없다: $binPath  (-Build 로 만들 것)" }
+Write-Ok ("remedy.exe sha256 {0}…" -f (Get-FileHash -LiteralPath $binPath -Algorithm SHA256).Hash.Substring(0, 12).ToLower())
 
 $runId = "verify-guard-" + (Get-Date -Format "yyyyMMdd-HHmmss")
 $hostOut = Join-Path $repoRoot "testbed\harness\results\$runId"
@@ -156,7 +164,7 @@ try {
     }
     $passed = @($checks | Where-Object { $_.pass }).Count
     Write-Host ""
-    Write-Host ("판정 {0}/{1}" -f $passed, $checks.Count) `
+    Write-Host ("판정 {0}/{1} · 실패 {2}" -f $passed, $checks.Count, ($checks.Count - $passed)) `
         -ForegroundColor $(if ($passed -eq $checks.Count) { "Green" } else { "Red" })
 
     # JSON 은 BOM 없이 — serde 계열 파서가 BOM 을 거부한다.

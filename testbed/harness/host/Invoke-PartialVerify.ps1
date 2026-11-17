@@ -45,13 +45,22 @@ param(
     [pscredential] $Credential,
     [switch] $SaveCredential,
     [string] $LabRoot = "C:\remedy-lab",
-    [switch] $Build
+    [switch] $Build,
+    # 받은 꾸러미(풀어 둔 `remedy-windows-x64` 폴더)의 `remedy.exe` 와 그 안의 룰로 잰다 — rc 묶음이 이것으로 부른다.
+    [string] $Package
 )
 
 $ErrorActionPreference = "Stop"
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
 $triple = "x86_64-pc-windows-msvc"
 $binPath = Join-Path $repoRoot "target\$triple\release\remedy.exe"
+$pluginSrc = Join-Path $repoRoot "plugins\evilai-locust"
+# 꾸러미로 잴 때는 짓지 않고, 룰도 그 꾸러미의 것(서명된 그대로)을 쓴다 — rc 묶음의 계약과 같다.
+if ($Package) {
+    if ($Build) { throw "-Package 와 -Build 는 함께 줄 수 없다" }
+    $binPath = Join-Path $Package "remedy.exe"
+    $pluginSrc = Join-Path $Package "plugins\evilai-locust"
+}
 
 . (Join-Path $PSScriptRoot "VmSession.ps1")
 
@@ -69,6 +78,8 @@ if ($Build) {
     Write-Ok "완료"
 }
 if (-not (Test-Path $binPath)) { throw "바이너리가 없다: $binPath  (-Build 로 만들 것)" }
+if (-not (Test-Path (Join-Path $pluginSrc "plugin.yaml"))) { throw "룰이 없다: $pluginSrc" }
+Write-Ok ("remedy.exe sha256 {0}…" -f (Get-FileHash -LiteralPath $binPath -Algorithm SHA256).Hash.Substring(0, 12).ToLower())
 
 $runId = "verify-partial-" + (Get-Date -Format "yyyyMMdd-HHmmss")
 $hostOut = Join-Path $repoRoot "testbed\harness\results\$runId"
@@ -89,7 +100,7 @@ try {
         }
     }
     Copy-Item $binPath -Destination "$LabRoot\bin\remedy.exe" -ToSession $session -Force
-    Copy-Item (Join-Path $repoRoot "plugins\evilai-locust") `
+    Copy-Item $pluginSrc `
         -Destination "$LabRoot\plugins\evilai-locust" -ToSession $session -Recurse -Force
     Write-Ok "remedy.exe · evilai-locust"
 
@@ -101,7 +112,7 @@ try {
     Assert-NoForeignInfection -Session $session -PayloadDir $payloadDir
 
     Write-Step "감염"
-    $rule = Join-Path $repoRoot "plugins\evilai-locust\rules\evilai.yar"
+    $rule = Join-Path $pluginSrc "rules\evilai.yar"
     $bytes = Get-SynthPayloadBytes -RulePath $rule
     Set-InfectedState -Session $session -PayloadDir $payloadDir | Out-Null
     Set-GuestPayload -Session $session -PayloadDir $payloadDir -Bytes $bytes | Out-Null
@@ -211,7 +222,7 @@ try {
     }
     $passed = @($checks | Where-Object { $_.pass }).Count
     Write-Host ""
-    Write-Host ("판정 {0}/{1}" -f $passed, $checks.Count) `
+    Write-Host ("판정 {0}/{1} · 실패 {2}" -f $passed, $checks.Count, ($checks.Count - $passed)) `
         -ForegroundColor $(if ($passed -eq $checks.Count) { "Green" } else { "Red" })
 
     # **JSON 은 BOM 없이.** serde 계열 파서가 BOM 을 거부한다.

@@ -1,7 +1,7 @@
 ﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
-    출시의 Windows 랩 묶음 — 지난 공개본(A)과 이번 판(B)을 랩 VM 과 이 기계에서 나란히 재는 19단계
+    출시의 Windows 랩 묶음 — 지난 공개본(A)과 이번 판(B)을 랩 VM 과 이 기계에서 나란히 재는 23단계
     (docs/개발-안내.md "출시 검증").
 
 .DESCRIPTION
@@ -14,6 +14,9 @@
                     랩 VM 의 같은 상태에서 A 와 B(`rc\Invoke-Ab*.ps1`). 상태를 바꾸는 단계 뒤마다 되돌린다(reset1 ~ 6)
       log4j         log4j-disk(깨끗한 C: 전체 → 0) · log4j-positive(시료를 놓고 → 2 · 고친 판은 화면에 없다)
       apache        이번 판의 Apache HTTP/2 점검 룰 하네스(`Invoke-ApacheVerify.ps1` — 설치본 모양마다 0 · 2 · 6)
+      종료 코드     exit5-guard · exit6-obs · exit3-partial — 이번 판의 가드 중단 5 · 관측 불완전 6 · 일부 실패 3
+                    (`Invoke-GuardVerify` · `Invoke-ObsVerify` · `Invoke-PartialVerify` `-Package`) · exit5-sign — 서명
+                    확인 0 · 5(`Invoke-SignVerify -Package` · 이 기계). A/B 가 아니라 정한 값을 단정한다
       원격          net-ab — 이 기계에서 remedy-net url · image · container(`rc\Invoke-AbNet.ps1`) · net-apache — 이번 판의
                     remedy-net.exe 로 이미지의 Apache(`rc\Invoke-NetApache.ps1` — 리눅스 묶음이 저장한 `apache-images\`)
 
@@ -23,7 +26,7 @@
     `testbed\harness\linux\fixtures\log4j\build-cases.py` 로 짓는다(python). Docker Desktop 에 `php:8.3.35-cli` ·
     `node:22.18.0-bookworm-slim` 이미지가 있어야 한다. **리눅스 묶음과 겹쳐 돌리지 않는다**(메모리가 모자랐다).
 
-    판정: 시연 · 메뉴는 마지막 `판정 N/N · 실패 0`, 되돌리기는 `복원 완료`, 시간은 검사 넷의 줄, A/B 는 상태 줄의
+    판정: 시연 · 메뉴 · 종료 코드는 마지막 `판정 N/N · 실패 0`, 되돌리기는 `복원 완료`, 시간은 검사 넷의 줄, A/B 는 상태 줄의
     `A 코드… B 코드…` 가 **모두 같아야** 한다, log4j 는 기대한 종료 코드와 화면, 원격은 `A=코드 B=코드` 짝과 `different 0`.
     summary.txt 가 단계마다 `통과 · 다름 · 실패` 를 적는다. 종료 코드: 0 = 모두 통과 · 1 = 실패나 다름이 있다(다름은 의도한
     변경인지 본다 — 룰만 바꾼 출시라면 다름도 실패다) · 2 = 인자 · 시료가 모자라 시작하지 않았다.
@@ -62,6 +65,10 @@ function Stop-Setup([string] $why) { Write-Host "시작하지 않는다 — $why
 # ── 시료 ──────────────────────────────────────────────────────────────────────
 foreach ($p in @($Package, $PackageA)) {
     if (-not (Test-Path -LiteralPath (Join-Path $p 'remedy.exe'))) { Stop-Setup "remedy.exe 가 없다: $p" }
+}
+# 종료 코드 단계(3 · 5 · 6)는 이번 판에 든 EvilAI 룰로 잰다.
+if (-not (Test-Path -LiteralPath (Join-Path $Package 'plugins\evilai-locust\plugin.yaml'))) {
+    Stop-Setup "이번 판에 plugins\evilai-locust 가 없다: $Package"
 }
 if (-not $Inputs) { $Inputs = Join-Path $repo 'testbed\harness\results\rc-inputs' }
 New-Item -ItemType Directory -Force $Inputs | Out-Null
@@ -248,6 +255,12 @@ Step 'log4j-positive' {
 Step 'apache' {
     & (Join-Path $h 'Invoke-ApacheVerify.ps1') -Package $Package -ApacheZip $apacheZip -LogDir (Join-Path $LogDir 'apache')
 } $verdictLine
+# 종료 코드의 Windows 회귀 — A/B 가 아니라 정한 값을 단정한다(전에는 출시 경로 밖 `Invoke-Sweep` 에서만 돌았다).
+# 가드 중단 5(상한 · 보호 경로) · 관측 불완전 6 · 일부 실패 3. Partial 은 남의 감염이 없고 게스트에 node.exe 가 있어야
+# 서므로 이 자리다(outside · nssm 이 치운 Node.js 는 reset5 가 되살렸다). 남긴 RunOnce 예약은 아래 reset6 이 되돌린다.
+Step 'exit5-guard' { & (Join-Path $h 'Invoke-GuardVerify.ps1') -Package $Package } $verdictLine
+Step 'exit6-obs' { & (Join-Path $h 'Invoke-ObsVerify.ps1') -Package $Package } $verdictLine
+Step 'exit3-partial' { & (Join-Path $h 'Invoke-PartialVerify.ps1') -Package $Package } $verdictLine
 Step 'reset6' { & (Join-Path $h 'Reset-Vm.ps1') } $resetJudge
 Step 'net-ab' {
     & (Join-Path $rcDir 'Invoke-AbNet.ps1') -PackageA $PackageA -PackageB $Package -ImagesDir $images -OutDir (Join-Path $LogDir 'net-ab')
@@ -267,6 +280,8 @@ Step 'net-apache' {
     & (Join-Path $rcDir 'Invoke-NetApache.ps1') -Bin (Join-Path $Package 'remedy-net\remedy-net.exe') `
         -Criteria (Join-Path $Package 'plugins\remedy-net-criteria') -ImagesDir $apacheImages -OutDir (Join-Path $LogDir 'net-apache')
 } $verdictLine
+# 서명 확인의 종료 코드 — 손대지 않은 꾸러미 0 · 고친 · 더한 · 지운 파일과 없는 서명 5. 이 기계에서 박힌 앵커로 잰다(VM 이 필요 없다).
+Step 'exit5-sign' { & (Join-Path $h 'Invoke-SignVerify.ps1') -Package $Package } $verdictLine
 
 $tail = @()
 if ($script:failed.Count) { $tail += '실패: ' + ($script:failed -join ', ') }
