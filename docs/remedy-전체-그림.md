@@ -708,10 +708,11 @@ flowchart TB
 ### 규칙은 문서가 아니라 CI 가 지킨다
 
 ```bash
-cargo xtask all      # 열하나를 한 번에 (아래)
+cargo xtask all      # 열셋을 한 번에 (아래)
 cargo xtask static   # 배포될 바이너리의 임포트 전수 — 네트워크 없음 확인
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
+cargo clippy -p remedy-cli -p remedy-net -- -D clippy::print_stdout -D clippy::print_stderr -D clippy::dbg_macro
 cargo deny check
 ```
 
@@ -728,6 +729,11 @@ cargo deny check
 | `실기기` | 위협 20개의 치료 결과가 **지금 자료로** 재어졌는가 |
 | `plugin-lock` | 룰을 고친 플러그인이 버전을 올렸는가 |
 | `threats` | README 의 *다루는 위협* 표가 룰 매니페스트와 같은가 |
+| `net-criteria` | 동반 프로그램의 판정 기준(데이터 룰)이 읽히고 본체의 점검 룰과 같은 값인가 |
+| `ps1-vars` | 하네스 `.ps1` 에 `"$n개"` 처럼 변수 이름 뒤에 한글이 붙은 자리가 없는가 — PowerShell 은 그것을 빈 변수 `n개` 로 편다 |
+
+둘째 `clippy` 는 실행 파일에 들어가는 코드가 화면에 `println!` 류로 쓰지 않는지 본다 — 읽는 쪽이 먼저
+닫힌 파이프(`remedy … | head`)에서 패닉해 1.21.0 까지는 치료 도중에 7 로 멈췄다(1.21.1 에서 고침).
 
 `arch` 의 금지 의존 목록과 `trace` 의 인벤토리는 **코드에 박혀 있지 않고 설계
 문서에서 읽는다.** 같은 사실을 두 곳에 적으면 반드시 갈라지기 때문이다.
