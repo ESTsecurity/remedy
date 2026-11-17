@@ -30,7 +30,6 @@ crossterm.workspace = true
 ctrlc.workspace = true
 
 [dev-dependencies]
-serde_json.workspace = true
 # 통합 시험이 컨테이너를 **만들어야** 한다. 격리물 생성은 P6 의 몫이라 제품
 # CLI 에는 없고, 그래서 시험 쪽에서만 라이브러리를 직접 쓴다.
 remedy-quarantine = { path = "../remedy-quarantine" }

@@ -600,7 +600,7 @@ pub(crate) fn processes(view: &impl PathView) -> Result<Vec<RawProcess>, Platfor
                     .user_id()
                     .map(|u| u.to_string())
                     .unwrap_or_else(|| String::from("unknown")),
-                start_time: format_epoch(p.start_time()),
+                start_time: remedy_sdk::utc::rfc3339(p.start_time()),
                 // **여기서는 비운다.** 모듈 목록은 플랫폼마다 얻는 길이 달라
                 // 공통 코드가 채울 것이 없다 — Linux 백엔드가 `/proc` 에서
                 // 이어 채우고, Windows 는 열거가 unsafe 라 빈 채로 둔다
@@ -616,38 +616,11 @@ pub(crate) fn processes(view: &impl PathView) -> Result<Vec<RawProcess>, Platfor
     Ok(out)
 }
 
+/// 파일 시각 → RFC 3339 UTC. 시각을 읽지 못했거나 1970 년 앞이면 `None` 이다(계산은 `remedy_sdk::utc`).
 pub(crate) fn rfc3339(t: std::io::Result<std::time::SystemTime>) -> Option<String> {
     let t = t.ok()?;
     let secs = t.duration_since(std::time::UNIX_EPOCH).ok()?.as_secs();
-    Some(format_epoch(secs))
-}
-
-/// UTC RFC3339. 시간대 라이브러리를 끌어오지 않는다 — 스냅샷은 항상 UTC 다.
-pub(crate) fn format_epoch(secs: u64) -> String {
-    // 1970-01-01 부터의 일수/초로 그레고리력을 편다.
-    let days = (secs / 86_400) as i64;
-    let rem = secs % 86_400;
-    let (y, m, d) = civil_from_days(days);
-    format!(
-        "{y:04}-{m:02}-{d:02}T{:02}:{:02}:{:02}Z",
-        rem / 3600,
-        (rem % 3600) / 60,
-        rem % 60
-    )
-}
-
-/// Howard Hinnant 의 days-from-civil 역함수.
-fn civil_from_days(z: i64) -> (i64, u32, u32) {
-    let z = z + 719_468;
-    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
-    let doe = (z - era * 146_097) as u64;
-    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
-    let y = yoe as i64 + era * 400;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    let d = (doy - (153 * mp + 2) / 5 + 1) as u32;
-    let m = if mp < 10 { mp + 3 } else { mp - 9 } as u32;
-    (if m <= 2 { y + 1 } else { y }, m, d)
+    Some(remedy_sdk::utc::rfc3339(secs))
 }
 
 #[cfg(test)]
@@ -885,13 +858,5 @@ mod tests {
         );
         assert_eq!(strip_token("%APPDATA%\\x", "%ALLUSERPROFILES%"), None);
         assert_eq!(strip_token("%ALL%", "%ALLUSERPROFILES%"), None);
-    }
-
-    #[test]
-    fn epoch_zero_is_the_unix_epoch() {
-        assert_eq!(format_epoch(0), "1970-01-01T00:00:00Z");
-        // 윤년 경계. 2024-02-29 12:34:56 UTC
-        assert_eq!(format_epoch(1_709_210_096), "2024-02-29T12:34:56Z");
-        assert_eq!(format_epoch(1_771_500_600), "2026-02-19T11:30:00Z");
     }
 }

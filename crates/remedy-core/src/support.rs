@@ -104,24 +104,33 @@ pub fn build(state_dir: &Path, run_id: &str, out: &Path) -> Result<Bundle, Strin
         (
             remedy_apply::plan_path(state_dir, run_id),
             "plan.json",
-            remedy_sdk::i18n::t("무엇을 하려 했는가: 승인된 계획 전문", "what was going to happen: the approved plan in full"),
+            remedy_sdk::i18n::t(
+                "승인한 치료 계획 전문",
+                "the approved treatment plan in full",
+            ),
         ),
         (
             remedy_journal::journal_path(state_dir, run_id),
             "journal.jsonl",
-            remedy_sdk::i18n::t("무엇을 했는가: 감사 로그", "what was done: the audit log"),
+            remedy_sdk::i18n::t("수행 기록 (감사 로그)", "what was done (audit log)"),
         ),
         (
             // **재부팅 뒤 예약된 재평가의 결과가 여기 말고는 없다** — 그 실행은
             // 콘솔 없이 돌고 종료 코드가 사라진다 (설계-03 §8).
             crate::verify_log::path(state_dir, run_id),
             "verify.jsonl",
-            remedy_sdk::i18n::t("치료가 유지됐는가: 재평가 기록", "whether the treatment held: the re-evaluation record"),
+            remedy_sdk::i18n::t(
+                "치료가 유지됐는지 다시 본 기록",
+                "whether the treatment held (re-check record)",
+            ),
         ),
         (
             crate::runlog::path(state_dir, run_id),
             "run.log",
-            remedy_sdk::i18n::t("사람이 본 화면: 배너·계획·경고·실패 문구·마무리 표, 줄마다 시각", "what the operator saw: banner, plan, warnings, failures, closing table, each line timed"),
+            remedy_sdk::i18n::t(
+                "화면에 보인 내용 (계획 · 경고 · 실패 · 마무리, 줄마다 시각)",
+                "what was on screen (plan, warnings, failures, closing, each line timed)",
+            ),
         ),
     ] {
         match copy_one(&src, &dir.join(name)) {
@@ -145,8 +154,8 @@ pub fn build(state_dir: &Path, run_id: &str, out: &Path) -> Result<Bundle, Strin
         source: env_path,
         bytes: env.len() as u64,
         what: remedy_sdk::i18n::t(
-            "어떤 코어에서 돌았는가: 버전, 타깃, 자기무결성, 엔진 상태",
-            "which core ran: version, target, self-integrity, engine state",
+            "프로그램 버전 · OS · 자기 무결성 · 엔진 상태",
+            "program version, OS, self-integrity, engine state",
         ),
     });
 

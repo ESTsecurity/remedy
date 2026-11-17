@@ -43,6 +43,12 @@
 .PARAMETER SetEnv
     `이름=값` 하나 — 띄울 프로그램이 물려받는다. 색을 끈 화면은 `NO_COLOR=1`.
 
+.PARAMETER Limited
+    **권한 없이** 띄운다 — 예약 작업을 `RunLevel Limited` 로 건다. 탐색기에서 더블클릭한 것과 같은 걸러진 토큰이라
+    메뉴의 첫 화면이 *관리자 권한으로 다시 열기* 를 권한다(코어 1.22.0). 치우기 전에 남은 remedy 프로세스와 그
+    토큰이 관리자 권한인지(`TokenElevation`)를 `result.json` 의 `remedy_left` 에 적는다 — 다시 연 창이 정말 관리자
+    권한으로 떴는지가 거기서 보인다.
+
 .EXAMPLE
     .\Invoke-ScreenShot.ps1 -Bin target\x86_64-pc-windows-msvc\release\remedy.exe -Name usage
     .\Invoke-ScreenShot.ps1 -Package D:\dl\remedy-evilai-locust-windows-x64 -Name menu
@@ -62,7 +68,8 @@ param(
     [ValidateSet("print", "screen")] [string] $Method = "print",
     [string] $Name = "shot",
     [int] $TimeoutSec = 180,
-    [string] $SetEnv = ""
+    [string] $SetEnv = "",
+    [switch] $Limited
 )
 
 $ErrorActionPreference = "Stop"
@@ -139,15 +146,16 @@ try {
     }
 
     Write-Step "대화형 세션에서 띄우고 찍는다 ($Terminal · $Steps)"
-    $run = Invoke-Command -Session $session -ArgumentList $shotDir, $LabRoot, $task, $console, $Terminal, $wtExe, $Steps, $SettleMs, $Method, $TimeoutSec, $SetEnv -ScriptBlock {
-        param($dir, $lab, $task, $user, $terminal, $wtExe, $steps, $settle, $method, $timeout, $setEnv)
+    $level = $(if ($Limited) { "Limited" } else { "Highest" })
+    $run = Invoke-Command -Session $session -ArgumentList $shotDir, $LabRoot, $task, $console, $Terminal, $wtExe, $Steps, $SettleMs, $Method, $TimeoutSec, $SetEnv, $level -ScriptBlock {
+        param($dir, $lab, $task, $user, $terminal, $wtExe, $steps, $settle, $method, $timeout, $setEnv, $level)
         $a = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$lab\scripts\Capture-Window.ps1`"" +
              " -Exe `"$dir\app\remedy.exe`" -OutDir `"$dir\out`" -Terminal $terminal" +
              " -Steps `"$steps`" -SettleMs $settle -Method $method"
         if ($wtExe) { $a += " -WtExe `"$wtExe`"" }
         if ($setEnv) { $a += " -SetEnv `"$setEnv`"" }
         $act = New-ScheduledTaskAction -Execute "powershell.exe" -Argument $a -WorkingDirectory "$dir\app"
-        $pr  = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Highest
+        $pr  = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel $level
         $set = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Seconds $timeout)
         Register-ScheduledTask -TaskName $task -Action $act -Principal $pr -Settings $set | Out-Null
         $t0 = Get-Date
@@ -170,6 +178,29 @@ try {
     Copy-Item "$shotDir\out\*" -Destination $hostOut -FromSession $session -Force
     Write-Ok "$($run.Secs)초 · 결과 $hostOut"
 
+    # 치우기 전에 남은 remedy 프로세스와 그 토큰의 권한(`TokenElevation` — 1 이면 관리자 권한)을 적는다. 권한 없이
+    # 띄운 창이 *관리자 권한으로 다시 열기* 로 새 창을 열었는지가 여기서 보인다(`-Limited`).
+    $left = @(Invoke-Command -Session $session -ScriptBlock {
+        Add-Type -Namespace RemedyLab -Name Tok -MemberDefinition @'
+[DllImport("advapi32.dll", SetLastError=true)] public static extern bool OpenProcessToken(IntPtr h, uint access, out IntPtr tok);
+[DllImport("advapi32.dll", SetLastError=true)] public static extern bool GetTokenInformation(IntPtr tok, int cls, out int info, int len, out int ret);
+[DllImport("kernel32.dll")] public static extern bool CloseHandle(IntPtr h);
+public static int Elevated(IntPtr process) {
+    IntPtr t;
+    if (!OpenProcessToken(process, 0x0008, out t)) return -1;
+    int e, r;
+    bool ok = GetTokenInformation(t, 20, out e, 4, out r);
+    CloseHandle(t);
+    return ok ? e : -1;
+}
+'@ -ErrorAction SilentlyContinue
+        Get-Process remedy -ErrorAction SilentlyContinue | ForEach-Object {
+            $e = try { [RemedyLab.Tok]::Elevated($_.Handle) } catch { -1 }
+            [pscustomobject]@{ pid = $_.Id; elevated = $e; started = $_.StartTime.ToString("HH:mm:ss") }
+        }
+    })
+    foreach ($l in $left) { Write-Ok "남은 remedy pid $($l.pid) · 관리자 권한 $($l.elevated) · 시작 $($l.started)" }
+
     Write-Step "치우기 — 꾸러미를 랩에 남기지 않는다"
     Invoke-Command -Session $session -ArgumentList $shotDir -ScriptBlock {
         param($dir)
@@ -184,6 +215,7 @@ try {
 # ── 판정 ────────────────────────────────────────────────────────────
 $r = Get-Content (Join-Path $hostOut "result.json") -Raw -Encoding UTF8 | ConvertFrom-Json
 $r | Add-Member -NotePropertyName remedy_sha256 -NotePropertyValue $exeHash
+$r | Add-Member -NotePropertyName remedy_left -NotePropertyValue @($left)
 [System.IO.File]::WriteAllText((Join-Path $hostOut "result.json"), ($r | ConvertTo-Json -Depth 6), (New-Object System.Text.UTF8Encoding $false))
 $shots = @($r.steps | Where-Object { $_.shot } | ForEach-Object { $_.shot })
 foreach ($s in $shots) {

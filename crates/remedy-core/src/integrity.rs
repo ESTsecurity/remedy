@@ -267,6 +267,38 @@ const NO_CODESIGN: (&str, &str) = (
     "no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum",
 );
 
+/// 메뉴 첫 화면 머리말 아래에 설 **짧은** 알림 — [`advisory`] 와 같은 사실을 80칸 안에서(목표 remedy_시연전_안정화
+/// D5). 메뉴 세션은 경고로 시작하지 않는다: 머리말(제품 · 버전 · 권한) 아래 한 번이다. 그 줄은 고르는 화면의 줄이라
+/// 창 폭 판정에 들어간다 — 넘치면 방향키 화면이 줄 입력으로 떨어진다. 짧게 줄일 수 없는 알림(까닭이 붙는
+/// [`SelfIntegrity::Unknown`] 의 Windows 꼴)은 `None` 이다 — 부르는 쪽이 지금처럼 첫 줄에 [`advisory`] 를 낸다.
+pub fn header_note(i: &SelfIntegrity) -> Option<String> {
+    let t = remedy_sdk::i18n::t;
+    match i {
+        SelfIntegrity::Unsigned if is_dev_build() => Some(
+            t(
+                "알림: 개발 빌드입니다 — 서명이 없습니다.",
+                "Notice: development build — unsigned.",
+            )
+            .into(),
+        ),
+        SelfIntegrity::Unsigned => Some(
+            t(
+                "알림: 코드서명이 없는 버전입니다. 받은 파일은 체크섬으로 확인하십시오.",
+                "Notice: unsigned build. Check the downloaded file's checksum.",
+            )
+            .into(),
+        ),
+        SelfIntegrity::Unknown(_) if !cfg!(windows) => Some(
+            t(
+                "알림: 리눅스는 코드서명 확인이 없습니다. 받은 파일은 체크섬으로 확인하십시오.",
+                "Notice: no code-signing check on Linux. Check the downloaded file's checksum.",
+            )
+            .into(),
+        ),
+        _ => None,
+    }
+}
+
 /// 사람에게 보일 한 줄. 파괴를 막지 않는 경우에도 **말해야 하는 것**이 있다.
 pub fn advisory(i: &SelfIntegrity) -> Option<String> {
     match i {

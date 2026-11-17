@@ -178,29 +178,31 @@ fn main() -> ExitCode {
             console::doc(&root, &args)
         }
         Some(other) => Err(format!("알 수 없는 작업: {other}")),
-        None => Err("사용법: cargo xtask <arch|trace|schema|guide|snapshots|exam-apply|plugin-lock|net-criteria|ps1-vars|all> [--write]\n\
-                     cargo xtask metrics [--state-dir <디렉터리>] [--lang ko|en]\n\
-                     cargo xtask static <바이너리 경로>...\n\
-                     cargo xtask exam --dir <플러그인 디렉터리>
-                     cargo xtask corpus --in <collect 결과> --label <이름>                      --out corpus/clean
-
-                     cargo xtask fuzz [--seed <수>] [--millis <대상마다 ms>]\n\
-                     cargo xtask fixture --out <파일> --dest-prefix <VM 경로> \
-                     [--passphrase-out <파일>] [--org-secret-out <파일>]\n\
-                     cargo xtask yara --rules <룰 디렉터리> --scan <디렉터리>... \
-                     --expect <match|clean> [--rule <이름>] [--ext js] [--max-bytes <수>]
-                     cargo xtask console-diff <이번 캡처>...\n\
-                     cargo xtask console-normalize <캡처>...\n\
-                     cargo xtask console-doc [<문서>]\n\
-                     cargo xtask screens\n\
-                     cargo xtask leaks [--preview] [--list]\n\
-                     cargo xtask package --plugin <플러그인 디렉터리> [--plugin <또 하나> …] \
-                     --bin <실행 파일> --out <꾸러미 폴더> --public-key <공개키>
-
-                     cargo xtask sign keygen --public-key <파일> --secret-key <파일>
-                     cargo xtask sign plugin --dir <플러그인> --secret-key <파일>                      --signed-at <RFC3339>
-                     cargo xtask sign revocations --entries <JSON> --serial <수>                      --issued <RFC3339> --secret-key <파일> --out <파일>"
-            .to_string()),
+        // 하위 명령을 모두 적는다 — 1.21.1 까지는 `threats` 와 `sign` 의 `companion` · `allowlist` 가 빠졌고,
+        // 줄 잇기(`\`)가 빠진 줄은 소스의 들여쓰기가 그대로 찍혔다.
+        None => Err(
+            "사용법: cargo xtask <arch|trace|schema|guide|snapshots|exam-apply|plugin-lock|net-criteria|\
+             ps1-vars|threats|all> [--write]\n  \
+             cargo xtask threats --dirs <windows|linux>\n  \
+             cargo xtask metrics [--state-dir <디렉터리>] [--lang ko|en]\n  \
+             cargo xtask static <바이너리 경로>...\n  \
+             cargo xtask exam --dir <플러그인 디렉터리>\n  \
+             cargo xtask corpus --in <collect 결과> --label <이름> --out corpus/clean\n  \
+             cargo xtask fuzz [--seed <수>] [--millis <대상마다 ms>]\n  \
+             cargo xtask fixture --out <파일> --dest-prefix <VM 경로> [--passphrase-out <파일>] \
+             [--org-secret-out <파일>]\n  \
+             cargo xtask yara --rules <룰 디렉터리> --scan <디렉터리>... --expect <match|clean> \
+             [--rule <이름>] [--ext js] [--max-bytes <수>]\n  \
+             cargo xtask console-diff <이번 캡처>...\n  \
+             cargo xtask console-normalize <캡처>...\n  \
+             cargo xtask console-doc [<문서>]\n  \
+             cargo xtask screens\n  \
+             cargo xtask leaks [--preview] [--list]\n  \
+             cargo xtask package --plugin <플러그인 디렉터리> [--plugin <또 하나> …] --bin <실행 파일> \
+             --out <꾸러미 폴더> --public-key <공개키>\n  \
+             cargo xtask sign <keygen|plugin|companion|revocations|allowlist> … (cargo xtask sign 이 자세히)"
+                .to_string(),
+        ),
     };
 
     match result {

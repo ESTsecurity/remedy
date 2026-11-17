@@ -78,7 +78,7 @@ impl RunMeta {
             // 만들므로, 충돌하면 두 실행이 같은 격리 파일을 쓰고 **복원 데이터가
             // 사라진다.** 프로세스 id 와 나노초를 섞어 같은 초 안의 실행을 가른다.
             run_id: format!("run-{secs}-{:04x}-{:x}", std::process::id() & 0xffff, nanos),
-            created: rfc3339(secs),
+            created: remedy_sdk::utc::rfc3339(secs),
             host: HostInfo {
                 // **환경 변수만 보면 Linux 에서 언제나 `unknown` 이다** —
                 // `HOSTNAME` 은 export 되지 않는 셸 변수다 (설계-09 P12 실측).
@@ -95,36 +95,8 @@ impl RunMeta {
     }
 }
 
-/// 지금 시각, RFC 3339 UTC. 회차 로그의 줄마다 붙는다.
-pub fn now_rfc3339() -> String {
-    rfc3339(
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_secs())
-            .unwrap_or(0),
-    )
-}
-
-fn rfc3339(secs: u64) -> String {
-    let days = (secs / 86_400) as i64;
-    let rem = secs % 86_400;
-    let z = days + 719_468;
-    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
-    let doe = (z - era * 146_097) as u64;
-    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
-    let y = yoe as i64 + era * 400;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    let d = (doy - (153 * mp + 2) / 5 + 1) as u32;
-    let m = if mp < 10 { mp + 3 } else { mp - 9 } as u32;
-    let y = if m <= 2 { y + 1 } else { y };
-    format!(
-        "{y:04}-{m:02}-{d:02}T{:02}:{:02}:{:02}Z",
-        rem / 3600,
-        (rem % 3600) / 60,
-        rem % 60
-    )
-}
+/// 지금 시각, RFC 3339 UTC. 회차 로그의 줄마다 붙는다(계산은 `remedy_sdk::utc` 한 벌).
+pub use remedy_sdk::utc::now_rfc3339;
 
 /// 매니페스트에서 수집 범위를 만든다. **선언한 것만 볼 수 있다.**
 ///
@@ -699,16 +671,6 @@ pub fn scan_with_rules(
 pub struct Pipeline;
 
 impl Pipeline {
-    pub fn read_only(
-        manifest: &PluginManifest,
-        meta: &RunMeta,
-    ) -> Result<(ArtifactsEnvelope, ScanEnvelope, PlanEnvelope), PipelineError> {
-        let (artifacts, s) = scan(manifest, meta)?;
-        remedy_platform::progress::set_stage("plan");
-        let p = plan(&s, Some(manifest))?;
-        Ok((artifacts, s, p))
-    }
-
     /// subject 가 선언되었지만 아직 수집기가 없는 경우를 알린다.
     ///
     /// 조용히 빈 배열을 담으면 "없다" 와 "못 봤다" 가 구분되지 않고, 그 스냅샷으로
@@ -823,12 +785,6 @@ fn classify(scan: &ScanEnvelope, baseline: &[String]) -> VerifyOutcome {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn rfc3339_is_utc() {
-        assert_eq!(rfc3339(0), "1970-01-01T00:00:00Z");
-        assert_eq!(rfc3339(1_771_500_600), "2026-02-19T11:30:00Z");
-    }
 
     /// **평가기가 아는 둘이 합치는 과정에서 살아남는가.**
     ///

@@ -28,6 +28,43 @@ pub mod linux;
 
 pub const CRATE_NAME: &str = "remedy-platform";
 
+/// 권한을 올려 이 프로그램을 다시 연 결과 (목표 remedy_시연전_안정화 D8).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Relaunch {
+    /// 관리자 권한의 새 창이 떴다 — 부르는 쪽은 제 창을 닫는다.
+    Started,
+    /// 사용자 계정 컨트롤 창에서 [아니요]를 골랐다.
+    Declined,
+    /// 그 밖의 실패 — Win32 오류 번호.
+    Failed(u32),
+    /// 이 OS 에는 없는 일이다 — 리눅스는 사람이 `sudo` 로 다시 띄운다.
+    Unsupported,
+}
+
+/// 이 프로그램을 **관리자 권한으로 다시 연다** — Windows 의 사용자 계정 컨트롤 창이 뜬다. 인자 없이(메뉴로)
+/// 실행 파일의 폴더에서 연다. `unsafe` 호출은 `remedy-winmods` 에 있다.
+pub fn relaunch_elevated() -> Relaunch {
+    #[cfg(windows)]
+    {
+        let Ok(exe) = std::env::current_exe() else {
+            return Relaunch::Failed(0);
+        };
+        let dir = exe
+            .parent()
+            .map(std::path::Path::to_path_buf)
+            .unwrap_or_default();
+        match remedy_winmods::relaunch_elevated(&exe, &dir) {
+            Ok(()) => Relaunch::Started,
+            Err(remedy_winmods::DECLINED) => Relaunch::Declined,
+            Err(code) => Relaunch::Failed(code),
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        Relaunch::Unsupported
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum PlatformError {
     #[error("{path}: {source}")]

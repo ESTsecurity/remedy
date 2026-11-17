@@ -56,8 +56,9 @@ fn ui() -> &'static Ui {
     })
 }
 
-/// 전역 플래그를 떼어 내고 나머지를 돌려준다.
-fn split_global(args: Vec<String>) -> (Vec<String>, Option<String>, bool, bool) {
+/// 전역 플래그를 떼어 내고 나머지를 돌려준다. `--ascii` 는 받았는가만(`Some(true)`) — 환경과 로케일로 정하는
+/// 것은 `remedy_sdk::i18n::init_from` 이다.
+fn split_global(args: Vec<String>) -> (Vec<String>, Option<String>, Option<bool>, bool) {
     let mut rest = Vec::with_capacity(args.len());
     let mut lang = None;
     let mut ascii = None;
@@ -83,37 +84,19 @@ fn split_global(args: Vec<String>) -> (Vec<String>, Option<String>, bool, bool) 
             }
         }
     }
-    let ascii_on = remedy_sdk::i18n::detect_ascii(ascii);
-    (rest, lang, ascii_on, verbose)
+    (rest, lang, ascii, verbose)
 }
 
 fn main() -> ExitCode {
-    let (args, mut lang_flag, ascii, verbose) = split_global(std::env::args().skip(1).collect());
-    // `--lang kr` 처럼 모르는 값은 무시하되 **말한다.** 조용히 영어로 가면 사용자는
-    // 왜 영어인지 모른다. 알림은 두 언어로 — 어느 쪽을 읽든 이해되게.
-    let unknown_lang = lang_flag
-        .as_deref()
-        .filter(|v| remedy_sdk::i18n::Lang::try_parse(v).is_none())
-        .map(str::to_string);
-    if unknown_lang.is_some() {
-        lang_flag = None;
-    }
-    let lang = {
-        // Windows 는 `LANG` 을 설정하지 않는다 — 받아서 더블클릭한 한국어 PC 가
-        // 영어로 떨어졌다(실측 2026-09-09). OS 가 말하는 로케일을 넘긴다.
-        let l = remedy_sdk::i18n::Lang::detect_with(
-            lang_flag.as_deref(),
-            remedy_core::user_locale().as_deref(),
-        );
-        // 한글을 못 그리는 자리에 한글을 내보내지 않는다. 명시했을 때만 예외.
-        let explicit = lang_flag.is_some() || std::env::var("REMEDY_LANG").is_ok();
-        if ascii && !explicit {
-            remedy_sdk::i18n::Lang::En
-        } else {
-            l
-        }
-    };
-    remedy_sdk::i18n::init(lang, ascii);
+    let (args, lang_flag, ascii, verbose) = split_global(std::env::args().skip(1).collect());
+    // Windows 는 `LANG` 을 설정하지 않는다 — 받아서 더블클릭한 한국어 PC 가 영어로 떨어졌다(실측
+    // 2026-09-09). OS 가 말하는 로케일을 넘긴다. `--lang kr` 처럼 모르는 값은 무시하되 **말한다** —
+    // 알림은 두 언어로, 어느 쪽을 읽든 이해되게.
+    let (lang, unknown_lang) = remedy_sdk::i18n::init_from(
+        lang_flag.as_deref(),
+        ascii,
+        remedy_core::user_locale().as_deref(),
+    );
     let _ = UI.set(Ui { lang, verbose });
     tee::install_panic_hook();
     if let Some(v) = unknown_lang {
@@ -130,9 +113,19 @@ fn main() -> ExitCode {
     // **시작 시 한 번만 검사한다.** 명령마다 부르면 같은 파일을 여러 번 읽고,
     // 그 사이에 결과가 달라지면 어느 쪽이 참인지 알 수 없다.
     let integrity = remedy_core::integrity::check_self();
-    if let Some(note) = remedy_core::integrity::advisory(&integrity) {
-        // 막지 않는 경우에도 말한다. 조용히 넘어가면 "확인했다" 로 읽힌다.
-        errln!("{}: {note}", ui().lang.t("알림", "Notice"));
+    // **메뉴 세션은 경고로 시작하지 않는다** — 같은 사실을 첫 화면 머리말 아래 짧은 한 줄로 한 번 말한다(목표
+    // remedy_시연전_안정화 D5). 명령줄 호출은 지금처럼 첫 줄이다(무인 배포 출력 · 불변식 I1).
+    let menu_note = (cmd.is_none() && guided::interactive())
+        .then(|| remedy_core::integrity::header_note(&integrity))
+        .flatten();
+    match menu_note {
+        Some(note) => term::set_notice(note),
+        None => {
+            if let Some(note) = remedy_core::integrity::advisory(&integrity) {
+                // 막지 않는 경우에도 말한다. 조용히 넘어가면 "확인했다" 로 읽힌다.
+                errln!("{}: {note}", ui().lang.t("알림", "Notice"));
+            }
+        }
     }
 
     let outcome = match cmd {
@@ -294,7 +287,9 @@ fn main() -> ExitCode {
                 }
                 let ends_here = matches!(
                     picked,
-                    guided::Outcome::ShowUsage | guided::Outcome::NothingUsable
+                    guided::Outcome::ShowUsage
+                        | guided::Outcome::NoRulesHere
+                        | guided::Outcome::NothingUsable
                 );
                 if !ends_here {
                     term::task_begin(changes_system(&picked));
@@ -336,6 +331,8 @@ fn main() -> ExitCode {
                         usage(false);
                         Ok(Code::NoThreat)
                     }
+                    // 할 일은 안내 모드가 이미 말했다 — 사용법 스무 줄을 덧붙이지 않는다. 종료 코드는 사용법과 같다.
+                    guided::Outcome::NoRulesHere => Ok(Code::NoThreat),
                     // **0 으로 끝내지 않는다.** 꾸러미가 있는데 하나도 못 썼다면
                     // 검사를 한 적이 없는 것이고, 0 은 "이 PC 는 깨끗하다" 로 읽힌다.
                     guided::Outcome::NothingUsable => Ok(Code::GuardStop),
@@ -706,12 +703,18 @@ fn main() -> ExitCode {
                 if let Err(f) = &outcome {
                     let lang = ui().lang;
                     errln!("{}: {}", lang.t("실패", "Error"), f.message);
-                    errln!(
-                        "  ({} {}: {})",
-                        lang.t("종료 코드", "exit code"),
-                        f.code.code(),
-                        f.code.meaning_in(lang)
-                    );
+                    // 메뉴 앞의 사람에게 종료 코드의 뜻 목록(상한 초과 · 보호 경로 · 서명 …)은 이 실패와 상관없는
+                    // 까닭까지 늘어놓는다 — 번호만 적는다. 무인 배포가 읽는 뜻은 명령줄 실행이 그대로 적는다.
+                    if session {
+                        errln!("  ({} {})", lang.t("종료 코드", "exit code"), f.code.code());
+                    } else {
+                        errln!(
+                            "  ({} {}: {})",
+                            lang.t("종료 코드", "exit code"),
+                            f.code.code(),
+                            f.code.meaning_in(lang)
+                        );
+                    }
                 }
                 if ends_here || !session {
                     wait_before_closing();
@@ -840,17 +843,12 @@ fn need_admin() -> String {
     let arrow = remedy_sdk::i18n::deco().arrow();
     let (why, how) = if cfg!(windows) {
         (
+            // 한 문장이면 된다 — 예약 작업 · 레지스트리 · 다른 사용자의 파일은 관리자만 연다. 그것을 못 열면
+            // 감염된 기계에서도 찾는 것이 없다는 까닭은 README 와 운영자 안내가 적는다(목표 remedy_시연전_안정화 A12).
             lang.t(
-                concat!(
-                    "관리자 권한이 필요합니다. 이 도구는 예약 작업, HKLM, 다른 사용자의 파일을 읽고\n",
-                    "  고치며, 그것들은 관리자만 열 수 있습니다. 권한 없이 돌면 감염된 기계에서도\n",
-                    "  증거가 나오지 않습니다."
-                ),
-                concat!(
-                    "Administrator rights are required. This tool reads and fixes scheduled tasks,\n",
-                    "  HKLM and other users' files, which only an administrator can open. Without\n",
-                    "  them an infected machine yields no evidence."
-                ),
+                "관리자 권한이 필요합니다 — 예약 작업 · 레지스트리 · 다른 사용자의 파일은 관리자만 열 수 있습니다.",
+                "Administrator rights are required: scheduled tasks, the registry and other users' files\n  \
+                 open only to an administrator.",
             ),
             // **하는 법까지 적는다.** 이 화면을 읽는 사람이 관리자 창을
             // 여는 법을 안다는 보장이 없다. 여기서 막히면 이 도구는 그 PC
@@ -901,19 +899,14 @@ fn need_admin() -> String {
     } else {
         (
             lang.t(
-                concat!(
-                    "root 권한이 필요합니다. 이 도구는 시스템 전역의 지속성, 설정을 읽고 고치며,\n",
-                    "  그것들은 root 만 열 수 있습니다. 권한 없이 돌면 감염된 기계에서도 증거가\n",
-                    "  나오지 않습니다."
-                ),
-                concat!(
-                    "root is required. This tool reads and fixes system-wide persistence and\n",
-                    "  configuration, which only root can open. Without it an infected machine\n",
-                    "  yields no evidence."
-                ),
+                "root 권한이 필요합니다 — 시스템 전역의 자동 실행 · 설정은 root 만 열 수 있습니다.",
+                "root is required: system-wide autostart entries and configuration open only to root.",
             ),
-            lang.t("sudo 로 다시 부르십시오.", "Run again with sudo.")
-                .to_string(),
+            lang.t(
+                "sudo ./remedy 처럼 sudo 로 다시 실행하십시오.",
+                "Run again with sudo, e.g. sudo ./remedy.",
+            )
+            .to_string(),
         )
     };
     format!("{why}\n  {arrow} {how}")
@@ -1046,6 +1039,8 @@ enum Flow {
     Verify,
     /// 룰 서명 확인(`plugin verify --dir`) — 성공했을 때 끝줄을 풀이한다(`guidance`).
     Signature,
+    /// 신고 묶음 — 만든 뒤 보낼 곳을 적는다(`guidance` · README "지원 · 신고" 와 같은 말).
+    Report,
     Other,
 }
 
@@ -1077,6 +1072,10 @@ fn flow_of(p: &guided::Outcome) -> Flow {
         | guided::Outcome::RunWith(..)
         | guided::Outcome::WithFile(menu::WithFile::Apply(_), _) => Flow::Treat,
         guided::Outcome::WithRun(menu::WithRun::Restore(_)) => Flow::Restore,
+        // **이어서 한 치료는 치료다** — 끝나면 유지 확인 · 복원 · 신고를 가리킨다(1.21.1 까지는 `Other` 라
+        // 다음 할 일이 비었다 · 목표 remedy_시연전_안정화 흐름 표).
+        guided::Outcome::WithRun(menu::WithRun::Resume(_)) => Flow::Treat,
+        guided::Outcome::WithRun(menu::WithRun::Support(_)) => Flow::Report,
         guided::Outcome::WithPlugin(menu::WithPlugin::Verify(_)) => Flow::Verify,
         guided::Outcome::WithPlugin(menu::WithPlugin::VerifyBundle(_)) => Flow::Signature,
         _ => Flow::Other,
@@ -1124,10 +1123,21 @@ fn next_steps(flow: Flow, code: Code, treats: bool) -> Vec<(&'static str, menu::
                 menu::Line::Report,
             ),
         ],
-        (Flow::Treat | Flow::Verify, Code::FoundNotRemediated)
-        | (Flow::Restore, Code::NoThreat) => {
+        (Flow::Treat | Flow::Verify, Code::FoundNotRemediated) => {
             vec![(lang.t("치료하려면", "To treat it"), menu::Line::Treat)]
         }
+        // **되돌린 사람은 오탐이라고 본 사람이다** — 신고가 먼저고, 마음을 바꾼 사람의 다시 치료는 그다음이다.
+        // 전에는 *치료하려면* 한 줄뿐이었다(목표 remedy_시연전_안정화 A7).
+        (Flow::Restore, Code::NoThreat) => vec![
+            (
+                lang.t("오탐을 신고하려면", "To report a false positive"),
+                menu::Line::Report,
+            ),
+            (
+                lang.t("다시 치료하려면", "To treat it again"),
+                menu::Line::Treat,
+            ),
+        ],
         // **이어서 하기가 아니다.** 실패한 Action 이 있어도 실행기는 모든 결과와 끝을 적으므로
         // 그 회차는 끝난 회차다 — 이어서 하기는 '이미 적용됨'(5)으로 거절한다(2026-11-07 적대적
         // 검토). 까닭을 해결한 뒤 새로 검사해 치료한다(README 결과 표 · 재시작 조언과 같은 말).
@@ -1170,6 +1180,11 @@ fn next_steps(flow: Flow, code: Code, treats: bool) -> Vec<(&'static str, menu::
 /// 폐기 여부를 확인하지 못했습니다"* 라 성공이 실패로 읽혔다 — 그 줄은 인자 실행의 출력이라 다음
 /// 버전에서 고치고, 메뉴에서는 여기서 풀어 준다.
 fn guidance(flow: Flow, code: Code, treats: bool, notes: &[std::path::PathBuf]) -> Option<String> {
+    // **만든 묶음을 어디로 보내는지가 화면에 없었다**(1.21.1 · 목표 remedy_시연전_안정화 흐름 표) — 묶음에는
+    // 경로 · 호스트명 · 사용자명이 그대로 들어 있어 공개 이슈에 붙이면 안 된다.
+    if matches!((flow, code), (Flow::Report, Code::NoThreat)) {
+        return Some(ui().lang.t(SEND_TO.0, SEND_TO.1).to_string());
+    }
     if matches!((flow, code), (Flow::Signature, Code::NoThreat)) {
         let lang = ui().lang;
         return Some(format!(
@@ -1228,6 +1243,16 @@ fn guidance(flow: Flow, code: Code, treats: bool, notes: &[std::path::PathBuf]) 
     Some(s)
 }
 
+/// 신고 묶음을 보낼 곳 — README "지원 · 신고" 와 같은 말. 줄마다 80칸 안이다.
+const SEND_TO: (&str, &str) = (
+    "보낼 곳 — 이 도구를 나눠 준 담당자입니다.\n    \
+     GitHub 에서 받았다면 security@estsecurity.com 으로 보내십시오.\n    \
+     공개된 곳(이슈 등)에는 올리지 마십시오.",
+    "Where to send it — whoever gave you this tool.\n    \
+     If you got it from GitHub, send it to security@estsecurity.com.\n    \
+     Do not post it anywhere public (issues included).",
+);
+
 const CHECKER_FOUND: (&str, &str) = (
     "이 항목은 찾기만 합니다 — 조치 차례는 README 의 '위협별 안내'에 있습니다:",
     "This rule only detects — what to do is in the README's per-threat notes:",
@@ -1285,26 +1310,20 @@ fn scan_all(
     // 필요 · 마치지 못한 룰만 줄로 적고 나머지는 수로 적는다. 룰 1,000개에서 화면이 약 1만 9천 줄이었다(벤치).
     let many = list.len() > guided::MANY_RULES;
     let n = list.len();
+    // 화면에서는 '항목' 하나로 부른다 — 고르는 화면이 *검사 항목 N개* 라고 했다(처음 쓰는 사람 검토: 한 흐름에 '항목' ·
+    // '룰' 이 섞였다). 80칸 안 · 괄호 하나까지(목표 remedy_시연전_안정화 D5).
     let opening = match kind {
         guided::ScanKind::All => lang.pick(
-            format!("룰 {n}개로 모두 검사만 합니다 — 아무것도 바꾸지 않습니다."),
-            format!("Scanning with all {n} rules — nothing is changed."),
+            format!("모두 검사 — 항목 {n}개를 검사합니다. 아무것도 바꾸지 않습니다."),
+            format!("Scanning all {n} items — nothing is changed."),
         ),
         guided::ScanKind::Quick => lang.pick(
-            format!(
-                "빠른 검사 — 룰 {n}개로 검사만 합니다(디스크 전체를 보는 룰은 정밀 검사에서). 아무것도 바꾸지 않습니다."
-            ),
-            format!(
-                "Quick scan — scanning with {n} rules (rules that read whole disks are in the full scan). Nothing is changed."
-            ),
+            format!("빠른 검사 — 항목 {n}개를 검사합니다. 아무것도 바꾸지 않습니다."),
+            format!("Quick scan — {n} items. Nothing is changed."),
         ),
         guided::ScanKind::Full => lang.pick(
-            format!(
-                "정밀 검사 — 룰 {n}개로 디스크 전체까지 검사만 합니다. 아무것도 바꾸지 않습니다 · 오래 걸릴 수 있습니다."
-            ),
-            format!(
-                "Full scan — scanning with {n} rules, whole disks too. Nothing is changed · this can take a long time."
-            ),
+            format!("정밀 검사 — 항목 {n}개를 디스크 전체까지 검사합니다. 오래 걸릴 수 있습니다."),
+            format!("Full scan — {n} items, whole disks too. This can take a long time."),
         ),
     };
     outln!("{opening}");
@@ -1335,8 +1354,8 @@ fn scan_all(
             }
             tee::quiet(true);
         } else {
+            // 항목마다 구분선을 긋지 않는다 — 빈 줄과 `[i/N]` 머리가 가른다(구분선은 요약 앞에 한 번).
             outln!();
-            outln!("{}", d.rule());
             outln!("{head}");
         }
         let out = menu_out();
@@ -1393,16 +1412,16 @@ fn scan_all(
     outln!("{}", d.rule());
     let title = match kind {
         guided::ScanKind::All => lang.pick(
-            format!("모두 검사한 결과 — 룰 {n}개 · 아무것도 바꾸지 않았습니다"),
-            format!("Results for all {n} rules — nothing was changed"),
+            format!("모두 검사한 결과 — 항목 {n}개 · 아무것도 바꾸지 않았습니다"),
+            format!("Results for all {n} items — nothing was changed"),
         ),
         guided::ScanKind::Quick => lang.pick(
-            format!("빠른 검사 결과 — 룰 {n}개 · 아무것도 바꾸지 않았습니다"),
-            format!("Quick scan results — {n} rules · nothing was changed"),
+            format!("빠른 검사 결과 — 항목 {n}개 · 아무것도 바꾸지 않았습니다"),
+            format!("Quick scan results — {n} items · nothing was changed"),
         ),
         guided::ScanKind::Full => lang.pick(
-            format!("정밀 검사 결과 — 룰 {n}개 · 아무것도 바꾸지 않았습니다"),
-            format!("Full scan results — {n} rules · nothing was changed"),
+            format!("정밀 검사 결과 — 항목 {n}개 · 아무것도 바꾸지 않았습니다"),
+            format!("Full scan results — {n} items · nothing was changed"),
         ),
     };
     outln!("{title}");
@@ -1629,8 +1648,8 @@ fn treat_all(
             // 이 작업은 기계를 바꾸는 작업이다 — 강제로 끝나면 부분(3)이라는 뜻은 그대로 둔다.
             term::task_begin(true);
         }
+        // 항목마다 구분선을 긋지 않는다 — 빈 줄과 `[i/N]` 머리가 가른다(구분선은 승인 · 결과 앞에 한 번씩).
         outln!();
-        outln!("{}", d.rule());
         outln!("[{}/{}] {label}", i + 1, treat.len());
         let mut row = TreatAllRow {
             label,
@@ -1645,7 +1664,7 @@ fn treat_all(
         match prepare_run(&menu_rule_args(path), false) {
             Ok(p) => {
                 outln!();
-                report_plan(&p.plan, lang, &p.a);
+                report_plan(&p.plan, lang, &p.a, false);
                 row.kind = p.kind;
                 if p.plan.body.actions.is_empty() {
                     // 다시 검사한 사이에 사라졌거나 허용 목록 · 가드가 다 걸렀다 — 한 룰의 치료와 같은 말.
@@ -1694,7 +1713,6 @@ fn treat_all(
         for row in rows.iter_mut() {
             let Some(p) = &row.prepared else { continue };
             outln!();
-            outln!("{}", d.rule());
             outln!("{}", row.label);
             match execute(&p.a, &p.plan, integrity, p.started, p.kind) {
                 Ok((code, done)) => {
@@ -1725,7 +1743,6 @@ fn treat_all(
             tee::close();
             term::task_begin(false);
             outln!();
-            outln!("{}", d.rule());
             outln!(
                 "[{}/{}] {}{}{}",
                 k + 1,
@@ -1794,13 +1811,11 @@ fn treat_all(
         ran.iter()
             .flat_map(|r| {
                 let pick = guided::chooser_entry(r.path);
-                next_steps(Flow::Treat, r.code, true)
+                let steps: Vec<(&str, usize, String)> = next_steps(Flow::Treat, r.code, true)
                     .into_iter()
-                    .filter_map(|(why, l)| {
-                        menu::line(l, &after)
-                            .map(|(n, label)| step_line(why, pick.as_ref(), n, &label, d))
-                    })
-                    .collect::<Vec<_>>()
+                    .filter_map(|(why, l)| menu::line(l, &after).map(|(n, label)| (why, n, label)))
+                    .collect();
+                step_block(&steps, pick.as_ref(), d)
             })
             .collect()
     };
@@ -1899,8 +1914,8 @@ fn back_to_menu(
         for l in lead {
             outln!("{l}");
         }
-        for (why, n, label) in next {
-            outln!("{}", step_line(why, pick.as_ref(), n, &label, d));
+        for l in step_block(&next, pick.as_ref(), d) {
+            outln!("{l}");
         }
         if let Some(r) = read {
             outln!("  {r}");
@@ -1942,6 +1957,44 @@ fn step_line(
     }
 }
 
+/// 한 룰의 다음 할 일 덩어리. 룰이 여럿인 세션이면 **먼저 고를 룰을 한 번만** 적고 메뉴 줄을 그 아래에 들여
+/// 적는다 — 전에는 줄마다 *"3. EvilAI(Locust) 제거 → 4. …"* 로 같은 앞부분을 되풀이해 *"4 → 4"* 가 헷갈렸다
+/// (처음 쓰는 사람 검토 · 목표 remedy_시연전_안정화 D5). 룰이 하나면 [`step_line`] 그대로다.
+fn step_block(
+    steps: &[(&str, usize, String)],
+    pick: Option<&(usize, String)>,
+    d: remedy_sdk::i18n::Deco,
+) -> Vec<String> {
+    let Some((rn, rule)) = pick else {
+        return steps
+            .iter()
+            .map(|(why, n, label)| step_line(why, None, *n, label, d))
+            .collect();
+    };
+    if steps.is_empty() {
+        return Vec::new();
+    }
+    let lang = ui().lang;
+    // 묶음 · 찾기로 고른 룰에는 고르는 화면의 번호가 없다(0) — 이름으로 적는다.
+    let first = match rn {
+        0 => rule.clone(),
+        rn => format!("{rn}. {rule}"),
+    };
+    let mut out = vec![lang.pick(
+        format!(
+            "  먼저 {} 고른 뒤:",
+            remedy_sdk::i18n::with_particle(&first, "을", "를")
+        ),
+        format!("  First pick {first}, then:"),
+    )];
+    out.extend(
+        steps
+            .iter()
+            .map(|(why, n, label)| format!("  {}", step_line(why, None, *n, label, d))),
+    );
+    out
+}
+
 fn wait_before_closing() {
     use std::io::IsTerminal;
     if !std::io::stdin().is_terminal() {
@@ -1951,12 +2004,17 @@ fn wait_before_closing() {
     // stdout 은 화면의 결과이고 이 줄은 화면을 붙잡는 장치다 — stderr 로 낸다.
     // 그래야 `remedy > 화면.txt` 로 갈무리한 파일에 프롬프트가 섞이지 않는다.
     screen_errln!();
+    // 리눅스(SSH · 콘솔)에는 닫힐 창이 없다 — 끝낸다고 말한다.
     screen_err!(
         "{}",
-        lang.t(
-            "이 창을 닫으려면 Enter 를 누르십시오. ",
-            "Press Enter to close this window. "
-        )
+        if cfg!(windows) {
+            lang.t(
+                "이 창을 닫으려면 Enter 를 누르십시오. ",
+                "Press Enter to close this window. ",
+            )
+        } else {
+            lang.t("끝내려면 Enter 를 누르십시오. ", "Press Enter to exit. ")
+        }
     );
     use std::io::Write;
     std::io::stderr().flush().ok();
@@ -2212,6 +2270,39 @@ struct Args {
     multi: std::collections::BTreeMap<String, Vec<String>>,
 }
 
+/// 하위 명령이 받는 옵션 — `--help-all` 이 적은 것 전부. **모르는 옵션은 거절한다**(종료 4): 전에는 조용히
+/// 받아 `run --plugin p --dryrun --yes` 의 오타가 진짜 치료가 됐다(목표 remedy_시연전_안정화 · 기술부채 검토 1-6).
+/// 전역 옵션(`--lang` · `--ascii` · `--verbose`)은 `split_global` 이 먼저 걷는다.
+const KNOWN_OPTIONS: &[&str] = &[
+    "artifacts",
+    "cacert",
+    "config",
+    "consent",
+    "container",
+    "dir",
+    "dry-run",
+    "entry",
+    "events",
+    "extract-to",
+    "file",
+    "key",
+    "list",
+    "org-key-file",
+    "org-public-file",
+    "out",
+    "out-dir",
+    "passphrase-file",
+    "plan",
+    "plugin",
+    "public-key",
+    "root",
+    "run",
+    "scan",
+    "state-dir",
+    "url",
+    "yes",
+];
+
 fn parse_args(raw: &[String]) -> Result<Args, String> {
     let mut single = std::collections::BTreeMap::new();
     let mut multi: std::collections::BTreeMap<String, Vec<String>> =
@@ -2224,6 +2315,14 @@ fn parse_args(raw: &[String]) -> Result<Args, String> {
                 format!("expected '--name value', got: {}", raw[i]),
             )
         })?;
+        if !KNOWN_OPTIONS.contains(&k) {
+            return Err(ui().lang.pick(
+                format!(
+                    "모르는 옵션입니다: --{k} — 쓸 수 있는 옵션은 remedy --help-all 에 있습니다"
+                ),
+                format!("unknown option: --{k} (see remedy --help-all)"),
+            ));
+        }
         // 값 없는 스위치(`--yes`). 다음 토큰이 없거나 그것도 `--` 로 시작하면
         // 이 인자는 스위치다. 값이 필요한 인자는 `need` 가 빈 값을 거른다.
         let is_flag = match raw.get(i + 1) {
@@ -2292,13 +2391,30 @@ fn banner(m: Option<&PluginManifest>) {
         hostname: &meta.host.hostname,
         os: &meta.host.os,
     };
-    out!("{}", remedy_core::report::render_banner(&b, lang));
+    let text = remedy_core::report::render_banner(&b, lang);
+    // **메뉴 세션은 작업마다 배너를 그리지 않는다** — 제품 · 버전은 첫 화면 머리말이 말했고, 그 작업의 이름은 고른
+    // 사람이 안다. 시각(UTC) · 기계는 회차 로그와 신고 묶음의 `run.log` 에 그대로 남는다(목표 remedy_시연전_안정화
+    // D5 · 처음 쓰는 사람 검토 — 빠른 검사에서 룰마다 같은 배너가 여덟 번 섰다). 명령줄 출력은 지금 그대로다.
+    if term::in_session() {
+        tee::log_only(|| out!("{text}"));
+    } else {
+        out!("{text}");
+    }
     outln!();
 }
 
 /// 시작한 뒤 지난 시간. 마무리 화면이 적는다.
 fn elapsed_since(start: std::time::Instant) -> u64 {
     start.elapsed().as_secs()
+}
+
+/// 마무리 화면 — 메뉴 세션은 결과 한 줄([`remedy_core::report::render_closing_brief`]), 명령줄은 지금의 표다.
+fn closing(c: &remedy_core::report::Closing<'_>, lang: remedy_sdk::i18n::Lang) -> String {
+    if term::in_session() {
+        remedy_core::report::render_closing_brief(c, lang)
+    } else {
+        remedy_core::report::render_closing(c, lang)
+    }
 }
 
 /// 검사가 시작됐다고 말한다.
@@ -2518,8 +2634,13 @@ fn warn_unresolved_extra(
             format!("{} declared item(s) could not be resolved:", shown.len())
         )
     );
+    // 룰의 칸 이름(`collect_extra[0]`)은 룰 작성자의 말이다 — `--verbose` 에만 싣는다.
     for u in shown {
-        errln!("     - {}: {}", u.at, u.reason);
+        if ui().verbose {
+            errln!("     - {}: {}", u.at, u.reason);
+        } else {
+            errln!("     - {}", u.reason);
+        }
     }
 }
 
@@ -2659,7 +2780,7 @@ fn cmd_plan(raw: &[String]) -> Result<Code, Failure> {
         p.body.verdicts.len(),
         p.body.actions.len()
     );
-    report_plan(&p, lang(&a), &a);
+    report_plan(&p, lang(&a), &a, true);
     Ok(outcome(
         &p.body.verdicts,
         &p.body.observation,
@@ -2671,7 +2792,8 @@ fn cmd_plan(raw: &[String]) -> Result<Code, Failure> {
 ///
 /// 조용히 빠지면 이 계획이 치료의 전부인 것처럼 읽힌다. 관측이 불완전할 수 있듯
 /// 계획도 불완전할 수 있고, 둘 다 말하지 않으면 완전한 것으로 읽힌다 (설계-03 §2).
-/// 사람이 읽는 언어. `--lang` 이 없으면 `REMEDY_LANG`, 그것도 없으면 한국어.
+/// 사람이 읽는 언어. `--lang` 이 없으면 `REMEDY_LANG`, 그것도 없으면 OS 의 로케일(한국어 PC 면 한국어),
+/// 그 밖은 영어다(`remedy_sdk::i18n::Lang::detect_with`).
 ///
 /// **파일 출력은 언어와 무관하게 UTF-8 고정이다** (설계-00 §5-2).
 fn lang(_a: &Args) -> remedy_core::report::Lang {
@@ -2687,7 +2809,14 @@ fn lang(_a: &Args) -> remedy_core::report::Lang {
 /// 본다** (결정 자료 나1) — 예약 요청에는 플러그인 경로가 들어가는데 `apply --plan`
 /// · `resume` 은 `--plugin` 을 받지 않으면 그것을 모르므로, 기계가 걸 수 있어도
 /// 이 실행은 걸지 못한다. 그때도 약속 대신 이유를 낸다.
-fn report_plan(p: &remedy_sdk::artifact::PlanEnvelope, lang: remedy_core::report::Lang, a: &Args) {
+/// 계획을 화면에 적는다. `preview` 는 **바꾸지 않는 자리**(검사만 · 계획 세우기)다 — 목록 머리가 *치료하면 …
+/// (지금은 바꾸지 않습니다)* 가 된다.
+fn report_plan(
+    p: &remedy_sdk::artifact::PlanEnvelope,
+    lang: remedy_core::report::Lang,
+    a: &Args,
+    preview: bool,
+) {
     use remedy_core::report::AfterReboot;
     let support = p
         .body
@@ -2703,7 +2832,11 @@ fn report_plan(p: &remedy_sdk::artifact::PlanEnvelope, lang: remedy_core::report
     };
     out!(
         "{}",
-        remedy_core::report::render_plan(p, lang, after_reboot)
+        if preview {
+            remedy_core::report::render_plan_preview(p, lang, after_reboot)
+        } else {
+            remedy_core::report::render_plan(p, lang, after_reboot)
+        }
     );
 }
 
@@ -2782,7 +2915,7 @@ fn scan_one(raw: &[String], keep: Keep) -> Result<ScanOne, Failure> {
         let _ = std::fs::remove_dir(dir);
     }
     report_scan(&scan, m.kind, m.remediate.is_none());
-    report_plan(&plan, lang(&a), &a);
+    report_plan(&plan, lang(&a), &a, true);
     outln!();
     outln!(
         "{}",
@@ -2965,13 +3098,26 @@ fn approved(a: &Args, plan: &remedy_sdk::artifact::PlanEnvelope) -> Result<bool,
     // **되돌리는 길을 메뉴의 말로도 적고, `y` 도 받는다고 적는다.** 메뉴에는 'restore' 라는
     // 낱말이 없고, 영문 입력 상태로 '예' 를 치면 `dP` 가 되어 취소된다 — 코드는 `y` 도 받는데
     // 화면은 '예' 만 적었다(v1.1.0 적대적 검토).
-    ask_yes(&format!(
-        "\n{}",
+    //
+    // **두 줄로 나눈다** — 한 줄 126칸 · 괄호 셋이었다(처음 쓰는 사람 검토 · 목표 remedy_시연전_안정화 D5). 메뉴 앞의
+    // 사람에게는 메뉴의 길만, 명령줄에서는 restore 명령을 적는다.
+    let undo = if term::in_session() {
         lang.t(
-            "위 계획을 수행합니다. 나중에 되돌릴 수 있습니다(메뉴의 '치료 전으로 복원하기' · restore 명령). \
-             진행하려면 '예'(또는 y) 입력: ",
-            "The plan above will run. It can be undone later (the menu's 'Undo a treatment' or the restore \
-             command). Type 'yes' (or y) to proceed: "
+            "나중에 메뉴의 '치료 전으로 복원하기' 로 되돌릴 수 있습니다.",
+            "You can undo it later with the menu's 'Restore to before the treatment'.",
+        )
+    } else {
+        lang.t(
+            "나중에 restore 명령으로 되돌릴 수 있습니다.",
+            "You can undo it later with the restore command.",
+        )
+    };
+    ask_yes(&format!(
+        "\n{} {undo}\n{}",
+        lang.t("위 계획대로 치료합니다.", "The plan above will run."),
+        lang.t(
+            "진행하려면 y 또는 '예'를 입력하십시오: ",
+            "Type y or 'yes' to proceed: "
         )
     ))
 }
@@ -3004,14 +3150,16 @@ fn approved_all(plans: &[&remedy_sdk::artifact::PlanEnvelope]) -> Result<bool, F
     }
     let changes: usize = plans.iter().map(|p| p.body.actions.len()).sum();
     // "진행하려면" 은 하네스가 읽는 낱말이다 — 한 룰의 승인과 같게 둔다.
+    // 앞 줄(*위 계획 N개(바꿀 것 M건)를 모두 수행합니다*)은 메뉴 하네스가 읽는다. 160칸 한 줄이었다 — 두 줄로
+    // 나누고 괄호를 하나로 줄인다(목표 remedy_시연전_안정화 D5).
     let ko = format!(
-        "위 계획 {}개(바꿀 것 {changes}건)를 모두 수행합니다. 나중에 되돌릴 수 있습니다(메뉴의 \
-         '치료 전으로 복원하기' — 항목마다 · restore 명령). 진행하려면 '예'(또는 y) 입력: ",
+        "위 계획 {}개(바꿀 것 {changes}건)를 모두 수행합니다. 항목마다 메뉴에서 되돌릴 수 있습니다.\n\
+         진행하려면 y 또는 '예'를 입력하십시오: ",
         plans.len()
     );
     let en = format!(
-        "The {} plans above ({changes} change(s)) will all run. Each can be undone later (the menu's \
-         'Undo a treatment', per item, or the restore command). Type 'yes' (or y) to proceed: ",
+        "The {} plans above ({changes} change(s)) will all run. Each can be undone from the menu.\n\
+         Type y or 'yes' to proceed: ",
         plans.len()
     );
     ask_yes(&format!("\n{}", lang.pick(ko, en)))
@@ -3035,8 +3183,8 @@ fn confirm_removable(removable: &[String]) -> Result<bool, Failure> {
     ask_yes(&format!(
         "     {}",
         lang.t(
-            "지금 꽂혀 있는 매체가 맞는가. 맞으면 '예' 입력: ",
-            "Is the inserted media the right one? Type 'yes' to confirm: "
+            "지금 꽂혀 있는 매체가 맞습니까? 맞으면 y 또는 '예'를 입력하십시오: ",
+            "Is the inserted media the right one? Type y or 'yes' to confirm: "
         )
     ))
 }
@@ -3089,12 +3237,13 @@ fn confirm_restore() -> bool {
     // **되돌리면 무엇이 돌아오는지 먼저 말한다.** 치료 전으로 돌아가므로 악성으로 판정해
     // 격리한 파일도 제자리로 오고, 그 자리에 지금 있는 파일(다시 설치한 정상 파일 포함)은
     // 덮어쓴다(2026-11-07 실측 — 공급사 재설치 뒤 복원). 오탐일 때의 일이다.
-    let ko = "위 목록대로 치료 전 상태로 복원합니다 — 격리했던 파일이 제자리로 돌아오고, \
-              그 자리에 지금 있는 파일은 덮어씁니다. 오탐이라고 판단했을 때만 진행하십시오. \
-              진행하려면 '예'(또는 y) 입력: ";
-    let en = "The list above will be restored to the state before treatment — quarantined files \
-              go back in place and overwrite whatever is there now. Proceed only if you judged \
-              it a false positive. Type 'yes' (or y) to proceed: ";
+    // 세 줄로 나눈다 — 한 줄 약 170칸이었다(처음 쓰는 사람 검토 · 목표 remedy_시연전_안정화 D5).
+    let ko = "위 목록대로 치료 전 상태로 복원합니다. 격리했던 파일이 제자리로 돌아오고,\n\
+              그 자리에 지금 있는 파일은 덮어씁니다. 오탐이라고 판단했을 때만 진행하십시오.\n\
+              진행하려면 y 또는 '예'를 입력하십시오: ";
+    let en = "The list above will be restored to the state before treatment. Quarantined files\n\
+              go back in place and overwrite whatever is there now. Proceed only for a false positive.\n\
+              Type y or 'yes' to proceed: ";
     screen_err!("\n{}", lang.t(ko, en));
     std::io::stderr().flush().ok();
     let mut line = String::new();
@@ -3202,7 +3351,8 @@ fn run_apply(
     let lang = ui().lang;
 
     outln!();
-    report_plan(plan, lang, a);
+    // `--dry-run` 은 바꾸지 않는다 — 목록 머리도 미리보기의 말이다.
+    report_plan(plan, lang, a, a.has("dry-run"));
     // `run` 은 검사 단계(`report_scan`)가 같은 관측으로 이미 말했다 — 두 번 찍지 않는다.
     // `apply --plan` · `resume` 은 검사 단계가 없으니 여기서 말한다.
     if !scan_warned {
@@ -3226,7 +3376,7 @@ fn run_apply(
         );
         out!(
             "{}",
-            remedy_core::report::render_closing(
+            closing(
                 &remedy_core::report::Closing {
                     code,
                     done: 0,
@@ -3423,7 +3573,7 @@ fn execute(
     outln!();
     out!(
         "{}",
-        remedy_core::report::render_closing(
+        closing(
             &remedy_core::report::Closing {
                 code,
                 done: report.done(),
@@ -3507,6 +3657,13 @@ fn report_scheduled_verify(
     };
     let lang = ui().lang;
     match s {
+        // 메뉴 세션은 할 일만 말한다 — 예약한 자리(레지스트리 경로)는 회차 로그에 그대로 남고, 지우는 주체는 화면에
+        // 남는다(자기 흔적 규칙 3 · 목표 remedy_시연전_안정화 D5). 명령줄은 지금 그대로다.
+        ScheduledVerify::Scheduled { site, .. } if term::in_session() => {
+            let full = scheduled_line(site.as_ref(), lang);
+            tee::log_only(|| outln!("\n{full}"));
+            outln!("\n{}", scheduled_line_brief(site.as_ref(), lang));
+        }
         ScheduledVerify::Scheduled { site, .. } => {
             outln!("\n{}", scheduled_line(site.as_ref(), lang));
         }
@@ -3587,6 +3744,33 @@ fn scheduled_line(
         format!("재부팅 후 재평가를 예약했습니다: {at} ({ko})"),
         format!("Re-evaluation scheduled after reboot: {at} ({en})"),
     )
+}
+
+/// 메뉴 세션의 예약 한 줄 — 무엇이 일어나는지와 지우는 주체만. 자리는 [`scheduled_line`] 이 회차 로그에 적는다.
+fn scheduled_line_brief(
+    site: Option<&remedy_core::restart::VerifySite>,
+    lang: remedy_core::report::Lang,
+) -> String {
+    use remedy_core::restart::RemovedBy;
+    let who = site.map(|s| match s.removed_by {
+        RemovedBy::Os => lang.t("실행 뒤 OS 가 지웁니다", "the OS removes it after it runs"),
+        RemovedBy::Itself => lang.t(
+            "실행 직전에 스스로 지웁니다",
+            "it removes itself right before it runs",
+        ),
+    });
+    match who {
+        Some(w) => lang.pick(
+            format!("다시 시작하면 한 번 더 자동으로 검사합니다 (예약 — {w})."),
+            format!("After a restart it scans once more automatically (scheduled — {w})."),
+        ),
+        None => lang
+            .t(
+                "다시 시작하면 한 번 더 자동으로 검사합니다.",
+                "After a restart it scans once more automatically.",
+            )
+            .to_string(),
+    }
 }
 
 /// 남아 있는 예약을 지운다 (설계-03 §8 자기 흔적 규칙 2).
@@ -5789,7 +5973,8 @@ mod tests {
         );
         assert_eq!(lines(Flow::Scan, Code::FoundNotRemediated), [L::Treat]);
         assert_eq!(lines(Flow::ScanAll, Code::FoundNotRemediated), [L::Treat]);
-        assert_eq!(lines(Flow::Restore, Code::NoThreat), [L::Treat]);
+        // 되돌린 사람은 오탐이라고 본 사람이다 — 신고가 먼저다.
+        assert_eq!(lines(Flow::Restore, Code::NoThreat), [L::Report, L::Treat]);
         assert!(lines(Flow::Scan, Code::NoThreat).is_empty());
         assert!(lines(Flow::Other, Code::PartialFailure).is_empty());
         // 일부 실패한 회차도 끝난 회차라 이어서 하기는 거절된다 — 다시 검사해 치료한다.
@@ -5967,6 +6152,37 @@ mod tests {
         assert!(guidance(Flow::Restore, Code::NoThreat, true, &[]).is_none());
     }
 
+    /// 신고 묶음을 만든 뒤 **보낼 곳**을 적는다 — 묶음에는 경로 · 호스트명 · 사용자명이 그대로 있어 공개 이슈에
+    /// 붙이면 안 되는데, 1.21.1 의 화면은 어디로 보내는지 말하지 않았다(목표 remedy_시연전_안정화 흐름 표).
+    /// 만들지 못했으면 실패 줄이 할 말을 한다. 줄마다 80칸 안이고 두 언어의 줄 수가 같다.
+    #[test]
+    fn a_support_bundle_says_where_to_send_it() {
+        let g = guidance(Flow::Report, Code::NoThreat, true, &[]).unwrap();
+        assert!(g.contains("security@estsecurity.com"), "{g}");
+        for l in [SEND_TO.0, SEND_TO.1].iter().flat_map(|s| s.lines()) {
+            let w: usize = format!("  {l}")
+                .chars()
+                .map(|c| if c.is_ascii() { 1 } else { 2 })
+                .sum();
+            assert!(w <= 80, "{w}칸: {l}");
+        }
+        assert_eq!(SEND_TO.0.lines().count(), SEND_TO.1.lines().count());
+        assert!(guidance(Flow::Report, Code::UsageError, true, &[]).is_none());
+    }
+
+    /// 이어서 한 치료는 치료다 — 끝나면 유지 확인 · 복원 · 신고를 가리킨다(1.21.1 까지는 다음 할 일이 비었다).
+    #[test]
+    fn a_resumed_treatment_gets_the_treatment_next_steps() {
+        let run = menu::Run {
+            id: "run-1".into(),
+            state: std::path::PathBuf::from("state"),
+        };
+        let resumed = guided::Outcome::WithRun(menu::WithRun::Resume(run.clone()));
+        assert!(matches!(flow_of(&resumed), Flow::Treat));
+        let bundle = guided::Outcome::WithRun(menu::WithRun::Support(run));
+        assert!(matches!(flow_of(&bundle), Flow::Report));
+    }
+
     /// 룰 서명 확인이 **성공했을 때만** 끝줄을 풀이한다 — 실패(5)에는 화면의 거부 줄이 할 말을 한다.
     #[test]
     fn a_good_signature_check_explains_the_revocation_line() {
@@ -6036,6 +6252,41 @@ mod tests {
             let l = step_line(why, Some(&pick), 3, label, fancy);
             assert!(cols(&l) <= 80, "{} 칸: {l}", cols(&l));
         }
+    }
+
+    /// 다음 할 일 덩어리 — 먼저 고를 룰은 **한 번만** 적고 메뉴 줄을 그 아래에 들인다(목표 remedy_시연전_안정화 D5).
+    /// 룰이 하나면 줄 꼴이 지금 그대로다.
+    #[test]
+    fn next_steps_name_the_rule_once_and_indent_its_lines() {
+        let fancy = remedy_sdk::i18n::Deco { ascii: false };
+        let steps = [
+            (
+                "치료가 유지되는지 보려면",
+                3,
+                "치료가 유지됐는지 다시 보기".to_string(),
+            ),
+            ("오탐이라면", 4, "치료 전으로 복원하기".to_string()),
+        ];
+        let pick = (3, "CWPdoor 제거".to_string());
+        // 머리 줄의 말은 화면 언어를 따른다(시험 환경은 영어일 수 있다) — 고를 룰이 한 번 서는지만 본다.
+        let block = step_block(&steps, Some(&pick), fancy);
+        assert_eq!(block.len(), 3, "{block:?}");
+        assert!(block[0].contains("3. CWPdoor 제거"), "{block:?}");
+        assert_eq!(
+            block[1..],
+            [
+                "    치료가 유지되는지 보려면 — 3. 치료가 유지됐는지 다시 보기",
+                "    오탐이라면 — 4. 치료 전으로 복원하기",
+            ]
+        );
+        assert_eq!(
+            step_block(&steps, None, fancy),
+            [
+                "  치료가 유지되는지 보려면 — 3. 치료가 유지됐는지 다시 보기",
+                "  오탐이라면 — 4. 치료 전으로 복원하기",
+            ]
+        );
+        assert!(step_block(&[], Some(&pick), fancy).is_empty());
     }
 
     /// 기준 3 — 모두 검사만의 종료 코드. 찾은 것이 가장 앞서고, 검사를 마치지 못한 것이
@@ -6258,6 +6509,21 @@ collect_extra:
         );
         assert!(parse_args(&args(&["out", "x"])).is_err(), "'--' 가 없다");
         assert!(parse_args(&args(&[])).unwrap().need("out").is_err());
+    }
+
+    /// **모르는 옵션은 거절한다** — `--dryrun` 오타가 조용히 받아들여지면 `--yes` 와 함께 진짜 치료가 된다
+    /// (목표 remedy_시연전_안정화 · 기술부채 검토 1-6). `--help-all` 이 적은 옵션은 그대로 받는다.
+    #[test]
+    fn an_unknown_option_is_refused_instead_of_ignored() {
+        let e = parse_args(&args(&["--plugin", "p", "--dryrun", "--yes"]))
+            .err()
+            .expect("오타 옵션이 받아들여졌다");
+        assert!(e.contains("--dryrun"), "{e}");
+        assert!(parse_args(&args(&["--plugin", "p", "--dry-run", "--yes"])).is_ok());
+        for k in KNOWN_OPTIONS {
+            let flag = format!("--{k}");
+            assert!(parse_args(&args(&[flag.as_str()])).is_ok(), "{flag}");
+        }
     }
 
     #[test]

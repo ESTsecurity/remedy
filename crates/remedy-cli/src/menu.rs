@@ -261,6 +261,9 @@ pub struct Offer {
     /// 후보 파일 — 종류마다 **이름순.** 비어 있는 종류의 줄은 까닭을 달고 흐리게 선다.
     /// 부르는 쪽이 폴더를 읽어 채운다(메뉴는 실행 파일 자리를 모른다).
     pub files: std::collections::BTreeMap<Candidates, Vec<std::path::PathBuf>>,
+    /// **검사 항목을 고르는 화면에서 들어왔다** — `0` 은 그만두기가 아니라 그 화면으로 돌아가기다. 전에는
+    /// 항목을 잘못 고른 사람이 `0` 을 누르면 프로그램이 끝났다(목표 remedy_시연전_안정화 · 처음 쓰는 사람 검토).
+    pub back: bool,
 }
 
 impl Offer {
@@ -685,23 +688,30 @@ pub fn line(which: Line, offer: &Offer) -> Option<(usize, String)> {
 
 /// 기본 화면의 마지막 줄 — 더 보기를 연다.
 fn more_label(lang: remedy_sdk::i18n::Lang) -> &'static str {
+    // 그 화면의 묶음 이름 그대로 — 전에는 '관리자' 가 권한 줄('관리자 권한으로 실행 중')과 겹쳤다(처음 쓰는 사람 검토).
     lang.t(
-        "더 보기 (기록 · 프로그램 정보 · 관리자 · 룰 작성자)",
-        "More (records, program info, admin, rule authors)",
+        "더 보기 (기록 · 프로그램 · 운영자 · 룰 작성자)",
+        "More (records, program, operators, rule authors)",
     )
 }
 
 /// 기본 화면의 `0.` 줄. 명령줄 안내는 더 보기의 머리말로 갔다 — 받은 사람의 첫 화면에
-/// `remedy --help` 를 적지 않는다.
-fn quit_label(lang: remedy_sdk::i18n::Lang) -> &'static str {
-    lang.t("그만두기", "Quit")
+/// `remedy --help` 를 적지 않는다. 고르는 화면에서 들어왔으면 그 화면으로 돌아가는 줄이다.
+fn quit_label(lang: remedy_sdk::i18n::Lang, back: bool) -> &'static str {
+    if back {
+        lang.t("뒤로 (검사 항목 고르기)", "Back (choose what to check)")
+    } else {
+        lang.t("그만두기", "Quit")
+    }
 }
 
 /// 더 보기의 머리말.
 fn more_head(lang: remedy_sdk::i18n::Lang) -> &'static str {
+    // **80칸 안이다** — 창보다 넓은 줄이 하나라도 있으면 방향키 화면이 줄 입력으로 떨어진다(`term::fits`). 전에는
+    // 88칸이라 80칸 창(리눅스 SSH)에서 늘 그랬다(목표 remedy_시연전_안정화 A8).
     lang.t(
-        "더 보기 — 관리자 · 룰 작성자 · 문제 확인용 명령입니다 (명령줄로 쓰려면 remedy --help)",
-        "More - commands for administrators, rule authors and troubleshooting (for the command line, see remedy --help)",
+        "더 보기 — 운영자 · 룰 작성자용 명령입니다. 명령줄: remedy --help",
+        "More - commands for operators and rule authors. Command line: remedy --help",
     )
 }
 
@@ -731,27 +741,37 @@ pub fn run(offer: &Offer) -> Pick {
 
     // **머리말 한 덩어리** — 제품 이름 · 판 · 권한(목표 remedy_제품화 기준 3(a) ·
     // 벤치마크 축 2 · 3). 권한은 고른 뒤에 거절당하지 않게 먼저 보인다.
-    let mut rows = vec![Row::Blank, Row::Text(title_line(lang))];
-    if let Some(name) = &offer.name {
-        rows.push(Row::Text(
-            lang.pick(format!("검사 항목: {name}"), format!("Rule: {name}")),
-        ));
+    //
+    // **고르는 화면에서 들어왔으면 머리말을 되풀이하지 않는다** — 제품 · 버전 · 권한은 그 화면이 방금 말했다.
+    // 고른 항목의 이름과 질문 한 줄이다(처음 쓰는 사람 검토 · 목표 remedy_시연전_안정화 D5).
+    let ask = lang.t("무엇을 할까요?", "What would you like to do?");
+    let mut rows = vec![Row::Blank];
+    match (&offer.name, offer.back) {
+        (Some(name), true) => {
+            let dash = remedy_sdk::i18n::deco().dash();
+            rows.push(Row::Text(format!("{name}{dash}{ask}")));
+        }
+        _ => {
+            rows.push(Row::Text(title_line(lang)));
+            if let Some(name) = &offer.name {
+                rows.push(Row::Text(
+                    lang.pick(format!("검사 항목: {name}"), format!("Rule: {name}")),
+                ));
+            }
+            if let Some(line) = privilege_line(lang) {
+                rows.push(Row::Text(line));
+            }
+            if let Some(note) = crate::term::take_notice() {
+                rows.push(Row::Text(note));
+            }
+            rows.extend([Row::Blank, Row::Text(ask.to_string())]);
+        }
     }
-    if let Some(line) = privilege_line(lang) {
-        rows.push(Row::Text(line));
-    }
-    rows.extend([
-        Row::Blank,
-        Row::Text(
-            lang.t("무엇을 할까요?", "What would you like to do?")
-                .to_string(),
-        ),
-        Row::Blank,
-    ]);
+    rows.push(Row::Blank);
     // 받은 사람의 일 — 그 일이 있을 때만 선다. 나머지는 마지막 한 줄(더 보기)이 연다.
     rows.extend(rows_of(&main));
     rows.push(Row::Item(more_label(lang).to_string()));
-    let zero = quit_label(lang);
+    let zero = quit_label(lang, offer.back);
 
     // 이 세션에서 작업을 한 뒤 그만두면 "아무것도 하지 않았습니다" 가 거짓이다.
     let quit = || -> Pick {
@@ -770,6 +790,7 @@ pub fn run(offer: &Offer) -> Pick {
     // 더 보기의 `0` 은 **이 메뉴로** 돌아온다 — 룰을 고르는 화면까지 물러나지 않는다.
     let it = loop {
         let n = match crate::term::choose(&rows, Some(zero)) {
+            Answer::Num(0) if offer.back => return Pick::Back,
             Answer::Num(0) | Answer::Invalid => return quit(),
             Answer::End => return Pick::End,
             Answer::Num(n) => n,
@@ -793,14 +814,14 @@ pub fn run(offer: &Offer) -> Pick {
         Tag::Plain(p) => Pick::Plain(*p),
         // **회차를 한 번 더 묻는다.** 작업을 먼저 고르고 대상을 고르는 순서다 —
         // 회차를 먼저 물으면 되돌리기만 생각한 사람에게 신고가 안 보인다.
-        Tag::NeedsRun(mk) => match choose_run(&offer.runs) {
+        Tag::NeedsRun(mk) => match choose_run(&offer.runs, *mk) {
             Sub::Got(id) => Pick::WithRun(mk(id)),
             Sub::Back => Pick::Back,
             Sub::Stop => quit(),
             Sub::End => Pick::End,
         },
         // 이어서 하기는 **끝나지 않은 회차만** 고를 거리로 올린다.
-        Tag::NeedsUnfinished(mk) => match choose_run(&offer.unfinished) {
+        Tag::NeedsUnfinished(mk) => match choose_run(&offer.unfinished, *mk) {
             Sub::Got(id) => Pick::WithRun(mk(id)),
             Sub::Back => Pick::Back,
             Sub::Stop => quit(),
@@ -901,15 +922,31 @@ pub(crate) fn privilege_line(lang: remedy_sdk::i18n::Lang) -> Option<String> {
 
 /// 회차를 번호로 고르게 한다. **이름순으로 그대로 보인다** — 같은 폴더에서 늘
 /// 같은 차례가 나와야 사람이 고른 번호가 뜻을 갖는다(`guided::choose` 와 같은 규칙).
-fn choose_run(runs: &[Run]) -> Sub<Run> {
+///
+/// **물음은 하는 일의 말로 묻는다** — 복원 · 신고 · 이어서 하기가 모두 *"어느 작업입니까?"* 였다(처음 쓰는 사람 검토
+/// · 목표 remedy_시연전_안정화 D5). 무엇을 할지는 회차를 넘겨 만들 명령(`mk`)이 안다.
+fn choose_run(runs: &[Run], mk: MakeWithRun) -> Sub<Run> {
     let lang = ui().lang;
-    let mut rows = vec![
-        Row::Blank,
-        Row::Text(lang.pick(
-            format!("어느 작업입니까? ({}건)", runs.len()),
-            format!("Which run? ({})", runs.len()),
-        )),
-    ];
+    let n = runs.len();
+    let probe = Run {
+        id: String::new(),
+        state: std::path::PathBuf::new(),
+    };
+    let ask = match mk(probe) {
+        WithRun::Restore(_) => lang.pick(
+            format!("어느 치료를 되돌릴까요? ({n}건)"),
+            format!("Which treatment to undo? ({n})"),
+        ),
+        WithRun::Support(_) => lang.pick(
+            format!("어느 치료의 신고 묶음을 만들까요? ({n}건)"),
+            format!("Which treatment to report? ({n})"),
+        ),
+        WithRun::Resume(_) => lang.pick(
+            format!("어느 치료를 이어서 할까요? ({n}건)"),
+            format!("Which treatment to resume? ({n})"),
+        ),
+    };
+    let mut rows = vec![Row::Blank, Row::Text(ask)];
     rows.extend(runs.iter().map(|r| Row::Item(r.id.clone())));
     sub_answer(crate::term::choose(&rows, Some(back_label())), runs)
 }
@@ -1000,6 +1037,7 @@ mod tests {
             },
             runs_locked: false,
             files: std::collections::BTreeMap::new(),
+            back: false,
         }
     }
 
@@ -1267,9 +1305,18 @@ mod tests {
     #[test]
     fn the_quit_line_does_not_teach_commands() {
         for lang in [Lang::Ko, Lang::En] {
-            assert!(!super::quit_label(lang).contains("--help"));
+            for back in [false, true] {
+                assert!(!super::quit_label(lang, back).contains("--help"));
+            }
             assert!(super::more_head(lang).contains("remedy --help"));
         }
+    }
+
+    /// 고르는 화면에서 들어온 작업 메뉴의 `0` 은 그 화면으로 돌아가는 줄이다 — 그만두기가 아니다.
+    #[test]
+    fn the_zero_line_goes_back_when_the_chooser_opened_this_menu() {
+        assert_eq!(super::quit_label(Lang::Ko, false), "그만두기");
+        assert_eq!(super::quit_label(Lang::Ko, true), "뒤로 (검사 항목 고르기)");
     }
 
     /// 찾기만 하는 룰 — 더 보기의 *승인한 계획을 수행하기* 는 계획이 있어도 그 까닭을 단다. 플러그인이

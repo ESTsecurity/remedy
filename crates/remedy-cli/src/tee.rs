@@ -157,6 +157,15 @@ fn quiet_now() -> bool {
     QUIET.load(std::sync::atomic::Ordering::SeqCst)
 }
 
+/// 화면에 내지 않고 **회차 로그에만** 적는다 — 메뉴 세션의 작업 배너(제품 · 시각 · 기계)가 쓴다. 신고 묶음의
+/// `run.log` 에는 그대로 남는다. 접어 둔 상태([`quiet`])는 그대로 되돌린다.
+pub fn log_only(f: impl FnOnce()) {
+    let was = quiet_now();
+    quiet(true);
+    f();
+    quiet(was);
+}
+
 /// 진행 줄을 화면에 낸다 — **접은 동안에도**([`quiet`]). 그리는 자리면 제자리에, 아니면 한 줄을 더한다.
 pub fn progress(text: String) {
     draw_progress(text);

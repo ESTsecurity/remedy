@@ -11,7 +11,7 @@ use crate::expr;
 use crate::verdict;
 use remedy_artifacts::Scope;
 use remedy_sdk::artifact::{Evidence, EvidenceGroup, MatchedPredicate, ScanBody};
-use remedy_sdk::catalog::{Operator, Phase, Subject};
+use remedy_sdk::catalog::{Operator, Subject};
 use remedy_sdk::manifest::{Condition, DetectRule, PluginManifest, Predicate};
 use remedy_sdk::normalize;
 use std::collections::{BTreeMap, BTreeSet};
@@ -99,19 +99,6 @@ impl Snapshot {
             self.rules = Some(remedy_yara::RuleSet::compile(sources));
         }
         self
-    }
-
-    /// 컴파일하지 못한 룰 파일. 평가 시작 전에 사람에게 알려야 한다.
-    pub fn broken_rule_files(&self) -> Vec<(String, String)> {
-        self.rules
-            .as_ref()
-            .map(|r| {
-                r.failed
-                    .iter()
-                    .map(|(f, e)| (f.clone(), e.clone()))
-                    .collect()
-            })
-            .unwrap_or_default()
     }
 
     fn records(&self, s: Subject) -> &[serde_json::Value] {
@@ -615,10 +602,10 @@ fn eval_predicate(
     }
 
     if expr::is_cross_subject(&f.field) {
+        // 1.21.1 까지 *"(P4 에서 사용 가능해집니다)"* 를 달았다 — P4 가 지난 뒤에도 평가하지 않는다.
         let message = format!(
-            "다른 subject 를 참조하는 필드 '{}' 는 아직 없습니다 ({} 에서 사용 가능해집니다)",
-            f.field,
-            Phase::P4.as_str()
+            "다른 subject 를 참조하는 필드 '{}' 는 지원하지 않습니다",
+            f.field
         );
         // 그 위의 YARA 는 **재지 못한 것이다** — `eval_yara` 에 닿기 전에 돌아가도.
         if f.op == Operator::Yara {

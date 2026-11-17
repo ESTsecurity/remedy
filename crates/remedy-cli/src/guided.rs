@@ -34,6 +34,9 @@ use crate::{load_manifest, ui};
 pub enum Outcome {
     /// 옆에 아무것도 없다 — 부르는 쪽이 사용법을 보인다. 지금까지의 동작이다.
     ShowUsage,
+    /// 배포본인데 옆에 검사 룰 폴더가 없다 — 할 일을 이미 말했다(zip 을 연 채 실행 등). 부르는 쪽은
+    /// 명령줄 사용법을 덧붙이지 않고 창만 붙잡는다 — 받은 사람에게 그 스무 줄은 쓸모가 없다.
+    NoRulesHere,
     /// 꾸러미는 있는데 **하나도 쓸 수 없었다.** 사용법이 아니라 가드 중단이다 —
     /// 0 으로 끝나면 "이 PC 는 깨끗하다" 로 읽히는데, 검사를 한 적이 없다.
     NothingUsable,
@@ -126,6 +129,102 @@ fn to_outcome(p: crate::menu::Pick) -> Outcome {
 pub(crate) fn interactive() -> bool {
     use std::io::IsTerminal;
     std::io::stdin().is_terminal()
+}
+
+/// 권한 없이 뜬 Windows 메뉴의 첫 화면 — **관리자 권한으로 다시 열기**가 맨 위다(목표 remedy_시연전_안정화 D8).
+///
+/// 탐색기에서 더블클릭하면 늘 권한 없이 뜨고, 검사 · 치료는 관리자 권한이 있어야 돈다 — 전에는 머리말의 한 줄을
+/// 읽고 창을 닫은 뒤 마우스 오른쪽 단추로 다시 띄워야 했다. 이 화면을 따로 세우는 것은 다른 화면의 번호(안내문
+/// · 하네스가 적은 *1 빠른 검사* 등)를 바꾸지 않기 위해서다. **세션에 한 번만** 묻는다 — 이대로 고른 사람에게
+/// 작업마다 다시 묻지 않는다. 다시 열었거나 그만두었으면 그 답을, 이대로 가면 `None`.
+fn offer_elevation() -> Option<Outcome> {
+    use crate::term::{Answer, Row};
+    use std::sync::atomic::{AtomicBool, Ordering};
+    static ASKED: AtomicBool = AtomicBool::new(false);
+    if !cfg!(windows) || !interactive() || ASKED.swap(true, Ordering::Relaxed) {
+        return None;
+    }
+    if remedy_core::elevated() != Some(false) {
+        return None;
+    }
+    let lang = ui().lang;
+    loop {
+        // 코드서명 알림은 여기서 가져가지 않는다 — 다시 열린 창의 첫 화면이, 이대로 가는 사람에게는 다음 화면이 말한다.
+        let rows = vec![
+            Row::Blank,
+            Row::Text(crate::menu::title_line(lang)),
+            Row::Text(
+                lang.t(
+                    "관리자 권한 없이 열렸습니다. 검사와 치료에는 관리자 권한이 필요합니다.",
+                    "Opened without administrator rights. Scanning and treatment need them.",
+                )
+                .to_string(),
+            ),
+            Row::Blank,
+            Row::Item(
+                lang.t(
+                    "관리자 권한으로 다시 열기 (권장)",
+                    "Reopen as administrator (recommended)",
+                )
+                .to_string(),
+            ),
+            Row::Item(
+                lang.t(
+                    "이대로 열기 (검사와 치료는 할 수 없습니다)",
+                    "Continue as is (no scanning or treatment)",
+                )
+                .to_string(),
+            ),
+        ];
+        match crate::term::choose(&rows, Some(lang.t("그만두기", "Quit"))) {
+            Answer::Num(1) => match remedy_core::relaunch_elevated() {
+                remedy_core::Relaunch::Started => {
+                    outln!();
+                    outln!(
+                        "{}",
+                        lang.t(
+                            "관리자 권한으로 새 창을 열었습니다. 이 창은 닫습니다.",
+                            "Opened a new window as administrator. Closing this one.",
+                        )
+                    );
+                    return Some(Outcome::End);
+                }
+                remedy_core::Relaunch::Declined => {
+                    outln!();
+                    outln!(
+                        "{}",
+                        lang.t(
+                            "관리자 권한을 받지 못했습니다 — 사용자 계정 컨트롤에서 [아니요]를 골랐습니다.",
+                            "Administrator rights were not granted (User Account Control: No).",
+                        )
+                    );
+                }
+                remedy_core::Relaunch::Failed(code) => {
+                    outln!();
+                    outln!(
+                        "{} ({code})",
+                        lang.t(
+                            "관리자 권한으로 다시 열지 못했습니다. 창을 닫고 remedy.exe 를 마우스 오른쪽 \
+                             단추로 눌러 '관리자 권한으로 실행' 을 고르십시오.",
+                            "Could not reopen as administrator. Close this window, right-click remedy.exe \
+                             and choose 'Run as administrator'.",
+                        )
+                    );
+                }
+                remedy_core::Relaunch::Unsupported => return None,
+            },
+            Answer::Num(2) => return None,
+            Answer::End => return Some(Outcome::End),
+            Answer::Num(_) | Answer::Invalid => {
+                outln!();
+                outln!(
+                    "{}",
+                    lang.t("아무것도 하지 않았습니다.", "Nothing was done.")
+                );
+                return Some(Outcome::Stopped);
+            }
+        }
+    }
 }
 
 /// 메뉴가 읽는 두 폴더 — **결과 폴더와 실행 파일 폴더.**
@@ -311,6 +410,7 @@ pub(crate) fn next_offer() -> crate::menu::Offer {
         runs,
         unfinished: unfinished_runs(),
         files: std::collections::BTreeMap::new(),
+        back: false,
     }
 }
 
@@ -364,6 +464,7 @@ pub fn run(anchor: Option<&str>) -> Outcome {
                     runs,
                     unfinished,
                     files,
+                    back: false,
                 }));
             }
         }
@@ -392,9 +493,15 @@ pub fn run(anchor: Option<&str>) -> Outcome {
                     )
                 }
             );
-            errln!();
+            return Outcome::NoRulesHere;
         }
         return Outcome::ShowUsage;
+    }
+
+    // **권한 없이 뜬 Windows 메뉴는 다시 열기부터 묻는다**(세션에 한 번) — 더블클릭은 늘 권한 없이 뜨고,
+    // 검사 · 치료는 관리자 권한이 있어야 돈다.
+    if let Some(out) = offer_elevation() {
+        return out;
     }
 
     // **배너를 여기서 내지 않는다.** 곧 `cmd_run` 이 플러그인 이름까지 담은
@@ -428,6 +535,15 @@ pub fn run(anchor: Option<&str>) -> Outcome {
             lang.t(
                 "쓸 수 있는 검사 항목이 없어 아무것도 검사하지 못했습니다.",
                 "nothing usable was found, so nothing was checked."
+            )
+        );
+        // **이제 무엇을 하는지** — 받은 파일이 깨졌거나 다른 것이 섞였을 때가 대부분이다(목표 remedy_시연전_안정화 A11).
+        errln!(
+            "  {} {}",
+            remedy_sdk::i18n::deco().arrow(),
+            lang.t(
+                "최신 버전 페이지에서 파일을 다시 받아 통째로 푼 뒤 실행하십시오.",
+                "download the file again from the latest release page, extract all of it, and run again.",
             )
         );
         return Outcome::NothingUsable;
@@ -497,6 +613,8 @@ pub fn run(anchor: Option<&str>) -> Outcome {
             runs,
             unfinished: unfinished_runs(),
             files: candidate_files(&out_dir, &exe_dir),
+            // 고르는 화면은 항목이 둘 이상일 때만 선다(`choose`) — 그때만 `0` 이 그리로 돌아간다.
+            back: ok.len() > 1,
         });
         return to_outcome(pick);
     }
@@ -661,11 +779,12 @@ fn choose(ok: &[discover::Found]) -> Option<Choice> {
 
     use crate::term::{Answer, Row};
     use std::io::IsTerminal;
+    // 검사 전이다 — *찾았습니다* 는 위협을 찾은 것으로 읽혔다(처음 쓰는 사람 검토 · 목표 remedy_시연전_안정화 D5).
     let mut rows = vec![
         Row::Blank,
         Row::Text(lang.pick(
-            format!("검사 항목 {}개를 찾았습니다:", ok.len()),
-            format!("Found {} things to check:", ok.len()),
+            format!("무엇을 검사할까요? (검사 항목 {}개)", ok.len()),
+            format!("What would you like to check? ({} items)", ok.len()),
         )),
     ];
     if !std::io::stdin().is_terminal() {
@@ -689,6 +808,9 @@ fn choose(ok: &[discover::Found]) -> Option<Choice> {
     let mut head = vec![Row::Text(crate::menu::title_line(lang))];
     if let Some(line) = crate::menu::privilege_line(lang) {
         head.push(Row::Text(line));
+    }
+    if let Some(note) = crate::term::take_notice() {
+        head.push(Row::Text(note));
     }
     head.push(Row::Blank);
     rows.splice(1..1, head);
@@ -780,13 +902,14 @@ fn scan_lines(local: &[Chosen], remote: &[String]) -> Vec<ScanLine> {
             kind: ScanKind::All,
         }];
     }
+    // 화면에서는 '항목' 하나로 부른다 — 바로 위 머리줄이 *검사 항목 N개* 다(목표 remedy_시연전_안정화 D5).
     let quick_label = lang.pick(
         format!(
-            "빠른 검사 (권장 · 룰 {}개 · 아무것도 바꾸지 않습니다)",
+            "빠른 검사 (권장 · 항목 {}개 · 아무것도 바꾸지 않습니다)",
             quick.len()
         ),
         format!(
-            "Quick scan (recommended · {} rules · changes nothing)",
+            "Quick scan (recommended · {} items · changes nothing)",
             quick.len()
         ),
     );
@@ -811,8 +934,8 @@ fn scan_lines(local: &[Chosen], remote: &[String]) -> Vec<ScanLine> {
 /// 정밀 검사 줄의 글 — 고르는 화면과 빠른 검사 뒤 *다음 할 일* 이 같은 글을 쓴다.
 fn full_scan_label(lang: remedy_sdk::i18n::Lang, rules: usize) -> String {
     lang.pick(
-        format!("정밀 검사 (룰 {rules}개 · 디스크 전체까지 · 오래 걸릴 수 있습니다)"),
-        format!("Full scan ({rules} rules · whole disks too · can take a long time)"),
+        format!("정밀 검사 (항목 {rules}개 · 디스크 전체까지 · 오래 걸릴 수 있습니다)"),
+        format!("Full scan ({rules} items · whole disks too · can take a long time)"),
     )
 }
 

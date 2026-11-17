@@ -154,10 +154,6 @@ impl Builder {
         content + meta + (self.entries.len() as u64 + 1) * 64 + 4096
     }
 
-    pub fn entry_count(&self) -> usize {
-        self.entries.len()
-    }
-
     /// 봉인해서 바이트로 낸다.
     pub fn seal(&self, key: &ContentKey) -> Result<Vec<u8>, QuarantineError> {
         if self.header.wraps.is_empty() {

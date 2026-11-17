@@ -1069,6 +1069,21 @@ fn a_check_plugin_says_vulnerable_not_threat() {
     }
 }
 
+/// 하나도 못 한 부분 실패는 '일부' 가 아니다 — 리눅스 기준선 M 이 *"일부 실패 (0건 수행 완료)"* 였다
+/// (목표 remedy_시연전_안정화 A5). 종료 코드는 그대로 3 이다.
+#[test]
+fn a_failure_that_changed_nothing_does_not_say_partial() {
+    use remedy_sdk::artifact::ExitCode as C;
+    assert_eq!(
+        result_line(C::PartialFailure, 0, Lang::Ko, None),
+        "치료하지 못했습니다 (바꾼 것 없음)"
+    );
+    assert_eq!(
+        result_line(C::PartialFailure, 1, Lang::Ko, None),
+        "일부 실패 (1건 수행 완료)"
+    );
+}
+
 /// B-2 **전**의 문자열. 치료 경로가 바뀌지 않았음을 재는 고정 사본이다 —
 /// 같은 함수를 자기 자신과 견주면 아무것도 재지 못한다.
 fn result_line_before_b2(code: remedy_sdk::artifact::ExitCode, done: usize, lang: Lang) -> String {

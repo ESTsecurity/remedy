@@ -33,7 +33,6 @@ pub mod brand {
 
     pub const PRODUCT_KO: &str = "ESTsecurity 전용백신";
     pub const PRODUCT_EN: &str = "ESTsecurity Dedicated Cleaner";
-    pub const COMPANY: &str = "ESTsecurity";
     pub const COPYRIGHT_YEAR: &str = "2026";
 
     pub fn product(lang: Lang) -> &'static str {
@@ -827,6 +826,13 @@ pub fn result_line(
         (C::Remediated, Lang::En) => format!("Threat found, treated ({done} action(s) done)"),
         (C::FoundNotRemediated, Lang::Ko) => "위협 발견, 치료하지 않았습니다.".to_string(),
         (C::FoundNotRemediated, Lang::En) => "Threat found, not treated.".to_string(),
+        // 하나도 못 했으면 '일부' 가 아니다 — 리눅스 기준선 M 이 *"일부 실패 (0건 수행 완료)"* 였다.
+        (C::PartialFailure, Lang::Ko) if done == 0 => {
+            "치료하지 못했습니다 (바꾼 것 없음)".to_string()
+        }
+        (C::PartialFailure, Lang::En) if done == 0 => {
+            "Treatment failed (nothing was changed)".to_string()
+        }
         (C::PartialFailure, Lang::Ko) => format!("일부 실패 ({done}건 수행 완료)"),
         (C::PartialFailure, Lang::En) => format!("Partial failure ({done} action(s) done)"),
         (C::UsageError, Lang::Ko) => "입력 오류".to_string(),
@@ -917,6 +923,34 @@ pub fn render_closing(c: &Closing<'_>, lang: Lang) -> String {
     out.push_str(d.rule());
     out.push('\n');
     out.push_str(&format!(" {}\n", brand::copyright()));
+    out
+}
+
+/// 메뉴 세션의 마무리 — **결과 한 줄과 걸린 시간**(목표 remedy_시연전_안정화 D5). 격리소 · 저널 경로와 명령줄
+/// 안내(`remedy restore …`)는 메뉴 앞의 사람에게 같은 길을 두 번 알려 줄 뿐이다 — 바로 아래 *다음 할 일* 이
+/// 되돌리기 · 신고를 메뉴 번호로 가리킨다. 저작권 줄은 *버전 보기* · 사용법에 있다. 명령줄 실행(무인 배포 ·
+/// 운영자)은 [`render_closing`] 의 표 그대로다(불변식 I1). 결과 줄은 `결과` 로 시작해 화면의 역할 색이 지금처럼
+/// 붙는다.
+pub fn render_closing_brief(c: &Closing<'_>, lang: Lang) -> String {
+    let d = remedy_sdk::i18n::deco();
+    let mut out = format!(
+        "{}{}{} · {}\n",
+        lang.t("결과", "Result"),
+        d.dash(),
+        result_line_for(c.code, c.done, lang, c.kind, c.review),
+        elapsed(c.elapsed_secs, lang)
+    );
+    // 메뉴의 복원 정보는 실행 파일 옆(`<exe>/state`)에 쌓인다 — "이 폴더" 로는 어느 폴더인지 화면에 없다.
+    if c.quarantine.is_some() {
+        out.push_str(lang.t(
+            "  격리한 파일은 보관해 두었습니다 — 메뉴에서 되돌릴 수 있습니다.\n",
+            "  Quarantined files are kept — you can undo it from the menu.\n",
+        ));
+        out.push_str(lang.t(
+            "  되돌릴 일이 남아 있으면 프로그램이 있는 폴더를 지우지 마십시오.\n",
+            "  Keep the program's folder while you may still need to undo it.\n",
+        ));
+    }
     out
 }
 
@@ -1054,6 +1088,22 @@ pub enum AfterReboot<'a> {
 /// **순서가 규격이다** — 부작용, 그다음 목록, 그다음 미룸. 목록을 먼저 보여
 /// 주면 읽는 사람은 그것만 보고 승인한다 (설계-01 D5).
 pub fn render_plan(p: &PlanEnvelope, lang: Lang, after_reboot: AfterReboot<'_>) -> String {
+    render_plan_as(p, lang, after_reboot, false)
+}
+
+/// **바꾸지 않는 자리**(검사만 · 계획 세우기)의 계획 — 목록 머리가 *치료하면 N건을 수행합니다 (지금은 바꾸지
+/// 않습니다)* 다. 전에는 검사만 하는 화면에서도 *"N 건을 수행합니다"* 라고 했다(처음 쓰는 사람 검토 · 목표
+/// remedy_시연전_안정화 D5). 나머지는 [`render_plan`] 과 한 글자도 같다.
+pub fn render_plan_preview(p: &PlanEnvelope, lang: Lang, after_reboot: AfterReboot<'_>) -> String {
+    render_plan_as(p, lang, after_reboot, true)
+}
+
+fn render_plan_as(
+    p: &PlanEnvelope,
+    lang: Lang,
+    after_reboot: AfterReboot<'_>,
+    preview: bool,
+) -> String {
     let mut out = String::new();
 
     // ── 1. 부작용 (목록보다 **앞**) ───────────────────────────────
@@ -1078,11 +1128,19 @@ pub fn render_plan(p: &PlanEnvelope, lang: Lang, after_reboot: AfterReboot<'_>) 
     // **미룬 것(3절)은 수행할 것이 없어도 보인다** — 조용히 빠지면 이 계획이
     // 치료의 전부인 것처럼 읽힌다.
     if !p.body.actions.is_empty() {
-        out.push_str(&format!(
-            "{} {}\n",
-            p.body.actions.len(),
-            lang.t("건을 수행합니다:", "action(s) will run:")
-        ));
+        // 수와 단위는 붙여 쓴다(`흔적 5건` 과 같게). *건을 수행합니다* 는 하네스가 읽는 낱말이다(`\d+\s*건을`).
+        let n = p.body.actions.len();
+        out.push_str(&if preview {
+            lang.pick(
+                format!("치료하면 {n}건을 수행합니다 (지금은 바꾸지 않습니다):\n"),
+                format!("If treated, {n} action(s) will run (nothing is changed now):\n"),
+            )
+        } else {
+            lang.pick(
+                format!("{n}건을 수행합니다:\n"),
+                format!("{n} action(s) will run:\n"),
+            )
+        });
         for a in &p.body.actions {
             // 카탈로그 ID 는 계획 JSON 에 있다. 화면은 고객이 읽는 문장이다.
             out.push_str(&format!(

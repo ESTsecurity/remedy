@@ -61,6 +61,9 @@ remedy 의 감사 로그는 **무엇을 하려 했는가**를 말한다. `Captur
 | `host/Compare-State.ps1` | 호스트 | 상태 비교 + 불변식 P 판정 |
 | `host/Reset-Vm.ps1` | 호스트 | 스냅샷 복원 + 게스트 스크립트 동기화 + **게스트 시계 맞추기** + **Store 갱신 끄기**(아래) |
 | `host/Disable-LabUpdaters.ps1` | 호스트 | 랩의 자동 갱신기를 끈다 — `remedy-lab-base-v3` 를 만든 손질 (`-ReportOnly` 로 상태만) |
+| `host/New-MenuDemo.ps1` | 호스트 | **메뉴로 하는 시연의 기계를 세운다** — 꾸러미 · 감염을 랩 VM 에 놓는다(`New-DemoMachine.ps1` 은 명령줄 시연용) |
+| `linux/invoke-reboot-verify.sh` · `linux/reboot-verify.sh` | 호스트(WSL) · 리눅스 랩 VM | **재부팅 뒤 재검사가 진짜 systemd 부팅에서 도는가**(P12 P7) — 치료 → 재부팅 → 확인. Windows 의 `host/Invoke-P10FVerify.ps1` 짝. 랩 VM 은 `docs/P12-P7-리눅스-랩-VM-준비.md` |
+| `linux/invoke-restart-verify.sh` · `linux/restart-verify.sh` | 호스트(WSL) · 리눅스 랩 VM | **systemd 가 `Restart=` 로 되살리는 데몬을 치료가 끝까지 멈추는가** — 같은 랩 VM · 스냅숏 |
 | `host/Invoke-ScreenShot.ps1` · `guest/Capture-Window.ps1` | 호스트 · VM 의 대화형 세션 | **사람이 보는 화면을 PNG 로** — 콘솔 호스트 · Windows Terminal(휴대판) 창에 띄워 차례(`shot` · `type` · `keys` · `key` · `signal` · `wait` · `relaunch`)대로 찍는다. 콘솔 세션에 로그온한 사용자가 있어야 한다 |
 | `linux/screenshot.sh` | 호스트(WSL) · 컨테이너 | 그 리눅스 짝 — 가상 디스플레이(Xvfb) 위 xterm · `ko_KR.UTF-8`. 차례 말은 `relaunch` 만 빼고 같고, `--package` 로 꾸러미 폴더째 띄운다. `--fixtures` 는 띄우기 전에 리눅스 하네스의 픽스처로 감염을 세운다 — 시험 플러그인 꾸러미(`menu-verify.sh` 가 남기는 `pkg`)로 세 흐름을 찍는 자리 |
 | `linux/menu-verify.sh` | 호스트(WSL) · 컨테이너 | **리눅스의 새 꾸러미 첫 메뉴를 Windows 와 견준다** — 임시 키 · 앵커 박은 빌드 · 서명된 `lab-plugin.yaml` · `xtask package` 로 꾸러미를 짓고, `script` 의 pty 에서 메뉴를 띄워 번호 줄 목록을 콘솔 기준선 A10 과 diff 한다. 꾸러미 배치(`layout.txt`)도 남긴다. 리눅스 룰 전부와 동반 프로그램 `remedy-net` 을 담은 둘째 꾸러미로 **빠른 검사 · 정밀 검사**(1 · 2 · 룰 3부터 · 뺀 룰 · 다음 할 일)와 두 검사 뒤의 *찾은 것 모두 치료하기* · 찾기만 하는 룰의 메뉴 · **원격 점검**(닫힌 포트 — 알리고 띄우는가 · sudo 를 건 사용자의 권한으로 내려 도는가 · 내리지 못하면 그렇다고 말하는가) · **같은 제품의 묶음**(합성 A/B 짝 세 버전 · PHP 짝 — dpkg 기록의 가짜 패키지 줄)도 잰다 |
@@ -928,7 +931,7 @@ SCM 이 포기하면 예전에는 이렇게만 말했다.
 | 무엇 | 언제 | 어떻게 |
 |---|---|---|
 | 랩에 남의 감염이 없는가 | 감염을 세우기 **전에** | Defender 예외(같은 `contains` 조건) · 예약 작업 · Run 키 · `Programs\MicrosoftResourcesAgent*` 폴더 |
-| 계획이 **7건**인가 | 치료 뒤 | 화면의 `N 건을 수행합니다` |
+| 계획이 **7건**인가 | 치료 뒤 | 화면의 `N건을 수행합니다`(1.21.1 까지는 `N 건`) |
 
 앞의 것은 **판정이 아니라 중단**이다. 오염된 랩에서 나온 숫자는 통과든 실패든
 아무것도 뜻하지 않으므로, 재지 않고 이름을 대며 멈춘다.

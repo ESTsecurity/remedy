@@ -307,6 +307,10 @@ function Get-MenuMap {
     if ($Lead.Count -gt 0) {
         $at = $Text.IndexOf("무엇을 할까요")
         if ($at -gt 0) { $Text = $Text.Substring($at) }
+        # 작업 메뉴의 `0` 은 고르는 화면으로 돌아가 그 화면이 다시 선다(코어 1.22.0) — 거기서 자른다. 자르지 않으면
+        # 다시 선 고르는 화면의 줄까지 작업 메뉴의 줄로 센다.
+        $back = $Text.IndexOf("무엇을 검사할까요")
+        if ($back -gt 0) { $Text = $Text.Substring(0, $back) }
     }
     foreach ($line in ($Text -split "`r?`n")) {
         if ($line -match $OffRow) { continue }
@@ -525,7 +529,8 @@ $chooser = $null
 $chooserText = ""
 if ($Pick -and $Lead.Count -eq 0) {
     $cprobe = Invoke-MenuRun -Lines @("0") -TimeoutMs 30000
-    if ($cprobe.text -match "검사 항목 (\d+)개를 찾았습니다") {
+    # 고르는 화면의 머리줄 — 코어 1.22.0 부터 *무엇을 검사할까요? (검사 항목 N개)* 다(전에는 *검사 항목 N개를 찾았습니다*).
+    if ($cprobe.text -match "검사 항목 (\d+)개\)") {
         $chooserText = $cprobe.text
         $chooser = [ordered]@{ count = [int]$Matches[1]; pick = $Pick; number = 0; exit = $cprobe.exit }
         foreach ($line in ($cprobe.text -split "`r?`n")) {
@@ -598,8 +603,11 @@ if ($chooserText -and (($Keys.Count -eq 0) -or ($Keys -contains "원격 점검")
     }
 }
 # 작업 뒤 다시 서는 첫 화면 — 룰이 하나면 작업 메뉴, 여럿이면 고르는 화면이다(`$Lead` 가 그 표지).
-$BackHead = $(if ($Lead.Count -gt 0) { "검사 항목 \d+개를 찾았습니다" } else { "무엇을 할까요" })
-$probe = Invoke-MenuRun -Lines (@() + $Lead + @("0")) -TimeoutMs 30000
+$BackHead = $(if ($Lead.Count -gt 0) { "무엇을 검사할까요" } else { "무엇을 할까요" })
+# 작업 메뉴에서 끝내는 줄 — 고르는 화면에서 들어왔으면 그 메뉴의 `0` 은 **고르는 화면으로 돌아가기**다(코어 1.22.0 ·
+# 목표 remedy_시연전_안정화 A1). 그만두려면 고르는 화면에서 `0` 을 한 번 더 친다.
+$Quit = $(if ($Lead.Count -gt 0) { @("0", "0") } else { @("0") })
+$probe = Invoke-MenuRun -Lines (@() + $Lead + $Quit) -TimeoutMs 30000
 $pmap = Get-MenuMap -Text $probe.text
 # 더 보기 — 첫 화면의 마지막 줄을 눌러 열고, `0` 으로 돌아와 `0` 으로 그만둔다. 룰이 여럿이어도
 # 더 보기의 `0` 은 **같은 룰의 작업 메뉴**로 돌아온다 — 고르는 화면이 아니다(2026-11-09 실측: 룰
@@ -608,7 +616,7 @@ $authorNo = Find-MenuNumber -Map $pmap -Needle $AuthorLine
 $aprobe = $null
 $atext = ""
 if ($authorNo -gt 0) {
-    $aprobe = Invoke-MenuRun -Lines (@() + $Lead + @("$authorNo", "0", "0")) -TimeoutMs 30000
+    $aprobe = Invoke-MenuRun -Lines (@() + $Lead + @("$authorNo", "0") + $Quit) -TimeoutMs 30000
     $atext = Get-AuthorText -Text $aprobe.text
 }
 $amap = Get-MenuMap -Text $atext
@@ -736,18 +744,18 @@ if ($withExtra) {
             key = "모두 검사"; needle = $(if ($Disk) { "빠른 검사" } else { "모두 검사만 하기" }); number = 1; via = ""
             lines = @("1", "", "0")
             found = $true; exit = $all.exit; expect = 2; timed_out = $all.timed_out
-            summary = [bool]($sum -match "룰 2개"); found_both = ($hits -eq 2); out_dirs = $outs
+            summary = [bool]($sum -match "항목 2개"); found_both = ($hits -eq 2); out_dirs = $outs
             unchanged = (($before | ConvertTo-Json -Compress) -eq ($after | ConvertTo-Json -Compress))
             ended = [bool]($all.text -match "끝냅니다\.")
             # 작업 뒤 고르는 화면으로 돌아왔다 — 멈춤 줄이 있고 그 화면이 두 번 섰다.
             back_menu = [bool]($all.text -match "메뉴로 돌아갑니다") -and
-                        ([regex]::Matches($all.text, "검사 항목 ${nRules}개를 찾았습니다").Count -ge 2)
+                        ([regex]::Matches($all.text, "검사 항목 ${nRules}개\)").Count -ge 2)
             # 디스크 전체 룰이 함께 들면 — 맨 위가 1 빠른 검사 · 2 정밀 검사이고, 빠른 검사는 그 룰을 빼고 요약에 그렇게
             # 적고 다음 할 일이 2번을 가리킨다(목표 remedy_기본검사_룰관리 ①②). 없으면 지금 그대로 한 줄이다.
             scan_lines = $scanLines
             disk_skipped = [regex]::Matches($sum, '(?m)^\s\s.+ (—|-) 정밀 검사에서만 합니다 \(디스크 전체를 봅니다\)').Count
             # `${}` 로 감싼다 — 문자열 안에서 변수 뒤에 한글이 붙으면 PowerShell 이 그 글자까지 이름으로 읽는다.
-            full_lead = [bool]($sum -match "디스크 전체까지 보려면 (—|-) 2\. 정밀 검사 \(룰 ${nRules}개")
+            full_lead = [bool]($sum -match "디스크 전체까지 보려면 (—|-) 2\. 정밀 검사 \(항목 ${nRules}개")
             before = $before; after = $after; ok = $false
         }
         $diskOk = $(if ($Disk) { ($scanLines -eq 2) -and ($row.disk_skipped -eq 1) -and $row.full_lead }
@@ -778,7 +786,7 @@ if ($withExtra) {
             $row = [ordered]@{
                 key = "정밀 검사"; needle = "정밀 검사"; number = 2; via = ""; lines = @("2", "", "0")
                 found = ($scanLines -eq 2); exit = $full.exit; expect = 2; timed_out = $full.timed_out
-                summary = [bool]($fSum -match "룰 3개"); found_both = ($fHits -eq 2)
+                summary = [bool]($fSum -match "항목 3개"); found_both = ($fHits -eq 2)
                 disk_ran = [bool]$dName -and [bool]($fSum -match ("(?m)^\s\s" + [regex]::Escape($dName) + " (—|-) (?!정밀 검사에서만)"))
                 no_skip = -not [bool]($fSum -match "정밀 검사에서만")
                 no_lead = -not [bool]($fSum -match "디스크 전체까지 보려면")
@@ -802,16 +810,18 @@ if ($withExtra) {
         # 서지 않는다 — 1 번이 검사만 하기다(목표 remedy_사용자메뉴 기준 1).
         $xno = Find-MenuNumber -Map (Get-MenuMap -Text $all.text) -Needle $xName
         $dm = $null
-        if ($xno -gt 0) { $dm = Invoke-MenuRun -Lines @("$xno", "0") -TimeoutMs 60000 }
+        # 작업 메뉴의 `0` 은 고르는 화면으로 돌아간다 — 거기서 `0` 으로 그만둔다(코어 1.22.0).
+        if ($xno -gt 0) { $dm = Invoke-MenuRun -Lines @("$xno", "0", "0") -TimeoutMs 60000 }
         $txt = $(if ($null -ne $dm) { $dm.text } else { "" })
         # 고르는 화면이 아니라 그 뒤의 작업 메뉴만 본다 — "무엇을 할까요?" 부터.
         $menuAt = $txt.IndexOf("무엇을 할까요")
         $menuTxt = $(if ($menuAt -ge 0) { $txt.Substring($menuAt) } else { "" })
         $row = [ordered]@{
-            key = "탐지만 메뉴"; needle = $xName; number = $xno; via = ""; lines = @("$xno", "0")
+            key = "탐지만 메뉴"; needle = $xName; number = $xno; via = ""; lines = @("$xno", "0", "0")
             found = ($xno -gt 0); exit = $(if ($null -ne $dm) { $dm.exit } else { $null }); expect = 0
             timed_out = $(if ($null -ne $dm) { $dm.timed_out } else { $true })
-            named = $txt.Contains("검사 항목: $xName")
+            # 고르는 화면에서 들어온 작업 메뉴의 머리줄 — *<이름> — 무엇을 할까요?* (코어 1.22.0 · 전에는 *검사 항목: <이름>*).
+            named = [bool]($txt -match ([regex]::Escape($xName) + " (—|-) 무엇을 할까요"))
             treat_off = [bool]($menuTxt -match "  1\. 검사만 하기") -and
                         (-not [bool]($menuTxt -match "검사하고 치료하기"))
             verify_off = -not [bool]($menuTxt -match "치료가 유지됐는지 다시 보기")
@@ -832,7 +842,7 @@ if ($withExtra) {
         # 도는 프로세스가 없어(`Set-InfectedState` — 폴더 · 예약 작업 · Run 값 · 백신 예외) 복원으로 다 돌아온다.
         if ($withTreatAll) {
         $tn = $nRules + $scanLines + 1
-        if ($all.text -match "검사 항목 (\d+)개를 찾았습니다") { $tn = [int]$Matches[1] + $scanLines + 1 }
+        if ($all.text -match "검사 항목 (\d+)개\)") { $tn = [int]$Matches[1] + $scanLines + 1 }
         $outRoot = Join-Path (Split-Path -Parent $Bin) "out"
         $stateDir = Join-Path (Split-Path -Parent $Bin) "state"
         $outsBefore = @(Get-ChildItem -LiteralPath $outRoot -Directory -ErrorAction SilentlyContinue |
@@ -974,7 +984,8 @@ foreach ($s in $steps) {
 
     $sub_count = $null
     if ($null -ne $run) {
-        if ($run.text -match "어느 작업입니까\?\s*\((\d+)건\)")  { $sub_count = [int]$Matches[1] }
+        # 회차 고르기 — 하는 일마다 묻는 말이 다르다(*어느 치료를 되돌릴까요? (N건)* 등 · 코어 1.22.0).
+        if ($run.text -match "까요\?\s*\((\d+)건\)")  { $sub_count = [int]$Matches[1] }
         if ($run.text -match "어느 파일입니까\?\s*\((\d+)개\)")  { $sub_count = [int]$Matches[1] }
     }
 

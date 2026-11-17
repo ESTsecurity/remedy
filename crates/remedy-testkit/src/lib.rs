@@ -7,7 +7,7 @@
 //! 그것은 "회귀가 없다" 가 아니라 "회귀를 볼 수 없다" 이다.
 #![forbid(unsafe_code)]
 
-use remedy_sdk::artifact::{ArtifactsEnvelope, PlanEnvelope, ScanEnvelope};
+use remedy_sdk::artifact::{ArtifactsEnvelope, PlanEnvelope};
 use std::path::{Path, PathBuf};
 
 pub const CRATE_NAME: &str = "remedy-testkit";
@@ -74,10 +74,6 @@ fn corpus_name(p: &Path) -> Option<String> {
 }
 
 pub fn read_artifacts(path: &Path) -> Result<ArtifactsEnvelope, TestkitError> {
-    read_json(path)
-}
-
-pub fn read_scan(path: &Path) -> Result<ScanEnvelope, TestkitError> {
     read_json(path)
 }
 

@@ -384,6 +384,17 @@ fn take_body<P: FsRead>(
                 format!("'{path}' exceeds the {cap}-byte cap and was not captured"),
             ))
         }
+        // **없는 파일은 없다고만 말한다** — OS 원문(`No such file or directory (os error 2)`)은 화면의 받은
+        // 사람에게 같은 말을 영어로 한 번 더 할 뿐이다. 치료가 방금 격리한 파일을 다시 검사가 찾을 때가 그 자리다
+        // (목표 remedy_시연전_안정화 A6).
+        Err(remedy_platform::PlatformError::Io { source, .. })
+            if source.kind() == std::io::ErrorKind::NotFound =>
+        {
+            return Err(lang.pick(
+                format!("'{path}' 가 없습니다"),
+                format!("'{path}' does not exist"),
+            ))
+        }
         Err(e) => {
             return Err(lang.pick(
                 format!("'{path}' 를 읽지 못했습니다: {e}"),

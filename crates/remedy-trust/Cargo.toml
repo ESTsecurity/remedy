@@ -10,7 +10,6 @@ publish = false
 remedy-sdk = { path = "../remedy-sdk" }
 minisign-verify.workspace = true
 sha2 = { workspace = true }
-thiserror.workspace = true
 # 폐기 목록 본문. **구조가 있는 데이터**라 매니페스트(sha256sum 모양 텍스트)와
 # 달리 JSON 이 맞는다 — 항목마다 대상·범위·사유가 붙는다.
 serde = { workspace = true }

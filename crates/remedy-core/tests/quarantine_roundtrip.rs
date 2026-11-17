@@ -95,11 +95,17 @@ fn plan_for(targets: &[&str]) -> PlanEnvelope {
 fn what_remedy_quarantines_remedy_can_restore() {
     let lab = Lab::new("basic");
 
-    // 바이트열을 일부러 다양하게 둔다 — 0바이트, 이진, 비ASCII.
+    // 바이트열을 일부러 다양하게 둔다 — 0바이트, 이진, 비ASCII. 이름도 — 스피어피싱 첨부가 쓰는 이중 확장자와
+    // 확장자를 창 밖으로 밀어내는 공백 여럿, 앞 공백 · 괄호가 든 한글 이름(외부 검토 G10 · 목표 remedy_시연전_안정화).
     let cases: Vec<(&str, Vec<u8>)> = vec![
         ("updater.exe", (0u8..=255).cycle().take(8192).collect()),
         ("설정 파일.dat", "한글 · 탭\t줄바꿈\n끝".as_bytes().to_vec()),
         ("empty.bin", Vec::new()),
+        (
+            "견적서.xlsx                    .exe",
+            b"MZ double extension".to_vec(),
+        ),
+        ("  계약서 (최종).pdf.scr", b"MZ leading spaces".to_vec()),
     ];
     let targets: Vec<String> = cases
         .iter()
@@ -110,7 +116,7 @@ fn what_remedy_quarantines_remedy_can_restore() {
     // ── 격리 ───────────────────────────────────────────────────
     let ex = Executor::new(&FsRestore, lab.state());
     let report = ex.apply(&plan_for(&refs)).expect("격리");
-    assert_eq!(report.done(), 3, "{:?}", report.body.results);
+    assert_eq!(report.done(), cases.len(), "{:?}", report.body.results);
     for t in &targets {
         assert!(
             !std::path::Path::new(t).exists(),
@@ -143,10 +149,10 @@ fn what_remedy_quarantines_remedy_can_restore() {
         None,
     )
     .expect("복원 계획");
-    assert_eq!(plan.allowed().count(), 3, "{:?}", plan.items);
+    assert_eq!(plan.allowed().count(), cases.len(), "{:?}", plan.items);
 
     let out = remedy_core::restore::apply(&plan, &opened, &key, &FsRestore).expect("복원");
-    assert_eq!(out.len(), 3);
+    assert_eq!(out.len(), cases.len());
     for o in &out {
         assert!(o.result.is_ok(), "{:?}", o.result);
     }

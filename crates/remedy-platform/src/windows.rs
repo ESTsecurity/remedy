@@ -43,10 +43,6 @@ impl Live {
         Self { wow64, system_root }
     }
 
-    pub fn is_wow64(&self) -> bool {
-        self.wow64
-    }
-
     fn system32(&self) -> String {
         normalize::for_record(
             &format!("{}\\System32", self.system_root),

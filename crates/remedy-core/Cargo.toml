@@ -27,7 +27,6 @@ thiserror.workspace = true
 
 [dev-dependencies]
 remedy-testkit = { path = "../remedy-testkit" }
-serde_yaml_ng.workspace = true
 # 감염 픽스처의 파일 내용. 스냅샷은 바이트를 base64 로 싣는다 — YARA 가 훑는
 # 것이 그 바이트이므로, 그것 없이는 룰이 도는지 시험할 수 없다.
 base64.workspace = true

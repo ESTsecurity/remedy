@@ -3,39 +3,26 @@
 //! capture 함수는 **닫힌 집합**이다. 임의 코드가 아니므로 룰이 무엇을 계산하는지
 //! 읽는 것만으로 알 수 있고, 평가가 결정적이다.
 
-use remedy_sdk::catalog::{CaptureFn, Phase};
+use remedy_sdk::catalog::CaptureFn;
 use remedy_sdk::normalize;
 use std::collections::BTreeMap;
 
+/// capture 를 평가하지 못한 까닭. 기다리면 되는 문제는 없다 — 1.21.1 까지 `expand_env` 하나가
+/// *"P4 에서 사용 가능해집니다"* 를 달았는데, P4 가 지난 뒤에도 평가기는 그것을 거절했다.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExprError {
     pub message: String,
-    /// 기다리면 되는 문제라면 그 Phase.
-    pub available_in: Option<Phase>,
 }
 
 impl ExprError {
     fn now(m: impl Into<String>) -> Self {
-        Self {
-            message: m.into(),
-            available_in: None,
-        }
-    }
-    fn later(m: impl Into<String>, p: Phase) -> Self {
-        Self {
-            message: m.into(),
-            available_in: Some(p),
-        }
+        Self { message: m.into() }
     }
 }
 
 impl std::fmt::Display for ExprError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.message)?;
-        if let Some(p) = self.available_in {
-            write!(f, " ({} 에서 사용 가능해집니다)", p.as_str())?;
-        }
-        Ok(())
+        write!(f, "{}", self.message)
     }
 }
 
@@ -149,11 +136,10 @@ fn apply(name: &str, v: &str) -> Result<String, ExprError> {
         CaptureFn::ExpandEnv => {
             // 현재 프로세스의 환경을 읽으면 **평가가 기계에 따라 달라진다.**
             // 같은 스냅샷을 두 번 평가해 같은 결과가 나와야 한다는 P2 의 결정성
-            // 요건과 정면으로 어긋난다. 수집 시점의 환경을 스냅샷에 담은 뒤에야
-            // 가능하다.
-            return Err(ExprError::later(
-                "expand_env 는 수집 시점의 환경이 스냅샷에 있어야 평가할 수 있습니다",
-                Phase::P4,
+            // 요건과 정면으로 어긋난다. 수집 시점의 환경은 스냅샷에 담기지 않는다.
+            return Err(ExprError::now(
+                "expand_env 는 평가하지 않습니다 — 수집할 때의 환경이 결과에 담기지 않아 \
+                 같은 결과도 기계마다 답이 달라집니다",
             ));
         }
     })
@@ -404,7 +390,9 @@ mod tests {
         // 현재 프로세스 환경을 읽으면 결정성이 깨진다.
         let b = BTreeMap::new();
         let e = capture("args | expand_env", &rec(), &b).unwrap_err();
-        assert_eq!(e.available_in, Some(Phase::P4));
+        assert!(e.message.contains("expand_env"), "{e}");
+        // 지난 단계를 약속하지 않는다 — P4 는 지났고 평가기는 여전히 거절한다.
+        assert!(!e.to_string().contains("P4"), "{e}");
     }
 
     #[test]
