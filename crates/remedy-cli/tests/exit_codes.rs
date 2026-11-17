@@ -34,6 +34,35 @@ fn run(args: &[&str]) -> i32 {
     out.status.code().unwrap_or(-1)
 }
 
+/// UTF-8 이 아닌 낱말 하나 — 리눅스는 `\xFF` 바이트, Windows 는 짝 없는 서로게이트다.
+fn not_utf8() -> std::ffi::OsString {
+    #[cfg(unix)]
+    {
+        use std::os::unix::ffi::OsStringExt;
+        std::ffi::OsString::from_vec(b"a\xffb".to_vec())
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::ffi::OsStringExt;
+        std::ffi::OsString::from_wide(&[0x61, 0xD800, 0x62])
+    }
+}
+
+#[test]
+fn a_non_utf8_argument_is_a_usage_error_not_a_crash() {
+    // `std::env::args()` 는 이 낱말에서 패닉하고 배포 빌드(`panic = "abort"`)는 그대로 죽었다 — 리눅스
+    // 1.22.0 실측 SIGABRT · 종료 134 · 코어 덤프. 이제 사용법 오류(4)로 끝나고 어느 낱말인지 말한다.
+    let out = Command::new(EXE)
+        .arg("scan")
+        .arg("--plugin")
+        .arg(not_utf8())
+        .output()
+        .unwrap_or_else(|e| panic!("{EXE} 실행 실패: {e}"));
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert_eq!(out.status.code(), Some(4), "{err}");
+    assert!(err.contains("UTF-8"), "{err}");
+}
+
 /// 마커 파일과 페이로드가 든 트리. 두 룰이 한 그룹으로 묶여 판정이 난다.
 ///
 /// **`on_metal` 에서만 쓴다.** 그 모듈이 `#[cfg(windows)]` 인 이유(수집 백엔드가

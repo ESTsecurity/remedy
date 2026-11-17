@@ -31,6 +31,31 @@ fn stderr(o: &Output) -> String {
 }
 
 #[test]
+fn a_non_utf8_argument_is_a_usage_error_not_a_crash() {
+    // `std::env::args()` 는 이 낱말에서 패닉하고 배포 빌드(`panic = "abort"`)는 그대로 죽었다 — 리눅스
+    // 1.22.0 실측 SIGABRT · 종료 134. 본체와 같이 사용법 오류(4)로 끝난다.
+    #[cfg(unix)]
+    let bad = {
+        use std::os::unix::ffi::OsStringExt;
+        std::ffi::OsString::from_vec(b"a\xffb".to_vec())
+    };
+    #[cfg(windows)]
+    let bad = {
+        use std::os::windows::ffi::OsStringExt;
+        std::ffi::OsString::from_wide(&[0x61, 0xD800, 0x62])
+    };
+    let o = criteria::command()
+        .arg("url")
+        .arg(bad)
+        .env("REMEDY_LANG", "en")
+        .output()
+        .expect("remedy-net 을 띄우지 못했다");
+    let err = stderr(&o);
+    assert_eq!(o.status.code(), Some(4), "{err}");
+    assert!(err.contains("UTF-8"), "{err}");
+}
+
+#[test]
 fn help_is_the_default_and_ends_with_zero() {
     for args in [&[][..], &["--help"][..], &["-h"][..]] {
         let o = run("en", args);

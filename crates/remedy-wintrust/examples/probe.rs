@@ -7,6 +7,9 @@
 //! cargo run -p remedy-wintrust --example probe -- C:\Windows\System32\notepad.exe
 //! ```
 
+// 사람이 손으로 돌리는 진단 도구다 — 제품의 `std::env::args` 금지(clippy.toml)는 여기에 걸지 않는다.
+#![allow(clippy::disallowed_methods)]
+
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     if args.is_empty() {

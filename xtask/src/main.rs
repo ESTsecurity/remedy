@@ -3,6 +3,8 @@
 //! P0에서 코드보다 먼저 존재한다. 안전 불변식이 사람의 기억이 아니라 빌드에 걸려
 //! 있어야 하기 때문이다 (설계-09 P0).
 #![forbid(unsafe_code)]
+// 개발자가 주는 인자다 — 제품의 `std::env::args` 금지(clippy.toml)는 여기에 걸지 않는다.
+#![allow(clippy::disallowed_methods)]
 
 mod arch;
 mod console;

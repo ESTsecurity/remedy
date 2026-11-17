@@ -620,13 +620,13 @@ fn repeated_key_is_a_list_and_last_wins_for_single() {
 fn missing_value_and_bare_word_are_rejected() {
     // 조용히 넘어가면 `--out` 없이 부른 실행이 어디에 썼는지 모르게 된다.
     //
-    // P5 에서 값 없는 스위치(`--yes`)가 생겼으므로 **파싱 단계에서는** 값이
-    // 없어도 통과한다. 값이 필요한지 아는 것은 파서가 아니라 부르는 쪽이고,
-    // `need` 가 빈 값을 거절한다. 거절되는 자리가 옮겨졌을 뿐 거절은 그대로다.
-    assert!(
-        parse_args(&args(&["--out"])).unwrap().need("out").is_err(),
-        "값이 없는데 --out 이 받아들여졌다"
-    );
+    // 스위치는 해석기가 안다(`SWITCHES`) — 그 밖의 옵션은 **해석 단계에서** 값이 없으면 거절한다. 전에는 값이
+    // 없어도 통과시키고 `need` 가 걸렀는데, `need` 를 부르지 않는 자리(`get` 으로 읽는 선택 옵션)에서는 빠진
+    // 값이 '주지 않음' 으로 읽혔다(`--state-dir --yes` 가 기본 자리로 갔다).
+    let e = parse_args(&args(&["--out"]))
+        .err()
+        .expect("값이 없는데 --out 이 받아들여졌다");
+    assert!(e.contains("--out"), "{e}");
     assert!(parse_args(&args(&["out", "x"])).is_err(), "'--' 가 없다");
     assert!(parse_args(&args(&[])).unwrap().need("out").is_err());
 }
@@ -642,7 +642,13 @@ fn an_unknown_option_is_refused_instead_of_ignored() {
     assert!(parse_args(&args(&["--plugin", "p", "--dry-run", "--yes"])).is_ok());
     for k in KNOWN_OPTIONS {
         let flag = format!("--{k}");
-        assert!(parse_args(&args(&[flag.as_str()])).is_ok(), "{flag}");
+        // 스위치는 홀로, 그 밖의 옵션은 값 하나와 함께 받는다.
+        let words: Vec<&str> = if SWITCHES.contains(k) {
+            vec![flag.as_str()]
+        } else {
+            vec![flag.as_str(), "v"]
+        };
+        assert!(parse_args(&args(&words)).is_ok(), "{flag}");
     }
 }
 
@@ -661,6 +667,208 @@ fn switches_are_recognized_without_eating_the_next_argument() {
     assert_eq!(b.need("out").unwrap(), "o");
     // 스위치는 값이 아니므로 `get` 이 주지 않는다.
     assert_eq!(b.get("yes"), None);
+}
+
+// ── 명령줄 규칙 하나(기술부채 2-5) — 같은 입력에 같은 답, 오타는 실행이 아니라 종료 4 ──────────────────
+
+#[test]
+fn a_switch_never_takes_the_next_word() {
+    // 전에는 다음 낱말이 `--` 로 시작하지 않으면 값으로 먹었다 — `--yes false` 가 자동 승인이었다.
+    for words in [
+        &["--plugin", "p", "--yes", "false"][..],
+        &["--list", "foo"][..],
+        &["--dry-run", "x"][..],
+    ] {
+        assert!(parse_args(&args(words)).is_err(), "{words:?}");
+    }
+}
+
+#[test]
+fn a_value_option_needs_a_real_value() {
+    // 값 자리에 다음 옵션이 오면 값이 빠진 것이다 — 전에는 `--extract-to --yes` 가 제자리 복원,
+    // `--passphrase-file --yes` 가 암호 없는 진행, `--state-dir --yes` 가 기본 자리였다.
+    for words in [
+        &["--run", "r", "--extract-to", "--yes"][..],
+        &["--passphrase-file", "--yes"][..],
+        &["--state-dir", "--yes"][..],
+        &["--file", "l", "--state-dir", "--public-key", "k"][..],
+        &["--out", ""][..],
+        &["--out", "   "][..],
+        &["--extract-to"][..],
+    ] {
+        let e = parse_args(&args(words))
+            .err()
+            .unwrap_or_else(|| panic!("{words:?} 를 받았다"));
+        assert!(
+            e.contains("값이 없습니다") || e.contains("has no value"),
+            "{words:?}: {e}"
+        );
+    }
+    // 값 자리의 한 글자 `-` 와 `-` 로 시작하는 값(한 개)은 값이다.
+    assert_eq!(
+        parse_args(&args(&["--out", "-"]))
+            .unwrap()
+            .need("out")
+            .unwrap(),
+        "-"
+    );
+    assert_eq!(
+        parse_args(&args(&["--key", "-x"]))
+            .unwrap()
+            .need("key")
+            .unwrap(),
+        "-x"
+    );
+}
+
+#[test]
+fn a_lang_without_its_value_is_refused_not_swallowing_the_next_option() {
+    // `run … --lang --dry-run --yes` 는 `--dry-run` 을 언어로 먹어 진짜 치료가 됐다. 이제 `--lang` 이 남아 해석이
+    // 값 없음으로 거절한다.
+    let (rest, lang, _, _) = split_global(args(&[
+        "run",
+        "--plugin",
+        "p",
+        "--lang",
+        "--dry-run",
+        "--yes",
+    ]));
+    assert_eq!(lang, None);
+    assert_eq!(
+        rest,
+        args(&["run", "--plugin", "p", "--lang", "--dry-run", "--yes"])
+    );
+    let e = parse_args(&rest[1..]).err().expect("남은 --lang 을 받았다");
+    assert!(e.contains("--lang"), "{e}");
+
+    // 값이 있으면 전처럼 걷는다 — 맨 끝의 `--lang` 도 전처럼 조용히 지나간다(화면 말만 정하는 옵션).
+    let (rest, lang, _, _) = split_global(args(&["scan", "--lang", "ko", "--out-dir", "o"]));
+    assert_eq!(lang.as_deref(), Some("ko"));
+    assert_eq!(rest, args(&["scan", "--out-dir", "o"]));
+    let (rest, lang, _, _) = split_global(args(&["scan", "--lang"]));
+    assert_eq!((rest, lang), (args(&["scan"]), None));
+}
+
+#[test]
+fn refused_words_are_repeated_without_values_or_control_characters() {
+    // 되풀이하는 낱말은 `=` 뒤(값 · 비밀이 든 주소)를 줄이고, 제어 문자를 `?` 로 바꾸고, 40자에서 자른다.
+    let e = parse_args(&args(&["--url=http://user:secret@h/"]))
+        .err()
+        .unwrap();
+    assert!(e.contains("--url=…") && !e.contains("secret"), "{e}");
+    let e = parse_args(&args(&["bare\u{1b}[2Jword"])).err().unwrap();
+    assert!(e.contains("bare?[2Jword") && !e.contains('\u{1b}'), "{e}");
+    let long = format!("--{}", "x".repeat(60));
+    let e = parse_args(&args(&[long.as_str()])).err().unwrap();
+    assert!(e.contains('…') && !e.contains(&"x".repeat(41)), "{e}");
+}
+
+#[test]
+fn the_list_and_trust_commands_refuse_what_the_others_refuse() {
+    // `plugin verify` · `revocation` · `allowlist` · `support-bundle` 은 전에 자리만 찾고 나머지를 버려,
+    // `revocation import --file l --dryrun` 이 실제로 반입했다. 이제 같은 해석기를 지난다.
+    for words in [
+        &["--file", "l", "--dryrun"][..],
+        &["--file", "l", "extra"][..],
+        &["--file=l"][..],
+        &["--dir", "--x"][..],
+    ] {
+        assert!(simple_arg(&args(words)).is_err(), "{words:?}");
+    }
+    let arg = simple_arg(&args(&["--file", "l", "--state-dir", "s"]))
+        .ok()
+        .unwrap();
+    assert_eq!(arg("--file").as_deref(), Some("l"));
+    assert_eq!(arg("--state-dir").as_deref(), Some("s"));
+    assert_eq!(arg("--public-key"), None);
+}
+
+#[test]
+fn every_argument_shape_the_program_builds_itself_still_parses() {
+    // 메뉴 · 재부팅 재평가 · 문서의 예가 만드는 꼴은 새 규칙에서도 한 글자도 다르지 않게 읽힌다.
+    let shapes: &[&[&str]] = &[
+        // 메뉴 — 검사 · 치료 · 유지 확인 · 모두 검사의 룰 하나(`menu_rule_args`)
+        &[
+            "--plugin",
+            "C:\\r\\plugins\\x\\plugin.yaml",
+            "--out-dir",
+            "C:\\r\\out\\1",
+            "--state-dir",
+            "C:\\r\\state",
+        ],
+        &[
+            "--plugin",
+            "/opt/r/plugins/x/plugin.yaml",
+            "--state-dir",
+            "/opt/r/state",
+        ],
+        // 메뉴 — 복원 목록 · 목록 반입(`file_arg` · `imported`) · 룰 서명 확인
+        &["--list", "--state-dir", "C:\\r\\state"],
+        &[
+            "--file",
+            "D:\\lists\\rev.sig",
+            "--state-dir",
+            "C:\\r\\state",
+        ],
+        &["--dir", "C:\\r\\plugins\\x"],
+        // 재부팅 재평가(`scheduled_verify_command` — `--lang` 은 `split_global` 이 걷는다)
+        &[
+            "--run",
+            "20261118-000000-abcd",
+            "--plugin",
+            "C:\\r\\p.yaml",
+            "--state-dir",
+            "C:\\r\\state",
+        ],
+        // README · 운영자 문서의 예
+        &[
+            "--plugin",
+            "plugins\\evilai-locust\\plugin.yaml",
+            "--out-dir",
+            "out",
+            "--yes",
+        ],
+        &[
+            "--plugin",
+            "./plugins/x/plugin.yaml",
+            "--out-dir",
+            "out",
+            "--dry-run",
+        ],
+        &["--run", "r", "--extract-to", "D:\\restored"],
+        &["--root", "a", "--root", "b", "--out", "o"],
+    ];
+    for words in shapes {
+        let a = parse_args(&args(words)).unwrap_or_else(|e| panic!("{words:?}: {e}"));
+        let mut i = 0;
+        while i < words.len() {
+            let k = words[i].trim_start_matches("--");
+            if SWITCHES.contains(&k) {
+                assert!(a.has(k), "{words:?}: {k}");
+                i += 1;
+            } else {
+                assert!(
+                    a.list(k).contains(&words[i + 1].to_string()),
+                    "{words:?}: {k}"
+                );
+                i += 2;
+            }
+        }
+    }
+    // 재부팅 재평가의 명령 줄은 `--lang <언어>` 를 하위 명령 뒤에 싣는다.
+    let (rest, lang, _, _) = split_global(args(&[
+        "verify",
+        "--run",
+        "r",
+        "--plugin",
+        "C:\\r\\p.yaml",
+        "--lang",
+        "ko",
+        "--state-dir",
+        "C:\\r\\state",
+    ]));
+    assert_eq!(lang.as_deref(), Some("ko"));
+    assert!(parse_args(&rest[1..]).is_ok());
 }
 
 #[test]

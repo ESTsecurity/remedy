@@ -385,6 +385,21 @@ pub fn t(ko: &'static str, en: &'static str) -> &'static str {
     current().t(ko, en)
 }
 
+/// 남이 준 글자를 화면에 되풀이할 때 — 제어 문자를 `?` 로 바꾸고 `max` 글자에서 자른다. 터미널 제어열
+/// (ESC …)이 화면을 바꾸지 못하게 한다. 서버가 보낸 글자(`remedy-net`)와 거절한 명령줄 낱말(두 실행 파일)이
+/// 같은 규칙을 쓴다. 결과 파일에는 원문이 간다(JSON 직렬화가 이스케이프한다).
+pub fn plain(s: &str, max: usize) -> String {
+    let mut out = String::with_capacity(s.len().min(max * 4));
+    for (i, c) in s.chars().enumerate() {
+        if i == max {
+            out.push('…');
+            break;
+        }
+        out.push(if c.is_control() { '?' } else { c });
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

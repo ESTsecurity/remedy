@@ -44,9 +44,12 @@ fn split_global(args: Vec<String>) -> Global {
     let mut rest = Vec::with_capacity(args.len());
     let mut lang = None;
     let mut ascii = None;
-    let mut it = args.into_iter();
+    let mut it = args.into_iter().peekable();
     while let Some(a) = it.next() {
         match a.as_str() {
+            // 뒤가 옵션이면 값이 빠진 것이다 — 그 옵션을 언어로 먹지 않고 남겨 명령의 해석이 거절하게 한다(본체와
+            // 같은 규칙 · `cmdline::tokens`).
+            "--lang" if it.peek().is_some_and(|n| n.starts_with("--")) => rest.push(a),
             "--lang" => lang = it.next(),
             "--ascii" => ascii = Some(true),
             _ => rest.push(a),
@@ -56,7 +59,15 @@ fn split_global(args: Vec<String>) -> Global {
 }
 
 fn main() {
-    let g = split_global(std::env::args().skip(1).collect());
+    // UTF-8 이 아닌 인자는 사용법 오류다 — 본체와 같다(`remedy_sdk::cmdline::utf8_args` 의 주석).
+    let raw = match remedy_sdk::cmdline::utf8_args() {
+        Ok(raw) => raw,
+        Err(bad) => {
+            remedy_net::errln!("{}", remedy_sdk::cmdline::not_utf8_message(&bad));
+            std::process::exit(i32::from(Outcome::BadInput.exit().code()));
+        }
+    };
+    let g = split_global(raw);
     // 언어 · 장식은 본체와 같은 한 벌이 정한다. 모르는 `--lang` 값은 무시하되 **말한다**.
     let (lang, unknown_lang) =
         i18n::init_from(g.lang.as_deref(), g.ascii, user_locale().as_deref());
@@ -207,6 +218,26 @@ mod tests {
         assert_eq!(g.rest, vec!["version".to_string()]);
         assert_eq!(g.lang.as_deref(), Some("en"));
         assert_eq!(g.ascii, Some(true));
+    }
+
+    #[test]
+    fn a_lang_without_its_value_does_not_swallow_the_next_option() {
+        // 뒤가 옵션이면 `--lang` 을 남긴다 — 명령의 해석(`cmdline::tokens`)이 값 없음으로 거절한다. 전에는
+        // `--out-dir` 같은 옵션을 언어로 먹고 그 값을 주소로 읽었다.
+        let words = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        let g = split_global(words(&[
+            "url",
+            "--lang",
+            "--out-dir",
+            "o",
+            "http://a.example/",
+        ]));
+        assert_eq!(g.lang, None);
+        assert_eq!(
+            g.rest,
+            words(&["url", "--lang", "--out-dir", "o", "http://a.example/"])
+        );
+        assert_eq!(run(&g.rest, Lang::En), Outcome::BadInput);
     }
 
     #[test]

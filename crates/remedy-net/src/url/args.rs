@@ -5,6 +5,7 @@
 use super::consent::Answer;
 use super::input::Input;
 use super::policy::MAX_URLS;
+use crate::cmdline::{tokens, Arg};
 use crate::output::local_path;
 pub(crate) use crate::output::DEFAULT_OUT_DIR;
 use remedy_sdk::i18n::Lang;
@@ -70,58 +71,23 @@ pub(crate) fn parse(args: &[String], lang: Lang) -> Result<Parsed, String> {
         ask: false,
         products: Products::ALL,
     };
-    let mut positional_only = false;
-    let mut it = args.iter();
-    while let Some(arg) = it.next() {
-        if !positional_only && arg == "--" {
-            positional_only = true;
-            continue;
-        }
-        if positional_only || !arg.starts_with('-') || arg == "-" {
-            push_url(&mut o.urls, arg, lang)?;
-            continue;
-        }
-        if matches!(arg.as_str(), "-h" | "--help") {
-            return Ok(Parsed::Help);
-        }
-        if arg == "--ask" {
-            o.ask = true;
-            continue;
-        }
-        let (name, inline) = match arg.split_once('=') {
-            Some((n, v)) => (n, Some(v.to_string())),
-            None => (arg.as_str(), None),
-        };
-        let key = name.trim_start_matches('-');
-        if !name.starts_with("--")
-            || !matches!(key, "url" | "cacert" | "consent" | "out-dir" | "runtime")
-        {
-            return Err(lang.pick(
-                format!("알 수 없는 옵션입니다: {}", crate::text::plain(name, 40)),
-                format!("unknown option: {}", crate::text::plain(name, 40)),
-            ));
-        }
-        let value = match inline.or_else(|| it.next().cloned()) {
-            Some(v) => v,
-            None => {
-                return Err(lang.pick(
-                    format!("--{key} 뒤에 값을 적으십시오."),
-                    format!("--{key} needs a value."),
-                ))
-            }
-        };
-        if value.trim().is_empty() {
-            return Err(lang.pick(
-                format!("--{key} 의 값을 비워 둘 수 없습니다."),
-                format!("--{key} cannot be empty."),
-            ));
-        }
-        match key {
-            "url" => push_url(&mut o.urls, &value, lang)?,
-            "cacert" => o.cacert = Some(local_path(value, lang)?),
-            "out-dir" => o.out_dir = local_path(value, lang)?,
-            "runtime" => o.products = Products::parse(&value, lang)?,
-            _ => o.consent = Some(Answer::parse(&value, lang)?),
+    // 읽기는 `image` · `container` 와 한 규칙이다(`cmdline::tokens`) — 전에는 이 명령만 따로 읽어 `---url` 을
+    // 받고 `--help` 뒤의 오타를 넘겼다(같은 입력에 다른 답 · 2-5). 문법을 다 본 뒤 차례로 뜻을 본다.
+    let words = tokens(
+        args,
+        &["ask"],
+        &["url", "cacert", "consent", "out-dir", "runtime"],
+        lang,
+    )?;
+    for w in words {
+        match w {
+            Arg::Flag("help") => return Ok(Parsed::Help),
+            Arg::Flag(_) => o.ask = true,
+            Arg::Positional(u) | Arg::Value("url", u) => push_url(&mut o.urls, &u, lang)?,
+            Arg::Value("cacert", v) => o.cacert = Some(local_path(v, lang)?),
+            Arg::Value("out-dir", v) => o.out_dir = local_path(v, lang)?,
+            Arg::Value("runtime", v) => o.products = Products::parse(&v, lang)?,
+            Arg::Value(_, v) => o.consent = Some(Answer::parse(&v, lang)?),
         }
     }
     if o.ask {
@@ -272,6 +238,29 @@ mod tests {
         ] {
             assert_eq!(run(bad), None, "{bad:?} 를 받았다");
         }
+    }
+
+    #[test]
+    fn the_same_words_get_the_same_answer_as_image_and_container() {
+        // 전에는 이 명령만 따로 읽어 `---url` 을 받고 `--help` 뒤의 오타를 넘겼다(같은 입력에 다른 답 · 2-5).
+        for bad in [
+            &["---url", "http://a.example/"][..],
+            &["----out-dir=o", "http://a.example/"][..],
+            &["--help", "--bogus"][..],
+            &["http://a.example/", "--out-dir", "--x"][..],
+        ] {
+            assert!(p(bad).is_err(), "{bad:?} 를 받았다");
+        }
+        // 문법이 맞으면 도움말이 먼저다 — 값의 뜻(`--runtime python`)은 보지 않는다.
+        assert_eq!(p(&["--help", "--runtime", "python"]), Ok(Parsed::Help));
+        // `--ask` 는 값을 받지 않는다.
+        let e = p(&["--ask=x"]).unwrap_err();
+        assert!(e.contains("--ask"), "{e}");
+        // 값이 `--` 로 시작해야 하면 붙여 쓴다.
+        assert!(matches!(
+            p(&["http://a.example/", "--out-dir=--x"]),
+            Ok(Parsed::Run(_))
+        ));
     }
 
     #[test]

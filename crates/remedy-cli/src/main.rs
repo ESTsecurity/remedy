@@ -78,6 +78,12 @@ fn split_global(args: Vec<String>) -> (Vec<String>, Option<String>, Option<bool>
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
+            // 뒤가 옵션이면 값이 빠진 것이다 — 그 옵션을 언어로 먹지 않고 `--lang` 을 남겨 명령의 해석이 거절하게
+            // 한다. 전에는 `run … --lang --dry-run --yes` 가 `--dry-run` 을 언어로 먹어 진짜 치료가 됐다.
+            "--lang" if args.get(i + 1).is_some_and(|n| n.starts_with("--")) => {
+                rest.push(args[i].clone());
+                i += 1;
+            }
             "--lang" => {
                 lang = args.get(i + 1).cloned();
                 i += 2;
@@ -100,7 +106,16 @@ fn split_global(args: Vec<String>) -> (Vec<String>, Option<String>, Option<bool>
 }
 
 fn main() -> ExitCode {
-    let (args, lang_flag, ascii, verbose) = split_global(std::env::args().skip(1).collect());
+    // UTF-8 이 아닌 인자는 사용법 오류다 — `std::env::args()` 는 그 자리에서 패닉하고 배포 빌드는 그대로 죽는다
+    // (`remedy_sdk::cmdline::utf8_args` 의 주석).
+    let raw = match remedy_sdk::cmdline::utf8_args() {
+        Ok(raw) => raw,
+        Err(bad) => {
+            errln!("{}", remedy_sdk::cmdline::not_utf8_message(&bad));
+            return ExitCode::from(Code::UsageError.code());
+        }
+    };
+    let (args, lang_flag, ascii, verbose) = split_global(raw);
     // Windows 는 `LANG` 을 설정하지 않는다 — 받아서 더블클릭한 한국어 PC 가 영어로 떨어졌다(실측
     // 2026-09-09). OS 가 말하는 로케일을 넘긴다. `--lang kr` 처럼 모르는 값은 무시하되 **말한다** —
     // 알림은 두 언어로, 어느 쪽을 읽든 이해되게.
@@ -1040,6 +1055,15 @@ const KNOWN_OPTIONS: &[&str] = &[
     "yes",
 ];
 
+/// 값을 받지 않는 스위치 — `has()` 로만 읽힌다. **다음 낱말을 먹지 않는다**: 전에는 다음 낱말이 `--` 로 시작하지
+/// 않으면 그것을 값으로 먹어 `--yes false` 가 자동 승인이 됐다. 반대로 값을 받는 옵션 뒤에 `--` 낱말이 오면 빈
+/// 값으로 두어, `--state-dir --yes` 가 '주지 않음'(기본 자리)으로 읽혔다.
+const SWITCHES: &[&str] = &["dry-run", "list", "yes"];
+
+/// 명령줄 규칙 — **낱말은 모두 `--이름` 이고, 스위치는 홀로, 그 밖의 옵션은 띄어 쓴 값 하나를 받는다.** 값이
+/// 없거나 `--` 로 시작하거나 비어 있으면 그 자리에서 거절한다(종료 4). 같은 옵션을 두 번 주면 목록(`list`)에는
+/// 둘 다, 하나만 읽는 자리(`get` · `need`)에는 마지막 값이 간다. 거절 문장은 받은 낱말을 [`shown`] 으로 줄여
+/// 되풀이한다.
 fn parse_args(raw: &[String]) -> Result<Args, String> {
     let mut single = std::collections::BTreeMap::new();
     let mut multi: std::collections::BTreeMap<String, Vec<String>> =
@@ -1048,43 +1072,63 @@ fn parse_args(raw: &[String]) -> Result<Args, String> {
     while i < raw.len() {
         let k = raw[i].strip_prefix("--").ok_or_else(|| {
             ui().lang.pick(
-                format!("'--이름 값' 형태여야 합니다: {}", raw[i]),
-                format!("expected '--name value', got: {}", raw[i]),
+                format!("'--이름 값' 형태여야 합니다: {}", shown(&raw[i])),
+                format!("expected '--name value', got: {}", shown(&raw[i])),
             )
         })?;
+        // `split_global` 이 언어로 먹지 않고 남긴 `--lang` — 뒤가 옵션이었으니 값이 빠진 것이다.
+        if k == "lang" {
+            return Err(no_value(k));
+        }
         if !KNOWN_OPTIONS.contains(&k) {
             return Err(ui().lang.pick(
                 format!(
-                    "모르는 옵션입니다: --{k} — 쓸 수 있는 옵션은 remedy --help-all 에 있습니다"
+                    "모르는 옵션입니다: {} — 쓸 수 있는 옵션은 remedy --help-all 에 있습니다",
+                    shown(&raw[i])
                 ),
-                format!("unknown option: --{k} (see remedy --help-all)"),
+                format!("unknown option: {} (see remedy --help-all)", shown(&raw[i])),
             ));
         }
-        // 값 없는 스위치(`--yes`). 다음 토큰이 없거나 그것도 `--` 로 시작하면
-        // 이 인자는 스위치다. 값이 필요한 인자는 `need` 가 빈 값을 거른다.
-        let is_flag = match raw.get(i + 1) {
-            None => true,
-            Some(next) => next.starts_with("--"),
-        };
-        let v = if is_flag {
+        let v = if SWITCHES.contains(&k) {
+            i += 1;
             String::new()
         } else {
-            raw[i + 1].clone()
+            match raw.get(i + 1) {
+                Some(v) if !v.starts_with("--") && !v.trim().is_empty() => {
+                    i += 2;
+                    v.clone()
+                }
+                _ => return Err(no_value(k)),
+            }
         };
         multi.entry(k.to_string()).or_default().push(v.clone());
         single.insert(k.to_string(), v);
-        i += if is_flag { 1 } else { 2 };
     }
     Ok(Args { single, multi })
+}
+
+/// 값이 빠진 옵션 — 해석 단계와 [`Args::need`] 가 같은 문장을 낸다.
+fn no_value(k: &str) -> String {
+    ui().lang.pick(
+        format!("--{k} 옵션에 값이 없습니다"),
+        format!("--{k} has no value"),
+    )
+}
+
+/// 거절 문장에 되풀이하는 낱말 — `=` 뒤는 값이라 `…` 로 줄이고(비밀이 든 주소 등), 제어 문자는 `?` 로 바꾸고
+/// 40자에서 자른다(`remedy_sdk::i18n::plain`).
+fn shown(tok: &str) -> String {
+    let head = match tok.split_once('=') {
+        Some((name, _)) => format!("{name}=…"),
+        None => tok.to_string(),
+    };
+    remedy_sdk::i18n::plain(&head, 40)
 }
 
 impl Args {
     fn need(&self, k: &str) -> Result<&str, String> {
         match self.single.get(k).map(String::as_str) {
-            Some("") => Err(ui().lang.pick(
-                format!("--{k} 옵션에 값이 없습니다"),
-                format!("--{k} has no value"),
-            )),
+            Some("") => Err(no_value(k)),
             Some(v) => Ok(v),
             // "옵션이" — 영문 옵션 이름 뒤의 조사를 맞힐 수 없어(`--plan 가`) 우리말
             // 낱말을 하나 두고 그 뒤에 조사를 붙인다.
@@ -1229,8 +1273,11 @@ fn load_local(path: &str) -> Result<PluginManifest, String> {
 ///
 /// 읽지 못하는 것은 여기서 말하지 않는다. 그 까닭은 명령 자신이 지금까지처럼 말한다.
 fn network_rule(raw: &[String]) -> Option<remedy_sdk::manifest::NetworkCheck> {
-    let a = parse_args(raw).ok()?;
-    let text = std::fs::read_to_string(a.get("plugin")?).ok()?;
+    // 인자 전체가 해석되지 않아도 룰이 무엇인지는 안다 — 마지막 `--plugin <값>` 만 읽는다(`Args` 의 '마지막이
+    // 이긴다' 와 같다). 해석 실패로 `None` 을 돌려주면 인자가 틀린 네트워크 점검이 관리자 문(5)으로 떨어지고,
+    // 고칠 것을 말하는 해석 오류(4)가 가려진다.
+    let plugin = raw.windows(2).rev().find(|w| w[0] == "--plugin")?[1].as_str();
+    let text = std::fs::read_to_string(plugin).ok()?;
     serde_yaml_ng::from_str::<PluginManifest>(&text)
         .ok()?
         .network
@@ -1244,11 +1291,8 @@ fn cmd_net(kind: remedy_sdk::manifest::NetworkCheck, raw: &[String]) -> Result<C
     let a = parse_args(raw)?;
     let m = load_manifest(a.need("plugin")?)?;
     let dir = a.need("out-dir")?;
-    let urls: Vec<String> = a
-        .list("url")
-        .into_iter()
-        .filter(|u| !u.is_empty())
-        .collect();
+    // 빈 `--url` 은 해석 단계가 거절한다 — 여기 오는 값은 비어 있지 않다.
+    let urls = a.list("url");
     if urls.is_empty() {
         return Err(Failure::from(ui().lang.t(
             "점검할 주소가 필요합니다 — --url <주소> 를 하나 이상 적으십시오 (여러 번 줄 수 있습니다).",
