@@ -36,7 +36,9 @@
     # 키
 
     **임시 키다.** 매번 새로 만들어 stage 에 두고 끝에서 지운다. 릴리스 키는
-    조직 절차가 필요한 일이라 여기서 다루지 않는다.
+    조직 절차가 필요한 일이라 여기서 다루지 않는다. 단 `-Package` 로 받은 꾸러미를
+    잴 때(rc 묶음의 `exit5-sign`)는 키를 만들지 않는다 — 그 꾸러미의 룰(배포 키로 서명된
+    그대로)을 실행 파일에 **박힌 앵커**로 확인한다.
 
 .EXAMPLE
     .\Invoke-SignVerify.ps1
@@ -45,13 +47,22 @@
 [CmdletBinding()]
 param(
     [switch] $Build,
-    [string] $Plugin = "plugins\evilai-locust"
+    [string] $Plugin = "plugins\evilai-locust",
+    # 받은 꾸러미(풀어 둔 `remedy-windows-x64` 폴더)로 잰다 — rc 묶음이 이것으로 부른다. 그 꾸러미의 룰(배포 키로
+    # 서명된 그대로)을 쓰고, `--public-key` 없이 실행 파일에 박힌 앵커로 확인한다. 임시 키를 만들지 않는다.
+    [string] $Package
 )
 
 $ErrorActionPreference = "Stop"
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
 $triple = "x86_64-pc-windows-msvc"
 $binPath = Join-Path $repoRoot "target\$triple\release\remedy.exe"
+if ($Package) {
+    if ($Build) { throw "-Package 와 -Build 는 함께 줄 수 없다" }
+    # 절대 경로로 푼다 — `Process.Start` 는 PowerShell 위치가 아니라 프로세스의 현재 폴더로 상대 경로를 푼다.
+    $Package = (Resolve-Path -LiteralPath $Package).ProviderPath
+    $binPath = Join-Path $Package "remedy.exe"
+}
 
 . (Join-Path $PSScriptRoot "VmSession.ps1")
 
@@ -65,6 +76,7 @@ if ($Build) {
     Write-Ok "완료"
 }
 if (-not (Test-Path $binPath)) { throw "바이너리가 없다: $binPath  (-Build 로 만들 것)" }
+Write-Ok ("remedy.exe sha256 {0}…" -f (Get-FileHash -LiteralPath $binPath -Algorithm SHA256).Hash.Substring(0, 12).ToLower())
 
 $runId = "verify-sign-" + (Get-Date -Format "yyyyMMdd-HHmmss")
 $hostOut = Join-Path $repoRoot "testbed\harness\results\$runId"
@@ -80,8 +92,9 @@ function Verify {
     $ErrorActionPreference = "Continue"
     $psi = New-Object System.Diagnostics.ProcessStartInfo
     $psi.FileName = $binPath
-    $psi.Arguments = ('plugin verify --dir "{0}\evilai-locust" --public-key "{0}\pub.key" ' +
-        '--state-dir "{0}\state"') -f $stage
+    # 꾸러미로 잴 때는 박힌 앵커로 — 공개키를 주지 않는다.
+    $keyArg = if ($Package) { "" } else { ' --public-key "{0}\pub.key"' -f $stage }
+    $psi.Arguments = ('plugin verify --dir "{0}\evilai-locust"{1} --state-dir "{0}\state"' -f $stage, $keyArg)
     $psi.UseShellExecute = $false
     $psi.RedirectStandardOutput = $true
     $psi.RedirectStandardError = $true
@@ -103,20 +116,26 @@ function Verify {
 }
 
 try {
-    Write-Step "임시 키 · 서명"
     New-Item -ItemType Directory -Force $stage, "$stage\state" | Out-Null
-    $env:REMEDY_SIGN_PASSWORD = "sign-verify-ephemeral"
-    Push-Location $repoRoot
-    try {
-        & cargo run -q -p xtask -- sign keygen `
-            --public-key "$stage\pub.key" --secret-key "$stage\sec.key" | Out-Null
-        if ($LASTEXITCODE -ne 0) { throw "키 생성 실패" }
-        Copy-Item (Join-Path $repoRoot $Plugin) "$stage\evilai-locust" -Recurse -Force
-        & cargo run -q -p xtask -- sign plugin --dir "$stage\evilai-locust" `
-            --secret-key "$stage\sec.key" --signed-at "2026-09-11T00:00:00Z" | Out-Null
-        if ($LASTEXITCODE -ne 0) { throw "플러그인 서명 실패" }
-    } finally { Pop-Location }
-    Write-Ok "임시 키로 서명했다 (끝에서 지운다)"
+    if ($Package) {
+        Write-Step "꾸러미의 룰 (박힌 앵커로 잰다)"
+        Copy-Item (Join-Path $Package $Plugin) "$stage\evilai-locust" -Recurse -Force
+        Write-Ok "배포 키로 서명된 그대로"
+    } else {
+        Write-Step "임시 키 · 서명"
+        $env:REMEDY_SIGN_PASSWORD = "sign-verify-ephemeral"
+        Push-Location $repoRoot
+        try {
+            & cargo run -q -p xtask -- sign keygen `
+                --public-key "$stage\pub.key" --secret-key "$stage\sec.key" | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw "키 생성 실패" }
+            Copy-Item (Join-Path $repoRoot $Plugin) "$stage\evilai-locust" -Recurse -Force
+            & cargo run -q -p xtask -- sign plugin --dir "$stage\evilai-locust" `
+                --secret-key "$stage\sec.key" --signed-at "2026-09-11T00:00:00Z" | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw "플러그인 서명 실패" }
+        } finally { Pop-Location }
+        Write-Ok "임시 키로 서명했다 (끝에서 지운다)"
+    }
 
     $rule = "$stage\evilai-locust\rules\evilai.yar"
     $keep = [System.IO.File]::ReadAllBytes($rule)
@@ -172,7 +191,7 @@ try {
     }
     $passed = @($checks | Where-Object { $_.pass }).Count
     Write-Host ""
-    Write-Host ("판정 {0}/{1}" -f $passed, $checks.Count) `
+    Write-Host ("판정 {0}/{1} · 실패 {2}" -f $passed, $checks.Count, ($checks.Count - $passed)) `
         -ForegroundColor $(if ($passed -eq $checks.Count) { "Green" } else { "Red" })
 
     $utf8 = New-Object System.Text.UTF8Encoding($false)

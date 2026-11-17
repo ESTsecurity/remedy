@@ -19,7 +19,9 @@
     # 어떻게 재는가 — 제품을 바꾸지 않는다
 
     `-C debug-assertions=on` 으로 **릴리스 프로필을** 빌드한다. `panic = "abort"`
-    도, 최적화도, 훅도 배포되는 것과 같고 `cfg(debug_assertions)` 블록만 켜진다.
+    도, 최적화도, 훅도, 정적 CRT 도 배포되는 것과 같고 `cfg(debug_assertions)` 블록만 켜진다.
+    (`RUSTFLAGS` 는 `.cargo/config.toml` 의 `rustflags` 를 합치지 않고 덮어쓰므로 `+crt-static` 을 함께 준다 —
+    전에는 빠져서 CRT 를 동적으로 링크한, 배포와 다른 빌드를 쟀다.)
     그래서 *"abort 프로필에서 훅이 7 을 내는가"* 를 그대로 잰다.
 
     **릴리스에 `REMEDY_PANIC_TEST` 를 여는 길은 택하지 않았다.** 방어 도구의
@@ -67,7 +69,7 @@ try {
         # cargo 의 stderr 를 화면에 흘리지 않는다 — `Invoke-CargoBuild` 참고.
         # **`finally` 로 감싼다.** 전에는 `RUSTFLAGS` 복원이 throw 앞 한 줄이라,
         # 거기 닿기 전에 무엇이 터지면 이 셸에 그 플래그가 남았다.
-        $env:RUSTFLAGS = "-C debug-assertions=on"
+        $env:RUSTFLAGS = "-C debug-assertions=on -C target-feature=+crt-static"
         try {
             Invoke-CargoBuild "remedy.exe (debug-assertions)" @("build", "--release",
                 "--target", $triple, "--target-dir", $tdir, "-p", "remedy-cli")

@@ -23,34 +23,34 @@ remedy 의 감사 로그는 **무엇을 하려 했는가**를 말한다. `Captur
 | `guest/Setup-Guest.ps1` | VM 콘솔 (1회) | WinRM·**원격 관리자 토큰**·방화벽·디렉터리·기준 상태 |
 | `guest/Capture-State.ps1` | VM | 시스템 상태를 JSON 으로 캡처 |
 | `guest/New-Fixtures.ps1` | VM | 무해한 테스트 대상 생성/정리 |
-| `guest/Verify-P2.ps1` | VM | 설계-09 P2 판정 요건 확인 (읽기 전용) |
-| `guest/Verify-P4.ps1` | VM | 설계-09 P4 판정 요건 확인 (subject 수집·토큰·YARA, 읽기 전용) |
-| `guest/lab-plugin-p4.yaml` | — | `Verify-P4.ps1` 이 쓰는 실험용 플러그인 (무해) |
-| `guest/Verify-P5.ps1` | VM | 설계-09 P5 판정 요건 확인 (격리·복원·저널) |
-| `guest/Verify-P6.ps1` | VM | 설계-09 P6 판정 요건 확인 (**파괴적**) |
-| `guest/Verify-P8.ps1` | VM·**로컬 가능** | 설계-09 P8 의 VM 실증 2건 (워치독 쌍·SCM 복구) |
-| `../fixtures/watchdog/` | — | 워치독 쌍 픽스처. **워크스페이스 밖**이라 따로 빌드한다 |
-| `../fixtures/labsvc/` | — | SCM 복구 동작 픽스처. **진짜로 도는 서비스**다 |
-| `guest/Approve-Interactive.ps1` | VM | 대화형 승인을 **진짜 콘솔**에서 확인 |
+| `guest/Verify-P2.ps1` | VM | **수동** — 설계-09 P2 판정 요건 확인 (읽기 전용) |
+| `guest/Verify-P4.ps1` | VM | **수동** — 설계-09 P4 판정 요건 확인 (subject 수집·토큰·YARA, 읽기 전용) |
+| `guest/lab-plugin-p4.yaml` | — | **수동** — `Verify-P4.ps1` 이 쓰는 실험용 플러그인 (무해) |
+| `guest/Verify-P5.ps1` | VM | **수동** — 설계-09 P5 판정 요건 확인 (격리·복원·저널) |
+| `guest/Verify-P6.ps1` | VM | **수동** — 설계-09 P6 판정 요건 확인 (**파괴적**) |
+| `guest/Verify-P8.ps1` | VM·**로컬 가능** | **보관** — 설계-09 P8 의 VM 실증 2건 (워치독 쌍·SCM 복구) |
+| `../fixtures/watchdog/` | — | **보관** — 워치독 쌍 픽스처. **워크스페이스 밖**이라 따로 빌드한다 |
+| `../fixtures/labsvc/` | — | **수동** — SCM 복구 동작 픽스처. **진짜로 도는 서비스**다 |
+| `guest/Approve-Interactive.ps1` | VM | **수동** — 대화형 승인을 **진짜 콘솔**에서 확인 |
 | `guest/lab-plugin.yaml` | — | `Verify-P2.ps1` 이 쓰는 실험용 플러그인 (읽기 전용) |
-| `guest/lab-plugin-p6.yaml` | — | `Verify-P6.ps1` 이 쓰는 실험용 플러그인 (**치료까지 간다**) |
+| `guest/lab-plugin-p6.yaml` | — | **수동** — `Verify-P6.ps1` 이 쓰는 실험용 플러그인 (**치료까지 간다**) |
 | `host/VmSession.ps1` | 호스트 | 연결·배포 공용 함수 (다른 스크립트가 점 소싱) |
 | `host/Invoke-VmTest.ps1` | 호스트 | 배포 → 실행 → 회수 → 비교 (**무엇이 바뀌었나**) |
-| `host/Invoke-P2Verify.ps1` | 호스트 | P2 검증 구동 + 코퍼스 반입 (**약속이 성립하나**) |
-| `host/Invoke-P4Verify.ps1` | 호스트 | P4 검증 구동 (읽기 전용) |
-| `host/Invoke-P5Verify.ps1` | 호스트 | P5 검증 구동 (컨테이너를 호스트에서 만들어 반입) |
-| `host/Invoke-P6Verify.ps1` | 호스트 | P6 검증 구동 + 네트워크 심볼 검사 + G3 판정 |
-| `host/Invoke-P8Verify.ps1` | 호스트 | P8 검증 구동 (**서비스를 만들고 정지시킨다**) |
-| `host/Invoke-P9Verify.ps1` | 호스트 | P9 감염 VM 실증 (G2·G3·G4) |
-| `host/Invoke-P10Verify.ps1` | 호스트 | **신뢰 체계가 배포 바이너리에서 도는가** — 자기무결성·플러그인 서명·폐기 목록·허용 목록 (P10) |
-| `host/Invoke-Sweep.ps1` | 호스트 | **한 바퀴** — 아래 스물을 한 번에 돌리고 누계를 낸다 (아래) |
-| `host/Invoke-P10FVerify.ps1` | 호스트 | **재부팅 후 검증 예약이 실제로 발화하는가** (P10-F · 설계-03 §8) — 그 재평가가 `clean` · 종료 0 으로 남았는가까지(2026-10-26 부터 — 기록이 있기만 해서는 통과가 아니다) |
-| `host/Invoke-PartialVerify.ps1` | 호스트 | **부분 실패(종료 코드 3)가 Windows 에서 계약대로인가** (아래) |
+| `host/Invoke-P2Verify.ps1` | 호스트 | **수동** — P2 검증 구동 + 코퍼스 반입 (**약속이 성립하나**) |
+| `host/Invoke-P4Verify.ps1` | 호스트 | **수동** — P4 검증 구동 (읽기 전용) |
+| `host/Invoke-P5Verify.ps1` | 호스트 | **수동** — P5 검증 구동 (컨테이너를 호스트에서 만들어 반입) |
+| `host/Invoke-P6Verify.ps1` | 호스트 | **수동** — P6 검증 구동 + 네트워크 심볼 검사 + G3 판정 |
+| `host/Invoke-P8Verify.ps1` | 호스트 | **보관** — P8 검증 구동 (**서비스를 만들고 정지시킨다**) |
+| `host/Invoke-P9Verify.ps1` | 호스트 | **수동** — P9 감염 VM 실증 (G2·G3·G4) |
+| `host/Invoke-P10Verify.ps1` | 호스트 | **수동** — **신뢰 체계가 배포 바이너리에서 도는가** — 자기무결성·플러그인 서명·폐기 목록·허용 목록 (P10) |
+| `host/Invoke-Sweep.ps1` | 호스트 | **보관** — 한 바퀴: 아래 스물을 한 번에 돌리고 누계를 낸다. 종료 코드 3 · 5 · 6 의 Windows 회귀는 rc 묶음으로 옮겼다(2026-11-18 · 아래 "출시 경로 밖 — 수동과 보관") |
+| `host/Invoke-P10FVerify.ps1` | 호스트 | **수동** — **재부팅 후 검증 예약이 실제로 발화하는가** (P10-F · 설계-03 §8) — 그 재평가가 `clean` · 종료 0 으로 남았는가까지(2026-10-26 부터 — 기록이 있기만 해서는 통과가 아니다) |
+| `host/Invoke-PartialVerify.ps1` | 호스트 | **부분 실패(종료 코드 3)가 Windows 에서 계약대로인가** (아래) · rc 묶음 `exit3-partial`(`-Package`) |
 | `host/Invoke-DemoVerify.ps1` | 호스트 | **시연 대본이 아직 사실인가** — 1~9단계를 적힌 명령 그대로 (아래) |
-| `host/Invoke-GuardVerify.ps1` · `guest/lab-plugin-guard.yaml` | 호스트 | **보호 경로 가드(5)가 계획 전에 서는가** (아래) |
-| `host/Invoke-SignVerify.ps1` | 호스트 (**VM 불필요**) | **서명된 꾸러미를 손대면 서는가**(5) (아래) |
-| `host/Invoke-SlowStopVerify.ps1` | 호스트 | **오래 도는 도구를 끊지 않는가** — 결정 2026-09-07 의 실증 (아래) |
-| `host/Invoke-ObsVerify.ps1` | 호스트 | **관측 불완전(6)이 계약대로인가** — 음성 대조 포함 (아래) |
+| `host/Invoke-GuardVerify.ps1` · `guest/lab-plugin-guard.yaml` | 호스트 | **보호 경로 가드(5)가 계획 전에 서는가** (아래) · rc 묶음 `exit5-guard`(`-Package`) |
+| `host/Invoke-SignVerify.ps1` | 호스트 (**VM 불필요**) | **서명된 꾸러미를 손대면 서는가**(5) (아래) · rc 묶음 `exit5-sign`(`-Package`) |
+| `host/Invoke-SlowStopVerify.ps1` | 호스트 | **수동** — **오래 도는 도구를 끊지 않는가** — 결정 2026-09-07 의 실증 (아래) |
+| `host/Invoke-ObsVerify.ps1` | 호스트 | **관측 불완전(6)이 계약대로인가** — 음성 대조 포함 (아래) · rc 묶음 `exit6-obs`(`-Package`) |
 | `host/Invoke-PanicVerify.ps1` | 호스트 | **`panic = "abort"` 에서 훅이 7 을 내는가** (아래) |
 | `host/New-CorpusSnapshot.ps1` | 호스트 | 청정 스냅샷을 떠서 `corpus/clean/` 에 넣는다 (**스크러빙 포함**) |
 | `guest/New-ThreatFixtures.ps1` | VM | AI 시험 위협의 감염 상태를 세운다 (**레지스트리 백업·복원**) |
@@ -75,7 +75,7 @@ remedy 의 감사 로그는 **무엇을 하려 했는가**를 말한다. `Captur
 | `host/Invoke-EmergencyChecks.ps1` | 호스트 | **긴급 출시의 출시 전 필수 점검 — Windows 몫** — 정식 파일의 버전 · 룰 서명 · 판정 기준 줄, 그 실행 파일로 시연 게이트, 그 꾸러미로 메뉴 하네스, 랩 되돌리기(리눅스 컨테이너와 나란히 돌리지 않는다) |
 | `linux/release-anon-check.sh` | 호스트(Git Bash · WSL) | **공개 뒤 익명으로 받는 것** — latest 의 태그 · 불변 · 자산 수, 자산마다 두 주소 꼴의 상태와 받은 바이트 = 공개 전에 시험한 파일, README 의 리눅스 확인 명령. 공개 3분 뒤에 |
 | `linux/rc-bundle.sh` · `linux/rc/` | 호스트(WSL) · 컨테이너 | **출시의 리눅스 rc 묶음**(`docs/개발-안내.md` "출시 검증") — 내려받은 이번 판과 지난 공개본으로 18단계: 하네스 여덟(엔진 · CWPdoor · Ebury · Log4j · OpenSSH · Apache · tomcat 이미지 · remedy-net 의 Apache) · A/B 여덟(실제 설치 21 · 패키지와 다른 실행 파일 · 선언 밖과 도는 프로세스 · 지워진 옛 파일 · systemd 유닛 · 시작 스크립트와 Apache 설정 · 실제 sudo · remedy-net url · image · container — image · container 는 제품마다 `--runtime php` · `node`, 이용 조건 덩이는 가린다) · CentOS 7 · 판정 기준 폴더 없음. A/B 는 **종료 코드가 같은가**로 판정하고 화면 차이는 사람이 본다. 시료는 `results/rc-inputs` 에 스스로 받는다 |
-| `host/Invoke-RcBundle.ps1` · `host/rc/` | 호스트 | **출시의 Windows 랩 묶음** — 19단계: 시연 게이트 · 메뉴 하네스 · 검사 시간 A 와 B · A/B 넷(선언 밖과 IIS · 실린 모듈 · 서비스와 Apache 설정과 레지스트리 · NSSM — 랩 VM 의 같은 상태에서) · 바꿀 때마다 되돌리기 · log4j(깨끗한 C: 전체 0 · 시료를 놓고 2) · 이번 판의 Apache 룰 하네스 · 이 기계에서 remedy-net A/B · 이번 판의 remedy-net.exe 로 이미지의 Apache(`rc\Invoke-NetApache.ps1`). 리눅스 묶음이 받은 시료를 읽으므로 그 다음에(겹치지 않게) |
+| `host/Invoke-RcBundle.ps1` · `host/rc/` | 호스트 | **출시의 Windows 랩 묶음** — 23단계: 시연 게이트 · 메뉴 하네스 · 검사 시간 A 와 B · A/B 넷(선언 밖과 IIS · 실린 모듈 · 서비스와 Apache 설정과 레지스트리 · NSSM — 랩 VM 의 같은 상태에서) · 바꿀 때마다 되돌리기 · log4j(깨끗한 C: 전체 0 · 시료를 놓고 2) · 이번 판의 Apache 룰 하네스 · **종료 코드 넷**(가드 5 · 관측 불완전 6 · 일부 실패 3 · 서명 확인 5 — 아래 네 하네스의 `-Package`, 정한 값을 단정한다) · 이 기계에서 remedy-net A/B · 이번 판의 remedy-net.exe 로 이미지의 Apache(`rc\Invoke-NetApache.ps1`). 리눅스 묶음이 받은 시료를 읽으므로 그 다음에(겹치지 않게) |
 | `host/Invoke-ConsoleRecapture.ps1` | 호스트 · 랩 VM | **Windows 콘솔 재캡처 두 벌(한국어 · 영어)** — 되돌리기 → `Capture-Console.ps1 -Build` 한국어 · 영어 → 되돌리기. 결과는 `results/console-<스탬프>-win.txt` · `-en-win.txt` — 그 다음 `cargo xtask console-diff`. 리눅스 컨테이너 일과 나란히 돌리지 않는다 |
 | `linux/console-recapture.sh` | 호스트(WSL) · 컨테이너 | **리눅스 콘솔 재캡처 두 벌** — `capture-console.sh` 를 그 머리말의 컨테이너 명령으로 차례로(저장소 읽기 전용 · Windows 쪽 cargo 레지스트리 · WSL 툴체인 · 타깃 볼륨). 결과는 `results/console-<스탬프>-linux.txt` · `-en-linux.txt` · 자기 점검 줄 · 볼륨 크기 |
 | `linux/musl-dev-build.sh` | 호스트(WSL) · 컨테이너 | **PR 전 리눅스 하네스용 musl 정적 개발 빌드** — 지금 트리 · 앵커 없음(저장소의 개발 키 서명 룰을 받는다) · 툴체인과 crate 는 붙여 망 없이(musl-tools 만 apt) · 타깃 볼륨 `remedy-musl-target`. `--net` 이면 `remedy-net` 도(개발 빌드는 `REMEDY_NET_ANCHOR` 로 개발 키 서명 기준을 받는다). 빌드가 실패하면 앞 회차의 실행 파일을 남기지 않는다 |
@@ -111,7 +111,35 @@ remedy 의 감사 로그는 **무엇을 하려 했는가**를 말한다. `Captur
 게스트 안에서 도는 `guest/Setup-Guest.ps1` 은 예외다 — 게스트에는 저장소가 없으므로
 `-HostAddress` 를 받아야 하고, 없으면 멈춘다.
 
-### 한 바퀴 — `Invoke-Sweep.ps1`
+### 출시 경로 밖 — 수동과 보관 (2026-11-18)
+
+`Invoke-Sweep.ps1` 에서만 닿던 하네스(게스트 스크립트 · 실험 플러그인 · 픽스처를 함께)를 넷으로 갈랐다. 종료 코드
+3 · 5 · 6 의 Windows 회귀는 거기서만 돌아 출시가 한 번도 다시 재지 않았다.
+
+- **rc 묶음으로 옮긴 넷** — `Invoke-GuardVerify`(5) · `Invoke-ObsVerify`(6) · `Invoke-PartialVerify`(3) ·
+  `Invoke-SignVerify`(5). `-Package <풀어 둔 remedy-windows-x64>` 로 **받은 꾸러미의 실행 파일**을 잰다(Partial 과
+  Sign 은 그 꾸러미의 EvilAI 룰도 · Guard 와 Obs 는 하네스의 실험 룰을 그대로). 짓지 않고 `-Build` 와 함께 줄 수
+  없으며, 끝 줄은 `판정 N/M · 실패 K` 다. 주지 않으면 전처럼 지은 것을 잰다.
+- **수동** — 정해진 일이 생길 때 손으로 돌린다. 문서나 코드가 아직 그 하네스를 가리킨다.
+
+  | 하네스 | 무엇을 | 언제 돌리나 | 이 사본에서 마지막으로 돈 날 |
+  |---|---|---|---|
+  | `Invoke-P2Verify` · `guest/Verify-P2.ps1` | 수집 · 코퍼스 반입 | 수집기(`remedy-collect`)를 바꿀 때 | 2026-11-02 |
+  | `Invoke-P4Verify` · `guest/Verify-P4.ps1` · `lab-plugin-p4.yaml` | subject 수집 · 관측 사유 문구 | 관측 사유 문구를 바꿀 때(`remedy-sdk` artifact.rs 가 이 정규식을 가리킨다) | 2026-11-07 |
+  | `Invoke-P5Verify` · `guest/Verify-P5.ps1` | 격리 · 복원 · 저널 | 복원의 wrap · 옵션을 바꿀 때(`docs/operator.md` 가 이 실측을 가리킨다) | 2026-11-07 |
+  | `Invoke-P6Verify` · `guest/Verify-P6.ps1` · `Approve-Interactive.ps1` · `lab-plugin-p6.yaml` | 대화형 승인 · 파괴 경로 | 승인 화면 · `apply` 를 바꿀 때 | 2026-11-07 |
+  | `Invoke-P9Verify` | 감염 VM 실증 G2 · G3 · G4 · 재부팅을 끼는 3(약 18분) | 치료 차례 · 재부팅 큐를 바꿀 때 · EvilAI 룰을 바꿀 때(`plugins/evilai-locust/RELEASE.md`) | 2026-11-08(12/12 · 결과 폴더는 `p9-<시각>`) |
+  | `Invoke-P10FVerify` | 재부팅 뒤 재검사 예약 | RunOnce · 예약을 바꿀 때 | 2026-11-08 |
+  | `Invoke-P10Verify` | 신뢰 체계 — 서명 · 폐기 · 허용 목록 | 신뢰 코드를 바꿀 때 | 2026-11-17(12/12) |
+  | `Invoke-SlowStopVerify` · `fixtures/labsvc` | 오래 도는 도구를 끊지 않는다 · 도구 상한 알림 | 도구 상한 · 기다림을 바꿀 때(`remedy-platform` tool.rs 가 가리킨다) | 2026-11-07 |
+  | `linux/trunc-verify.sh` | 리눅스의 수집 잘림 6 | 수집 상한을 바꿀 때 | 2026-11-02(7/7 · Sweep) |
+
+- **보관** — 고치지 않는다. 되살릴 때는 지금 판으로 한 번 돌려 기대값부터 맞춘다. `Invoke-Sweep` 자체와
+  `Invoke-P8Verify`(+ `Verify-P8` · `fixtures/watchdog`). 이 사본에서 마지막으로 돈 날은 2026-11-02 다.
+- **보류** — `Invoke-PanicVerify`(7). 디버그 단정을 켠 빌드가 필요해 rc 묶음의 '짓지 않는다' 와 맞지 않아, 출시
+  경로의 어디에 둘지 정하는 중이다. 그때까지는 엔진의 패닉 처리를 바꿀 때 손으로 돌린다.
+
+### 한 바퀴 — `Invoke-Sweep.ps1` (보관)
 
 ```powershell
 .\testbed\harness\host\Invoke-Sweep.ps1 -Build          # 전부 (Windows 15 + 리눅스 5)
@@ -569,7 +597,9 @@ P2** 로 돌려 14/14 가 나왔다.
 아래라 개발 빌드에서만 통했기 때문이다.
 
 그래서 **릴리스 프로필에 `-C debug-assertions=on` 만 얹어** 짓는다. `panic =
-"abort"` 도 최적화도 훅도 배포되는 것과 같고 그 cfg 블록만 켜진다.
+"abort"` 도 최적화도 훅도 정적 CRT 도 배포되는 것과 같고 그 cfg 블록만 켜진다. (`RUSTFLAGS` 는
+`.cargo/config.toml` 의 `rustflags` 를 덮어쓰므로 `+crt-static` 을 함께 준다 — 2026-11-18 전의 측정은 CRT 를 동적으로
+링크한, 배포와 다른 빌드였다.)
 **릴리스에 `REMEDY_PANIC_TEST` 를 여는 길은 택하지 않았다** — 방어 도구의
 배포본에 '일부러 죽는 스위치' 를 두는 것은 얻는 것보다 잃는 것이 크다.
 
@@ -818,7 +848,8 @@ SCM 이 포기하면 예전에는 이렇게만 말했다.
 앵커를 어디서 얻든 그 뒤의 검증 경로는 같다.
 
 **키는 매번 새로 만드는 임시 키**이고 끝에서 지운다. 릴리스 키는 조직 절차가
-필요한 일이라 여기서 다루지 않는다.
+필요한 일이라 여기서 다루지 않는다. 단 `-Package` 로 받은 꾸러미를 잴 때(rc 묶음의 `exit5-sign`)는 키를 만들지
+않고, 그 꾸러미의 룰(배포 키로 서명된 그대로)을 실행 파일에 **박힌 앵커**로 확인한다.
 
 **2026-09-11 실측 — 판정 9/9. 결함 없음.**
 
