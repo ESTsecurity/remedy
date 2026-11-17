@@ -252,6 +252,20 @@ fn what_the_operator_typed_reaches_the_companion_untouched() {
 }
 
 #[test]
+fn a_typo_in_a_network_check_is_a_usage_error_not_an_admin_refusal() {
+    // 인자가 틀려도 룰이 네트워크 점검인 것은 안다(마지막 `--plugin`) — 그래서 권한 없는 실행이 관리자 문(5)이
+    // 아니라 고칠 것을 말하는 해석 오류(4)로 끝난다. 전에는 해석에 실패하면 로컬 검사로 보아 5 였다.
+    let lab = lab("typo");
+    let kp = keypair();
+    sign(&put_companion(&lab), &kp, "remedy-net", CORE);
+    let o = scan(&lab, Some(&anchor(&kp)), &["--url"]);
+    let t = text(&o);
+    assert_eq!(o.status.code(), Some(4), "{t}");
+    assert!(t.contains("--url"), "{t}");
+    assert!(!lab.dir.join("out").exists(), "결과 폴더를 만들었다:\n{t}");
+}
+
+#[test]
 fn commands_that_read_this_machine_refuse_a_network_rule() {
     // 그 룰로 수집 · 평가를 돌리면 빈 결과가 '깨끗함' 으로 읽힌다 — 어떻게 돌리는지 말하고 멈춘다.
     let lab = lab("local-commands");

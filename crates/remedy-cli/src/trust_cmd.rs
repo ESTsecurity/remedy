@@ -110,7 +110,7 @@ pub(super) const MIN_PLUGIN_VERSIONS: &[(&str, &str)] = &[
 /// 최소 버전은 다르다 — [`revocation_gate`] 가 검사 · 치료 · 유지 확인 · 계획 앞에서
 /// 같은 판정으로 막는다.
 pub(super) fn cmd_plugin_verify(raw: &[String]) -> Result<Code, Failure> {
-    let arg = simple_arg(raw);
+    let arg = simple_arg(raw)?;
 
     let dir = arg("--dir").ok_or_else(|| {
         Failure::from(ui().lang.t(
@@ -243,7 +243,7 @@ pub(super) fn load_revocations(
 
 /// 서명된 허용 목록 하나를 확인한다. **상태를 바꾸지 않는다.**
 pub(super) fn cmd_allowlist_verify(raw: &[String]) -> Result<Code, Failure> {
-    let arg = simple_arg(raw);
+    let arg = simple_arg(raw)?;
     let path = arg("--file").ok_or_else(|| Failure::from("--file <목록> 옵션이 필요합니다"))?;
     let anchor = anchor_from(&arg)?;
     let list = read_allowlist(&anchor, &path)?;
@@ -269,7 +269,7 @@ pub(super) fn cmd_allowlist_verify(raw: &[String]) -> Result<Code, Failure> {
 /// **들어오는 문은 이것 하나다** (설계-01 D9 — 치료 경로에 네트워크가 없다).
 /// 목록을 어떻게 받든 파일로 받아 여기서 확인한다.
 pub(super) fn cmd_allowlist_import(raw: &[String]) -> Result<Code, Failure> {
-    let arg = simple_arg(raw);
+    let arg = simple_arg(raw)?;
     let path = arg("--file").ok_or_else(|| Failure::from("--file <목록> 옵션이 필요합니다"))?;
     let anchor = anchor_from(&arg)?;
     let dir = arg("--state-dir")
@@ -483,19 +483,17 @@ pub(super) fn anchor_from(
     }
 }
 
-pub(super) fn simple_arg(raw: &[String]) -> impl Fn(&str) -> Option<String> + '_ {
-    move |name: &str| {
-        raw.iter()
-            .position(|a| a == name)
-            .and_then(|i| raw.get(i + 1))
-            .cloned()
-    }
+/// 이름(`--dir` 꼴)으로 값을 꺼내는 함수 — [`parse_args`] 의 규칙을 그대로 따른다. 전에는 자리만 찾고 나머지를
+/// 버려, `revocation import --file l --dryrun` 처럼 모르는 옵션 · 맨 낱말이 섞여도 그대로 실행했다(2-5).
+pub(super) fn simple_arg(raw: &[String]) -> Result<impl Fn(&str) -> Option<String>, Failure> {
+    let a = parse_args(raw)?;
+    Ok(move |name: &str| a.get(name.trim_start_matches("--")).map(str::to_string))
 }
 
 /// 폐기 목록을 읽어 보인다. **상태를 건드리지 않는다** — 반입 전에 무엇이 담겨
 /// 있는지 사람이 확인하는 자리다.
 pub(super) fn cmd_revocation_verify(raw: &[String]) -> Result<Code, Failure> {
-    let arg = simple_arg(raw);
+    let arg = simple_arg(raw)?;
     let path = arg("--file").ok_or_else(|| Failure::from("--file <목록> 옵션이 필요합니다"))?;
     let anchor = anchor_from(&arg)?;
 
@@ -527,7 +525,7 @@ pub(super) fn cmd_revocation_verify(raw: &[String]) -> Result<Code, Failure> {
 /// **반입 경로가 신뢰를 낮추지 않는다** (설계-03 §6). 파일 공유나 이동식 매체로
 /// 온 목록도 서명 검증과 역행 금지를 똑같이 거친다.
 pub(super) fn cmd_revocation_import(raw: &[String]) -> Result<Code, Failure> {
-    let arg = simple_arg(raw);
+    let arg = simple_arg(raw)?;
     let path = arg("--file").ok_or_else(|| Failure::from("--file <목록> 옵션이 필요합니다"))?;
     let anchor = anchor_from(&arg)?;
     let dir = arg("--state-dir")
@@ -601,7 +599,7 @@ pub(super) fn read_state(dir: &std::path::Path) -> Result<remedy_trust::TrustSta
 /// **오탐 대응 경로의 두 번째 칸**이다 — 복구(`restore`) 다음, 재현·판정 앞.
 /// 여기서 "무엇을 보낼지" 가 막히면 뒤가 전부 늦어진다.
 pub(super) fn cmd_support_bundle(raw: &[String]) -> Result<Code, Failure> {
-    let arg = simple_arg(raw);
+    let arg = simple_arg(raw)?;
     let run_id = arg("--run").ok_or_else(|| {
         Failure::from(
             "--run <run_id> 옵션이 필요합니다. 실행 id 는 apply 출력과 저널 이름에 있습니다",

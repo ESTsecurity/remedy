@@ -1,5 +1,6 @@
-//! 명령줄 읽기 — `image` · `container` 가 함께 쓴다. 규칙은 `url` 과 같다: 자리 인자와 옵션을 섞어 써도 되고,
-//! 값은 `--이름 값` 과 `--이름=값` 둘 다, `--` 뒤는 모두 자리 인자다.
+//! 명령줄 읽기 — `url` · `image` · `container` 가 함께 쓴다(같은 입력에 같은 답). 자리 인자와 옵션을 섞어 써도
+//! 되고, 값은 `--이름 값` 과 `--이름=값` 둘 다(띄어 쓴 값은 `--` 로 시작할 수 없다 — 그러면 값이 빠진 것이다),
+//! `--` 뒤는 모두 자리 인자다.
 //!
 //! 거절은 **약관 · 결과 폴더보다 먼저** 한다. 거절 문장은 받은 값을 길게 되풀이하지 않는다.
 
@@ -58,6 +59,10 @@ pub(crate) fn tokens(
             out.push(Arg::Flag("help"));
             continue;
         }
+        // `split_global` 이 언어로 먹지 않고 남긴 `--lang` — 뒤가 옵션이었으니 값이 빠진 것이다.
+        if arg == "--lang" {
+            return Err(needs_value("lang", lang));
+        }
         let (name, inline) = match arg.split_once('=') {
             Some((n, v)) => (n, Some(v.to_string())),
             None => (arg.as_str(), None),
@@ -79,11 +84,14 @@ pub(crate) fn tokens(
                 format!("unknown option: {}", crate::text::plain(name, 40)),
             ));
         };
-        let Some(value) = inline.or_else(|| it.next().cloned()) else {
-            return Err(lang.pick(
-                format!("--{key} 뒤에 값을 적으십시오."),
-                format!("--{key} needs a value."),
-            ));
+        // 띄어 쓴 값이 `--` 로 시작하면 값이 빠진 것이다 — 다음 옵션을 값으로 삼키지 않는다(`--out-dir --x` 가
+        // `--x` 폴더에 썼다). 값 자체가 그렇게 시작해야 하면 `--이름=값` 으로 붙여 쓴다.
+        let value = match inline {
+            Some(v) => v,
+            None => match it.next() {
+                Some(v) if !v.starts_with("--") => v.clone(),
+                _ => return Err(needs_value(key, lang)),
+            },
         };
         if value.trim().is_empty() {
             return Err(lang.pick(
@@ -94,6 +102,13 @@ pub(crate) fn tokens(
         out.push(Arg::Value(option, value));
     }
     Ok(out)
+}
+
+fn needs_value(key: &str, lang: Lang) -> String {
+    lang.pick(
+        format!("--{key} 뒤에 값을 적으십시오."),
+        format!("--{key} needs a value."),
+    )
 }
 
 #[cfg(test)]
@@ -157,5 +172,19 @@ mod tests {
         ] {
             assert!(t(bad).is_err(), "{bad:?} 를 받았다");
         }
+    }
+
+    #[test]
+    fn a_spaced_value_cannot_be_the_next_option() {
+        // 다음 옵션을 값으로 삼키지 않는다 — `--out-dir --x` 가 `--x` 폴더에 썼다.
+        assert!(t(&["--path", "--list"]).is_err());
+        assert!(t(&["--out-dir", "--path", "x"]).is_err());
+        // 붙여 쓰면 값이다.
+        assert_eq!(
+            t(&["--out-dir=--x"]).unwrap(),
+            vec![Arg::Value("out-dir", "--x".to_string())]
+        );
+        // `split_global` 이 남긴 `--lang` 은 값이 빠진 것이다.
+        assert!(t(&["--lang", "--list"]).is_err());
     }
 }

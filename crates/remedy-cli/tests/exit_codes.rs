@@ -49,6 +49,22 @@ fn not_utf8() -> std::ffi::OsString {
 }
 
 #[test]
+fn a_typo_is_a_usage_error_not_a_run() {
+    // 오타가 실제 동작이 되던 꼴들(기술부채 2-5) — 이제 아무것도 시작하지 않고 종료 4 다. 전에는 차례로
+    // 진짜 치료(`--dry-run` 을 언어로 먹음) · 자동 승인(`false` 를 `--yes` 의 값으로 먹음) · 제자리 복원 ·
+    // 목록 반입 · 빈 자리 수집이었다.
+    for args in [
+        &["run", "--plugin", "p.yaml", "--lang", "--dry-run", "--yes"][..],
+        &["run", "--plugin", "p.yaml", "--yes", "false"][..],
+        &["restore", "--run", "r", "--extract-to", "--yes"][..],
+        &["revocation", "import", "--file", "l", "--dryrun"][..],
+        &["collect", "--root", "--out", "o"][..],
+    ] {
+        assert_eq!(run(args), 4, "{args:?}");
+    }
+}
+
+#[test]
 fn a_non_utf8_argument_is_a_usage_error_not_a_crash() {
     // `std::env::args()` 는 이 낱말에서 패닉하고 배포 빌드(`panic = "abort"`)는 그대로 죽었다 — 리눅스
     // 1.22.0 실측 SIGABRT · 종료 134 · 코어 덤프. 이제 사용법 오류(4)로 끝나고 어느 낱말인지 말한다.
