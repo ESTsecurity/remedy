@@ -364,6 +364,29 @@ fn a_refused_scan_keeps_an_out_dir_it_did_not_make() {
 }
 
 #[test]
+fn a_typo_does_not_treat() {
+    // 전에는 진짜 치료가 됐던 두 꼴(기술부채 2-5) — `--lang` 이 `--dry-run` 을 언어로 먹었고, `--yes` 가 `false` 를
+    // 값으로 먹었다. 이제 아무것도 시작하지 않고 종료 4 이며 대상은 그대로다. 목록 없는 룰이라 폐기와는 상관없다.
+    for (name, typo) in [
+        ("typo-lang", &["--lang", "--dry-run", "--yes"][..]),
+        ("typo-yes", &["--yes", "false"][..]),
+    ] {
+        let g = gated(name, false);
+        let mut v = vec![
+            "run",
+            "--plugin",
+            g.plugin.to_str().unwrap(),
+            "--state-dir",
+            g.state.to_str().unwrap(),
+        ];
+        v.extend_from_slice(typo);
+        let (code, text) = run(&v);
+        assert_eq!(code, 4, "{typo:?}:\n{text}");
+        assert!(g.tree.join("a.evil").exists(), "{typo:?} 가 치료했다");
+    }
+}
+
+#[test]
 fn a_revoked_rule_does_not_treat_even_with_yes() {
     // `--yes` 는 승인을 대신할 뿐 폐기를 넘지 못한다 — 검사 · 계획 · 승인보다 앞에서 멈춘다.
     let g = gated("revoked-run", true);

@@ -254,14 +254,20 @@ fn what_the_operator_typed_reaches_the_companion_untouched() {
 #[test]
 fn a_typo_in_a_network_check_is_a_usage_error_not_an_admin_refusal() {
     // 인자가 틀려도 룰이 네트워크 점검인 것은 안다(마지막 `--plugin`) — 그래서 권한 없는 실행이 관리자 문(5)이
-    // 아니라 고칠 것을 말하는 해석 오류(4)로 끝난다. 전에는 해석에 실패하면 로컬 검사로 보아 5 였다.
+    // 아니라 고칠 것을 말하는 해석 오류(4)로 끝난다. 전에는 해석에 실패하면(여기서는 맨 낱말 `extra`) 로컬 검사로
+    // 보아 관리자 문에서 5 였다.
     let lab = lab("typo");
     let kp = keypair();
     sign(&put_companion(&lab), &kp, "remedy-net", CORE);
-    let o = scan(&lab, Some(&anchor(&kp)), &["--url"]);
+    let o = scan(
+        &lab,
+        Some(&anchor(&kp)),
+        &["--url", "http://127.0.0.1:9/", "extra"],
+    );
     let t = text(&o);
     assert_eq!(o.status.code(), Some(4), "{t}");
-    assert!(t.contains("--url"), "{t}");
+    assert!(t.contains("extra"), "{t}");
+    assert!(!t.contains("관리자"), "관리자 문에서 막혔다:\n{t}");
     assert!(!lab.dir.join("out").exists(), "결과 폴더를 만들었다:\n{t}");
 }
 

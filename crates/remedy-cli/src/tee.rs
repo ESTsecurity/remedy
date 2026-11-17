@@ -252,7 +252,13 @@ pub fn open(state_dir: &Path, name: &str) {
         "remedy {} pid {} · {}",
         env!("CARGO_PKG_VERSION"),
         std::process::id(),
-        std::env::args().skip(1).collect::<Vec<_>>().join(" ")
+        // `std::env::args()` 는 건너뛴 argv[0] 까지 UTF-8 인지 보고 패닉한다 — 실행 파일이 옛 인코딩 이름의
+        // 폴더에 있으면 여기서 죽었다(배포 빌드는 abort · 134). 기록용이라 손실 변환으로 읽는다.
+        std::env::args_os()
+            .skip(1)
+            .map(|a| a.to_string_lossy().into_owned())
+            .collect::<Vec<_>>()
+            .join(" ")
     );
     match RunLog::open(state_dir, name, &header) {
         Ok(mut l) => {
@@ -318,7 +324,10 @@ pub fn install_panic_hook() {
             .location()
             .map(|l| format!("{}:{}:{}", l.file(), l.line(), l.column()))
             .unwrap_or_else(|| "?".into());
-        let args: Vec<String> = std::env::args().collect();
+        // 훅 안에서 다시 패닉하면 7 도 크래시 파일도 없이 abort 한다 — `args()` 가 아니라 손실 변환(위 `open` 과 같다).
+        let args: Vec<String> = std::env::args_os()
+            .map(|a| a.to_string_lossy().into_owned())
+            .collect();
         let body = format!(
             "remedy {} · internal error (panic)\nat    : {at}\nwhere : {where_}\nwhat  : {what}\nargs  : {}\nos    : {}\nrun log: {}\n",
             env!("CARGO_PKG_VERSION"),
