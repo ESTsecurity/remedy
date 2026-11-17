@@ -3,14 +3,10 @@
 //! 숫자를 기계 정수로 바꾸지 않는다. 앞의 `0` 을 떼고 길이와 글자로 견주므로 자릿수에 상한이 없고 넘치지
 //! 않는다.
 //!
-//! **dpkg 쪽**(`compare_debian` · `valid_debian` · `ubuntu_line` 과 그 도우미)은 이 크레이트
-//! `url/criteria.rs` 의 같은 이름 함수(그 파일의 `core` 부터 `debian_part` 까지)와 같은 구현이다. 그쪽은 URL
-//! 점검의 표 안에 닫혀 있어 여기서 부르지 못한다 — 한쪽을 고치면 다른 쪽도 고친다.
-//!
-//! **rpm 쪽**(`rpm_version_cmp` · `split_evr` · `rpmvercmp`)은 본체 `crates/remedy-detect/src/compare.rs` 의
-//! 같은 이름 함수와 같은 구현이다. 동반 모듈은 `remedy-detect` 를 링크하지 않아(설계-04 §1) 부르지 못하고
-//! 옮겨 둔다. 스캐너의 rpm 비교(`rules/rpm.go`)는 옮기지 않았다 — 그래서 스캐너와 갈리는 꼴이 있고, 아래
-//! 시험이 그 꼴을 하나씩 적어 둔다.
+//! **dpkg · rpm · apk 의 비교는 `remedy_sdk::pkgver` 한 벌이다**(2026-11-17 — 그 전에는 이 파일 · `url/criteria.rs`
+//! · 본체 `remedy-detect` 에 따로 있었다). 여기 남은 것은 동반 모듈만의 규칙 — 상류 `X.Y.Z` · *그 공급사의 줄인가*
+//! (`debian_vendor_line` · `ubuntu_line`) · 꼴 검사(`valid_debian`) — 이다. 스캐너의 rpm 비교(`rules/rpm.go`)는
+//! 옮기지 않았다 — 그래서 스캐너와 갈리는 꼴이 있고, 아래 시험이 그 꼴을 하나씩 적어 둔다.
 
 use regex::Regex;
 use remedy_sdk::catalog::is_rpm_version;
@@ -51,11 +47,9 @@ pub(super) fn compare_core(a: &str, b: &str) -> Ordering {
     Ordering::Equal
 }
 
-/// 앞의 0 을 떼고 길이 → 사전순으로 견준다(긴 숫자도 넘치지 않는다).
+/// 앞의 0 을 떼고 길이 → 사전순으로 견준다(긴 숫자도 넘치지 않는다 · `remedy_sdk::pkgver::digits_cmp`).
 pub(super) fn compare_digits(a: &str, b: &str) -> Ordering {
-    let a = a.trim_start_matches('0');
-    let b = b.trim_start_matches('0');
-    a.len().cmp(&b.len()).then_with(|| a.cmp(b))
+    remedy_sdk::pkgver::digits_cmp(a, b)
 }
 
 pub(super) fn numeric(s: &str) -> bool {
@@ -165,315 +159,37 @@ pub(super) fn debian_vendor_line(version: &str, fixed: &str) -> bool {
     !(marked && (group(&v, 6) != group(&f, 6) || group(&v, 7) != group(&f, 7)))
 }
 
-/// dpkg 의 버전 비교 — epoch → 상류 → 개정. `~` 는 무엇보다 앞선다.
+/// dpkg 의 버전 비교 — epoch → 상류 → 개정. `~` 는 무엇보다 앞선다(`remedy_sdk::pkgver::dpkg_cmp` 한 벌).
 pub(super) fn compare_debian(a: &str, b: &str) -> Ordering {
-    let (ae, au, ar) = split_debian(a);
-    let (be, bu, br) = split_debian(b);
-    compare_digits(ae, be)
-        .then_with(|| debian_part(au, bu))
-        .then_with(|| debian_part(ar, br))
-}
-
-fn split_debian(s: &str) -> (&str, &str, &str) {
-    let (epoch, rest) = match s.find(':') {
-        Some(i) => (&s[..i], &s[i + 1..]),
-        None => ("0", s),
-    };
-    match rest.rfind('-') {
-        Some(i) => (epoch, &rest[..i], &rest[i + 1..]),
-        None => (epoch, rest, "0"),
-    }
-}
-
-fn order(c: Option<u8>) -> i32 {
-    match c {
-        Some(b'~') => -1,
-        None => 0,
-        Some(c) if c.is_ascii_digit() => 0,
-        Some(c) if c.is_ascii_alphabetic() => i32::from(c),
-        Some(c) => i32::from(c) + 256,
-    }
-}
-
-fn debian_part(a: &str, b: &str) -> Ordering {
-    let (mut a, mut b) = (a.as_bytes(), b.as_bytes());
-    while !a.is_empty() || !b.is_empty() {
-        while a.first().is_some_and(|c| !c.is_ascii_digit())
-            || b.first().is_some_and(|c| !c.is_ascii_digit())
-        {
-            let c = order(a.first().copied()).cmp(&order(b.first().copied()));
-            if c.is_ne() {
-                return c;
-            }
-            a = a.get(1..).unwrap_or_default();
-            b = b.get(1..).unwrap_or_default();
-        }
-        let i = a.iter().take_while(|c| c.is_ascii_digit()).count();
-        let j = b.iter().take_while(|c| c.is_ascii_digit()).count();
-        let (x, y) = (
-            std::str::from_utf8(&a[..i]).unwrap_or_default(),
-            std::str::from_utf8(&b[..j]).unwrap_or_default(),
-        );
-        let c = compare_digits(x, y);
-        if c.is_ne() {
-            return c;
-        }
-        a = &a[i..];
-        b = &b[j..];
-    }
-    Ordering::Equal
+    remedy_sdk::pkgver::dpkg_cmp(a, b)
 }
 
 // ── rpm ──────────────────────────────────────────────────────────────────
 
-/// RPM 이 적은 버전끼리. `[epoch:]버전[-개정]` 을 셋으로 갈라 **epoch → 버전 → 개정** 순으로 [`rpmvercmp`] 로
-/// 견준다. epoch 이 없으면 `0` 이고, 개정은 **둘 다 있을 때만** 견준다. 꼴이 아니면 `None` 이다
-/// (`remedy_sdk::catalog::is_rpm_version`).
+/// RPM 이 적은 버전끼리 — **epoch → 버전 → 개정**(개정은 둘 다 있을 때만 · `remedy_sdk::pkgver::rpm_cmp` 한 벌).
+/// 꼴이 아니면 `None` 이다(`remedy_sdk::catalog::is_rpm_version`).
 pub(super) fn rpm_version_cmp(a: &str, b: &str) -> Option<Ordering> {
     if !is_rpm_version(a) || !is_rpm_version(b) {
         return None;
     }
-    let (ea, va, ra) = split_evr(a.trim());
-    let (eb, vb, rb) = split_evr(b.trim());
-    let mut ord = rpmvercmp(ea, eb).then_with(|| rpmvercmp(va, vb));
-    if let (Some(ra), Some(rb)) = (ra, rb) {
-        ord = ord.then_with(|| rpmvercmp(ra, rb));
-    }
-    Some(ord)
+    Some(remedy_sdk::pkgver::rpm_cmp(a.trim(), b.trim()))
 }
 
 /// 개정(`-` 뒤)이 있는가 — [`rpm_version_cmp`] 가 읽는 그대로.
 pub(super) fn rpm_has_release(s: &str) -> bool {
-    split_evr(s.trim()).2.is_some()
-}
-
-/// `1:8.0.30-8.el9_8.1` → `("1", "8.0.30", Some("8.el9_8.1"))`. 개정은 **마지막** `-` 뒤이고, 비면 없는 것이다.
-fn split_evr(s: &str) -> (&str, &str, Option<&str>) {
-    let (epoch, rest) = match s.split_once(':') {
-        Some((e, rest)) => (e, rest),
-        None => ("0", s),
-    };
-    match rest.rsplit_once('-') {
-        Some((v, r)) => (epoch, v, (!r.is_empty()).then_some(r)),
-        None => (epoch, rest, None),
-    }
-}
-
-/// rpm 의 `rpmvercmp` — 글자 · 숫자가 아닌 문자는 **구분자로만** 보고, 숫자 덩어리와 글자 덩어리를 번갈아
-/// 견준다. 숫자 덩어리는 수로 보고(앞의 `0` 은 값이 아니다) **글자 덩어리보다 늘 높다.** `~` 는 무엇보다도
-/// 먼저, `^` 는 끝보다는 뒤이고 다른 무엇보다는 먼저다.
-fn rpmvercmp(a: &str, b: &str) -> Ordering {
-    use std::cmp::Ordering::{Equal, Greater, Less};
-    if a == b {
-        return Equal;
-    }
-    let (a, b) = (a.as_bytes(), b.as_bytes());
-    let sep = |c: u8| !c.is_ascii_alphanumeric() && c != b'~' && c != b'^';
-    let (mut i, mut j) = (0usize, 0usize);
-    loop {
-        while i < a.len() && sep(a[i]) {
-            i += 1;
-        }
-        while j < b.len() && sep(b[j]) {
-            j += 1;
-        }
-        let (x, y) = (a.get(i).copied(), b.get(j).copied());
-        if x == Some(b'~') || y == Some(b'~') {
-            if x != Some(b'~') {
-                return Greater;
-            }
-            if y != Some(b'~') {
-                return Less;
-            }
-            i += 1;
-            j += 1;
-            continue;
-        }
-        if x == Some(b'^') || y == Some(b'^') {
-            if x.is_none() {
-                return Less;
-            }
-            if y.is_none() {
-                return Greater;
-            }
-            if x != Some(b'^') {
-                return Greater;
-            }
-            if y != Some(b'^') {
-                return Less;
-            }
-            i += 1;
-            j += 1;
-            continue;
-        }
-        if x.is_none() || y.is_none() {
-            break;
-        }
-        let (si, sj) = (i, j);
-        let numeric = a[i].is_ascii_digit();
-        let take = |c: u8| {
-            if numeric {
-                c.is_ascii_digit()
-            } else {
-                c.is_ascii_alphabetic()
-            }
-        };
-        while i < a.len() && take(a[i]) {
-            i += 1;
-        }
-        while j < b.len() && take(b[j]) {
-            j += 1;
-        }
-        // 갈래가 다르다 — 한쪽은 숫자, 다른 쪽은 글자. **숫자가 높다.**
-        if j == sj {
-            return if numeric { Greater } else { Less };
-        }
-        let (mut s1, mut s2) = (&a[si..i], &b[sj..j]);
-        if numeric {
-            while s1.first() == Some(&b'0') {
-                s1 = &s1[1..];
-            }
-            while s2.first() == Some(&b'0') {
-                s2 = &s2[1..];
-            }
-            if s1.len() != s2.len() {
-                return s1.len().cmp(&s2.len());
-            }
-        }
-        match s1.cmp(s2) {
-            Equal => continue,
-            o => return o,
-        }
-    }
-    match (i >= a.len(), j >= b.len()) {
-        (true, true) => Equal,
-        (true, false) => Less,
-        _ => Greater,
-    }
+    remedy_sdk::pkgver::rpm_has_release(s.trim())
 }
 
 // ── apk ──────────────────────────────────────────────────────────────────
-//
-// 본체 `crates/remedy-detect/src/compare.rs` 의 `apk_version_cmp` 와 같은 구현이다(코어 1.14.0 · 위 rpm 쪽과 같은
-// 까닭으로 옮겨 둔다 — 한쪽을 고치면 다른 쪽도 고친다). 아래 시험의 표도 그쪽 표 그대로다(apk-tools 2.14.13 의 답).
 
-/// apk(Alpine)가 적은 판끼리 — 판을 조각([`ApkPart`])으로 나눠 앞에서부터 견준다. 모양이 아니면 `None`
-/// (`remedy_sdk::catalog::is_apk_version`).
+/// apk(Alpine)가 적은 판끼리(`remedy_sdk::pkgver::apk_cmp` 한 벌 — apk-tools 2.14.13 의 답을 아래 시험이 든다).
+/// 모양이 아니면 `None`(`remedy_sdk::catalog::is_apk_version`).
 pub(super) fn apk_version_cmp(a: &str, b: &str) -> Option<Ordering> {
     use remedy_sdk::catalog::is_apk_version;
     if !is_apk_version(a) || !is_apk_version(b) {
         return None;
     }
-    let (pa, pb) = (apk_parts(a.trim()), apk_parts(b.trim()));
-    // 둘 다 `End` 로 끝난다 — 길이가 달라도 짧은 쪽의 `End` 자리에서 갈린다.
-    for (x, y) in pa.iter().zip(&pb) {
-        let ord = apk_part_cmp(x, y);
-        if ord != Ordering::Equal {
-            return Some(ord);
-        }
-    }
-    Some(Ordering::Equal)
-}
-
-/// apk 판의 조각. **종류의 차례도 순서다** — 한쪽이 먼저 갈라지면 그 자리 조각의 종류가 정한다(앞의 종류가
-/// 높고, 사전 배포 접미사는 무엇보다 낮다).
-#[derive(Debug)]
-enum ApkPart<'a> {
-    /// 숫자 조각 — 앞의 `0` 을 뗀 수로 견준다.
-    Num(&'a str),
-    /// 둘째 조각부터 `0` 으로 시작하는 조각 — `0` 의 개수와 남은 숫자. `0` 이 많을수록 낮고, 같으면 남은 숫자를
-    /// 수로 견주며(없는 쪽이 가장 낮다), 어떤 `Num` 보다도 낮다.
-    Zeros(usize, &'a str),
-    Letter(u8),
-    /// 접미사의 차례 — 사전 배포(`alpha` ~ `rc`)는 음수다.
-    Suffix(i8),
-    SuffixNo(&'a str),
-    Revision(&'a str),
-    End,
-}
-
-impl ApkPart<'_> {
-    fn kind(&self) -> u8 {
-        match self {
-            ApkPart::Num(_) | ApkPart::Zeros(..) => 1,
-            ApkPart::Letter(_) => 2,
-            ApkPart::Suffix(_) => 3,
-            ApkPart::SuffixNo(_) => 4,
-            ApkPart::Revision(_) => 5,
-            ApkPart::End => 6,
-        }
-    }
-
-    fn pre_release(&self) -> bool {
-        matches!(self, ApkPart::Suffix(r) if *r < 0)
-    }
-}
-
-fn apk_part_cmp(x: &ApkPart<'_>, y: &ApkPart<'_>) -> Ordering {
-    use std::cmp::Ordering::{Equal, Greater, Less};
-    use ApkPart::{End, Letter, Num, Revision, Suffix, SuffixNo, Zeros};
-    match (x, y) {
-        (Num(a), Num(b)) | (SuffixNo(a), SuffixNo(b)) | (Revision(a), Revision(b)) => {
-            compare_digits(a, b)
-        }
-        (Zeros(ka, ra), Zeros(kb, rb)) => {
-            kb.cmp(ka)
-                .then_with(|| match (ra.is_empty(), rb.is_empty()) {
-                    (true, true) => Equal,
-                    (true, false) => Less,
-                    (false, true) => Greater,
-                    (false, false) => compare_digits(ra, rb),
-                })
-        }
-        (Zeros(..), Num(_)) => Less,
-        (Num(_), Zeros(..)) => Greater,
-        (Letter(a), Letter(b)) => a.cmp(b),
-        (Suffix(a), Suffix(b)) => a.cmp(b),
-        (End, End) => Equal,
-        // 종류가 다르다 — 사전 배포 접미사가 먼저 지고, 그 밖은 앞의 종류가 이긴다.
-        _ if x.pre_release() => Less,
-        _ if y.pre_release() => Greater,
-        _ => y.kind().cmp(&x.kind()),
-    }
-}
-
-/// `is_apk_version` 을 지난 문자열을 조각낸다.
-fn apk_parts(s: &str) -> Vec<ApkPart<'_>> {
-    use remedy_sdk::catalog::APK_SUFFIXES;
-    let (body, rev) = s.rsplit_once("-r").unwrap_or((s, "0"));
-    let mut sections = body.split('_');
-    let head = sections.next().unwrap_or_default();
-    let (nums, letter) = match head.as_bytes().last() {
-        Some(&c) if c.is_ascii_lowercase() => (&head[..head.len() - 1], Some(c)),
-        _ => (head, None),
-    };
-    let mut out = Vec::new();
-    for (i, c) in nums.split('.').enumerate() {
-        let rest = c.trim_start_matches('0');
-        let zeros = c.len() - rest.len();
-        // 첫 조각은 그냥 수다(`01` = `1`). 둘째부터 앞의 `0` 이 값을 낮춘다.
-        if i == 0 || zeros == 0 {
-            out.push(ApkPart::Num(c));
-        } else {
-            out.push(ApkPart::Zeros(zeros, rest));
-        }
-    }
-    if let Some(c) = letter {
-        out.push(ApkPart::Letter(c));
-    }
-    for suffix in sections {
-        let n = suffix.bytes().take_while(u8::is_ascii_lowercase).count();
-        let (name, num) = suffix.split_at(n);
-        let place = APK_SUFFIXES.iter().position(|s| *s == name).unwrap_or(0);
-        // 앞의 넷(사전 배포)이 음수가 되게 4 를 뺀다.
-        out.push(ApkPart::Suffix(i8::try_from(place).unwrap_or(0) - 4));
-        if !num.is_empty() {
-            out.push(ApkPart::SuffixNo(num));
-        }
-    }
-    out.push(ApkPart::Revision(rev));
-    out.push(ApkPart::End);
-    out
+    Some(remedy_sdk::pkgver::apk_cmp(a.trim(), b.trim()))
 }
 
 #[cfg(test)]

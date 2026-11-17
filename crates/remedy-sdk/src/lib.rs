@@ -18,6 +18,7 @@ pub mod i18n;
 pub mod lint;
 pub mod manifest;
 pub mod normalize;
+pub mod pkgver;
 pub mod quarantine;
 pub mod rules_version;
 pub mod utc;
