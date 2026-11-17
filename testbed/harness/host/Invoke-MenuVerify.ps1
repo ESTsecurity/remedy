@@ -450,9 +450,14 @@ try {
         Copy-Item "$LabRoot\demo-dblclick.json" -Destination (Join-Path $hostOut "demo-dblclick.json") `
                   -FromSession $session -Force
         $d = Get-Content (Join-Path $hostOut "demo-dblclick.json") -Raw -Encoding UTF8 | ConvertFrom-Json
-        Add-Check "4" "데모 폴더는 진짜 콘솔에서도 사용법이다 (메뉴가 아니다)" `
-                  ([bool]$d.no_args.usage -and $d.no_args.exit -eq 0) `
-                  "사용법=$($d.no_args.usage) · exit=$($d.no_args.exit)"
+        # **지키는 것은 '메뉴가 아니다' 다.** 1.21.1 까지는 사용법이 늘 떴고 판정도 그것을 봤다 — 1.22.0 부터 배포 빌드
+        # (앵커가 박힌 rc · 정식)는 룰 폴더가 없는 자리에서 사용법 20줄 대신 *검사 룰 폴더(plugins)를 … 찾지
+        # 못했습니다* 한 줄로 끝난다(압축 파일을 연 채 실행한 사람에게 사용법은 답이 아니다). 앵커 없는 -Build 판은
+        # 지금도 사용법이다.
+        $notMenu = (([bool]$d.no_args.usage -or [bool]$d.no_args.rules_hint) -and -not [bool]$d.no_args.menu)
+        Add-Check "4" "데모 폴더의 인자 없는 화면은 메뉴가 아니다 (사용법 · 룰 폴더 안내)" `
+                  ($notMenu -and $d.no_args.exit -eq 0) `
+                  "사용법=$($d.no_args.usage) · 안내=$($d.no_args.rules_hint) · 메뉴=$($d.no_args.menu) · exit=$($d.no_args.exit)"
         Add-Check "4" "인자가 있으면 기다리지 않는다 (RunOnce 조건)" `
                   ([bool]$d.with_args.finished_without_input) "exit=$($d.with_args.exit)"
     } else {

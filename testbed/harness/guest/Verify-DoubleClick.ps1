@@ -168,6 +168,10 @@ $results["no_args"] = [ordered]@{
     exit      = $p.ExitCode
     prompted  = [bool]($text -match "Enter 를 누르십시오|Press Enter to close")
     usage     = [bool]($text -match "사용법|Usage")
+    # 배포 빌드(앵커가 박힌 rc · 정식)는 룰 폴더가 없는 자리에서 사용법 대신 이 안내 한 줄로 끝난다(코어 1.22.0).
+    rules_hint = [bool]($text -match "검사 룰 폴더\(plugins\)|The rule folder \(plugins\)")
+    # 지키려는 것은 이것이다 — 꾸러미 없는 자리의 인자 없는 화면은 메뉴가 아니다.
+    menu      = [bool]($text -match "무엇을 할까요|무엇을 검사할까요|What would you like")
     text_tail = ($text -split "`r?`n" | Where-Object { $_.Trim() -ne '' } | Select-Object -Last 3) -join " / "
 }
 
