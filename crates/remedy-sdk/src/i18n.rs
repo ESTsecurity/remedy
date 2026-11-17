@@ -326,6 +326,37 @@ struct Settings {
 
 static SETTINGS: OnceLock<Settings> = OnceLock::new();
 
+/// 시작할 때 한 번 — 명령줄과 환경에서 화면 언어 · 장식을 정해 [`init`] 한다. **본체와 동반 모듈이 이 한
+/// 벌을 쓴다**(2026-11-17 까지 두 `main` 에 같은 줄이 따로 있었다).
+///
+/// `lang_flag` 는 `--lang` 의 값, `ascii_flag` 는 `--ascii` 를 받았으면 `Some(true)`, `locale` 은 OS 가
+/// 말하는 사용자 로케일이다(이 크레이트는 레지스트리를 읽지 않는다 — [`Lang::detect_with`]). 돌려주는 것은
+/// 정한 언어와 **모르는 `--lang` 값** — 무시하되 부르는 쪽이 말한다. 조용히 영어로 가면 왜 영어인지 모른다.
+pub fn init_from(
+    lang_flag: Option<&str>,
+    ascii_flag: Option<bool>,
+    locale: Option<&str>,
+) -> (Lang, Option<String>) {
+    let unknown = lang_flag
+        .filter(|v| Lang::try_parse(v).is_none())
+        .map(str::to_string);
+    let lang_flag = lang_flag.filter(|_| unknown.is_none());
+    let ascii = detect_ascii(ascii_flag);
+    let explicit = lang_flag.is_some() || std::env::var("REMEDY_LANG").is_ok();
+    let lang = settle(Lang::detect_with(lang_flag, locale), ascii, explicit);
+    init(lang, ascii);
+    (lang, unknown)
+}
+
+/// 한글을 못 그리는 자리(ASCII)에 한글을 내보내지 않는다. 언어를 명시했을 때만 예외다.
+fn settle(detected: Lang, ascii: bool, explicit: bool) -> Lang {
+    if ascii && !explicit {
+        Lang::En
+    } else {
+        detected
+    }
+}
+
 /// 시작할 때 한 번 정한다. 이미 정해져 있으면 `false` 를 돌려주고 바꾸지 않는다.
 pub fn init(lang: Lang, ascii: bool) -> bool {
     SETTINGS
@@ -382,6 +413,14 @@ mod tests {
         // 환경을 건드리지 않고도 첫 단계는 잴 수 있다.
         assert_eq!(Lang::detect(Some("ko")), Lang::Ko);
         assert_eq!(Lang::detect(Some("en")), Lang::En);
+    }
+
+    #[test]
+    fn ascii_screens_fall_back_to_english_unless_the_language_was_asked_for() {
+        assert_eq!(settle(Lang::Ko, true, false), Lang::En);
+        assert_eq!(settle(Lang::Ko, true, true), Lang::Ko);
+        assert_eq!(settle(Lang::Ko, false, false), Lang::Ko);
+        assert_eq!(settle(Lang::En, false, true), Lang::En);
     }
 
     #[test]

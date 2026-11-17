@@ -178,6 +178,21 @@ pub fn in_session() -> bool {
     ARMED.load(Ordering::SeqCst)
 }
 
+/// 메뉴 첫 화면의 머리말 아래에 **한 번** 설 알림(코드서명 등 — `integrity::header_note`). 메뉴 세션은 경고로
+/// 시작하지 않는다(목표 remedy_시연전_안정화 D5 · 문체 기준 1).
+static NOTICE: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
+
+pub fn set_notice(note: String) {
+    if let Ok(mut n) = NOTICE.lock() {
+        *n = Some(note);
+    }
+}
+
+/// 처음 그리는 머리말이 가져간다 — 작업 뒤 다시 서는 화면에는 되풀이하지 않는다.
+pub fn take_notice() -> Option<String> {
+    NOTICE.lock().ok().and_then(|mut n| n.take())
+}
+
 /// 작업 하나가 시작한다. `changes_system` 은 강제로 끝날 때의 종료 코드를 가른다.
 pub fn task_begin(changes_system: bool) {
     let t = if changes_system {
@@ -518,9 +533,19 @@ fn choose_line(rows: &[Row], zero: Option<&str>, n: usize) -> Answer {
             Ok(0) | Err(_) => return Answer::Invalid,
             Ok(_) => {}
         }
-        let v = match line.trim().parse::<usize>() {
+        // **잘못 친 번호로 끝내지 않는다** — 방향키 화면처럼 범위를 말하고 다시 묻는다. 이 화면은 터미널에서만
+        // 서므로(불변식 I7) 사람이 앞에 있다. 전에는 없는 번호 · 글자 한 번에 메뉴가 끝났다(목표 remedy_시연전_안정화
+        // A2). **빈 Enter 는 지금처럼 끝낸다** — 입력이 닫힌 것과 같게 읽고, 메뉴 하네스가 그 약속으로 회차를 닫는다.
+        let typed = line.trim();
+        if typed.is_empty() {
+            return Answer::Invalid;
+        }
+        let v = match typed.parse::<usize>() {
             Ok(v) if v >= lo && v <= n => v,
-            _ => return Answer::Invalid,
+            _ => {
+                screen_errln!("{}", range_hint(zero.is_some(), n));
+                continue;
+            }
         };
         // 고를 수 없는 줄 — 까닭을 보이고 다시 묻는다. 읽을 줄이 없으면 위에서 끝난다.
         match off_note(rows, v) {

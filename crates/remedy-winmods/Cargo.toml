@@ -15,4 +15,10 @@ windows-sys = { workspace = true, features = [
     "Win32_System_ProcessStatus",
     # OpenProcess · GetProcessInformation(보호 수준) · GetExitCodeProcess
     "Win32_System_Threading",
+    # ShellExecuteExW(`runas`) — 권한 없이 뜬 메뉴를 관리자 권한으로 다시 연다. 임포트에 shell32 가 는다.
+    "Win32_UI_Shell",
+    # SHELLEXECUTEINFOW 의 `hkeyClass` 칸이 HKEY 라 이 기능이 있어야 그 구조체가 정의된다.
+    "Win32_System_Registry",
+    # SW_SHOWNORMAL
+    "Win32_UI_WindowsAndMessaging",
 ] }

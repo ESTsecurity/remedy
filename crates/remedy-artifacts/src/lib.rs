@@ -209,10 +209,6 @@ impl Observations {
     pub fn files(&self) -> Vec<FileRecord> {
         self.get(Subject::File)
     }
-
-    pub fn persistence(&self) -> Vec<PersistenceRecord> {
-        self.get(Subject::Persistence)
-    }
 }
 
 /// 수집기 자신에 대한 정보. 비트수를 남기는 이유는 WOW64 다.

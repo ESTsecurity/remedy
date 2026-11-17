@@ -293,7 +293,7 @@ impl Journal {
     /// 쓰는 자리가 찍는다. 읽는 쪽은 모르는 필드를 무시하므로 옛 저널도 새 저널도
     /// 같은 코드로 읽힌다 (2026-09-07 관측성 Phase 3).
     pub fn append(&mut self, rec: &Record) -> std::io::Result<()> {
-        let mut line = stamp(rec, &now_rfc3339())
+        let mut line = stamp(rec, &remedy_sdk::utc::now_rfc3339())
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
         line.push(b'\n');
         self.file.write_all(&line)?;
@@ -756,33 +756,6 @@ fn stamp(rec: &Record, at: &str) -> serde_json::Result<Vec<u8>> {
         }
     }
     serde_json::to_vec(&v)
-}
-
-/// 지금 시각, RFC 3339 UTC. (`remedy-core` 에도 같은 것이 있지만 저널은 그 아래
-/// 크레이트라 여기서 다시 계산한다 — 의존 방향을 지키기 위해.)
-fn now_rfc3339() -> String {
-    let secs = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0);
-    let days = (secs / 86_400) as i64;
-    let rem = secs % 86_400;
-    let z = days + 719_468;
-    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
-    let doe = (z - era * 146_097) as u64;
-    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
-    let y = yoe as i64 + era * 400;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    let d = (doy - (153 * mp + 2) / 5 + 1) as u32;
-    let m = if mp < 10 { mp + 3 } else { mp - 9 } as u32;
-    let y = if m <= 2 { y + 1 } else { y };
-    format!(
-        "{y:04}-{m:02}-{d:02}T{:02}:{:02}:{:02}Z",
-        rem / 3600,
-        (rem % 3600) / 60,
-        rem % 60
-    )
 }
 
 #[cfg(test)]

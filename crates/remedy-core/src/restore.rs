@@ -73,11 +73,6 @@ impl Plan {
         self.items.iter().filter(|i| !i.allowed())
     }
 
-    /// 되살리지 못하는 항목이 하나라도 있는가. 있으면 **복원 전에** 보인다.
-    pub fn has_losses(&self) -> bool {
-        self.allowed().any(|i| !i.report.lost.is_empty())
-    }
-
     pub fn total_bytes(&self) -> u64 {
         self.allowed().map(|i| i.size).sum()
     }

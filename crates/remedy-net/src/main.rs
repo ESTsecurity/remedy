@@ -57,25 +57,9 @@ fn split_global(args: Vec<String>) -> Global {
 
 fn main() {
     let g = split_global(std::env::args().skip(1).collect());
-    // `--lang kr` 처럼 모르는 값은 무시하되 **말한다** — 조용히 영어로 가면 왜 영어인지 모른다(본체와 같다).
-    let unknown_lang = g
-        .lang
-        .as_deref()
-        .filter(|v| Lang::try_parse(v).is_none())
-        .map(str::to_string);
-    let lang_flag = g.lang.filter(|_| unknown_lang.is_none());
-    let ascii = i18n::detect_ascii(g.ascii);
-    let lang = {
-        let l = Lang::detect_with(lang_flag.as_deref(), user_locale().as_deref());
-        // 한글을 못 그리는 자리에 한글을 내보내지 않는다. 명시했을 때만 예외 — 본체와 같다.
-        let explicit = lang_flag.is_some() || std::env::var("REMEDY_LANG").is_ok();
-        if ascii && !explicit {
-            Lang::En
-        } else {
-            l
-        }
-    };
-    i18n::init(lang, ascii);
+    // 언어 · 장식은 본체와 같은 한 벌이 정한다. 모르는 `--lang` 값은 무시하되 **말한다**.
+    let (lang, unknown_lang) =
+        i18n::init_from(g.lang.as_deref(), g.ascii, user_locale().as_deref());
     if let Some(v) = unknown_lang {
         remedy_net::errln!(
             "--lang '{v}': 모르는 언어라 무시했습니다 (ko | en) / unknown language, ignored (ko | en)"

@@ -1,6 +1,10 @@
-//! remedy-winmods — Windows 프로세스에 실린 모듈 (목표 기준 7 의 마지막 항목).
+//! remedy-winmods — Windows 프로세스에 실린 모듈 (목표 기준 7 의 마지막 항목), 그리고 권한을 올려 이 프로그램을
+//! 다시 여는 호출 하나([`relaunch_elevated`]).
 //!
 //! # 저장소에서 `unsafe` 를 쓰는 둘째 크레이트다
+//!
+//! 권한을 올려 다시 여는 `ShellExecuteExW`(`runas`)도 안전 래퍼가 없는 Windows 호출이라 여기 둔다 — 그
+//! 함수 하나 때문에 `unsafe` 예외 크레이트를 하나 더 세우지 않는다.
 //!
 //! 모듈 목록은 Toolhelp 스냅숏(`CreateToolhelp32Snapshot` · `Module32FirstW/NextW`)으로 얻고, 260 글자를
 //! 넘는 경로만 `K32GetModuleFileNameExW` 로 다시 묻는다. 모두 안전 래퍼가 없다 — `sysinfo` 는 실행 파일
@@ -59,6 +63,62 @@ pub fn modules_of(pid: u32) -> Modules {
     {
         let _ = pid;
         Modules::Refused
+    }
+}
+
+/// UAC 창에서 [아니요]를 골랐다 — `ERROR_CANCELLED`.
+pub const DECLINED: u32 = 1223;
+
+/// 이 프로그램을 **관리자 권한으로 다시 연다** — 사용자 계정 컨트롤(UAC) 창이 뜬다(목표 remedy_시연전_안정화
+/// D8). 탐색기에서 더블클릭한 메뉴는 권한 없이 뜨고, 검사 · 치료는 관리자 권한이 있어야 돈다.
+///
+/// `Ok(())` 는 새 창이 떴다는 뜻이다 — 부르는 쪽은 제 창을 닫는다. `Err` 는 Win32 오류 번호다([`DECLINED`] 는
+/// 사람이 거절한 것). Windows 밖에서는 늘 `Err(0)` 이다.
+pub fn relaunch_elevated(exe: &std::path::Path, dir: &std::path::Path) -> Result<(), u32> {
+    #[cfg(windows)]
+    {
+        elevate::relaunch(exe, dir)
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (exe, dir);
+        Err(0)
+    }
+}
+
+#[cfg(windows)]
+mod elevate {
+    //! 호출부. 넘기는 문자열은 모두 이 함수의 지역 값(NUL 로 끝나는 UTF-16)이고 호출이 끝날 때까지 산다.
+
+    use std::os::windows::ffi::OsStrExt;
+    use windows_sys::Win32::Foundation::GetLastError;
+    use windows_sys::Win32::UI::Shell::{ShellExecuteExW, SEE_MASK_NOASYNC, SHELLEXECUTEINFOW};
+    use windows_sys::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+
+    fn wide(s: &std::ffi::OsStr) -> Vec<u16> {
+        s.encode_wide().chain(std::iter::once(0)).collect()
+    }
+
+    pub(super) fn relaunch(exe: &std::path::Path, dir: &std::path::Path) -> Result<(), u32> {
+        let verb = wide(std::ffi::OsStr::new("runas"));
+        let file = wide(exe.as_os_str());
+        let directory = wide(dir.as_os_str());
+        // SAFETY: 모든 칸이 정수 · 포인터 · 공용체인 C 구조체라 0 바이트가 올바른 값이다.
+        let mut info: SHELLEXECUTEINFOW = unsafe { std::mem::zeroed() };
+        info.cbSize = std::mem::size_of::<SHELLEXECUTEINFOW>() as u32;
+        // 부른 쪽은 곧바로 끝난다 — 실행이 끝까지 간 뒤에 돌아오게 한다(문서의 권고).
+        info.fMask = SEE_MASK_NOASYNC;
+        info.lpVerb = verb.as_ptr();
+        info.lpFile = file.as_ptr();
+        info.lpDirectory = directory.as_ptr();
+        info.nShow = SW_SHOWNORMAL;
+        // SAFETY: `info` 와 그것이 가리키는 세 문자열은 이 함수의 지역 값이고 호출이 끝날 때까지 산다.
+        if unsafe { ShellExecuteExW(&mut info) } != 0 {
+            Ok(())
+        } else {
+            // SAFETY: 같은 스레드에서 바로 앞 호출의 오류를 읽는다.
+            Err(unsafe { GetLastError() })
+        }
     }
 }
 
@@ -288,5 +348,12 @@ mod tests {
     #[test]
     fn outside_windows_it_says_refused() {
         assert_eq!(modules_of(std::process::id()), Modules::Refused);
+    }
+
+    /// Windows 밖에서는 다시 열지 않는다 — 거절(1223)이 아닌 오류로 답한다.
+    #[test]
+    fn outside_windows_relaunch_is_not_attempted() {
+        let here = std::path::Path::new(".");
+        assert_eq!(relaunch_elevated(here, here), Err(0));
     }
 }

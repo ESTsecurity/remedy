@@ -50,10 +50,10 @@ pub mod apply {
 pub mod report {
     pub use remedy_report::{
         brand, check_findings, evidence_label, impact_line, no_target, op_label, pad, pretty_time,
-        render_banner, render_closing, render_plan, render_result, render_self_sufficiency,
-        result_line, result_line_for, review_line, self_sufficiency, threat_findings,
-        unconfirmed_findings, AfterReboot, Banner, Closing, Lang, SelfSufficiency, Shortfall,
-        FINDINGS_SHOWN,
+        render_banner, render_closing, render_closing_brief, render_plan, render_plan_preview,
+        render_result, render_self_sufficiency, result_line, result_line_for, review_line,
+        self_sufficiency, threat_findings, unconfirmed_findings, AfterReboot, Banner, Closing,
+        Lang, SelfSufficiency, Shortfall, FINDINGS_SHOWN,
     };
 }
 pub mod platform {
@@ -92,6 +92,14 @@ pub fn user_locale() -> Option<String> {
 /// core 가 맡는다). `None` 은 재지 못했다는 뜻이고, 부르는 쪽이 거절한다.
 pub fn elevated() -> Option<bool> {
     remedy_platform::read::elevated()
+}
+
+pub use remedy_platform::Relaunch;
+
+/// 이 프로그램을 관리자 권한으로 다시 연다 — Windows 의 사용자 계정 컨트롤(목표 remedy_시연전_안정화 D8).
+/// 리눅스는 [`Relaunch::Unsupported`] 다.
+pub fn relaunch_elevated() -> Relaunch {
+    remedy_platform::relaunch_elevated()
 }
 // CLI 는 remedy-plan 을 직접 의존하지 않는다 (설계-04 §1 — 조립은 core 가 맡는다).
 // 상한 타입은 계획기의 것이지만 CLI 가 설정에서 만들어 넘겨야 하므로 여기서 재수출한다.

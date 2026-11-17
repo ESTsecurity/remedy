@@ -8,7 +8,6 @@ publish = false
 
 [dependencies]
 remedy-sdk = { path = "../remedy-sdk" }
-remedy-platform = { path = "../remedy-platform" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
