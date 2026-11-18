@@ -73,17 +73,17 @@
     }
   },
   "java4shell-check-linux": {
-    "version": "0.1.0",
+    "version": "0.2.0",
     "files": {
-      "plugin.yaml": "0e631137a9e67845932b04edb8aa50483795fcd19b3d70073b8eb81df07f9156",
-      "rules/java.yar": "34c7fba196f12b287b07e4d525837ee8b6a9f22cb5e39262dcaf3697d1c0e4ab"
+      "plugin.yaml": "64951b16d67ac4d9ae077497abb8e3f58f16a3ba0b36bf483a67122295f68cd1",
+      "rules/java.yar": "e20e60cd341426a7299789d0e0894b2a04b6c0d083b28aea8ac186bb38eb6f53"
     }
   },
   "java4shell-check-windows": {
-    "version": "0.1.0",
+    "version": "0.2.0",
     "files": {
-      "plugin.yaml": "0087882d70fb52a37e7f8552b2047ddbfaa7e8ada3b9104a2d19d9d316d4a6e2",
-      "rules/java.yar": "34c7fba196f12b287b07e4d525837ee8b6a9f22cb5e39262dcaf3697d1c0e4ab"
+      "plugin.yaml": "475d83833bed588d7e328dfd570610d0c776d8196a76af1f031329ffb83c3f21",
+      "rules/java.yar": "e20e60cd341426a7299789d0e0894b2a04b6c0d083b28aea8ac186bb38eb6f53"
     }
   },
   "ldso-preload": {

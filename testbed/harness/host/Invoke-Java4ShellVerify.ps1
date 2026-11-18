@@ -12,8 +12,11 @@
     Windows 의 `PING.EXE` 사본을 두고 `release` 의 글자만 바꾼다. 놓는 자리는 `C:\Program Files\RemedyLab-Java` 와
     `C:\web-j4s` 둘이고, 경우마다 그리고 끝에 그 둘만 치운다.
 
-    재는 것: 진짜 JDK 1 · 판 줄만 바꾼 자리 채우기 19 · 홈 둘 2 · 자리 밖 3 · Java 없음 1 · 화면 4.
-    회차 전에 이 기계에 이미 있는 Java 를 치우고 끝에 되돌린다 — 그 홈이 섞이면 모든 칸이 그 판정을 함께 받는다.
+    재는 것: 진짜 JDK 1 · 판 줄만 바꾼 자리 채우기 22(Java 8 EPP 8u511-perf 2 · 고친 판 8u513-perf 0 · 일반 8u511 0 포함) ·
+    사용자 프로필의 .jdks · Gradle 툴체인 2 · 홈 둘 2 · 자리 밖 3 · Oracle javapath 로 띄우는 서비스 1(자리 밖이 아니다) ·
+    Java 없음 1 · 화면 5 — 모두 37칸(칸 수도 단정한다).
+    회차 전에 이 기계에 이미 있는 Java 를 치우고 끝에 되돌린다 — 그 홈이 섞이면 모든 칸이 그 판정을 함께 받는다(룰이 보는
+    자리 전부 — `C:\Program Files` 둘과 사용자 프로필의 세 자리).
     `-LogDir` 에 경우마다 `<칸>.txt` 와 summary.txt 를 남긴다. 끝줄은 `판정 N/T · 실패 M` 이고 종료 코드는 0 · 1 이다.
 
 .EXAMPLE
@@ -98,15 +101,39 @@ $cases = @(
     @{ id = 'O2'; what = '자리 밖에서 도는 java.exe'; expect = 6; homes = @(); process = "$OUTSIDE\jdk\bin\java.exe" },
     @{ id = 'O3'; what = '자리 안 서비스 + 고친 판'; expect = 0; homes = @("$LAB\Java\jdk-17|JAVA_VERSION=`"17.0.21.1`";$x64");
        serviceIn = "$LAB\Java\jdk-17\bin\java.exe" },
+    # Oracle 설치 프로그램의 javapath — `C:\Program Files\Java` 의 홈을 가리키는 길이라 자리 밖이 아니다(0.2.0). 서비스의 경로
+    # 글자만 보므로 그 자리에 파일을 놓지 않는다(이 기계의 javapath 를 덮지 않는다).
+    @{ id = 'O4'; what = 'Oracle javapath 로 띄우는 서비스 — 자리 밖이 아니다'; expect = 0; homes = @();
+       serviceText = 'C:\ProgramData\Oracle\Java\javapath\java.exe' },
+    # Java 8 은 Enterprise Performance Pack(-perf)만 영향 판이다(Oracle CPU 2026-11 의 위험 표 · 0.2.0).
+    @{ id = 'P1'; what = 'Java 8 EPP 8u511-perf (런타임 판 줄의 -perf)'; expect = 2;
+       homes = @("$LAB\Java\jdk1.8.0_511-perf|JAVA_VERSION=`"1.8.0_511`";JAVA_RUNTIME_VERSION=`"1.8.0_511-perf-b33`";OS_ARCH=`"amd64`"");
+       screen = 'Java SE 8 Enterprise Performance Pack' },
+    @{ id = 'P2'; what = 'Java 8 EPP 고친 판 8u513-perf'; expect = 0;
+       homes = @("$LAB\Java\jdk1.8.0_513-perf|JAVA_VERSION=`"1.8.0_513-perf`";OS_ARCH=`"amd64`"") },
+    @{ id = 'C4'; what = '일반 Java 8 8u511 — 이 CVE 의 줄이 아니다'; expect = 0;
+       homes = @("$LAB\Java\jdk1.8.0_511|JAVA_VERSION=`"1.8.0_511`";OS_ARCH=`"amd64`";BUILD_TYPE=`"commercial`"") },
+    # 사용자 프로필의 자리(0.2.0) — 게스트가 %USERPROFILE% 를 편다(원격 세션의 사용자 = 프로필 목록의 사용자).
+    @{ id = 'H1'; what = '사용자 프로필의 .jdks 에 받은 21.0.13'; expect = 2;
+       homes = @("%USERPROFILE%\.jdks\remedylab-21|JAVA_VERSION=`"21.0.13`";$x64") },
+    @{ id = 'H2'; what = 'Gradle 툴체인이 사용자 프로필에 받은 17.0.21'; expect = 2;
+       homes = @("%USERPROFILE%\.gradle\jdks\remedylab-17|JAVA_VERSION=`"17.0.21`";$x64") },
     @{ id = 'N1'; what = 'Java 없음'; expect = 0; homes = @() }
 )
+# 칸 수까지 본다 — 경우를 짓다 멈추면 남은 경우가 조용히 사라지고 '실패 0' 이 남는다.
+$expectedTotal = $cases.Count + @($cases | Where-Object { $_.screen }).Count
 
 # 게스트 쪽 놓기 · 치우기 — 경우마다 같은 세션에서 다시 정의한다(Invoke-Command 는 범위를 잇지 않는다).
 $guest = {
-    param($lab, $outside, $real, $homes, $service, $process, $serviceIn)
+    param($lab, $outside, $real, $homes, $service, $process, $serviceIn, $serviceText)
     function Clear-Layouts($lab, $outside) {
-        foreach ($s in @('RemedyLabJava', 'RemedyLabJavaIn')) {
+        foreach ($s in @('RemedyLabJava', 'RemedyLabJavaIn', 'RemedyLabJavaPath')) {
             if (Get-Service -Name $s -ErrorAction SilentlyContinue) { & sc.exe delete $s | Out-Null }
+        }
+        foreach ($jdks in @((Join-Path $env:USERPROFILE '.jdks'), (Join-Path $env:USERPROFILE '.gradle\jdks'))) {
+            foreach ($d in @(Get-ChildItem -LiteralPath $jdks -Directory -Filter 'remedylab-*' -ErrorAction SilentlyContinue)) {
+                [System.IO.Directory]::Delete('\\?\' + $d.FullName, $true)
+            }
         }
         $ours = @(Get-Process -Name java -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "$outside\*" })
         foreach ($p in $ours) {
@@ -121,7 +148,7 @@ $guest = {
     foreach ($line in @($homes)) {
         if (-not $line) { continue }
         $parts = ([string]$line) -split '\|', 2
-        $dir = $parts[0]
+        $dir = [Environment]::ExpandEnvironmentVariables($parts[0])
         $shape = $parts[1]
         New-Item -ItemType Directory -Force "$dir\bin" | Out-Null
         if ($shape -eq 'real') {
@@ -142,6 +169,9 @@ $guest = {
     }
     if ($serviceIn) {
         New-Service -Name 'RemedyLabJavaIn' -BinaryPathName ('"' + $serviceIn + '" -Xmx512m -jar app.jar') -StartupType Manual | Out-Null
+    }
+    if ($serviceText) {
+        New-Service -Name 'RemedyLabJavaPath' -BinaryPathName ('"' + $serviceText + '" -Xmx512m -jar app.jar') -StartupType Manual | Out-Null
     }
     if ($process) {
         New-Item -ItemType Directory -Force (Split-Path -Parent $process) | Out-Null
@@ -179,10 +209,17 @@ try {
     $hidden = @(Invoke-Command -Session $session -ArgumentList $LAB -ScriptBlock {
         param($lab)
         $found = @()
-        foreach ($root in @('C:\Program Files', 'C:\Program Files (x86)')) {
+        # 룰이 보는 자리 전부 — `C:\Program Files` 둘 · 전역 Scoop · 사용자 프로필의 다섯 자리(0.2.0).
+        $roots = @('C:\Program Files', 'C:\Program Files (x86)', 'C:\ProgramData\scoop\apps')
+        foreach ($u in @(Get-ChildItem -LiteralPath 'C:\Users' -Directory -ErrorAction SilentlyContinue)) {
+            foreach ($sub in @('.jdks', 'scoop\apps', 'AppData\Local\Programs', '.gradle\jdks', '.jabba\jdk')) {
+                $roots += "$($u.FullName)\$sub"
+            }
+        }
+        foreach ($root in $roots) {
             if (-not (Test-Path -LiteralPath $root)) { continue }
             $found += @(Get-ChildItem -LiteralPath $root -Recurse -Filter 'java.exe' -File -ErrorAction SilentlyContinue |
-                Where-Object { $_.Directory.Name -eq 'bin' -and $_.FullName -notlike "$lab\*" } |
+                Where-Object { $_.Directory.Name -eq 'bin' -and $_.FullName -notlike "$lab\*" -and $_.FullName -notlike '*\remedylab-*' } |
                 ForEach-Object { $_.FullName })
         }
         foreach ($p in $found) { Move-Item -LiteralPath $p -Destination ($p + '.remedylab-off') -Force }
@@ -194,7 +231,7 @@ try {
 
     foreach ($c in $cases) {
         Invoke-Command -Session $session -ScriptBlock $guest `
-            -ArgumentList $LAB, $OUTSIDE, "$g\real", $c.homes, $c.service, $c.process, $c.serviceIn
+            -ArgumentList $LAB, $OUTSIDE, "$g\real", $c.homes, $c.service, $c.process, $c.serviceIn, $c.serviceText
         $out = "$g\out\$($c.id)"
         $r = Invoke-GuestExe -Session $session -Path "$g\remedy.exe" -WorkingDirectory $g `
             -Arguments @('scan', '--plugin', "$g\plugins\$rule\plugin.yaml", '--out-dir', $out)
@@ -208,7 +245,8 @@ try {
 }
 finally {
     try {
-        Invoke-Command -Session $session -ArgumentList $hidden -ScriptBlock {
+        # 목록을 **한 인자로** 넘긴다 — `-ArgumentList $hidden` 은 배열을 인자 여럿으로 펴서 param 이 첫 항목만 받는다.
+        Invoke-Command -Session $session -ArgumentList (, $hidden) -ScriptBlock {
             param($list)
             foreach ($p in @($list)) {
                 if (Test-Path -LiteralPath ($p + '.remedylab-off')) {
@@ -218,8 +256,13 @@ finally {
         }
         Invoke-Command -Session $session -ArgumentList $LAB, $OUTSIDE, $g -ScriptBlock {
             param($lab, $outside, $g)
-            foreach ($s in @('RemedyLabJava', 'RemedyLabJavaIn')) {
+            foreach ($s in @('RemedyLabJava', 'RemedyLabJavaIn', 'RemedyLabJavaPath')) {
                 if (Get-Service -Name $s -ErrorAction SilentlyContinue) { & sc.exe delete $s | Out-Null }
+            }
+            foreach ($jdks in @((Join-Path $env:USERPROFILE '.jdks'), (Join-Path $env:USERPROFILE '.gradle\jdks'))) {
+                foreach ($d in @(Get-ChildItem -LiteralPath $jdks -Directory -Filter 'remedylab-*' -ErrorAction SilentlyContinue)) {
+                    [System.IO.Directory]::Delete('\\?\' + $d.FullName, $true)
+                }
             }
             $ours = @(Get-Process -Name java -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "$outside\*" })
             foreach ($p in $ours) {
@@ -232,6 +275,7 @@ finally {
         }
     } finally { Remove-PSSession $session }
 }
+if ($total -ne $expectedTotal) { Check 'N' '칸 수' $false ('{0}칸 — 기대 {1}' -f $total, $expectedTotal) }
 Note ("끝 {0}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'))
 Note ("판정 {0}/{1} · 실패 {2}" -f $pass, $total, $fail)
 if ($fail -eq 0) { exit 0 } else { exit 1 }

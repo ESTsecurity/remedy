@@ -27,11 +27,17 @@
 #      (Corretto 17.0.21.1.2 — `JAVA_VERSION="17.0.21.1"`)는 **0** · Java 11 은 **0** · Java 없는 기계 **0**.
 #      이 칸의 기대값은 2026-11-18 에 잰 이미지에 맞춘 것이다 — 배포사가 고친 빌드를 내면 그 칸이 실패하고, 그것이
 #      룰을 다시 낼 신호다(`RELEASE.md` 의 백포트 줄).
-#   S  판 줄만 바꾼 자리 채우기 19 — 고친 판 0(17.0.21.1 · 17.0.21.1.2 · 21.0.13.1 · 27.0.1.1 · 17.0.22) · 고친 판 미만 2 ·
+#   S  판 줄만 바꾼 자리 채우기 24 — 고친 판 0(17.0.21.1 · 17.0.21.1.2 · 21.0.13.1 · 27.0.1.1 · 17.0.22) · 고친 판 미만 2 ·
 #      ARM64 · ppc64le 0 · 지원이 끝난 줄 2 · 17.0.6 아래 0 · 개발 중인 줄 6 · 판 줄 없음 6 · release 없음 6 ·
-#      **아키텍처 줄이 없는 jlink 꼴과 모르는 아키텍처 값은 판으로 판정해 2** · Java 8 · 11 은 0
-#   P  프로세스 2 — 선언한 자리 밖에서 도는 java 6 · 지워진 java 를 실은 채 도는 프로세스 6
-#   화면 4 — 찾은 줄 아래 CVE 문구 · 두 출처가 갈리는 까닭 · 자리 밖 까닭 · Java 없는 기계에 미해소 경고 0
+#      **아키텍처 줄이 없는 jlink 꼴과 모르는 아키텍처 값은 판으로 판정해 2** · Java 8 · 11 은 0 ·
+#      **Java 8 EPP(-perf) 8u511 은 2**(표지가 판 줄에 · 런타임 판 줄에) · EPP 고친 판 8u513-perf 0 · 일반 8u511 0 ·
+#      GraalVM EE 21.3.20(바탕 Java 17.0.21) 2
+#   H  사용자마다 까는 자리 · 제품이 받는 자리 5 — SDKMAN(root) · IntelliJ 의 .jdks · asdf · Gradle 툴체인(/home 아래) ·
+#      Jenkins 도구(/var/lib/jenkins/tools) 에 깐 영향 판 2
+#   P  프로세스 · 서비스 4 — 선언한 자리 밖에서 도는 java 6 · 지워진 java 를 실은 채 도는 프로세스 6 ·
+#      **/usr/bin/java(대체 링크)로 띄우는 서비스는 자리 밖이 아니다**(0) · 자리 밖 경로의 서비스 6
+#   화면 6 — 찾은 줄 아래 CVE 문구 · 두 출처가 갈리는 까닭 · 자리 밖 까닭 · Java 없는 기계에 미해소 경고 0 · EPP 문구 ·
+#      사용자 홈의 경로
 #
 # 종료 코드: 0 = 전부 통과 · 1 = 하나라도 실패 · 2 = 인자 · 이미지가 모자라 시작하지 않았다.
 set -u
@@ -202,6 +208,30 @@ syn s19-ppc64le 0 "x86-64 가 아닌 빌드(ppc64le)" 'JAVA_VERSION="17.0.21"' '
 syn s15-jdk8 0 "Java 8 — 이 CVE 가 걸린 줄이 아니다" 'JAVA_VERSION="1.8.0_432"' 'OS_ARCH="x86_64"'
 syn s16-jdk11 0 "Java 11 — 이 CVE 가 걸린 줄이 아니다" 'JAVA_VERSION="11.0.33.1"' 'OS_ARCH="x86_64"'
 run_case s17-no-release debian:12 6 "sh /b/home.sh /opt/jdk --no-release" "release 파일이 없는 JDK 홈"
+# Java 8 은 Enterprise Performance Pack(-perf)만 영향 판이다(Oracle CPU 2026-11 의 위험 표 · 0.2.0). 표지가 판 줄에 있든
+# 다른 판 줄에 있든 잡고, 고친 판(8u513-perf)과 일반 8 빌드는 0 이다.
+syn s20-epp-runtime 2 "Java 8 EPP 8u511-perf — 런타임 판 줄의 -perf" 'JAVA_VERSION="1.8.0_511"' 'JAVA_RUNTIME_VERSION="1.8.0_511-perf-b33"' 'OS_ARCH="amd64"'
+syn s21-epp-inline 2 "Java 8 EPP — 판 줄의 -perf" 'JAVA_VERSION="1.8.0_511-perf"' 'OS_ARCH="amd64"'
+syn s22-epp-fixed 0 "Java 8 EPP 고친 판 8u513-perf" 'JAVA_VERSION="1.8.0_513-perf"' 'OS_ARCH="amd64"'
+syn s23-jdk8-511 0 "일반 Java 8 8u511 — 이 CVE 의 줄이 아니다" 'JAVA_VERSION="1.8.0_511"' 'OS_ARCH="amd64"' 'BUILD_TYPE="commercial"'
+syn s24-graalvm-ee 2 "GraalVM EE 21.3.20 — 바탕 Java 17.0.21 로 판정" 'JAVA_VERSION="17.0.21"' 'GRAALVM_VERSION="21.3.20"' 'OS_ARCH="x86_64"'
+
+echo "── H. 사용자마다 까는 자리(0.2.0) ──"
+run_case h01-sdkman debian:12 2 \
+    "sh /b/home.sh /root/.sdkman/candidates/java/17.0.21-tem 'JAVA_VERSION=\"17.0.21\"' 'OS_ARCH=\"x86_64\"'" \
+    "SDKMAN 이 root 에 깐 17.0.21"
+run_case h02-jdks debian:12 2 \
+    "mkdir -p /home/alice; sh /b/home.sh /home/alice/.jdks/temurin-21.0.13 'JAVA_VERSION=\"21.0.13\"' 'OS_ARCH=\"x86_64\"'" \
+    "IntelliJ 가 사용자 홈에 받은 21.0.13"
+run_case h03-asdf debian:12 2 \
+    "mkdir -p /home/bob; sh /b/home.sh /home/bob/.asdf/installs/java/temurin-25.0.5 'JAVA_VERSION=\"25.0.5\"' 'OS_ARCH=\"x86_64\"'" \
+    "asdf 가 사용자 홈에 깐 25.0.5"
+run_case h04-jenkins-tools debian:12 2 \
+    "sh /b/home.sh /var/lib/jenkins/tools/hudson.model.JDK/jdk17 'JAVA_VERSION=\"17.0.21\"' 'OS_ARCH=\"x86_64\"'" \
+    "Jenkins 가 도구로 받은 17.0.21"
+run_case h05-gradle debian:12 2 \
+    "mkdir -p /home/test; sh /b/home.sh /home/test/.gradle/jdks/eclipse_adoptium-21-amd64-linux 'JAVA_VERSION=\"21.0.13\"' 'OS_ARCH=\"x86_64\"'" \
+    "Gradle 툴체인이 사용자 홈에 받은 21.0.13"
 
 echo "── P. 프로세스 ──"
 # 선언한 자리 밖(/srv)에서 도는 java — `bin/java` 자리의 것은 sleep 이다.
@@ -212,6 +242,17 @@ run_case p01-outside debian:12 6 \
 run_case p02-stale debian:12 6 \
     "sh /b/home.sh /opt/jdk 'JAVA_VERSION=\"17.0.22\"' 'OS_ARCH=\"x86_64\"'; cp /opt/jdk/bin/java /opt/jdk/bin/java.old; /opt/jdk/bin/java 300 & sleep 1; rm -f /opt/jdk/bin/java; mv /opt/jdk/bin/java.old /opt/jdk/bin/java" \
     "지워진 java 를 실은 채 도는 프로세스 · 홈의 판은 고친 판"
+# 서비스 — 유닛에 적힌 글자 그대로가 경로다. 배포판의 대체 링크(/usr/bin/java)로 띄우는 서비스는 그 링크가 가리키는
+# /usr/lib/jvm 의 홈을 이미 보므로 자리 밖이 아니다(0.2.0 — 0.1.0 은 6 이었다). 자리 밖 경로의 서비스는 그대로 6 이다.
+unit() { # 유닛 이름 · ExecStart
+    printf "mkdir -p /etc/systemd/system/multi-user.target.wants; printf '[Unit]\\\\nDescription=app\\\\n[Service]\\\\nExecStart=%s\\\\n[Install]\\\\nWantedBy=multi-user.target\\\\n' >/etc/systemd/system/%s.service; ln -sf /etc/systemd/system/%s.service /etc/systemd/system/multi-user.target.wants/%s.service" "$2" "$1" "$1" "$1"
+}
+run_case p03-service-alternatives debian:12 0 \
+    "sh /b/home.sh /usr/lib/jvm/jdk-17 'JAVA_VERSION=\"17.0.22\"' 'OS_ARCH=\"x86_64\"'; ln -sf /usr/lib/jvm/jdk-17/bin/java /usr/bin/java; $(unit app '/usr/bin/java -jar /srv/app.jar')" \
+    "/usr/bin/java 로 띄우는 서비스 · 홈의 판은 고친 판"
+run_case p04-service-outside debian:12 6 \
+    "sh /b/home.sh /srv/app/jdk 'JAVA_VERSION=\"17.0.21\"' 'OS_ARCH=\"x86_64\"'; $(unit app '/srv/app/jdk/bin/java -jar /srv/app.jar')" \
+    "자리 밖 경로의 java 를 띄우는 서비스"
 
 echo "── 화면 ──"
 # 기록이 없으면 `?` 를 낸다 — 경우 이름을 잘못 적으면 "없다" 가 조용히 통과로 읽힌다(첫 회차에 그랬다).
@@ -231,9 +272,12 @@ check "S2 개발 중인 줄의 까닭 (s12)" "$(screen_has s12-future-line '빌�
 check "S3 자리 밖의 까닭 (p01)" "$(screen_has p01-outside '밖의 Java')" "주의 줄"
 check "S4 Java 없는 기계에 미해소 경고가 없다 (a13)" \
     "$([ "$(screen_has a13-no-java '해소되지 않았습니다')" = 0 ] && echo 1 || echo 0)" "주의 줄 0"
+check "S5 EPP 줄 아래에 EPP 문구 (s20)" \
+    "$(screen_under s20-epp-runtime 'release' 'Java SE 8 Enterprise Performance Pack')" "찾은 줄 · 문구"
+check "S6 사용자 홈의 홈을 찾은 줄 (h02)" "$(screen_has h02-jdks '/home/alice/.jdks/temurin-21.0.13')" "찾은 줄에 그 경로"
 
 # 칸 수까지 본다 — 경우를 짓다 멈추면 남은 경우가 조용히 사라지고 "실패 0" 이 남는다.
-EXPECTED=38 # A 13 · S 19 · P 2 · 화면 4
+EXPECTED=52 # A 13 · S 24 · H 5 · P 4 · 화면 6 (0.2.0 — 0.1.0 은 38)
 pass=$(awk -F"$TAB" '$2 == 1' "$OUT/checks.tsv" | wc -l)
 fail=$(awk -F"$TAB" '$2 != 1' "$OUT/checks.tsv" | wc -l)
 echo
