@@ -82,7 +82,8 @@ const MAX_CONFIG_BYTES: u64 = 4 * 1024 * 1024;
 /// 보이지 않는다** — 파일은 있는데 그 파일에서 온 줄이 0건이다.
 ///
 /// `Ok(None)` 을 거부가 아니라 잘림으로 세는 이유: 거부의 사유 줄은
-/// *"관리자 권한으로 다시 돌리십시오"* 인데 상한 초과에는 틀린 안내다.
+/// *"관리자 권한으로도 열리지 않습니다 …"* 인데 상한 초과에는 틀린 안내다. 점검은
+/// 그 거부를 건너뛰기도 한다(K2) — 상한 초과를 거기 넣으면 읽지 않은 설정이 조용히 빠진다.
 fn read_config<P: FsRead, T>(fs: &P, path: &str, h: &mut Harvest<T>) -> Option<Vec<u8>> {
     match fs.read_file(path, MAX_CONFIG_BYTES) {
         Ok(Some(b)) => Some(b),
@@ -973,7 +974,7 @@ mod tests {
         .unwrap();
         assert!(h.records.is_empty());
         assert!(h.truncated, "상한을 넘은 설정을 조용히 건너뛰었다");
-        // 거부가 아니다 — 그쪽 사유 줄은 "관리자 권한으로 다시 돌리십시오" 다.
+        // 거부가 아니다 — 그쪽 사유 줄은 "관리자 권한으로도 열리지 않습니다 …" 이고 점검은 그것을 건너뛴다(K2).
         assert_eq!(h.denied_dirs, 0);
     }
 

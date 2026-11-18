@@ -11,7 +11,7 @@
     리눅스 캡처의 `L` 절이 *없는 자리* 갈래를 갖고 있지만 Windows 에는 그
     화면도, **접근 거부 갈래**도 없었다.
 
-    # 열한 갈래를 함께 잰다 — 음성 대조가 있어야 뜻이 있다
+    # 열두 갈래를 함께 잰다 — 음성 대조가 있어야 뜻이 있다
 
     | | 무엇 | 기대 |
     |---|---|---|
@@ -26,6 +26,7 @@
     | ⑨ | ① 을 **재검사**(`verify --run`)로 | **6** · `치료를 확인하지 못했습니다` · 기록 `incomplete` |
     | ⑩ | ④ 를 **재검사**로 | **6** · 원인(본문 상한)이 화면과 회차 로그에 · 기록에 그 규칙 |
     | ⑪ | ③ 을 **재검사**로 | **0** · `치료 성공` · 기록 `clean` — 관측 필드 없음 |
+    | ⑫ | ② 를 **점검 룰**(`kind: check`)로 | **0** · `빼고 모두 확인했습니다` · 그 폴더 경로 — 건너뛰고 알린다 |
 
     ③ 이 핵심이다. 코드가 *"일부가 없는 것은 정상일 수 있다 — 플러그인이 여러
     벤더 폴더를 나열하면 설치되지 않은 제품의 경로는 당연히 없다"* 고 적어
@@ -52,6 +53,12 @@
     (`해소되지 않았습니다`)까지 본다 — 재검사는 그 목록을 버렸었고, 재부팅 회차에는
     회차 로그가 유일한 화면이다. `--run` 이 치료 전 증거를 읽을 계획은 빈 것을
     심는다(증거 0 — 남은 증거 갈래는 서지 않는다).
+
+    # ⑫ 는 2026-11-18 에 더했다 (결정 K2 — 점검은 관리자로도 안 열리는 폴더를 건너뛴다)
+
+    관리자 실행에서 Defender for Endpoint 의 폴더 하나가 Java 점검을 6 으로 떨어뜨렸다 — 다시 돌려도 열리지
+    않는 자리다. 점검 룰은 그 폴더를 빼고 말하며 그 경로를 `안내:` 로 적는다. ② 가 그대로 6 이어야 **치료 ·
+    탐지 쪽이 바뀌지 않았다**는 음성 대조가 된다.
 
     # ② 를 만들려면 둘을 함께 막아야 한다 (2026-09-13 실측)
 
@@ -132,17 +139,19 @@ New-Item -ItemType Directory -Path $hostOut -Force | Out-Null
 # YAML 여럿을 두는 것보다 한자리에서 읽히는 편이 낫고, 리눅스 캡처도 같은
 # 방식으로 실험 룰을 만든다.
 function Rule {
-    param([string] $Id, [string] $Ko, [string[]] $Roots)
+    param([string] $Id, [string] $Ko, [string[]] $Roots, [string] $Kind)
     # **홑따옴표 YAML 스칼라는 역슬래시를 해석하지 않는다.** 여기서 `\` 를
     # `\\` 로 바꾸면 경로가 `C:\\remedy-lab\\…` 가 되어 **언제나 없는 자리**가
     # 된다 — 첫 회차에서 그렇게 통과했고, 그것은 아무것도 재지 않은 초록이다.
     $rootLines = ($Roots | ForEach-Object { "  - '" + $_ + "'" }) -join "`n"
+    $kindLine = if ($Kind) { "kind: $Kind" } else { "" }
     @"
 schema_version: 1
 id: $Id
 version: 1.0.0
 min_core: '1.0.0'
 platforms: [windows]
+$kindLine
 name:
   ko: '$Ko'
   en: '$Id'
@@ -247,6 +256,7 @@ try {
     $rules = @{
         "obs-missing" = Rule "obs-missing" "관측 불완전 — 없는 자리" @("$LabRoot\no-such-place-1", "$LabRoot\no-such-place-2")
         "obs-denied"  = Rule "obs-denied" "관측 불완전 — 못 여는 자리" @($denyRoot)
+        "obs-denied-check" = Rule "obs-denied-check" "점검 — 못 여는 자리는 건너뛴다" @($denyRoot) "check"
         "obs-partial" = Rule "obs-partial" "일부만 없는 자리 — 정상" @("$LabRoot\obs-ok", "$LabRoot\no-such-place-1")
         "obs-yara-cap"  = YaraRule "obs-yara-cap" "관측 불완전 — 본문 상한" "1KB" "obs_marker"
         "obs-yara-ok"   = YaraRule "obs-yara-ok" "본문이 담긴 YARA — 맞는다" "1MB" "obs_marker"
@@ -296,18 +306,18 @@ try {
 
     $log = New-Object System.Collections.Generic.List[string]
     $res = @{}
-    # `obs-denied` 만은 **특권을 끈 자식**이 돌려야 한다. 나머지는 특권과
+    # `obs-denied` · `obs-denied-check` 만은 **특권을 끈 자식**이 돌려야 한다. 나머지는 특권과
     # 무관하므로 여느 때처럼 부른다.
     $runDenied = {
-        param($lab)
+        param($lab, $name)
         $ErrorActionPreference = "Continue"
-        $out = "$lab\obs-out\denied.txt"
+        $out = "$lab\obs-out\$name.txt"
         New-Item -ItemType Directory -Force "$lab\obs-out" | Out-Null
         Remove-Item $out -Force -ErrorAction SilentlyContinue
         & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass `
             -File "$lab\scripts\Run-Denied.ps1" `
-            -Bin "$lab\bin\remedy.exe" -Plugin "$lab\scripts\obs-denied.yaml" `
-            -OutDir "$lab\obs-out\obs-denied" -StateDir "$lab\obs-state" -OutFile $out | Out-Null
+            -Bin "$lab\bin\remedy.exe" -Plugin "$lab\scripts\$name.yaml" `
+            -OutDir "$lab\obs-out\$name" -StateDir "$lab\obs-state" -OutFile $out | Out-Null
         $rc = $LASTEXITCODE
         $text = if (Test-Path $out) { [System.IO.File]::ReadAllText($out, [System.Text.Encoding]::UTF8) } else { "" }
         [pscustomobject]@{ Text = $text; Code = $rc }
@@ -349,10 +359,10 @@ try {
         }
     }
 
-    foreach ($k in @("obs-missing", "obs-denied", "obs-partial", "obs-yara-cap", "obs-yara-ok", "obs-yara-miss", "obs-yara-order", "obs-yara-excl")) {
+    foreach ($k in @("obs-missing", "obs-denied", "obs-denied-check", "obs-partial", "obs-yara-cap", "obs-yara-ok", "obs-yara-miss", "obs-yara-order", "obs-yara-excl")) {
         Write-Step $k
-        $r = if ($k -eq "obs-denied") {
-            Invoke-Command -Session $session -ArgumentList $LabRoot -ScriptBlock $runDenied
+        $r = if ($k -like "obs-denied*") {
+            Invoke-Command -Session $session -ArgumentList $LabRoot, $k -ScriptBlock $runDenied
         } else {
             Invoke-Command -Session $session -ArgumentList $LabRoot, $k -ScriptBlock $run
         }
@@ -380,6 +390,12 @@ try {
     $checks += @{ name = "못 여는 자리 → 6"; pass = ($res['obs-denied'].Code -eq 6); detail = "exit=$($res['obs-denied'].Code)" }
     $checks += @{ name = "거부를 사유로 말한다"; pass = ($res['obs-denied'].Text -match '접근이 거부된 디렉터리'); detail = "denied_dirs" }
     $checks += @{ name = "잠긴 파일은 수집되지 않았다"; pass = ($res['obs-denied'].Text -notmatch 'UNIQUE-OBS-LOCKED'); detail = "못 본 것을 없는 것으로 만들지 않는다" }
+    # ⑫ — 같은 잠긴 폴더를 점검 룰로(K2). 사유 줄의 옛 괄호(`관리자 권한으로 다시`)가 다시 서면 실패다.
+    $dc = $res['obs-denied-check']
+    $checks += @{ name = "점검은 못 여는 폴더를 건너뛴다 → 0"; pass = ($dc.Code -eq 0); detail = "exit=$($dc.Code)" }
+    $checks += @{ name = "건너뛴 폴더를 알린다"; pass = ($dc.Text -match '빼고 모두 확인했습니다' -and $dc.Text -match 'obs-deny\\locked'); detail = "안내 · 경로" }
+    $checks += @{ name = "그때 '취약하지 않다' 가 선다"; pass = ($dc.Text -notmatch '말할 수 없|판단할 수 없' -and $dc.Text -notmatch '관리자 권한으로 다시'); detail = "사유 줄 없음" }
+    $checks += @{ name = "잠긴 파일은 수집되지 않았다(점검)"; pass = ($dc.Text -notmatch 'UNIQUE-OBS-LOCKED'); detail = "건너뛴 것은 보지 않았다" }
 
     # ④~⑧ — 같은 파일 · 같은 룰에서 갈래 하나만 바꾼다(머리말).
     $needle = "YARA 규칙 1개를 평가하지 못했습니다"

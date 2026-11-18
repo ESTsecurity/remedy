@@ -161,8 +161,8 @@ pub struct Observation {
     ///
     /// # 왜 `denied_dirs` 와도 나누는가
     ///
-    /// 그쪽 사유 줄은 *"접근이 거부된 디렉터리 열기 N회 (관리자 권한으로 다시
-    /// 돌리십시오)"* 다. 도달 불가 UNC·준비되지 않은 장치에는 **틀린 안내**이고,
+    /// 그쪽 사유 줄은 *"접근이 거부된 디렉터리 열기 N회 (관리자 권한으로도 열리지
+    /// 않는 폴더 …)"* 다. 도달 불가 UNC·준비되지 않은 장치에는 **틀린 안내**이고,
     /// 선언한 루트는 그 안의 어느 폴더가 아니라 **범위 그 자체**라 읽는 사람이
     /// 할 일이 다르다.
     ///
@@ -171,8 +171,8 @@ pub struct Observation {
     /// `missing_roots` 는 **전부**일 때만 불완전으로 센다(설치되지 않은 제품이
     /// 정상이므로). 이쪽은 하나로 족하다 — 못 본 자리가 하나라도 있으면 *"없다"*
     /// 를 말할 수 없다. **점검 플러그인도 면제가 아니다**: 면제는
-    /// [`Self::all_roots_missing`] 하나뿐이고, 범위가 이 기계에 없는 것과 범위를
-    /// 못 들여다본 것은 다르다.
+    /// [`Self::all_roots_missing`] 과 관리자로도 열리지 않는 폴더(K2)뿐이고, 범위가
+    /// 이 기계에 없는 것과 범위를 못 들여다본 것은 다르다.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub unreadable_roots: Vec<String>,
 
@@ -221,8 +221,8 @@ pub struct Observation {
     /// 재지 못한 것을 **잘못 지목한다**.
     ///
     /// **점검 플러그인도 면제가 아니다** — [`Self::is_complete_for_check`] 의
-    /// 면제는 [`Self::all_roots_missing`] 하나뿐이다. 범위가 이 기계에 없는 것과
-    /// 값을 읽지 못한 것은 다르다.
+    /// 면제는 [`Self::all_roots_missing`] 과 관리자로도 열리지 않는 폴더뿐이다.
+    /// 범위가 이 기계에 없는 것과 값을 읽지 못한 것은 다르다.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub unreadable_versions: Vec<String>,
 
@@ -287,6 +287,25 @@ fn clip(s: &str, max: usize) -> String {
     format!("{head}…")
 }
 
+/// 거부된 자리 하나가 **이 기계의 Windows 로컬 폴더**인가 — 점검이 건너뛰는 유일한 꼴이다(K2 ·
+/// [`Observation::check_skips_denied`]).
+///
+/// 드라이브 문자로 시작하는 경로(`C:\…`)이고 **지금 폴더로 보이며**(`Path::is_dir` — 목록은 못 읽어도 속성은 읽힌다:
+/// 표준 라이브러리는 속성 없이 열고, 그것도 거부되면 부모의 목록에서 읽는다) **지금 다시 열어도 권한 거부다**
+/// (`read_dir` 이 `PermissionDenied`). 수집할 때 폴더 목록을 열다 막힌 자리는 폴더이고, 읽다 막힌 **파일**(설정 · 본문)은
+/// 폴더가 아니다. 걷기는 목록 열기의 실패를 종류와 상관없이 거부로 세므로, 공유 위반 · 메모리 부족처럼 다시 돌리면
+/// 읽힐 실패를 여기서 거른다(2026-11-18 독립 검토) — 그때는 전처럼 6 이다. UNC 는 묻지 않는다(망이 느리면 멈춘다).
+/// 다른 기계에서 산출물을 다시 평가하면 그 자리가 없으니 건너뛰지 않는다 — 보수 쪽이다.
+fn is_admin_proof_folder(p: &str) -> bool {
+    let b = p.as_bytes();
+    b.len() >= 3
+        && b[0].is_ascii_alphabetic()
+        && b[1] == b':'
+        && b[2] == b'\\'
+        && std::path::Path::new(p).is_dir()
+        && matches!(std::fs::read_dir(p), Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied)
+}
+
 /// 프로세스 하나를 들여다보다 막힌 자리인가 — `/proc/<pid>/maps` 처럼 `/proc/` 다음이 수다.
 /// `/proc/net/unix` 같은 커널 표는 아니다.
 fn is_process_path(p: &str) -> bool {
@@ -332,10 +351,10 @@ impl Observation {
 
     /// 이 관측 위에서 **점검 플러그인이** "해당 없음" 을 말할 수 있는가.
     ///
-    /// [`Self::is_complete`] 와 **한 가지만** 다르다 — [`Self::all_roots_missing`]
-    /// 을 불완전으로 세지 않는다. 나머지(잘림 · 거부 · 미수집 subject · **못
-    /// 물어본 루트** · 미평가 YARA · 읽지 못한 버전)는 그대로다: 섞이면 여전히
-    /// 다 보지 못한 것이다.
+    /// [`Self::is_complete`] 와 **두 가지가** 다르다 — [`Self::all_roots_missing`]
+    /// 을 불완전으로 세지 않고, 관리자로도 열리지 않는 거부를 세지 않는다(아래 K2).
+    /// 나머지(잘림 · 미수집 subject · **못 물어본 루트** · 미평가 YARA · 읽지 못한
+    /// 버전 · 확인 필요)는 그대로다: 섞이면 여전히 다 보지 못한 것이다.
     ///
     /// # 왜 점검에서만 다른가 (B-6 · 2026-10-26)
     ///
@@ -354,14 +373,42 @@ impl Observation {
     /// **이 함수를 [`Self::is_complete`] 에 합치지 않는다.** 그쪽은 산출물 ·
     /// 기록 · `verify` 의 분류가 함께 보는 계약이고, 플러그인 종류를 아는 것은
     /// 그것을 부르는 쪽뿐이다.
+    ///
+    /// # 거부된 폴더도 세지 않는다 (2026-11-18 결정 K2)
+    ///
+    /// 수집은 관리자 문(`admin_gate`)을 지나야 돈다 — 그래서 남은 거부는 **관리자로도 열리지 않는 폴더**다(보안
+    /// 제품 · OS 가 잠근 자리 — 실측: 관리자 실행에서 `C:\Program Files\Windows Defender Advanced Threat Protection\
+    /// Classification\Configuration` 하나가 Java 점검을 6 으로 떨어뜨렸다. Defender for Endpoint 가 깔린 회사 PC
+    /// 마다 그렇다). 다시 돌려도 열리지 않으므로 점검에서는 **그 폴더를 건너뛰고 나머지로 말하며, 건너뛴 자리를
+    /// 알린다**(CLI 의 `note_skipped_denied`). 치료 · 탐지는 그대로 불완전이다 — 못 본 곳에서 *"없다"* 를 말하지
+    /// 않는다([`Self::is_complete`]). 건너뛰는 것은 Windows 의 로컬 폴더뿐이다 — 리눅스 · 파일 · 레지스트리 키 ·
+    /// 프로세스의 거부는 점검에서도 불완전이다([`Self::check_skips_denied`]).
     pub fn is_complete_for_check(&self) -> bool {
         !self.truncated
-            && self.denied_dirs == 0
+            && (self.denied_dirs == 0 || self.check_skips_denied())
             && self.uncollected_subjects.is_empty()
             && self.unreadable_roots.is_empty()
             && self.unevaluated_rules.is_empty()
             && self.unreadable_versions.is_empty()
             && self.unconfirmed.is_empty()
+    }
+
+    /// 점검이 이 관측의 거부를 **건너뛸 수 있는가**(K2) — 거부가 있고, 그것이 **모두 이 기계의 Windows 로컬 폴더**일 때
+    /// ([`is_admin_proof_folder`]). 결정이 말한 것은 *관리자로 돌렸는데도 열리지 않는 폴더* 하나다.
+    ///
+    /// **건너뛰지 않는 것:**
+    ///
+    /// - **리눅스의 거부 전부.** root 가 막히는 것은 컨테이너가 뗀 권한(`CAP_SYS_PTRACE` · `--cap-drop`)이거나 LSM 이라
+    ///   사람이 고칠 수 있다(프로세스 쪽 사유 줄이 `docker exec --privileged` 를 안내한다). 실측한 경우는 Windows 의
+    ///   Defender for Endpoint 폴더뿐이다.
+    /// - **읽지 못한 파일 · 레지스트리 키 · 프로세스(`pid N`).** 설정 파일 · 패키지 기록처럼 그것 하나가 판정의 유일한
+    ///   근거일 수 있다 — 건너뛰면 근거 0건으로 *"취약한 곳을 찾지 못했습니다"* 가 나간다(2026-11-18 독립 검토).
+    /// - **표본이 전수가 아닐 때**(`denied_paths` 가 `denied_dirs` 보다 짧다 · 상한 32). 보이지 않는 몫이 무엇인지 모른다 —
+    ///   모르는 것을 건너뛰지 않는다. 실측의 거부는 1곳이었다.
+    pub fn check_skips_denied(&self) -> bool {
+        self.denied_dirs > 0
+            && self.denied_paths.len() >= self.denied_dirs
+            && self.denied_paths.iter().all(|p| is_admin_proof_folder(p))
     }
 
     /// 불완전한 이유들. 사람에게 보여 줄 문장이다.
@@ -380,6 +427,8 @@ impl Observation {
     ///   Note: 'no threat' cannot be declared on this result:
     ///      - 접근이 거부된 디렉터리 열기 1회 (관리자 권한으로 다시 돌리십시오)
     /// ```
+    ///
+    /// (그때의 한국어 줄이다 — 괄호는 2026-11-18 에 고쳤다 · K2.)
     ///
     /// 종료 코드 6 을 받은 무인 배포가 다음에 무엇을 해야 하는지는 이 줄에만
     /// 있다. 한국어를 못 읽는 자리에서도 돌아야 한다.
@@ -405,6 +454,16 @@ impl Observation {
     /// 언어는 사람이 손으로 돌려 볼 때까지 아무도 보지 않는다 — 이 갭이
     /// 생긴 경위가 바로 그것이다.
     pub fn reasons_in(&self, lang: crate::i18n::Lang) -> Vec<String> {
+        self.reasons_with(lang, true)
+    }
+
+    /// **점검 플러그인의** 불완전 사유 — [`Self::reasons_in`] 에서 건너뛴 거부의 줄만 뺀다
+    /// ([`Self::check_skips_denied`] · K2). 건너뛴 자리는 부르는 쪽이 따로 알린다.
+    pub fn reasons_for_check_in(&self, lang: crate::i18n::Lang) -> Vec<String> {
+        self.reasons_with(lang, !self.check_skips_denied())
+    }
+
+    fn reasons_with(&self, lang: crate::i18n::Lang, denied: bool) -> Vec<String> {
         use crate::i18n::Lang;
         let mut out = Vec::new();
         if self.truncated {
@@ -416,7 +475,7 @@ impl Observation {
                 .to_string(),
             );
         }
-        if self.denied_dirs > 0 {
+        if denied && self.denied_dirs > 0 {
             let n = self.denied_dirs;
             let dirs = if n == 1 { "directory" } else { "directories" };
             // **프로세스가 막혔으면 안내를 덧붙인다** (2026-11-11 · 목표 remedy_PHP스캐너통합 결정 23).
@@ -433,17 +492,22 @@ impl Observation {
             let process = self.denied_paths.iter().any(|p| is_process_path(p));
             // 문장 구조가 언어마다 다르므로 조각을 이어 붙이지 않는다 —
             // 이어 붙이면 어느 한쪽이 반드시 어색해진다.
+            // **폴더 쪽 괄호는 2026-11-18 에 고쳤다(K2).** 전에는 *"관리자 권한으로 다시 돌리십시오"* 였는데, 수집은
+            // 관리자 문을 지나야 돌므로 이 줄을 보는 사람은 언제나 이미 관리자다 — 할 수 없는 일을 권했다. 앞의
+            // `접근이 거부된 디렉터리` 는 그대로다(하네스가 읽는다).
             out.push(match (lang, process) {
-                (Lang::Ko, false) => {
-                    format!("접근이 거부된 디렉터리 열기 {n}회 (관리자 권한으로 다시 돌리십시오)")
-                }
+                (Lang::Ko, false) => format!(
+                    "접근이 거부된 디렉터리 열기 {n}회 (관리자 권한으로도 열리지 않습니다 — 보안 제품이나 OS 가 \
+                     잠근 폴더일 수 있습니다)"
+                ),
                 (Lang::Ko, true) => format!(
                     "접근이 거부된 경로 {n}곳 — 다른 사용자의 프로세스를 들여다보지 못했습니다 \
                      (컨테이너 안이면 docker exec --privileged 로 들어가 다시 돌리십시오)"
                 ),
-                (Lang::En, false) => {
-                    format!("access was denied opening {n} {dirs} (run again as Administrator)")
-                }
+                (Lang::En, false) => format!(
+                    "access was denied opening {n} {dirs} (not readable even with administrator rights - a \
+                     security product or the OS may lock them)"
+                ),
                 (Lang::En, true) => {
                     let paths = if n == 1 { "path" } else { "paths" };
                     format!(
