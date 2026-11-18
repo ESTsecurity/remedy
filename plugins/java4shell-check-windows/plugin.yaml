@@ -16,6 +16,9 @@
 #
 # 공지의 위험 표가 이 CVE 가 걸린 줄을 **17 · 21 · 25 · 27** 로 적었고(8 · 11 칸은 비어 있다), 같은 날 나온 고친 판이
 # **17.0.21.1 · 21.0.13.1 · 25.0.5.1 · 27.0.1.1** 이다. 그래서 **고친 판 미만은 취약(2) · 고친 판 이상은 0** 이다.
+# **Java SE 8 은 Enterprise Performance Pack(`-perf` 빌드)만** 영향 판이다 — Oracle CPU 2026-11 의 Java SE 위험 표가 이
+# CVE 의 줄에 8u511b33-perf 를 적었고 고친 판은 8u513-perf 다(일반 8u511b33 은 같은 표의 다른 CVE 줄이다 · 0.2.0).
+# GraalVM(for JDK · Enterprise Edition 21.3)은 바탕 Java 의 `JAVA_VERSION` 으로 같은 판정을 받는다.
 # 배포사의 제 번호(Corretto-17.0.21.0.11 · Red_Hat-17.0.21.0.9)는 `JAVA_VERSION` 이 아니라 `IMPLEMENTOR_VERSION` 에
 # 있으므로(실측) 여기서 견주는 것은 상류 판이다. 17 줄은 **17.0.6 아래를 영향에서 뺀다**(x86-64 Base64 디코드 코드가 그
 # 판에 들어왔다 — JDK-8268276). 지원이 끝난 줄(18 ~ 20 · 22 ~ 24 · 26)은 같은 코드를 담았고 고친 판이 나오지 않으므로
@@ -33,11 +36,15 @@
 # - **아래 자리 밖에 풀어 둔 Java.** Windows 의 Java 는 설치 프로그램이 `C:\Program Files` 아래에 깔거나 제품이 함께
 #   담지만, zip 을 아무 폴더에나 풀어 쓰기도 한다. **돌고 있거나 서비스로 등록됐으면 찾아서 *확인 필요* 로 그 경로를
 #   적는다** — 그 파일은 열지 않는다. 멈춰 있는 것은 보지 않는다(레지스트리의 `JavaHome` 을 읽는 것은 실측한 키로
-#   다음 판에 더한다).
+#   다음 판에 더한다). 사용자마다 까는 자리(IntelliJ 가 받는 `.jdks` · Scoop · 사용자 프로그램 폴더)는 0.2.0 부터
+#   선언한 자리다. Oracle 설치 프로그램이 두는 `javapath` 의 `java.exe` 는 `C:\Program Files` 의 홈을 가리키는 길이라
+#   자리 밖으로 세지 않는다(0.2.0).
+# - `C:\Program Files` 아래에 **관리자도 열 수 없는 폴더**(Defender for Endpoint 의 설정 폴더 등)가 있으면 지금 코어는
+#   그 폴더 하나 때문에 '취약하지 않다' 를 말하지 않는다(확인 필요) — 나머지 폴더는 다 본다. 코어가 고칠 일이다.
 # - 애플리케이션이 제 안에 담아 쓰는 런타임(jar 안의 클래스).
 schema_version: 1
 id: java4shell-check-windows
-version: 0.1.0
+version: 0.2.0
 min_core: "1.21.0"  # product 는 1.21.0 · label 은 1.13.0 · file_names 는 1.11.0
 platforms: [windows]
 
@@ -57,9 +64,19 @@ references:
 # Java 런타임이 놓이는 자리 — 배포사 설치 프로그램(`C:\Program Files\Java` · `Eclipse Adoptium` · `Amazon Corretto` ·
 # `Microsoft` · `Zulu` · `BellSoft` · `SapMachine` 등이 전부 그 아래다)과 제품이 함께 담은 런타임. `file_names` 가 이
 # 자리에서 **이름이 맞는 파일만** 기록하므로 폴더를 걷기만 한다.
+#
+# 사용자마다 까는 JDK — `%ALLUSERPROFILES%` 로 모든 사용자를 본다: IntelliJ 가 받는 JDK(`.jdks`) · Scoop(`scoop\apps` · 전역은
+# `C:\ProgramData\scoop\apps`) · 사용자 프로그램 폴더(`AppData\Local\Programs` — JetBrains IDE 가 담아 쓰는 런타임 등) ·
+# Gradle 툴체인(`.gradle\jdks`) · jabba(0.2.0).
 scan_roots:
   - 'C:\Program Files'
   - 'C:\Program Files (x86)'
+  - 'C:\ProgramData\scoop\apps'
+  - '%ALLUSERPROFILES%\.jdks'
+  - '%ALLUSERPROFILES%\scoop\apps'
+  - '%ALLUSERPROFILES%\AppData\Local\Programs'
+  - '%ALLUSERPROFILES%\.gradle\jdks'
+  - '%ALLUSERPROFILES%\.jabba\jdk'
 
 file_names: ["release", "java.exe"]
 subjects: [file, process, service]
@@ -103,6 +120,20 @@ detect:
       ko: "CVE-2026-114938 의 영향 판입니다 — 고친 판(17.0.21.1 · 21.0.13.1 · 25.0.5.1 · 27.0.1.1) 이상으로 올리고 그 자바로 돌던 서비스를 다시 시작하십시오"
       en: "a build affected by CVE-2026-114938 - upgrade to a fixed release (17.0.21.1, 21.0.13.1, 25.0.5.1, 27.0.1.1) or later and restart the services that ran on it"
 
+  # Java SE 8 의 Enterprise Performance Pack — 판 줄의 업데이트 번호가 513 아래이고 어느 판 줄에든 `-perf` 표지가 있다(0.2.0).
+  - id: epp_affected
+    subject: file
+    from: "${java_bin.home}"
+    where:
+      all:
+        - { field: path, op: matches, value: '(?i)\\release$' }
+        - { yara: "rules/java.yar:java_epp_affected" }
+    exclude:
+      - { yara: "rules/java.yar:os_arch_not_x64" }
+    label:
+      ko: "CVE-2026-114938 의 영향 판(Java SE 8 Enterprise Performance Pack)입니다 — 8u513-perf 이상으로 올리고 그 자바로 돌던 서비스를 다시 시작하십시오"
+      en: "a build affected by CVE-2026-114938 (Java SE 8 Enterprise Performance Pack) - upgrade to 8u513-perf or later and restart the services that ran on it"
+
   - id: eol_line
     subject: file
     from: "${java_bin.home}"
@@ -142,12 +173,16 @@ detect:
       en: "this installation's version could not be read"
 
   # ── 선언한 자리 밖 ───────────────────────────────────────────────────────
+  # 선언한 자리 — `C:\Program Files` 둘 · 사용자 프로필의 세 자리. Oracle 설치 프로그램의 `javapath`(`C:\ProgramData\Oracle\
+  # Java\javapath`)는 `C:\Program Files\Java` 의 홈을 가리키는 길이라 함께 뺀다(0.2.0).
   - id: outside_process
     subject: process
     where:
       - { field: image_path, op: matches, value: '(?i)\\javaw?\.exe$' }
     exclude:
       - { field: image_path, op: matches, value: '(?i)^"?c:\\program files( \(x86\))?\\' }
+      - { field: image_path, op: matches, value: '(?i)^"?c:\\users(\\[^\\]+)\\(\.jdks|scoop\\apps|appdata\\local\\programs|\.gradle\\jdks|\.jabba\\jdk)\\' }
+      - { field: image_path, op: matches, value: '(?i)^"?c:\\programdata\\(oracle\\java\\javapath|scoop\\apps)\\' }
     label:
       ko: "이 룰이 보는 자리 밖에서 도는 Java 입니다"
       en: "a Java running outside the places this rule reads"
@@ -158,12 +193,14 @@ detect:
       - { field: image_path, op: matches, value: '(?i)\\javaw?\.exe' }
     exclude:
       - { field: image_path, op: matches, value: '(?i)^"?c:\\program files( \(x86\))?\\' }
+      - { field: image_path, op: matches, value: '(?i)^"?c:\\users(\\[^\\]+)\\(\.jdks|scoop\\apps|appdata\\local\\programs|\.gradle\\jdks|\.jabba\\jdk)\\' }
+      - { field: image_path, op: matches, value: '(?i)^"?c:\\programdata\\(oracle\\java\\javapath|scoop\\apps)\\' }
     label:
       ko: "이 룰이 보는 자리 밖의 Java 를 띄우는 서비스입니다"
       en: "a service that starts a Java outside the places this rule reads"
 
 verdict:
-  require: "java_bin and (affected or eol_line)"
+  require: "java_bin and (affected or epp_affected or eol_line)"
   unconfirmed:
     - when: "java_bin and future_line"
       why:
@@ -171,16 +208,16 @@ verdict:
         en: "a Java release still in development (path above) - the fix is in the source but the number of the build that carries it is not published yet, so whether this build is fixed cannot be stated; move to a fixed release of a supported line (17, 21, 25)"
     - when: "java_bin and no_version"
       why:
-        ko: "Java 런타임(위 경로)의 release 파일에서 판을 읽지 못했습니다 — 그 홈의 bin\\java.exe -version 으로 판을 확인하십시오(17.0.21.0.3 · 21.0.13.0.3 · 25.0.5.0.3 · 27.0.1.0.3 이하면 CVE-2026-114938 의 영향을 받습니다)"
-        en: "the version could not be read from the release file of the Java runtime above - check it with that home's bin\\java.exe -version (at or below 17.0.21.0.3, 21.0.13.0.3, 25.0.5.0.3 or 27.0.1.0.3 is affected by CVE-2026-114938)"
+        ko: "Java 런타임(위 경로)의 release 파일에서 판을 읽지 못했습니다 — 그 홈의 bin\\java.exe -version 으로 판을 확인하십시오(17.0.21.0.3 · 21.0.13.0.3 · 25.0.5.0.3 · 27.0.1.0.3 · Java 8 EPP 8u511-perf 이하면 CVE-2026-114938 의 영향을 받습니다)"
+        en: "the version could not be read from the release file of the Java runtime above - check it with that home's bin\\java.exe -version (at or below 17.0.21.0.3, 21.0.13.0.3, 25.0.5.0.3, 27.0.1.0.3 or Java 8 EPP 8u511-perf is affected by CVE-2026-114938)"
     - when: "java_bin and not release_file"
       why:
         ko: "Java 런타임(위 경로)에 판이 적힌 release 파일이 없습니다 — 그 홈의 bin\\java.exe -version 으로 판을 확인하십시오"
         en: "the Java runtime above has no release file recording its version - check it with that home's bin\\java.exe -version"
     - when: "outside_process or outside_service"
       why:
-        ko: "이 룰이 보는 자리(C:\\Program Files · C:\\Program Files (x86)) 밖의 Java(위 경로)가 돌고 있거나 서비스로 등록돼 그 판을 보지 않았습니다 — 그 경로의 bin\\java.exe -version 으로 확인하십시오"
-        en: "a Java outside the places this rule reads (C:\\Program Files, C:\\Program Files (x86)) is running or registered as a service, so its version was not checked - check it with that path's bin\\java.exe -version"
+        ko: "이 룰이 보는 자리(C:\\Program Files · C:\\Program Files (x86) · Scoop · 사용자 프로필의 .jdks · AppData\\Local\\Programs · .gradle\\jdks 등) 밖의 Java(위 경로)가 돌고 있거나 서비스로 등록돼 그 판을 보지 않았습니다 — 그 경로의 bin\\java.exe -version 으로 확인하십시오"
+        en: "a Java outside the places this rule reads (C:\\Program Files, C:\\Program Files (x86), Scoop, and .jdks, AppData\\Local\\Programs, .gradle\\jdks and the like in user profiles) is running or registered as a service, so its version was not checked - check it with that path's bin\\java.exe -version"
 
 # 판을 읽을 바이트는 수집 시점에 담겨 있어야 한다. `release` 는 1 ~ 15 KB 다(실측).
 collect_extra:

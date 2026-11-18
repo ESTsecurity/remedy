@@ -17,7 +17,7 @@
 // "17.0.6 이상" 으로 적는다).
 //
 // 아래 정규식은 손으로 적지 않았다. 점으로 나눈 판의 대소 비교를 정규식으로 옮기는 생성기가 쓰고, 그 생성기는 실측한 판
-// 문자열과 경계 값 52가지로 스스로를 검사한다(어긋남 0 · RELEASE.md 에 적었다).
+// 문자열과 경계 값 52가지 · Java 8 EPP 의 release 본문 13가지로 스스로를 검사한다(어긋남 0 · RELEASE.md 에 적었다).
 
 // 이 파일이 Java 런타임의 `release` 인가 — 판을 읽을 수 있는가의 기준이다.
 rule java_release_file
@@ -89,4 +89,18 @@ rule java_version_17_before_intrinsic
         $v = /JAVA_VERSION="17(\.0(\.([0-5])(\.[0-9]+)*)?)?"/
     condition:
         $v
+}
+
+// Java SE 8 의 Enterprise Performance Pack(`-perf` 빌드) — Oracle 이 이 CVE 의 영향 판으로 8u511b33-perf 를 적었고 고친 판은
+// 8u513-perf 다(Oracle CPU 2026-11 의 Java SE 위험 표 · Genians 2026-11-18). 일반 8 빌드(8u511b33)는 이 CVE 의 줄에 없다 —
+// 같은 표에서 다른 CVE 의 줄이다. 그래서 **판 줄의 업데이트 번호가 513 아래이고 어느 판 줄에든 `-perf` 표지가 있을 때**만이다.
+rule java_epp_affected
+{
+    meta:
+        description = "a Java SE 8 Enterprise Performance Pack (-perf) build below 8u513-perf"
+    strings:
+        $v = /JAVA_VERSION="1\.8\.0_([0-9]|[1-9][0-9]|[1-4][0-9][0-9]|50[0-9]|51[0-2])([^0-9"][^"]*)?"/
+        $perf = /1\.8\.0_[0-9]+[0-9b-]*perf/
+    condition:
+        $v and $perf
 }
