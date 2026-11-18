@@ -1,0 +1,241 @@
+#!/bin/bash
+# Java4Shell 점검 룰(java4shell-check-linux)을 배포판 · 배포사 이미지에서 잰다.
+#
+# 호스트(WSL)에서, 저장소 루트:
+#
+#   bash testbed/harness/linux/java4shell-verify.sh --bin <remedy> --plugins <java4shell-check-linux 가 든 폴더> \
+#        [--out <결과 폴더>]
+#
+# `--bin` 은 **musl 정적** remedy 다(`musl-dev-build.sh` 또는 내려받아 푼 꾸러미의 것). `--plugins` 는
+# `java4shell-check-linux/` 를 담은 폴더다 — 저장소 사본은 개발 키로 서명돼 있어 **개발 빌드**로, 배포 꾸러미의 사본은
+# 배포 키로 서명돼 있어 **공개한 실행 파일**로 잰다.
+#
+# 처음 한 번은 배포판 저장소에 닿아야 한다 — Java 를 깐 이미지를 지어 두고(`remedy-harness/java:*`), 다음부터는 그
+# 이미지를 쓴다. 배포사 이미지(`eclipse-temurin:*` · `amazoncorretto:*` · `tomcat:*`)는 미리 받아 둔다.
+#
+# # 무해한가
+#
+# **실검체가 없다.** 악용하는 것이 아니라 **판을 읽는** 룰이고, 이미지는 배포판 · 배포사가 낸 Java 를 그대로 깐 것이다.
+# 손으로 세우는 경우는 **자리 채우기**다 — JDK 홈의 모양(`bin/java` 와 `release`)만 맞춘 폴더이고, `bin/java` 자리에는
+# 무해한 `sleep` 을 복사해 둔다(판정에 쓰이는 것은 `release` 의 글자뿐이다). 경우마다 네트워크 없는 일회용 컨테이너에서
+# remedy 가 읽기만 한다.
+#
+# # 무엇을 재나
+#
+#   A  배포판 · 배포사 이미지 13 — 오늘 저장소에서 깐 판이 고친 판 미만이라 **2**(Debian 12 · Ubuntu 24.04 · 22.04 ·
+#      Rocky 9 · Alpine 3.22 · Amazon Linux 2023 의 Corretto · Temurin 17 · 21 · 25 · Corretto 21) · **실제 고친 빌드**
+#      (Corretto 17.0.21.1.2 — `JAVA_VERSION="17.0.21.1"`)는 **0** · Java 11 은 **0** · Java 없는 기계 **0**.
+#      이 칸의 기대값은 2026-11-18 에 잰 이미지에 맞춘 것이다 — 배포사가 고친 빌드를 내면 그 칸이 실패하고, 그것이
+#      룰을 다시 낼 신호다(`RELEASE.md` 의 백포트 줄).
+#   S  판 줄만 바꾼 자리 채우기 19 — 고친 판 0(17.0.21.1 · 17.0.21.1.2 · 21.0.13.1 · 27.0.1.1 · 17.0.22) · 고친 판 미만 2 ·
+#      ARM64 · ppc64le 0 · 지원이 끝난 줄 2 · 17.0.6 아래 0 · 개발 중인 줄 6 · 판 줄 없음 6 · release 없음 6 ·
+#      **아키텍처 줄이 없는 jlink 꼴과 모르는 아키텍처 값은 판으로 판정해 2** · Java 8 · 11 은 0
+#   P  프로세스 2 — 선언한 자리 밖에서 도는 java 6 · 지워진 java 를 실은 채 도는 프로세스 6
+#   화면 4 — 찾은 줄 아래 CVE 문구 · 두 출처가 갈리는 까닭 · 자리 밖 까닭 · Java 없는 기계에 미해소 경고 0
+#
+# 종료 코드: 0 = 전부 통과 · 1 = 하나라도 실패 · 2 = 인자 · 이미지가 모자라 시작하지 않았다.
+set -u
+RULE=java4shell-check-linux
+BIN=""
+PLUGINS=""
+OUT=""
+while [ $# -gt 0 ]; do
+    case $1 in
+        --bin) BIN=$2; shift 2 ;;
+        --plugins) PLUGINS=$2; shift 2 ;;
+        --out) OUT=$2; shift 2 ;;
+        *) echo "모르는 인자: $1" >&2; exit 2 ;;
+    esac
+done
+[ -n "$BIN" ] && [ -f "$BIN" ] || { echo "--bin <remedy> 가 필요하다" >&2; exit 2; }
+[ -n "$PLUGINS" ] && [ -d "$PLUGINS/$RULE" ] || { echo "--plugins <$RULE 가 든 폴더> 가 필요하다" >&2; exit 2; }
+command -v docker >/dev/null || { echo "docker 가 없다" >&2; exit 2; }
+for base in debian:12 ubuntu:24.04 ubuntu:22.04 rockylinux:9 alpine:3.22 amazonlinux:2023 \
+    eclipse-temurin:17-jre eclipse-temurin:21-jre eclipse-temurin:25-jre amazoncorretto:21 amazoncorretto:17 tomcat:9.0-jdk11; do
+    docker image inspect "$base" >/dev/null 2>&1 || { echo "$base 이미지가 없다 — docker pull $base" >&2; exit 2; }
+done
+[ -n "$OUT" ] || OUT="$(pwd)/testbed/harness/results/java4shell-$(date +%Y%m%d-%H%M%S)"
+mkdir -p "$OUT"
+OUT=$(cd "$OUT" && pwd)
+TAB=$(printf '\t')
+: >"$OUT/checks.tsv"
+
+check() { # 이름 · 1|0 · 메모
+    if [ "$2" = 1 ]; then printf '  OK   %-58s %s\n' "$1" "$3"
+    else printf '  실패 %-58s %s\n' "$1" "$3"; fi
+    printf '%s\t%s\t%s\n' "$1" "$2" "$3" >>"$OUT/checks.tsv"
+}
+
+# ── 이미지 — 배포판의 Java 를 깐다(망이 필요한 것은 여기뿐) ──────────────────────────────────────────
+IMG=remedy-harness/java
+prepare() { # 꼬리표 · 바탕 이미지 · 설치 명령
+    local tag=$1 base=$2 install=$3 name
+    docker image inspect "$IMG:$tag" >/dev/null 2>&1 && return 0
+    name="remedy-java-prep-$tag"
+    docker rm -f "$name" >/dev/null 2>&1
+    docker run --name "$name" "$base" sh -c "$install" >"$OUT/prepare-$tag.log" 2>&1 \
+        && docker commit "$name" "$IMG:$tag" >/dev/null
+    local rc=$?
+    docker rm -f "$name" >/dev/null 2>&1
+    return $rc
+}
+DEB='apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends'
+echo "── 이미지 ──"
+# 실제 고친 빌드 — `amazoncorretto:17` 의 지금 판이 그것이다(2026-11-18 실측 Corretto-17.0.21.1.2). 꼬리표를
+# 따로 붙여 두면 뒤에 그 이미지가 또 올라가도 이 칸이 가리키는 것이 바뀌지 않는다.
+docker image inspect "$IMG:corretto17-fixed" >/dev/null 2>&1 || docker tag amazoncorretto:17 "$IMG:corretto17-fixed"
+prepare debian12-jdk17 debian:12 "$DEB openjdk-17-jre-headless >/dev/null && dpkg-query -W openjdk-17-jre-headless" \
+    || { echo "debian12-jdk17 이미지를 짓지 못했다" >&2; exit 2; }
+prepare ubuntu2404-jdk21 ubuntu:24.04 "$DEB openjdk-21-jre-headless openjdk-17-jre-headless >/dev/null && dpkg-query -W 'openjdk-*-jre-headless'" \
+    || { echo "ubuntu2404-jdk21 이미지를 짓지 못했다" >&2; exit 2; }
+prepare ubuntu2204-jdk17 ubuntu:22.04 "$DEB openjdk-17-jre-headless >/dev/null && dpkg-query -W openjdk-17-jre-headless" \
+    || { echo "ubuntu2204-jdk17 이미지를 짓지 못했다" >&2; exit 2; }
+prepare rocky9-jdk rockylinux:9 'dnf -y -q install java-17-openjdk-headless java-21-openjdk-headless >/dev/null && rpm -q java-17-openjdk-headless java-21-openjdk-headless' \
+    || { echo "rocky9-jdk 이미지를 짓지 못했다" >&2; exit 2; }
+prepare alpine322-jdk21 alpine:3.22 'apk add --no-cache -q openjdk21-jre-headless openjdk17-jre-headless && apk info -v | grep openjdk' \
+    || { echo "alpine322-jdk21 이미지를 짓지 못했다" >&2; exit 2; }
+prepare al2023-corretto amazonlinux:2023 'dnf -y -q install java-21-amazon-corretto-headless java-17-amazon-corretto-headless >/dev/null && rpm -q java-21-amazon-corretto-headless java-17-amazon-corretto-headless' \
+    || { echo "al2023-corretto 이미지를 짓지 못했다" >&2; exit 2; }
+
+# 깐 판을 그 기계에서 읽어 둔다 — 이미지의 판이 영향 판이라는 전제가 깨지면 A 칸의 뜻이 사라진다.
+in_image() { docker run --rm --network none --entrypoint sh "$1" -c "$2" 2>/dev/null; }
+jv() { in_image "$1" 'for f in /usr/lib/jvm/*/release /opt/java/*/release; do [ -f "$f" ] && sed -n "s/^JAVA_VERSION=//p" "$f"; done | sort -u | tr "\n" " "'; }
+for t in debian12-jdk17 ubuntu2404-jdk21 ubuntu2204-jdk17 rocky9-jdk alpine322-jdk21 al2023-corretto; do
+    printf '%s' "$(jv "$IMG:$t")" >"$OUT/installed-$t.txt"
+done
+printf '%s' "$(jv "$IMG:corretto17-fixed")" >"$OUT/installed-corretto17-fixed.txt"
+for v in eclipse-temurin:17-jre eclipse-temurin:21-jre eclipse-temurin:25-jre amazoncorretto:21 tomcat:9.0-jdk11; do
+    printf '%s' "$(jv "$v")" >"$OUT/installed-$(echo "$v" | tr ':/' '__').txt"
+done
+
+# ── 경우 — 네트워크 없는 일회용 컨테이너 ────────────────────────────────────────────────────────────
+W=$(mktemp -d /tmp/remedy-java4shell.XXXXXX)
+cleanup() { # 컨테이너가 root 로 쓴 결과는 컨테이너로 지운다
+    docker run --rm --network none -v "$W:/w" alpine:3.22 rm -rf /w/b /w/cases >/dev/null 2>&1
+    rm -rf "$W"
+}
+trap cleanup EXIT
+mkdir -p "$W/b/plugins" "$W/cases"
+cp "$BIN" "$W/b/remedy"
+cp -r "$PLUGINS/$RULE" "$W/b/plugins/"
+
+# 자리 채우기 JDK 홈을 세우는 스크립트 — `bin/java` 자리에는 sleep 을 복사하고 `release` 는 준 글자를 쓴다.
+# 스크립트 파일로 두는 까닭: 준비 셸에 적으면 그 셸(컨테이너의 1번 프로세스)의 명령줄이 프로세스 수집에 기록돼
+# 결과 파일에 그 글자가 남는다.
+cat >"$W/b/home.sh" <<'HOME'
+set -e
+dir=$1
+shift
+mkdir -p "$dir/bin"
+cp /bin/sleep "$dir/bin/java"
+if [ "$1" = "--no-release" ]; then
+    echo "placed $dir (release 없음)"
+    exit 0
+fi
+: >"$dir/release"
+for line in "$@"; do
+    printf '%s\n' "$line" >>"$dir/release"
+done
+echo "placed $dir"
+HOME
+
+: >"$OUT/cases.tsv"
+run_case() { # 이름 · 이미지 · 기대 종료 코드 · 준비 셸 · 메모
+    local name=$1 image=$2 want=$3 setup=$4 note=$5 d="$W/cases/$1"
+    case "$image" in */*|*:*) ;; *) image="$IMG:$image" ;; esac
+    mkdir -p "$d"
+    docker run --rm --pull=never --network none -v "$W/b:/b:ro" -v "$d:/o" --entrypoint sh "$image" -c \
+        "$setup
+         REMEDY_LANG=ko LANG=C.UTF-8 /b/remedy scan --plugin /b/plugins/$RULE/plugin.yaml \
+             --out-dir /o/out >/o/screen.txt 2>&1; echo \$? >/o/rc; chmod -R a+rX /o" \
+        </dev/null >"$d/setup.log" 2>&1
+    local rc
+    rc=$(cat "$d/rc" 2>/dev/null)
+    printf '%s\t%s\t%s\t%s\n' "$name" "${rc:-?}" "$want" "$note" >>"$OUT/cases.tsv"
+    # 결과는 결과 폴더로 옮긴다 — 컨테이너가 root 로 쓴 자리는 끝에서 컨테이너가 지운다.
+    mkdir -p "$OUT/cases/$name"
+    cp "$d/screen.txt" "$d/rc" "$d/setup.log" "$OUT/cases/$name/" 2>/dev/null
+    find "$d/out" -name '*.json' -exec cp {} "$OUT/cases/$name/" \; 2>/dev/null
+    check "$name" "$([ "${rc:-?}" = "$want" ] && echo 1 || echo 0)" "종료 ${rc:-?} (기대 $want) · $note"
+}
+
+echo "── A. 배포판 · 배포사 이미지 ──"
+run_case a01-debian12 debian12-jdk17 2 ":" "Debian 12 openjdk-17 $(cat "$OUT/installed-debian12-jdk17.txt")"
+run_case a02-ubuntu2404 ubuntu2404-jdk21 2 ":" "Ubuntu 24.04 openjdk-17 · 21 $(cat "$OUT/installed-ubuntu2404-jdk21.txt")"
+run_case a03-ubuntu2204 ubuntu2204-jdk17 2 ":" "Ubuntu 22.04 openjdk-17 $(cat "$OUT/installed-ubuntu2204-jdk17.txt")"
+run_case a04-rocky9 rocky9-jdk 2 ":" "Rocky 9 java-17 · 21 $(cat "$OUT/installed-rocky9-jdk.txt")"
+run_case a05-alpine322 alpine322-jdk21 2 ":" "Alpine 3.22 openjdk17 · 21 $(cat "$OUT/installed-alpine322-jdk21.txt")"
+run_case a06-al2023-corretto al2023-corretto 2 ":" "Amazon Linux 2023 Corretto 17 · 21 $(cat "$OUT/installed-al2023-corretto.txt")"
+run_case a07-temurin17 eclipse-temurin:17-jre 2 ":" "Temurin 17 $(cat "$OUT/installed-eclipse-temurin_17-jre.txt")"
+run_case a08-temurin21 eclipse-temurin:21-jre 2 ":" "Temurin 21 $(cat "$OUT/installed-eclipse-temurin_21-jre.txt")"
+run_case a09-temurin25 eclipse-temurin:25-jre 2 ":" "Temurin 25 $(cat "$OUT/installed-eclipse-temurin_25-jre.txt")"
+run_case a10-corretto21 amazoncorretto:21 2 ":" "Corretto 21 이미지 $(cat "$OUT/installed-amazoncorretto_21.txt")"
+run_case a11-jdk11 tomcat:9.0-jdk11 0 ":" "Java 11 — 이 CVE 가 걸린 줄이 아니다 $(cat "$OUT/installed-tomcat_9.0-jdk11.txt")"
+run_case a12-corretto17-fixed corretto17-fixed 0 ":" "Corretto 17 고친 빌드 $(cat "$OUT/installed-corretto17-fixed.txt")"
+run_case a13-no-java debian:12 0 ":" "Java 없는 Debian 12"
+
+echo "── S. 판 줄만 바꾼 자리 채우기 ──"
+syn() { # 이름 · 기대 · 메모 · release 줄…
+    local name=$1 want=$2 note=$3
+    shift 3
+    local args=""
+    for line in "$@"; do args="$args '$line'"; done
+    run_case "$name" debian:12 "$want" "sh /b/home.sh /opt/jdk$args" "$note"
+}
+syn s01-fix-170211 0 "고친 판 17.0.21.1 (상류 패치 릴리스)" 'JAVA_VERSION="17.0.21.1"' 'OS_ARCH="x86_64"'
+syn s02-fix-1702112 0 "고친 판 17.0.21.1.2 (Corretto 꼴)" 'JAVA_VERSION="17.0.21.1.2"' 'OS_ARCH="x86_64"'
+syn s03-fix-17022 0 "그 뒤의 판 17.0.22" 'JAVA_VERSION="17.0.22"' 'OS_ARCH="x86_64"'
+syn s04-vuln-1702104 2 "고친 판 미만 17.0.21.0.4 (공지의 판 문자열보다 높다)" 'JAVA_VERSION="17.0.21.0.4"' 'OS_ARCH="x86_64"'
+syn s05-vuln-2101303 2 "고친 판 미만 21.0.13.0.3" 'JAVA_VERSION="21.0.13.0.3"' 'OS_ARCH="x86_64"'
+syn s06-fix-2101131 0 "고친 판 21.0.13.1" 'JAVA_VERSION="21.0.13.1"' 'OS_ARCH="x86_64"'
+syn s07-vuln-2701303 2 "고친 판 미만 27.0.1.0.3" 'JAVA_VERSION="27.0.1.0.3"' 'OS_ARCH="x86_64"'
+syn s08-fix-27011 0 "고친 판 27.0.1.1" 'JAVA_VERSION="27.0.1.1"' 'OS_ARCH="x86_64"'
+syn s09-arm64 0 "영향 판이지만 ARM64 빌드" 'JAVA_VERSION="17.0.21"' 'OS_ARCH="aarch64"'
+syn s10-eol-line 2 "지원이 끝난 줄 20.0.2" 'JAVA_VERSION="20.0.2"' 'OS_ARCH="x86_64"'
+syn s11-before-intrinsic 0 "17.0.5 — x86-64 Base64 디코드 코드가 들어오기 전" 'JAVA_VERSION="17.0.5"' 'OS_ARCH="x86_64"'
+syn s12-future-line 6 "아직 개발 중인 줄 28.0.1" 'JAVA_VERSION="28.0.1"' 'OS_ARCH="x86_64"'
+syn s13-no-version 6 "판 줄이 없는 release" 'IMPLEMENTOR="Acme"' 'OS_ARCH="x86_64"'
+# 실측한 꼴 — jlink 로 지은 런타임의 release 에는 판과 모듈 두 줄뿐이다(아키텍처 줄이 없다). 판으로 판정한다.
+syn s14-no-arch 2 "아키텍처 줄이 없는 release (jlink 꼴) — 판으로 판정" 'JAVA_VERSION="17.0.21"' 'MODULES="java.base java.logging"'
+syn s18-unknown-arch 2 "모르는 아키텍처 값 — 빼지 않고 판으로 판정" 'JAVA_VERSION="17.0.21"' 'OS_ARCH="hexagon"'
+syn s19-ppc64le 0 "x86-64 가 아닌 빌드(ppc64le)" 'JAVA_VERSION="17.0.21"' 'OS_ARCH="ppc64le"'
+syn s15-jdk8 0 "Java 8 — 이 CVE 가 걸린 줄이 아니다" 'JAVA_VERSION="1.8.0_432"' 'OS_ARCH="x86_64"'
+syn s16-jdk11 0 "Java 11 — 이 CVE 가 걸린 줄이 아니다" 'JAVA_VERSION="11.0.33.1"' 'OS_ARCH="x86_64"'
+run_case s17-no-release debian:12 6 "sh /b/home.sh /opt/jdk --no-release" "release 파일이 없는 JDK 홈"
+
+echo "── P. 프로세스 ──"
+# 선언한 자리 밖(/srv)에서 도는 java — `bin/java` 자리의 것은 sleep 이다.
+run_case p01-outside debian:12 6 \
+    "sh /b/home.sh /srv/app/jdk 'JAVA_VERSION=\"17.0.21\"' 'OS_ARCH=\"x86_64\"'; /srv/app/jdk/bin/java 300 &" \
+    "자리 밖에서 도는 java"
+# 올린 뒤 다시 시작하지 않은 꼴 — 띄운 뒤 그 파일을 지우면 커널이 경로에 ' (deleted)' 를 붙인다.
+run_case p02-stale debian:12 6 \
+    "sh /b/home.sh /opt/jdk 'JAVA_VERSION=\"17.0.22\"' 'OS_ARCH=\"x86_64\"'; cp /opt/jdk/bin/java /opt/jdk/bin/java.old; /opt/jdk/bin/java 300 & sleep 1; rm -f /opt/jdk/bin/java; mv /opt/jdk/bin/java.old /opt/jdk/bin/java" \
+    "지워진 java 를 실은 채 도는 프로세스 · 홈의 판은 고친 판"
+
+echo "── 화면 ──"
+# 기록이 없으면 `?` 를 낸다 — 경우 이름을 잘못 적으면 "없다" 가 조용히 통과로 읽힌다(첫 회차에 그랬다).
+screen_has() { # 경우 · 글자
+    [ -f "$OUT/cases/$1/screen.txt" ] || { echo '?'; return; }
+    grep -qF "$2" "$OUT/cases/$1/screen.txt" && echo 1 || echo 0
+}
+# 찾은 줄 **바로 아래 줄**이 그 문구다(코어 1.13.0 의 `label`).
+screen_under() { # 경우 · 찾은 줄에 든 글 · 바로 아래 줄에 든 글
+    [ -f "$OUT/cases/$1/screen.txt" ] || { echo '?'; return; }
+    awk -v a="$2" -v b="$3" 'hit && index($0, b) { ok = 1 } { hit = index($0, a) > 0 } END { exit !ok }' \
+        "$OUT/cases/$1/screen.txt" && echo 1 || echo 0
+}
+check "S1 영향 판 줄 아래에 CVE 문구 (a01)" \
+    "$(screen_under a01-debian12 'release' 'CVE-2026-114938 의 영향 판입니다')" "찾은 줄 · 문구"
+check "S2 개발 중인 줄의 까닭 (s12)" "$(screen_has s12-future-line '빌드 번호가 아직 공개되지 않아')" "주의 줄"
+check "S3 자리 밖의 까닭 (p01)" "$(screen_has p01-outside '밖의 Java')" "주의 줄"
+check "S4 Java 없는 기계에 미해소 경고가 없다 (a13)" \
+    "$([ "$(screen_has a13-no-java '해소되지 않았습니다')" = 0 ] && echo 1 || echo 0)" "주의 줄 0"
+
+# 칸 수까지 본다 — 경우를 짓다 멈추면 남은 경우가 조용히 사라지고 "실패 0" 이 남는다.
+EXPECTED=38 # A 13 · S 19 · P 2 · 화면 4
+pass=$(awk -F"$TAB" '$2 == 1' "$OUT/checks.tsv" | wc -l)
+fail=$(awk -F"$TAB" '$2 != 1' "$OUT/checks.tsv" | wc -l)
+echo
+echo "통과 $pass · 실패 $fail  (전체 $((pass + fail)) / 기대 $EXPECTED)" | tee "$OUT/verdict.txt"
+[ "$fail" = 0 ] && [ "$((pass + fail))" = "$EXPECTED" ]
