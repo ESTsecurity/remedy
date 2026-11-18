@@ -51,6 +51,7 @@
 |---|---|---|---|---|
 | Apache HTTP/2 점검 (CVE-2026-119618) | 찾기만 합니다 | `apache-http2-check-windows` 0.1.1 | `apache-http2-check-linux` 0.1.2 | [httpd.apache.org](https://httpd.apache.org/security/vulnerabilities_24.html) |
 | EvilAI(Locust) 제거 | 찾아서 치료합니다 (복원할 수 있습니다) | `evilai-locust` 0.2.0 | — | [www.virustotal.com](https://www.virustotal.com/gui/search/engines%3Ameadowlocust) |
+| Java4Shell 점검 (CVE-2026-114938) | 찾기만 합니다 | `java4shell-check-windows` 0.1.0 | `java4shell-check-linux` 0.1.0 | [openjdk.org](https://openjdk.org/groups/vulnerability/advisories/2026-11-17) |
 | Log4j 점검 (CVE-2021-44228 등) | 찾기만 합니다 | `log4j-check` 0.2.1 | `log4j-check` 0.2.1 | [logging.apache.org](https://logging.apache.org/security.html) |
 | Node2Shell 점검 (CVE-2026-111497) | 찾기만 합니다 | `node2shell-check-windows` 0.4.1 | `node2shell-check-linux` 0.6.1 | [nodejs.org](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases) |
 | PHP 세션 업로드 진행 설정 점검 (CVE-2026-115560) | 찾기만 합니다 | `php-session-check-windows` 0.4.1 | `php-session-check-linux` 0.5.1 | [www.php.net](https://www.php.net/archive/2026.php) |
@@ -94,6 +95,7 @@
 | Ebury (sshd) | Linux | [찾았을 때 할 일](docs/위협별-안내.md#ebury--리눅스-서버의-sshd-찾기만-합니다) |
 | EvilAI(Locust) | Windows | [치료 뒤 할 일](docs/위협별-안내.md#evilailocust--windows-pc) |
 | Log4j | Windows · Linux | [점검 결과 읽기](docs/위협별-안내.md#log4j--자바-라이브러리-점검만-합니다) |
+| Java — Java4Shell | Windows · Linux | [점검 결과 읽기](docs/위협별-안내.md#java--자바-런타임-점검만-합니다) |
 | OpenSSH (Alpine) | Linux | [점검 결과 읽기](docs/위협별-안내.md#openssh--alpine-의-sshd-점검만-합니다) |
 | Apache HTTP/2 | Windows · Linux | [점검 결과 읽기](docs/위협별-안내.md#apache--웹서버의-http2-점검만-합니다) |
 | Node.js — Node2Shell | Windows · Linux | [점검 결과 읽기](docs/위협별-안내.md#nodejs--node2shell-점검만-합니다) |

@@ -1,0 +1,187 @@
+# Java4Shell 점검 — Windows (CVE-2026-114938)
+#
+# **고치지 않는다.** 이 결함은 Java 런타임 안에 있고 메우는 것은 그 런타임을 낸 곳의 일이다. 점검의 답은 **판 하나**다.
+#
+# # 어떻게 판을 읽나
+#
+# JDK · JRE 이미지는 제 홈에 `release` 라는 텍스트 파일을 두고 그 안에 `JAVA_VERSION="17.0.21"` 줄이 있다 — Windows 판도
+# 같다(실측 2026-11-18 · Eclipse Temurin 17.0.21+9 의 Windows x64 zip: `jdk-17.0.21+9\bin\java.exe` 와 같은 폴더의
+# `release` 에 `JAVA_VERSION="17.0.21"` · `OS_ARCH="x86_64"` · `OS_NAME="Windows"`). 확장자가 없어 코어의 설정
+# 수집(`text_config`)이 닿지 않으므로 **파일 본문**으로 읽는다(`rules/java.yar` — 리눅스 룰과 같은 파일이다).
+#
+# 홈을 가리키는 것은 그 안의 `bin\java.exe` 다 — `release` 라는 이름만으로는 Java 와 무관한 파일도 걸리므로, **`bin\java.exe`
+# 가 있는 폴더의 `release` 만** 본다(`capture` + `from`).
+#
+# # 판정
+#
+# 공지의 위험 표가 이 CVE 가 걸린 줄을 **17 · 21 · 25 · 27** 로 적었고(8 · 11 칸은 비어 있다), 같은 날 나온 고친 판이
+# **17.0.21.1 · 21.0.13.1 · 25.0.5.1 · 27.0.1.1** 이다. 그래서 **고친 판 미만은 취약(2) · 고친 판 이상은 0** 이다.
+# 배포사의 제 번호(Corretto-17.0.21.0.11 · Red_Hat-17.0.21.0.9)는 `JAVA_VERSION` 이 아니라 `IMPLEMENTOR_VERSION` 에
+# 있으므로(실측) 여기서 견주는 것은 상류 판이다. 17 줄은 **17.0.6 아래를 영향에서 뺀다**(x86-64 Base64 디코드 코드가 그
+# 판에 들어왔다 — JDK-8268276). 지원이 끝난 줄(18 ~ 20 · 22 ~ 24 · 26)은 같은 코드를 담았고 고친 판이 나오지 않으므로
+# 취약으로 내고 지원되는 줄로 올리라고 적는다. 아직 개발 중인 줄(28)은 고친 빌드 번호가 없어 **확인 필요(6)** 다.
+#
+# 32비트 빌드와 ARM64 빌드는 영향이 없다(결함이 x86-64 의 AVX-512 VBMI 경로에 있다) — `release` 의 `OS_ARCH` 가
+# **x86-64 가 아닌 값으로 적혀 있을 때만** 뺀다. 그 줄이 아예 없는 런타임이 있기 때문이다(jlink 로 지은 런타임 — 실측
+# 2026-11-18: 랩 기계가 담아 쓰는 Java 21 의 `release` 에는 `JAVA_VERSION` 과 `MODULES` 두 줄뿐이었다). 그런 홈을
+# '모른다' 로 내면 실제로 취약한 기계가 확인 필요로 묻히므로 **판으로 판정한다**. **CPU 가 그 명령 집합을 가졌는지는
+# 판정에 넣지 않는다**: 가상 머신은 다른 호스트로 옮겨 가고, 그때 CPU 가 바뀐다. 완화 옵션(`-XX:-UseBASE64Intrinsics` ·
+# `-XX:UseAVX=2`)도 판정에 넣지 않는다 — 그 옵션을 넣는 자리가 제품마다 달라 다 볼 수 없다. 둘은 찾은 줄 아래 문구로 알린다.
+#
+# # 이 룰이 보지 않는 것
+#
+# - **아래 자리 밖에 풀어 둔 Java.** Windows 의 Java 는 설치 프로그램이 `C:\Program Files` 아래에 깔거나 제품이 함께
+#   담지만, zip 을 아무 폴더에나 풀어 쓰기도 한다. **돌고 있거나 서비스로 등록됐으면 찾아서 *확인 필요* 로 그 경로를
+#   적는다** — 그 파일은 열지 않는다. 멈춰 있는 것은 보지 않는다(레지스트리의 `JavaHome` 을 읽는 것은 실측한 키로
+#   다음 판에 더한다).
+# - 애플리케이션이 제 안에 담아 쓰는 런타임(jar 안의 클래스).
+schema_version: 1
+id: java4shell-check-windows
+version: 0.1.0
+min_core: "1.21.0"  # product 는 1.21.0 · label 은 1.13.0 · file_names 는 1.11.0
+platforms: [windows]
+
+kind: check
+product: Java
+
+name:
+  ko: "Java4Shell 점검 (CVE-2026-114938)"
+  en: "Java4Shell check (CVE-2026-114938)"
+
+references:
+  - "https://openjdk.org/groups/vulnerability/advisories/2026-11-17"
+  - "CVE-2026-114938"
+  - "https://www.oracle.com/security-alerts/cspunov2026.html"
+  - "https://calif.io/java4shell/"
+
+# Java 런타임이 놓이는 자리 — 배포사 설치 프로그램(`C:\Program Files\Java` · `Eclipse Adoptium` · `Amazon Corretto` ·
+# `Microsoft` · `Zulu` · `BellSoft` · `SapMachine` 등이 전부 그 아래다)과 제품이 함께 담은 런타임. `file_names` 가 이
+# 자리에서 **이름이 맞는 파일만** 기록하므로 폴더를 걷기만 한다.
+scan_roots:
+  - 'C:\Program Files'
+  - 'C:\Program Files (x86)'
+
+file_names: ["release", "java.exe"]
+subjects: [file, process, service]
+
+detect:
+  # ── 설치본 — `bin\java.exe` 가 홈을 가리킨다 ─────────────────────────────
+  - id: java_bin
+    subject: file
+    where:
+      all:
+        - { field: path, op: matches, value: '(?i)\\bin\\java\.exe$' }
+        - { field: sha256, op: exists }
+    capture:
+      home: "path | dirname | dirname"
+    label:
+      ko: "Java 런타임 설치본입니다"
+      en: "a Java runtime installation"
+
+  # 그 홈의 `release` — 판을 읽는 파일이다. 본문은 아래 `collect_extra` 가 담는다.
+  - id: release_file
+    subject: file
+    from: "${java_bin.home}"
+    where:
+      - { field: path, op: matches, value: '(?i)\\release$' }
+    label:
+      ko: "이 설치본의 판이 적힌 파일입니다"
+      en: "the file that records this installation's version"
+
+  # ── 판정 — 영향 판 ───────────────────────────────────────────────────────
+  - id: affected
+    subject: file
+    from: "${java_bin.home}"
+    where:
+      all:
+        - { field: path, op: matches, value: '(?i)\\release$' }
+        - { yara: "rules/java.yar:java_version_affected" }
+    exclude:
+      - { yara: "rules/java.yar:os_arch_not_x64" }
+      - { yara: "rules/java.yar:java_version_17_before_intrinsic" }
+    label:
+      ko: "CVE-2026-114938 의 영향 판입니다 — 고친 판(17.0.21.1 · 21.0.13.1 · 25.0.5.1 · 27.0.1.1) 이상으로 올리고 그 자바로 돌던 서비스를 다시 시작하십시오"
+      en: "a build affected by CVE-2026-114938 - upgrade to a fixed release (17.0.21.1, 21.0.13.1, 25.0.5.1, 27.0.1.1) or later and restart the services that ran on it"
+
+  - id: eol_line
+    subject: file
+    from: "${java_bin.home}"
+    where:
+      all:
+        - { field: path, op: matches, value: '(?i)\\release$' }
+        - { yara: "rules/java.yar:java_version_eol_line" }
+    exclude:
+      - { yara: "rules/java.yar:os_arch_not_x64" }
+    label:
+      ko: "지원이 끝난 Java 판입니다 — CVE-2026-114938 의 고친 판이 나오지 않습니다. 지원되는 판(17 · 21 · 25)으로 올리십시오"
+      en: "a Java release past its support - no fixed build for CVE-2026-114938 will come; move to a supported release (17, 21, 25)"
+
+  # ── 모르는 자리 ──────────────────────────────────────────────────────────
+  - id: future_line
+    subject: file
+    from: "${java_bin.home}"
+    where:
+      all:
+        - { field: path, op: matches, value: '(?i)\\release$' }
+        - { yara: "rules/java.yar:java_version_future_line" }
+    exclude:
+      - { yara: "rules/java.yar:os_arch_not_x64" }
+    label:
+      ko: "아직 개발 중인 Java 판입니다 — 이 결함을 고친 빌드 번호가 공개되지 않았습니다"
+      en: "a Java release still in development - the number of the build that carries the fix is not published yet"
+
+  - id: no_version
+    subject: file
+    from: "${java_bin.home}"
+    where:
+      - { field: path, op: matches, value: '(?i)\\release$' }
+    exclude:
+      - { yara: "rules/java.yar:java_release_file" }
+    label:
+      ko: "이 설치본의 판을 읽지 못했습니다"
+      en: "this installation's version could not be read"
+
+  # ── 선언한 자리 밖 ───────────────────────────────────────────────────────
+  - id: outside_process
+    subject: process
+    where:
+      - { field: image_path, op: matches, value: '(?i)\\javaw?\.exe$' }
+    exclude:
+      - { field: image_path, op: matches, value: '(?i)^"?c:\\program files( \(x86\))?\\' }
+    label:
+      ko: "이 룰이 보는 자리 밖에서 도는 Java 입니다"
+      en: "a Java running outside the places this rule reads"
+
+  - id: outside_service
+    subject: service
+    where:
+      - { field: image_path, op: matches, value: '(?i)\\javaw?\.exe' }
+    exclude:
+      - { field: image_path, op: matches, value: '(?i)^"?c:\\program files( \(x86\))?\\' }
+    label:
+      ko: "이 룰이 보는 자리 밖의 Java 를 띄우는 서비스입니다"
+      en: "a service that starts a Java outside the places this rule reads"
+
+verdict:
+  require: "java_bin and (affected or eol_line)"
+  unconfirmed:
+    - when: "java_bin and future_line"
+      why:
+        ko: "아직 개발 중인 Java 판입니다(위 경로) — 이 결함의 수정이 소스에는 들어갔지만 그것을 담은 빌드 번호가 아직 공개되지 않아 이 빌드가 고쳐졌는지 말할 수 없습니다. 지원되는 판(17 · 21 · 25)의 고친 판으로 옮기십시오"
+        en: "a Java release still in development (path above) - the fix is in the source but the number of the build that carries it is not published yet, so whether this build is fixed cannot be stated; move to a fixed release of a supported line (17, 21, 25)"
+    - when: "java_bin and no_version"
+      why:
+        ko: "Java 런타임(위 경로)의 release 파일에서 판을 읽지 못했습니다 — 그 홈의 bin\\java.exe -version 으로 판을 확인하십시오(17.0.21.0.3 · 21.0.13.0.3 · 25.0.5.0.3 · 27.0.1.0.3 이하면 CVE-2026-114938 의 영향을 받습니다)"
+        en: "the version could not be read from the release file of the Java runtime above - check it with that home's bin\\java.exe -version (at or below 17.0.21.0.3, 21.0.13.0.3, 25.0.5.0.3 or 27.0.1.0.3 is affected by CVE-2026-114938)"
+    - when: "java_bin and not release_file"
+      why:
+        ko: "Java 런타임(위 경로)에 판이 적힌 release 파일이 없습니다 — 그 홈의 bin\\java.exe -version 으로 판을 확인하십시오"
+        en: "the Java runtime above has no release file recording its version - check it with that home's bin\\java.exe -version"
+    - when: "outside_process or outside_service"
+      why:
+        ko: "이 룰이 보는 자리(C:\\Program Files · C:\\Program Files (x86)) 밖의 Java(위 경로)가 돌고 있거나 서비스로 등록돼 그 판을 보지 않았습니다 — 그 경로의 bin\\java.exe -version 으로 확인하십시오"
+        en: "a Java outside the places this rule reads (C:\\Program Files, C:\\Program Files (x86)) is running or registered as a service, so its version was not checked - check it with that path's bin\\java.exe -version"
+
+# 판을 읽을 바이트는 수집 시점에 담겨 있어야 한다. `release` 는 1 ~ 15 KB 다(실측).
+collect_extra:
+  - { ref: release_file, content: true }

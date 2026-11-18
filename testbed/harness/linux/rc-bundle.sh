@@ -19,7 +19,7 @@
 #
 # # 단계
 #
-#   하네스    engine(invoke-linux-verify) · cwpdoor(메뉴 Ctrl+C 포함) · ebury · log4j · openssh · apache · tomcat ·
+#   하네스    engine(invoke-linux-verify) · cwpdoor(메뉴 Ctrl+C 포함) · ebury · log4j · openssh · apache · java4shell · tomcat ·
 #             net-apache(remedy-net 의 이미지 · 컨테이너 Apache — `net-apache-verify.sh` · 코어 1.18.0) — B 의 정적 실행
 #             파일과 B 꾸러미의 **배포 키로 서명된** 룰 · 판정 기준으로. 새 룰에 하네스가 생기면 여기에 한 줄 더한다
 #   A/B       ab-installs(실제 설치 21) · ab-changed(패키지와 다른 실행 파일) · ab-outside(선언 밖 · 도는 프로세스) ·
@@ -64,7 +64,8 @@ command -v docker >/dev/null || { echo "docker 가 없다" >&2; exit 2; }
 NEED="debian:12 ubuntu:24.04 alpine:3.22 centos:7 almalinux:8 rockylinux:8 rockylinux:9 oraclelinux:8 oraclelinux:9
 amazonlinux:2 amazonlinux:2023 opensuse/leap:15.6 registry.access.redhat.com/ubi9/ubi:latest php:8.3.35-cli php:8.3.36-cli
 php:8.3.36-fpm php:8.2-apache node:22.18.0-bookworm-slim node:22.23.4-bookworm-slim tomcat:9.0-jdk11 docker:dind
-httpd:2.4.65 httpd:2.4.71"
+httpd:2.4.65 httpd:2.4.71 eclipse-temurin:17-jre eclipse-temurin:21-jre eclipse-temurin:25-jre amazoncorretto:21
+amazoncorretto:17"
 missing=""
 for i in $NEED; do docker image inspect "$i" >/dev/null 2>&1 || missing="$missing $i"; done
 if [ -n "$missing" ]; then
@@ -168,6 +169,7 @@ step ebury by_exit bash $L/ebury-verify.sh --bin "$X/remedy" --plugins "$X/plugi
 step log4j by_exit bash $L/log4j-verify.sh --bin "$X/remedy" --plugins "$X/plugins" --jars "$INPUTS/jars" --out "$OUT/log4j"
 step openssh by_exit bash $L/openssh-verify.sh --bin "$X/remedy" --plugins "$X/plugins" --out "$OUT/openssh"
 step apache by_exit bash $L/apache-verify.sh --bin "$X/remedy" --plugins "$X/plugins" --out "$OUT/apache"
+step java4shell by_exit bash $L/java4shell-verify.sh --bin "$X/remedy" --plugins "$X/plugins" --out "$OUT/java4shell"
 # apache 단계가 지은 하네스 이미지를 쓴다 — 그 뒤에 둔다. tar 는 Windows 묶음도 읽는다(`apache-images`).
 step net-apache by_exit bash $L/net-apache-verify.sh --bin "$X/remedy-net/remedy-net" \
     --criteria "$X/plugins/remedy-net-criteria" --images "$INPUTS/apache-images" --out "$OUT/net-apache"

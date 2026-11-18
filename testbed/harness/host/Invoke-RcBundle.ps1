@@ -1,7 +1,7 @@
 ﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
-    출시의 Windows 랩 묶음 — 지난 공개본(A)과 이번 판(B)을 랩 VM 과 이 기계에서 나란히 재는 23단계
+    출시의 Windows 랩 묶음 — 지난 공개본(A)과 이번 판(B)을 랩 VM 과 이 기계에서 나란히 재는 24단계
     (docs/개발-안내.md "출시 검증").
 
 .DESCRIPTION
@@ -14,6 +14,7 @@
                     랩 VM 의 같은 상태에서 A 와 B(`rc\Invoke-Ab*.ps1`). 상태를 바꾸는 단계 뒤마다 되돌린다(reset1 ~ 6)
       log4j         log4j-disk(깨끗한 C: 전체 → 0) · log4j-positive(시료를 놓고 → 2 · 고친 판은 화면에 없다)
       apache        이번 판의 Apache HTTP/2 점검 룰 하네스(`Invoke-ApacheVerify.ps1` — 설치본 모양마다 0 · 2 · 6)
+      java4shell    이번 판의 Java4Shell 점검 룰 하네스(`Invoke-Java4ShellVerify.ps1` — 홈 모양마다 0 · 2 · 6 · 진짜 JDK 하나)
       종료 코드     exit5-guard · exit6-obs · exit3-partial — 이번 판의 가드 중단 5 · 관측 불완전 6 · 일부 실패 3
                     (`Invoke-GuardVerify` · `Invoke-ObsVerify` · `Invoke-PartialVerify` `-Package`) · exit5-sign — 서명
                     확인 0 · 5(`Invoke-SignVerify -Package` · 이 기계). A/B 가 아니라 정한 값을 단정한다
@@ -108,6 +109,22 @@ if (-not (Test-Path -LiteralPath $apacheZip)) {
 }
 if (-not (Test-Path -LiteralPath $apacheZip)) { Stop-Setup 'Apache Lounge 2.4.71 zip 을 받지 못했다(apachelounge.com) — 받아 둔 것을 이 자리에 둔다' }
 if ((Get-FileHash -LiteralPath $apacheZip -Algorithm SHA256).Hash.ToLower() -ne $apacheSha) { Stop-Setup "Apache zip 의 SHA-256 이 다르다: $apacheZip" }
+
+# Eclipse Temurin 17.0.21+9 의 Windows x64 zip — Java4Shell 점검 룰 하네스가 읽는 **진짜 JDK** 다(그 안의 `bin\java.exe` 와
+# `release` 둘만 쓴다). 주소는 그 판의 릴리스 자산이라 사라지지 않는다.
+$jdkZip = Join-Path $Inputs 'OpenJDK17U-jdk_x64_windows_hotspot_17.0.21_9.zip'
+$jdkSha = '98518ecf554465057ee5509462631deeee374bc368c12a411d225cd29381f84b'
+if (-not (Test-Path -LiteralPath $jdkZip)) {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    $ProgressPreference = 'SilentlyContinue'
+    try {
+        Invoke-WebRequest -UseBasicParsing -OutFile "$jdkZip.part" `
+            -Uri 'https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.21%2B9/OpenJDK17U-jdk_x64_windows_hotspot_17.0.21_9.zip'
+        Move-Item "$jdkZip.part" $jdkZip
+    } catch { Remove-Item "$jdkZip.part" -ErrorAction SilentlyContinue }
+}
+if (-not (Test-Path -LiteralPath $jdkZip)) { Stop-Setup 'Temurin 17.0.21+9 Windows x64 zip 을 받지 못했다(adoptium)' }
+if ((Get-FileHash -LiteralPath $jdkZip -Algorithm SHA256).Hash.ToLower() -ne $jdkSha) { Stop-Setup "JDK zip 의 SHA-256 이 다르다: $jdkZip" }
 
 $jars = Join-Path $Inputs 'jars'
 $fx = Join-Path $repo 'testbed\harness\linux\fixtures\log4j'
@@ -254,6 +271,10 @@ Step 'log4j-positive' {
 # 이번 판의 Apache 룰 하네스 — 놓은 설치본 · 서비스 · 프로세스는 하네스가 치운다(되돌리기는 아래 reset6).
 Step 'apache' {
     & (Join-Path $h 'Invoke-ApacheVerify.ps1') -Package $Package -ApacheZip $apacheZip -LogDir (Join-Path $LogDir 'apache')
+} $verdictLine
+# 이번 판의 Java4Shell 점검 룰 하네스 — 놓은 홈 · 서비스 · 프로세스는 하네스가 치운다(되돌리기는 아래 reset6).
+Step 'java4shell' {
+    & (Join-Path $h 'Invoke-Java4ShellVerify.ps1') -Package $Package -JdkZip $jdkZip -LogDir (Join-Path $LogDir 'java4shell')
 } $verdictLine
 # 종료 코드의 Windows 회귀 — A/B 가 아니라 정한 값을 단정한다(전에는 출시 경로 밖 `Invoke-Sweep` 에서만 돌았다).
 # 가드 중단 5(상한 · 보호 경로) · 관측 불완전 6 · 일부 실패 3. Partial 은 남의 감염이 없고 게스트에 node.exe 가 있어야

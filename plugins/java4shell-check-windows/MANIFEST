@@ -1,0 +1,4 @@
+# remedy plugin manifest v1
+92507832d22766337fd9b32f8e992392b859c15bd310ad69ae4fd0582180fea1  RELEASE.md
+0087882d70fb52a37e7f8552b2047ddbfaa7e8ada3b9104a2d19d9d316d4a6e2  plugin.yaml
+34c7fba196f12b287b07e4d525837ee8b6a9f22cb5e39262dcaf3697d1c0e4ab  rules/java.yar

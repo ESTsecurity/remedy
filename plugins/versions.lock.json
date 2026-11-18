@@ -72,6 +72,20 @@
       "rules/hook-implant.yar": "b1809bedf8cdac40486d6bb0af2c40f26993630c372a5b54e3fa84b72b786c47"
     }
   },
+  "java4shell-check-linux": {
+    "version": "0.1.0",
+    "files": {
+      "plugin.yaml": "0e631137a9e67845932b04edb8aa50483795fcd19b3d70073b8eb81df07f9156",
+      "rules/java.yar": "34c7fba196f12b287b07e4d525837ee8b6a9f22cb5e39262dcaf3697d1c0e4ab"
+    }
+  },
+  "java4shell-check-windows": {
+    "version": "0.1.0",
+    "files": {
+      "plugin.yaml": "0087882d70fb52a37e7f8552b2047ddbfaa7e8ada3b9104a2d19d9d316d4a6e2",
+      "rules/java.yar": "34c7fba196f12b287b07e4d525837ee8b6a9f22cb5e39262dcaf3697d1c0e4ab"
+    }
+  },
   "ldso-preload": {
     "version": "1.0.0",
     "files": {
