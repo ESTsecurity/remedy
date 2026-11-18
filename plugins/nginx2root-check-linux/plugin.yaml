@@ -1,0 +1,212 @@
+# nginx2root 점검 — 리눅스 (CVE-2026-123007 · CVE-2026-123634 · CVE-2026-123633 · CVE-2026-121810 · CVE-2026-113425)
+#
+# nginx 의 결함 다섯이 인증 없이 원격 코드 실행으로 이어진다(xint.io 분석 · 2026-11-18): HTTP/2 흐름 제어의 정수
+# 오버플로(123007) · DNS 리졸버(123634) · HTTP/2 연결 정리(123633) · HTTP/3 QUIC(121810) · 메일 프록시(113425)의
+# use-after-free. nginx.org 공지(2026-11-19 07:34 확인)의 영향 판은 123007 1.9.5 · 123634 0.6.18 · 123633 1.19.7 ·
+# 121810 1.25.0 · 113425 0.5.33 부터 1.31.8 까지이고, **고친 판은 mainline 1.31.9 와 stable 1.30.7** 이다 — 1.29.x 와
+# legacy 1.28.x 이하에는 고친 판이 없다. 명령은 nginx 워커의 권한으로 돌고, 커널 SCTP 결함과 엮으면 호스트 root 가 된다.
+# **고치지 않는다** — 판을 올리는 것은 공급사의 일이다.
+#
+# # 판정 (1차 — 판으로만)
+#
+# | 무엇 | 결과 |
+# |---|---|
+# | nginx 패키지(배포판 · nginx.org)나 직접 빌드의 판이 0.5.33 이상이고 1.30.7 아래 · 또는 1.31.0 ~ 1.31.8 | 취약(2) |
+# | 직접 빌드의 판을 읽지 못했다 · 이 룰이 보는 자리 밖의 nginx 가 돌거나 서비스로 등록됐다 · 지워진 실행 파일로 돈다 | 확인 필요(6) |
+# | 1.31.9 이상 · 1.30.7 ~ 1.30.x · nginx 없음 | 0 |
+#
+# **기능을 켠 흔적은 판정에 넣지 않는다**(1차 카드) — 다섯 결함은 HTTP/2 · HTTP/3 · 메일 프록시 · resolver+mirror 로
+# 갈리고 설정은 include 가 흔하다. 끄는 법은 위협별 안내의 *꼭 할 일* 이다. **배포판은 고친 판을 아직 내지 않았다** —
+# 영향 판이면 취약(2)이고(1차 카드), 배포판이 백포트한 고친 판을 내면 다음 차수에서 그 줄을 더한다.
+#
+# # 이 룰이 보지 않는 것
+#
+# - 선언한 자리 밖의 직접 빌드(아래 `scan_roots` 밖) — 돌거나 서비스로 등록됐으면 확인 필요로 알린다
+# - 컨테이너 안 · Windows(`nginx2root-check-windows` — 다음 차수)
+# - 커널 SCTP 결함 — 공지에 CVE · 고친 판이 없다(꼭 할 일에 막는 법)
+schema_version: 1
+id: nginx2root-check-linux
+version: 0.1.0
+min_core: "1.21.0"  # product 는 1.21.0 · label 은 1.13.0 · file_names 는 1.11.0
+platforms: [linux]
+
+kind: check
+product: nginx
+
+name:
+  ko: "nginx2root 점검 (CVE-2026-123007 · CVE-2026-123634 · CVE-2026-123633 · CVE-2026-121810 · CVE-2026-113425)"
+  en: "nginx2root check (CVE-2026-123007, CVE-2026-123634, CVE-2026-123633, CVE-2026-121810, CVE-2026-113425)"
+
+references:
+  - "https://xint.io/ko/blog/nginx2root-remote-code-execution"
+  - "https://nginx.org/en/security_advisories.html"
+  - "CVE-2026-123007"
+  - "CVE-2026-123634"
+  - "CVE-2026-123633"
+  - "CVE-2026-121810"
+  - "CVE-2026-113425"
+
+# 패키지 DB · 프로세스 · 서비스는 자리가 정해져 있어 `scan_roots` 를 보지 않는다. 파일은 nginx 실행 파일이 놓이는 자리만,
+# 이름이 `nginx` 인 것만 기록한다 — 설정 · 웹 문서는 걷지 않는다.
+scan_roots:
+  - "/usr/sbin"                         # 배포판 패키지 · --sbin-path 로 지은 직접 빌드
+  - "/usr/local/sbin"
+  - "/usr/local/nginx/sbin"             # 상류 소스의 기본 접두사
+  - "/opt/nginx/sbin"
+  - "/usr/local/openresty/nginx/sbin"   # OpenResty
+file_names: ["nginx"]
+subjects: [package, file, process, service]
+
+detect:
+  # ── 패키지 — 배포판 · nginx.org ───────────────────────────────────────────────
+  #
+  # 실행 파일을 담는 패키지만 본다(설정만 담는 nginx-common · 모듈 libnginx-mod-* 는 빼다). nginx.org 패키지도 이름이
+  # `nginx` 라 같은 줄이 본다 — 그 판은 상류 번호 그대로다.
+  - id: vulnerable_pkg
+    subject: package
+    where:
+      all:
+        - any:
+            - all:
+                - { field: manager, op: equals, value: dpkg }
+                - { field: name, op: in, value: ["nginx", "nginx-core", "nginx-full", "nginx-light", "nginx-extras"] }
+            - all:
+                - { field: manager, op: equals, value: rpm }
+                - { field: name, op: in, value: ["nginx", "nginx-core"] }
+            - all:
+                - { field: manager, op: equals, value: apk }
+                - { field: name, op: equals, value: nginx }
+        # 영향 범위: 0.5.33 이상이고 1.30.7 아래(1.29.x · legacy 1.28.x 이하는 고친 판이 없다) · 또는 1.31.0 ~ 1.31.8.
+        - { field: upstream_version, op: version_gt, value: "0.5.32" }
+        - any:
+            - { field: upstream_version, op: version_lt, value: "1.30.7" }
+            - { field: upstream_version, op: matches, value: '^1\.31\.[0-8]$' }
+    label:
+      ko: "nginx 패키지 — nginx2root(CVE-2026-123007 외 넷)의 영향 판이고 고친 판(1.31.9 · 1.30.7 · 배포판의 고친 빌드)이 아닙니다"
+      en: "an nginx package - in the range affected by nginx2root (CVE-2026-123007 and four more) and not a fixed build (1.31.9, 1.30.7 or the distribution's fixed build)"
+
+  # 판과 상관없이 nginx 실행 파일 패키지가 깔렸는가 — 아래 `/usr/sbin/nginx` 를 직접 빌드로 볼지 가른다.
+  - id: nginx_pkg
+    subject: package
+    where:
+      any:
+        - all:
+            - { field: manager, op: equals, value: dpkg }
+            - { field: name, op: in, value: ["nginx", "nginx-core", "nginx-full", "nginx-light", "nginx-extras"] }
+        - all:
+            - { field: manager, op: equals, value: rpm }
+            - { field: name, op: in, value: ["nginx", "nginx-core"] }
+        - all:
+            - { field: manager, op: equals, value: apk }
+            - { field: name, op: equals, value: nginx }
+    label:
+      ko: "nginx 패키지가 깔려 있습니다"
+      en: "an nginx package is installed"
+
+  # ── 직접 빌드 — 실행 파일의 판 문자열 ─────────────────────────────────────────
+  #
+  # 패키지가 깐 파일은 뺀다 — 그 판은 위 패키지 줄이 가린다(배포판은 상류 번호를 두고 고친다). **Alpine 의 파일 기록에는
+  # 깐 패키지가 적히지 않는다**(2026-11-19 실측 — Debian · Rocky 는 적힌다). 그래서 배포판이 까는 `/usr/sbin/nginx` 는
+  # nginx 패키지가 하나도 없을 때만 직접 빌드로 본다(`vulnerable_usrsbin` · 판정식) — 아니면 배포판이 같은 번호로 고친
+  # 빌드를 판 문자열만 보고 취약으로 낸다.
+  - id: nginx_src
+    subject: file
+    where:
+      all:
+        - { field: path, op: matches, value: '^/(usr/sbin|usr/local/sbin|usr/local/nginx/sbin|opt/nginx/sbin|usr/local/openresty/nginx/sbin)/nginx$' }
+        - { field: sha256, op: exists }
+    exclude:
+      - { field: package, op: matches, value: '.' }
+    label:
+      ko: "패키지가 깔지 않은 nginx 실행 파일입니다"
+      en: "an nginx executable no package installed"
+  - id: vulnerable_src
+    subject: file
+    where:
+      all:
+        - { field: path, op: matches, value: '^/(usr/local/sbin|usr/local/nginx/sbin|opt/nginx/sbin|usr/local/openresty/nginx/sbin)/nginx$' }
+        - { field: sha256, op: exists }
+        - { yara: "rules/nginx.yar:nginx_version_affected" }
+    exclude:
+      - { field: package, op: matches, value: '.' }
+    label:
+      ko: "직접 빌드한 nginx 의 영향 판 — nginx2root(CVE-2026-123007 외 넷) · 1.31.9 또는 1.30.7 이상으로 올리십시오"
+      en: "a self-built nginx in the affected range - nginx2root (CVE-2026-123007 and four more), upgrade to 1.31.9 or 1.30.7 or later"
+  - id: vulnerable_usrsbin
+    subject: file
+    where:
+      all:
+        - { field: path, op: equals, value: "/usr/sbin/nginx" }
+        - { field: sha256, op: exists }
+        - { yara: "rules/nginx.yar:nginx_version_affected" }
+    exclude:
+      - { field: package, op: matches, value: '.' }
+    label:
+      ko: "패키지 없이 놓인 nginx 의 영향 판 — nginx2root(CVE-2026-123007 외 넷) · 1.31.9 또는 1.30.7 이상으로 올리십시오"
+      en: "an nginx in the affected range placed without a package - nginx2root (CVE-2026-123007 and four more), upgrade to 1.31.9 or 1.30.7 or later"
+  - id: src_version_known
+    subject: file
+    where:
+      all:
+        - { field: path, op: matches, value: '^/(usr/sbin|usr/local/sbin|usr/local/nginx/sbin|opt/nginx/sbin|usr/local/openresty/nginx/sbin)/nginx$' }
+        - { field: sha256, op: exists }
+        - { yara: "rules/nginx.yar:nginx_version_string" }
+    exclude:
+      - { field: package, op: matches, value: '.' }
+    label:
+      ko: "직접 빌드한 nginx 의 판을 읽었습니다"
+      en: "the version of a self-built nginx was read"
+
+  # ── 선언한 자리 밖 · 다시 시작하지 않은 nginx ──────────────────────────────────
+  - id: outside_process
+    subject: process
+    where:
+      - { field: image_path, op: matches, value: '/nginx$' }
+    exclude:
+      - { field: image_path, op: matches, value: '^/(usr/sbin|usr/local/sbin|usr/local/nginx/sbin|opt/nginx/sbin|usr/local/openresty/nginx/sbin)/nginx$' }
+    label:
+      ko: "이 룰이 보는 자리 밖에서 도는 nginx 입니다"
+      en: "an nginx running outside the places this rule reads"
+  - id: outside_service
+    subject: service
+    where:
+      - { field: image_path, op: matches, value: '/nginx( |$)' }
+    exclude:
+      - { field: image_path, op: matches, value: '^/(usr/sbin|usr/local/sbin|usr/local/nginx/sbin|opt/nginx/sbin|usr/local/openresty/nginx/sbin)/nginx( |$)' }
+    label:
+      ko: "이 룰이 보는 자리 밖의 nginx 를 띄우는 서비스입니다"
+      en: "a service that starts an nginx outside the places this rule reads"
+  # 패키지를 올리면 옛 실행 파일이 지워지고, 커널은 그 파일을 실은 프로세스의 경로에 ` (deleted)` 를 붙인다 — 고친 판을
+  # 깔고 다시 시작하지 않은 nginx 가 그 꼴이다(nginx 는 설정을 다시 읽어도 실행 파일을 바꾸지 않는다).
+  - id: stale_running
+    subject: process
+    where:
+      - { field: image_path, op: matches, value: '/nginx \(deleted\)$' }
+    label:
+      ko: "지워진 nginx 실행 파일을 실은 채 돌고 있습니다 — 올린 뒤 다시 시작하지 않았습니다"
+      en: "running with a deleted nginx executable - it was not restarted after the upgrade"
+
+verdict:
+  require: "vulnerable_pkg or vulnerable_src or (vulnerable_usrsbin and not nginx_pkg)"
+  unconfirmed:
+    - when: "nginx_src and not src_version_known"
+      why:
+        ko: "패키지가 깔지 않은 nginx 실행 파일(위 경로)의 판을 읽지 못했습니다 — 그 경로의 nginx -v 로 판을 확인하십시오(1.31.9 아래면 nginx2root 의 영향을 받습니다)"
+        en: "the version of the nginx executable above, which no package installed, could not be read - check it with that path's nginx -v (below 1.31.9 is affected by nginx2root)"
+    - when: "outside_process or outside_service"
+      why:
+        ko: "이 룰이 보는 자리(/usr/sbin · /usr/local/sbin · /usr/local/nginx · /opt/nginx · OpenResty) 밖의 nginx(위 경로)가 돌고 있거나 서비스로 등록돼 그 판을 보지 않았습니다 — 그 경로의 nginx -v 로 확인하십시오(1.31.9 아래면 영향을 받습니다)"
+        en: "an nginx outside the places this rule reads (/usr/sbin, /usr/local/sbin, /usr/local/nginx, /opt/nginx, OpenResty) is running or registered as a service, so its version was not checked - check it with that path's nginx -v (below 1.31.9 is affected)"
+    - when: "stale_running"
+      why:
+        ko: "지워진 nginx 실행 파일을 실은 프로세스가 돌고 있습니다(위 경로) — 고친 판을 깔았어도 그 프로세스는 고치기 전 코드로 돕니다. 설정을 다시 읽는 것(reload)으로는 바뀌지 않으니 nginx 를 다시 시작하십시오"
+        en: "a process is running with a deleted nginx executable (path above) - even with a fixed build installed, that process runs the code from before; reloading the configuration does not replace it, so restart nginx"
+
+# YARA 는 본문을 본다 — 직접 빌드의 실행 파일만 담는다. **전부 `glob` 형이다** — 없으면 담을 것이 없는 것이지 미해소가
+# 아니다(대부분의 기계에 이 자리 대부분이 없다).
+collect_extra:
+  - { glob: "/usr/sbin/nginx", max_size: 32MB }
+  - { glob: "/usr/local/sbin/nginx", max_size: 32MB }
+  - { glob: "/usr/local/nginx/sbin/nginx", max_size: 32MB }
+  - { glob: "/opt/nginx/sbin/nginx", max_size: 32MB }
+  - { glob: "/usr/local/openresty/nginx/sbin/nginx", max_size: 32MB }
