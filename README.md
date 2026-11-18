@@ -91,17 +91,17 @@
 
 | 위협 | OS | 안내 |
 |---|---|---|
-| CWPdoor (Control Web Panel) | Linux | [치료 뒤 할 일](docs/위협별-안내.md#cwpdoor--control-web-panel-을-쓰는-리눅스-서버) |
-| Ebury (sshd) | Linux | [찾았을 때 할 일](docs/위협별-안내.md#ebury--리눅스-서버의-sshd-찾기만-합니다) |
-| EvilAI(Locust) | Windows | [치료 뒤 할 일](docs/위협별-안내.md#evilailocust--windows-pc) |
-| Log4j | Windows · Linux | [점검 결과 읽기](docs/위협별-안내.md#log4j--자바-라이브러리-점검만-합니다) |
-| Java — Java4Shell | Windows · Linux | [점검 결과 읽기](docs/위협별-안내.md#java--자바-런타임-점검만-합니다) |
-| OpenSSH (Alpine) | Linux | [점검 결과 읽기](docs/위협별-안내.md#openssh--alpine-의-sshd-점검만-합니다) |
-| Apache HTTP/2 | Windows · Linux | [점검 결과 읽기](docs/위협별-안내.md#apache--웹서버의-http2-점검만-합니다) |
-| Node.js — Node2Shell | Windows · Linux | [점검 결과 읽기](docs/위협별-안내.md#nodejs--node2shell-점검만-합니다) |
-| PHP — PHP2Shell · 세션 업로드 진행 설정 | Windows · Linux | [점검 결과 읽기](docs/위협별-안내.md#php--php2shell--세션-업로드-진행-설정-점검만-합니다) |
-| 원격 점검 — 웹서버 응답 헤더 | Windows · Linux | [쓰는 법 · 한계](docs/위협별-안내.md#php2shell--apache-http2-원격-점검--웹서버-응답-헤더-네트워크를-씁니다) |
-| 이미지 파일 · 컨테이너 | Windows · Linux | [쓰는 법](docs/위협별-안내.md#이미지-파일--컨테이너--php--nodejs--apache-점검만-합니다) |
+| CWPdoor (Control Web Panel) | Linux | [치료 뒤 할 일](docs/위협별-안내.md#cwpdoor) |
+| Ebury (sshd) | Linux | [찾았을 때 할 일](docs/위협별-안내.md#ebury) |
+| EvilAI(Locust) | Windows | [치료 뒤 할 일](docs/위협별-안내.md#evilai-locust) |
+| Log4j | Windows · Linux | [점검 결과 읽기](docs/위협별-안내.md#log4j) |
+| Java — Java4Shell | Windows · Linux | [점검 결과 읽기](docs/위협별-안내.md#java4shell) |
+| OpenSSH (Alpine) | Linux | [점검 결과 읽기](docs/위협별-안내.md#openssh-musl) |
+| Apache HTTP/2 | Windows · Linux | [점검 결과 읽기](docs/위협별-안내.md#apache-http2) |
+| Node.js — Node2Shell | Windows · Linux | [점검 결과 읽기](docs/위협별-안내.md#node2shell) |
+| PHP — PHP2Shell · 세션 업로드 진행 설정 | Windows · Linux | [점검 결과 읽기](docs/위협별-안내.md#php2shell) |
+| 원격 점검 — 웹서버 응답 헤더 | Windows · Linux | [쓰는 법 · 한계](docs/위협별-안내.md#url-check) |
+| 이미지 파일 · 컨테이너 | Windows · Linux | [쓰는 법](docs/위협별-안내.md#image-container) |
 
 ## 받은 파일 확인
 
