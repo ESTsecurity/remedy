@@ -21,6 +21,7 @@
 | 무엇을 탐지할 수 있는지 안다 | `machine/subjects.json` (전수) · `machine/REFERENCE.md` (요약) |
 | 비슷한 예제를 찾는다 | `examples/ex01`(예약 작업·Windows) · `ex02`(레지스트리·Windows) · `ex03`(설정 파일·Linux) · `ex04`(점검 전용·Linux) |
 | **점검 전용** 플러그인을 쓴다 — 취약 · 노출을 본다. 치료 룰이 아니다 | `24-check-plugins.md` — 종료 코드가 곧 결과 · 기본값이 켜짐인 설정 · 설정의 실효값 |
+| **긴급 건의 1차 룰**을 쓴다 — 최소 범위로 빨리 내고 2 · 3차로 넓힌다 | `../긴급-대응.md` §1차 범위 · §1차 프롬프트 · §사용방법 틀 |
 | 매니페스트 키를 정한다 | `10-manifest.md` |
 | `scan_roots` 를 정한다 | `10-manifest.md` §scan_roots — **무엇에 걸리고 무엇에 안 걸리는지** |
 | 탐지 규칙을 쓴다 | `20-detect-recipes.md` |
