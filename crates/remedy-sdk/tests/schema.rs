@@ -535,12 +535,19 @@ fn a_blocked_process_adds_the_container_hint() {
         denied_paths: vec!["c:\\locked".into()],
         ..Default::default()
     };
+    // 괄호는 2026-11-18 에 고쳤다(K2) — 수집은 관리자 문을 지나야 돌아 이 줄을 보는 사람은 이미 관리자다.
+    // *"관리자 권한으로 다시"* 는 할 수 없는 일을 권했다.
     assert!(
-        folder.reasons_in(Lang::Ko)[0]
-            .starts_with("접근이 거부된 디렉터리 열기 1회 (관리자 권한으로 다시 돌리십시오)"),
+        folder.reasons_in(Lang::Ko)[0].starts_with(
+            "접근이 거부된 디렉터리 열기 1회 (관리자 권한으로도 열리지 않습니다 — 보안 제품이나 OS 가 잠근 폴더일 수 있습니다)"
+        ),
         "{:?}",
         folder.reasons_in(Lang::Ko)
     );
+    for lang in [Lang::Ko, Lang::En] {
+        let r = &folder.reasons_in(lang)[0];
+        assert!(!r.contains("다시 돌리") && !r.contains("run again"), "{r}");
+    }
 
     // 폴더 · 커널 표에는 붙이지 않는다 — 그 사람에게 컨테이너는 틀린 안내다.
     for path in ["c:\\locked", "/etc/ssl/private", "/proc/net/unix", "/proc/"] {
@@ -562,6 +569,92 @@ fn a_blocked_process_adds_the_container_hint() {
         ..Default::default()
     };
     assert!(mixed.reasons_in(Lang::Ko)[0].contains("docker exec --privileged"));
+}
+
+/// 점검은 **이 기계의 Windows 로컬 폴더인 거부만** 건너뛴다(결정 K2 · 2026-11-18). 건너뛰면 점검의 사유 줄에서 그
+/// 거부가 빠지고, 치료 쪽(`is_complete` · `reasons_in`)은 한 글자도 바뀌지 않는다. 읽지 못한 파일 · 레지스트리 키 ·
+/// 프로세스 · 리눅스 경로 · 없는 자리 · 전수가 아닌 표본은 건너뛰지 않는다(같은 날 독립 검토 — 패키지 기록 하나가
+/// 유일한 근거인 점검이 근거 0건으로 0 을 낼 수 있었다).
+#[test]
+fn a_check_skips_only_denials_nobody_can_lift() {
+    use remedy_sdk::artifact::Observation;
+    use remedy_sdk::i18n::Lang;
+
+    let at = |paths: &[&str], n: usize| Observation {
+        denied_dirs: n,
+        denied_paths: paths.iter().map(|p| p.to_string()).collect(),
+        ..Default::default()
+    };
+    // 시험이 만든 진짜 폴더 · 파일 — 건너뛰는 꼴은 '지금 폴더로 보이고 다시 열어도 권한 거부인 자리' 다. `locked` 는
+    // Windows 에서 모든 사람(관리자도)의 목록 읽기를 막고, `open` 은 그대로 읽힌다(수집 때 한 번 실패한 폴더의 꼴).
+    let base = std::env::temp_dir().join(format!("remedy-k2-sdk-{}", std::process::id()));
+    let (dir, open) = (base.join("locked"), base.join("open"));
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::create_dir_all(&open).unwrap();
+    let file = open.join("php.ini");
+    std::fs::write(&file, "x").unwrap();
+    let (dir_s, open_s, file_s) = (
+        dir.to_string_lossy().into_owned(),
+        open.to_string_lossy().into_owned(),
+        file.to_string_lossy().into_owned(),
+    );
+    let icacls = |args: &[&str]| {
+        std::process::Command::new("icacls")
+            .arg(&dir)
+            .args(args)
+            .stdout(std::process::Stdio::null())
+            .status()
+            .is_ok_and(|s| s.success())
+    };
+
+    if cfg!(windows) {
+        assert!(
+            icacls(&["/deny", "*S-1-1-0:(RD)"]),
+            "icacls 로 목록 읽기를 막지 못했다"
+        );
+        assert!(std::fs::read_dir(&dir).is_err(), "막았는데 목록이 읽힌다");
+        let locked = at(&[dir_s.as_str()], 1);
+        assert!(locked.check_skips_denied());
+        assert!(locked.is_complete_for_check());
+        assert!(!locked.is_complete(), "치료 쪽이 바뀌었다");
+        assert!(locked.reasons_for_check_in(Lang::Ko).is_empty());
+        assert_eq!(locked.reasons_in(Lang::Ko).len(), 1);
+        // 다른 사유는 그대로 남는다.
+        let truncated = Observation {
+            truncated: true,
+            ..at(&[dir_s.as_str()], 1)
+        };
+        assert!(!truncated.is_complete_for_check());
+        assert_eq!(truncated.reasons_for_check_in(Lang::En).len(), 1);
+    }
+
+    let mut kept = vec![
+        at(&[file_s.as_str()], 1),
+        at(&["HKLM\\SOFTWARE\\Vendor\\Locked"], 1),
+        at(&["pid 4"], 1),
+        at(&["/etc/ssl/private", "/proc/7/maps"], 2),
+        at(&["/var/lib/dpkg/status"], 1),
+        at(&["c:\\no-such-remedy-k2-folder"], 1),
+        at(&[dir_s.as_str()], 40),
+        at(&[], 1),
+        // 지금 읽히는 폴더 — 다시 돌리면 읽힐 실패(공유 위반 등)는 건너뛰지 않는다.
+        at(&[open_s.as_str()], 1),
+    ];
+    if cfg!(not(windows)) {
+        // 리눅스에서는 진짜 폴더도 건너뛰지 않는다 — root 가 막히는 것은 사람이 고칠 수 있다.
+        kept.push(at(&[dir_s.as_str()], 1));
+    }
+    for k in &kept {
+        assert!(!k.check_skips_denied(), "{k:?}");
+        assert!(!k.is_complete_for_check(), "{k:?}");
+        assert_eq!(k.reasons_for_check_in(Lang::Ko), k.reasons_in(Lang::Ko));
+    }
+    // 거부가 없으면 건너뛸 것도 없다.
+    assert!(!Observation::default().check_skips_denied());
+    if cfg!(windows) {
+        icacls(&["/remove:d", "*S-1-1-0"]);
+    }
+    let _ = std::fs::remove_dir_all(&base);
 }
 
 // ───────────────────────────────────────────── 스키마에 없는 필드 거부

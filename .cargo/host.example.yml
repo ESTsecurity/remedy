@@ -79,3 +79,9 @@ git:
   remote: '<원격 주소>'
   push: '<push 에 제약이 있으면 적는다>'
   source: '<확인한 방법>'
+
+# Windows 실행 파일의 코드서명 — 배포의 코드서명 걸음(`testbed/harness/host/Invoke-ReleaseCodeSign.ps1`)이 읽는다.
+# 서명하는 기계에만 적는다. 서명 계정 · 인증서 프로필은 그 도구 폴더의 설정 파일에 있다 — 여기에는 도구의 **자리만**
+# 적는다(값을 옮겨 적지 않는다).
+codesign:
+  sign_bat: '<서명 배치 파일의 전체 경로 — 인자로 받은 파일 하나를 제자리에서 서명한다>'

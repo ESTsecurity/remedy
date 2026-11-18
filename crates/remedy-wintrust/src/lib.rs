@@ -62,6 +62,28 @@ pub struct Verdict {
     /// 서명이 **파일 안에** 있었나. 보고에 뜻이 있다 — 서드파티 배포물인지 OS
     /// 구성요소인지가 갈린다.
     pub kind: SignatureKind,
+    /// 서명이 있는데 신뢰하지 않았다면 **그 까닭**. 신뢰했거나 서명이 없으면 `None` 이다.
+    ///
+    /// 자기무결성이 이것으로 막을지 가른다(설계-01 D7 · 2026-11-18 결정) — 서명 뒤에 바뀐 파일과 이 기계에서
+    /// 확인하지 못한 서명은 뜻이 다르다.
+    pub distrust: Option<Distrust>,
+}
+
+/// 신뢰하지 않은 서명의 까닭.
+///
+/// **이 기계에서 확인하지 못한 것과 서명 뒤에 바뀐 것을 가른다.** 둘을 한 칸에 두던 동안, 서명의 루트
+/// 인증서(Microsoft Identity Verification Root CA 2020)를 받은 적 없는 오프라인 기계에서 공식 서명본이 *바뀐
+/// 파일* 처럼 다뤄졌다(2026-11-18 랩 VM 실측 — 루트를 지우고 자동 루트 갱신을 끈 칸에서 치료 문이 5).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Distrust {
+    /// 서명 이후 내용이 바뀌었다(`TRUST_E_BAD_DIGEST`) — 부분 다운로드 · 디스크 손상 · 변조.
+    Altered,
+    /// 이 기계가 그 서명을 신뢰하지 않기로 정했다(`TRUST_E_EXPLICIT_DISTRUST` · `TRUST_E_SUBJECT_NOT_TRUSTED`).
+    Distrusted,
+    /// 이 기계에서 신뢰 루트까지 잇지 못했다 — 루트 없음(`CERT_E_UNTRUSTEDROOT`) · 체인 끊김(`CERT_E_CHAINING`) ·
+    /// 만료(`CERT_E_EXPIRED`) · 테스트 루트(`CERT_E_UNTRUSTEDTESTROOT`). 네트워크로 받지 않으므로(아래 폐기 확인과
+    /// 같은 까닭) 루트를 받은 적 없는 기계에서는 공식 서명도 여기로 온다.
+    Unverifiable,
 }
 
 /// 서명이 어디에 있었나.
@@ -160,7 +182,7 @@ mod windows {
         WTD_REVOKE_NONE, WTD_STATEACTION_CLOSE, WTD_STATEACTION_VERIFY, WTD_UI_NONE,
     };
 
-    use super::{SignatureKind, Verdict, VerifyError};
+    use super::{Distrust, SignatureKind, Verdict, VerifyError};
 
     /// `CertGetNameStringW` 의 타입. RDN 전체를 문자열로 달라는 뜻이다.
     ///
@@ -298,12 +320,23 @@ mod windows {
             SignatureKind::CatalogOnly
         };
 
+        // 신뢰하지 않은 서명의 까닭 — 바뀜 · 불신 · 이 기계에서 확인하지 못함(`Distrust`).
+        let distrust = match status {
+            TRUST_E_BAD_DIGEST => Some(Distrust::Altered),
+            TRUST_E_EXPLICIT_DISTRUST | TRUST_E_SUBJECT_NOT_TRUSTED => Some(Distrust::Distrusted),
+            CERT_E_UNTRUSTEDROOT | CERT_E_UNTRUSTEDTESTROOT | CERT_E_CHAINING | CERT_E_EXPIRED => {
+                Some(Distrust::Unverifiable)
+            }
+            _ => None,
+        };
+
         match status {
             0 => Ok(Verdict {
                 trusted: true,
                 subject,
                 thumbprint,
                 kind,
+                distrust: None,
             }),
 
             // 확인했고, 신뢰할 수 없다. **여기서 `Ok` 를 내는 것이 중요하다** —
@@ -313,6 +346,7 @@ mod windows {
                 subject: None,
                 thumbprint: None,
                 kind: SignatureKind::Unsigned,
+                distrust: None,
             }),
             TRUST_E_SUBJECT_NOT_TRUSTED
             | CERT_E_UNTRUSTEDROOT
@@ -325,6 +359,7 @@ mod windows {
                 subject,
                 thumbprint,
                 kind,
+                distrust,
             }),
 
             other => Err(VerifyError::Unexpected(other)),
@@ -576,6 +611,7 @@ mod tests {
             subject: None,
             thumbprint: None,
             kind: SignatureKind::Unsigned,
+            distrust: None,
         });
         assert!(unknown.is_err());
         assert!(unsigned.is_ok());

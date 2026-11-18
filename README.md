@@ -51,7 +51,7 @@
 |---|---|---|---|---|
 | Apache HTTP/2 점검 (CVE-2026-119618) | 찾기만 합니다 | `apache-http2-check-windows` 0.1.1 | `apache-http2-check-linux` 0.1.2 | [httpd.apache.org](https://httpd.apache.org/security/vulnerabilities_24.html) |
 | EvilAI(Locust) 제거 | 찾아서 치료합니다 (복원할 수 있습니다) | `evilai-locust` 0.2.0 | — | [www.virustotal.com](https://www.virustotal.com/gui/search/engines%3Ameadowlocust) |
-| Java4Shell 점검 (CVE-2026-114938) | 찾기만 합니다 | `java4shell-check-windows` 0.2.0 | `java4shell-check-linux` 0.2.0 | [openjdk.org](https://openjdk.org/groups/vulnerability/advisories/2026-11-17) |
+| Java4Shell 점검 (CVE-2026-114938) | 찾기만 합니다 | `java4shell-check-windows` 0.3.0 | `java4shell-check-linux` 0.3.0 | [openjdk.org](https://openjdk.org/groups/vulnerability/advisories/2026-11-17) |
 | Log4j 점검 (CVE-2021-44228 등) | 찾기만 합니다 | `log4j-check` 0.2.1 | `log4j-check` 0.2.1 | [logging.apache.org](https://logging.apache.org/security.html) |
 | Node2Shell 점검 (CVE-2026-111497) | 찾기만 합니다 | `node2shell-check-windows` 0.4.1 | `node2shell-check-linux` 0.6.1 | [nodejs.org](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases) |
 | PHP 세션 업로드 진행 설정 점검 (CVE-2026-115560) | 찾기만 합니다 | `php-session-check-windows` 0.4.1 | `php-session-check-linux` 0.5.1 | [www.php.net](https://www.php.net/archive/2026.php) |
@@ -122,7 +122,7 @@
   ```
 
 `False` · `FAILED`(`실패`)가 나오면 **실행하지 말고** 지운 뒤 다시 받으십시오. 버전은 둘입니다 — **프로그램 버전**
-(`1.23.0`)과 **룰 버전**(날짜 · `2026.11.16`). 실행하면 화면 맨 위에 둘 다 보입니다.
+(`1.24.0`)과 **룰 버전**(날짜 · `2026.11.18.3`). 실행하면 화면 맨 위에 둘 다 보입니다.
 
 ## 요구 사항 · 하지 않는 것
 
@@ -131,8 +131,9 @@
   확인이 필요한 항목의 결과 파일만 남깁니다.
 - 실시간 감시 · 상주 프로그램이 아닙니다 — 필요할 때 띄워 쓰는 도구입니다. 그래픽 화면(GUI)이 없습니다.
 - 위 *다루는 위협* 표의 위협만 다룹니다. 32비트 Windows · ARM 리눅스 용 파일은 내지 않습니다.
-- **Windows 실행 파일에는 아직 코드서명(Authenticode)이 없습니다** — 첫 화면이 그렇다고 알리므로 받은 파일은 체크섬으로
-  확인하십시오. 룰은 서명돼 있고 실행 파일이 그 서명을 확인합니다.
+- **Windows 실행 파일은 1.24.0 부터 코드서명(Authenticode)돼 있습니다** — 프로그램이 시작할 때 스스로 확인하고, 루트
+  인증서를 갖지 않은 오프라인 기계에서는 확인하지 못했다고 알리기만 합니다. 받은 파일은 체크섬으로도 확인할 수 있습니다.
+  룰은 서명돼 있고 실행 파일이 그 서명을 확인합니다.
 
 ## 무인 배포 · 종료 코드
 

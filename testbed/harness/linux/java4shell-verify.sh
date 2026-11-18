@@ -27,17 +27,18 @@
 #      (Corretto 17.0.21.1.2 — `JAVA_VERSION="17.0.21.1"`)는 **0** · Java 11 은 **0** · Java 없는 기계 **0**.
 #      이 칸의 기대값은 2026-11-18 에 잰 이미지에 맞춘 것이다 — 배포사가 고친 빌드를 내면 그 칸이 실패하고, 그것이
 #      룰을 다시 낼 신호다(`RELEASE.md` 의 백포트 줄).
-#   S  판 줄만 바꾼 자리 채우기 24 — 고친 판 0(17.0.21.1 · 17.0.21.1.2 · 21.0.13.1 · 27.0.1.1 · 17.0.22) · 고친 판 미만 2 ·
+#   S  판 줄만 바꾼 자리 채우기 29 — 고친 판 0(17.0.21.1 · 17.0.21.1.2 · 21.0.13.1 · 27.0.1.1 · 17.0.22) · 고친 판 미만 2 ·
 #      ARM64 · ppc64le 0 · 지원이 끝난 줄 2 · 17.0.6 아래 0 · 개발 중인 줄 6 · 판 줄 없음 6 · release 없음 6 ·
 #      **아키텍처 줄이 없는 jlink 꼴과 모르는 아키텍처 값은 판으로 판정해 2** · Java 8 · 11 은 0 ·
 #      **Java 8 EPP(-perf) 8u511 은 2**(표지가 판 줄에 · 런타임 판 줄에) · EPP 고친 판 8u513-perf 0 · 일반 8u511 0 ·
-#      GraalVM EE 21.3.20(바탕 Java 17.0.21) 2
-#   H  사용자마다 까는 자리 · 제품이 받는 자리 5 — SDKMAN(root) · IntelliJ 의 .jdks · asdf · Gradle 툴체인(/home 아래) ·
-#      Jenkins 도구(/var/lib/jenkins/tools) 에 깐 영향 판 2
+#      **GraalVM EE 21.3.20 은 바탕 Java 17 · 11 · 8 모두 2**(0.3.0) · EE 21.3.20.1 · Community 는 바탕 Java 로 0 ·
+#      판 줄이 없는 ARM64 빌드 0
+#   H  사용자마다 까는 자리 · 제품이 받는 자리 7 — SDKMAN(root) · IntelliJ 의 .jdks · asdf · Gradle 툴체인(/home 아래) ·
+#      Jenkins 도구(/var/lib/jenkins/tools) · VS Code Java 확장의 JRE(.vscode · .vscode-server — 0.3.0) 에 깐 영향 판 2
 #   P  프로세스 · 서비스 4 — 선언한 자리 밖에서 도는 java 6 · 지워진 java 를 실은 채 도는 프로세스 6 ·
 #      **/usr/bin/java(대체 링크)로 띄우는 서비스는 자리 밖이 아니다**(0) · 자리 밖 경로의 서비스 6
-#   화면 6 — 찾은 줄 아래 CVE 문구 · 두 출처가 갈리는 까닭 · 자리 밖 까닭 · Java 없는 기계에 미해소 경고 0 · EPP 문구 ·
-#      사용자 홈의 경로
+#   화면 8 — 찾은 줄 아래 CVE 문구 · 두 출처가 갈리는 까닭 · 자리 밖 까닭 · Java 없는 기계에 미해소 경고 0 · EPP 문구 ·
+#      사용자 홈의 경로 · GraalVM EE 문구 · EE 에 바탕 Java 의 고칠 판이 서지 않는다
 #
 # 종료 코드: 0 = 전부 통과 · 1 = 하나라도 실패 · 2 = 인자 · 이미지가 모자라 시작하지 않았다.
 set -u
@@ -105,7 +106,7 @@ prepare al2023-corretto amazonlinux:2023 'dnf -y -q install java-21-amazon-corre
 
 # 깐 판을 그 기계에서 읽어 둔다 — 이미지의 판이 영향 판이라는 전제가 깨지면 A 칸의 뜻이 사라진다.
 in_image() { docker run --rm --network none --entrypoint sh "$1" -c "$2" 2>/dev/null; }
-jv() { in_image "$1" 'for f in /usr/lib/jvm/*/release /opt/java/*/release; do [ -f "$f" ] && sed -n "s/^JAVA_VERSION=//p" "$f"; done | sort -u | tr "\n" " "'; }
+jv() { in_image "$1" 'for f in /usr/lib/jvm/*/release /opt/java/*/release /usr/local/*/release; do [ -f "$f" ] && sed -n "s/^JAVA_VERSION=//p" "$f"; done | sort -u | tr "\n" " "'; }
 for t in debian12-jdk17 ubuntu2404-jdk21 ubuntu2204-jdk17 rocky9-jdk alpine322-jdk21 al2023-corretto; do
     printf '%s' "$(jv "$IMG:$t")" >"$OUT/installed-$t.txt"
 done
@@ -214,7 +215,16 @@ syn s20-epp-runtime 2 "Java 8 EPP 8u511-perf — 런타임 판 줄의 -perf" 'JA
 syn s21-epp-inline 2 "Java 8 EPP — 판 줄의 -perf" 'JAVA_VERSION="1.8.0_511-perf"' 'OS_ARCH="amd64"'
 syn s22-epp-fixed 0 "Java 8 EPP 고친 판 8u513-perf" 'JAVA_VERSION="1.8.0_513-perf"' 'OS_ARCH="amd64"'
 syn s23-jdk8-511 0 "일반 Java 8 8u511 — 이 CVE 의 줄이 아니다" 'JAVA_VERSION="1.8.0_511"' 'OS_ARCH="amd64"' 'BUILD_TYPE="commercial"'
-syn s24-graalvm-ee 2 "GraalVM EE 21.3.20 — 바탕 Java 17.0.21 로 판정" 'JAVA_VERSION="17.0.21"' 'GRAALVM_VERSION="21.3.20"' 'OS_ARCH="x86_64"'
+# GraalVM EE 21.3 은 제품 판(GRAALVM_VERSION)이 21.3.20.1 미만이면 바탕 Java 와 상관없이 2 다(0.3.0 · 결정 G1). Oracle 빌드가
+# 아닌 것(Community)과 고친 판은 바탕 Java 로 — 11 이라 0 이다.
+EE='IMPLEMENTOR="Oracle Corporation"'
+syn s24-graalvm-ee 2 "GraalVM EE 21.3.20 — 바탕 Java 17.0.21" 'JAVA_VERSION="17.0.21"' "$EE" 'GRAALVM_VERSION="21.3.20"' 'OS_ARCH="x86_64"'
+syn s25-graalvm-ee11 2 "GraalVM EE 21.3.20 — 바탕 Java 11 이어도 제품 판으로" 'JAVA_VERSION="11.0.33"' "$EE" 'GRAALVM_VERSION="21.3.20"' 'OS_ARCH="x86_64"'
+syn s26-graalvm-ee8 2 "GraalVM EE 21.3.19 — 바탕 Java 8" 'JAVA_VERSION="1.8.0_511"' "$EE" 'GRAALVM_VERSION="21.3.19"' 'OS_ARCH="amd64"'
+syn s27-graalvm-ee-fixed 0 "GraalVM EE 21.3.20.1 — 바탕 Java 11 로" 'JAVA_VERSION="11.0.33"' "$EE" 'GRAALVM_VERSION="21.3.20.1"' 'OS_ARCH="x86_64"'
+syn s28-graalvm-ce11 0 "GraalVM Community 21.3.20 — 바탕 Java 11 로" 'JAVA_VERSION="11.0.20"' 'IMPLEMENTOR="GraalVM Community"' 'GRAALVM_VERSION="21.3.20"' 'OS_ARCH="x86_64"'
+# 판을 못 읽어도 x86-64 가 아니라고 적힌 빌드는 영향이 없다(0.3.0 · 독립 검토).
+syn s29-no-version-arm64 0 "판 줄이 없는 ARM64 빌드" 'IMPLEMENTOR="Acme"' 'OS_ARCH="aarch64"'
 
 echo "── H. 사용자마다 까는 자리(0.2.0) ──"
 run_case h01-sdkman debian:12 2 \
@@ -232,11 +242,19 @@ run_case h04-jenkins-tools debian:12 2 \
 run_case h05-gradle debian:12 2 \
     "mkdir -p /home/test; sh /b/home.sh /home/test/.gradle/jdks/eclipse_adoptium-21-amd64-linux 'JAVA_VERSION=\"21.0.13\"' 'OS_ARCH=\"x86_64\"'" \
     "Gradle 툴체인이 사용자 홈에 받은 21.0.13"
+# VS Code 의 Java 확장이 담는 JRE — 실물(redhat.java 1.59.2026111308 linux-x64)의 꼴: `jre/25.0.5-linux-x86_64/` 에 `bin/java` 와
+# 판 · 모듈 두 줄의 `release`(아키텍처 줄 없음 · 0.3.0). 데스크톱은 `.vscode`, 원격으로 붙은 서버는 `.vscode-server` 다.
+run_case h06-vscode debian:12 2 \
+    "mkdir -p /home/alice; sh /b/home.sh /home/alice/.vscode/extensions/redhat.java-1.59.2026111308-linux-x64/jre/25.0.5-linux-x86_64 'JAVA_VERSION=\"25.0.5\"' 'MODULES=\"java.base java.logging\"'" \
+    "VS Code Java 확장이 담은 JRE 25.0.5"
+run_case h07-vscode-server debian:12 2 \
+    "mkdir -p /home/bob; sh /b/home.sh /home/bob/.vscode-server/extensions/redhat.java-1.59.2026111308-linux-x64/jre/25.0.5-linux-x86_64 'JAVA_VERSION=\"25.0.5\"' 'MODULES=\"java.base java.logging\"'" \
+    "원격 VS Code 서버의 Java 확장이 담은 JRE 25.0.5"
 
 echo "── P. 프로세스 ──"
 # 선언한 자리 밖(/srv)에서 도는 java — `bin/java` 자리의 것은 sleep 이다.
 run_case p01-outside debian:12 6 \
-    "sh /b/home.sh /srv/app/jdk 'JAVA_VERSION=\"17.0.21\"' 'OS_ARCH=\"x86_64\"'; /srv/app/jdk/bin/java 300 &" \
+    "sh /b/home.sh /srv/app/jdk 'JAVA_VERSION=\"17.0.21\"' 'OS_ARCH=\"x86_64\"'; /srv/app/jdk/bin/java 300 & sleep 1" \
     "자리 밖에서 도는 java"
 # 올린 뒤 다시 시작하지 않은 꼴 — 띄운 뒤 그 파일을 지우면 커널이 경로에 ' (deleted)' 를 붙인다.
 run_case p02-stale debian:12 6 \
@@ -275,9 +293,13 @@ check "S4 Java 없는 기계에 미해소 경고가 없다 (a13)" \
 check "S5 EPP 줄 아래에 EPP 문구 (s20)" \
     "$(screen_under s20-epp-runtime 'release' 'Java SE 8 Enterprise Performance Pack')" "찾은 줄 · 문구"
 check "S6 사용자 홈의 홈을 찾은 줄 (h02)" "$(screen_has h02-jdks '/home/alice/.jdks/temurin-21.0.13')" "찾은 줄에 그 경로"
+check "S7 GraalVM EE 줄 아래에 제품 문구 (s25)" \
+    "$(screen_under s25-graalvm-ee11 'release' 'Oracle GraalVM Enterprise Edition 21.3')" "찾은 줄 · 문구"
+check "S8 GraalVM EE 에 바탕 Java 의 고칠 판을 적지 않는다 (s24)" \
+    "$([ "$(screen_has s24-graalvm-ee '고친 판(17.0.21.1')" = 0 ] && echo 1 || echo 0)" "문구 하나"
 
 # 칸 수까지 본다 — 경우를 짓다 멈추면 남은 경우가 조용히 사라지고 "실패 0" 이 남는다.
-EXPECTED=52 # A 13 · S 24 · H 5 · P 4 · 화면 6 (0.2.0 — 0.1.0 은 38)
+EXPECTED=61 # A 13 · S 29 · H 7 · P 4 · 화면 8 (0.3.0 — 0.2.0 은 52 · 0.1.0 은 38)
 pass=$(awk -F"$TAB" '$2 == 1' "$OUT/checks.tsv" | wc -l)
 fail=$(awk -F"$TAB" '$2 != 1' "$OUT/checks.tsv" | wc -l)
 echo

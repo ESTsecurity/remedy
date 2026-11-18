@@ -18,6 +18,8 @@
       종료 코드     exit5-guard · exit6-obs · exit3-partial — 이번 판의 가드 중단 5 · 관측 불완전 6 · 일부 실패 3
                     (`Invoke-GuardVerify` · `Invoke-ObsVerify` · `Invoke-PartialVerify` `-Package`) · exit5-sign — 서명
                     확인 0 · 5(`Invoke-SignVerify -Package` · 이 기계). A/B 가 아니라 정한 값을 단정한다
+      코드서명      codesign-trust — 실행 파일의 코드서명 상태마다 치료 문(`Invoke-CodeSignTrustVerify -Package` · 맨 끝 ·
+                    VM 을 되돌린다 · 1.24.0)
       원격          net-ab — 이 기계에서 remedy-net url · image · container(`rc\Invoke-AbNet.ps1`) · net-apache — 이번 판의
                     remedy-net.exe 로 이미지의 Apache(`rc\Invoke-NetApache.ps1` — 리눅스 묶음이 저장한 `apache-images\`)
 
@@ -303,6 +305,11 @@ Step 'net-apache' {
 } $verdictLine
 # 서명 확인의 종료 코드 — 손대지 않은 꾸러미 0 · 고친 · 더한 · 지운 파일과 없는 서명 5. 이 기계에서 박힌 앵커로 잰다(VM 이 필요 없다).
 Step 'exit5-sign' { & (Join-Path $h 'Invoke-SignVerify.ps1') -Package $Package } $verdictLine
+# 실행 파일의 코드서명 상태마다 자기무결성의 치료 문(1.24.0 · 결정 S2) — 받은 실행 파일이 서명돼 있으면 루트 없는 오프라인
+# 기계(B)까지 잰다. 인증서 저장소를 바꾸므로 그 하네스가 끝에 VM 을 되돌린다 — 그래서 맨 끝이다.
+Step 'codesign-trust' {
+    & (Join-Path $h 'Invoke-CodeSignTrustVerify.ps1') -Package $Package -LogDir (Join-Path $LogDir 'codesign-trust')
+} $verdictLine
 
 $tail = @()
 if ($script:failed.Count) { $tail += '실패: ' + ($script:failed -join ', ') }

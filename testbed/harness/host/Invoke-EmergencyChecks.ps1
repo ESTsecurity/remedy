@@ -7,7 +7,8 @@
     태그의 배포 잡이 올린 **초안을 내려받아 푼** Windows 꾸러미(공개할 그 파일)를 차례로 잰다:
 
       1  정식 파일 — 엔진 · 동반 프로그램의 버전, 꾸러미에 든 룰 전부의 서명(`plugin verify`), 동반 프로그램이 판정
-         기준을 알아보는가(`url` · `image` · `container` 도움말의 기준 줄)
+         기준을 알아보는가(`url` · `image` · `container` 도움말의 기준 줄), 실행 파일 둘의 코드서명(유효 · Authenticode ·
+         주체가 배포 워크플로의 `CODESIGN_SUBJECT` · 타임스탬프 — `VmSession.ps1` 의 `Get-CodeSignLine`)
       2  시연 게이트(`Invoke-DemoVerify.ps1 -Bin`) — 그 꾸러미의 remedy.exe 를 랩의 시연 폴더에 세우고 잰다
       3  메뉴 하네스(`Invoke-MenuVerify.ps1 -Package -Prepare -ReinfectOnly`) — 그 꾸러미로 메뉴 흐름 전부
       4  랩 되돌리기(`Reset-Vm.ps1`)
@@ -35,6 +36,8 @@ param(
 )
 $ErrorActionPreference = 'Continue'
 $h = $PSScriptRoot
+. (Join-Path $h 'VmSession.ps1')
+$subject = Get-CodeSignSubject
 $repo = (Resolve-Path (Join-Path $h '..\..\..')).Path
 $exe = Join-Path $Package 'remedy.exe'
 $net = Join-Path $Package 'remedy-net\remedy-net.exe'
@@ -88,6 +91,7 @@ Step 'package' {
         '{0} help exit={1}' -f $c, $rc
     }
     Remove-Item Env:REMEDY_LANG -ErrorAction SilentlyContinue
+    foreach ($p in @($exe, $net)) { Get-CodeSignLine -Path $p -Subject $subject }
 } {
     param($lines)
     $verify = @($lines | Where-Object { $_ -match ' verify exit=' })
@@ -95,10 +99,12 @@ Step 'package' {
     $help = @($lines | Where-Object { $_ -match ' help exit=' })
     $helpGood = @($help | Where-Object { $_ -match ' help exit=0$' })
     $ver = @($lines | Where-Object { $_ -match '\(exit=0\)$' })
+    $codesign = @($lines | Where-Object { $_ -match ' codesign=ok ' })
     $ok = ($verify.Count -gt 0) -and ($good.Count -eq $verify.Count) -and ($help.Count -eq 3) -and
-          ($helpGood.Count -eq 3) -and ($ver.Count -eq 2)
+          ($helpGood.Count -eq 3) -and ($ver.Count -eq 2) -and ($codesign.Count -eq 2)
     $ok
-    '버전 {0}/2 · 룰 서명 {1}/{2} · 판정 기준 도움말 {3}/3' -f $ver.Count, $good.Count, $verify.Count, $helpGood.Count
+    '버전 {0}/2 · 룰 서명 {1}/{2} · 판정 기준 도움말 {3}/3 · 코드서명 {4}/2' -f $ver.Count, $good.Count, $verify.Count, $helpGood.Count,
+        $codesign.Count
 }
 Step 'demo' { & (Join-Path $h 'Invoke-DemoVerify.ps1') -Bin $exe } $verdictLine
 Step 'menu' { & (Join-Path $h 'Invoke-MenuVerify.ps1') -Package $Package -Prepare -ReinfectOnly } $verdictLine

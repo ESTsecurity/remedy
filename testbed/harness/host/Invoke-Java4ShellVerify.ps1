@@ -12,9 +12,10 @@
     Windows 의 `PING.EXE` 사본을 두고 `release` 의 글자만 바꾼다. 놓는 자리는 `C:\Program Files\RemedyLab-Java` 와
     `C:\web-j4s` 둘이고, 경우마다 그리고 끝에 그 둘만 치운다.
 
-    재는 것: 진짜 JDK 1 · 판 줄만 바꾼 자리 채우기 22(Java 8 EPP 8u511-perf 2 · 고친 판 8u513-perf 0 · 일반 8u511 0 포함) ·
-    사용자 프로필의 .jdks · Gradle 툴체인 2 · 홈 둘 2 · 자리 밖 3 · Oracle javapath 로 띄우는 서비스 1(자리 밖이 아니다) ·
-    Java 없음 1 · 화면 5 — 모두 37칸(칸 수도 단정한다).
+    재는 것: 진짜 JDK 1 · 판 줄만 바꾼 자리 채우기 26(Java 8 EPP 8u511-perf 2 · 고친 판 8u513-perf 0 · 일반 8u511 0 ·
+    GraalVM EE 21.3.20 바탕 Java 11 2 · EE 21.3.20.1 · Community 0 · 판 줄 없는 ARM64 0 포함) ·
+    사용자 프로필의 .jdks · Gradle 툴체인 · VS Code Java 확장의 JRE 3 · 홈 둘 2 · 자리 밖 3 · Oracle javapath 로 띄우는 서비스 1
+    (자리 밖이 아니다) · Java 없음 1 · 화면 6 — 모두 43칸(칸 수도 단정한다 · 0.2.0 은 37칸).
     회차 전에 이 기계에 이미 있는 Java 를 치우고 끝에 되돌린다 — 그 홈이 섞이면 모든 칸이 그 판정을 함께 받는다(룰이 보는
     자리 전부 — `C:\Program Files` 둘과 사용자 프로필의 세 자리).
     `-LogDir` 에 경우마다 `<칸>.txt` 와 summary.txt 를 남긴다. 끝줄은 `판정 N/T · 실패 M` 이고 종료 코드는 0 · 1 이다.
@@ -113,11 +114,26 @@ $cases = @(
        homes = @("$LAB\Java\jdk1.8.0_513-perf|JAVA_VERSION=`"1.8.0_513-perf`";OS_ARCH=`"amd64`"") },
     @{ id = 'C4'; what = '일반 Java 8 8u511 — 이 CVE 의 줄이 아니다'; expect = 0;
        homes = @("$LAB\Java\jdk1.8.0_511|JAVA_VERSION=`"1.8.0_511`";OS_ARCH=`"amd64`";BUILD_TYPE=`"commercial`"") },
+    # GraalVM EE 21.3 은 제품 판(GRAALVM_VERSION)이 21.3.20.1 미만이면 바탕 Java 와 상관없이 2 다(0.3.0 · 결정 G1). 고친 판과
+    # Community 는 바탕 Java 로 — 11 이라 0 이다.
+    @{ id = 'GE1'; what = 'GraalVM EE 21.3.20 — 바탕 Java 11 이어도 제품 판으로'; expect = 2;
+       homes = @("$LAB\Java\graalvm-ee-java11-21.3.20|JAVA_VERSION=`"11.0.33`";IMPLEMENTOR=`"Oracle Corporation`";GRAALVM_VERSION=`"21.3.20`";$x64");
+       screen = 'Oracle GraalVM Enterprise Edition 21.3' },
+    @{ id = 'GE2'; what = 'GraalVM EE 21.3.20.1 — 바탕 Java 11 로'; expect = 0;
+       homes = @("$LAB\Java\graalvm-ee-java11-21.3.20.1|JAVA_VERSION=`"11.0.33`";IMPLEMENTOR=`"Oracle Corporation`";GRAALVM_VERSION=`"21.3.20.1`";$x64") },
+    @{ id = 'GE3'; what = 'GraalVM Community 21.3.20 — 바탕 Java 11 로'; expect = 0;
+       homes = @("$LAB\Java\graalvm-ce-java11-21.3.20|JAVA_VERSION=`"11.0.20`";IMPLEMENTOR=`"GraalVM Community`";GRAALVM_VERSION=`"21.3.20`";$x64") },
+    # 판을 못 읽어도 x86-64 가 아니라고 적힌 빌드는 영향이 없다(0.3.0 · 독립 검토).
+    @{ id = 'U4'; what = '판 줄이 없는 ARM64 빌드'; expect = 0; homes = @("$LAB\Java\jdk-17|IMPLEMENTOR=`"Acme`";OS_ARCH=`"aarch64`"") },
     # 사용자 프로필의 자리(0.2.0) — 게스트가 %USERPROFILE% 를 편다(원격 세션의 사용자 = 프로필 목록의 사용자).
     @{ id = 'H1'; what = '사용자 프로필의 .jdks 에 받은 21.0.13'; expect = 2;
        homes = @("%USERPROFILE%\.jdks\remedylab-21|JAVA_VERSION=`"21.0.13`";$x64") },
     @{ id = 'H2'; what = 'Gradle 툴체인이 사용자 프로필에 받은 17.0.21'; expect = 2;
        homes = @("%USERPROFILE%\.gradle\jdks\remedylab-17|JAVA_VERSION=`"17.0.21`";$x64") },
+    # VS Code 의 Java 확장이 담는 JRE — 실물(redhat.java 1.59.2026111308 win32-x64)의 꼴: `jre\25.0.5-win32-x86_64\` 에
+    # `bin\java.exe` 와 `JAVA_VERSION` · `MODULES` 두 줄의 `release`(아키텍처 줄 없음 · 0.3.0).
+    @{ id = 'H3'; what = 'VS Code Java 확장이 담은 JRE 25.0.5'; expect = 2;
+       homes = @("%USERPROFILE%\.vscode\extensions\remedylab-redhat.java-1.59.2026111308-win32-x64\jre\25.0.5-win32-x86_64|JAVA_VERSION=`"25.0.5`";MODULES=`"java.base java.logging`"") },
     @{ id = 'N1'; what = 'Java 없음'; expect = 0; homes = @() }
 )
 # 칸 수까지 본다 — 경우를 짓다 멈추면 남은 경우가 조용히 사라지고 '실패 0' 이 남는다.
@@ -130,7 +146,7 @@ $guest = {
         foreach ($s in @('RemedyLabJava', 'RemedyLabJavaIn', 'RemedyLabJavaPath')) {
             if (Get-Service -Name $s -ErrorAction SilentlyContinue) { & sc.exe delete $s | Out-Null }
         }
-        foreach ($jdks in @((Join-Path $env:USERPROFILE '.jdks'), (Join-Path $env:USERPROFILE '.gradle\jdks'))) {
+        foreach ($jdks in @((Join-Path $env:USERPROFILE '.jdks'), (Join-Path $env:USERPROFILE '.gradle\jdks'), (Join-Path $env:USERPROFILE '.vscode\extensions'))) {
             foreach ($d in @(Get-ChildItem -LiteralPath $jdks -Directory -Filter 'remedylab-*' -ErrorAction SilentlyContinue)) {
                 [System.IO.Directory]::Delete('\\?\' + $d.FullName, $true)
             }
@@ -209,10 +225,10 @@ try {
     $hidden = @(Invoke-Command -Session $session -ArgumentList $LAB -ScriptBlock {
         param($lab)
         $found = @()
-        # 룰이 보는 자리 전부 — `C:\Program Files` 둘 · 전역 Scoop · 사용자 프로필의 다섯 자리(0.2.0).
+        # 룰이 보는 자리 전부 — `C:\Program Files` 둘 · 전역 Scoop · 사용자 프로필의 여섯 자리(0.2.0 · VS Code 확장은 0.3.0).
         $roots = @('C:\Program Files', 'C:\Program Files (x86)', 'C:\ProgramData\scoop\apps')
         foreach ($u in @(Get-ChildItem -LiteralPath 'C:\Users' -Directory -ErrorAction SilentlyContinue)) {
-            foreach ($sub in @('.jdks', 'scoop\apps', 'AppData\Local\Programs', '.gradle\jdks', '.jabba\jdk')) {
+            foreach ($sub in @('.jdks', 'scoop\apps', 'AppData\Local\Programs', '.gradle\jdks', '.jabba\jdk', '.vscode\extensions')) {
                 $roots += "$($u.FullName)\$sub"
             }
         }
@@ -259,7 +275,7 @@ finally {
             foreach ($s in @('RemedyLabJava', 'RemedyLabJavaIn', 'RemedyLabJavaPath')) {
                 if (Get-Service -Name $s -ErrorAction SilentlyContinue) { & sc.exe delete $s | Out-Null }
             }
-            foreach ($jdks in @((Join-Path $env:USERPROFILE '.jdks'), (Join-Path $env:USERPROFILE '.gradle\jdks'))) {
+            foreach ($jdks in @((Join-Path $env:USERPROFILE '.jdks'), (Join-Path $env:USERPROFILE '.gradle\jdks'), (Join-Path $env:USERPROFILE '.vscode\extensions'))) {
                 foreach ($d in @(Get-ChildItem -LiteralPath $jdks -Directory -Filter 'remedylab-*' -ErrorAction SilentlyContinue)) {
                     [System.IO.Directory]::Delete('\\?\' + $d.FullName, $true)
                 }

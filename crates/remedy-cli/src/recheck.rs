@@ -2,6 +2,24 @@
 
 use super::*;
 
+/// 재평가의 분류를 **플러그인 종류로 다시 묶는다** — `scan` 의 종료 코드와 같은 규칙(`complete_enough`)이다.
+///
+/// `classify` 는 `is_complete()` 를 보므로 점검의 두 면제를 모르고 `Incomplete` 를 준다 — **'루트 전부 없음'**(B-6)과
+/// **관리자로도 열리지 않는 폴더**(K2 · 2026-11-18). 고치지 않으면 같은 기계에서 `scan` 은 0, `verify` 는 6 이 된다.
+/// 1.24.0 의 첫 구현은 '루트 전부 없음' 도 함께 요구해 K2 의 폴더 갈래가 6 으로 남았다(독립 검토). `classify` 와 SDK 는
+/// 건드리지 않는다: 종류를 아는 것은 여기뿐이다. 치료 · 데이터 룰은 `complete_enough` 가 `is_complete` 라 바뀌지 않는다.
+pub(super) fn rebind_for_kind(
+    outcome: remedy_core::pipeline::VerifyOutcome,
+    obs: &Observation,
+    kind: Option<PluginKind>,
+) -> remedy_core::pipeline::VerifyOutcome {
+    use remedy_core::pipeline::VerifyOutcome;
+    match outcome {
+        VerifyOutcome::Incomplete if complete_enough(obs, kind) => VerifyOutcome::Clean,
+        other => other,
+    }
+}
+
 /// 재수집 + 재평가 (설계-03 §8).
 ///
 /// **경로 확인이 아니다.** "제거한 경로가 여전히 비어 있는가" 만 보면 랜덤
@@ -69,23 +87,10 @@ pub(super) fn cmd_verify(raw: &[String]) -> Result<Code, Failure> {
     report_scan(&scan, m.kind, m.remediate.is_none());
 
     use remedy_core::pipeline::VerifyOutcome;
-    // **점검에서는 '루트 전부 없음' 이 불완전이 아니다** (B-6). `classify` 는
-    // `is_complete()` 를 보므로 그 사실을 모르고 `Incomplete` 를 준다 — 고치지
-    // 않으면 **같은 기계에서 `scan` 은 0, `verify` 는 6** 이 된다.
-    //
     // 분류를 여기서 한 번 다시 묶는다. 아래 매핑 **앞**이라 기록의 `outcome`
     // 토큰 · `exit_code` · 프로세스 종료 코드 · 네 문구가 한꺼번에 맞는다 —
     // 그 넷이 갈리면 무인 재검사가 받는 유일한 화면인 기록이 자기모순이 된다.
-    // `classify` 와 SDK 는 건드리지 않는다: 종류를 아는 것은 여기뿐이다.
-    let outcome = match outcome {
-        VerifyOutcome::Incomplete
-            if complete_enough(&scan.body.observation, m.kind)
-                && scan.body.observation.all_roots_missing() =>
-        {
-            VerifyOutcome::Clean
-        }
-        other => other,
-    };
+    let outcome = rebind_for_kind(outcome, &scan.body.observation, m.kind);
 
     // **매핑은 여기 한 번이다** — 기록의 `exit_code` 와 프로세스의 종료 코드가 같은
     // 값이어야 한다. 무인 재검사에서 받는 쪽은 그 기록만 본다.

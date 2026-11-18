@@ -77,6 +77,9 @@ Windows 경로나 정규식·이스케이프가 든 파일은 heredoc 대신 파
 - **배포는 태그로 한다.** 엔진이 바뀐 출시는 `v<엔진 버전>`, 룰만 바뀐 출시는
   `rules-<룰 버전>` 태그를 밀면 Actions 가 꾸러미를 짓고 서명해 **초안** Release 에
   올린다(`.github/workflows/release.yml` · 버전 정책은 `docs/개발-안내.md` "버전 번호").
+  **Windows 실행 파일의 코드서명은 그 사이의 한 걸음이다** — 서명 도구가 서명하는 기계에만 있어,
+  태그 실행이 지은 실행 파일을 초안에 넘기면 `testbed/harness/host/Invoke-ReleaseCodeSign.ps1` 이
+  서명해 올리고 같은 태그에서 둘째 걸음을 부른다(꾸러미 · SHA256SUMS 는 그 둘째 걸음이 짓는다).
   공개는 조직 Owner 가 릴리스 전 게이트(G9)와 내려받은 그 파일의 확인을 마친 뒤 한다.
   손으로 만든 산출물을 Release 에 올리지 않는다.
 - **배포 전 룰은 올리지 않는다.** 꾸러미는 룰(`plugin.yaml`·`rules/*.yar`)을

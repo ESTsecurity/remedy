@@ -27,12 +27,17 @@ pub enum SelfIntegrity {
     Verified { subject: Option<String> },
     /// 서명이 아예 없다. 개발 빌드이거나 서명 전 산출물이다.
     Unsigned,
-    /// 서명이 있으나 신뢰할 수 없다 — **변조되었거나 우리 것이 아니다.**
+    /// 서명이 있으나 신뢰할 수 없다 — **서명 뒤에 바뀌었거나 이 기계가 그 서명을 불신한다.**
     ///
-    /// 둘을 구분하지 않는다. 서명 이후 한 바이트가 바뀐 것과 남이 자기 키로
-    /// 서명한 것은 **둘 다 "우리가 만들어 서명한 그 바이너리가 아니다"** 이고,
-    /// 그 사실만으로 파괴를 막기에 충분하다.
+    /// 둘을 구분하지 않는다. 서명 이후 한 바이트가 바뀐 것과 이 기계가 명시적으로 불신하는 서명은 **둘 다
+    /// "우리가 만들어 서명한 그 바이너리라고 믿을 수 없다"** 이고, 그 사실만으로 파괴를 막기에 충분하다.
     Untrusted { subject: Option<String> },
+    /// 서명은 있으나 **이 기계에서 신뢰 루트까지 잇지 못했다** — 루트 인증서가 없거나(오프라인 · 자동 갱신 꺼짐)
+    /// 체인이 끊겼거나 만료됐다(2026-11-18 결정 S2).
+    ///
+    /// **막지 않는다.** 서명을 떼어 낸 파일도 막지 않으므로(2026-09-02) 이것을 막아 얻는 공격 방어가 없고, 막으면
+    /// 루트를 받은 적 없는 오프라인 기계에서 공식 서명본이 치료하지 못한다(랩 VM 실측 — 치료 문이 5). 대신 말한다.
+    Unverified { subject: Option<String> },
     /// 확인하지 못했다. 이 플랫폼에 Authenticode 가 없거나 API 가 답하지 않았다.
     Unknown(String),
 }
@@ -46,14 +51,15 @@ impl SelfIntegrity {
     /// (`SafeBoot::id` 와 같은 규약).
     ///
     /// **주체(누가 서명했는가)는 담지 않는다.** `Untrusted` 는 파괴에 닿지
-    /// 못하므로 저널에 남는 값은 `verified`·`unsigned`·`unknown` 뿐이고, 그
-    /// 셋에서 답해야 하는 질문은 *"공식 배포본이었는가"* 하나다. 누가
+    /// 못하므로 저널에 남는 값은 `verified`·`unverified`·`unsigned`·`unknown` 뿐이고, 그
+    /// 넷에서 답해야 하는 질문은 *"공식 배포본이었는가"* 하나다. 누가
     /// 서명했는지는 바이너리 자신이 들고 있다.
     pub const fn id(&self) -> &'static str {
         match self {
             SelfIntegrity::Verified { .. } => "verified",
             SelfIntegrity::Unsigned => "unsigned",
             SelfIntegrity::Untrusted { .. } => "untrusted",
+            SelfIntegrity::Unverified { .. } => "unverified",
             SelfIntegrity::Unknown(_) => "unknown",
         }
     }
@@ -73,6 +79,16 @@ impl fmt::Display for SelfIntegrity {
             SelfIntegrity::Unsigned => write!(f, "{}", t("서명 없음", "unsigned")),
             SelfIntegrity::Untrusted { subject } => {
                 let head = t("신뢰할 수 없는 서명", "untrusted signature");
+                match subject {
+                    Some(s) => write!(f, "{head} — {s}"),
+                    None => write!(f, "{head}"),
+                }
+            }
+            SelfIntegrity::Unverified { subject } => {
+                let head = t(
+                    "서명 있음 — 이 기계에서 확인하지 못함",
+                    "signed, not verifiable on this machine",
+                );
                 match subject {
                     Some(s) => write!(f, "{head} — {s}"),
                     None => write!(f, "{head}"),
@@ -124,9 +140,23 @@ pub fn check_self() -> SelfIntegrity {
 
 /// 경로 하나를 검사한다. 시험이 사본을 만들어 확인할 수 있게 열어 둔다.
 pub fn check_path(path: &std::path::Path) -> SelfIntegrity {
-    match remedy_wintrust::verify(path) {
+    from_verdict(remedy_wintrust::verify(path))
+}
+
+/// 서명 판정 하나를 자기무결성 상태로 옮긴다 — 판정 갈래마다 시험할 수 있게 떼어 둔다.
+///
+/// 신뢰하지 않은 서명 가운데 **이 기계에서 확인하지 못한 것만**(`Distrust::Unverifiable`) 막지 않는 상태로 간다.
+/// 까닭이 없는 신뢰 안 함(있어서는 안 되는 꼴)은 보수 쪽 — 막는 상태 — 으로 둔다.
+fn from_verdict(
+    r: Result<remedy_wintrust::Verdict, remedy_wintrust::VerifyError>,
+) -> SelfIntegrity {
+    use remedy_wintrust::{Distrust, SignatureKind};
+    match r {
         Ok(v) if v.trusted => SelfIntegrity::Verified { subject: v.subject },
-        Ok(v) if v.kind == remedy_wintrust::SignatureKind::Unsigned => SelfIntegrity::Unsigned,
+        Ok(v) if v.kind == SignatureKind::Unsigned => SelfIntegrity::Unsigned,
+        Ok(v) if v.distrust == Some(Distrust::Unverifiable) => {
+            SelfIntegrity::Unverified { subject: v.subject }
+        }
         Ok(v) => SelfIntegrity::Untrusted { subject: v.subject },
         Err(e) => SelfIntegrity::Unknown(verify_reason(&e)),
     }
@@ -182,7 +212,8 @@ pub const fn is_dev_build() -> bool {
 /// | 상태 | 개발 빌드 | 배포 빌드 |
 /// |---|---|---|
 /// | 서명 확인 | 전부 | 전부 |
-/// | **신뢰할 수 없는 서명** | **읽기만** | **읽기만** |
+/// | **신뢰할 수 없는 서명**(서명 뒤 바뀜 · 명시적 불신) | **읽기만** | **읽기만** |
+/// | 서명은 있으나 이 기계에서 확인하지 못함(루트 없음 · 체인 · 만료) | 전부 (경고) | 전부 (경고) |
 /// | 서명 없음 | 전부 (경고) | 전부 (경고) |
 /// | 확인 불가 | 전부 (경고) | 전부 (경고) |
 ///
@@ -241,6 +272,10 @@ pub fn stance(i: &SelfIntegrity) -> Stance {
         // 조건이 아니다 — 대신 `advisory` 가 매 실행에서 그 사실을 말한다.
         SelfIntegrity::Unsigned => Stance::Full,
 
+        // 서명을 떼어 낸 파일(위)이 막히지 않는데, 이 기계에서 루트까지 잇지 못한 서명을 막으면 그 막음은 공격자가
+        // 아니라 루트를 받은 적 없는 기계의 공식 서명본만 막는다(2026-11-18 결정 S2). 대신 `advisory` 가 말한다.
+        SelfIntegrity::Unverified { .. } => Stance::Full,
+
         SelfIntegrity::Unknown(_) => Stance::Full,
     }
 }
@@ -265,6 +300,13 @@ const UNSIGNED: (&str, &str) = (
 const NO_CODESIGN: (&str, &str) = (
     "이 OS 에는 코드서명 확인이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오",
     "no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum",
+);
+
+/// 서명은 있으나 **이 기계에서 확인하지 못한** 실행의 알림([`SelfIntegrity::Unverified`]) — [`UNSIGNED`] 와 같은 꼴로,
+/// 그렇게 된 흔한 까닭(루트 인증서가 없는 오프라인 기계)과 대신 확인할 길을 말한다. 막지 않는다.
+const UNVERIFIED: (&str, &str) = (
+    "코드서명을 이 기계에서 확인하지 못했습니다(루트 인증서가 없거나 오프라인). 받은 파일은 체크섬으로 확인하십시오",
+    "signature not verifiable here (missing root certificate or offline). Check the file's checksum",
 );
 
 /// 메뉴 첫 화면 머리말 아래에 설 **짧은** 알림 — [`advisory`] 와 같은 사실을 80칸 안에서(목표 remedy_시연전_안정화
@@ -295,9 +337,16 @@ pub fn header_note(i: &SelfIntegrity) -> Option<String> {
             )
             .into(),
         ),
+        SelfIntegrity::Unverified { .. } => Some(t(UNVERIFIED_NOTE.0, UNVERIFIED_NOTE.1).into()),
         _ => None,
     }
 }
+
+/// [`UNVERIFIED`] 의 메뉴 머리말 꼴 — 고르는 화면의 줄이라 80칸 안이다(아래 시험이 잰다).
+const UNVERIFIED_NOTE: (&str, &str) = (
+    "알림: 서명을 이 기계에서 확인하지 못했습니다. 체크섬으로 확인하십시오.",
+    "Notice: signature not verifiable here. Check the downloaded file's checksum.",
+);
 
 /// 사람에게 보일 한 줄. 파괴를 막지 않는 경우에도 **말해야 하는 것**이 있다.
 pub fn advisory(i: &SelfIntegrity) -> Option<String> {
@@ -315,6 +364,10 @@ pub fn advisory(i: &SelfIntegrity) -> Option<String> {
         // **배포 빌드에서도 말한다.** 막지 않기로 한 자리라 이 한 줄이 남는
         // 유일한 흔적이다. 조용하면 서명된 배포본과 구분되지 않는다.
         SelfIntegrity::Unsigned => Some(remedy_sdk::i18n::t(UNSIGNED.0, UNSIGNED.1).into()),
+        // 막지 않는 서명이다 — 그래서 말한다(위와 같은 까닭).
+        SelfIntegrity::Unverified { .. } => {
+            Some(remedy_sdk::i18n::t(UNVERIFIED.0, UNVERIFIED.1).into())
+        }
         // Windows 밖에서는 확인할 서명 체계가 없다(`VerifyError::Unsupported`) — 실패가 아니다.
         SelfIntegrity::Unknown(_) if !cfg!(windows) => {
             Some(remedy_sdk::i18n::t(NO_CODESIGN.0, NO_CODESIGN.1).into())
@@ -400,10 +453,82 @@ mod tests {
             ("! Notice: ", UNSIGNED.1),
             ("! 알림: ", NO_CODESIGN.0),
             ("! Notice: ", NO_CODESIGN.1),
+            ("! 알림: ", UNVERIFIED.0),
+            ("! Notice: ", UNVERIFIED.1),
         ] {
             let w = cols(head) + cols(note);
             assert!(w <= 120, "{w}칸 — {head}{note}");
         }
+        // 메뉴 머리말 아래 줄은 고르는 화면의 줄이다 — 80칸을 넘으면 방향키 화면이 줄 입력으로 떨어진다.
+        for note in [UNVERIFIED_NOTE.0, UNVERIFIED_NOTE.1] {
+            assert!(cols(note) <= 80, "{}칸 — {note}", cols(note));
+        }
+    }
+
+    fn verdict(
+        trusted: bool,
+        kind: remedy_wintrust::SignatureKind,
+        distrust: Option<remedy_wintrust::Distrust>,
+    ) -> Result<remedy_wintrust::Verdict, remedy_wintrust::VerifyError> {
+        Ok(remedy_wintrust::Verdict {
+            trusted,
+            subject: Some("CN=ESTsecurity Corp.".into()),
+            thumbprint: None,
+            kind,
+            distrust,
+        })
+    }
+
+    /// **이 기계에서 확인하지 못한 서명만** 막지 않는 상태로 간다(2026-11-18 결정 S2) — 서명 뒤 바뀐 것과 명시적
+    /// 불신은 지금처럼 막는다. 까닭이 빠진 신뢰 안 함은 보수 쪽(막음)이다.
+    #[test]
+    fn 확인하지_못한_서명만_막지_않는다() {
+        use remedy_wintrust::{
+            Distrust, SignatureKind::Embedded, SignatureKind::Unsigned as NoSig,
+        };
+        let cases = [
+            (verdict(true, Embedded, None), "verified", true),
+            (verdict(false, NoSig, None), "unsigned", true),
+            (
+                verdict(false, Embedded, Some(Distrust::Unverifiable)),
+                "unverified",
+                true,
+            ),
+            (
+                verdict(false, Embedded, Some(Distrust::Altered)),
+                "untrusted",
+                false,
+            ),
+            (
+                verdict(false, Embedded, Some(Distrust::Distrusted)),
+                "untrusted",
+                false,
+            ),
+            (verdict(false, Embedded, None), "untrusted", false),
+            (
+                Err(remedy_wintrust::VerifyError::Unsupported),
+                "unknown",
+                true,
+            ),
+        ];
+        for (r, id, allows) in cases {
+            let i = from_verdict(r);
+            assert_eq!(i.id(), id, "{i:?}");
+            assert_eq!(stance(&i).allows_destruction(), allows, "{i:?}");
+        }
+    }
+
+    #[test]
+    fn 확인하지_못한_서명은_막지_않되_말한다() {
+        let i = SelfIntegrity::Unverified {
+            subject: Some("CN=ESTsecurity Corp.".into()),
+        };
+        assert!(stance(&i).allows_destruction());
+        assert!(
+            advisory(&i).is_some(),
+            "막지 않기로 했으면 말이라도 해야 한다"
+        );
+        assert!(header_note(&i).is_some(), "메뉴 머리말에도 한 줄");
     }
 
     #[test]
@@ -472,8 +597,12 @@ mod reason_tests {
             },
             SelfIntegrity::Verified { subject: None },
             SelfIntegrity::Unsigned,
-            SelfIntegrity::Untrusted { subject: who },
+            SelfIntegrity::Untrusted {
+                subject: who.clone(),
+            },
             SelfIntegrity::Untrusted { subject: None },
+            SelfIntegrity::Unverified { subject: who },
+            SelfIntegrity::Unverified { subject: None },
             SelfIntegrity::Unknown("no such file".into()),
         ] {
             let line = i.to_string();

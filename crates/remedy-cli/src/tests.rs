@@ -1006,7 +1006,7 @@ fn the_denied_sample_follows_the_denial_reason() {
             unconfirmed: vec![note.clone()],
             ..denied(1, 1)
         };
-        let lines = reason_lines(&obs, Lang::Ko);
+        let lines = reason_lines(&obs, Lang::Ko, false);
         let at = |needle: &str| {
             lines
                 .iter()
@@ -1040,6 +1040,226 @@ fn the_screen_says_the_sample_is_not_the_whole() {
     let en = denied_lines(&denied(5, 5), Lang::En);
     assert!(en[0].contains("denied at"), "{en:?}");
     assert!(en[4].contains("and 2 more"), "{en:?}");
+}
+
+/// 시험이 만든 폴더 하나 — 건너뛰는 갈래는 **지금 폴더로 보이고 다시 열어도 권한 거부인 Windows 로컬 경로**만이라(K2)
+/// 가짜 글자로는 서지 않는다. 끝에 지운다.
+struct TempFolder(std::path::PathBuf);
+impl TempFolder {
+    fn new(name: &str) -> Self {
+        let p = std::env::temp_dir().join(format!("remedy-k2-{}-{name}", std::process::id()));
+        std::fs::create_dir_all(&p).unwrap();
+        TempFolder(p)
+    }
+    fn path(&self) -> String {
+        self.0.to_string_lossy().into_owned()
+    }
+    /// 모든 사람(관리자도)에게 이 폴더의 목록 읽기를 막는다 — 관리자로도 열리지 않는 폴더의 꼴이다. 속성은 그대로
+    /// 읽혀 폴더로 보인다.
+    #[cfg(windows)]
+    fn deny_listing(self) -> Self {
+        let ok = std::process::Command::new("icacls")
+            .arg(&self.0)
+            .args(["/deny", "*S-1-1-0:(RD)"])
+            .stdout(std::process::Stdio::null())
+            .status()
+            .is_ok_and(|s| s.success());
+        assert!(
+            ok,
+            "icacls 로 목록 읽기를 막지 못했다: {}",
+            self.0.display()
+        );
+        assert!(
+            std::fs::read_dir(&self.0).is_err(),
+            "막았는데 목록이 읽힌다"
+        );
+        self
+    }
+}
+impl Drop for TempFolder {
+    fn drop(&mut self) {
+        // 막아 둔 것을 풀어야 지울 수 있다.
+        #[cfg(windows)]
+        let _ = std::process::Command::new("icacls")
+            .arg(&self.0)
+            .args(["/remove:d", "*S-1-1-0"])
+            .stdout(std::process::Stdio::null())
+            .status();
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
+/// 거부 하나 — 그 자리가 `path` 다.
+fn denied_at(path: &str) -> Observation {
+    Observation {
+        denied_dirs: 1,
+        denied_paths: vec![path.to_string()],
+        ..Default::default()
+    }
+}
+
+/// **관리자로도 열리지 않는 폴더는 점검을 6 으로 떨어뜨리지 않는다**(결정 K2 · 2026-11-18). 실측: 관리자 실행에서
+/// Defender for Endpoint 의 폴더 하나가 Java 점검을 *"다 보지 못해"* 로 끝냈다. 건너뛰고 그 자리를 알린다.
+/// 치료는 그대로 6 이다. 건너뛰지 않는 거부는 아래 시험이 잰다.
+#[cfg(windows)]
+#[test]
+fn a_check_skips_folders_even_an_administrator_cannot_open() {
+    use remedy_core::report::Lang;
+    use remedy_sdk::artifact::UnconfirmedNote;
+    let check = Some(PluginKind::Check);
+
+    let dir = TempFolder::new("skip").deny_listing();
+    let at = dir.path();
+    let locked = denied_at(&at);
+    assert_eq!(outcome(&[], &locked, check), Code::NoThreat);
+    assert_eq!(
+        outcome(&[], &locked, None),
+        Code::IncompleteObservation,
+        "치료가 바뀌었다"
+    );
+    let found = vec!["g0".to_string()];
+    assert_eq!(outcome(&found, &locked, check), Code::FoundNotRemediated);
+
+    // 알림 — 판정과 무관하게 선다. 건너뛴 자리를 그 아래에 적는다.
+    let note = skipped_denied_lines(&locked, Lang::Ko);
+    assert!(
+        note[0].contains("안내:") && note[0].contains("폴더 1곳을 빼고 모두 확인했습니다"),
+        "{note:?}"
+    );
+    assert!(note.iter().any(|l| l.contains(at.as_str())), "{note:?}");
+    assert!(skipped_denied_lines(&locked, Lang::En)[0].contains("all but 1 folder,"));
+    // 사유 줄에는 그 거부가 없다 — 다른 사유만 남는다.
+    let review = UnconfirmedNote {
+        why: [("ko".to_string(), "룰의 사유".to_string())].into(),
+        groups: vec!["g0".into()],
+        rules: vec!["r".into()],
+    };
+    let both = Observation {
+        unconfirmed: vec![review],
+        ..denied_at(&at)
+    };
+    assert_eq!(outcome(&[], &both, check), Code::IncompleteObservation);
+    assert!(
+        both.only_unconfirmed(),
+        "확인 필요만 남은 점검의 결과 줄이 '다 보지 못해' 로 갔다"
+    );
+    let lines = reason_lines(&both, Lang::Ko, true);
+    assert!(
+        lines
+            .iter()
+            .all(|l| !l.contains("접근이 거부된") && !l.contains(at.as_str())),
+        "{lines:?}"
+    );
+    assert!(lines.iter().any(|l| l.contains("룰의 사유")), "{lines:?}");
+    // 치료 쪽 사유 줄은 전과 같다.
+    assert!(reason_lines(&both, Lang::Ko, false)
+        .iter()
+        .any(|l| l.contains("접근이 거부된")));
+    // **다른 까닭이 남았으면 '모두 확인했습니다' 라고 하지 않는다** — 결과 줄이 '다 보지 못해' 인데 stdout 이 어긋난다.
+    let truncated = Observation {
+        truncated: true,
+        ..denied_at(&at)
+    };
+    assert_eq!(outcome(&[], &truncated, check), Code::IncompleteObservation);
+    let note = skipped_denied_lines(&truncated, Lang::Ko);
+    assert!(
+        note[0].contains("폴더 1곳은 건너뛰었습니다") && !note[0].contains("모두 확인"),
+        "{note:?}"
+    );
+    // **폴더 수로 센다** — 같은 뿌리를 subject 마다 걸어 한 폴더가 두 번 세어져도 '1곳' · 경로 한 줄이다.
+    let twice = Observation {
+        denied_dirs: 2,
+        denied_paths: vec![at.clone(), at.clone()],
+        ..Default::default()
+    };
+    assert_eq!(outcome(&[], &twice, check), Code::NoThreat);
+    let note = skipped_denied_lines(&twice, Lang::Ko);
+    assert!(note[0].contains("폴더 1곳을 빼고"), "{note:?}");
+    assert_eq!(
+        note.iter().filter(|l| l.contains(at.as_str())).count(),
+        1,
+        "{note:?}"
+    );
+
+    // 재검사도 같은 규칙이다 — scan 0 · verify 6 으로 갈리지 않는다(2026-11-18 독립 검토).
+    use remedy_core::pipeline::VerifyOutcome;
+    assert_eq!(
+        recheck::rebind_for_kind(VerifyOutcome::Incomplete, &locked, check),
+        VerifyOutcome::Clean
+    );
+    assert_eq!(
+        recheck::rebind_for_kind(VerifyOutcome::Incomplete, &locked, None),
+        VerifyOutcome::Incomplete,
+        "치료가 바뀌었다"
+    );
+}
+
+/// **점검이 건너뛰지 않는 거부** — 알림도 서지 않고 사유 줄이 전처럼 말하며 6 이다(K2 는 Windows 의 로컬 폴더만).
+///
+/// 읽지 못한 파일(설정 · 패키지 기록)은 그것 하나가 판정의 유일한 근거일 수 있고, 리눅스의 거부는 컨테이너가 뗀
+/// 권한이라 사람이 고칠 수 있다(2026-11-18 독립 검토). 모든 OS 에서 돈다.
+#[test]
+fn a_check_never_skips_files_keys_processes_or_linux_denials() {
+    use remedy_core::report::Lang;
+    let check = Some(PluginKind::Check);
+
+    let dir = TempFolder::new("kept");
+    let file = dir.0.join("httpd.conf");
+    std::fs::write(&file, "x").unwrap();
+    let file = file.to_string_lossy().into_owned();
+    let mut kept = vec![
+        denied_at(&file),
+        denied_at("HKLM\\SOFTWARE\\Vendor\\Locked"),
+        denied_at("pid 4"),
+        denied_at("/proc/10/maps"),
+        denied_at("/lib/apk/db/installed"),
+        denied_at("/opt/app"),
+        denied_at("C:\\no-such-remedy-k2-folder"),
+        // 표본이 전수가 아니다 — 보이지 않는 몫이 무엇인지 모른다.
+        Observation {
+            denied_dirs: 40,
+            ..denied_at(&dir.path())
+        },
+    ];
+    // 지금 읽히는 폴더 — 수집 때 한 번 실패했어도 다시 돌리면 읽힌다(공유 위반 등). 리눅스에서는 진짜 폴더도 건너뛰지
+    // 않는다.
+    kept.push(denied_at(&dir.path()));
+    for obs in &kept {
+        assert_eq!(
+            outcome(&[], obs, check),
+            Code::IncompleteObservation,
+            "{obs:?}"
+        );
+        assert!(skipped_denied_lines(obs, Lang::Ko).is_empty(), "{obs:?}");
+        assert!(
+            reason_lines(obs, Lang::Ko, true)
+                .iter()
+                .any(|l| l.contains("접근이 거부된")),
+            "{obs:?}"
+        );
+    }
+    // 거부가 없으면 알림도 없다.
+    assert!(skipped_denied_lines(&Observation::default(), Lang::Ko).is_empty());
+
+    // 재검사의 다시 묶기 — '루트 전부 없음' 은 점검에서 그대로 면제다(B-6) · 치료는 6.
+    use remedy_core::pipeline::VerifyOutcome;
+    let gone = all_missing(2);
+    assert_eq!(
+        recheck::rebind_for_kind(VerifyOutcome::Incomplete, &gone, check),
+        VerifyOutcome::Clean
+    );
+    assert_eq!(
+        recheck::rebind_for_kind(VerifyOutcome::Incomplete, &gone, None),
+        VerifyOutcome::Incomplete
+    );
+    assert_eq!(
+        recheck::rebind_for_kind(VerifyOutcome::Incomplete, &kept[0], check),
+        VerifyOutcome::Incomplete
+    );
+    assert_eq!(
+        recheck::rebind_for_kind(VerifyOutcome::Recurred, &gone, check),
+        VerifyOutcome::Recurred
+    );
 }
 
 // ── 폐기 목록 · 내장 최소 버전의 문(`revocation_gate` · 설계-03 §6) ──────────────────────────

@@ -11,11 +11,14 @@
       1  체크섬 — `-Sums`(릴리스의 SHA256SUMS)를 주면 그 안의 `remedy-windows-x64.zip` 줄과 `-Zip`(받은 zip)을 견준다
       2  정식 파일 — 엔진 · 동반 프로그램의 버전, 꾸러미에 든 룰 전부와 동반 프로그램 폴더의 서명(`plugin verify`), 동반
          프로그램이 판정 기준을 알아보는가(`url` · `image` · `container` 도움말마다 확인한 기준 줄이 있고 '확인하지
-         못했다' 는 줄이 없다 — url 은 1.19.0 부터 PHP · Apache 두 줄)
+         못했다' 는 줄이 없다 — url 은 1.19.0 부터 PHP · Apache 두 줄), 실행 파일 둘의 코드서명(유효 · Authenticode ·
+         주체가 배포 워크플로의 `CODESIGN_SUBJECT` · 타임스탬프 — `VmSession.ps1` 의 `Get-CodeSignLine`)
       3  rc 와 같은가 — 파일마다 SHA-256 대조. 빌드마다 새로 쓰이는 칸은 둘이다(v1.16.0 에서 처음 쟀다):
          서명 파일(`MANIFEST.minisig`)은 minisign 이 서명마다 난수를 섞어 서명 값이 다르므로 서명 주석이 같은지 보고(그
          서명이 맞는지는 2 가 잰다), 실행 파일(`.exe`)은 MSVC 링크가 시각과 PDB 의 GUID 를 새로 쓰므로 그 칸만 가리고
-         견준다 — 그 실행 파일의 해시를 적은 `MANIFEST` 는 그 줄만 다를 수 있다. 다른 파일 · 한쪽에만 있는 파일이 0 이어야 한다
+         견준다 — 그 실행 파일의 해시를 적은 `MANIFEST` 는 그 줄만 다를 수 있다. 코드서명한 실행 파일은 서명마다 서명
+         값(시각 · 사흘짜리 인증서 · 타임스탬프)이 달라 보안 칸과 끝에 붙은 인증서 표도 가린다(표가 파일 끝을 정확히
+         채울 때만 — 그 서명이 맞는지는 2 가 잰다). 다른 파일 · 한쪽에만 있는 파일이 0 이어야 한다
 
     `-LogDir` 에 summary.txt 를 남긴다. 종료 코드: 0 = 모두 통과 · 1 = 하나라도 실패.
 
@@ -31,6 +34,8 @@ param(
     [Parameter(Mandatory = $true)][string] $LogDir
 )
 $ErrorActionPreference = 'Continue'
+. (Join-Path $PSScriptRoot 'VmSession.ps1')
+$subject = Get-CodeSignSubject
 $exe = Join-Path $Final 'remedy.exe'
 $net = Join-Path $Final 'remedy-net\remedy-net.exe'
 foreach ($p in @($exe, $net, $Zip, $Sums)) { if (-not (Test-Path -LiteralPath $p)) { throw "없다: $p" } }
@@ -81,16 +86,19 @@ foreach ($c in @('url', 'image', 'container')) {
     $lines.Add(('{0} help exit={1}' -f $c, $code))
 }
 Remove-Item Env:REMEDY_LANG -ErrorAction SilentlyContinue
+foreach ($p in @($exe, $net)) { $lines.Add((Get-CodeSignLine -Path $p -Subject $subject)) }
 [IO.File]::WriteAllLines((Join-Path $LogDir 'package.log'), $lines)
 $verify = @($lines | Where-Object { $_ -match ' verify exit=' })
 $good = @($verify | Where-Object { $_ -match ' verify exit=0$' })
 $helpGood = @($lines | Where-Object { $_ -match ' help exit=0$' })
 $crit = @($lines | Where-Object { $_ -match ' criteria ok$' })
 $ver = @($lines | Where-Object { $_ -match '\(exit=0\)$' })
-$pkgOk = ($verify.Count -gt 0) -and ($good.Count -eq $verify.Count) -and ($helpGood.Count -eq 3) -and ($crit.Count -eq 3) -and ($ver.Count -eq 2)
+$codesign = @($lines | Where-Object { $_ -match ' codesign=ok ' })
+$pkgOk = ($verify.Count -gt 0) -and ($good.Count -eq $verify.Count) -and ($helpGood.Count -eq 3) -and ($crit.Count -eq 3) -and
+    ($ver.Count -eq 2) -and ($codesign.Count -eq 2)
 if (-not $pkgOk) { $failed += 'package' }
-Note ('2 정식 파일  {0}  버전 {1}/2 · 서명(룰 · 동반 프로그램) {2}/{3} · 판정 기준 도움말 {4}/3 · 기준을 알아본 명령 {5}/3' -f $(if ($pkgOk) { '통과' } else { '실패' }),
-    $ver.Count, $good.Count, $verify.Count, $helpGood.Count, $crit.Count)
+Note ('2 정식 파일  {0}  버전 {1}/2 · 서명(룰 · 동반 프로그램) {2}/{3} · 판정 기준 도움말 {4}/3 · 기준을 알아본 명령 {5}/3 · 코드서명 {6}/2' -f $(if ($pkgOk) { '통과' } else { '실패' }),
+    $ver.Count, $good.Count, $verify.Count, $helpGood.Count, $crit.Count, $codesign.Count)
 
 # ── 3. rc 와 같은가 ──
 function Get-Tree([string] $root) {
@@ -115,6 +123,8 @@ function Get-PeBuildFields([byte[]] $b) {
     $fields = New-Object System.Collections.Generic.List[object]
     $fields.Add(@(($coff + 4), 4))
     $fields.Add(@(($opt + 64), 4))
+    # 보안 칸(인증서 표의 자리 · 크기) — 코드서명이 쓴다. 표 자체는 Get-MaskedHash 가 잘라 낸다.
+    $fields.Add(@(($opt + 112 + 32), 8))
     $dbgRva = [BitConverter]::ToUInt32($b, $opt + 112 + 48)
     $dbgSize = [BitConverter]::ToUInt32($b, $opt + 112 + 52)
     if ($dbgRva -ne 0) {
@@ -141,14 +151,23 @@ function Get-PeBuildFields([byte[]] $b) {
     }
     , $fields
 }
-# 그 칸을 0 으로 가린 SHA-256. 가릴 칸을 찾지 못하면 $null.
+# 그 칸을 0 으로 가린 SHA-256 — 코드서명한 파일이면 끝의 인증서 표 앞까지. 가릴 칸을 찾지 못하거나 인증서 표가 파일
+# 끝을 정확히 채우지 않으면 $null(그 파일은 바이트 대조 그대로다).
 function Get-MaskedHash([string] $path) {
     $b = [IO.File]::ReadAllBytes($path)
     $fields = Get-PeBuildFields $b
     if ($null -eq $fields) { return $null }
+    $opt = [BitConverter]::ToInt32($b, 0x3C) + 24
+    $certAt = [BitConverter]::ToUInt32($b, $opt + 112 + 32)
+    $certSize = [BitConverter]::ToUInt32($b, $opt + 112 + 36)
+    $len = $b.Length
+    if ($certAt -ne 0) {
+        if ([int64]$certAt + [int64]$certSize -ne [int64]$b.Length) { return $null }
+        $len = [int]$certAt
+    }
     foreach ($f in $fields) { [Array]::Clear($b, [int]$f[0], [int]$f[1]) }
     $sha = [Security.Cryptography.SHA256]::Create()
-    try { [BitConverter]::ToString($sha.ComputeHash($b)) } finally { $sha.Dispose() }
+    try { [BitConverter]::ToString($sha.ComputeHash($b, 0, $len)) } finally { $sha.Dispose() }
 }
 function Get-TrustedComment([string] $path) {
     @(Get-Content -LiteralPath $path -Encoding UTF8 | Where-Object { $_ -like 'trusted comment: *' }) | Select-Object -First 1

@@ -1505,6 +1505,7 @@ fn cmd_collect(raw: &[String]) -> Result<Code, Failure> {
     let obs = env.body.observation();
     warn_incomplete(&obs, kind);
     note_not_applicable(&obs, kind, &[]);
+    note_skipped_denied(&obs, kind);
     Ok(outcome(&[], &obs, kind))
 }
 
@@ -1568,11 +1569,11 @@ fn cmd_plan(raw: &[String]) -> Result<Code, Failure> {
         p.body.actions.len()
     );
     report_plan(&p, lang(&a), &a, true);
-    Ok(outcome(
-        &p.body.verdicts,
-        &p.body.observation,
-        m.as_ref().and_then(|m| m.kind),
-    ))
+    // 종료 코드가 건너뛴 폴더(K2)로 6 에서 0 이 되는 자리라 그 폴더를 적는다 — 이 명령은 사유 줄(`warn_incomplete`)을
+    // 원래 적지 않는다.
+    let kind = m.as_ref().and_then(|m| m.kind);
+    note_skipped_denied(&p.body.observation, kind);
+    Ok(outcome(&p.body.verdicts, &p.body.observation, kind))
 }
 
 /// 계획에 넣지 못한 것을 **반드시 말한다**.
@@ -1697,8 +1698,11 @@ fn scan_one(raw: &[String], keep: Keep) -> Result<ScanOne, Failure> {
 
     let obs = &scan.body.observation;
     let code = outcome(&scan.body.verdicts, obs, m.kind);
+    // 거부가 있으면 해당 없음이 아니다 — 점검이 건너뛰는 거부(K2)도 치료 룰에서는 못 본 자리다. 점검 룰은 여기 오지
+    // 않는다(6 이면 `is_complete_for_check` 가 이미 거짓이다).
     let absent = code == Code::IncompleteObservation
         && obs.all_roots_missing()
+        && obs.denied_dirs == 0
         && obs.is_complete_for_check();
     let review = obs.only_unconfirmed();
     let kept = keep == Keep::Always || !(code == Code::NoThreat || absent);
@@ -2156,6 +2160,7 @@ fn run_apply(
     // `apply --plan` · `resume` 은 검사 단계가 없으니 여기서 말한다.
     if !scan_warned {
         warn_incomplete(&plan.body.observation, kind);
+        note_skipped_denied(&plan.body.observation, kind);
     }
 
     if plan.body.actions.is_empty() {
@@ -3063,6 +3068,7 @@ fn report_scan(
     }
     warn_incomplete(&scan.body.observation, kind);
     note_not_applicable(&scan.body.observation, kind, &scan.body.verdicts);
+    note_skipped_denied(&scan.body.observation, kind);
 }
 
 /// 종료 코드를 정한다 (설계-02 §8).
@@ -3182,9 +3188,63 @@ fn warn_incomplete(obs: &Observation, kind: Option<PluginKind>) {
             )
         }
     );
-    for l in reason_lines(obs, lang) {
+    for l in reason_lines(obs, lang, kind == Some(PluginKind::Check)) {
         errln!("{l}");
     }
+}
+
+/// 점검이 **건너뛴** 거부된 자리를 stdout 에 적는다(결정 K2 · 2026-11-18).
+///
+/// 관리자로도 열리지 않는 폴더는 점검의 불완전 사유가 아니다([`Observation::check_skips_denied`]) — 사유 줄에서
+/// 빠지는 대신 여기서 그 자리를 적는다. 결과의 일부라 stdout 이고, 불완전이 아니라 머리말은 `안내:` 다
+/// ([`note_not_applicable`] 과 같은 까닭). **판정이 섰어도 적는다** — 그 폴더 안은 보지 않았다.
+fn note_skipped_denied(obs: &Observation, kind: Option<PluginKind>) {
+    if kind != Some(PluginKind::Check) {
+        return;
+    }
+    for l in skipped_denied_lines(obs, ui().lang) {
+        outln!("{l}");
+    }
+}
+
+/// [`note_skipped_denied`] 의 줄 — 건너뛴 거부가 없으면 비어 있다. 출력과 나눈 까닭은 [`denied_lines`] 와 같다.
+///
+/// **다른 까닭으로 다 보지 못했으면 *"모두 확인했습니다"* 라고 하지 않는다** — 그때는 `주의:` 줄이 그 까닭을 말하고
+/// 결과 줄이 *"다 보지 못해"* 인데, 같은 stdout 에 *"모두 확인했습니다"* 가 서면 스스로 어긋난다(2026-11-18 독립 검토).
+fn skipped_denied_lines(obs: &Observation, lang: remedy_core::report::Lang) -> Vec<String> {
+    if !obs.check_skips_denied() {
+        return Vec::new();
+    }
+    // **폴더 수로 센다.** `denied_dirs` 는 열기 횟수라 같은 뿌리를 subject 마다 걷는 룰(file · text_config)에서는 한
+    // 폴더를 두세 번 센다 — 그대로 적으면 *"폴더 2곳"* 아래 같은 경로가 두 줄이다(2026-11-18 독립 검토). 건너뛸 때는
+    // 표본이 전수다(`check_skips_denied`).
+    let mut uniq: Vec<String> = Vec::new();
+    for p in &obs.denied_paths {
+        if !uniq.contains(p) {
+            uniq.push(p.clone());
+        }
+    }
+    let shown = Observation {
+        denied_dirs: uniq.len(),
+        denied_paths: uniq,
+        ..obs.clone()
+    };
+    let n = shown.denied_dirs;
+    let folders = if n == 1 { "folder" } else { "folders" };
+    let line = if obs.is_complete_for_check() {
+        lang.pick(
+            format!("관리자 권한으로도 열리지 않는 폴더 {n}곳을 빼고 모두 확인했습니다."),
+            format!("checked all but {n} {folders}, which not even an administrator can open."),
+        )
+    } else {
+        lang.pick(
+            format!("관리자 권한으로도 열리지 않는 폴더 {n}곳은 건너뛰었습니다."),
+            format!("skipped {n} {folders} that not even an administrator can open."),
+        )
+    };
+    let mut v = vec![format!("  {} {line}", lang.t("안내:", "Info:"))];
+    v.extend(denied_lines(&shown, lang));
+    v
 }
 
 /// 사유 줄과 **그 사유 바로 아래의** 거부된 자리 표본.
@@ -3192,7 +3252,17 @@ fn warn_incomplete(obs: &Observation, kind: Option<PluginKind>) {
 /// 표본을 사유 줄 맨 끝에 붙이면, 사유가 둘일 때(접근 거부 + 룰의 확인 필요) 목록이 둘째 사유 밑에
 /// 서서 그 사유의 경로로 읽혔다(2026-11-12 · 리눅스 컨테이너의 PHP 세션 점검). 거부 사유는 잘림
 /// 사유 다음 자리다 — [`Observation::reasons_in`] 의 차례이고, 시험이 그것을 붙잡는다.
-fn reason_lines(obs: &Observation, lang: remedy_core::report::Lang) -> Vec<String> {
+///
+/// `check` 이고 점검이 그 거부를 건너뛰면(K2) 거부 사유와 표본을 싣지 않는다 — 그 자리는
+/// [`note_skipped_denied`] 가 적는다.
+fn reason_lines(obs: &Observation, lang: remedy_core::report::Lang, check: bool) -> Vec<String> {
+    if check && obs.check_skips_denied() {
+        return obs
+            .reasons_for_check_in(lang)
+            .iter()
+            .map(|r| format!("     - {r}"))
+            .collect();
+    }
     let reasons = obs.reasons_in(lang);
     let denied_at = (obs.denied_dirs > 0).then_some(usize::from(obs.truncated));
     let mut out = Vec::new();
