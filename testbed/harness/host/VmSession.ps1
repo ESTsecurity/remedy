@@ -782,3 +782,30 @@ function New-DetectOnlyLabRule {
     [System.IO.File]::WriteAllLines((Join-Path $Out "plugin.yaml"), $kept,
                                     (New-Object System.Text.UTF8Encoding($false)))
 }
+
+# ── 코드서명(Authenticode) ──────────────────────────────────────────
+#
+# 배포 꾸러미의 Windows 실행 파일은 코드서명한다(`.github/workflows/release.yml` 첫머리). 기대하는 서명 주체는 배포
+# 워크플로의 `CODESIGN_SUBJECT` **한 곳**에만 적는다 — 서명 걸음(`Invoke-ReleaseCodeSign.ps1`) · 최종 확인 · 긴급
+# 점검이 여기서 읽는다. 판정은 OS 가 한다(`Get-AuthenticodeSignature` — 체인 검증을 직접 짜지 않는다).
+function Get-CodeSignSubject {
+    $root = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))
+    $wf = Get-Content -LiteralPath (Join-Path $root '.github\workflows\release.yml') -Raw -Encoding UTF8
+    if ($wf -match 'CODESIGN_SUBJECT:\s*"([^"]+)"') { return $Matches[1] }
+    throw '배포 워크플로에서 CODESIGN_SUBJECT 를 찾지 못했다'
+}
+
+# 실행 파일 하나의 판정 한 줄 — `<이름> codesign=ok|bad · 상태 · 종류 · 주체 · 타임스탬프`. ok 는 넷 다다: 유효 ·
+# Authenticode · 주체가 기대와 같음 · 타임스탬프 있음(서명 인증서가 사흘짜리라 타임스탬프가 없으면 사흘 뒤 무효다).
+function Get-CodeSignLine {
+    param(
+        [Parameter(Mandatory = $true)][string] $Path,
+        [Parameter(Mandatory = $true)][string] $Subject
+    )
+    $s = Get-AuthenticodeSignature -LiteralPath $Path
+    $who = if ($s.SignerCertificate) { $s.SignerCertificate.Subject } else { '(없음)' }
+    $ok = ($s.Status -eq 'Valid') -and ($s.SignatureType -eq 'Authenticode') -and ($who -eq $Subject) -and
+          ($null -ne $s.TimeStamperCertificate)
+    '{0} codesign={1} · {2} · {3} · 주체 {4} · 타임스탬프 {5}' -f (Split-Path -Leaf $Path), $(if ($ok) { 'ok' } else { 'bad' }),
+        $s.Status, $s.SignatureType, $who, $(if ($s.TimeStamperCertificate) { '있음' } else { '없음' })
+}

@@ -7,6 +7,7 @@
 #![allow(clippy::disallowed_methods)]
 
 mod arch;
+mod codesign;
 mod console;
 mod corpus;
 mod docs;
@@ -163,6 +164,12 @@ fn main() -> ExitCode {
             let args: Vec<String> = std::env::args().skip(2).collect();
             sign::run(&args)
         }
+        // 코드서명한 실행 파일이 지은 그 파일에 서명만 더한 것인가. `static` 처럼 산출물이 있어야 해 `all` 에 넣지
+        // 않는다 — 배포 잡의 둘째 걸음이 부른다.
+        Some("codesign") => {
+            let args: Vec<String> = std::env::args().skip(2).collect();
+            codesign::run(&args)
+        }
         // 콘솔 화면의 정규화 diff. 화면을 바꾸는 회차의 안전망이라 `all` 에 넣지
         // 않는다 — 캡처는 실기기·컨테이너에서 받는 것이고 빌드 게이트가 아니다.
         Some("console-diff") => {
@@ -188,6 +195,7 @@ fn main() -> ExitCode {
              cargo xtask threats --dirs <windows|linux>\n  \
              cargo xtask metrics [--state-dir <디렉터리>] [--lang ko|en]\n  \
              cargo xtask static <바이너리 경로>...\n  \
+             cargo xtask codesign <서명 전 실행 파일> <서명본>\n  \
              cargo xtask exam --dir <플러그인 디렉터리>\n  \
              cargo xtask corpus --in <collect 결과> --label <이름> --out corpus/clean\n  \
              cargo xtask fuzz [--seed <수>] [--millis <대상마다 ms>]\n  \

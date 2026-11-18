@@ -29,19 +29,32 @@
 #   룰셋(`release-tags`)으로 조직 Owner 만 만든다. 비밀은 서명 단계에만 넣는다 — 서드파티 빌드
 #   스크립트는 그 전에 다 돈다.
 # - 캐시를 쓰지 않는다 — 배포물은 빈 자리에서 짓는다.
+# - **Windows 실행 파일의 코드서명(Authenticode)은 잡 밖에서 한다** — 서명 도구(Azure Trusted Signing)와 그
+#   계정이 서명하는 기계에만 있다. 그래서 Windows 는 두 걸음이다.
+#   1) 태그 실행(첫 걸음)이 지은 `remedy.exe` · `remedy-net.exe` 를 초안에 `unsigned-*` 로 넘기고 멈춘다.
+#   2) 서명하는 기계가 그 둘을 받아 서명해 `signed-*` 로 올리고, 이 워크플로를 **같은 태그에서** 다시 부른다
+#      (`testbed/harness/host/Invoke-ReleaseCodeSign.ps1` — `gh workflow run release.yml --ref <태그>`).
+#   3) 그 실행(둘째 걸음)이 서명본을 잰다 — 지은 그 파일에 서명만 더했는가(`cargo xtask codesign` · 바이트) ·
+#      서명이 유효하고 주체가 우리이며 타임스탬프가 있는가. 맞으면 서명본으로 룰 서명 · 꾸러미 · 기준 5(b) · zip ·
+#      SHA256SUMS 를 하고 넘긴 파일 넷을 초안에서 지운다.
+#   동반 프로그램은 **코드서명한 뒤** 그 해시를 MANIFEST 에 적는다 — 차례가 바뀌면 본체가 띄우지 않는다. 룰 · 동반
+#   프로그램의 서명 비밀은 둘째 걸음만 받는다(첫 걸음은 짓고 넘길 뿐이다). 리눅스는 첫 걸음에서 끝난다.
 #
 # PR 은 배포 경로를 고쳤을 때만 **시험 실행**한다 — 일회용 키로 같은 차례를 돌고
-# 아무것도 올리지 않는다. 비밀을 쓰지 않는다.
+# 아무것도 올리지 않는다. 비밀을 쓰지 않는다. 코드서명은 하지 않는다(서명 전 실행 파일로 돈다).
 
 name: Release
 
 on:
   push:
     tags: ["v*", "rules-*"]
+  # 둘째 걸음 — 코드서명한 뒤 같은 태그에서 부른다(첫머리). 배포 태그가 아닌 자리에서 부르면 Windows 잡이 멈춘다.
+  workflow_dispatch:
   pull_request:
     paths:
       - .github/workflows/release.yml
       - ci/release.sh
+      - xtask/src/codesign.rs
       - xtask/src/package.rs
       - xtask/src/sign.rs
       - xtask/src/staticlink.rs
@@ -168,14 +181,18 @@ jobs:
           gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft $pre --verify-tag \
             --title "$title" --notes-file "$RUNNER_TEMP/notes.md"
 
+  # 세 갈래가 한 잡이다 — 시험 실행(PR): 짓고 꾸려 재기만 한다 · 첫 걸음(태그): 짓고 실행 파일을 넘긴다 · 둘째 걸음
+  # (같은 태그에서 다시 부름): 서명본을 받아 재고 꾸려 올린다(첫머리 '코드서명'). 꾸리는 단계는 시험 실행과 둘째 걸음이
+  # 같다 — `BIN_DIR` 이 지은 자리(시험 실행)나 서명본의 자리(둘째 걸음)를 가리킨다.
   release-windows:
     needs: draft
-    # 시험 실행에서는 draft 를 건너뛴다 — 그때도 돈다.
+    # 시험 실행 · 둘째 걸음에서는 draft 를 건너뛴다 — 그때도 돈다.
     if: ${{ !cancelled() && (needs.draft.result == 'success' || needs.draft.result == 'skipped') }}
     runs-on: windows-2025
     timeout-minutes: 60
-    # 태그 실행만 Environment 에 들어가 서명 비밀을 받는다. 빈 이름은 Environment 없음이다.
-    environment: ${{ github.event_name == 'push' && 'release' || '' }}
+    # 서명 비밀은 둘째 걸음만 받는다 — Environment 는 배포 태그(`v*` · `rules-*`)의 실행만 들인다. 첫 걸음은 짓고
+    # 넘길 뿐이라 들어가지 않는다. 빈 이름은 Environment 없음이다.
+    environment: ${{ github.event_name == 'workflow_dispatch' && 'release' || '' }}
     permissions:
       contents: write
     defaults:
@@ -185,7 +202,17 @@ jobs:
       TARGET: x86_64-pc-windows-msvc
       PKG: dist/remedy-windows-x64
       COMPANION: companion/remedy-net
+      # 코드서명의 주체 — 둘째 걸음이 서명본마다 이 이름과 견준다. 서명된 파일마다 들어 있는 공개된 이름이다.
+      CODESIGN_SUBJECT: "CN=ESTsecurity Corp., O=ESTsecurity Corp., L=Seoul, C=KR"
     steps:
+      # 둘째 걸음은 배포 태그의 초안에서만 — 다른 자리에서 부르면 아무것도 하지 않고 멈춘다.
+      - name: release tag
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          case "$GITHUB_REF" in
+            refs/tags/v* | refs/tags/rules-*) echo "둘째 걸음: $GITHUB_REF_NAME" ;;
+            *) echo "::error::둘째 걸음은 배포 태그에서 부른다 — gh workflow run release.yml --ref <태그> ($GITHUB_REF)"; exit 1 ;;
+          esac
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -199,49 +226,92 @@ jobs:
           ANCHOR: ${{ vars.REMEDY_TRUST_ANCHOR }}
         run: bash ci/release.sh pubkey
       - name: build (anchored)
+        if: github.event_name != 'workflow_dispatch'
         run: cargo build --release --locked --target "$TARGET" -p remedy-cli
       - name: build companion
+        if: github.event_name != 'workflow_dispatch'
         run: cargo build --release --locked --target "$TARGET" -p remedy-net
       # 정적 CRT · 네트워크 임포트 — 설정이 무시되면 조용히 동적 링크가 나온다. 본체는 네트워크
       # 임포트가 하나도 없어야 하고, 동반 프로그램은 소켓만 쓴다(OS 의 HTTP 스택은 막는다).
       - name: static
+        if: github.event_name != 'workflow_dispatch'
         run: |
           cargo xtask static "target/$TARGET/release/remedy.exe"
           cargo xtask static --companion "target/$TARGET/release/remedy-net.exe"
+          echo "BIN_DIR=target/$TARGET/release" >>"$GITHUB_ENV"
+      # 첫 걸음의 끝 — 지은 실행 파일 둘을 초안에 넘기고 멈춘다. 초안은 push 권한자만 본다.
+      - name: hand over for code signing
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash ci/release.sh handover "target/$TARGET/release"
+      # 둘째 걸음의 시작 — 넘긴 것과 서명한 것을 초안에서 받아, 서명본이 넘긴 그 파일에 서명만 더한 것인지 바이트로
+      # 잰다(`cargo xtask codesign`). 맞으면 서명본이 아래 단계의 실행 파일이다(`BIN_DIR`).
+      - name: fetch code-signed
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash ci/release.sh fetch-signed signed
+      # 서명이 유효한가 · 주체가 우리인가 · 타임스탬프가 있는가 — 서명 인증서는 사흘짜리라 타임스탬프가 없으면 사흘 뒤
+      # 서명이 무효가 된다. 판정은 OS 가 한다(체인 검증을 직접 짜지 않는다 — `remedy-wintrust` 첫머리).
+      - name: check code signature
+        if: github.event_name == 'workflow_dispatch'
+        shell: pwsh
+        run: |
+          $bad = 0
+          foreach ($name in 'remedy.exe', 'remedy-net.exe') {
+            $s = Get-AuthenticodeSignature -LiteralPath (Join-Path $env:BIN_DIR $name)
+            $who = if ($s.SignerCertificate) { $s.SignerCertificate.Subject } else { '(없음)' }
+            $ts = if ($s.TimeStamperCertificate) { $s.TimeStamperCertificate.Subject.Split(',')[0] } else { '(없음)' }
+            '{0}: {1} · {2} · 주체 {3} · 타임스탬프 {4}' -f $name, $s.Status, $s.SignatureType, $who, $ts
+            if ($s.Status -ne 'Valid' -or $s.SignatureType -ne 'Authenticode' -or $who -ne $env:CODESIGN_SUBJECT -or -not $s.TimeStamperCertificate) {
+              "::error::$name 의 코드서명이 맞지 않는다 — 유효 · Authenticode · 주체 '$env:CODESIGN_SUBJECT' · 타임스탬프가 모두 있어야 한다"
+              $bad++
+            }
+          }
+          if ($bad) { exit 1 }
       - name: sign
+        if: github.event_name != 'push'
         env:
           SECRET_KEY: ${{ secrets.REMEDY_SIGN_SECRET_KEY }}
           SECRET_PASSWORD: ${{ secrets.REMEDY_SIGN_PASSWORD }}
         run: |
           for d in $(cargo xtask threats --dirs windows); do bash ci/release.sh sign "$d"; done
           mkdir -p "$COMPANION"
-          cp "target/$TARGET/release/remedy-net.exe" "$COMPANION/"
+          cp "$BIN_DIR/remedy-net.exe" "$COMPANION/"
           bash ci/release.sh sign-companion "$COMPANION"
       - name: package
+        if: github.event_name != 'push'
         run: |
           args=()
           for d in $(cargo xtask threats --dirs windows); do args+=(--plugin "$d"); done
-          cargo xtask package "${args[@]}" --bin "target/$TARGET/release/remedy.exe" \
+          cargo xtask package "${args[@]}" --bin "$BIN_DIR/remedy.exe" \
             --companion "$COMPANION" --out "$PKG" --public-key "$RELEASE_PUBKEY"
       # 기준 5(b) — 받는 사람이 푸는 그 폴더에서 룰마다 잰다. 동반 프로그램은 본체가 실제로 띄워 본다.
+      # 꾸러미의 실행 파일이 꾸린 그것(둘째 걸음이면 서명본)과 같은지도 본다.
       - name: verify (5b)
+        if: github.event_name != 'push'
         run: |
           bash ci/release.sh readme "$PKG/README.txt"
           for d in $(cargo xtask threats --dirs windows); do
             bash ci/release.sh verify "$PKG/remedy.exe" "$PKG/plugins/$(basename "$d")"
           done
           bash ci/release.sh verify-companion "$PKG/remedy.exe"
+          cmp "$PKG/remedy.exe" "$BIN_DIR/remedy.exe"
+          cmp "$PKG/remedy-net/remedy-net.exe" "$BIN_DIR/remedy-net.exe"
       - name: upload to draft
-        if: github.event_name == 'push'
+        if: github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           (cd dist && 7z a -tzip ../remedy-windows-x64.zip remedy-windows-x64 >/dev/null)
           gh release upload "$GITHUB_REF_NAME" remedy-windows-x64.zip --repo "$GITHUB_REPOSITORY" --clobber
+          bash ci/release.sh clear-handover
 
   release-linux:
     needs: draft
-    if: ${{ !cancelled() && (needs.draft.result == 'success' || needs.draft.result == 'skipped') }}
+    # 리눅스는 첫 걸음에서 끝난다 — 둘째 걸음(코드서명 뒤)에는 돌지 않는다.
+    if: ${{ !cancelled() && github.event_name != 'workflow_dispatch' && (needs.draft.result == 'success' || needs.draft.result == 'skipped') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     environment: ${{ github.event_name == 'push' && 'release' || '' }}
@@ -326,10 +396,11 @@ jobs:
         run: gh release upload "$GITHUB_REF_NAME" remedy-linux-x64.tar.gz --repo "$GITHUB_REPOSITORY" --clobber
 
   # 체크섬 한 장 — 두 꾸러미가 다 올라간 **뒤** 초안에서 받아 잰다. 받은 사람이 쓰는 그 파일의
-  # 해시여야 한다(잡 안의 사본이 아니라).
+  # 해시여야 한다(잡 안의 사본이 아니라). Windows 꾸러미는 둘째 걸음에서 올라가므로 둘째 걸음에서 돈다 — 리눅스
+  # 꾸러미는 첫 걸음이 이미 올려 두었다(없으면 받기에서 멈춘다).
   checksums:
-    needs: [release-windows, release-linux]
-    if: github.event_name == 'push'
+    needs: [release-windows]
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -345,3 +416,10 @@ jobs:
           sha256sum remedy-windows-x64.zip remedy-linux-x64.tar.gz >SHA256SUMS
           cat SHA256SUMS
           gh release upload "$GITHUB_REF_NAME" SHA256SUMS --repo "$GITHUB_REPOSITORY" --clobber
+          # 공개할 초안에는 자산 셋만 있어야 한다 — 코드서명에 넘긴 중간 파일이 남으면 공개 전에 멈춘다.
+          assets=$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | LC_ALL=C sort | tr '\n' ' ')
+          echo "자산: $assets"
+          if [ "$assets" != "SHA256SUMS remedy-linux-x64.tar.gz remedy-windows-x64.zip " ]; then
+            echo "::error::초안의 자산이 셋(SHA256SUMS · 두 꾸러미)이 아니다: $assets"
+            exit 1
+          fi
