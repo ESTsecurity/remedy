@@ -349,9 +349,12 @@ jobs:
   # 체크섬 한 장 — 두 꾸러미가 다 올라간 **뒤** 초안에서 받아 잰다. 받은 사람이 쓰는 그 파일의
   # 해시여야 한다(잡 안의 사본이 아니라). Windows 꾸러미는 둘째 걸음에서 올라가므로 둘째 걸음에서 돈다 — 리눅스
   # 꾸러미는 첫 걸음이 이미 올려 두었다(없으면 받기에서 멈춘다).
+  # 조건은 release-windows 와 같은 꼴로 그 잡의 결과를 직접 본다 — `if:` 에 상태 함수가 없으면 암묵의 success() 가
+  # 붙는데, 그것은 조상 잡까지 보아 둘째 걸음에서 건너뛴 `draft` 때문에 이 잡도 건너뛴다(v1.24.0-rc.1 이 그렇게
+  # SHA256SUMS 없이 끝났다).
   checksums:
     needs: [release-windows]
-    if: github.event_name == 'workflow_dispatch'
+    if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' && needs.release-windows.result == 'success' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
