@@ -1,7 +1,22 @@
 # java4shell-check-windows — 릴리스 기록
 
-**버전 0.2.0** · 대상: Java 런타임의 Base64 디코더 결함(CVE-2026-114938 · "Java4Shell") — Windows ·
+**버전 0.3.0** · 대상: Java 런타임의 Base64 디코더 결함(CVE-2026-114938 · "Java4Shell") — Windows ·
 **점검**(바꾸지 않는다)
+
+## 0.3.0 — GraalVM Enterprise Edition 21.3 을 제품 판으로 (2026-11-18)
+
+리눅스 룰 0.3.0 과 같은 출시로 낸다(엔진 1.24.0 과 함께). 근거와 판정은 리눅스 룰의 `RELEASE.md` 0.3.0 절과 같다.
+
+- **Oracle GraalVM Enterprise Edition 21.3 은 `GRAALVM_VERSION` 이 21.3.20.1 미만이면 바탕 Java 와 상관없이 취약(2)이다**
+  (`graalvm_ee_affected`) — 0.2.0 은 바탕 Java 로 판정해 EE 의 Java 11 · 8 판을 0 으로 냈다. Oracle 빌드
+  (`IMPLEMENTOR="Oracle Corporation"`)만이고 Community 판은 전처럼 바탕 Java 로 판정한다.
+- **판을 읽지 못한 `release` 도 x86-64 가 아니라고 적혀 있으면 뺀다**(독립 검토).
+- **VS Code 의 Java 확장이 담는 JRE 를 본다** — 사용자마다 `.vscode\extensions`. 실측 2026-11-18: redhat.java
+  1.59.2026111308 win32-x64 가 `jre\25.0.5-win32-x86_64\` 에 JRE 를 담고 그 `release` 는 `JAVA_VERSION="25.0.5"` ·
+  `MODULES` 두 줄이다 — **25.0.5.1 미만이라 취약(2)**. JetBrains Toolbox 가 까는 IDE 는 `AppData\Local\Programs` 로 이미 본다.
+- **관리자도 열 수 없는 폴더** — 0.2.0 의 *아직 못 고친 것* 은 엔진 1.24.0 이 고친다: 그 폴더를 건너뛰고 나머지로 말하며
+  건너뛴 경로를 알린다(그 폴더 안은 보지 않는다). 1.23.0 엔진에서는 그대로 확인 필요다.
+- 하네스 **43칸**(0.2.0 은 37 — GraalVM EE 3 · 판 없는 ARM64 1 · VS Code 1 · 화면 1).
 
 ## 0.2.0 — Java 8 EPP · 사용자마다 까는 자리 · javapath (2026-11-18)
 
@@ -31,6 +46,7 @@ x64 zip: `jdk-17.0.21+9\bin\java.exe` 와 같은 폴더의 `release` 에 `JAVA_V
 |---|---|
 | 설치본의 판이 **고친 판 미만**(17.0.21.1 · 21.0.13.1 · 25.0.5.1 · 27.0.1.1)이고 x86-64 빌드다 | **취약(2)** |
 | 설치본이 Java SE 8 Enterprise Performance Pack 이고 8u513-perf 아래다(0.2.0) | **취약(2)** |
+| 설치본이 Oracle GraalVM Enterprise Edition 21.3 이고 21.3.20.1 아래다 — 바탕 Java 와 상관없이(0.3.0) | **취약(2)** |
 | 설치본의 판이 지원이 끝난 줄(18 ~ 20 · 22 ~ 24 · 26)이고 x86-64 빌드다 | **취약(2)** — 고친 판이 나오지 않는다 |
 | 아직 개발 중인 줄(28) | **확인 필요(6)** — 고친 빌드 번호가 공개되지 않았다 |
 | `release` 에서 판을 읽지 못했다 · `release` 가 없다 | **확인 필요(6)** |

@@ -17,7 +17,8 @@
 // "17.0.6 이상" 으로 적는다).
 //
 // 아래 정규식은 손으로 적지 않았다. 점으로 나눈 판의 대소 비교를 정규식으로 옮기는 생성기가 쓰고, 그 생성기는 실측한 판
-// 문자열과 경계 값 52가지 · Java 8 EPP 의 release 본문 13가지로 스스로를 검사한다(어긋남 0 · RELEASE.md 에 적었다).
+// 문자열과 경계 값 52가지 · Java 8 EPP 의 release 본문 13가지 · GraalVM EE 의 release 본문 20가지로 스스로를 검사한다
+// (어긋남 0 · RELEASE.md 에 적었다).
 
 // 이 파일이 Java 런타임의 `release` 인가 — 판을 읽을 수 있는가의 기준이다.
 rule java_release_file
@@ -103,4 +104,19 @@ rule java_epp_affected
         $perf = /1\.8\.0_[0-9]+[0-9b-]*perf/
     condition:
         $v and $perf
+}
+
+// Oracle GraalVM Enterprise Edition 21.3 — Oracle 이 이 CVE 의 영향 판으로 21.3.20.0.3 을 적었다(Oracle CPU 2026-11 의 Java SE
+// 위험 표). 그 줄에는 Java 17 · 11 · 8 판이 있고 바탕 Java 의 판으로는 가를 수 없어(11 · 8 은 OpenJDK 위험 표에 없다) **제품
+// 판으로 본다 — 21.3.20.1 미만.** EE 는 Oracle 빌드다(`IMPLEMENTOR="Oracle Corporation"`) — Community 판 · 다른 배포사가 지은
+// 것은 바탕 Java 로 판정한다. GraalVM 의 `release` 는 바탕 JDK 줄을 옮기고 `GRAALVM_VERSION` 을 더한다.
+rule graalvm_ee_affected
+{
+    meta:
+        description = "an Oracle GraalVM Enterprise Edition 21.3 build below 21.3.20.1"
+    strings:
+        $g = /GRAALVM_VERSION="21\.3(\.([0-9]|1[0-9])(\.[0-9]+)*|\.20(\.(0)(\.[0-9]+)*)?)?"/
+        $o = /IMPLEMENTOR="Oracle Corporation"/
+    condition:
+        $g and $o
 }

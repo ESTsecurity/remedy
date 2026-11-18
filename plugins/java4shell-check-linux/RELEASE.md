@@ -1,7 +1,25 @@
 # java4shell-check-linux — 릴리스 기록
 
-**버전 0.2.0** · 대상: Java 런타임의 Base64 디코더 결함(CVE-2026-114938 · "Java4Shell") — 리눅스 ·
+**버전 0.3.0** · 대상: Java 런타임의 Base64 디코더 결함(CVE-2026-114938 · "Java4Shell") — 리눅스 ·
 **점검**(바꾸지 않는다)
+
+## 0.3.0 — GraalVM Enterprise Edition 21.3 을 제품 판으로 (2026-11-18)
+
+- **Oracle GraalVM Enterprise Edition 21.3 은 `GRAALVM_VERSION` 이 21.3.20.1 미만이면 바탕 Java 와 상관없이 취약(2)이다**
+  (`graalvm_ee_affected`). 위험 표의 이 CVE 줄이 EE 를 `21.3.20.0.3` 으로 적었고 그 줄에는 Java 17 · 11 · 8 판이 있다 — 0.2.0
+  은 바탕 Java 로 판정해 **Java 11 · 8 판을 0 으로 냈다**(그 둘은 OpenJDK 위험 표에 없다). EE 는 Oracle 빌드
+  (`IMPLEMENTOR="Oracle Corporation"`)로 가른다 — Community 판 · 다른 배포사가 지은 것은 전처럼 바탕 Java 로 판정한다.
+  EE 21.3 의 Java 17 판에 바탕 Java 의 고칠 판(17.0.21.1)을 적지 않는다 — 고치는 것은 Oracle 이 낸 EE 다.
+- **판을 읽지 못한 `release` 도 x86-64 가 아니라고 적혀 있으면 뺀다**(`no_version` 에 `os_arch_not_x64` — 판정 줄들과 같은
+  제외 · 독립 검토).
+- **VS Code 의 Java 확장이 담는 JRE 를 본다** — `.vscode/extensions` · 원격 서버의 `.vscode-server/extensions` 를
+  `%ALLUSERPROFILES%` 로. 실측 2026-11-18: redhat.java 1.59.2026111308 linux-x64 가 `jre/25.0.5-linux-x86_64/` 에 JRE 를 담고
+  그 `release` 는 `JAVA_VERSION="25.0.5"` · `MODULES` 두 줄이다 — **25.0.5.1 미만이라 취약(2)** 으로 나온다(확장을 올리면
+  담긴 JRE 도 바뀐다). JetBrains Toolbox · snap 의 런타임은 그 `release` 를 재지 못해 이번에도 넣지 않았다.
+- 생성기 자체 시험: 판 52 · EPP 13 · **GraalVM EE 20** 어긋남 0. 하네스 **61칸**(0.2.0 은 52 — GraalVM EE 5 · 판 없는
+  ARM64 1 · VS Code 2 · 화면 2 · 자리 밖 프로세스 칸이 띄운 java 를 기다린다).
+- 그대로 둔 것(독립 검토): **29 이상의 줄을 0 으로** 둔다 — 그 줄의 빌드는 수정이 들어간 master 에서 갈라진다. **`from` 이
+  홈 아래 깊이를 가리지 않는 것** — 홈 안에 다른 홈이 담기면 안쪽 `release` 를 두 홈이 함께 보지만 같은 파일의 같은 판정이다.
 
 ## 0.2.0 — Java 8 EPP · 사용자마다 까는 자리 · 서비스의 대체 링크 (2026-11-18)
 
@@ -34,6 +52,7 @@
 |---|---|
 | 설치본의 판이 **고친 판 미만**이고 x86-64 빌드다 | **취약(2)** — 판 아래 줄에 CVE 와 고칠 길 |
 | 설치본이 Java SE 8 Enterprise Performance Pack 이고 8u513-perf 아래다(0.2.0) | **취약(2)** — 판 아래 줄에 고친 판 |
+| 설치본이 Oracle GraalVM Enterprise Edition 21.3 이고 21.3.20.1 아래다 — 바탕 Java 와 상관없이(0.3.0) | **취약(2)** |
 | 설치본의 판이 지원이 끝난 줄(18 ~ 20 · 22 ~ 24 · 26)이고 x86-64 빌드다 | **취약(2)** — 고친 판이 나오지 않는다 |
 | 아직 개발 중인 줄(28) | **확인 필요(6)** — 고친 빌드 번호가 공개되지 않았다 |
 | `release` 에서 판을 읽지 못했다 · `release` 가 없다 | **확인 필요(6)** |

@@ -15,7 +15,10 @@
 # **17.0.21.1 · 21.0.13.1 · 25.0.5.1 · 27.0.1.1** 이다. 그래서 **고친 판 미만은 취약(2) · 고친 판 이상은 0** 이다.
 # **Java SE 8 은 Enterprise Performance Pack(`-perf` 빌드)만** 영향 판이다 — Oracle CPU 2026-11 의 Java SE 위험 표가 이
 # CVE 의 줄에 8u511b33-perf 를 적었고 고친 판은 8u513-perf 다(일반 8u511b33 은 같은 표의 다른 CVE 줄이다 · 0.2.0).
-# GraalVM(for JDK · Enterprise Edition 21.3)은 바탕 Java 의 `JAVA_VERSION` 으로 같은 판정을 받는다.
+# GraalVM for JDK 는 바탕 Java 의 `JAVA_VERSION` 으로 같은 판정을 받는다. **Oracle GraalVM Enterprise Edition 21.3 은 제품
+# 판으로 본다** — Oracle 이 21.3.20.0.3 을 영향 판으로 적었고 그 줄에는 Java 17 · 11 · 8 판이 있어, `GRAALVM_VERSION` 이
+# 21.3.20.1 미만이고 Oracle 빌드(`IMPLEMENTOR="Oracle Corporation"`)면 바탕 Java 와 상관없이 취약이다(0.3.0). Community 판 ·
+# 다른 배포사가 지은 것(Mandrel · Liberica NIK)은 바탕 Java 로 판정한다.
 # 배포사의 제 번호(Corretto-17.0.21.0.11 · Red_Hat-17.0.21.0.9)는 `JAVA_VERSION` 이 아니라 `IMPLEMENTOR_VERSION` 에
 # 있으므로(실측) 여기서 견주는 것은 상류 판이다. 17 줄은 **17.0.6 아래를 영향에서 뺀다**(x86-64 Base64 디코드 코드가 그
 # 판에 들어왔다 — JDK-8268276). 지원이 끝난 줄(18 ~ 20 · 22 ~ 24 · 26)은 같은 코드를 담았고 고친 판이 나오지 않으므로
@@ -42,7 +45,7 @@
 #   `image` · `container` 점검이 따로 본다.
 schema_version: 1
 id: java4shell-check-linux
-version: 0.2.0
+version: 0.3.0
 min_core: "1.21.0"  # product 는 1.21.0 · label 은 1.13.0 · file_names 는 1.11.0
 platforms: [linux]
 
@@ -66,6 +69,11 @@ references:
 # 0.2.0 에 더한 자리 — 제품이 담아 쓰는 런타임(Logstash · Jenkins 가 스스로 받는 JDK)과 사용자마다 까는 JDK.
 # 뒤엣것은 `%ALLUSERPROFILES%`(`/home` 아래와 `/root`)로 모든 사용자를 본다: SDKMAN · IntelliJ 가 받는 JDK(`.jdks`) ·
 # asdf · Gradle 툴체인(`.gradle/jdks`) · jabba.
+#
+# VS Code 의 Java 확장(redhat.java)이 담는 JRE(0.3.0) — 실측 2026-11-18: 1.59.2026111308 linux-x64 판이
+# `jre/25.0.5-linux-x86_64/` 에 `bin/java` 와 `JAVA_VERSION="25.0.5"` · `MODULES` 두 줄의 `release` 를 담는다(아키텍처 줄이
+# 없는 jlink 꼴 — 판으로 판정한다). 확장은 사용자마다 `.vscode/extensions` 에, 원격(SSH · 컨테이너)으로 붙은 서버에서는
+# `.vscode-server/extensions` 에 깔린다.
 scan_roots:
   - "/usr/lib/jvm"
   - "/usr/lib64/jvm"
@@ -81,6 +89,8 @@ scan_roots:
   - "%ALLUSERPROFILES%/.asdf/installs/java"
   - "%ALLUSERPROFILES%/.gradle/jdks"
   - "%ALLUSERPROFILES%/.jabba/jdk"
+  - "%ALLUSERPROFILES%/.vscode/extensions"
+  - "%ALLUSERPROFILES%/.vscode-server/extensions"
 
 file_names: ["release", "java"]
 subjects: [file, process, service]
@@ -120,6 +130,8 @@ detect:
     exclude:
       - { yara: "rules/java.yar:os_arch_not_x64" }
       - { yara: "rules/java.yar:java_version_17_before_intrinsic" }
+      # GraalVM EE 21.3 은 아래 제품 판 줄이 말한다 — 같은 파일에 고칠 판이 다른 두 줄이 서지 않게(0.3.0).
+      - { yara: "rules/java.yar:graalvm_ee_affected" }
     label:
       ko: "CVE-2026-114938 의 영향 판입니다 — 고친 판(17.0.21.1 · 21.0.13.1 · 25.0.5.1 · 27.0.1.1) 이상으로 올리고 그 자바로 돌던 서비스를 다시 시작하십시오"
       en: "a build affected by CVE-2026-114938 - upgrade to a fixed release (17.0.21.1, 21.0.13.1, 25.0.5.1, 27.0.1.1) or later and restart the services that ran on it"
@@ -137,6 +149,21 @@ detect:
     label:
       ko: "CVE-2026-114938 의 영향 판(Java SE 8 Enterprise Performance Pack)입니다 — 8u513-perf 이상으로 올리고 그 자바로 돌던 서비스를 다시 시작하십시오"
       en: "a build affected by CVE-2026-114938 (Java SE 8 Enterprise Performance Pack) - upgrade to 8u513-perf or later and restart the services that ran on it"
+
+  # Oracle GraalVM Enterprise Edition 21.3 — Oracle 이 21.3.20.0.3 을 영향 판으로 적었고 그 줄에는 Java 17 · 11 · 8 판이 있다.
+  # 바탕 Java 와 상관없이 제품 판(`GRAALVM_VERSION`)이 21.3.20.1 미만이면 취약이다(0.3.0 · 2026-11-18 결정 G1).
+  - id: graalvm_ee_affected
+    subject: file
+    from: "${java_bin.home}"
+    where:
+      all:
+        - { field: path, op: matches, value: '/release$' }
+        - { yara: "rules/java.yar:graalvm_ee_affected" }
+    exclude:
+      - { yara: "rules/java.yar:os_arch_not_x64" }
+    label:
+      ko: "CVE-2026-114938 의 영향 판(Oracle GraalVM Enterprise Edition 21.3)입니다 — Oracle 이 낸 고친 판으로 올리고 그 자바로 돌던 서비스를 다시 시작하십시오"
+      en: "a build affected by CVE-2026-114938 (Oracle GraalVM Enterprise Edition 21.3) - upgrade to the fixed release from Oracle and restart the services that ran on it"
 
   - id: eol_line
     subject: file
@@ -172,6 +199,8 @@ detect:
       - { field: path, op: matches, value: '/release$' }
     exclude:
       - { yara: "rules/java.yar:java_release_file" }
+      # 판을 못 읽어도 x86-64 가 아니라고 적힌 빌드는 영향이 없다 — 판정 줄들과 같은 제외다(0.3.0 · 독립 검토).
+      - { yara: "rules/java.yar:os_arch_not_x64" }
     label:
       ko: "이 설치본의 판을 읽지 못했습니다"
       en: "this installation's version could not be read"
@@ -183,7 +212,7 @@ detect:
       - { field: image_path, op: matches, value: '/bin/java$' }
     exclude:
       - { field: image_path, op: matches, value: '^/(usr/(lib/jvm|lib64/jvm|local|java|share/(elasticsearch|opensearch|logstash))|opt|var/lib/jenkins/tools)/' }
-      - { field: image_path, op: matches, value: '^/(home/[^/]+|root)/(\.sdkman/candidates/java|\.jdks|\.asdf/installs/java|\.gradle/jdks|\.jabba/jdk)/' }
+      - { field: image_path, op: matches, value: '^/(home/[^/]+|root)/(\.sdkman/candidates/java|\.jdks|\.asdf/installs/java|\.gradle/jdks|\.jabba/jdk|\.vscode(-server)?/extensions)/' }
     label:
       ko: "이 룰이 보는 자리 밖에서 도는 Java 입니다"
       en: "a Java running outside the places this rule reads"
@@ -196,7 +225,7 @@ detect:
       - { field: image_path, op: matches, value: '/bin/java( |$)' }
     exclude:
       - { field: image_path, op: matches, value: '^/(usr/(lib/jvm|lib64/jvm|local|java|share/(elasticsearch|opensearch|logstash))|opt|var/lib/jenkins/tools)/' }
-      - { field: image_path, op: matches, value: '^/(home/[^/]+|root)/(\.sdkman/candidates/java|\.jdks|\.asdf/installs/java|\.gradle/jdks|\.jabba/jdk)/' }
+      - { field: image_path, op: matches, value: '^/(home/[^/]+|root)/(\.sdkman/candidates/java|\.jdks|\.asdf/installs/java|\.gradle/jdks|\.jabba/jdk|\.vscode(-server)?/extensions)/' }
       - { field: image_path, op: matches, value: '^/(usr/bin|bin|etc/alternatives)/java( |$)' }
     label:
       ko: "이 룰이 보는 자리 밖의 Java 를 띄우는 서비스입니다"
@@ -213,7 +242,7 @@ detect:
       en: "running with a deleted Java executable - it was not restarted after the upgrade"
 
 verdict:
-  require: "java_bin and (affected or epp_affected or eol_line)"
+  require: "java_bin and (affected or epp_affected or graalvm_ee_affected or eol_line)"
   unconfirmed:
     - when: "java_bin and future_line"
       why:
@@ -229,8 +258,8 @@ verdict:
         en: "the Java runtime above has no release file recording its version - check it with that home's bin/java -version"
     - when: "outside_process or outside_service"
       why:
-        ko: "이 룰이 보는 자리(/usr/lib/jvm · /opt · /usr/local · /usr/java · Jenkins 가 받은 JDK · 사용자 홈의 SDKMAN · .jdks · asdf · Gradle 등) 밖의 Java(위 경로)가 돌고 있거나 서비스로 등록돼 그 판을 보지 않았습니다 — 그 경로의 bin/java -version 으로 확인하십시오"
-        en: "a Java outside the places this rule reads (/usr/lib/jvm, /opt, /usr/local, /usr/java, JDKs Jenkins downloaded, SDKMAN, .jdks, asdf and Gradle under user homes, and the like) is running or registered as a service, so its version was not checked - check it with that path's bin/java -version"
+        ko: "이 룰이 보는 자리(/usr/lib/jvm · /opt · /usr/local · /usr/java · Jenkins 가 받은 JDK · 사용자 홈의 SDKMAN · .jdks · asdf · Gradle · VS Code 확장 등) 밖의 Java(위 경로)가 돌고 있거나 서비스로 등록돼 그 판을 보지 않았습니다 — 그 경로의 bin/java -version 으로 확인하십시오"
+        en: "a Java outside the places this rule reads (/usr/lib/jvm, /opt, /usr/local, /usr/java, JDKs Jenkins downloaded, SDKMAN, .jdks, asdf, Gradle and VS Code extensions under user homes, and the like) is running or registered as a service, so its version was not checked - check it with that path's bin/java -version"
     - when: "stale_running"
       why:
         ko: "지워진 Java 실행 파일을 실은 프로세스가 돌고 있습니다(위 경로) — 고친 판을 깔았어도 그 프로세스는 고치기 전 코드로 돕니다. 그 서비스를 다시 시작하십시오"
