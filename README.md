@@ -60,6 +60,7 @@
 | CWPdoor 점검 (탐지만) | 찾기만 합니다 | — | `cwpdoor-1-check` 0.1.2 | [blog.xlab.qianxin.com](https://blog.xlab.qianxin.com/cwpdoor-the-invisible-backdoor-living-inside-control-web-panel/) |
 | CWPdoor 제거 | 찾아서 치료합니다 (복원할 수 있습니다) | — | `cwpdoor-2-clean` 0.1.2 | [blog.xlab.qianxin.com](https://blog.xlab.qianxin.com/cwpdoor-the-invisible-backdoor-living-inside-control-web-panel/) |
 | Ebury 점검 (탐지만) | 찾기만 합니다 | — | `ebury-check` 0.2.0 | [www.welivesecurity.com](https://www.welivesecurity.com/en/eset-research/ebury-alive-unseen-400k-linux-servers-compromised-cryptotheft-financial-gain/) |
+| nginx2root 점검 (CVE-2026-123007 · CVE-2026-123634 · CVE-2026-123633 · CVE-2026-121810 · CVE-2026-113425) | 찾기만 합니다 | — | `nginx2root-check-linux` 0.1.0 | [xint.io](https://xint.io/ko/blog/nginx2root-remote-code-execution) |
 | OpenSSH 점검 (CVE-2026-123158 · Alpine) | 찾기만 합니다 | — | `openssh-musl-check` 0.1.2 | [github.com](https://github.com/advisories/GHSA-4fcc-vm97-gx3x) |
 <!-- threats:end -->
 
@@ -98,6 +99,7 @@
 | Java — Java4Shell | Windows · Linux | [점검 결과 읽기](docs/위협별-안내.md#java4shell) |
 | OpenSSH (Alpine) | Linux | [점검 결과 읽기](docs/위협별-안내.md#openssh-musl) |
 | Apache HTTP/2 | Windows · Linux | [점검 결과 읽기](docs/위협별-안내.md#apache-http2) |
+| nginx — nginx2root | Linux | [점검 결과 읽기](docs/위협별-안내.md#nginx2root) |
 | Node.js — Node2Shell | Windows · Linux | [점검 결과 읽기](docs/위협별-안내.md#node2shell) |
 | PHP — PHP2Shell · 세션 업로드 진행 설정 | Windows · Linux | [점검 결과 읽기](docs/위협별-안내.md#php2shell) |
 | 원격 점검 — 웹서버 응답 헤더 | Windows · Linux | [쓰는 법 · 한계](docs/위협별-안내.md#url-check) |

@@ -1,0 +1,67 @@
+# nginx2root-check-linux — 릴리스 기록
+
+**버전 0.1.0** · 대상: nginx 의 결함 다섯 'nginx2root'(CVE-2026-123007 · CVE-2026-123634 · CVE-2026-123633 ·
+CVE-2026-121810 · CVE-2026-113425) — 리눅스 · **점검**(바꾸지 않는다)
+
+## 0.1.0 — 1차 (2026-11-19)
+
+긴급 경로의 1차다(코어 그대로 · `docs/긴급-대응.md`). 범위는 *1차 범위* 의 취약점 줄 — 패키지 기록 · 표준 설치 자리 ·
+실행 중 프로세스와 서비스.
+
+### 판정
+
+| 무엇 | 결과 |
+|---|---|
+| nginx 실행 파일을 담는 패키지(dpkg `nginx` · `nginx-core` · `nginx-full` · `nginx-light` · `nginx-extras` / rpm `nginx` · `nginx-core` / apk `nginx` — nginx.org 저장소 포함)의 상류 판이 0.5.33 이상이고 1.30.7 아래 · 또는 1.31.0 ~ 1.31.8 | 취약(2) |
+| 패키지가 깔지 않은 `nginx` 실행 파일(`/usr/local/sbin` · `/usr/local/nginx/sbin` · `/opt/nginx/sbin` · `/usr/local/openresty/nginx/sbin` · nginx 패키지가 없을 때의 `/usr/sbin`)의 판 문자열이 같은 범위 | 취약(2) |
+| 그 실행 파일의 판 문자열(`nginx/<판>`)을 읽지 못했다 | 확인 필요(6) |
+| 위 자리 밖에서 도는 nginx · 자리 밖의 nginx 를 띄우는 서비스 | 확인 필요(6) |
+| 지워진 nginx 실행 파일로 도는 프로세스(올린 뒤 다시 시작하지 않음) | 확인 필요(6) |
+| 1.31.9 이상 · 1.30.7 ~ 1.30.x · nginx 없음 | 0 |
+
+- **Alpine 의 파일 기록에는 깐 패키지가 적히지 않는다**(2026-11-19 실측 — Debian · Rocky 는 적힌다). 그래서 배포판이 까는
+  `/usr/sbin/nginx` 는 nginx 패키지가 하나도 없을 때만 직접 빌드로 본다 — 아니면 배포판이 같은 번호로 고친 빌드를 판 문자열만
+  보고 취약으로 낸다.
+
+- **판으로만 판정한다**(1차 카드) — 다섯 결함은 HTTP/2(123007 · 123633) · DNS 리졸버와 mirror(123634) · HTTP/3(121810) ·
+  메일 프록시(113425)로 갈리고 설정은 include 가 흔하다. 기능을 끄는 법은 위협별 안내의 *꼭 할 일* 이다.
+- **배포판의 고친 판이 없으면 영향 판은 취약(2)이다**(1차 카드) — 배포판은 고친 코드를 버전 번호를 그대로 두고 넣는다(백포트).
+  고친 패키지가 나오면 다음 차수에서 그 배포판 줄을 더해 *해당 없음* 으로 가린다.
+
+### 영향 판 · 고친 판 (1차 출처 · 2026-11-19 07:34 ~ 07:44 KST 확인)
+
+| CVE | 무엇(nginx.org 공지의 이름) | 영향 판 | 고친 판 |
+|---|---|---|---|
+| CVE-2026-123007 | Memory corruption in HTTP/2 flow control · major | 1.9.5 ~ 1.31.8 | 1.31.9 · 1.30.7 |
+| CVE-2026-123634 | Use-after-free during response processing in resolver · medium | 0.6.18 ~ 1.31.8 | 1.31.9 · 1.30.7 |
+| CVE-2026-123633 | Use-after-free in HTTP/2 · medium | 1.19.7 ~ 1.31.8 | 1.31.9 · 1.30.7 |
+| CVE-2026-121810 | Use-after-free in HTTP/3 · medium | 1.25.0 ~ 1.31.8 | 1.31.9 · 1.30.7 |
+| CVE-2026-113425 | Use-after-free in mail proxy module · major | 0.5.33 ~ 1.31.8 | 1.31.9 · 1.30.7 |
+
+출처: nginx.org/en/security_advisories.html · CHANGES(1.31.9) · CHANGES-1.30(1.30.7) · CVE 레코드(cveawg) · F5 K000163925 ·
+K000163926 · K000163927 · K000163928 · K000163931 · xint.io 분석(2026-11-18). 1.29.x 와 legacy 1.28.x(최신 1.28.3) 이하에는
+고친 판이 없다.
+
+| 배포판 · 공급사 | 고친 패키지 | 출처 |
+|---|---|---|
+| Alpine edge · 3.24 | `nginx` 1.30.7-r0(다섯 모두) — 상류 판이 고친 판이라 0 | security.alpinelinux.org · secdb |
+| AlmaLinux 10 | ALSA-2026:A024 `2:1.26.3-16.el10_3.1.alma.2` — 123007 · 123633 만 고침 → 나머지 셋 때문에 취약(2) | errata.almalinux.org |
+| nginx.org 저장소 · 공식 Docker 이미지 | 1.31.9 · 1.30.7 | nginx.org/packages · hub.docker.com/_/nginx |
+| Debian 12 · 13 · forky · sid · Ubuntu 14.04 ~ 26.10 · RHEL 8 ~ 10 · Rocky · Oracle · CentOS Stream · Fedora · Amazon Linux 2 · 2023 · SUSE · Alpine 3.20 ~ 3.23 | 아직 없음(공지 없음 · Pending Fix · Analysis) | 각 보안 추적기 |
+
+### 게이트
+
+| 게이트 | 무엇 | 결과 | 근거 |
+|---|---|---|---|
+| G1 | 청정 환경 무해성 | **통과** | 2026-11-19 07:53 · 청정 코퍼스의 리눅스 스냅샷 19개(`docker-*` 13 · `wsl-*` 6)에 `remedy evaluate`(코어 1.24.0 musl 정적 개발 빌드) — 모두 종료 0. G1 시험의 손으로 적는 목록(`crates/remedy-core/tests/corpus.rs`)에는 아직 없다 — 다음 평소 출시 |
+| G9 | 룰의 검체 오탐(YARA) | **통과**(점검 룰 기준) | 2026-11-19 07:55 · 정상 설치 이미지 넷(Debian 12 · Ubuntu 24.04 · Rocky 9 · Alpine 3.22 에 저장소의 nginx)의 `/etc` · `/usr` · `/opt` 16,598개에 `cargo xtask yara` — 두 규칙 모두 맞음 4(넷 다 배포판의 `/usr/sbin/nginx` — 룰은 패키지가 깐 그 파일을 YARA 로 판정하지 않는다) · 안 맞음 14,339 · 못 훑음 2,255 = 리눅스 링크 수 |
+| 하네스 | `testbed/harness/linux/nginx-verify.sh` | **35/35** | 2026-11-19 07:52 · 코어 1.24.0 musl 정적 개발 빌드 · 경우마다 네트워크 없는 컨테이너 — 1회차 27/28(Alpine 의 파일 기록에 깐 패키지가 적히지 않아 `/usr/sbin/nginx` 를 직접 빌드로 봄 → 판정식으로 고침) |
+
+### 다음 차수 후보
+
+| 범위 | 까닭 | 필요한 것 |
+|---|---|---|
+| 배포판의 고친 패키지(백포트) | 2026-11-19 에 아직 없다 | 배포판 공지 · 그 패키지 판 · 하네스 칸 |
+| Windows 의 nginx(`nginx2root-check-windows`) | 1차는 리눅스(카드) | nginx.org Windows 빌드의 자리 · 판 읽는 꼴 · 랩 VM 하네스 |
+| nginx 파생(OpenResty · Tengine · Angie) · NGINX Plus 의 판정 | 파생은 공지가 없다(2026-11-19 07:37) · Plus 는 판 꼴이 다르다(F5: 37.3.0.1 · 37.0.8.1 · R34 ~ R36 은 고친 판 없음) | 각 제품의 공지 · 판 읽는 꼴 |
+| 커널 SCTP 결함 | 공지에 CVE · 고친 판이 없다 | 커널 공지 |

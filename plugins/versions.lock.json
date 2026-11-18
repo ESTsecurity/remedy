@@ -98,6 +98,13 @@
       "plugin.yaml": "b0c59ed6d2d2d10e8c22fcbd0a28b48aa6c978633065c5b4da86c19ea520055b"
     }
   },
+  "nginx2root-check-linux": {
+    "version": "0.1.0",
+    "files": {
+      "plugin.yaml": "98c36968addc746347162f42dbe1c2650aa6b5e20267fd6f7fe90d82fb9ce7cb",
+      "rules/nginx.yar": "390d207541bc4198d7deef89593bfc933e7a5599f5db166677ee1f567445b981"
+    }
+  },
   "node2shell-check-linux": {
     "version": "0.6.1",
     "files": {

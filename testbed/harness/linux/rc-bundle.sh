@@ -19,7 +19,7 @@
 #
 # # 단계
 #
-#   하네스    engine(invoke-linux-verify) · cwpdoor(메뉴 Ctrl+C 포함) · ebury · log4j · openssh · apache · java4shell · tomcat ·
+#   하네스    engine(invoke-linux-verify) · cwpdoor(메뉴 Ctrl+C 포함) · ebury · log4j · openssh · apache · java4shell · nginx · tomcat ·
 #             net-apache(remedy-net 의 이미지 · 컨테이너 Apache — `net-apache-verify.sh` · 코어 1.18.0) — B 의 정적 실행
 #             파일과 B 꾸러미의 **배포 키로 서명된** 룰 · 판정 기준으로. 새 룰에 하네스가 생기면 여기에 한 줄 더한다
 #   A/B       ab-installs(실제 설치 21) · ab-changed(패키지와 다른 실행 파일) · ab-outside(선언 밖 · 도는 프로세스) ·
@@ -171,6 +171,7 @@ step log4j by_exit bash $L/log4j-verify.sh --bin "$X/remedy" --plugins "$X/plugi
 step openssh by_exit bash $L/openssh-verify.sh --bin "$X/remedy" --plugins "$X/plugins" --out "$OUT/openssh"
 step apache by_exit bash $L/apache-verify.sh --bin "$X/remedy" --plugins "$X/plugins" --out "$OUT/apache"
 step java4shell by_exit bash $L/java4shell-verify.sh --bin "$X/remedy" --plugins "$X/plugins" --out "$OUT/java4shell"
+step nginx by_exit bash $L/nginx-verify.sh --bin "$X/remedy" --plugins "$X/plugins" --out "$OUT/nginx"
 # apache 단계가 지은 하네스 이미지를 쓴다 — 그 뒤에 둔다. tar 는 Windows 묶음도 읽는다(`apache-images`).
 step net-apache by_exit bash $L/net-apache-verify.sh --bin "$X/remedy-net/remedy-net" \
     --criteria "$X/plugins/remedy-net-criteria" --images "$INPUTS/apache-images" --out "$OUT/net-apache"
