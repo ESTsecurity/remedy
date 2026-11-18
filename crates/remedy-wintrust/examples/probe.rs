@@ -20,10 +20,11 @@ fn main() {
         let p = std::path::Path::new(a);
         match remedy_wintrust::verify(p) {
             Ok(v) => println!(
-                "{:<48} trusted={:<5} kind={:?}\n{:>50}subject={}\n{:>50}thumb={}",
+                "{:<48} trusted={:<5} kind={:?} distrust={:?}\n{:>50}subject={}\n{:>50}thumb={}",
                 a,
                 v.trusted,
                 v.kind,
+                v.distrust,
                 "",
                 v.subject.as_deref().unwrap_or("(없음)"),
                 "",
