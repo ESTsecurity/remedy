@@ -588,19 +588,21 @@ fn a_blocked_process_adds_the_container_hint() {
         "{:?}",
         sampled.reasons_in(Lang::Ko)
     );
-    // 사유 줄 뒤의 다른 사유(미수집 subject 등)는 그대로 이어진다 — 프로세스 문장이 뒤를 끊지 않는다.
+    // 사유 줄 뒤의 다른 사유(미수집 subject 등)는 그대로 이어진다 — 프로세스 문장이 뒤를 끊지 않는다. 미수집 subject 는
+    // 거부 줄 **뒤에** 서는 사유라 차례까지 본다(잘림 줄은 거부 줄보다 앞이라 이것을 재지 못한다).
     let with_more = Observation {
         denied_dirs: 1,
         denied_paths: vec!["pid 7".into()],
-        truncated: true,
+        uncollected_subjects: vec![Subject::Package],
         ..Default::default()
     };
-    assert_eq!(
-        with_more.reasons_in(Lang::Ko).len(),
-        2,
-        "{:?}",
-        with_more.reasons_in(Lang::Ko)
+    let more = with_more.reasons_in(Lang::Ko);
+    assert_eq!(more.len(), 2, "{more:?}");
+    assert!(
+        more[0].starts_with("실행 파일을 알아내지 못한 프로세스 1개"),
+        "{more:?}"
     );
+    assert!(more[1].contains("package"), "{more:?}");
 
     // 폴더 · 커널 표에는 붙이지 않는다 — 그 사람에게 컨테이너는 틀린 안내다.
     for path in ["c:\\locked", "/etc/ssl/private", "/proc/net/unix", "/proc/"] {

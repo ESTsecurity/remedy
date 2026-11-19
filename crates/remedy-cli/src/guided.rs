@@ -1077,6 +1077,18 @@ fn treat_all_number(rows_before: usize, treat: usize) -> Option<usize> {
     (treat > 0 && rows_before > 0).then_some(rows_before + 1)
 }
 
+/// 룰이 한 화면을 넘는 화면(묶음 · 찾기)에서 새로 추가된 항목을 번호 줄로 펼치는 상한 — 넘으면 한 줄로 접는다
+/// ([`choose_grouped`]). 룰 목록 화면은 항목이 [`MANY_RULES`] 개 이하라 접지 않는다.
+const RECENT_LINES: usize = 5;
+
+/// 묶음 · 찾기 화면의 번호 — (새 항목을 접었나, *찾기* 줄의 번호, *찾은 것 모두 치료하기* 앞의 번호 줄 수). 검사 줄
+/// `lines` 개 → 새 항목(접으면 한 줄) → 찾기 → 묶음 `groups` 줄 차례다. 화면과 답 처리가 이것 하나로 센다.
+fn grouped_numbers(lines: usize, recent: usize, groups: usize) -> (bool, usize, usize) {
+    let folded = recent > RECENT_LINES;
+    let search = lines + if folded { 1 } else { recent } + 1;
+    (folded, search, search + groups)
+}
+
 /// 새로 추가된 항목의 묶음 제목 — 룰 목록 화면과 묶음 · 찾기 화면이 같은 글을 쓴다.
 fn recent_title(lang: remedy_sdk::i18n::Lang) -> &'static str {
     lang.t("새로 추가된 항목", "Recently added")
@@ -1129,14 +1141,22 @@ fn choose_grouped(
     set_chooser(all, 0);
     let lines = scans.len();
     // 새로 추가된 항목은 여기서도 검사 줄 바로 아래에 번호 줄로 선다(코어 1.25.0) — 묶음을 열거나 찾지 않고 고르게.
-    // 그 항목은 하는 일 묶음에도 그대로 든다. 찾기 · 묶음 줄의 번호는 그 수만큼 뒤로 간다.
+    // 그 항목은 하는 일 묶음에도 그대로 든다. 찾기 · 묶음 줄의 번호는 그 줄 수만큼 뒤로 간다. **[`RECENT_LINES`] 를
+    // 넘으면 한 줄**(*새로 추가된 항목 (N개)* — 고르면 묶음처럼 넘겨 보인다)로 접는다 — 이 화면은 룰이 많아도 한 화면에
+    // 들게 접은 것인데, 같은 날 룰을 여럿 더하면 새 항목이 그만큼 길어진다(2026-11-19 검토 — 합성 1,000개 벤치마크면
+    // 200개).
     let recent: Vec<&Chosen> = all.iter().take_while(|c| c.recent).collect();
-    let search = lines + recent.len() + 1;
-    let rows_before = search + groups.len();
+    let (folded, search, rows_before) = grouped_numbers(lines, recent.len(), groups.len());
     set_treat_all_at(rows_before);
     loop {
         let mut rows = base.clone();
-        if !recent.is_empty() {
+        if folded {
+            // 접으면 묶음 줄과 같은 꼴의 한 줄이다(제목을 따로 세우면 같은 말이 두 번 선다).
+            rows.push(Row::Item(lang.pick(
+                format!("{} ({}개)", recent_title(lang), recent.len()),
+                format!("{} ({})", recent_title(lang), recent.len()),
+            )));
+        } else if !recent.is_empty() {
             rows.push(Row::Blank);
             rows.push(Row::Group(recent_title(lang).to_string()));
             rows.extend(recent.iter().map(|c| Row::Item(shown(c))));
@@ -1171,6 +1191,7 @@ fn choose_grouped(
                 let s = scans.swap_remove(k - 1);
                 return Some(Choice::All(s.run, s.skipped, s.kind));
             }
+            k if k < search && folded => pick_from(recent_title(lang), &recent, shown),
             k if k < search => Picked::Got(recent[k - lines - 1].clone()),
             k if k == search => match search_rules(all) {
                 Some(hits) => pick_from(lang.t("찾은 항목", "Matches"), &hits, shown),
@@ -1469,6 +1490,19 @@ mod tests {
             assert!(!l.contains(" — ") && !l.contains(" - "), "{l}");
             assert!(l.contains('2'), "{l}");
         }
+    }
+
+    /// 묶음 · 찾기 화면의 번호 — 새 항목이 없으면 1.24.0 그대로(검사 줄 + 1 이 찾기), 다섯까지는 번호 줄로 펼쳐 그
+    /// 수만큼 밀리고, 여섯부터는 한 줄로 접혀 한 줄만 밀린다. 치료 줄은 늘 묶음 줄 바로 뒤다.
+    #[test]
+    fn grouped_screen_numbers_follow_the_recent_rows() {
+        // 검사 줄 둘 · 묶음 셋.
+        assert_eq!(grouped_numbers(2, 0, 3), (false, 3, 6));
+        assert_eq!(grouped_numbers(2, 2, 3), (false, 5, 8));
+        assert_eq!(grouped_numbers(2, RECENT_LINES, 3), (false, 8, 11));
+        assert_eq!(grouped_numbers(2, RECENT_LINES + 1, 3), (true, 4, 7));
+        assert_eq!(grouped_numbers(1, 200, 2), (true, 3, 5));
+        assert_eq!(treat_all_number(grouped_numbers(2, 2, 3).2, 1), Some(9));
     }
 
     /// 새로 추가된 항목의 꼬리표와 묶음 제목 — 날짜는 월 · 일만, 두 언어로. 꼬리표도 제목도 `이름 — 까닭` 꼴이 아니다

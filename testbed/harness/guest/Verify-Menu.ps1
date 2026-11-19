@@ -567,7 +567,8 @@ if ($chooserText -and (($Keys.Count -eq 0) -or ($Keys -contains "원격 점검")
     $nno = 0
     $nname = ""
     foreach ($line in ($chooserText -split "`r?`n")) {
-        if ($line -match '^\s\s(\d+)\.\s+(.+?) \[네트워크 사용\]\s*$') {
+        # 꼬리표 뒤에 다른 꼬리표가 더 붙을 수 있다 — 새로 추가된 항목이면 *[11월 25일 추가]*(코어 1.25.0).
+        if ($line -match '^\s\s(\d+)\.\s+(.+?) \[네트워크 사용\](?: \[[^\]]+\])*\s*$') {
             $nno = [int]$Matches[1]
             $nname = $Matches[2]
             break
