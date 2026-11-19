@@ -99,9 +99,16 @@
     }
   },
   "nginx2root-check-linux": {
+    "version": "0.1.1",
+    "files": {
+      "plugin.yaml": "62243826bb022e0259bb6de3f5816fc25b878cdd634e18a50f04e84329ed5b96",
+      "rules/nginx.yar": "390d207541bc4198d7deef89593bfc933e7a5599f5db166677ee1f567445b981"
+    }
+  },
+  "nginx2root-check-windows": {
     "version": "0.1.0",
     "files": {
-      "plugin.yaml": "98c36968addc746347162f42dbe1c2650aa6b5e20267fd6f7fe90d82fb9ce7cb",
+      "plugin.yaml": "8d298b5b4850b0ae37359768a29ccd2327e99aec048372c0cf79f199d79caa84",
       "rules/nginx.yar": "390d207541bc4198d7deef89593bfc933e7a5599f5db166677ee1f567445b981"
     }
   },
