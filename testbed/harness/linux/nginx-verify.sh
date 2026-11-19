@@ -32,8 +32,9 @@
 #   F  목록 밖 패키지 1 — Debian 의 nginx 패키지 이름을 nginx-plus 로 바꾼 꼴(NGINX Plus 처럼 다른 이름의 패키지가
 #      /usr/sbin/nginx 를 깐 기계) 6 — 0.1.0 은 0 이었다. RPM 쪽은 재지 않는다(패키지 DB 를 바꿀 수 없다)
 #   N  nginx 없음 2 — Debian · Alpine 0
-#   S  화면 5 — 취약 줄의 CVE 문구(머리 줄 빼고) · 확인 필요 까닭(판 없음 · 자리 밖 · 고친 판 1.30.7 · 1.31.9 를 적는 괄호) ·
-#      미해소 경고 0 · 옛 괄호 '1.31.9 아래면' 0 · 배포판 패키지에는 목록 밖 패키지 줄이 서지 않는다
+#   S  화면 6 — 취약 줄의 CVE 문구(머리 줄 빼고) · 확인 필요 까닭(판 없음 · 자리 밖 — 괄호의 영향 쪽과 고친 쪽 · 목록 밖
+#      패키지의 까닭 줄) · 미해소 경고 0 · 옛 문구('1.31.9 아래면' · '1.31.9 또는 1.30.7 이상으로 올리') 0 · 배포판 패키지에는
+#      목록 밖 패키지 줄이 서지 않는다 · 직접 빌드 취약 줄의 올릴 버전(stable 갈래는 1.30.7 이상)
 #
 # 준비 셸이 실패하면(판 줄을 바꾸지 못함 등) 그 경우의 종료 코드를 97 로 적는다 — 기대와 달라 실패로 센다. 판 줄을 바꾸는
 # 셸은 바꾼 뒤 그 판이 실제로 읽히는지 확인한다(sed 는 맞는 줄이 없어도 0 이다).
@@ -198,22 +199,30 @@ s=$OUT/cases/b01-deb12-default/screen.txt
 # 머리 줄(룰 이름)에도 CVE 가 있어 그 줄을 빼고 취약 줄의 문구를 본다.
 grep -v "$RULE [0-9]" "$s" 2>/dev/null | grep -q 'nginx2root(CVE-2026-123007 외 넷)의 영향 판' && a=1 || a=0
 check "S1 취약 줄의 CVE 문구" "$a" "b01 화면(머리 줄 빼고)"
-fixed='1.30.7 아래이거나 1.31.0 ~ 1.31.8'
+# 까닭 괄호는 영향 쪽과 고친 쪽을 다 본다. 목록 밖 패키지는 라벨에도 같은 낱말이 있어 까닭에만 있는 문구를 본다.
+hit='1.30.7 아래이거나 1.31.0 ~ 1.31.8'
+fix='1.31.9 이상은 고친 판'
 grep -q '판을 읽지 못했습니다' "$OUT/cases/x03-src-noversion/screen.txt" 2>/dev/null \
-    && grep -q "$fixed" "$OUT/cases/x03-src-noversion/screen.txt" 2>/dev/null \
+    && grep -q "$hit" "$OUT/cases/x03-src-noversion/screen.txt" 2>/dev/null \
+    && grep -q "$fix" "$OUT/cases/x03-src-noversion/screen.txt" 2>/dev/null \
     && grep -q '이 룰이 보는 자리' "$OUT/cases/p01-outside-running/screen.txt" 2>/dev/null \
-    && grep -q "$fixed" "$OUT/cases/p01-outside-running/screen.txt" 2>/dev/null \
-    && grep -q 'nginx 가 아닌 이름의 패키지' "$OUT/cases/f01-foreign-deb/screen.txt" 2>/dev/null && a=1 || a=0
-check "S2 확인 필요 까닭 — 판 없음 · 자리 밖 · 목록 밖 패키지" "$a" "x03 · p01 · f01 화면 · 고친 판 괄호"
+    && grep -q "$hit" "$OUT/cases/p01-outside-running/screen.txt" 2>/dev/null \
+    && grep -q "$fix" "$OUT/cases/p01-outside-running/screen.txt" 2>/dev/null \
+    && grep -q '이 룰이 판정하지 않습니다' "$OUT/cases/f01-foreign-deb/screen.txt" 2>/dev/null && a=1 || a=0
+check "S2 확인 필요 까닭 — 판 없음 · 자리 밖 · 목록 밖 패키지" "$a" "x03 · p01 의 영향 · 고친 판 괄호 · f01 의 까닭 줄"
 n=$(cat "$OUT"/cases/*/screen.txt 2>/dev/null | grep -c '미해소' || true)
 [ "$n" = 0 ] && a=1 || a=0
 check "S3 미해소 경고 0" "$a" "모든 경우의 화면에서 $n 줄"
-n=$(cat "$OUT"/cases/*/screen.txt 2>/dev/null | grep -c '1.31.9 아래면' || true)
+n=$(cat "$OUT"/cases/*/screen.txt 2>/dev/null | grep -c -e '1.31.9 아래면' -e '1.31.9 또는 1.30.7 이상으로 올리' || true)
 [ "$n" = 0 ] && a=1 || a=0
-check "S4 옛 괄호 '1.31.9 아래면' 0" "$a" "모든 경우의 화면에서 $n 줄"
+check "S4 옛 문구('1.31.9 아래면' · '1.31.9 또는 1.30.7 이상') 0" "$a" "모든 경우의 화면에서 $n 줄"
 n=$(cat "$OUT"/cases/b0[1-3]-*/screen.txt 2>/dev/null | grep -c 'nginx 가 아닌 이름의 패키지' || true)
 [ "$n" = 0 ] && a=1 || a=0
 check "S5 배포판 패키지에 목록 밖 패키지 줄 없음" "$a" "b01 ~ b03 화면에서 $n 줄"
+up='stable 갈래(1.30.x)는 1.30.7 이상으로 올리십시오'
+grep -q "$up" "$OUT/cases/x01-src-1318/screen.txt" 2>/dev/null \
+    && grep -q "$up" "$OUT/cases/x04-usrsbin-nopkg/screen.txt" 2>/dev/null && a=1 || a=0
+check "S6 직접 빌드 취약 줄의 올릴 버전(stable 갈래)" "$a" "x01 · x04 화면"
 
 pass=$(awk -F'\t' '$2 == 1' "$OUT/checks.tsv" | wc -l)
 total=$(wc -l <"$OUT/checks.tsv")

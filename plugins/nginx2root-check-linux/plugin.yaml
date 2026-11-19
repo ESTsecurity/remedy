@@ -132,8 +132,8 @@ detect:
     exclude:
       - { field: package, op: matches, value: '.' }
     label:
-      ko: "직접 빌드한 nginx 의 영향 판 — nginx2root(CVE-2026-123007 외 넷) · 1.31.9 또는 1.30.7 이상으로 올리십시오"
-      en: "a self-built nginx in the affected range - nginx2root (CVE-2026-123007 and four more), upgrade to 1.31.9 or 1.30.7 or later"
+      ko: "직접 빌드한 nginx 의 영향 판 — nginx2root(CVE-2026-123007 외 넷) · 1.31.9 이상으로, stable 갈래(1.30.x)는 1.30.7 이상으로 올리십시오(1.31.0 ~ 1.31.8 은 영향 판입니다)"
+      en: "a self-built nginx in the affected range - nginx2root (CVE-2026-123007 and four more), upgrade to 1.31.9 or later, or on the stable branch (1.30.x) to 1.30.7 or later (1.31.0 to 1.31.8 are affected)"
   - id: vulnerable_usrsbin
     subject: file
     where:
@@ -144,8 +144,8 @@ detect:
     exclude:
       - { field: package, op: matches, value: '.' }
     label:
-      ko: "패키지 없이 놓인 nginx 의 영향 판 — nginx2root(CVE-2026-123007 외 넷) · 1.31.9 또는 1.30.7 이상으로 올리십시오"
-      en: "an nginx in the affected range placed without a package - nginx2root (CVE-2026-123007 and four more), upgrade to 1.31.9 or 1.30.7 or later"
+      ko: "패키지 없이 놓인 nginx 의 영향 판 — nginx2root(CVE-2026-123007 외 넷) · 1.31.9 이상으로, stable 갈래(1.30.x)는 1.30.7 이상으로 올리십시오(1.31.0 ~ 1.31.8 은 영향 판입니다)"
+      en: "an nginx in the affected range placed without a package - nginx2root (CVE-2026-123007 and four more), upgrade to 1.31.9 or later, or on the stable branch (1.30.x) to 1.30.7 or later (1.31.0 to 1.31.8 are affected)"
   - id: src_version_known
     subject: file
     where:
