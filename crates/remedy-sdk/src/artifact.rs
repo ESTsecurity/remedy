@@ -501,10 +501,10 @@ impl Observation {
             // `pid N` 으로 적는데(`remedy-collect` 의 `processes`), 그것도 *"디렉터리 열기 N회"* 로 말해 실제 PC 의
             // 사람이 폴더를 찾아 헤맸다(2026-11-19 실측 37개). 1.25.0 부터 경로를 열지 않고 물어 그 PC 에서는 0개가
             // 됐다 — 그래도 남는 것은 드라이브 문자로 바꿀 수 없는 자리(네트워크 공유 · 문자 없는 볼륨)에서 띄운
-            // 프로세스다(`remedy-winmods` 의 `Image::Unknown`). 표본이 모두 그 꼴일 때만 프로세스 문장이다 — 폴더와
-            // 섞이면 전처럼 폴더 문장이다.
-            let windows_process = !self.denied_paths.is_empty()
-                && self.denied_paths.iter().all(|p| is_windows_pid(p));
+            // 프로세스다(`remedy-winmods` 의 `Image::Unknown`). **거부 전부가** 그 꼴일 때만 프로세스 문장이다 — 폴더와
+            // 섞이거나 표본이 전수가 아니면(상한 32 · 보이지 않는 몫이 폴더일 수 있다) 전처럼 폴더 문장이다.
+            let windows_process =
+                self.denied_paths.len() == n && self.denied_paths.iter().all(|p| is_windows_pid(p));
             if windows_process {
                 out.push(match lang {
                     Lang::Ko => format!(

@@ -577,6 +577,17 @@ fn a_blocked_process_adds_the_container_hint() {
         "{:?}",
         mixed.reasons_in(Lang::Ko)
     );
+    // 표본이 전수가 아니면(상한 32) 보이지 않는 몫이 폴더일 수 있다 — 표본이 모두 프로세스여도 폴더 문장이다.
+    let sampled = Observation {
+        denied_dirs: 40,
+        denied_paths: (0..32).map(|i| format!("pid {}", 1000 + 4 * i)).collect(),
+        ..Default::default()
+    };
+    assert!(
+        sampled.reasons_in(Lang::Ko)[0].starts_with("접근이 거부된 디렉터리 열기 40회"),
+        "{:?}",
+        sampled.reasons_in(Lang::Ko)
+    );
     // 사유 줄 뒤의 다른 사유(미수집 subject 등)는 그대로 이어진다 — 프로세스 문장이 뒤를 끊지 않는다.
     let with_more = Observation {
         denied_dirs: 1,
