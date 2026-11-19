@@ -47,12 +47,13 @@
 # - 애플리케이션이 제 안에 담아 쓰는 런타임(jar 안의 클래스).
 schema_version: 1
 id: java4shell-check-windows
-version: 0.3.0
-min_core: "1.21.0"  # product 는 1.21.0 · label 은 1.13.0 · file_names 는 1.11.0
+version: 0.3.1
+min_core: "1.25.0"  # added 는 1.25.0 · product 는 1.21.0 · label 은 1.13.0 · file_names 는 1.11.0
 platforms: [windows]
 
 kind: check
 product: Java
+added: "2026-11-18"
 
 name:
   ko: "Java4Shell 점검 (CVE-2026-114938)"

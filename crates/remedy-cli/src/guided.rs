@@ -646,10 +646,15 @@ struct Chosen {
     path: std::path::PathBuf,
     /// 네트워크로 점검하는 룰인가(`network`) — 이 기계를 보지 않고 동반 프로그램이 맡는다.
     network: bool,
-    /// 하는 일 묶음 — [`discover::menu_group`] 과 같은 값(0 악성코드 탐지 · 제거 · 1 취약점 점검 · 2 원격 점검).
+    /// 하는 일 묶음 — `discover::in_menu_order` 가 늘어놓은 묶음과 같은 값(0 악성코드 탐지 · 제거 · 1 취약점 점검 · 2 원격 점검).
     group: u8,
     /// 디스크 전체(`%FIXED_DISKS%`)를 걷는 룰인가 — 빠른 검사가 뺀다([`ScanKind`]).
     full_disk: bool,
+    /// 이 룰을 꾸러미에 더한 날(`added` · 코어 1.25.0) — 1970-01-01 부터 센 날 수.
+    added: Option<i64>,
+    /// **새로 추가된 항목**인가 — 꾸러미의 가장 새 날부터 사흘 안(`remedy_sdk::manifest::is_recent`). 고르는 화면이
+    /// 검사 줄 바로 아래에 모아 날짜를 붙인다(`discover::in_menu_order` 가 앞으로 늘어놓았다).
+    recent: bool,
 }
 
 /// 고르는 화면이 **한 화면을 넘는** 룰 수 — 넘으면 고르는 화면은 하는 일 묶음과 찾기로, *모두 검사만* 은 룰마다
@@ -718,12 +723,13 @@ fn choose(ok: &[discover::Found]) -> Option<Choice> {
         let network = m.as_ref().is_some_and(|m| m.network.is_some());
         // 꾸러미 README 와 같은 판단이다(SDK 의 한 함수) — 둘이 따로 가리면 화면과 글이 갈린다.
         let full_disk = m.as_ref().is_some_and(|m| m.walks_whole_disks());
-        // `discover::menu_group` 과 같은 갈래 — 이미 읽은 매니페스트로 센다(룰 수천 개에서 다시 읽지 않게).
+        // `discover::in_menu_order` 와 같은 갈래 — 이미 읽은 매니페스트로 센다(룰 수천 개에서 다시 읽지 않게).
         let group = match &m {
             Some(_) if network => 2,
             Some(m) if m.kind == Some(remedy_sdk::manifest::PluginKind::Check) => 1,
             _ => 0,
         };
+        let added = m.as_ref().and_then(|m| m.added_day());
         let label = m
             .and_then(|m| {
                 m.name
@@ -745,25 +751,38 @@ fn choose(ok: &[discover::Found]) -> Option<Choice> {
             network,
             group,
             full_disk,
+            added,
+            recent: false,
         }
     };
     // 한 번만 읽는다 — 줄을 그릴 때와 고른 뒤가 같은 것을 본다.
-    let all: Vec<Chosen> = ok.iter().map(chosen).collect();
+    let mut all: Vec<Chosen> = ok.iter().map(chosen).collect();
+    // 새로 추가된 항목 — `discover::in_menu_order` 와 같은 함수 · 같은 가장 새 날로 가린다(둘이 따로 가리면 머리줄과
+    // 차례가 갈린다).
+    let newest = all.iter().filter_map(|c| c.added).max();
+    for c in &mut all {
+        c.recent = remedy_sdk::manifest::is_recent(c.added, newest);
+    }
     // **네트워크를 쓰는 항목은 고르기 전에 그렇다고 보인다** — 이름 뒤에 꼬리표로 붙인다.
     //
     // 대시로 잇지 않는다: 이 화면들에서 `이름 — 까닭` 은 **지금 고를 수 없는 줄**의 꼴이다(`Row::Off`).
     // 색이 없는 줄 입력 화면에서는 그 둘이 똑같이 보여 꺼진 항목으로 읽힌다 — 메뉴 하네스도 그 줄을
     // 꺼진 줄로 셌다(2026-11-10 랩 실측). 대괄호는 그 꼴과 겹치지 않는다.
+    //
+    // 새로 추가된 항목에는 더한 날을 같은 꼴로 붙인다(코어 1.25.0) — 묶음 · 찾기의 하위 화면에는 머리줄이 없어 그
+    // 꼬리표가 새 항목임을 말한다.
     let shown = |c: &Chosen| -> String {
+        let mut line = c.label.clone();
         if c.network {
-            format!(
-                "{} [{}]",
-                c.label,
+            line.push_str(&format!(
+                " [{}]",
                 lang.t("네트워크 사용", "uses the network")
-            )
-        } else {
-            c.label.clone()
+            ));
         }
+        if let Some(day) = c.added.filter(|_| c.recent) {
+            line.push_str(&format!(" [{}]", added_tag(lang, day)));
+        }
+        line
     };
     if all.len() == 1 {
         set_picked(None);
@@ -825,7 +844,21 @@ fn choose(ok: &[discover::Found]) -> Option<Choice> {
     if all.len() > MANY_RULES {
         return choose_grouped(rows, &all, scans, &shown);
     }
-    rows.extend(all.iter().map(|c| Row::Item(shown(c))));
+    // **새로 추가된 항목이 검사 줄 바로 아래다**(코어 1.25.0) — 앞에 모여 있다(`discover::in_menu_order`). 그런 항목이
+    // 있으면 묶음 제목 둘(*새로 추가된 항목* · *그 밖의 항목*)이 번호 없는 줄로 서고, 번호는 전처럼 검사 줄 뒤부터
+    // 이어진다 — 안내문 · 하네스가 적은 *1 빠른 검사* 와 *검사 줄 + 항목 수 + 1* 이 그대로다. 없으면 지금 화면 그대로다.
+    let recent = all.iter().take_while(|c| c.recent).count();
+    for (i, c) in all.iter().enumerate() {
+        if recent > 0 && (i == 0 || i == recent) {
+            rows.push(Row::Blank);
+            rows.push(Row::Group(if i == 0 {
+                recent_title(lang).to_string()
+            } else {
+                lang.t("그 밖의 항목", "Other items").to_string()
+            }));
+        }
+        rows.push(Row::Item(shown(c)));
+    }
     set_chooser(&all, lines + 1);
     set_treat_all_at(lines + all.len());
     // **찾은 것 모두 치료하기는 룰 목록 뒤에 선다** — 룰의 번호가 검사 줄 뒤부터라는 것이 안내문 · 하네스에
@@ -1024,7 +1057,7 @@ pub(crate) fn chooser_entry(path: &std::path::Path) -> Option<(usize, String)> {
 }
 
 /// 고르는 화면에서 **찾은 것 모두 치료하기 앞에 선 번호 줄의 수** — 그린 화면이 센다. 룰 목록이면 검사 줄(1 · 2) +
-/// 룰 수, 묶음 · 찾기면 검사 줄 + 1 + 묶음 수. 고르는 화면이 서지 않으면(룰이 하나) 0 이다.
+/// 룰 수, 묶음 · 찾기면 검사 줄 + 새로 추가된 항목 수 + 1 + 묶음 수. 고르는 화면이 서지 않으면(룰이 하나) 0 이다.
 static TREAT_ALL_AT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 
 fn set_treat_all_at(rows_before: usize) {
@@ -1044,6 +1077,26 @@ fn treat_all_number(rows_before: usize, treat: usize) -> Option<usize> {
     (treat > 0 && rows_before > 0).then_some(rows_before + 1)
 }
 
+/// 새로 추가된 항목의 묶음 제목 — 룰 목록 화면과 묶음 · 찾기 화면이 같은 글을 쓴다.
+fn recent_title(lang: remedy_sdk::i18n::Lang) -> &'static str {
+    lang.t("새로 추가된 항목", "Recently added")
+}
+
+/// 새로 추가된 항목의 꼬리표 — *11월 19일 추가* · *added Nov 19*.
+fn added_tag(lang: remedy_sdk::i18n::Lang, day: i64) -> String {
+    const MONTHS: [&str; 12] = [
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    ];
+    let (m, d) = remedy_sdk::utc::month_day(day);
+    lang.pick(
+        format!("{m}월 {d}일 추가"),
+        format!(
+            "added {} {d}",
+            MONTHS.get(m as usize - 1).copied().unwrap_or("")
+        ),
+    )
+}
+
 /// 하는 일 묶음의 이름 — [`Chosen::group`] 의 값마다.
 fn group_label(lang: remedy_sdk::i18n::Lang, group: u8) -> &'static str {
     match group {
@@ -1054,10 +1107,10 @@ fn group_label(lang: remedy_sdk::i18n::Lang, group: u8) -> &'static str {
 }
 
 /// 룰이 한 화면([`MANY_RULES`])을 넘을 때의 고르는 화면 — **하는 일 묶음과 찾기**(목표 remedy_전체검사_운영기반
-/// D10). 맨 위 검사 줄(`base` 의 끝 · 1 또는 1 · 2)은 그대로이고, 그다음이 찾기(룰 이름 · 폴더 이름에서 — 이름에
-/// 제품 · CVE 가 든다), 그 뒤가 묶음마다 한 줄(그 묶음의 룰 수)이다. 묶음 · 찾기는 룰을 [`MANY_RULES`] 개씩 넘겨
-/// 보인다. 룰을 고른 뒤의 화면은 지금과 같다. 이 화면에는 룰의 번호가 없으므로 다음 할 일은 먼저 고를 룰을 이름으로
-/// 적는다.
+/// D10). 맨 위 검사 줄(`base` 의 끝 · 1 또는 1 · 2)은 그대로이고, 새로 추가된 항목이 있으면 그 바로 아래에 번호 줄로
+/// 서며(코어 1.25.0), 그다음이 찾기(룰 이름 · 폴더 이름에서 — 이름에 제품 · CVE 가 든다), 그 뒤가 묶음마다 한 줄(그
+/// 묶음의 룰 수)이다. 묶음 · 찾기는 룰을 [`MANY_RULES`] 개씩 넘겨 보인다. 룰을 고른 뒤의 화면은 지금과 같다. 이 화면의
+/// 룰은 고른 자리마다 번호가 달라 다음 할 일은 먼저 고를 룰을 이름으로 적는다.
 fn choose_grouped(
     base: Vec<crate::term::Row>,
     all: &[Chosen],
@@ -1075,11 +1128,21 @@ fn choose_grouped(
     }
     set_chooser(all, 0);
     let lines = scans.len();
-    let search = lines + 1;
+    // 새로 추가된 항목은 여기서도 검사 줄 바로 아래에 번호 줄로 선다(코어 1.25.0) — 묶음을 열거나 찾지 않고 고르게.
+    // 그 항목은 하는 일 묶음에도 그대로 든다. 찾기 · 묶음 줄의 번호는 그 수만큼 뒤로 간다.
+    let recent: Vec<&Chosen> = all.iter().take_while(|c| c.recent).collect();
+    let search = lines + recent.len() + 1;
     let rows_before = search + groups.len();
     set_treat_all_at(rows_before);
     loop {
         let mut rows = base.clone();
+        if !recent.is_empty() {
+            rows.push(Row::Blank);
+            rows.push(Row::Group(recent_title(lang).to_string()));
+            rows.extend(recent.iter().map(|c| Row::Item(shown(c))));
+            rows.push(Row::Blank);
+            rows.push(Row::Group(lang.t("모든 항목", "All items").to_string()));
+        }
         rows.push(Row::Item(
             lang.t(
                 "이름 · 제품 · CVE 로 찾기",
@@ -1108,6 +1171,7 @@ fn choose_grouped(
                 let s = scans.swap_remove(k - 1);
                 return Some(Choice::All(s.run, s.skipped, s.kind));
             }
+            k if k < search => Picked::Got(recent[k - lines - 1].clone()),
             k if k == search => match search_rules(all) {
                 Some(hits) => pick_from(lang.t("찾은 항목", "Matches"), &hits, shown),
                 None => Picked::Back,
@@ -1270,6 +1334,8 @@ mod tests {
             network: group == 2,
             group,
             full_disk: false,
+            added: None,
+            recent: false,
         }
     }
 
@@ -1402,6 +1468,26 @@ mod tests {
             let l = treat_all_label(lang, 2);
             assert!(!l.contains(" — ") && !l.contains(" - "), "{l}");
             assert!(l.contains('2'), "{l}");
+        }
+    }
+
+    /// 새로 추가된 항목의 꼬리표와 묶음 제목 — 날짜는 월 · 일만, 두 언어로. 꼬리표도 제목도 `이름 — 까닭` 꼴이 아니다
+    /// (고를 수 없는 줄의 꼴).
+    #[test]
+    fn the_added_tag_says_the_month_and_day() {
+        use remedy_sdk::i18n::Lang;
+        let day = |s: &str| remedy_sdk::utc::day_number(s).expect("날짜");
+        assert_eq!(added_tag(Lang::Ko, day("2026-11-19")), "11월 19일 추가");
+        assert_eq!(added_tag(Lang::En, day("2026-11-19")), "added Nov 19");
+        assert_eq!(added_tag(Lang::Ko, day("2027-01-02")), "1월 2일 추가");
+        assert_eq!(added_tag(Lang::En, day("2027-12-31")), "added Dec 31");
+        for lang in [Lang::Ko, Lang::En] {
+            for t in [
+                added_tag(lang, day("2026-11-19")),
+                recent_title(lang).to_string(),
+            ] {
+                assert!(!t.contains(" — ") && !t.contains(" - "), "{t}");
+            }
         }
     }
 }

@@ -33,12 +33,13 @@
 # - 커널 SCTP 결함 — 리눅스의 결함이다
 schema_version: 1
 id: nginx2root-check-windows
-version: 0.1.0
-min_core: "1.21.0"  # product 는 1.21.0 · label 은 1.13.0 · file_names 는 1.11.0 · 가운데 별표 레지스트리 루트(`Services\*\Parameters`)는 1.10.0
+version: 0.1.1
+min_core: "1.25.0"  # added 는 1.25.0 · product 는 1.21.0 · label 은 1.13.0 · file_names 는 1.11.0 · 가운데 별표 레지스트리 루트(`Services\*\Parameters`)는 1.10.0
 platforms: [windows]
 
 kind: check
 product: nginx
+added: "2026-11-19"
 
 name:
   ko: "nginx2root 점검 (CVE-2026-123007 · CVE-2026-123634 · CVE-2026-123633 · CVE-2026-121810 · CVE-2026-113425)"

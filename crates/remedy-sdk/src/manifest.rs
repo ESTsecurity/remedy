@@ -79,6 +79,15 @@ pub struct PluginManifest {
     #[schemars(with = "String")]
     pub product: Option<String>,
 
+    /// **이 룰이 맡은 위협을 꾸러미에 더한 날**(선택 · `YYYY-MM-DD` · 한국 날짜 · 코어 1.25.0). 새 룰은 처음 낸 날이고,
+    /// 있던 룰에 새 위협(CVE)을 맡기면 그날로 고친다. 고르는 화면이 꾸러미의 가장 새 날부터 사흘 안의 룰을 맨 위 검사
+    /// 줄 바로 아래 *새로 추가된 항목* 으로 올리고 날짜를 붙인다 — 새 위협 소식을 듣고 받은 사람이 그 항목을 바로
+    /// 고르게(2026-11-19 · nginx2root). 판정은 바꾸지 않는다 — 화면에서만 쓴다. 키가 있으면 값이 있어야 한다
+    /// ([`PluginManifest::product`] 와 같은 까닭이다).
+    #[serde(default, deserialize_with = "added_if_present")]
+    #[schemars(with = "String")]
+    pub added: Option<String>,
+
     /// 스캔·읽기가 허용되는 경로 상한.
     ///
     /// **성능 최적화가 아니라 권한 상한이다.** 서명된 플러그인이 임의 경로를
@@ -294,6 +303,23 @@ impl PluginManifest {
                 .is_some_and(|head| head.eq_ignore_ascii_case(FIXED_DISKS))
         })
     }
+
+    /// [`PluginManifest::added`] 의 날(1970-01-01 부터 센 날 수). 없거나 꼴이 틀리면 `None` — 그 룰은 새로 추가된
+    /// 항목으로 올리지 않는다(꼴은 [`crate::validate`] 가 거절하므로 서명된 룰에서는 없는 일이다).
+    pub fn added_day(&self) -> Option<i64> {
+        self.added.as_deref().and_then(crate::utc::day_number)
+    }
+}
+
+/// 고르는 화면이 *새로 추가된 항목* 으로 올리는 날의 폭 — 꾸러미에서 가장 새 [`PluginManifest::added`] 의 날과 그 앞
+/// 이틀(사흘). 한 주로 잡으면 지금 꾸러미의 절반(9개 중 넷)이 새 항목이 되어 맨 위가 목록만큼 길어진다(2026-11-19 —
+/// 11-13 · 11-14 · 11-18 · 11-19 에 더한 룰). 날은 꾸러미의 것으로 센다 — PC 의 시계로 세면 랩 VM 을 되돌린 시각처럼
+/// 시계가 틀린 자리에서 같은 꾸러미의 화면이 갈린다.
+pub const RECENT_DAYS: i64 = 3;
+
+/// 새로 추가된 항목인가 — 그 룰의 날과 꾸러미의 가장 새 날([`RECENT_DAYS`]).
+pub fn is_recent(day: Option<i64>, newest: Option<i64>) -> bool {
+    matches!((day, newest), (Some(d), Some(n)) if n - d < RECENT_DAYS)
 }
 
 /// `kind:` 가 있으면 값이 열거값이어야 한다 — [`PluginManifest::kind`] 를 보라.
@@ -318,6 +344,20 @@ where
         Some(name) => Ok(Some(name)),
         None => Err(serde::de::Error::custom(
             "product 를 적었으면 제품 이름이 있어야 한다 — 묶지 않으려면 키를 지운다",
+        )),
+    }
+}
+
+/// `added:` 가 있으면 값이 글이어야 한다 — [`product_if_present`] 와 같다(빈 값 · `null` 이 키를 지운 것과 같아져
+/// 새로 더한 룰이 맨 위에서 조용히 빠지지 않게). 날짜의 꼴은 [`crate::validate`] 가 본다.
+fn added_if_present<'de, D>(d: D) -> Result<Option<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    match Option::<String>::deserialize(d)? {
+        Some(date) => Ok(Some(date)),
+        None => Err(serde::de::Error::custom(
+            "added 를 적었으면 날짜(YYYY-MM-DD)가 있어야 한다 — 새로 추가된 항목으로 올리지 않으려면 키를 지운다",
         )),
     }
 }

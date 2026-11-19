@@ -73,16 +73,16 @@
     }
   },
   "java4shell-check-linux": {
-    "version": "0.3.0",
+    "version": "0.3.1",
     "files": {
-      "plugin.yaml": "6ff0038d7c382a6751857bee6239a5fe883ee7ffd47b1f01cca3525e278a6295",
+      "plugin.yaml": "f0bda78f6503e0b597e2e09bac7f94cb178ebb5b074e0f2b17291691b78f4152",
       "rules/java.yar": "2eb1f476f972a673b727d7c05ccfb623fcd86ef50226ae23d24206c797f6aec7"
     }
   },
   "java4shell-check-windows": {
-    "version": "0.3.0",
+    "version": "0.3.1",
     "files": {
-      "plugin.yaml": "bc0821d15c885ab13b41aca4da1b8f0f03bf309237a51cec3bc9c04ea3bc1798",
+      "plugin.yaml": "8ee9ae29b5405cf7058884c618c7126e830a948448a2fee6bcab7640a297034a",
       "rules/java.yar": "2eb1f476f972a673b727d7c05ccfb623fcd86ef50226ae23d24206c797f6aec7"
     }
   },
@@ -99,16 +99,16 @@
     }
   },
   "nginx2root-check-linux": {
-    "version": "0.1.1",
+    "version": "0.1.2",
     "files": {
-      "plugin.yaml": "62243826bb022e0259bb6de3f5816fc25b878cdd634e18a50f04e84329ed5b96",
+      "plugin.yaml": "faf59dc53e230edea5e5e571626aec36e2f071dbd79f760f802c755c41cd3f80",
       "rules/nginx.yar": "390d207541bc4198d7deef89593bfc933e7a5599f5db166677ee1f567445b981"
     }
   },
   "nginx2root-check-windows": {
-    "version": "0.1.0",
+    "version": "0.1.1",
     "files": {
-      "plugin.yaml": "8d298b5b4850b0ae37359768a29ccd2327e99aec048372c0cf79f199d79caa84",
+      "plugin.yaml": "fb1e6baa7b610d5ae862c72f60f60ab5b10b5a34dcabf66be62f6829e1a95dcd",
       "rules/nginx.yar": "390d207541bc4198d7deef89593bfc933e7a5599f5db166677ee1f567445b981"
     }
   },
