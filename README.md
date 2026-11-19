@@ -55,6 +55,7 @@
 | Log4j 점검 (CVE-2021-44228 등) | 찾기만 합니다 | `log4j-check` 0.2.1 | `log4j-check` 0.2.1 | [logging.apache.org](https://logging.apache.org/security.html) |
 | nginx2root 점검 (CVE-2026-123007 · CVE-2026-123634 · CVE-2026-123633 · CVE-2026-121810 · CVE-2026-113425) | 찾기만 합니다 | `nginx2root-check-windows` 0.1.1 | `nginx2root-check-linux` 0.1.2 | [xint.io](https://xint.io/ko/blog/nginx2root-remote-code-execution) |
 | Node2Shell 점검 (CVE-2026-111497) | 찾기만 합니다 | `node2shell-check-windows` 0.4.1 | `node2shell-check-linux` 0.6.1 | [nodejs.org](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases) |
+| PHP 11월 보안 업데이트 점검 (CVE-2026-129474 등 18건) | 찾기만 합니다 | `php-2026-11-check-windows` 0.1.0 | `php-2026-11-check-linux` 0.1.0 | [www.php.net](https://www.php.net/archive/2026.php) |
 | PHP 세션 업로드 진행 설정 점검 (CVE-2026-115560) | 찾기만 합니다 | `php-session-check-windows` 0.4.1 | `php-session-check-linux` 0.5.1 | [www.php.net](https://www.php.net/archive/2026.php) |
 | PHP2Shell 점검 (CVE-2026-109618 · 109619) | 찾기만 합니다 | `php2shell-check-windows` 0.4.1 | `php2shell-check-linux` 0.6.1 | [www.php.net](https://www.php.net/archive/2026.php) |
 | PHP2Shell · Apache HTTP/2 원격 점검 (웹서버 응답 헤더) | 적어 주신 주소의 서버를 바깥에서 봅니다 (네트워크 사용) | `php2shell-url-check` 0.2.0 | `php2shell-url-check` 0.2.0 | [www.php.net](https://www.php.net/archive/2026.php) |
@@ -62,7 +63,6 @@
 | CWPdoor 제거 | 찾아서 치료합니다 (복원할 수 있습니다) | — | `cwpdoor-2-clean` 0.1.2 | [blog.xlab.qianxin.com](https://blog.xlab.qianxin.com/cwpdoor-the-invisible-backdoor-living-inside-control-web-panel/) |
 | Ebury 점검 (탐지만) | 찾기만 합니다 | — | `ebury-check` 0.2.0 | [www.welivesecurity.com](https://www.welivesecurity.com/en/eset-research/ebury-alive-unseen-400k-linux-servers-compromised-cryptotheft-financial-gain/) |
 | OpenSSH 점검 (CVE-2026-123158 · Alpine) | 찾기만 합니다 | — | `openssh-musl-check` 0.1.2 | [github.com](https://github.com/advisories/GHSA-4fcc-vm97-gx3x) |
-| PHP 11월 보안 업데이트 점검 (CVE-2026-129474 등 18건) | 찾기만 합니다 | — | `php-2026-11-check-linux` 0.1.0 | [www.php.net](https://www.php.net/archive/2026.php) |
 <!-- threats:end -->
 
 치료한 뒤 꼭 할 일과 이 도구가 보지 못하는 것은 위협마다 다릅니다 — [위협별 안내](#위협별-안내).
@@ -102,7 +102,7 @@
 | Apache HTTP/2 | Windows · Linux | [점검 결과 읽기](docs/위협별-안내.md#apache-http2) |
 | nginx — nginx2root | Windows · Linux | [점검 결과 읽기](docs/위협별-안내.md#nginx2root) |
 | Node.js — Node2Shell | Windows · Linux | [점검 결과 읽기](docs/위협별-안내.md#node2shell) |
-| PHP — 11월 보안 업데이트 18건 | Linux | [점검 결과 읽기](docs/위협별-안내.md#php-2026-11) |
+| PHP — 11월 보안 업데이트 18건 | Windows · Linux | [점검 결과 읽기](docs/위협별-안내.md#php-2026-11) |
 | PHP — PHP2Shell · 세션 업로드 진행 설정 | Windows · Linux | [점검 결과 읽기](docs/위협별-안내.md#php2shell) |
 | 원격 점검 — 웹서버 응답 헤더 | Windows · Linux | [쓰는 법 · 한계](docs/위협별-안내.md#url-check) |
 | 이미지 파일 · 컨테이너 | Windows · Linux | [쓰는 법](docs/위협별-안내.md#image-container) |
