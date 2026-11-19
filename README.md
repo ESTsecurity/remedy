@@ -62,6 +62,7 @@
 | CWPdoor 제거 | 찾아서 치료합니다 (복원할 수 있습니다) | — | `cwpdoor-2-clean` 0.1.2 | [blog.xlab.qianxin.com](https://blog.xlab.qianxin.com/cwpdoor-the-invisible-backdoor-living-inside-control-web-panel/) |
 | Ebury 점검 (탐지만) | 찾기만 합니다 | — | `ebury-check` 0.2.0 | [www.welivesecurity.com](https://www.welivesecurity.com/en/eset-research/ebury-alive-unseen-400k-linux-servers-compromised-cryptotheft-financial-gain/) |
 | OpenSSH 점검 (CVE-2026-123158 · Alpine) | 찾기만 합니다 | — | `openssh-musl-check` 0.1.2 | [github.com](https://github.com/advisories/GHSA-4fcc-vm97-gx3x) |
+| PHP 11월 보안 업데이트 점검 (CVE-2026-129474 등 18건) | 찾기만 합니다 | — | `php-2026-11-check-linux` 0.1.0 | [www.php.net](https://www.php.net/archive/2026.php) |
 <!-- threats:end -->
 
 치료한 뒤 꼭 할 일과 이 도구가 보지 못하는 것은 위협마다 다릅니다 — [위협별 안내](#위협별-안내).
@@ -101,6 +102,7 @@
 | Apache HTTP/2 | Windows · Linux | [점검 결과 읽기](docs/위협별-안내.md#apache-http2) |
 | nginx — nginx2root | Windows · Linux | [점검 결과 읽기](docs/위협별-안내.md#nginx2root) |
 | Node.js — Node2Shell | Windows · Linux | [점검 결과 읽기](docs/위협별-안내.md#node2shell) |
+| PHP — 11월 보안 업데이트 18건 | Linux | [점검 결과 읽기](docs/위협별-안내.md#php-2026-11) |
 | PHP — PHP2Shell · 세션 업로드 진행 설정 | Windows · Linux | [점검 결과 읽기](docs/위협별-안내.md#php2shell) |
 | 원격 점검 — 웹서버 응답 헤더 | Windows · Linux | [쓰는 법 · 한계](docs/위협별-안내.md#url-check) |
 | 이미지 파일 · 컨테이너 | Windows · Linux | [쓰는 법](docs/위협별-안내.md#image-container) |
