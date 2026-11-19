@@ -21,4 +21,9 @@ windows-sys = { workspace = true, features = [
     "Win32_System_Registry",
     # SW_SHOWNORMAL
     "Win32_UI_WindowsAndMessaging",
+    # NtQuerySystemInformation(SystemProcessIdInformation) — 열 수 없는 프로세스의 실행 파일 경로를 pid 로만 묻는다
+    # (1.25.0). ntdll 은 이미 임포트에 있다.
+    "Wdk_System_SystemInformation",
+    # QueryDosDeviceW — 그 답의 장치 경로(`\Device\HarddiskVolume3\…`)를 드라이브 문자(`C:\…`)로 바꾼다. kernel32 다.
+    "Win32_Storage_FileSystem",
 ] }
