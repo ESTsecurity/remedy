@@ -137,6 +137,13 @@
       "rules/sshd.yar": "4d94a1f41baab8732e41067125282d213eaf742209b48bf89acb575939c292ec"
     }
   },
+  "php-2026-11-check-linux": {
+    "version": "0.1.0",
+    "files": {
+      "plugin.yaml": "bdad9bfe42143f8f21e21d7f877893dd3c11190da3f4d15f4325b01ae2d592be",
+      "rules/php.yar": "f703065f1bd491d1a52e9bfcad6464ca35acbad36c529ab5d6dc45e74cf98700"
+    }
+  },
   "php-session-check-linux": {
     "version": "0.5.1",
     "files": {
