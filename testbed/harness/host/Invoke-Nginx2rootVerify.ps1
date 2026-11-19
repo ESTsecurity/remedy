@@ -20,8 +20,9 @@
       R  진짜 zip 3 — 1.31.9 0 · stable 1.30.7 0 · 1.30.6 2(진짜 실행 파일의 판 문자열을 읽는가)
       V  C:\nginx 자리 채우기 8 — 1.31.8 2 · 1.31.9 0 · 1.30.6 2 · 1.30.7 0 · 1.29.5 2(고친 판 없는 갈래) · 1.9.4 2(메일
          프록시 결함은 0.5.33 부터) · 0.5.32 0(영향 범위 아래) · 판 없음 6
-      L  다른 자리 7(1.31.8 · Laragon 은 1.27.3) — Program Files · Laragon · Chocolatey · Scoop(사용자) · Scoop(전역) ·
-         winget(사용자 범위) · winget(기계 범위) 모두 2
+      L  다른 자리 9(1.31.8 · Laragon 은 1.27.3) — Program Files · Laragon · Chocolatey · Scoop(사용자) · Scoop(전역) ·
+         winget(사용자 범위) · winget(기계 범위) 모두 2 · Scoop 의 shim(`scoop\shims\nginx.exe` — PING.EXE 사본)으로 띄운 꼴
+         1.31.9 0 · 1.31.8 2(shim 을 자리 밖 프로세스로 세지 않는다)
       G  설치본 둘 2 — 진짜 1.31.9 + Laragon 판 없음 6(0 이 아니다 — 설치본마다 가른다) · 진짜 1.31.9 + Laragon 1.30.6 2
       O  자리 밖 5 — 서비스(만들기만) 6 · 도는 nginx.exe 6 · 자리 안 서비스 + 진짜 1.31.9 0 · 자리 밖 nginx 를 띄우는 NSSM
          서비스(`Parameters` 의 `Application`) 6 · Chocolatey 꼴 — NSSM 이 자리 안의 1.31.9 를 띄움 0
@@ -85,7 +86,8 @@ $guestTools = {
         foreach ($s in @('RemedyLabNginx', 'RemedyLabNginxIn', 'RemedyLabNginxNssm', 'RemedyLabNginxNssmIn')) {
             if (Get-Service -Name $s -ErrorAction SilentlyContinue) { & sc.exe delete $s | Out-Null }
         }
-        $ours = @(Get-Process -Name nginx -ErrorAction SilentlyContinue | Where-Object { $_.Path -like 'C:\web\*' })
+        $shim = Join-Path $env:USERPROFILE 'scoop\shims\nginx.exe'
+        $ours = @(Get-Process -Name nginx -ErrorAction SilentlyContinue | Where-Object { $_.Path -like 'C:\web\*' -or $_.Path -eq $shim })
         foreach ($p in $ours) {
             Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
             $null = $p.WaitForExit(10000)
@@ -93,6 +95,7 @@ $guestTools = {
         foreach ($r in $made) {
             if (Test-Path -LiteralPath $r) { [System.IO.Directory]::Delete('\\?\' + $r, $true) }
         }
+        if (Test-Path -LiteralPath $shim) { Remove-Item -LiteralPath $shim -Force }
     }
     # 설치본 하나는 `자리|판` 한 줄로 넘긴다 — 판: real-<판>(진짜 zip 의 트리) · <판>(자리 채우기) · none(판 문자열 없음).
     # 원소 하나인 배열 안의 배열은 PowerShell 이 펴 버린다.
@@ -136,6 +139,12 @@ $cases = @(
     @{ id = 'L5'; what = 'Scoop(전역) 1.31.8'; expect = 2; installs = @('C:\ProgramData\scoop\apps\nginx\1.31.8|1.31.8') },
     @{ id = 'L6'; what = 'winget(사용자 범위) 1.31.8'; expect = 2; installs = @("LOCAL\$wingetDir\nginx-1.31.8|1.31.8") },
     @{ id = 'L7'; what = 'winget(기계 범위) 1.31.8'; expect = 2; installs = @("C:\Program Files\WinGet\Packages\$wingetName\nginx-1.31.8|1.31.8") },
+    # Scoop 의 shim(`scoop\shims\nginx.exe`)으로 띄운 꼴 — shim 은 진짜 nginx 를 자식으로 띄우고 살아 있다. 자리 밖 프로세스로
+    # 세지 않는다(뺀다) — 판은 apps\nginx 의 파일로 본다.
+    @{ id = 'L8'; what = 'Scoop(사용자) 1.31.9 + shim 으로 띄움'; expect = 0; installs = @('PROFILE\scoop\apps\nginx\1.31.9|1.31.9');
+       process = 'PROFILE\scoop\shims\nginx.exe' },
+    @{ id = 'L9'; what = 'Scoop(사용자) 1.31.8 + shim 으로 띄움'; expect = 2; installs = @('PROFILE\scoop\apps\nginx\1.31.8|1.31.8');
+       process = 'PROFILE\scoop\shims\nginx.exe' },
     @{ id = 'G1'; what = '진짜 1.31.9 + Laragon 판 없음 — 설치본마다'; expect = 6;
        installs = @('C:\nginx|real-1.31.9', 'C:\laragon\bin\nginx\nginx-1.27.3|none') },
     @{ id = 'G2'; what = '진짜 1.31.9 + Laragon 1.30.6'; expect = 2;
@@ -212,9 +221,10 @@ try {
                 New-Service -Name 'RemedyLabNginxIn' -BinaryPathName ('"' + $serviceIn + '"') -StartupType Manual | Out-Null
             }
             if ($process) {
-                New-Item -ItemType Directory -Force (Split-Path -Parent $process) | Out-Null
-                Copy-Item -LiteralPath "$env:windir\System32\PING.EXE" -Destination $process -Force
-                Start-Process -FilePath $process -ArgumentList @('-n', '600', '127.0.0.1') -WindowStyle Hidden | Out-Null
+                $proc = $process.Replace('PROFILE\', $env:USERPROFILE + '\')
+                New-Item -ItemType Directory -Force (Split-Path -Parent $proc) | Out-Null
+                Copy-Item -LiteralPath "$env:windir\System32\PING.EXE" -Destination $proc -Force
+                Start-Process -FilePath $proc -ArgumentList @('-n', '600', '127.0.0.1') -WindowStyle Hidden | Out-Null
                 Start-Sleep -Seconds 1
             }
         }

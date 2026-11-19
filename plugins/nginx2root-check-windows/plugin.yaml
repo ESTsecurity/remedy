@@ -116,13 +116,15 @@ detect:
 
   # ── 위 자리 밖의 nginx — 서비스 · 실행 중 ──────────────────────────────────────────
   #
-  # 그 nginx 의 파일은 읽지 않는다(상한 밖이다) — 있다는 것만 알리고 확인 필요로 둔다.
+  # 그 nginx 의 파일은 읽지 않는다(상한 밖이다) — 있다는 것만 알리고 확인 필요로 둔다. Scoop 의 shim(`scoop\shims\nginx.exe`)은
+  # 뺀다 — PATH 에 놓인 작은 런처로, 진짜 nginx 를 자식 프로세스(`apps\nginx\current\nginx.exe` — 자리 안)로 띄우고 그동안
+  # 살아 있다(ScoopInstaller/Shim). 빼지 않으면 Scoop 의 고친 nginx 를 띄운 채 점검할 때마다 확인 필요가 난다(2026-11-19 검토).
   - id: outside_service
     subject: service
     where:
       - { field: image_path, op: matches, value: '(?i)\\nginx\.exe' }
     exclude:
-      - { field: image_path, op: matches, value: '(?i)^"?(c:\\nginx|c:\\program files\\nginx|c:\\program files \(x86\)\\nginx|c:\\laragon\\bin\\nginx|c:\\tools|c:\\programdata\\chocolatey\\lib\\nginx|c:\\programdata\\scoop\\apps\\nginx|c:\\users(?:\\[^\\"]+)\\scoop\\apps\\nginx|c:\\users(?:\\[^\\"]+)\\appdata\\local\\microsoft\\winget\\packages\\nginxinc\.nginx_microsoft\.winget\.source_8wekyb3d8bbwe|c:\\program files\\winget\\packages\\nginxinc\.nginx_microsoft\.winget\.source_8wekyb3d8bbwe)\\([^"]*\\)?nginx\.exe' }
+      - { field: image_path, op: matches, value: '(?i)^"?(c:\\nginx|c:\\program files\\nginx|c:\\program files \(x86\)\\nginx|c:\\laragon\\bin\\nginx|c:\\tools|c:\\programdata\\chocolatey\\lib\\nginx|c:\\programdata\\scoop\\apps\\nginx|c:\\programdata\\scoop\\shims|c:\\users(?:\\[^\\"]+)\\scoop\\apps\\nginx|c:\\users(?:\\[^\\"]+)\\scoop\\shims|c:\\users(?:\\[^\\"]+)\\appdata\\local\\microsoft\\winget\\packages\\nginxinc\.nginx_microsoft\.winget\.source_8wekyb3d8bbwe|c:\\program files\\winget\\packages\\nginxinc\.nginx_microsoft\.winget\.source_8wekyb3d8bbwe)\\([^"]*\\)?nginx\.exe' }
     label:
       ko: "이 룰이 보는 자리 밖의 nginx 서비스입니다"
       en: "an nginx service outside the places this rule reads"
@@ -131,7 +133,7 @@ detect:
     where:
       - { field: image_path, op: matches, value: '(?i)\\nginx\.exe$' }
     exclude:
-      - { field: image_path, op: matches, value: '(?i)^(c:\\nginx|c:\\program files\\nginx|c:\\program files \(x86\)\\nginx|c:\\laragon\\bin\\nginx|c:\\tools|c:\\programdata\\chocolatey\\lib\\nginx|c:\\programdata\\scoop\\apps\\nginx|c:\\users(?:\\[^\\]+)\\scoop\\apps\\nginx|c:\\users(?:\\[^\\]+)\\appdata\\local\\microsoft\\winget\\packages\\nginxinc\.nginx_microsoft\.winget\.source_8wekyb3d8bbwe|c:\\program files\\winget\\packages\\nginxinc\.nginx_microsoft\.winget\.source_8wekyb3d8bbwe)\\(.*\\)?nginx\.exe$' }
+      - { field: image_path, op: matches, value: '(?i)^(c:\\nginx|c:\\program files\\nginx|c:\\program files \(x86\)\\nginx|c:\\laragon\\bin\\nginx|c:\\tools|c:\\programdata\\chocolatey\\lib\\nginx|c:\\programdata\\scoop\\apps\\nginx|c:\\programdata\\scoop\\shims|c:\\users(?:\\[^\\]+)\\scoop\\apps\\nginx|c:\\users(?:\\[^\\]+)\\scoop\\shims|c:\\users(?:\\[^\\]+)\\appdata\\local\\microsoft\\winget\\packages\\nginxinc\.nginx_microsoft\.winget\.source_8wekyb3d8bbwe|c:\\program files\\winget\\packages\\nginxinc\.nginx_microsoft\.winget\.source_8wekyb3d8bbwe)\\(.*\\)?nginx\.exe$' }
     label:
       ko: "이 룰이 보는 자리 밖에서 도는 nginx 입니다"
       en: "an nginx running outside the places this rule reads"
@@ -148,7 +150,7 @@ detect:
         - { field: name, op: matches, value: '(?i)^application$' }
         - { field: data, op: matches, value: '(?i)(^"?|\\)nginx\.exe("|\s|$)' }
     exclude:
-      - { field: data, op: matches, value: '(?i)^"?(c:\\nginx|c:\\program files\\nginx|c:\\program files \(x86\)\\nginx|c:\\laragon\\bin\\nginx|c:\\tools|c:\\programdata\\chocolatey\\lib\\nginx|c:\\programdata\\scoop\\apps\\nginx|c:\\users(?:\\[^\\"]+)\\scoop\\apps\\nginx|c:\\users(?:\\[^\\"]+)\\appdata\\local\\microsoft\\winget\\packages\\nginxinc\.nginx_microsoft\.winget\.source_8wekyb3d8bbwe|c:\\program files\\winget\\packages\\nginxinc\.nginx_microsoft\.winget\.source_8wekyb3d8bbwe)\\([^"]*\\)?nginx\.exe' }
+      - { field: data, op: matches, value: '(?i)^"?(c:\\nginx|c:\\program files\\nginx|c:\\program files \(x86\)\\nginx|c:\\laragon\\bin\\nginx|c:\\tools|c:\\programdata\\chocolatey\\lib\\nginx|c:\\programdata\\scoop\\apps\\nginx|c:\\programdata\\scoop\\shims|c:\\users(?:\\[^\\"]+)\\scoop\\apps\\nginx|c:\\users(?:\\[^\\"]+)\\scoop\\shims|c:\\users(?:\\[^\\"]+)\\appdata\\local\\microsoft\\winget\\packages\\nginxinc\.nginx_microsoft\.winget\.source_8wekyb3d8bbwe|c:\\program files\\winget\\packages\\nginxinc\.nginx_microsoft\.winget\.source_8wekyb3d8bbwe)\\([^"]*\\)?nginx\.exe' }
     label:
       ko: "이 룰이 보는 자리 밖의 nginx 를 띄우는 NSSM 서비스입니다"
       en: "an NSSM service that starts an nginx outside the places this rule reads"

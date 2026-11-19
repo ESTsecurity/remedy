@@ -54,7 +54,12 @@ CVE-2026-121810 · CVE-2026-113425) — Windows · **점검**(바꾸지 않는�
 |---|---|---|---|
 | G1 | 청정 환경 무해성 | **통과** | 2026-11-19 09:46 · 청정 코퍼스의 Windows 스냅샷 10개(`win10x64-*`)에 `remedy evaluate`(코어 1.24.0 개발 빌드) — 모두 종료 0 |
 | G9 | 룰의 검체 오탐(YARA) | **통과**(점검 룰 기준) | 2026-11-19 09:47 ~ 09:59 · `cargo xtask yara` 규칙 둘 — nginx.org 의 진짜 트리 셋(1.31.9 · 1.30.7 · 1.30.6 · 96개)에서 판 문자열 규칙은 `nginx.exe` 셋만, 영향 규칙은 1.30.6 의 `nginx.exe` 하나만 맞았다(그 뜻의 파일 · 못 훑음 0). `C:\Windows\System32` 전수에서 두 규칙 모두 오탐 0 · 못 훑음 740(보인 것은 모두 상한을 넘는 DriverStore 의 큰 DLL · CAB). YARA 는 리눅스 룰과 같은 바이트다 |
-| 하네스 | `testbed/harness/host/Invoke-Nginx2rootVerify.ps1` | **31/31** | 2026-11-19 10:05 · 랩 VM · `New-DevPackage.ps1` 의 개발 꾸러미(일회용 키). 1회차는 하네스에 적은 zip 해시 한 글자가 틀려 시작 전에 멈췄다. 3회차 30/31 은 까닭 문장을 고친 뒤 하네스의 기대 문구가 낡은 것(S-O1). 거꾸로 — NSSM · winget 을 넣기 전 룰로 돌리면 26/31(winget 두 칸 0 · NSSM 칸 0 · 화면 둘) |
+| 하네스 | `testbed/harness/host/Invoke-Nginx2rootVerify.ps1` | **33/33** | 2026-11-19 10:28 · 랩 VM · `New-DevPackage.ps1` 의 개발 꾸러미(일회용 키). 1회차는 하네스에 적은 zip 해시 한 글자가 틀려 시작 전에 멈췄다. 3회차 30/31 은 까닭 문장을 고친 뒤 하네스의 기대 문구가 낡은 것(S-O1). 거꾸로 — NSSM · winget 을 넣기 전 룰은 26/31(winget 두 칸 0 · NSSM 칸 0 · 화면 둘), Scoop shim 을 빼기 전 룰은 32/33(고친 판 + shim 이 6) |
+
+- **Scoop 의 shim 을 자리 밖 프로세스로 세지 않는다**(공개 전 반증 검토 셋이 모두 찾았다). Scoop 은 `bin` 의 `nginx.exe` 마다
+  PATH 의 `scoop\shims\nginx.exe` 를 만든다(ScoopInstaller/Main 의 `nginx.json` · `lib/core.ps1`). shim 은 진짜 nginx 를 자식으로
+  띄우고 그동안 살아 있다(ScoopInstaller/Shim — *The shim waits for the child*). 빼지 않으면 Scoop 의 고친 nginx 를 띄운 채
+  점검할 때마다 확인 필요가 났다(하네스 L8 을 그 전 룰로 돌리면 6). 진짜 nginx 는 자리 안의 자식 프로세스라 빼도 놓치지 않는다.
 
 ### 다음 차수 후보
 
