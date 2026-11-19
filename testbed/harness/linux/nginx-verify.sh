@@ -29,8 +29,14 @@
 #      Alpine 1.31.9 꼴이 그것을 잰다)
 #   P  프로세스 · 서비스 4 — 자리 밖에서 도는 nginx 6 · 자리 밖을 띄우는 서비스 6 · 지워진 실행 파일로 도는 nginx 6 ·
 #      자리 안에서 도는 고친 판 0
+#   F  목록 밖 패키지 1 — Debian 의 nginx 패키지 이름을 nginx-plus 로 바꾼 꼴(NGINX Plus 처럼 다른 이름의 패키지가
+#      /usr/sbin/nginx 를 깐 기계) 6 — 0.1.0 은 0 이었다. RPM 쪽은 재지 않는다(패키지 DB 를 바꿀 수 없다)
 #   N  nginx 없음 2 — Debian · Alpine 0
-#   S  화면 3 — 취약 줄 아래 CVE 문구 · 확인 필요 까닭(판 없음 · 자리 밖) · 미해소 경고 0
+#   S  화면 5 — 취약 줄의 CVE 문구(머리 줄 빼고) · 확인 필요 까닭(판 없음 · 자리 밖 · 고친 판 1.30.7 · 1.31.9 를 적는 괄호) ·
+#      미해소 경고 0 · 옛 괄호 '1.31.9 아래면' 0 · 배포판 패키지에는 목록 밖 패키지 줄이 서지 않는다
+#
+# 준비 셸이 실패하면(판 줄을 바꾸지 못함 등) 그 경우의 종료 코드를 97 로 적는다 — 기대와 달라 실패로 센다. 판 줄을 바꾸는
+# 셸은 바꾼 뒤 그 판이 실제로 읽히는지 확인한다(sed 는 맞는 줄이 없어도 0 이다).
 set -u
 
 BIN=""
@@ -116,7 +122,8 @@ run_case() { # 이름 · 이미지 꼬리표 또는 바탕 이미지 · 기대 �
     case "$image" in */*|*:*) ;; *) image="$IMG:$image" ;; esac
     mkdir -p "$d"
     docker run --rm --pull=never --network none --cap-add SYS_PTRACE -v "$W/b:/b:ro" -v "$d:/o" "$image" sh -c \
-        "$setup
+        "{ $setup
+         } || { echo 97 >/o/rc; chmod -R a+rX /o; exit 0; }
          REMEDY_LANG=ko LANG=C.UTF-8 /b/remedy scan --plugin /b/plugins/$RULE/plugin.yaml \
              --out-dir /o/out >/o/screen.txt 2>&1; echo \$? >/o/rc; chmod -R a+rX /o" </dev/null >"$d/setup.log" 2>&1
     local rc
@@ -128,11 +135,14 @@ run_case() { # 이름 · 이미지 꼬리표 또는 바탕 이미지 · 기대 �
     find "$d/out" -name '*.json' -exec cp {} "$OUT/cases/$name/" \; 2>/dev/null
 }
 
-# 패키지 기록의 판 줄을 바꾸는 셸 한 줄 — nginx 의 실행 파일 패키지 칸 모두에서.
-deb_set() { printf "sed -i -E '/^Package: nginx(-core|-full|-light|-extras)?\$/,/^\$/ s/^Version: .*/Version: %s/' /var/lib/dpkg/status" "$1"; }
-apk_set() { printf "sed -i '/^P:nginx\$/,/^\$/ s/^V:.*/V:%s/' /lib/apk/db/installed" "$1"; }
+# 패키지 기록의 판 줄을 바꾸는 셸 한 줄 — nginx 의 실행 파일 패키지 칸 모두에서. 바꾼 뒤 그 판이 읽히는지 본다.
+deb_set() { printf "sed -i -E '/^Package: nginx(-core|-full|-light|-extras)?\$/,/^\$/ s/^Version: .*/Version: %s/' /var/lib/dpkg/status && [ \"\$(dpkg-query -W -f='\${Version}' nginx)\" = '%s' ]" "$1" "$1"; }
+apk_set() { printf "sed -i '/^P:nginx\$/,/^\$/ s/^V:.*/V:%s/' /lib/apk/db/installed && [ \"\$(sed -n '/^P:nginx\$/,/^\$/ s/^V://p' /lib/apk/db/installed)\" = '%s' ]" "$1" "$1"; }
 # 직접 빌드 자리 채우기 — 판 문자열만 담은 파일(실행 파일이 아니다).
-src_put() { printf "mkdir -p %s && printf 'x\\\\000%s\\\\000x' >%s/nginx" "$1" "$2" "$1"; }
+src_put() { printf "mkdir -p %s && printf 'x\\\\000%s\\\\000x' >%s/nginx && [ -s %s/nginx ]" "$1" "$2" "$1" "$1"; }
+# Debian 의 nginx 패키지를 다른 이름(nginx-plus)으로 — 패키지 기록의 이름 줄과 dpkg 의 패키지별 파일(.md5sums 등)의 이름.
+# remedy 는 .md5sums 의 파일 이름으로 파일의 패키지를 적는다(remedy-collect 의 owner.rs).
+deb_rename() { printf "sed -i 's/^Package: nginx\$/Package: %s/' /var/lib/dpkg/status && for f in /var/lib/dpkg/info/nginx.*; do mv \"\$f\" \"/var/lib/dpkg/info/%s.\${f##*.}\"; done && grep -q ' usr/sbin/nginx\$' /var/lib/dpkg/info/%s.md5sums && dpkg-query -W %s >/dev/null" "$1" "$1" "$1" "$1"; }
 
 echo "── B. 패키지 ──"
 run_case b01-deb12-default debian12 2 ":" "깐 그대로 — 배포판 고친 판 없음"
@@ -176,20 +186,34 @@ run_case p04-running-fixed debian:12 0 \
     "mkdir -p /usr/local/nginx/sbin && cp /bin/sleep /usr/local/nginx/sbin/nginx && printf 'nginx/1.31.9\\\\000' >>/usr/local/nginx/sbin/nginx && (/usr/local/nginx/sbin/nginx 600 &) && sleep 1" \
     "자리 안에서 도는 1.31.9"
 
+echo "── F. 목록 밖 패키지 ──"
+run_case f01-foreign-deb debian12 6 "$(deb_rename nginx-plus)" "nginx-plus 패키지가 깐 /usr/sbin/nginx — 판정하지 않고 알린다"
+
 echo "── N. nginx 없음 ──"
 run_case n01-none-debian debian:12 0 ":" "nginx 없음"
 run_case n02-none-alpine alpine:3.22 0 ":" "nginx 없음"
 
 echo "── S. 화면 ──"
 s=$OUT/cases/b01-deb12-default/screen.txt
-grep -q 'CVE-2026-123007' "$s" 2>/dev/null && a=1 || a=0
-check "S1 취약 줄 아래 CVE 문구" "$a" "b01 화면에 CVE-2026-123007"
+# 머리 줄(룰 이름)에도 CVE 가 있어 그 줄을 빼고 취약 줄의 문구를 본다.
+grep -v "$RULE [0-9]" "$s" 2>/dev/null | grep -q 'nginx2root(CVE-2026-123007 외 넷)의 영향 판' && a=1 || a=0
+check "S1 취약 줄의 CVE 문구" "$a" "b01 화면(머리 줄 빼고)"
+fixed='1.30.7 아래이거나 1.31.0 ~ 1.31.8'
 grep -q '판을 읽지 못했습니다' "$OUT/cases/x03-src-noversion/screen.txt" 2>/dev/null \
-    && grep -q '이 룰이 보는 자리' "$OUT/cases/p01-outside-running/screen.txt" 2>/dev/null && a=1 || a=0
-check "S2 확인 필요 까닭 — 판 없음 · 자리 밖" "$a" "x03 · p01 화면"
+    && grep -q "$fixed" "$OUT/cases/x03-src-noversion/screen.txt" 2>/dev/null \
+    && grep -q '이 룰이 보는 자리' "$OUT/cases/p01-outside-running/screen.txt" 2>/dev/null \
+    && grep -q "$fixed" "$OUT/cases/p01-outside-running/screen.txt" 2>/dev/null \
+    && grep -q 'nginx 가 아닌 이름의 패키지' "$OUT/cases/f01-foreign-deb/screen.txt" 2>/dev/null && a=1 || a=0
+check "S2 확인 필요 까닭 — 판 없음 · 자리 밖 · 목록 밖 패키지" "$a" "x03 · p01 · f01 화면 · 고친 판 괄호"
 n=$(cat "$OUT"/cases/*/screen.txt 2>/dev/null | grep -c '미해소' || true)
 [ "$n" = 0 ] && a=1 || a=0
 check "S3 미해소 경고 0" "$a" "모든 경우의 화면에서 $n 줄"
+n=$(cat "$OUT"/cases/*/screen.txt 2>/dev/null | grep -c '1.31.9 아래면' || true)
+[ "$n" = 0 ] && a=1 || a=0
+check "S4 옛 괄호 '1.31.9 아래면' 0" "$a" "모든 경우의 화면에서 $n 줄"
+n=$(cat "$OUT"/cases/b0[1-3]-*/screen.txt 2>/dev/null | grep -c 'nginx 가 아닌 이름의 패키지' || true)
+[ "$n" = 0 ] && a=1 || a=0
+check "S5 배포판 패키지에 목록 밖 패키지 줄 없음" "$a" "b01 ~ b03 화면에서 $n 줄"
 
 pass=$(awk -F'\t' '$2 == 1' "$OUT/checks.tsv" | wc -l)
 total=$(wc -l <"$OUT/checks.tsv")
