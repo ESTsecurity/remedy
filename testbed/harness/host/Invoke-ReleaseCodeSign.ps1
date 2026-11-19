@@ -65,7 +65,7 @@ if (-not $LogDir) { $LogDir = Join-Path $repo "testbed\harness\results\codesign-
 New-Item -ItemType Directory -Force $LogDir | Out-Null
 # 절대 경로로 바꾼다 — 서명 도구는 자기 폴더에서 돌아 상대 경로의 파일을 찾지 못한다(2026-11-20 rules-2026.11.20 의 첫
 # 서명이 `-LogDir testbed\harness\results\…` 로 'File not found' 에 멈췄다).
-$LogDir = (Resolve-Path -LiteralPath $LogDir).Path
+$LogDir = (Resolve-Path -LiteralPath $LogDir).ProviderPath
 $utf8 = New-Object System.Text.UTF8Encoding $false
 $summary = Join-Path $LogDir 'summary.txt'
 [IO.File]::WriteAllText($summary, '', $utf8)

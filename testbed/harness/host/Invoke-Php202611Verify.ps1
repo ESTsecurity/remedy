@@ -6,9 +6,11 @@
 .DESCRIPTION
     `-Package` 는 `remedy-windows-x64` 폴더다(내려받아 푼 배포본, 또는 `New-DevPackage.ps1` 로 꾸린 개발 꾸러미). 그
     remedy.exe 와 그 안의 `plugins\php-2026-11-check-windows` 를 그대로 쓴다 — 배포 앵커를 박은 실행 파일은 배포 키로 서명한
-    룰만 받는다. `-PhpZipDir` 은 downloads.php.net 의 Windows zip 셋(`php-8.3.37-nts-Win32-vs16-x64.zip` ·
-    `php-8.5.13-Win32-vs17-x64.zip` · `php-8.3.35-nts-Win32-vs16-x64.zip`)이 든 폴더다(SHA-256 을 이 스크립트가 대조한다 ·
-    커밋하지 않는 `testbed\harness\results\rc-inputs\php-win` — 8.3.35 는 그 위 `rc-inputs` 에 있던 것을 옮겨 둔다).
+    룰만 받는다. `-PhpZipDir` 은 downloads.php.net 의 Windows zip 넷(`php-8.3.37-nts-Win32-vs16-x64.zip` ·
+    `php-8.5.13-Win32-vs17-x64.zip` · `php-8.3.35-nts-Win32-vs16-x64.zip` · `php-8.5.12-Win32-vs17-x64.zip` — 뒤의 둘은
+    `releases/archives`)이 든 폴더다(SHA-256 을 이 스크립트가 대조한다 · 커밋하지 않는
+    `testbed\harness\results\rc-inputs\php-win` — 8.3.35 는 그 위 `rc-inputs` 에 있던 것을 옮겨 둔다). 세 경로 모두 상대 경로로
+    줘도 된다(절대 경로로 바꿔 쓴다).
 
     # 무해한가
 
@@ -19,14 +21,16 @@
 
     # 무엇을 재나
 
-      R  진짜 3 — C:\php 에 8.3.37(NTS) 0 · 8.5.13(TS) 0 · 8.3.35(NTS) 2(코어 DLL 의 파일 버전을 읽는가)
+      R  진짜 4 — C:\php 에 8.3.37(NTS) 0 · 8.5.13(TS) 0 · 8.3.35(NTS) 2 · 8.5.12(TS) 2(코어 DLL 의 파일 버전을 읽는가 — 고친 판의
+         0 은 'PHP 없음' 의 0 과 같은 종료 코드라 화면의 흔적 2건으로 찾았음을 함께 본다)
       L  다른 자리 6(8.3.35) — Program Files\PHP · Program Files\PHP\v8.3(판 폴더) · XAMPP · WampServer(판 폴더) ·
          Laragon(판 폴더) · Chocolatey(C:\tools\php83) 모두 2
       V  판 없음 1 — C:\php 의 자리 채우기 6
       G  설치본 둘 2 — 8.3.37 + Laragon 8.3.35 2 · 8.3.37 + Laragon 판 없음 6(설치본마다 가른다)
       O  자리 밖 4 — 서비스(만들기만) 6 · 도는 php-cgi.exe 6 · 자리 밖을 띄우는 NSSM 서비스 6 · 자리 안 서비스 + 8.3.37 0
       N  PHP 없음 1 — 0
-      S  화면 — 취약 줄의 올릴 버전 · 판 없음의 까닭 · 자리 밖의 까닭 둘 · 모든 화면에 내부 낱말(판 · 갈래) 0
+      S  화면 — 고친 판 셋의 흔적 2건 · 취약 줄의 올릴 버전 · TS 영향 판의 경로 · 판 없음의 까닭 · 자리 밖의 까닭 둘 · 모든
+         화면에 내부 낱말(판 · 갈래) 0 · 룰 파일의 ko 문구 전부에 내부 낱말 0
 
     `-LogDir` 에 경우마다 화면(`<칸>.txt`)과 summary.txt 를 남긴다. 끝줄은 `판정 N/T · 실패 M` 이다.
     종료 코드: 0 = 모든 칸 통과 · 1 = 하나라도 실패.
@@ -50,17 +54,27 @@ $zips = [ordered]@{
         sha = '38808A798485E1C0938DFCCE7E942131415FC6C7834F83A5A85A4C4EDB5539D6' }
     '8.5.13' = @{ file = 'php-8.5.13-Win32-vs17-x64.zip'; dll = 'php8ts.dll'
         sha = '792FE1553895EE98F9BC3C9D50C539910F7D0066676A6523207CA91429D4D475' }
-    # 8.3.35 는 zip 이 아니라 꺼낸 코어 DLL 을 PHP2Shell Windows 룰이 적은 공식 빌드 해시와 대조한다.
+    # 8.3.35 · 8.5.12 는 zip 이 아니라 꺼낸 코어 DLL 을 PHP2Shell Windows 룰이 적은 공식 빌드 해시와 대조한다(archives 에는
+    # sha256sum.txt 가 없다). 8.5.12 는 TS 코어 DLL(`php8ts.dll`)의 영향 판 칸이다.
     '8.3.35' = @{ file = 'php-8.3.35-nts-Win32-vs16-x64.zip'; dll = 'php8.dll'; sha = ''
         dllsha = '37D0E60D20B7F17A564BAFAB657F9CF448044A3F333A6ABCE8750113D79FE5F7' }
+    '8.5.12' = @{ file = 'php-8.5.12-Win32-vs17-x64.zip'; dll = 'php8ts.dll'; sha = ''
+        dllsha = 'A3D2ACD1453AAFF16BE437FD9975F8B923CC190095931158BC8E1444D0DB3069' }
 }
+# 상대 경로를 절대 경로로 — .NET 호출(ZipFile · File)은 PowerShell 의 현재 위치가 아니라 프로세스의 현재 폴더로 푼다.
+foreach ($p in @($Package, $PhpZipDir)) {
+    if (-not (Test-Path -LiteralPath $p -PathType Container)) { throw "폴더가 없다: $p" }
+}
+$Package = (Resolve-Path -LiteralPath $Package).ProviderPath
+$PhpZipDir = (Resolve-Path -LiteralPath $PhpZipDir).ProviderPath
+New-Item -ItemType Directory -Force $LogDir | Out-Null
+$LogDir = (Resolve-Path -LiteralPath $LogDir).ProviderPath
 $rule = 'php-2026-11-check-windows'
 $exe = Join-Path $Package 'remedy.exe'
 $ruleDir = Join-Path $Package "plugins\$rule"
 foreach ($p in @($exe, (Join-Path $ruleDir 'plugin.yaml'))) {
     if (-not (Test-Path -LiteralPath $p)) { throw "없다: $p" }
 }
-New-Item -ItemType Directory -Force $LogDir | Out-Null
 $utf8 = New-Object System.Text.UTF8Encoding $false
 $summary = Join-Path $LogDir 'summary.txt'
 [IO.File]::WriteAllText($summary, '', $utf8)
@@ -98,9 +112,11 @@ $g = 'C:\remedy-probe'
 $guestTools = {
     $made = @('C:\php', 'C:\Program Files\PHP', 'C:\xampp\php', 'C:\wamp64\bin\php\php8.3.35',
         'C:\laragon\bin\php\php-8.3.35-nts-Win32-vs16-x64', 'C:\tools\php83', 'C:\web')
-    $parents = @('C:\xampp', 'C:\wamp64\bin\php', 'C:\wamp64\bin', 'C:\wamp64', 'C:\laragon\bin\php', 'C:\laragon\bin', 'C:\laragon')
+    $parents = @('C:\xampp', 'C:\wamp64\bin\php', 'C:\wamp64\bin', 'C:\wamp64', 'C:\laragon\bin\php', 'C:\laragon\bin', 'C:\laragon',
+        'C:\tools')
     $real = 'C:\remedy-probe\real'
-    function Clear-Layouts {
+    # $keep — 시작 전에 이미 있던 부모 폴더(랩의 것). 비어 있어도 지우지 않는다.
+    function Clear-Layouts([string[]] $keep) {
         foreach ($svc in @('RemedyLabPhp', 'RemedyLabPhpIn', 'RemedyLabPhpNssm')) {
             if (Get-Service -Name $svc -ErrorAction SilentlyContinue) { & sc.exe delete $svc | Out-Null }
         }
@@ -112,8 +128,9 @@ $guestTools = {
         foreach ($r in $made) {
             if (Test-Path -LiteralPath $r) { [System.IO.Directory]::Delete('\\?\' + $r, $true) }
         }
-        # 이 하네스가 만든 빈 부모 폴더만 지운다 — 무엇이 들었으면 남긴다.
+        # 이 하네스가 만든 빈 부모 폴더만 지운다 — 시작 전에 있던 것과 무엇이 든 것은 남긴다.
         foreach ($r in $parents) {
+            if (@($keep) -contains $r) { continue }
             if ((Test-Path -LiteralPath $r) -and -not (Get-ChildItem -LiteralPath $r -Force | Select-Object -First 1)) {
                 Remove-Item -LiteralPath $r -Force
             }
@@ -135,10 +152,14 @@ $guestTools = {
 }
 
 $cases = @(
-    @{ id = 'R1'; what = '진짜 8.3.37 NTS(고친 판) · C:\php'; expect = 0; installs = @('C:\php|real-8.3.37') },
-    @{ id = 'R2'; what = '진짜 8.5.13 TS(고친 판) · C:\php'; expect = 0; installs = @('C:\php|real-8.5.13') },
+    # 고친 판의 0 은 'PHP 없음' 의 0 과 같은 종료 코드다 — 코어 DLL 을 찾아 판을 읽었는지(흔적 2건: core · core_version_known)를
+    # 화면으로 함께 본다. N1 은 흔적 0건이다.
+    @{ id = 'R1'; what = '진짜 8.3.37 NTS(고친 판) · C:\php'; expect = 0; installs = @('C:\php|real-8.3.37'); screen = '흔적 2건' },
+    @{ id = 'R2'; what = '진짜 8.5.13 TS(고친 판) · C:\php'; expect = 0; installs = @('C:\php|real-8.5.13'); screen = '흔적 2건' },
     @{ id = 'R3'; what = '진짜 8.3.35 NTS(영향 판) · C:\php'; expect = 2; installs = @('C:\php|real-8.3.35');
        screen = '그 계열의 고친 버전(8.5.13 · 8.4.28 · 8.3.37 · 8.2.36) 이상으로 올리십시오' },
+    @{ id = 'R4'; what = '진짜 8.5.12 TS(영향 판 · 8.5 갈래) · C:\php'; expect = 2; installs = @('C:\php|real-8.5.12');
+       screen = 'php8ts.dll  (버전 8.5.12)' },
     @{ id = 'L1'; what = 'Program Files\PHP 8.3.35'; expect = 2; installs = @('C:\Program Files\PHP|real-8.3.35') },
     @{ id = 'L2'; what = 'Program Files\PHP\v8.3(판 폴더) 8.3.35'; expect = 2; installs = @('C:\Program Files\PHP\v8.3|real-8.3.35') },
     @{ id = 'L3'; what = 'XAMPP 8.3.35'; expect = 2; installs = @('C:\xampp\php|real-8.3.35') },
@@ -158,7 +179,8 @@ $cases = @(
        screen = '그 PHP 가 실행 중입니다' },
     @{ id = 'O3'; what = '자리 밖 PHP 를 띄우는 NSSM 서비스(Parameters\Application)'; expect = 6; installs = @();
        nssm = 'C:\web\php\php-cgi.exe' },
-    @{ id = 'O4'; what = '자리 안 서비스 + 8.3.37'; expect = 0; installs = @('C:\php|real-8.3.37'); serviceIn = 'C:\php\php-cgi.exe' },
+    @{ id = 'O4'; what = '자리 안 서비스 + 8.3.37'; expect = 0; installs = @('C:\php|real-8.3.37'); serviceIn = 'C:\php\php-cgi.exe';
+       screen = '흔적 2건' },
     @{ id = 'N1'; what = 'PHP 없음'; expect = 0; installs = @() }
 )
 
@@ -171,15 +193,29 @@ function Check([string] $id, [string] $what, [bool] $ok, [string] $evidence) {
     Note ('{0,-4} {1}  {2} — {3}' -f $id, $(if ($ok) { '통과' } else { '실패' }), $what, $evidence)
 }
 
+Note ("시작 {0}  꾸러미={1}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Package)
+# 치울 자리가 이미 있으면(랩에 원래 있던 것) 건드리지 않고 멈춘다 — 아래 try 밖이라 멈출 때 finally 의 정리가 돌지 않는다.
+# 시작 전에 있던 부모 폴더는 $keep 으로 넘겨, 비어 있어도 지우지 않는다.
 try {
-    Note ("시작 {0}  꾸러미={1}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Package)
-    # 치울 자리가 이미 있으면(랩에 원래 있던 것) 건드리지 않고 멈춘다.
-    $already = Invoke-Command -Session $session -ArgumentList $guestTools.ToString() -ScriptBlock {
+    $pre = Invoke-Command -Session $session -ArgumentList $guestTools.ToString() -ScriptBlock {
         param($tools)
         . ([scriptblock]::Create($tools))
-        @($made | Where-Object { Test-Path -LiteralPath $_ })
+        [pscustomobject]@{
+            made    = @($made | Where-Object { Test-Path -LiteralPath $_ })
+            parents = @($parents | Where-Object { Test-Path -LiteralPath $_ })
+        }
     }
-    if (@($already).Count -gt 0) { throw ("랩에 이미 있다 — 건드리지 않는다: " + (@($already) -join ' · ')) }
+} catch { Remove-PSSession $session; throw }
+$already = @($pre.made | Where-Object { $_ })
+$keep = @($pre.parents | Where-Object { $_ })
+if ($already.Count -gt 0) {
+    Remove-PSSession $session
+    Note ("멈춤 — 랩에 이미 있다(건드리지 않았다): " + ($already -join ' · '))
+    throw ("랩에 이미 있다 — 건드리지 않고 멈춘다: " + ($already -join ' · '))
+}
+Note ("시작 전에 있던 부모 폴더(남긴다): " + $(if ($keep.Count) { $keep -join ' · ' } else { '없음' }))
+
+try {
     Invoke-Command -Session $session -ArgumentList $g -ScriptBlock {
         param($g)
         if (Test-Path -LiteralPath $g) { [System.IO.Directory]::Delete('\\?\' + $g, $true) }
@@ -194,10 +230,10 @@ try {
 
     foreach ($c in $cases) {
         $setupScript = $guestTools.ToString()
-        Invoke-Command -Session $session -ArgumentList $setupScript, $c.installs, $c.service, $c.process, $c.serviceIn, $c.nssm -ScriptBlock {
-            param($tools, $installs, $service, $process, $serviceIn, $nssm)
+        Invoke-Command -Session $session -ArgumentList $setupScript, $c.installs, $c.service, $c.process, $c.serviceIn, $c.nssm, $keep -ScriptBlock {
+            param($tools, $installs, $service, $process, $serviceIn, $nssm, $keep)
             . ([scriptblock]::Create($tools))
-            Clear-Layouts
+            Clear-Layouts $keep
             foreach ($i in @($installs)) {
                 if ($i) { New-Install ([string]$i) }
             }
@@ -233,20 +269,26 @@ try {
             Check "S-$($c.id)" "화면 — $($c.what)" ($screen.Contains($c.screen)) $c.screen
         }
     }
-    # 고객 화면의 낱말 — 룰 문구에 내부 낱말이 없다(배포판 · 판정 · 판단은 센다 밖).
+    # 고객 화면의 낱말 — 내부 낱말 '판'(배포판 · 판정 · 판단은 센다 밖) · '갈래' 가 없다. 화면에 나온 문구(S-W)와, 화면에 나오지
+    # 않은 까닭까지 룰 파일의 ko 문구 전부(S-Y)를 본다.
+    $internal = '(?<!배포)판(?!정|단)|갈래'
     $words = 0
     foreach ($c in $cases) {
         $t = [IO.File]::ReadAllText((Join-Path $LogDir "$($c.id).txt"), $utf8)
-        $words += ([regex]::Matches($t, '영향 판|고친 판|판을 |갈래')).Count
+        $words += ([regex]::Matches($t, $internal)).Count
     }
     Check 'S-W' '모든 화면에 내부 낱말(판 · 갈래) 0' ($words -eq 0) ("{0}곳" -f $words)
+    $koLines = @([IO.File]::ReadAllLines((Join-Path $ruleDir 'plugin.yaml'), $utf8) | Where-Object { $_ -match '^\s+ko:\s' })
+    $koWords = 0
+    foreach ($line in $koLines) { $koWords += ([regex]::Matches($line, $internal)).Count }
+    Check 'S-Y' '룰 파일의 ko 문구 전부에 내부 낱말(판 · 갈래) 0' (($koLines.Count -gt 0) -and ($koWords -eq 0)) ("ko {0}줄 · {1}곳" -f $koLines.Count, $koWords)
 }
 finally {
     try {
-        Invoke-Command -Session $session -ArgumentList $guestTools.ToString(), $g -ScriptBlock {
-            param($tools, $g)
+        Invoke-Command -Session $session -ArgumentList $guestTools.ToString(), $g, $keep -ScriptBlock {
+            param($tools, $g, $keep)
             . ([scriptblock]::Create($tools))
-            Clear-Layouts
+            Clear-Layouts $keep
             if (Test-Path -LiteralPath $g) { [System.IO.Directory]::Delete('\\?\' + $g, $true) }
         }
     } finally { Remove-PSSession $session }
