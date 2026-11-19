@@ -1,7 +1,7 @@
 ﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
-    출시의 Windows 랩 묶음 — 지난 공개본(A)과 이번 판(B)을 랩 VM 과 이 기계에서 나란히 재는 24단계
+    출시의 Windows 랩 묶음 — 지난 공개본(A)과 이번 판(B)을 랩 VM 과 이 기계에서 나란히 재는 26단계
     (docs/개발-안내.md "출시 검증").
 
 .DESCRIPTION
@@ -15,6 +15,7 @@
       log4j         log4j-disk(깨끗한 C: 전체 → 0) · log4j-positive(시료를 놓고 → 2 · 고친 판은 화면에 없다)
       apache        이번 판의 Apache HTTP/2 점검 룰 하네스(`Invoke-ApacheVerify.ps1` — 설치본 모양마다 0 · 2 · 6)
       java4shell    이번 판의 Java4Shell 점검 룰 하네스(`Invoke-Java4ShellVerify.ps1` — 홈 모양마다 0 · 2 · 6 · 진짜 JDK 하나)
+      nginx         이번 판의 nginx2root 점검 룰 하네스(`Invoke-Nginx2rootVerify.ps1` — 설치본 모양마다 0 · 2 · 6 · 진짜 zip 셋)
       종료 코드     exit5-guard · exit6-obs · exit3-partial — 이번 판의 가드 중단 5 · 관측 불완전 6 · 일부 실패 3
                     (`Invoke-GuardVerify` · `Invoke-ObsVerify` · `Invoke-PartialVerify` `-Package`) · exit5-sign — 서명
                     확인 0 · 5(`Invoke-SignVerify -Package` · 이 기계). A/B 가 아니라 정한 값을 단정한다
@@ -128,6 +129,23 @@ if (-not (Test-Path -LiteralPath $jdkZip)) {
 }
 if (-not (Test-Path -LiteralPath $jdkZip)) { Stop-Setup 'Temurin 17.0.21+9 Windows x64 zip 을 받지 못했다(adoptium)' }
 if ((Get-FileHash -LiteralPath $jdkZip -Algorithm SHA256).Hash.ToLower() -ne $jdkSha) { Stop-Setup "JDK zip 의 SHA-256 이 다르다: $jdkZip" }
+
+# nginx.org 의 Windows zip 셋 — nginx2root 점검 룰 하네스가 읽는 **진짜 nginx.exe** 다(고친 1.31.9 · 1.30.7 과 영향 1.30.6).
+# 판마다 주소가 그대로 남는다(nginx.org/download). SHA-256 은 Invoke-Nginx2rootVerify.ps1 이 다시 대조한다.
+$nginxDir = Join-Path $Inputs 'nginx-win'
+New-Item -ItemType Directory -Force $nginxDir | Out-Null
+foreach ($nv in @('1.31.9', '1.30.7', '1.30.6')) {
+    $nz = Join-Path $nginxDir "nginx-$nv.zip"
+    if (-not (Test-Path -LiteralPath $nz)) {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        $ProgressPreference = 'SilentlyContinue'
+        try {
+            Invoke-WebRequest -UseBasicParsing -OutFile "$nz.part" -Uri "https://nginx.org/download/nginx-$nv.zip"
+            Move-Item "$nz.part" $nz
+        } catch { Remove-Item "$nz.part" -ErrorAction SilentlyContinue }
+    }
+    if (-not (Test-Path -LiteralPath $nz)) { Stop-Setup "nginx-$nv.zip 을 받지 못했다(nginx.org)" }
+}
 
 $jars = Join-Path $Inputs 'jars'
 $fx = Join-Path $repo 'testbed\harness\linux\fixtures\log4j'
@@ -278,6 +296,10 @@ Step 'apache' {
 # 이번 판의 Java4Shell 점검 룰 하네스 — 놓은 홈 · 서비스 · 프로세스는 하네스가 치운다(되돌리기는 아래 reset6).
 Step 'java4shell' {
     & (Join-Path $h 'Invoke-Java4ShellVerify.ps1') -Package $Package -JdkZip $jdkZip -LogDir (Join-Path $LogDir 'java4shell')
+} $verdictLine
+# 이번 판의 nginx2root 점검 룰 하네스 — 놓은 설치본 · 서비스 · 프로세스는 하네스가 치운다(되돌리기는 아래 reset6).
+Step 'nginx' {
+    & (Join-Path $h 'Invoke-Nginx2rootVerify.ps1') -Package $Package -NginxZipDir $nginxDir -LogDir (Join-Path $LogDir 'nginx')
 } $verdictLine
 # 종료 코드의 Windows 회귀 — A/B 가 아니라 정한 값을 단정한다(전에는 출시 경로 밖 `Invoke-Sweep` 에서만 돌았다).
 # 가드 중단 5(상한 · 보호 경로) · 관측 불완전 6 · 일부 실패 3. Partial 은 남의 감염이 없고 게스트에 node.exe 가 있어야
