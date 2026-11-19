@@ -1259,38 +1259,30 @@ _tmp_console-capture_orgsrc_g2.evil
 
 [exit=6]
 
-ESTsecurity Dedicated Cleaner 1.24.0 · rules 2026.11.18.3
+ESTsecurity Dedicated Cleaner 1.24.0 · rules 2026.11.19.2
 Running with root rights.
 Notice: no code-signing check on Linux. Check the downloaded file's checksum.
 
-What would you like to check? (11 items)
-  1. Quick scan (recommended · 9 items · changes nothing)
-  2. Full scan (10 items · whole disks too · can take a long time)
+What would you like to check? (12 items)
+  1. Quick scan (recommended · 10 items · changes nothing)
+  2. Full scan (11 items · whole disks too · can take a long time)
   3. CWPdoor check (detect only)
   4. CWPdoor Removal
   5. Ebury check (detect only)
   6. Apache HTTP/2 check (CVE-2026-119618)
   7. Java4Shell check (CVE-2026-114938)
   8. Log4j check (CVE-2021-44228 and related)
-  9. Node2Shell check (CVE-2026-111497)
-  10. OpenSSH check (CVE-2026-123158, Alpine)
-  11. PHP session upload progress setting check (CVE-2026-115560)
-  12. PHP2Shell check (CVE-2026-109618, 109619)
-  13. PHP2Shell · Apache HTTP/2 remote check (web server headers) [uses the network]
+  9. nginx2root check (CVE-2026-123007, CVE-2026-123634, CVE-2026-123633, CVE-2026-121810, CVE-2026-113425)
+  10. Node2Shell check (CVE-2026-111497)
+  11. OpenSSH check (CVE-2026-123158, Alpine)
+  12. PHP session upload progress setting check (CVE-2026-115560)
+  13. PHP2Shell check (CVE-2026-109618, 109619)
+  14. PHP2Shell · Apache HTTP/2 remote check (web server headers) [uses the network]
   0. Quit
 
-Choose a number (0-13): Quick scan — 9 items. Nothing is changed.
+Choose a number (0-14): Quick scan — 10 items. Nothing is changed.
 
-[1/9] CWPdoor check (detect only)
-
-Starting scan.
-Scan done : 0 trace(s) · 0 threat(s)
-  Note: 'no threat' cannot be concluded, for these reasons:
-     - all 1 paths to scan are missing on this machine, so nothing was opened at all: /usr/local/cwpsrv/bin
-
-Observation incomplete: cannot declare 'no threat'.
-
-[2/9] CWPdoor Removal
+[1/10] CWPdoor check (detect only)
 
 Starting scan.
 Scan done : 0 trace(s) · 0 threat(s)
@@ -1299,14 +1291,23 @@ Scan done : 0 trace(s) · 0 threat(s)
 
 Observation incomplete: cannot declare 'no threat'.
 
-[3/9] Ebury check (detect only)
+[2/10] CWPdoor Removal
+
+Starting scan.
+Scan done : 0 trace(s) · 0 threat(s)
+  Note: 'no threat' cannot be concluded, for these reasons:
+     - all 1 paths to scan are missing on this machine, so nothing was opened at all: /usr/local/cwpsrv/bin
+
+Observation incomplete: cannot declare 'no threat'.
+
+[3/10] Ebury check (detect only)
 
 Starting scan.
 Scan done : 0 trace(s) · 0 threat(s)
 
 No threat was found.
 
-[4/9] Apache HTTP/2 check (CVE-2026-119618)
+[4/10] Apache HTTP/2 check (CVE-2026-119618)
 
 Starting scan.
 Scan done : 0 trace(s) · 0 vulnerable
@@ -1315,35 +1316,42 @@ Scan done : 0 trace(s) · 0 vulnerable
 
 No vulnerability was found.
 
-[5/9] Java4Shell check (CVE-2026-114938)
+[5/10] Java4Shell check (CVE-2026-114938)
 
 Starting scan.
 Scan done : 0 trace(s) · 0 vulnerable
 
 No vulnerability was found.
 
-[6/9] Node2Shell check (CVE-2026-111497)
+[6/10] nginx2root check (CVE-2026-123007, CVE-2026-123634, CVE-2026-123633, CVE-2026-121810, CVE-2026-113425)
 
 Starting scan.
 Scan done : 0 trace(s) · 0 vulnerable
 
 No vulnerability was found.
 
-[7/9] OpenSSH check (CVE-2026-123158, Alpine)
+[7/10] Node2Shell check (CVE-2026-111497)
 
 Starting scan.
 Scan done : 0 trace(s) · 0 vulnerable
 
 No vulnerability was found.
 
-[8/9] PHP session upload progress setting check (CVE-2026-115560)
+[8/10] OpenSSH check (CVE-2026-123158, Alpine)
 
 Starting scan.
 Scan done : 0 trace(s) · 0 vulnerable
 
 No vulnerability was found.
 
-[9/9] PHP2Shell check (CVE-2026-109618, 109619)
+[9/10] PHP session upload progress setting check (CVE-2026-115560)
+
+Starting scan.
+Scan done : 0 trace(s) · 0 vulnerable
+
+No vulnerability was found.
+
+[10/10] PHP2Shell check (CVE-2026-109618, 109619)
 
 Starting scan.
 Scan done : 0 trace(s) · 0 vulnerable
@@ -1351,12 +1359,13 @@ Scan done : 0 trace(s) · 0 vulnerable
 No vulnerability was found.
 
 ────────────────────────────────────────────────────────
-Quick scan results — 9 items · nothing was changed
+Quick scan results — 10 items · nothing was changed
   CWPdoor check (detect only) — not applicable (the paths to scan do not exist on this machine)
   CWPdoor Removal — not applicable (the paths to scan do not exist on this machine)
   Ebury check (detect only) — No threat was found.
   Apache HTTP/2 check (CVE-2026-119618) — No vulnerability was found.
   Java4Shell check (CVE-2026-114938) — No vulnerability was found.
+  nginx2root check (CVE-2026-123007, CVE-2026-123634, CVE-2026-123633, CVE-2026-121810, CVE-2026-113425) — No vulnerability was found.
   Node2Shell check (CVE-2026-111497) — No vulnerability was found.
   OpenSSH check (CVE-2026-123158, Alpine) — No vulnerability was found.
   PHP session upload progress setting check (CVE-2026-115560) — No vulnerability was found.
@@ -1366,29 +1375,30 @@ Quick scan results — 9 items · nothing was changed
 
 ────────────────────────────────────────────────────────
 Next
-  To look at whole disks too — 2. Full scan (10 items · whole disks too · can take a long time)
+  To look at whole disks too — 2. Full scan (11 items · whole disks too · can take a long time)
 
 Press Enter to go back to the menu. 
-ESTsecurity Dedicated Cleaner 1.24.0 · rules 2026.11.18.3
+ESTsecurity Dedicated Cleaner 1.24.0 · rules 2026.11.19.2
 Running with root rights.
 
-What would you like to check? (11 items)
-  1. Quick scan (recommended · 9 items · changes nothing)
-  2. Full scan (10 items · whole disks too · can take a long time)
+What would you like to check? (12 items)
+  1. Quick scan (recommended · 10 items · changes nothing)
+  2. Full scan (11 items · whole disks too · can take a long time)
   3. CWPdoor check (detect only)
   4. CWPdoor Removal
   5. Ebury check (detect only)
   6. Apache HTTP/2 check (CVE-2026-119618)
   7. Java4Shell check (CVE-2026-114938)
   8. Log4j check (CVE-2021-44228 and related)
-  9. Node2Shell check (CVE-2026-111497)
-  10. OpenSSH check (CVE-2026-123158, Alpine)
-  11. PHP session upload progress setting check (CVE-2026-115560)
-  12. PHP2Shell check (CVE-2026-109618, 109619)
-  13. PHP2Shell · Apache HTTP/2 remote check (web server headers) [uses the network]
+  9. nginx2root check (CVE-2026-123007, CVE-2026-123634, CVE-2026-123633, CVE-2026-121810, CVE-2026-113425)
+  10. Node2Shell check (CVE-2026-111497)
+  11. OpenSSH check (CVE-2026-123158, Alpine)
+  12. PHP session upload progress setting check (CVE-2026-115560)
+  13. PHP2Shell check (CVE-2026-109618, 109619)
+  14. PHP2Shell · Apache HTTP/2 remote check (web server headers) [uses the network]
   0. Quit
 
-Choose a number (0-13): Exiting.
+Choose a number (0-14): Exiting.
 
 ########## A12. 원격 점검 — 서명을 확인한 remedy-net 을 띄운다 (닫힌 포트) · 서명이 없으면 띄우지 않는다
 
@@ -1444,29 +1454,30 @@ Error: remedy-net is not signed, so it was not started — check that it came fr
 
 [exit=1]
 
-ESTsecurity Dedicated Cleaner 1.24.0 · rules 2026.11.18.3
+ESTsecurity Dedicated Cleaner 1.24.0 · rules 2026.11.19.2
 Running with root rights.
 Notice: no code-signing check on Linux. Check the downloaded file's checksum.
 
-What would you like to check? (11 items)
-  1. Quick scan (recommended · 9 items · changes nothing)
-  2. Full scan (10 items · whole disks too · can take a long time)
+What would you like to check? (12 items)
+  1. Quick scan (recommended · 10 items · changes nothing)
+  2. Full scan (11 items · whole disks too · can take a long time)
   3. CWPdoor check (detect only)
   4. CWPdoor Removal
   5. Ebury check (detect only)
   6. Apache HTTP/2 check (CVE-2026-119618)
   7. Java4Shell check (CVE-2026-114938)
   8. Log4j check (CVE-2021-44228 and related)
-  9. Node2Shell check (CVE-2026-111497)
-  10. OpenSSH check (CVE-2026-123158, Alpine)
-  11. PHP session upload progress setting check (CVE-2026-115560)
-  12. PHP2Shell check (CVE-2026-109618, 109619)
-  13. PHP2Shell · Apache HTTP/2 remote check (web server headers) [uses the network]
+  9. nginx2root check (CVE-2026-123007, CVE-2026-123634, CVE-2026-123633, CVE-2026-121810, CVE-2026-113425)
+  10. Node2Shell check (CVE-2026-111497)
+  11. OpenSSH check (CVE-2026-123158, Alpine)
+  12. PHP session upload progress setting check (CVE-2026-115560)
+  13. PHP2Shell check (CVE-2026-109618, 109619)
+  14. PHP2Shell · Apache HTTP/2 remote check (web server headers) [uses the network]
   0. Quit
 
-Choose a number (0-13): Quick scan — 9 items. Nothing is changed.
+Choose a number (0-14): Quick scan — 10 items. Nothing is changed.
 
-[1/9] CWPdoor check (detect only)
+[1/10] CWPdoor check (detect only)
 
 Starting scan.
 Output    : /tmp/console-capture/scan-all/pkg/out/<T>  (artifacts.json · scan.json · plan.json)
@@ -1475,7 +1486,7 @@ Scan done : 2 trace(s) · 1 threat(s)
 
 Threat found, not treated.
 
-[2/9] CWPdoor Removal
+[2/10] CWPdoor Removal
 
 Starting scan.
 Output    : /tmp/console-capture/scan-all/pkg/out/<T>  (artifacts.json · scan.json · plan.json)
@@ -1492,14 +1503,14 @@ If treated, 4 action(s) will run (nothing is changed now):
 
 Threat found, not treated.
 
-[3/9] Ebury check (detect only)
+[3/10] Ebury check (detect only)
 
 Starting scan.
 Scan done : 0 trace(s) · 0 threat(s)
 
 No threat was found.
 
-[4/9] Apache HTTP/2 check (CVE-2026-119618)
+[4/10] Apache HTTP/2 check (CVE-2026-119618)
 
 Starting scan.
 Scan done : 0 trace(s) · 0 vulnerable
@@ -1508,35 +1519,42 @@ Scan done : 0 trace(s) · 0 vulnerable
 
 No vulnerability was found.
 
-[5/9] Java4Shell check (CVE-2026-114938)
+[5/10] Java4Shell check (CVE-2026-114938)
 
 Starting scan.
 Scan done : 0 trace(s) · 0 vulnerable
 
 No vulnerability was found.
 
-[6/9] Node2Shell check (CVE-2026-111497)
+[6/10] nginx2root check (CVE-2026-123007, CVE-2026-123634, CVE-2026-123633, CVE-2026-121810, CVE-2026-113425)
 
 Starting scan.
 Scan done : 0 trace(s) · 0 vulnerable
 
 No vulnerability was found.
 
-[7/9] OpenSSH check (CVE-2026-123158, Alpine)
+[7/10] Node2Shell check (CVE-2026-111497)
 
 Starting scan.
 Scan done : 0 trace(s) · 0 vulnerable
 
 No vulnerability was found.
 
-[8/9] PHP session upload progress setting check (CVE-2026-115560)
+[8/10] OpenSSH check (CVE-2026-123158, Alpine)
 
 Starting scan.
 Scan done : 0 trace(s) · 0 vulnerable
 
 No vulnerability was found.
 
-[9/9] PHP2Shell check (CVE-2026-109618, 109619)
+[9/10] PHP session upload progress setting check (CVE-2026-115560)
+
+Starting scan.
+Scan done : 0 trace(s) · 0 vulnerable
+
+No vulnerability was found.
+
+[10/10] PHP2Shell check (CVE-2026-109618, 109619)
 
 Starting scan.
 Scan done : 0 trace(s) · 0 vulnerable
@@ -1544,12 +1562,13 @@ Scan done : 0 trace(s) · 0 vulnerable
 No vulnerability was found.
 
 ────────────────────────────────────────────────────────
-Quick scan results — 9 items · nothing was changed
+Quick scan results — 10 items · nothing was changed
   CWPdoor check (detect only) — Threat found, not treated.
   CWPdoor Removal — Threat found, not treated.
   Ebury check (detect only) — No threat was found.
   Apache HTTP/2 check (CVE-2026-119618) — No vulnerability was found.
   Java4Shell check (CVE-2026-114938) — No vulnerability was found.
+  nginx2root check (CVE-2026-123007, CVE-2026-123634, CVE-2026-123633, CVE-2026-121810, CVE-2026-113425) — No vulnerability was found.
   Node2Shell check (CVE-2026-111497) — No vulnerability was found.
   OpenSSH check (CVE-2026-123158, Alpine) — No vulnerability was found.
   PHP session upload progress setting check (CVE-2026-115560) — No vulnerability was found.
@@ -1559,32 +1578,33 @@ Quick scan results — 9 items · nothing was changed
 
 ────────────────────────────────────────────────────────
 Next
-  To treat everything found — 14. Treat everything found (1 item(s) · shows the changes first)
+  To treat everything found — 15. Treat everything found (1 item(s) · shows the changes first)
   To treat one at a time, pick that rule, then — 1. Scan and treat
-  To look at whole disks too — 2. Full scan (10 items · whole disks too · can take a long time)
+  To look at whole disks too — 2. Full scan (11 items · whole disks too · can take a long time)
 
 Press Enter to go back to the menu. 
-ESTsecurity Dedicated Cleaner 1.24.0 · rules 2026.11.18.3
+ESTsecurity Dedicated Cleaner 1.24.0 · rules 2026.11.19.2
 Running with root rights.
 
-What would you like to check? (11 items)
-  1. Quick scan (recommended · 9 items · changes nothing)
-  2. Full scan (10 items · whole disks too · can take a long time)
+What would you like to check? (12 items)
+  1. Quick scan (recommended · 10 items · changes nothing)
+  2. Full scan (11 items · whole disks too · can take a long time)
   3. CWPdoor check (detect only)
   4. CWPdoor Removal
   5. Ebury check (detect only)
   6. Apache HTTP/2 check (CVE-2026-119618)
   7. Java4Shell check (CVE-2026-114938)
   8. Log4j check (CVE-2021-44228 and related)
-  9. Node2Shell check (CVE-2026-111497)
-  10. OpenSSH check (CVE-2026-123158, Alpine)
-  11. PHP session upload progress setting check (CVE-2026-115560)
-  12. PHP2Shell check (CVE-2026-109618, 109619)
-  13. PHP2Shell · Apache HTTP/2 remote check (web server headers) [uses the network]
-  14. Treat everything found (1 item(s) · shows the changes first)
+  9. nginx2root check (CVE-2026-123007, CVE-2026-123634, CVE-2026-123633, CVE-2026-121810, CVE-2026-113425)
+  10. Node2Shell check (CVE-2026-111497)
+  11. OpenSSH check (CVE-2026-123158, Alpine)
+  12. PHP session upload progress setting check (CVE-2026-115560)
+  13. PHP2Shell check (CVE-2026-109618, 109619)
+  14. PHP2Shell · Apache HTTP/2 remote check (web server headers) [uses the network]
+  15. Treat everything found (1 item(s) · shows the changes first)
   0. Quit
 
-Choose a number (0-14): Treat everything found — 1 item(s) are scanned again and every change is shown; one 'yes' then treats them all.
+Choose a number (0-15): Treat everything found — 1 item(s) are scanned again and every change is shown; one 'yes' then treats them all.
 
 [1/1] CWPdoor Removal
 
@@ -1647,26 +1667,27 @@ Next
     /tmp/console-capture/scan-all/pkg/plugins/cwpdoor-2-clean/RELEASE.md
 
 Press Enter to go back to the menu. 
-ESTsecurity Dedicated Cleaner 1.24.0 · rules 2026.11.18.3
+ESTsecurity Dedicated Cleaner 1.24.0 · rules 2026.11.19.2
 Running with root rights.
 
-What would you like to check? (11 items)
-  1. Quick scan (recommended · 9 items · changes nothing)
-  2. Full scan (10 items · whole disks too · can take a long time)
+What would you like to check? (12 items)
+  1. Quick scan (recommended · 10 items · changes nothing)
+  2. Full scan (11 items · whole disks too · can take a long time)
   3. CWPdoor check (detect only)
   4. CWPdoor Removal
   5. Ebury check (detect only)
   6. Apache HTTP/2 check (CVE-2026-119618)
   7. Java4Shell check (CVE-2026-114938)
   8. Log4j check (CVE-2021-44228 and related)
-  9. Node2Shell check (CVE-2026-111497)
-  10. OpenSSH check (CVE-2026-123158, Alpine)
-  11. PHP session upload progress setting check (CVE-2026-115560)
-  12. PHP2Shell check (CVE-2026-109618, 109619)
-  13. PHP2Shell · Apache HTTP/2 remote check (web server headers) [uses the network]
+  9. nginx2root check (CVE-2026-123007, CVE-2026-123634, CVE-2026-123633, CVE-2026-121810, CVE-2026-113425)
+  10. Node2Shell check (CVE-2026-111497)
+  11. OpenSSH check (CVE-2026-123158, Alpine)
+  12. PHP session upload progress setting check (CVE-2026-115560)
+  13. PHP2Shell check (CVE-2026-109618, 109619)
+  14. PHP2Shell · Apache HTTP/2 remote check (web server headers) [uses the network]
   0. Quit
 
-Choose a number (0-13): Exiting.
+Choose a number (0-14): Exiting.
 
 ########## 끝
 
