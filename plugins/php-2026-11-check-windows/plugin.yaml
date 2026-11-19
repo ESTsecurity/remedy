@@ -10,13 +10,16 @@
 # | 무엇 | 결과 |
 # |---|---|
 # | 설치본(코어 DLL `php8ts.dll` · `php8.dll` · … 가 있는 폴더)의 파일 버전이 그 갈래의 고친 판 아래 · 지원이 끝난 8.1 이하 | 취약(2) |
-# | 코어 DLL 의 파일 버전을 읽지 못했다 · 이 룰이 보는 자리 밖의 PHP 를 IIS 가 쓰거나 서비스(NSSM 포함) · Apache 설정이 싣거나 그 PHP 가 실행 중 · 다른 프로그램에 모듈로 실림 · 모듈 목록을 읽지 못한 Apache · IIS 공유 설정 | 확인 필요(6) |
-# | 고친 판 이상 · 8.6 · PHP 없음 | 0 |
+# | 코어 DLL 에서 정식 버전을 읽지 못했다(버전 정보 없음 · 시험판 · 개발 빌드) · 이 룰이 보는 자리 밖의 PHP 를 IIS 가 쓰거나 서비스(NSSM 포함) · Apache 설정이 싣거나 그 PHP 가 실행 중 · 다른 프로그램에 모듈로 실림 · 모듈 목록을 읽지 못한 Apache · IIS 공유 설정 | 확인 필요(6) |
+# | 고친 판 이상 · 정식 8.6 이상 · PHP 없음 | 0 |
 #
 # PHP2Shell 룰(`php2shell-check-windows`)은 공식 빌드의 해시로 확정했지만, 이 룰은 1차 정책대로 **판으로만** 본다 — 판
 # 번호가 같으면 같은 코드라는 상류 번호의 뜻을 따른다(Windows 의 PHP 는 배포판 백포트가 없다). 판은 코어 DLL 의 파일 버전
-# 자원이다 — 공식 빌드는 상류 판 그대로 적는다(`8.3.35` · 2026-11-20 실측). 판정의 단위는 설치본이다 — 한 기계에 여럿 깔려도
-# 한 설치본의 사실이 다른 설치본의 판정을 바꾸지 않게 코어 DLL 마다 그룹을 가른다(`from: ${core.dir}`).
+# 자원이다 — 공식 빌드는 정식 판을 꼬리 없이 적고(`8.3.35` · 2026-11-20 실측), 시험판 · 개발 빌드는 꼬리를 붙인다(`8.6.0RC3` ·
+# `8.6.0-dev` — php-src 의 win32 자원 틀이 PHP_VERSION 을 그대로 넣는다). 판정의 단위는 설치본이다 — 한 기계에 여럿 깔려도
+# 한 설치본의 사실이 다른 설치본의 판정을 바꾸지 않게 코어 DLL 마다 그룹을 가르고(`from: ${core.dir}`), 판 사실은 그 그룹의
+# 코어 DLL 하나에만 묶는다(`path equals ${core.file}`) — `from` 은 폴더 아래를 끝까지 걸어, 묶지 않으면 설치본 폴더 안에 둔
+# 다른 설치본(옛 판 백업 등)이 바깥 설치본의 '판 없음' 을 채우고 같은 영향 판을 두 번 센다(2026-11-20 독립 검토 · 합성 실측).
 #
 # # 런타임만 본다
 #
@@ -77,7 +80,25 @@ scan_roots:
   - 'HKLM\SYSTEM\CurrentControlSet\Services\*\Parameters'
 
 # 구조적 설정은 IIS 설정만, 줄 단위 설정은 Apache 설정만 읽는다 — PHP 폴더의 JSON · XML · `php.ini` 는 이 룰이 볼 것이 아니다.
+# 파일(코어 DLL)은 PHP 자리만 걷는다 — WampServer 는 Apache 모듈로 쓰는 PHP 의 코어 DLL 을 `bin\apache\apache<판>\bin` 에
+# 심볼릭 링크로 둔다. Apache 자리까지 걸으면 그 링크(수집기는 경로만 담고 판을 비운다)가 판 없는 설치본으로 세어져, PHP 를 고친
+# 판으로 올린 기계도 6 으로 끝난다(2026-11-20 독립 검토 — 같은 동작이 PHP2Shell 룰 0.4.1 에도 있다).
 subject_roots:
+  file:
+    - 'C:\php'
+    - 'C:\Program Files\PHP'
+    - 'C:\Program Files (x86)\PHP'
+    - 'C:\xampp\php'
+    - 'C:\wamp64\bin\php'
+    - 'C:\wamp\bin\php'
+    - 'C:\laragon\bin\php'
+    - 'C:\tools\php85'
+    - 'C:\tools\php84'
+    - 'C:\tools\php83'
+    - 'C:\tools\php82'
+    - 'C:\tools\php81'
+    - 'C:\tools\php80'
+    - 'C:\tools\php74'
   structured_config: ['C:\Windows\System32\inetsrv\config']
   text_config:
     - 'C:\Apache24\conf'
@@ -97,6 +118,7 @@ detect:
       - { field: path, op: matches, value: '(?i)\\php[5-8](ts)?\.dll$' }
     capture:
       dir: 'path | dirname'
+      file: 'path'
 
   # 판이 그 갈래의 고친 판 아래 — 또는 고친 판이 없는 갈래(8.1 이하). 따옴표는 **필수다**: 없으면 YAML 이 `8.2` 를 수로 읽어
   # 뒤의 0 이 사라진다. 갈래마다 계열(정규식) → 판(`version_lt`) 순으로 못박는다.
@@ -105,7 +127,7 @@ detect:
     from: '${core.dir}'
     where:
       all:
-        - { field: path, op: matches, value: '(?i)\\php[5-8](ts)?\.dll$' }
+        - { field: path, op: equals, value: '${core.file}' }
         - any:
             - all:
                 - { field: version, op: matches, value: '^8\.5\.' }
@@ -124,14 +146,16 @@ detect:
       ko: "PHP 11월 보안 업데이트의 영향을 받는 버전 — 그 계열의 고친 버전(8.5.13 · 8.4.28 · 8.3.37 · 8.2.36) 이상으로 올리십시오(8.1 이하는 고친 버전이 없습니다)"
       en: "affected by the PHP November security update - upgrade to the fixed release of its line (8.5.13, 8.4.28, 8.3.37, 8.2.36); 8.1 and older have no fix"
 
-  # 코어 DLL 의 파일 버전을 읽었는가 — 못 읽었으면 판정하지 못한다(아래 확인 필요).
+  # 코어 DLL 에서 **정식** 판을 읽었는가 — 끝을 묶는다. 묶지 않으면 8.6 시험판(`8.6.0RC3`) · 개발 빌드(`8.6.0-dev`)가 '읽었다' 로
+  # 세어지고, 위 갈래 정규식에는 걸리지 않아 0 으로 끝난다(같은 꼴이 8.2 ~ 8.5 면 version_lt 가 꼬리를 거절해 6 이 된다 —
+  # 2026-11-20 독립 검토 · 합성 실측). 못 읽었으면 판정하지 못한다(아래 확인 필요).
   - id: core_version_known
     subject: file
     from: '${core.dir}'
     where:
       all:
-        - { field: path, op: matches, value: '(?i)\\php[5-8](ts)?\.dll$' }
-        - { field: version, op: matches, value: '^[0-9]+\.[0-9]+\.[0-9]+' }
+        - { field: path, op: equals, value: '${core.file}' }
+        - { field: version, op: matches, value: '^[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?$' }
 
   # ── 선언한 자리 밖의 PHP — PHP2Shell 룰 0.4.1 과 같은 줄 ─────────────────────────────────────
   - id: iis_php
@@ -201,8 +225,8 @@ verdict:
   unconfirmed:
     - when: "core and not core_version_known"
       why:
-        ko: "PHP(위 경로)의 코어 DLL 에서 버전을 읽지 못했습니다 — 그 폴더의 php -v 로 버전을 확인하십시오(8.5 는 8.5.13 · 8.4 는 8.4.28 · 8.3 은 8.3.37 · 8.2 는 8.2.36 보다 낮거나 8.1 이하면 영향을 받습니다)"
-        en: "the version could not be read from the core DLL of the PHP above - check it with php -v in that folder (below 8.5.13 for 8.5, 8.4.28 for 8.4, 8.3.37 for 8.3, 8.2.36 for 8.2, or 8.1 and older, is affected)"
+        ko: "PHP(위 경로)의 코어 DLL 에서 정식 버전을 읽지 못했습니다(버전 정보가 없거나 정식 출시 전 버전 — RC · 개발 빌드입니다) — 그 폴더의 php -v 로 버전을 확인하십시오(8.5 는 8.5.13 · 8.4 는 8.4.28 · 8.3 은 8.3.37 · 8.2 는 8.2.36 보다 낮거나 8.1 이하면 영향을 받습니다. 정식 출시 전 버전은 정식 고친 버전으로 바꾸십시오)"
+        en: "a release version could not be read from the core DLL of the PHP above (no version information, or a pre-release or development build) - check it with php -v in that folder (below 8.5.13 for 8.5, 8.4.28 for 8.4, 8.3.37 for 8.3, 8.2.36 for 8.2, or 8.1 and older, is affected; replace a pre-release or development build with a fixed release)"
     - when: "iis_php or running_php"
       why:
         ko: "이 점검이 보는 자리 밖의 PHP 를 IIS 가 쓰거나 그 PHP 가 실행 중입니다(위 경로) — 그 PHP 는 판정하지 않았습니다. 쓰는 계열의 고친 버전(8.5 는 8.5.13 · 8.4 는 8.4.28 · 8.3 은 8.3.37 · 8.2 는 8.2.36 — 8.1 이하는 고친 버전이 없습니다) 이상인지 확인하십시오"

@@ -147,7 +147,7 @@
   "php-2026-11-check-windows": {
     "version": "0.1.0",
     "files": {
-      "plugin.yaml": "53d323e4253a46624070b4cbd08579ead3b6410c08207abb9b6403de37fc5164"
+      "plugin.yaml": "d1ae00c1e27658a761151561d5fc28e5b4e538ab52818f4c63bdf9a4b6fc7b3d"
     }
   },
   "php-session-check-linux": {

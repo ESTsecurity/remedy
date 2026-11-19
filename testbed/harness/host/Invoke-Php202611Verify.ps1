@@ -6,9 +6,10 @@
 .DESCRIPTION
     `-Package` 는 `remedy-windows-x64` 폴더다(내려받아 푼 배포본, 또는 `New-DevPackage.ps1` 로 꾸린 개발 꾸러미). 그
     remedy.exe 와 그 안의 `plugins\php-2026-11-check-windows` 를 그대로 쓴다 — 배포 앵커를 박은 실행 파일은 배포 키로 서명한
-    룰만 받는다. `-PhpZipDir` 은 downloads.php.net 의 Windows zip 넷(`php-8.3.37-nts-Win32-vs16-x64.zip` ·
-    `php-8.5.13-Win32-vs17-x64.zip` · `php-8.3.35-nts-Win32-vs16-x64.zip` · `php-8.5.12-Win32-vs17-x64.zip` — 뒤의 둘은
-    `releases/archives`)이 든 폴더다(SHA-256 을 이 스크립트가 대조한다 · 커밋하지 않는
+    룰만 받는다. `-PhpZipDir` 은 downloads.php.net 의 Windows zip 여섯(`php-8.3.37-nts-Win32-vs16-x64.zip` ·
+    `php-8.5.13-Win32-vs17-x64.zip` · `php-8.3.35-nts-Win32-vs16-x64.zip` · `php-8.5.12-Win32-vs17-x64.zip` ·
+    `php-8.4.27-nts-Win32-vs17-x64.zip` · `php-8.2.35-nts-Win32-vs16-x64.zip` — 뒤의 넷은 `releases/archives`)이 든 폴더다(SHA-256 을
+    이 스크립트가 대조한다 · 커밋하지 않는
     `testbed\harness\results\rc-inputs\php-win` — 8.3.35 는 그 위 `rc-inputs` 에 있던 것을 옮겨 둔다). 세 경로 모두 상대 경로로
     줘도 된다(절대 경로로 바꿔 쓴다).
 
@@ -21,8 +22,11 @@
 
     # 무엇을 재나
 
-      R  진짜 4 — C:\php 에 8.3.37(NTS) 0 · 8.5.13(TS) 0 · 8.3.35(NTS) 2 · 8.5.12(TS) 2(코어 DLL 의 파일 버전을 읽는가 — 고친 판의
-         0 은 'PHP 없음' 의 0 과 같은 종료 코드라 화면의 흔적 2건으로 찾았음을 함께 본다)
+      R  진짜 6 — C:\php 에 8.3.37(NTS) 0 · 8.5.13(TS) 0 · 8.3.35(NTS) 2 · 8.5.12(TS) 2 · 8.4.27(NTS) 2 · 8.2.35(NTS) 2(코어 DLL
+         의 파일 버전을 읽는가 · 갈래 넷의 영향 쪽 — 고친 판의 0 은 'PHP 없음' 의 0 과 같은 종료 코드라 화면의 흔적 2건으로
+         찾았음을 함께 본다)
+      E  겹친 설치본 2 — 바깥 판 없음 + 안쪽 8.3.37 6(바깥을 안쪽이 채우지 않는다) · 바깥 8.3.37 + 안쪽 8.3.35 2(취약 1건)
+      W  WampServer 1 — 8.3.37 + Apache bin 의 코어 DLL 심볼릭 링크 0(링크를 설치본으로 세지 않는다)
       L  다른 자리 6(8.3.35) — Program Files\PHP · Program Files\PHP\v8.3(판 폴더) · XAMPP · WampServer(판 폴더) ·
          Laragon(판 폴더) · Chocolatey(C:\tools\php83) 모두 2
       V  판 없음 1 — C:\php 의 자리 채우기 6
@@ -60,6 +64,10 @@ $zips = [ordered]@{
         dllsha = '37D0E60D20B7F17A564BAFAB657F9CF448044A3F333A6ABCE8750113D79FE5F7' }
     '8.5.12' = @{ file = 'php-8.5.12-Win32-vs17-x64.zip'; dll = 'php8ts.dll'; sha = ''
         dllsha = 'A3D2ACD1453AAFF16BE437FD9975F8B923CC190095931158BC8E1444D0DB3069' }
+    '8.4.27' = @{ file = 'php-8.4.27-nts-Win32-vs17-x64.zip'; dll = 'php8.dll'; sha = ''
+        dllsha = '8B8B1C4D535A28204D27C86652F923C4B69F3196580B43D02307FE7060954CAC' }
+    '8.2.35' = @{ file = 'php-8.2.35-nts-Win32-vs16-x64.zip'; dll = 'php8.dll'; sha = ''
+        dllsha = '87CDF69CD713D167B9171A2147287C19A6F360838D7D2392BA122E7F36510707' }
 }
 # 상대 경로를 절대 경로로 — .NET 호출(ZipFile · File)은 PowerShell 의 현재 위치가 아니라 프로세스의 현재 폴더로 푼다.
 foreach ($p in @($Package, $PhpZipDir)) {
@@ -110,10 +118,10 @@ $g = 'C:\remedy-probe'
 # 게스트에서 쓰는 도구 — 놓기 · 치우기. 경우마다 같은 세션에서 다시 정의한다(Invoke-Command 는 범위를 잇지 않는다).
 # 치우는 자리는 이 하네스가 만드는 폴더뿐이다 — XAMPP · WampServer · Laragon 의 다른 폴더는 건드리지 않는다.
 $guestTools = {
-    $made = @('C:\php', 'C:\Program Files\PHP', 'C:\xampp\php', 'C:\wamp64\bin\php\php8.3.35',
-        'C:\laragon\bin\php\php-8.3.35-nts-Win32-vs16-x64', 'C:\tools\php83', 'C:\web')
-    $parents = @('C:\xampp', 'C:\wamp64\bin\php', 'C:\wamp64\bin', 'C:\wamp64', 'C:\laragon\bin\php', 'C:\laragon\bin', 'C:\laragon',
-        'C:\tools')
+    $made = @('C:\php', 'C:\Program Files\PHP', 'C:\xampp\php', 'C:\wamp64\bin\php\php8.3.35', 'C:\wamp64\bin\php\php8.3.37',
+        'C:\wamp64\bin\apache\apache2.4.62', 'C:\laragon\bin\php\php-8.3.35-nts-Win32-vs16-x64', 'C:\tools\php83', 'C:\web')
+    $parents = @('C:\xampp', 'C:\wamp64\bin\php', 'C:\wamp64\bin\apache', 'C:\wamp64\bin', 'C:\wamp64', 'C:\laragon\bin\php',
+        'C:\laragon\bin', 'C:\laragon', 'C:\tools')
     $real = 'C:\remedy-probe\real'
     # $keep — 시작 전에 이미 있던 부모 폴더(랩의 것). 비어 있어도 지우지 않는다.
     function Clear-Layouts([string[]] $keep) {
@@ -160,6 +168,10 @@ $cases = @(
        screen = '그 계열의 고친 버전(8.5.13 · 8.4.28 · 8.3.37 · 8.2.36) 이상으로 올리십시오' },
     @{ id = 'R4'; what = '진짜 8.5.12 TS(영향 판 · 8.5 갈래) · C:\php'; expect = 2; installs = @('C:\php|real-8.5.12');
        screen = 'php8ts.dll  (버전 8.5.12)' },
+    @{ id = 'R5'; what = '진짜 8.4.27 NTS(영향 판 · 8.4 갈래) · C:\php'; expect = 2; installs = @('C:\php|real-8.4.27');
+       screen = 'php8.dll  (버전 8.4.27)' },
+    @{ id = 'R6'; what = '진짜 8.2.35 NTS(영향 판 · 8.2 갈래) · C:\php'; expect = 2; installs = @('C:\php|real-8.2.35');
+       screen = 'php8.dll  (버전 8.2.35)' },
     @{ id = 'L1'; what = 'Program Files\PHP 8.3.35'; expect = 2; installs = @('C:\Program Files\PHP|real-8.3.35') },
     @{ id = 'L2'; what = 'Program Files\PHP\v8.3(판 폴더) 8.3.35'; expect = 2; installs = @('C:\Program Files\PHP\v8.3|real-8.3.35') },
     @{ id = 'L3'; what = 'XAMPP 8.3.35'; expect = 2; installs = @('C:\xampp\php|real-8.3.35') },
@@ -168,7 +180,18 @@ $cases = @(
        installs = @('C:\laragon\bin\php\php-8.3.35-nts-Win32-vs16-x64|real-8.3.35') },
     @{ id = 'L6'; what = 'Chocolatey(C:\tools\php83) 8.3.35'; expect = 2; installs = @('C:\tools\php83|real-8.3.35') },
     @{ id = 'V1'; what = 'C:\php · 판 없음(PE 가 아님)'; expect = 6; installs = @('C:\php|none');
-       screen = '코어 DLL 에서 버전을 읽지 못했습니다' },
+       screen = '코어 DLL 에서 정식 버전을 읽지 못했습니다' },
+    # 설치본 폴더 안의 다른 설치본(옛 판 백업 등) — 판 사실은 그 그룹의 코어 DLL 하나에만 묶는다. 바깥의 '판 없음' 을 안쪽의
+    # 고친 판이 채우지 않고(6), 안쪽 영향 판은 한 번만 센다(취약 1건).
+    @{ id = 'E1'; what = '겹친 설치본 — 바깥 판 없음 + 안쪽 8.3.37'; expect = 6;
+       installs = @('C:\php|none', 'C:\php\old\php-8.3.37|real-8.3.37'); screen = '코어 DLL 에서 정식 버전을 읽지 못했습니다' },
+    @{ id = 'E2'; what = '겹친 설치본 — 바깥 8.3.37 + 안쪽 8.3.35'; expect = 2;
+       installs = @('C:\php|real-8.3.37', 'C:\php\old\php-8.3.35|real-8.3.35'); screen = '취약 1건' },
+    # WampServer 꼴 — Apache 모듈로 쓰는 PHP 의 코어 DLL 을 Apache bin 에 심볼릭 링크로 둔다. 파일은 PHP 자리만 걸으므로 그 링크는
+    # 설치본이 아니다 — 고친 판이면 0(흔적 2건: PHP 판 폴더의 코어 DLL 하나).
+    @{ id = 'W1'; what = 'WampServer — 8.3.37 + Apache bin 의 코어 DLL 링크'; expect = 0;
+       installs = @('C:\wamp64\bin\php\php8.3.37|real-8.3.37');
+       link = 'C:\wamp64\bin\apache\apache2.4.62\bin\php8.dll|C:\wamp64\bin\php\php8.3.37\php8.dll'; screen = '흔적 2건' },
     @{ id = 'G1'; what = '8.3.37 + Laragon 8.3.35 — 설치본마다'; expect = 2;
        installs = @('C:\php|real-8.3.37', 'C:\laragon\bin\php\php-8.3.35-nts-Win32-vs16-x64|real-8.3.35') },
     @{ id = 'G2'; what = '8.3.37 + Laragon 판 없음'; expect = 6;
@@ -230,12 +253,19 @@ try {
 
     foreach ($c in $cases) {
         $setupScript = $guestTools.ToString()
-        Invoke-Command -Session $session -ArgumentList $setupScript, $c.installs, $c.service, $c.process, $c.serviceIn, $c.nssm, $keep -ScriptBlock {
-            param($tools, $installs, $service, $process, $serviceIn, $nssm, $keep)
+        Invoke-Command -Session $session -ArgumentList $setupScript, $c.installs, $c.service, $c.process, $c.serviceIn, $c.nssm, $keep, $c.link -ScriptBlock {
+            param($tools, $installs, $service, $process, $serviceIn, $nssm, $keep, $link)
             . ([scriptblock]::Create($tools))
             Clear-Layouts $keep
             foreach ($i in @($installs)) {
                 if ($i) { New-Install ([string]$i) }
+            }
+            # 심볼릭 링크 — `링크|대상` 한 줄(WampServer 의 Apache bin 꼴).
+            if ($link) {
+                $linkPath, $linkTarget = ([string]$link) -split '\|'
+                New-Item -ItemType Directory -Force (Split-Path -Parent $linkPath) | Out-Null
+                New-Item -ItemType SymbolicLink -Path $linkPath -Target $linkTarget | Out-Null
+                if (-not (Get-Item -LiteralPath $linkPath).LinkType) { throw "링크를 만들지 못했다: $linkPath" }
             }
             # NSSM 꼴 — 서비스의 실행 파일은 감싸는 프로그램(없어도 된다 · 시작하지 않는다)이고 띄우는 것은 Parameters 의
             # Application 값이다(NSSM 이 쓰는 자리 그대로).
