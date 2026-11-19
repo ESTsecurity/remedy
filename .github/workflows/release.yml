@@ -114,7 +114,9 @@ jobs:
             echo "::error::$GITHUB_REF_NAME 는 이미 공개된 Release 다"
             exit 1
           fi
-          # Release 이름은 두 버전을 함께 적는다(시험판은 꼬리 `-rc.<N>` 까지). 본문은 ci/release-notes.sh 가 짓는다 —
+          # Release 이름은 두 버전을 함께, **출시의 종류와 상관없이 한 꼴로** 적는다 — `프로그램 <엔진> · 룰 <룰>`(2026-11-19 ·
+          # 전에는 룰만 바뀐 출시가 `룰 … · 프로그램 …` 으로 차례가 거꾸로였고 1.19.1 까지는 태그 그대로였다 — 지난 제목도 이
+          # 꼴로 고쳤다). 시험판의 꼬리 `-rc.<N>` 은 태그가 이름 붙인 버전에 붙는다. 본문은 ci/release-notes.sh 가 짓는다 —
           # 그 스크립트가 업데이트 내역의 이 버전 칸을 찾지 못하거나 꼴이 어긋나면 멈추고, 그때는 초안을 만들지 않는다.
           # 리눅스 확인 명령이 `grep | sha256sum -c` 꼴인 까닭: `--ignore-missing` 은 coreutils 8.25 부터라 CentOS 7 급(8.22)이
           # 거부한다(틀 .github/release-notes.md 의 4.).
@@ -123,8 +125,8 @@ jobs:
           rc=
           if [[ "$GITHUB_REF_NAME" =~ (-rc\.[0-9]+)$ ]]; then rc=${BASH_REMATCH[1]}; fi
           case "$GITHUB_REF_NAME" in
-            rules-*) title="룰 $rules$rc · 프로그램 $version" ;;
-            *) title="$version$rc · 룰 $rules" ;;
+            rules-*) title="프로그램 $version · 룰 $rules$rc" ;;
+            *) title="프로그램 $version$rc · 룰 $rules" ;;
           esac
           bash ci/release-notes.sh "$GITHUB_REF_NAME" >"$RUNNER_TEMP/notes.md"
           pre=

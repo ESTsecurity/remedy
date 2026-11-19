@@ -76,7 +76,8 @@ const NOT_DATA: [&str; 3] = ["MANIFEST", "MANIFEST.minisig", "RELEASE.md"];
 /// 플러그인 폴더의 지금 상태. `plugin.yaml` 과 `rules/**` 만 본다 — 그 둘이
 /// 치료를 정한다. **데이터 룰은 맨 위의 데이터 파일도 본다**(코어 1.12.0) — 판정 기준이
 /// 그 파일들에 있으므로, 기준을 고치면 버전을 올리게 한다.
-fn entry_of(dir: &Path) -> Result<(String, Entry), String> {
+/// 셋째 값은 그 룰의 `added`(코어 1.25.0 — [`added_too_late`] 가 본다).
+fn entry_of(dir: &Path) -> Result<(String, Entry, Option<String>), String> {
     let manifest = std::fs::read_to_string(dir.join("plugin.yaml"))
         .map_err(|e| format!("{}: {e}", dir.display()))?;
     let m: remedy_sdk::manifest::PluginManifest =
@@ -126,7 +127,30 @@ fn entry_of(dir: &Path) -> Result<(String, Entry), String> {
             version: m.version.clone(),
             files,
         },
+        m.added.clone(),
     ))
+}
+
+/// 룰 버전(`plugins/RULES-VERSION` · `YYYY.MM.DD[.N]`)의 날 — 1970-01-01 부터 센 날 수. 없거나 꼴이 틀리면 `None`
+/// (그 파일의 꼴은 배포 워크플로의 `ci/version-check.sh` 가 막는다).
+fn rules_day(root: &Path) -> Option<i64> {
+    let text =
+        std::fs::read_to_string(root.join("plugins").join(remedy_sdk::rules_version::FILE)).ok()?;
+    let v = remedy_sdk::rules_version::parse(&text)?;
+    remedy_sdk::utc::day_number(&v.get(..10)?.replace('.', "-"))
+}
+
+/// 룰의 `added` 가 룰 버전의 날보다 **하루 넘게 늦은가** — 그러면 그 까닭. 미래 날짜 오타(`2062-11-19`) 하나가 꾸러미의
+/// 가장 새 날이 되면 그날까지 다른 룰이 고르는 화면의 *새로 추가된 항목* 에 오르지 못하고, 꼬리표는 월 · 일만 적어
+/// 화면에서는 드러나지 않는다(2026-11-19 검토). 하루는 자정을 넘겨 적은 날을 받는 여유다. 꼴이 틀린 날은 SDK 의
+/// `validate` 가 거절하므로 여기서는 보지 않는다.
+fn added_too_late(added: &str, rules_day: i64) -> Option<String> {
+    let day = remedy_sdk::utc::day_number(added)?;
+    (day > rules_day + 1).then(|| {
+        format!(
+            "added '{added}' 가 룰 버전의 날보다 늦다 — 미래 날짜는 그날까지 다른 룰을 새로 추가된 항목에서 밀어낸다"
+        )
+    })
 }
 
 fn read_lock(root: &Path) -> Result<BTreeMap<String, Entry>, String> {
@@ -143,10 +167,20 @@ pub fn run(root: &Path, write: bool) -> Result<(), String> {
     let mut errors = Vec::new();
     let mut stale = Vec::new();
     let mut now: BTreeMap<String, Entry> = BTreeMap::new();
+    let rules = rules_day(root);
 
     for dir in plugin_dirs(root)? {
-        let (id, cur) = entry_of(&dir)?;
+        let (id, cur, added) = entry_of(&dir)?;
         let rel = dir.strip_prefix(root).unwrap_or(&dir).display().to_string();
+        if let Some(why) = added
+            .as_deref()
+            .zip(rules)
+            .and_then(|(a, r)| added_too_late(a, r))
+        {
+            errors.push(format!(
+                "{id} ({rel}): {why}\n      plugin.yaml 의 added 를 그 위협을 더한 한국 날짜로 고칠 것"
+            ));
+        }
         match locked.get(&id) {
             None => {
                 if write {
@@ -222,4 +256,27 @@ pub fn run(root: &Path, write: bool) -> Result<(), String> {
         now.len()
     );
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::added_too_late;
+
+    /// 룰 버전의 날과 그다음 날까지는 받고, 그보다 늦으면(연도 · 월 오타) 멈춘다.
+    #[test]
+    fn an_added_date_later_than_the_rules_version_is_refused() {
+        let rules = remedy_sdk::utc::day_number("2026-11-19").expect("날");
+        assert_eq!(added_too_late("2026-11-18", rules), None);
+        assert_eq!(added_too_late("2026-11-19", rules), None);
+        assert_eq!(
+            added_too_late("2026-11-20", rules),
+            None,
+            "자정을 넘긴 하루"
+        );
+        for typo in ["2026-11-21", "2026-12-19", "2062-11-19"] {
+            assert!(added_too_late(typo, rules).is_some(), "{typo}");
+        }
+        // 꼴이 틀린 날은 validate 의 몫이다 — 여기서는 말하지 않는다.
+        assert_eq!(added_too_late("2026-11-31", rules), None);
+    }
 }

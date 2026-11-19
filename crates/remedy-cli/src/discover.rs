@@ -109,27 +109,46 @@ pub fn rules_version_here() -> Option<String> {
     rules_version(&std::env::current_exe().ok()?)
 }
 
-/// 메뉴의 묶음 — **하는 일로 가른다**(코어 1.16.0): 악성코드 탐지 · 제거(0) → 취약점 점검(1) → 원격 점검(2).
+/// 메뉴의 묶음과 그 룰을 꾸러미에 더한 날(`added` · 코어 1.25.0) — 매니페스트를 한 번 읽는다.
 ///
-/// 이름순 하나였을 때는 새 룰이 이름이 놓이는 자리에 끼어 뒤 번호가 밀렸고(1.15.0 의 Apache 가 2번), 치료 ·
-/// 탐지 · 취약점 점검 · 원격이 섞였다. `kind: check` 는 상태(취약한 판 · 노출된 설정)를 보는 룰이고, 감염을 보는
-/// 탐지만 하는 룰은 `kind` 를 두지 않는다(`24-check-plugins.md`) — 그래서 같은 사고의 `<사고>-1-check` ·
-/// `<사고>-2-clean` 은 둘 다 악성코드 묶음에 들어 폴더 이름의 차례를 지킨다. 매니페스트를 읽지 못하면 악성코드
-/// 묶음으로 둔다 — 고를 거리에서 빼는 판단은 서명 검증이 한다.
-pub fn menu_group(path: &Path) -> u8 {
+/// 묶음은 **하는 일로 가른다**(코어 1.16.0): 악성코드 탐지 · 제거(0) → 취약점 점검(1) → 원격 점검(2). 이름순
+/// 하나였을 때는 새 룰이 이름이 놓이는 자리에 끼어 뒤 번호가 밀렸고(1.15.0 의 Apache 가 2번), 치료 · 탐지 · 취약점
+/// 점검 · 원격이 섞였다. `kind: check` 는 상태(취약한 판 · 노출된 설정)를 보는 룰이고, 감염을 보는 탐지만 하는 룰은
+/// `kind` 를 두지 않는다(`24-check-plugins.md`) — 그래서 같은 사고의 `<사고>-1-check` · `<사고>-2-clean` 은 둘 다
+/// 악성코드 묶음에 들어 폴더 이름의 차례를 지킨다. 매니페스트를 읽지 못하면 악성코드 묶음 · 날 없음으로 둔다 — 고를
+/// 거리에서 빼는 판단은 서명 검증이 한다.
+fn menu_facts(path: &Path) -> (u8, Option<i64>) {
     let m = std::fs::read_to_string(path)
         .ok()
         .and_then(|t| serde_yaml_ng::from_str::<remedy_sdk::manifest::PluginManifest>(&t).ok());
-    match m {
+    let group = match &m {
         Some(m) if m.network.is_some() => 2,
         Some(m) if m.kind == Some(remedy_sdk::manifest::PluginKind::Check) => 1,
         _ => 0,
-    }
+    };
+    (group, m.and_then(|m| m.added_day()))
 }
 
-/// [`menu_group`] 의 차례로 늘어놓는다. **안정 정렬**이라 묶음 안은 [`beside`] 의 이름순이 그대로 남는다.
+/// 고르는 화면 · *모두 검사* 의 차례 — **새로 추가된 항목이 먼저**(코어 1.25.0 · 가장 새 날부터 ·
+/// `remedy_sdk::manifest::is_recent`), 그다음이 하는 일 묶음([`menu_facts`])의 차례다. 새 위협 소식을 듣고 받은 사람이 맨 위
+/// 검사 줄 바로 아래에서 그 항목을 고르게 한다(2026-11-19 — 전에는 nginx2root 점검이 이름순 자리인 9번이었다).
+/// **안정 정렬**이라 같은 칸 안은 [`beside`] 의 이름순이 그대로 남는다 — 새로 추가된 항목이 없는 꾸러미는 전과 같다.
 pub fn in_menu_order(found: &mut [Found]) {
-    found.sort_by_cached_key(|f| menu_group(&f.path));
+    let facts: Vec<(u8, Option<i64>)> = found.iter().map(|f| menu_facts(&f.path)).collect();
+    let newest = facts.iter().filter_map(|(_, day)| *day).max();
+    let mut keyed: Vec<_> = facts
+        .iter()
+        .zip(found.iter().cloned())
+        .map(|(&(group, day), f)| {
+            let recent = remedy_sdk::manifest::is_recent(day, newest);
+            let newer_first = std::cmp::Reverse(if recent { day.unwrap_or(0) } else { 0 });
+            ((!recent, newer_first, group), f)
+        })
+        .collect();
+    keyed.sort_by_key(|(key, _)| *key);
+    for (slot, (_, f)) in found.iter_mut().zip(keyed) {
+        *slot = f;
+    }
 }
 
 /// 이 꾸러미를 써도 되는가 — `plugin verify` 와 **같은 사슬**이다.
@@ -262,7 +281,7 @@ mod tests {
         put("d-clean", local);
         put("e-vuln", &format!("kind: check\n{local}"));
         let mut got = beside(&d.join("remedy.exe"));
-        let groups: Vec<u8> = got.iter().map(|f| menu_group(&f.path)).collect();
+        let groups: Vec<u8> = got.iter().map(|f| menu_facts(&f.path).0).collect();
         assert_eq!(
             groups,
             vec![2, 1, 0, 0, 1],
@@ -276,6 +295,47 @@ mod tests {
         assert_eq!(
             names,
             vec!["c-detect", "d-clean", "b-vuln", "e-vuln", "a-remote"],
+            "{got:?}"
+        );
+    }
+
+    /// **새로 추가된 항목이 먼저**(코어 1.25.0) — 꾸러미의 가장 새 `added` 부터 사흘 안의 룰이 가장 새 날부터 서고,
+    /// 그 밖은 지금처럼 하는 일 묶음 · 이름순이다. 날이 같으면 묶음 · 이름순이다. 사흘 밖 · 날이 없는 룰 ·
+    /// 틀린 날은 새 항목이 아니다.
+    #[test]
+    fn recently_added_rules_come_first_newest_first() {
+        let d = lab("recent");
+        let head = "schema_version: 1\nversion: 0.1.0\nmin_core: \"1.25.0\"\nplatforms: [linux]\n\
+                    name: { ko: \"x\", en: \"x\" }\nscan_roots: [\"/etc\"]\nsubjects: [file]\ndetect: []\n";
+        let put = |name: &str, tail: &str| {
+            let p = d.join("plugins").join(name).join("plugin.yaml");
+            std::fs::create_dir_all(p.parent().unwrap()).expect("폴더");
+            std::fs::write(&p, format!("{head}id: {name}\n{tail}")).expect("파일");
+        };
+        put("a-old-vuln", "kind: check\nadded: \"2026-11-13\"\n");
+        put("b-detect", "");
+        put("c-new-vuln", "kind: check\nadded: \"2026-11-19\"\n");
+        put("d-yesterday-detect", "added: \"2026-11-18\"\n");
+        put("e-edge-vuln", "kind: check\nadded: \"2026-11-17\"\n");
+        put("f-bad-date", "kind: check\nadded: \"2026-11-31\"\n");
+        put("g-same-day-detect", "added: \"2026-11-19\"\n");
+        let mut got = beside(&d.join("remedy.exe"));
+        in_menu_order(&mut got);
+        let names: Vec<String> = got
+            .iter()
+            .map(|f| f.dir.file_name().unwrap().to_string_lossy().to_string())
+            .collect();
+        assert_eq!(
+            names,
+            vec![
+                "g-same-day-detect",
+                "c-new-vuln",
+                "d-yesterday-detect",
+                "e-edge-vuln",
+                "b-detect",
+                "a-old-vuln",
+                "f-bad-date",
+            ],
             "{got:?}"
         );
     }

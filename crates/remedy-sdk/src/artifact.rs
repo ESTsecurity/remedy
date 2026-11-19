@@ -306,6 +306,13 @@ fn is_admin_proof_folder(p: &str) -> bool {
         && matches!(std::fs::read_dir(p), Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied)
 }
 
+/// Windows 에서 실행 파일 경로조차 알아내지 못한 프로세스의 자리인가 — `pid 1234` 꼴(`remedy-collect` 의
+/// `denied_place`). 폴더 이름이 우연히 그 꼴일 수는 없다(드라이브 문자로 시작한다).
+fn is_windows_pid(p: &str) -> bool {
+    p.strip_prefix("pid ")
+        .is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()))
+}
+
 /// 프로세스 하나를 들여다보다 막힌 자리인가 — `/proc/<pid>/maps` 처럼 `/proc/` 다음이 수다.
 /// `/proc/net/unix` 같은 커널 표는 아니다.
 fn is_process_path(p: &str) -> bool {
@@ -490,12 +497,36 @@ impl Observation {
             // *"관리자 권한으로 다시"* 는 할 일이 아니고, 막힌 것은 `/proc/<pid>/maps` 같은 **파일**이라
             // *"디렉터리 열기"* 도 틀린 말이다.
             let process = self.denied_paths.iter().any(|p| is_process_path(p));
-            // 문장 구조가 언어마다 다르므로 조각을 이어 붙이지 않는다 —
-            // 이어 붙이면 어느 한쪽이 반드시 어색해진다.
-            // **폴더 쪽 괄호는 2026-11-18 에 고쳤다(K2).** 전에는 *"관리자 권한으로 다시 돌리십시오"* 였는데, 수집은
-            // 관리자 문을 지나야 돌므로 이 줄을 보는 사람은 언제나 이미 관리자다 — 할 수 없는 일을 권했다. 앞의
-            // `접근이 거부된 디렉터리` 는 그대로다(하네스가 읽는다).
-            out.push(match (lang, process) {
+            // **Windows 의 프로세스 거부는 폴더가 아니다** (1.25.0). 실행 파일 경로조차 알아내지 못한 프로세스를
+            // `pid N` 으로 적는데(`remedy-collect` 의 `processes`), 그것도 *"디렉터리 열기 N회"* 로 말해 실제 PC 의
+            // 사람이 폴더를 찾아 헤맸다(2026-11-19 실측 37개). 1.25.0 부터 경로를 열지 않고 물어 그 PC 에서는 0개가
+            // 됐다 — 그래도 남는 것은 드라이브 문자로 바꿀 수 없는 자리(네트워크 공유 · 문자 없는 볼륨)에서 띄운
+            // 프로세스다(`remedy-winmods` 의 `Image::Unknown`). **거부 전부가** 그 꼴일 때만 프로세스 문장이다 — 폴더와
+            // 섞이거나 표본이 전수가 아니면(상한 32 · 보이지 않는 몫이 폴더일 수 있다) 전처럼 폴더 문장이다.
+            let windows_process =
+                self.denied_paths.len() == n && self.denied_paths.iter().all(|p| is_windows_pid(p));
+            if windows_process {
+                out.push(match lang {
+                    Lang::Ko => format!(
+                        "실행 파일을 알아내지 못한 프로세스 {n}개 (관리자 권한으로도 열리지 않습니다 — 네트워크 \
+                         공유처럼 드라이브 문자가 없는 자리에서 실행된 프로그램일 수 있습니다)"
+                    ),
+                    Lang::En => {
+                        let procs = if n == 1 { "process" } else { "processes" };
+                        format!(
+                            "{n} {procs} whose executable could not be identified (not readable even with \
+                             administrator rights - it may run from a place without a drive letter, such as a \
+                             network share)"
+                        )
+                    }
+                });
+            } else {
+                // 문장 구조가 언어마다 다르므로 조각을 이어 붙이지 않는다 —
+                // 이어 붙이면 어느 한쪽이 반드시 어색해진다.
+                // **폴더 쪽 괄호는 2026-11-18 에 고쳤다(K2).** 전에는 *"관리자 권한으로 다시 돌리십시오"* 였는데, 수집은
+                // 관리자 문을 지나야 돌므로 이 줄을 보는 사람은 언제나 이미 관리자다 — 할 수 없는 일을 권했다. 앞의
+                // `접근이 거부된 디렉터리` 는 그대로다(하네스가 읽는다).
+                out.push(match (lang, process) {
                 (Lang::Ko, false) => format!(
                     "접근이 거부된 디렉터리 열기 {n}회 (관리자 권한으로도 열리지 않습니다 — 보안 제품이나 OS 가 \
                      잠근 폴더일 수 있습니다)"
@@ -516,6 +547,7 @@ impl Observation {
                     )
                 }
             });
+            }
         }
         for s in &self.uncollected_subjects {
             let (id, when) = (s.id(), s.info().implemented_in.as_str());

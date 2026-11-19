@@ -66,6 +66,54 @@ pub fn modules_of(pid: u32) -> Modules {
     }
 }
 
+/// 한 프로세스의 실행 파일을 **열지 않고** 물은 답([`image_paths_of`]).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Image {
+    /// 실행 파일 경로 — 장치 경로(`\Device\HarddiskVolume3\…`)를 드라이브 문자(`C:\…`)로 바꾼 것.
+    Path(String),
+    /// **실행 파일이 없는 프로세스**다 — 커널이 띄운 최소 프로세스(`System` · `Secure System` · `Registry` ·
+    /// `MemCompression` · `vmmemWSL`). 파일에서 실린 것이 없어 모듈도 없다 — 못 본 것이 없으니 **거부가 아니다.**
+    /// OS 의 답이 성공인데 이름이 비었거나 장치 경로가 아닌(`\` 로 시작하지 않는) 짧은 이름일 때다 — 파일에서 띄운
+    /// 프로세스는 늘 장치 경로를 받는다(2026-11-19 실측: `System` · `Secure System` 은 빈 이름, 나머지 셋은 짧은 이름).
+    NoFile,
+    /// 모른다 — 묻는 사이에 끝났거나, 묻지 못했거나, 드라이브 문자로 바꿀 수 없는 자리(네트워크 공유 · 문자 없는
+    /// 볼륨)다. 부르는 쪽은 지금처럼 *모른다* 로 둔다.
+    Unknown,
+}
+
+/// pid 마다 **실행 파일** — 프로세스를 **열지 않고** OS 에 묻는다(`NtQuerySystemInformation` 의
+/// `SystemProcessIdInformation`). 답은 [`Image`] 셋 중 하나다.
+///
+/// # 왜 필요한가 (1.25.0 · 2026-11-19 실측)
+///
+/// 실제 PC(Windows 11 · 관리자로 연 콘솔)에서 빠른 검사 가운데 모듈 칸을 보는 점검 셋(Node2Shell · PHP 세션 ·
+/// PHP2Shell — `Scope::process_modules`)마다 *"접근이 거부된 디렉터리 열기 37회"* 가 서고 셋 모두 6 이 됐다. 거부된 것은 폴더가 아니라 **실행 파일 경로를 읽지 못한 프로세스**였고(`pid N`), 그 32개
+/// 표본은 보안 제품이 아니라 서비스 계정으로 도는 평범한 Windows · 서비스 프로세스였다 — `csrss` · `fontdrvhost` ·
+/// `conhost` · `dwm` · `WUDFHost` · `WmiPrvSE` · `NgcIso` 등. 관리자 토큰으로도 그 프로세스의 DACL 이 여는 것을 막아
+/// `sysinfo` 의 경로도, 가장 좁은 권한의 [`modules_of`] 도 거부됐다(랩 VM 은 원격 셸이라 이 일이 없었다). 이 호출은
+/// 열지 않으므로 그 DACL 에 걸리지 않는다 — 디버그 권한을 켜지 않는다는 결정(위 *디버그 권한을 켜지 않는다*)도
+/// 그대로다. 같은 PC 의 32개 표본은 이 길로 모두 경로를 얻었다.
+///
+/// 경로를 모르는 채로 그 프로세스를 *룰과 상관없다* 고 건너뛰지 않는 까닭: IIS 의 앱 풀 계정으로 도는 `php-cgi.exe`
+/// 처럼 판정의 대상이 바로 그런 프로세스일 수 있다. 경로를 알면 룰이 그 경로로 판정하고, 수집기는 *경로가 보이는
+/// 거부* 를 관측 불완전으로 세지 않는다(`remedy-collect` 의 `processes`).
+///
+/// 같은 PC 에서 이 길로도 경로가 없는 것은 실행 파일이 없는 최소 프로세스뿐이었다([`Image::NoFile`] — `System` ·
+/// `Secure System` · `Registry` · `MemCompression` · WSL 의 `vmmemWSL` · 관리자가 아닌 셸에서 프로세스 전부를 쟀다).
+/// 그것은 열지 못하면 모듈 거부로 돌아오므로 부르는 쪽이 모듈을 묻지 않는다.
+///
+/// Windows 밖에서는 모두 [`Image::Unknown`] 이다.
+pub fn image_paths_of(pids: &[u32]) -> Vec<Image> {
+    #[cfg(windows)]
+    {
+        imp::image_paths_of(pids)
+    }
+    #[cfg(not(windows))]
+    {
+        vec![Image::Unknown; pids.len()]
+    }
+}
+
 /// UAC 창에서 [아니요]를 골랐다 — `ERROR_CANCELLED`.
 pub const DECLINED: u32 = 1223;
 
@@ -134,7 +182,7 @@ mod imp {
     //! 늘어 랩 VM(프로세스 160여 개)에서 검사 하나에 5초쯤 들었다. 스냅숏(`CreateToolhelp32Snapshot`)은 목록을
     //! 한 번에 경로째 준다. 경로 칸이 `MAX_PATH`(260)라 칸을 다 채운 모듈만 긴 경로 API 로 다시 묻는다.
 
-    use super::Modules;
+    use super::{Image, Modules};
     use windows_sys::Win32::Foundation::{
         CloseHandle, GetLastError, ERROR_BAD_LENGTH, ERROR_INVALID_PARAMETER, ERROR_PARTIAL_COPY,
         HANDLE, HMODULE, INVALID_HANDLE_VALUE, MAX_PATH, STILL_ACTIVE,
@@ -301,6 +349,127 @@ mod imp {
             unsafe { K32GetModuleFileNameExW(p.0, m, buf.as_mut_ptr(), buf.len() as u32) } as usize;
         (n > 0 && n < buf.len()).then(|| String::from_utf16_lossy(&buf[..n]))
     }
+
+    // ── 열지 않고 묻는 실행 파일 경로 (1.25.0) ───────────────────────────────────────
+
+    use windows_sys::Wdk::System::SystemInformation::{
+        NtQuerySystemInformation, SYSTEM_INFORMATION_CLASS,
+    };
+    use windows_sys::Win32::Foundation::{NTSTATUS, UNICODE_STRING};
+    use windows_sys::Win32::Storage::FileSystem::QueryDosDeviceW;
+
+    /// `SystemProcessIdInformation` — 문서에 이름이 없는 정보 갈래다(`windows-sys` 에 상수가 없다). Vista 부터 있고
+    /// 작업 관리자 · Process Explorer 가 열 수 없는 프로세스의 이름을 이 길로 얻는다.
+    const SYSTEM_PROCESS_ID_INFORMATION: SYSTEM_INFORMATION_CLASS = 88;
+    /// 칸이 모자랐다 — 답의 `MaximumLength` 가 필요한 바이트 수다.
+    const STATUS_INFO_LENGTH_MISMATCH: NTSTATUS = 0xC000_0004_u32 as i32;
+    /// 처음 칸(UTF-16 글자). 거의 모든 경로가 들어간다.
+    const NAME_CHARS: usize = 1024;
+    /// `UNICODE_STRING` 의 길이 칸이 16비트 바이트 수라 그보다 긴 이름은 없다.
+    const NAME_CHARS_MAX: usize = (u16::MAX as usize) / 2;
+
+    /// 그 정보 갈래의 입출력 구조체(ntdll 의 `SYSTEM_PROCESS_ID_INFORMATION`).
+    #[repr(C)]
+    struct ProcessIdInfo {
+        process_id: HANDLE,
+        image_name: UNICODE_STRING,
+    }
+
+    pub(super) fn image_paths_of(pids: &[u32]) -> Vec<Image> {
+        // 드라이브 문자 표는 한 번만 짓는다 — 프로세스마다 26 번 묻지 않게.
+        let drives = drive_devices();
+        pids.iter()
+            .map(|&pid| match nt_image_name(pid) {
+                Some(nt) => image_from(&nt, &drives),
+                // 묻지 못했다 — 없는 pid(묻는 사이에 끝났거나 `Idle`)는 `STATUS_INVALID_CID` 다.
+                None => Image::Unknown,
+            })
+            .collect()
+    }
+
+    /// OS 가 준 이름 하나를 [`Image`] 로. 빈 이름 · 장치 경로가 아닌 짧은 이름은 실행 파일이 없는 프로세스다.
+    pub(super) fn image_from(nt: &str, drives: &[(char, String)]) -> Image {
+        if !nt.starts_with('\\') {
+            return Image::NoFile;
+        }
+        to_dos(nt, drives).map_or(Image::Unknown, Image::Path)
+    }
+
+    /// pid 하나의 이미지 이름. 답이 성공이면 `Some`(빈 이름일 수 있다), 묻지 못했으면 `None`.
+    fn nt_image_name(pid: u32) -> Option<String> {
+        let mut chars = NAME_CHARS;
+        for _ in 0..3 {
+            let mut buf = vec![0u16; chars];
+            let mut info = ProcessIdInfo {
+                process_id: pid as usize as HANDLE,
+                image_name: UNICODE_STRING {
+                    Length: 0,
+                    MaximumLength: (buf.len() * 2) as u16,
+                    Buffer: buf.as_mut_ptr(),
+                },
+            };
+            // SAFETY: `info` 와 그것이 가리키는 `buf` 는 이 함수의 지역 값이고 호출이 끝날 때까지 산다. 넘기는 크기는
+            // 구조체의 크기 그대로이고, OS 는 `MaximumLength` 바이트까지만 `buf` 에 쓴다.
+            let status = unsafe {
+                NtQuerySystemInformation(
+                    SYSTEM_PROCESS_ID_INFORMATION,
+                    (&mut info as *mut ProcessIdInfo).cast(),
+                    std::mem::size_of::<ProcessIdInfo>() as u32,
+                    std::ptr::null_mut(),
+                )
+            };
+            if status == STATUS_INFO_LENGTH_MISMATCH {
+                let need = info.image_name.MaximumLength as usize / 2 + 1;
+                if need <= chars || need > NAME_CHARS_MAX {
+                    return None;
+                }
+                chars = need;
+                continue;
+            }
+            if status < 0 {
+                return None;
+            }
+            let n = info.image_name.Length as usize / 2;
+            if n > buf.len() {
+                return None;
+            }
+            // 성공인데 빈 이름 — `System` · `Secure System` 이다([`image_from`] 이 실행 파일 없음으로 읽는다).
+            return Some(String::from_utf16_lossy(&buf[..n]));
+        }
+        None
+    }
+
+    /// 드라이브 문자마다 그 장치 이름(`C:` → `\Device\HarddiskVolume3`). 묻지 못한 문자는 빠진다.
+    fn drive_devices() -> Vec<(char, String)> {
+        let mut out = Vec::new();
+        for letter in b'A'..=b'Z' {
+            let name = [u16::from(letter), u16::from(b':'), 0];
+            let mut target = vec![0u16; NAME_CHARS];
+            // SAFETY: `name` 은 NUL 로 끝나는 지역 값이고, `target` 은 `NAME_CHARS` 칸이며 그 수를 그대로 넘긴다.
+            let n =
+                unsafe { QueryDosDeviceW(name.as_ptr(), target.as_mut_ptr(), target.len() as u32) }
+                    as usize;
+            if n == 0 || n > target.len() {
+                continue;
+            }
+            // 답은 NUL 로 나뉜 여러 줄일 수 있다 — 첫 줄이 지금 그 문자가 가리키는 장치다.
+            let end = target[..n].iter().position(|&c| c == 0).unwrap_or(n);
+            if end > 0 {
+                out.push((char::from(letter), String::from_utf16_lossy(&target[..end])));
+            }
+        }
+        out
+    }
+
+    /// 장치 경로를 드라이브 문자 경로로. 맞는 장치가 없으면 `None`.
+    pub(super) fn to_dos(nt: &str, drives: &[(char, String)]) -> Option<String> {
+        drives.iter().find_map(|(letter, dev)| {
+            let head = nt.get(..dev.len())?;
+            let rest = nt.get(dev.len()..)?;
+            (head.eq_ignore_ascii_case(dev) && rest.starts_with('\\'))
+                .then(|| format!("{letter}:{rest}"))
+        })
+    }
 }
 
 #[cfg(all(test, windows))]
@@ -333,6 +502,109 @@ mod tests {
         assert_eq!(modules_of(0xFFFF_FFF1), Modules::Gone);
     }
 
+    /// 열지 않고 물은 제 경로가 `current_exe` 와 같다 — 장치 경로를 드라이브 문자로 바꾸는 길까지 재는 셈이다.
+    #[test]
+    fn this_process_image_path_without_opening() {
+        let got = image_paths_of(&[std::process::id()]);
+        let me = std::env::current_exe().expect("실행 파일 경로");
+        assert_eq!(got.len(), 1);
+        let Image::Path(path) = &got[0] else {
+            panic!("제 경로를 묻지 못했다: {:?}", got[0]);
+        };
+        assert!(
+            path.eq_ignore_ascii_case(&me.to_string_lossy()),
+            "{path} ≠ {}",
+            me.display()
+        );
+    }
+
+    /// 없는 pid · `Idle` 은 *모른다* 이고, `System` 은 *실행 파일이 없다* 다 — 거부로 셀 프로세스가 아니다.
+    #[test]
+    fn missing_idle_and_system() {
+        assert_eq!(
+            image_paths_of(&[0xFFFF_FFF1, 0, 4]),
+            vec![Image::Unknown, Image::Unknown, Image::NoFile]
+        );
+    }
+
+    /// OS 의 답 하나를 읽는 규칙 — 빈 이름 · 짧은 이름은 실행 파일 없음, 장치 경로는 드라이브 문자로, 바꿀 수 없는
+    /// 장치 경로는 모름(2026-11-19 실측한 답의 꼴 그대로).
+    #[test]
+    fn os_answers_turn_into_images() {
+        let drives = vec![('C', String::from(r"\Device\HarddiskVolume3"))];
+        for minimal in [
+            "",
+            "Registry",
+            "MemCompression",
+            "vmmemWSL",
+            "Secure System",
+        ] {
+            assert_eq!(
+                imp::image_from(minimal, &drives),
+                Image::NoFile,
+                "{minimal:?}"
+            );
+        }
+        assert_eq!(
+            imp::image_from(
+                r"\Device\HarddiskVolume3\Windows\System32\vmwp.exe",
+                &drives
+            ),
+            Image::Path(String::from(r"C:\Windows\System32\vmwp.exe"))
+        );
+        assert_eq!(
+            imp::image_from(r"\Device\Mup\server\share\php-cgi.exe", &drives),
+            Image::Unknown
+        );
+    }
+
+    /// 장치 경로 → 드라이브 문자. 장치 이름의 대소문자는 가리지 않고, 장치 이름 바로 뒤가 `\` 일 때만이다
+    /// (`HarddiskVolume3` 가 `HarddiskVolume30` 의 앞부분으로 맞지 않게).
+    #[test]
+    fn device_paths_turn_into_drive_letters() {
+        let drives = vec![
+            ('C', String::from(r"\Device\HarddiskVolume3")),
+            ('D', String::from(r"\Device\HarddiskVolume30")),
+        ];
+        assert_eq!(
+            imp::to_dos(
+                r"\Device\HarddiskVolume3\Windows\System32\csrss.exe",
+                &drives
+            )
+            .as_deref(),
+            Some(r"C:\Windows\System32\csrss.exe")
+        );
+        assert_eq!(
+            imp::to_dos(r"\device\harddiskvolume30\web\nginx.exe", &drives).as_deref(),
+            Some(r"D:\web\nginx.exe")
+        );
+        assert_eq!(
+            imp::to_dos(r"\Device\Mup\server\share\x.exe", &drives),
+            None
+        );
+        assert_eq!(imp::to_dos(r"\Device\HarddiskVolume3", &drives), None);
+    }
+
+    /// 진단용(기본으로 돌지 않는다) — `REMEDY_TEST_PIDS`(쉼표로 나눈 pid)마다 열지 않고 물은 경로를 적는다. 관리자로도
+    /// 열 수 없는 프로세스가 경로를 얻는지 이 기계에서 볼 때 쓴다.
+    #[test]
+    #[ignore]
+    fn print_image_paths_of_given_pids() {
+        let pids: Vec<u32> = std::env::var("REMEDY_TEST_PIDS")
+            .unwrap_or_default()
+            .split(',')
+            .filter_map(|s| s.trim().parse().ok())
+            .collect();
+        for (pid, image) in pids.iter().zip(image_paths_of(&pids)) {
+            let shown = match image {
+                Image::Path(path) => path,
+                Image::NoFile => String::from("(실행 파일 없음)"),
+                Image::Unknown => String::from("(모름)"),
+            };
+            println!("{pid}\t{shown}");
+        }
+    }
+
     /// `Idle`(pid 0) 도 끝남이다(랩 VM 실측과 같다).
     #[test]
     fn the_idle_process_is_gone() {
@@ -348,6 +620,15 @@ mod tests {
     #[test]
     fn outside_windows_it_says_refused() {
         assert_eq!(modules_of(std::process::id()), Modules::Refused);
+    }
+
+    /// Windows 밖에서는 실행 파일을 묻지 않는다 — *실행 파일 없음* 이 아니라 *모른다* 로 답한다.
+    #[test]
+    fn outside_windows_image_is_unknown() {
+        assert_eq!(
+            image_paths_of(&[1, 2]),
+            vec![Image::Unknown, Image::Unknown]
+        );
     }
 
     /// Windows 밖에서는 다시 열지 않는다 — 거절(1223)이 아닌 오류로 답한다.

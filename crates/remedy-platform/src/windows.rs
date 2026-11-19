@@ -21,7 +21,8 @@ use crate::write::{PlatformWrite, DEFENDER_EXCLUSIONS, DEFENDER_EXCLUSION_ROOT};
 use crate::PlatformError;
 use remedy_sdk::catalog::Platform;
 use remedy_sdk::normalize;
-use remedy_winmods::Modules;
+use remedy_winmods::{Image, Modules};
+use std::collections::BTreeSet;
 
 pub struct Live {
     /// 32비트 프로세스가 64비트 OS 에서 도는가.
@@ -1672,10 +1673,53 @@ impl PlatformWrite for Live {
     }
 }
 
+impl Live {
+    /// `sysinfo` 가 실행 파일 경로를 주지 못한 프로세스에 **열지 않고 물은 경로**를 채운다(1.25.0 · `remedy-winmods` 의
+    /// [`remedy_winmods::image_paths_of`]). 서비스 계정으로 도는 Windows · 서비스 프로세스는 관리자 토큰으로도 여는 것이
+    /// 막혀 경로가 비었고, 그 프로세스가 점검마다 관측 불완전(6)을 세웠다(2026-11-19 실제 PC 실측 37개). 경로를 알면
+    /// 룰이 그 경로로 판정하고 수집기는 그것을 거부로 세지 않는다. 묻지 못하면 전처럼 빈 채다.
+    ///
+    /// 돌려주는 것은 **실행 파일이 없는 프로세스**(최소 프로세스 · [`Image::NoFile`])의 pid 다 — 경로는 빈 채로 두고,
+    /// 부르는 쪽이 그 모듈을 묻지 않는다(실린 것이 없다).
+    fn fill_image_paths(&self, out: &mut [RawProcess]) -> BTreeSet<u32> {
+        let mut no_file = BTreeSet::new();
+        let missing: Vec<u32> = out
+            .iter()
+            .filter(|p| p.image_path.is_empty())
+            .map(|p| p.pid)
+            .collect();
+        if missing.is_empty() {
+            return no_file;
+        }
+        let found = remedy_winmods::image_paths_of(&missing);
+        for (pid, image) in missing.iter().zip(found) {
+            match image {
+                Image::Path(path) => {
+                    if let Some(p) = out.iter_mut().find(|p| p.pid == *pid) {
+                        // `sysinfo` 의 경로와 같은 기록 규칙 — 같은 파일이 두 길에서 다른 글자가 되지 않게.
+                        p.image_path = normalize::nfc(&self.for_record(&path));
+                    }
+                }
+                Image::NoFile => {
+                    no_file.insert(*pid);
+                }
+                Image::Unknown => {}
+            }
+        }
+        no_file
+    }
+}
+
 impl ProcessRead for Live {
     fn processes(&self) -> Result<Vec<RawProcess>, PlatformError> {
         let mut out = crate::local::processes(self)?;
+        let no_file = self.fill_image_paths(&mut out);
         for p in &mut out {
+            // 실행 파일이 없는 최소 프로세스에는 실린 모듈도 없다 — 묻지 않는다. 물으면 `vmmemWSL` 처럼 관리자 토큰으로도
+            // 열리지 않는 것이 거부로 돌아와, 못 본 것이 없는데 점검마다 관측 불완전(6)이 선다(2026-11-19 실측).
+            if no_file.contains(&p.pid) {
+                continue;
+            }
             match remedy_winmods::modules_of(p.pid) {
                 Modules::Read(paths) => {
                     // 실행 파일 경로와 같은 기록 규칙 — 같은 파일이 두 칸에서 다른 글자가 되지 않게.
@@ -1694,8 +1738,12 @@ impl ProcessRead for Live {
     }
 
     fn processes_without_modules(&self) -> Result<Vec<RawProcess>, PlatformError> {
-        // 1.8.0 까지의 길 그대로 — 모듈 칸은 빈다(`Scope::process_modules` 가 거짓인 룰).
-        crate::local::processes(self)
+        // 1.8.0 까지의 길 그대로 — 모듈 칸은 빈다(`Scope::process_modules` 가 거짓인 룰). 경로는 같은 길로 채운다
+        // (1.25.0) — 실행 파일 경로를 보는 룰(자리 밖에서 도는 nginx · PHP 등)이 열 수 없는 프로세스도 판정하게.
+        let mut out = crate::local::processes(self)?;
+        // 모듈을 묻지 않는 길이라 실행 파일 없는 pid 목록은 쓸 데가 없다.
+        let _ = self.fill_image_paths(&mut out);
+        Ok(out)
     }
 }
 

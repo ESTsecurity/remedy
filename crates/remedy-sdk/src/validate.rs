@@ -104,6 +104,7 @@ pub fn validate(m: &PluginManifest) -> Vec<SchemaIssue> {
     check_min_core(m, &mut issues);
     // 데이터 · 네트워크 룰의 갈래보다 먼저 본다 — 그 갈래는 아래에서 일찍 끝난다.
     check_product(m, &mut issues);
+    check_added(m, &mut issues);
 
     // 동반 프로그램의 이름은 룰이 쓰지 못한다 — 본체는 그 이름으로 서명된 폴더의 실행 파일을 띄운다
     // (설계-04 §1 *동반 모듈*). 룰에 그 이름의 서명이 생기는 길을 문법에서 닫는다.
@@ -360,6 +361,50 @@ fn check_product(m: &PluginManifest, issues: &mut Vec<SchemaIssue>) {
                 "설계-02 §10",
             )
             .with_valid("min_core: \"1.21.0\" 이상".to_string()),
+        );
+    }
+}
+
+/// `added` — 이 룰이 맡은 위협을 꾸러미에 더한 날 (2026-11-19 · 코어 1.25.0).
+///
+/// - **`YYYY-MM-DD` 로, 있는 날만.** 고르는 화면이 그 날로 *새로 추가된 항목* 을 가르고 날짜를 붙인다 — 꼴이 틀리면
+///   새 룰이 맨 위에서 조용히 빠진다.
+/// - **데이터 룰에는 적지 않는다.** 고르는 화면에 서지 않는 룰이라 아무 데도 쓰이지 않는데 쓰인 줄 안다.
+/// - **`min_core` 는 1.25.0 이상.** 낮은 코어는 이 칸을 모른다(매니페스트를 읽다 멈춘다).
+fn check_added(m: &PluginManifest, issues: &mut Vec<SchemaIssue>) {
+    const GUIDE: &str = "docs/plugin-guide/10-manifest.md";
+    let Some(date) = &m.added else {
+        return;
+    };
+    if m.kind == Some(crate::manifest::PluginKind::Data) {
+        issues.push(SchemaIssue::new(
+            "added",
+            "데이터 룰에는 적지 않는다 — 고르는 화면에 서지 않는다",
+            GUIDE,
+        ));
+    }
+    if crate::utc::day_number(date).is_none() {
+        issues.push(
+            SchemaIssue::new(
+                "added",
+                format!("'{date}' 을 날짜로 읽지 못했다 — YYYY-MM-DD 의 있는 날이어야 한다"),
+                GUIDE,
+            )
+            .with_valid("added: \"2026-11-19\" — 이 위협을 더한 한국 날짜".to_string()),
+        );
+    }
+    const SINCE: (u64, u64, u64) = (1, 25, 0);
+    if semver3(&m.min_core).is_some_and(|v| v < SINCE) {
+        issues.push(
+            SchemaIssue::new(
+                "min_core",
+                format!(
+                    "added 는 코어 1.25.0 부터 있다 — min_core '{}' 로는 낮은 코어가 이 룰을 읽다 멈춘다",
+                    m.min_core
+                ),
+                "설계-02 §10",
+            )
+            .with_valid("min_core: \"1.25.0\" 이상".to_string()),
         );
     }
 }

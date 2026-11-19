@@ -29,6 +29,45 @@ pub fn now_rfc3339() -> String {
     )
 }
 
+/// `YYYY-MM-DD` 한 날 → 1970-01-01 부터 센 날 수. 꼴이 틀리거나 없는 날(`2026-02-30`)이면 `None` — 룰의
+/// `added`(코어 1.25.0)가 이 꼴이다.
+pub fn day_number(date: &str) -> Option<i64> {
+    let b = date.as_bytes();
+    if b.len() != 10 || b[4] != b'-' || b[7] != b'-' {
+        return None;
+    }
+    let num = |from: usize, to: usize| -> Option<u32> {
+        let s = date.get(from..to)?;
+        s.bytes()
+            .all(|c| c.is_ascii_digit())
+            .then(|| s.parse().ok())?
+    };
+    let (y, m, d) = (i64::from(num(0, 4)?), num(5, 7)?, num(8, 10)?);
+    if !(1..=12).contains(&m) || !(1..=31).contains(&d) {
+        return None;
+    }
+    let n = days_from_civil(y, m, d);
+    // 31 일이 없는 달의 31 일 · 윤년이 아닌 해의 2월 29일은 다음 달로 넘어간다 — 되돌려 같은 날인지 본다.
+    (civil_from_days(n) == (y, m, d)).then_some(n)
+}
+
+/// 그레고리력 → 1970-01-01 부터 센 날 수 (H. Hinnant 의 days-from-civil).
+fn days_from_civil(y: i64, m: u32, d: u32) -> i64 {
+    let y = if m <= 2 { y - 1 } else { y };
+    let era = if y >= 0 { y } else { y - 399 } / 400;
+    let yoe = (y - era * 400) as u64;
+    let mp = u64::from(if m > 2 { m - 3 } else { m + 9 });
+    let doy = (153 * mp + 2) / 5 + u64::from(d) - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    era * 146_097 + doe as i64 - 719_468
+}
+
+/// 날 수 → `(월, 일)` — 화면에 *11월 19일* 처럼 적을 때.
+pub fn month_day(day: i64) -> (u32, u32) {
+    let (_, m, d) = civil_from_days(day);
+    (m, d)
+}
+
 /// 1970-01-01 부터 센 날 수 → 그레고리력 (H. Hinnant 의 days-from-civil 역함수).
 fn civil_from_days(z: i64) -> (i64, u32, u32) {
     let z = z + 719_468;
@@ -58,6 +97,39 @@ mod tests {
         assert_eq!(rfc3339(951_782_400), "2000-02-29T00:00:00Z");
         assert_eq!(rfc3339(4_107_542_399), "2100-02-28T23:59:59Z");
         assert_eq!(civil(86_399), (1970, 1, 1, 23, 59, 59));
+    }
+
+    /// 날짜 한 줄 → 날 수 — 초로 센 날과 같고, 없는 날 · 다른 꼴은 `None` 이다.
+    #[test]
+    fn a_date_reads_as_the_same_day_as_its_seconds() {
+        assert_eq!(day_number("1970-01-01"), Some(0));
+        assert_eq!(day_number("2026-11-10"), Some(1_794_280_200 / 86_400));
+        assert_eq!(day_number("2024-02-29"), Some(1_709_164_800 / 86_400));
+        assert_eq!(day_number("2100-02-28"), Some(4_107_542_399 / 86_400));
+        assert_eq!(
+            day_number("2026-11-19")
+                .zip(day_number("2026-11-17"))
+                .map(|(a, b)| a - b),
+            Some(2)
+        );
+        assert_eq!(month_day(day_number("2026-11-19").unwrap()), (11, 19));
+        for bad in [
+            "",
+            "2026-11-1",
+            "2026/11/19",
+            "2026-13-01",
+            "2026-00-10",
+            "2026-11-00",
+            "2026-11-31",
+            "2026-02-29",
+            "2100-02-29",
+            "2026-11-19 ",
+            "２026-11-19",
+            "2026-1a-19",
+            "+026-11-19",
+        ] {
+            assert_eq!(day_number(bad), None, "{bad:?}");
+        }
     }
 
     #[test]

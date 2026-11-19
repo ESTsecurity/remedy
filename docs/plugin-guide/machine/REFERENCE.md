@@ -68,7 +68,7 @@
 
 받는 자리마다 칸 이름이다 — 매니페스트 타입의 스키마(`plugin.schema.json`)에서 생성한다. 여기 없는 칸은 파싱에서 거부된다. 칸의 뜻은 `10-manifest.md` · 점검 룰의 칸은 `24-check-plugins.md`.
 
-- 최상위: `allow_removable` · `archive_members` · `collect_extra` · `detect` · `file_names` · `hash_large` · `id` · `kind` · `min_core` · `name` · `network` · `platforms` · `product` · `references` · `remediate` · `scan_roots` · `schema_version` · `signed_malware` · `subject_roots` · `subjects` · `submit_hint` · `text_config_dirs` · `verdict` · `version`
+- 최상위: `added` · `allow_removable` · `archive_members` · `collect_extra` · `detect` · `file_names` · `hash_large` · `id` · `kind` · `min_core` · `name` · `network` · `platforms` · `product` · `references` · `remediate` · `scan_roots` · `schema_version` · `signed_malware` · `subject_roots` · `subjects` · `submit_hint` · `text_config_dirs` · `verdict` · `version`
 - `collect_extra[]`: `content` · `glob` · `max_size` · `path` · `ref` · `subject`
 - `detect[]`: `capture` · `exclude` · `from` · `id` · `label` · `score` · `subject` · `where`
 - `detect[].exclude[]`: `field` · `op` · `value` · `yara`

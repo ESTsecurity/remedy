@@ -45,12 +45,13 @@
 #   `image` · `container` 점검이 따로 본다.
 schema_version: 1
 id: java4shell-check-linux
-version: 0.3.0
-min_core: "1.21.0"  # product 는 1.21.0 · label 은 1.13.0 · file_names 는 1.11.0
+version: 0.3.1
+min_core: "1.25.0"  # added 는 1.25.0 · product 는 1.21.0 · label 은 1.13.0 · file_names 는 1.11.0
 platforms: [linux]
 
 kind: check
 product: Java
+added: "2026-11-18"
 
 name:
   ko: "Java4Shell 점검 (CVE-2026-114938)"

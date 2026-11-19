@@ -1231,10 +1231,16 @@ fn a_check_never_skips_files_keys_processes_or_linux_denials() {
             "{obs:?}"
         );
         assert!(skipped_denied_lines(obs, Lang::Ko).is_empty(), "{obs:?}");
+        // Windows 의 프로세스(`pid N`)는 폴더가 아니라 *실행 파일을 알아내지 못한 프로세스* 로 말한다(1.25.0).
+        let says = if obs.denied_paths.iter().all(|p| p.starts_with("pid ")) {
+            "실행 파일을 알아내지 못한 프로세스"
+        } else {
+            "접근이 거부된"
+        };
         assert!(
             reason_lines(obs, Lang::Ko, true)
                 .iter()
-                .any(|l| l.contains("접근이 거부된")),
+                .any(|l| l.contains(says)),
             "{obs:?}"
         );
     }

@@ -7,7 +7,7 @@
 ########## A1. 사용법 — 기본 언어 (C 로케일)
 
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
-ESTsecurity Dedicated Cleaner 1.24.0
+ESTsecurity Dedicated Cleaner 1.25.0
 --------------------------------------------------------
 
 Usage
@@ -32,7 +32,7 @@ Copyright (c) 2026 ESTsecurity Corp. All Rights Reserved.
 ########## A2. 사용법 — 한국어
 
 알림: 이 OS 에는 코드서명 확인이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
-ESTsecurity 전용백신 1.24.0
+ESTsecurity 전용백신 1.25.0
 --------------------------------------------------------
 
 사용법
@@ -57,7 +57,7 @@ Copyright (c) 2026 ESTsecurity Corp. All Rights Reserved.
 ########## A3. 버전
 
 알림: 이 OS 에는 코드서명 확인이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
-ESTsecurity 전용백신 1.24.0 (remedy)
+ESTsecurity 전용백신 1.25.0 (remedy)
 
 ########## A0. 인자 없이 부르면 창을 붙잡는가 (터미널일 때만)
 
@@ -99,7 +99,7 @@ Error: root is required: system-wide autostart entries and configuration open on
 
 [꾸러미가 아예 없는 자리 — 지금까지의 동작 그대로여야 한다]
 알림: 이 OS 에는 코드서명 확인이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
-ESTsecurity 전용백신 1.24.0
+ESTsecurity 전용백신 1.25.0
 ────────────────────────────────────────────────────────
 
 사용법
@@ -135,7 +135,7 @@ Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
 ########## A9. --help-all 본문 — 낱말까지 대조한다
 
 알림: 이 OS 에는 코드서명 확인이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
-ESTsecurity 전용백신 1.24.0 (remedy)
+ESTsecurity 전용백신 1.25.0 (remedy)
 
   시스템을 변경하는 명령(collect|scan|run|apply|resume|restore|verify)은
   root 권한을 요구한다. 없으면 시작하지 않고 종료 코드 5 를 낸다.
@@ -226,7 +226,7 @@ ESTsecurity 전용백신 1.24.0 (remedy)
 
 알림: 이 OS 에는 코드서명 확인이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 --------------------------------------------------------
- ESTsecurity 전용백신 1.24.0
+ ESTsecurity 전용백신 1.25.0
  라이브러리 경로 로더 제거  (ldso-preload 1.0.0)
 --------------------------------------------------------
  시작 시각  : <T> UTC
@@ -252,7 +252,7 @@ ESTsecurity 전용백신 1.24.0 (remedy)
 
 알림: 이 OS 에는 코드서명 확인이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 ────────────────────────────────────────────────────────
- ESTsecurity 전용백신 1.24.0
+ ESTsecurity 전용백신 1.25.0
  라이브러리 경로 로더 제거  (ldso-preload 1.0.0)
 ────────────────────────────────────────────────────────
  시작 시각  : <T> UTC
@@ -278,7 +278,7 @@ ESTsecurity 전용백신 1.24.0 (remedy)
 
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.24.0
+ ESTsecurity Dedicated Cleaner 1.25.0
  Library path loader removal  (ldso-preload 1.0.0)
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
@@ -305,7 +305,7 @@ Threat found, not treated.
 --ascii — UTF-8 로케일인데도 장식이 ASCII 여야 한다 (C2 와 견준다)
 알림: 이 OS 에는 코드서명 확인이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 --------------------------------------------------------
- ESTsecurity 전용백신 1.24.0
+ ESTsecurity 전용백신 1.25.0
  라이브러리 경로 로더 제거  (ldso-preload 1.0.0)
 --------------------------------------------------------
  시작 시각  : <T> UTC
@@ -330,7 +330,7 @@ Threat found, not treated.
 --verbose — 검사 결과에 evidence·groups·verdicts 가 붙는다
 알림: 이 OS 에는 코드서명 확인이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 ────────────────────────────────────────────────────────
- ESTsecurity 전용백신 1.24.0
+ ESTsecurity 전용백신 1.25.0
  라이브러리 경로 로더 제거  (ldso-preload 1.0.0)
 ────────────────────────────────────────────────────────
  시작 시각  : <T> UTC
@@ -356,14 +356,14 @@ Threat found, not treated.
 
 --lang — 플래그가 REMEDY_LANG 을 이긴다 (REMEDY_LANG=ko 인데 영어여야 한다)
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
-ESTsecurity Dedicated Cleaner 1.24.0 (remedy)
+ESTsecurity Dedicated Cleaner 1.25.0 (remedy)
 [exit=0]
 
 ########## D1. run — 승인할 사람이 없다
 
 알림: 이 OS 에는 코드서명 확인이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 ────────────────────────────────────────────────────────
- ESTsecurity 전용백신 1.24.0
+ ESTsecurity 전용백신 1.25.0
  라이브러리 경로 로더 제거  (ldso-preload 1.0.0)
 ────────────────────────────────────────────────────────
  시작 시각  : <T> UTC
@@ -390,7 +390,7 @@ ESTsecurity Dedicated Cleaner 1.24.0 (remedy)
 
 알림: 이 OS 에는 코드서명 확인이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 ────────────────────────────────────────────────────────
- ESTsecurity 전용백신 1.24.0
+ ESTsecurity 전용백신 1.25.0
  라이브러리 경로 로더 제거  (ldso-preload 1.0.0)
 ────────────────────────────────────────────────────────
  시작 시각  : <T> UTC
@@ -418,7 +418,7 @@ ESTsecurity Dedicated Cleaner 1.24.0 (remedy)
 아니오
 알림: 이 OS 에는 코드서명 확인이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 ────────────────────────────────────────────────────────
- ESTsecurity 전용백신 1.24.0
+ ESTsecurity 전용백신 1.25.0
 ────────────────────────────────────────────────────────
  시작 시각  : <T> UTC
  실행 기계  : <host> (linux)
@@ -441,7 +441,7 @@ ESTsecurity Dedicated Cleaner 1.24.0 (remedy)
 
 알림: 이 OS 에는 코드서명 확인이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 ────────────────────────────────────────────────────────
- ESTsecurity 전용백신 1.24.0
+ ESTsecurity 전용백신 1.25.0
  라이브러리 경로 로더 제거  (ldso-preload 1.0.0)
 ────────────────────────────────────────────────────────
  시작 시각  : <T> UTC
@@ -482,7 +482,7 @@ ESTsecurity Dedicated Cleaner 1.24.0 (remedy)
 
 알림: 이 OS 에는 코드서명 확인이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 ────────────────────────────────────────────────────────
- ESTsecurity 전용백신 1.24.0
+ ESTsecurity 전용백신 1.25.0
 ────────────────────────────────────────────────────────
  시작 시각  : <T> UTC
  실행 기계  : <host> (linux)
@@ -498,7 +498,7 @@ ESTsecurity Dedicated Cleaner 1.24.0 (remedy)
 
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.24.0
+ ESTsecurity Dedicated Cleaner 1.25.0
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
  Machine    : <host> (linux)
@@ -514,7 +514,7 @@ Treatment succeeded. The same check no longer finds the threat.
 
 알림: 이 OS 에는 코드서명 확인이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 ────────────────────────────────────────────────────────
- ESTsecurity 전용백신 1.24.0
+ ESTsecurity 전용백신 1.25.0
 ────────────────────────────────────────────────────────
  시작 시각  : <T> UTC
  실행 기계  : <host> (linux)
@@ -531,7 +531,7 @@ Treatment succeeded. The same check no longer finds the threat.
 
 알림: 이 OS 에는 코드서명 확인이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 ────────────────────────────────────────────────────────
- ESTsecurity 전용백신 1.24.0
+ ESTsecurity 전용백신 1.25.0
 ────────────────────────────────────────────────────────
  시작 시각  : <T> UTC
  실행 기계  : <host> (linux)
@@ -563,7 +563,7 @@ Treatment succeeded. The same check no longer finds the threat.
 
 알림: 이 OS 에는 코드서명 확인이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 ────────────────────────────────────────────────────────
- ESTsecurity 전용백신 1.24.0
+ ESTsecurity 전용백신 1.25.0
 ────────────────────────────────────────────────────────
  시작 시각  : <T> UTC
  실행 기계  : <host> (linux)
@@ -603,7 +603,7 @@ Treatment succeeded. The same check no longer finds the threat.
 
 알림: 이 OS 에는 코드서명 확인이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 ────────────────────────────────────────────────────────
- ESTsecurity 전용백신 1.24.0
+ ESTsecurity 전용백신 1.25.0
 ────────────────────────────────────────────────────────
  시작 시각  : <T> UTC
  실행 기계  : <host> (linux)
@@ -670,7 +670,7 @@ Treatment succeeded. The same check no longer finds the threat.
 
 알림: 이 OS 에는 코드서명 확인이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 ────────────────────────────────────────────────────────
- ESTsecurity 전용백신 1.24.0
+ ESTsecurity 전용백신 1.25.0
  C2 비컨 자동 시작 항목 제거  (c2-beacon 1.0.1)
 ────────────────────────────────────────────────────────
  시작 시각  : <T> UTC
@@ -696,7 +696,7 @@ Treatment succeeded. The same check no longer finds the threat.
 
 알림: 이 OS 에는 코드서명 확인이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 ────────────────────────────────────────────────────────
- ESTsecurity 전용백신 1.24.0
+ ESTsecurity 전용백신 1.25.0
  C2 비컨 자동 시작 항목 제거  (c2-beacon 1.0.1)
 ────────────────────────────────────────────────────────
  시작 시각  : <T> UTC
@@ -842,7 +842,7 @@ Treatment succeeded. The same check no longer finds the threat.
 
 알림: 이 OS 에는 코드서명 확인이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 ────────────────────────────────────────────────────────
- ESTsecurity 전용백신 1.24.0
+ ESTsecurity 전용백신 1.25.0
 ────────────────────────────────────────────────────────
  시작 시각  : <T> UTC
  실행 기계  : <host> (linux)
@@ -852,7 +852,7 @@ Treatment succeeded. The same check no longer finds the threat.
 [exit=4]
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
- ESTsecurity Dedicated Cleaner 1.24.0
+ ESTsecurity Dedicated Cleaner 1.25.0
 ────────────────────────────────────────────────────────
  Started    : <T> UTC
  Machine    : <host> (linux)
@@ -872,7 +872,7 @@ Error: --plan is required
 
 --lang 'kr': 모르는 언어라 무시했습니다 (ko | en) / unknown language, ignored (ko | en)
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
-ESTsecurity Dedicated Cleaner 1.24.0 (remedy)
+ESTsecurity Dedicated Cleaner 1.25.0 (remedy)
 [exit=0]
 
 ########## I. plugin lint
@@ -920,9 +920,9 @@ run-X.log
 run-X.log
 run-X.log
 --- 치료 회차 로그의 머리부터 치료 시작까지 ---
-<T> # remedy 1.24.0 pid N · run --plugin /repo/testbed/ai-exam/threats/ldso-preload/reference-plugin/plugin.yaml --out-dir /tmp/console-capture/run --yes --state-dir /tmp/console-capture/s
+<T> # remedy 1.25.0 pid N · run --plugin /repo/testbed/ai-exam/threats/ldso-preload/reference-plugin/plugin.yaml --out-dir /tmp/console-capture/run --yes --state-dir /tmp/console-capture/s
 <T> | ────────────────────────────────────────────────────────
-<T> |  ESTsecurity 전용백신 1.24.0
+<T> |  ESTsecurity 전용백신 1.25.0
 <T> |  라이브러리 경로 로더 제거  (ldso-preload 1.0.0)
 <T> | ────────────────────────────────────────────────────────
 <T> |  시작 시각  : <T> UTC
@@ -949,7 +949,7 @@ run-X.log
 
 알림: 이 OS 에는 코드서명 확인이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 ────────────────────────────────────────────────────────
- ESTsecurity 전용백신 1.24.0
+ ESTsecurity 전용백신 1.25.0
  없는 자리 검사  (force-incomplete 1.0.0)
 ────────────────────────────────────────────────────────
  시작 시각  : <T> UTC
@@ -968,7 +968,7 @@ run-X.log
 
 알림: 이 OS 에는 코드서명 확인이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 ────────────────────────────────────────────────────────
- ESTsecurity 전용백신 1.24.0
+ ESTsecurity 전용백신 1.25.0
  점검 — 없는 자리  (force-check-absent 1.0.0)
 ────────────────────────────────────────────────────────
  시작 시각  : <T> UTC
@@ -987,7 +987,7 @@ run-X.log
 
 알림: 이 OS 에는 코드서명 확인이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 ────────────────────────────────────────────────────────
- ESTsecurity 전용백신 1.24.0
+ ESTsecurity 전용백신 1.25.0
  점검 — 노출된 설정  (force-check-found 1.0.0)
 ────────────────────────────────────────────────────────
  시작 시각  : <T> UTC
@@ -1022,7 +1022,7 @@ run-X.log
 
 알림: 이 OS 에는 코드서명 확인이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 ────────────────────────────────────────────────────────
- ESTsecurity 전용백신 1.24.0
+ ESTsecurity 전용백신 1.25.0
  점검 — 취약 버전  (force-check-version 1.0.0)
 ────────────────────────────────────────────────────────
  시작 시각  : <T> UTC
@@ -1042,7 +1042,7 @@ run-X.log
 
 알림: 이 OS 에는 코드서명 확인이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 ────────────────────────────────────────────────────────
- ESTsecurity 전용백신 1.24.0
+ ESTsecurity 전용백신 1.25.0
  물어보지 못한 자리  (force-unreadable-root 1.0.0)
 ────────────────────────────────────────────────────────
  시작 시각  : <T> UTC
@@ -1061,7 +1061,7 @@ run-X.log
 
 알림: 이 OS 에는 코드서명 확인이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 ────────────────────────────────────────────────────────
- ESTsecurity 전용백신 1.24.0
+ ESTsecurity 전용백신 1.25.0
  읽기 전용 자리  (force-partial 1.0.0)
 ────────────────────────────────────────────────────────
  시작 시각  : <T> UTC
@@ -1097,7 +1097,7 @@ run-X.log
 
 알림: 이 OS 에는 코드서명 확인이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 ────────────────────────────────────────────────────────
- ESTsecurity 전용백신 1.24.0
+ ESTsecurity 전용백신 1.25.0
  상한 초과 시험  (force-guard 1.0.0)
 ────────────────────────────────────────────────────────
  시작 시각  : <T> UTC
@@ -1113,7 +1113,7 @@ run-X.log
 
 알림: 이 OS 에는 코드서명 확인이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 ────────────────────────────────────────────────────────
- ESTsecurity 전용백신 1.24.0
+ ESTsecurity 전용백신 1.25.0
  상한 초과 시험  (force-tamper 1.0.0)
 ────────────────────────────────────────────────────────
  시작 시각  : <T> UTC
@@ -1140,7 +1140,7 @@ run-X.log
  Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
 알림: 이 OS 에는 코드서명 확인이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 ────────────────────────────────────────────────────────
- ESTsecurity 전용백신 1.24.0
+ ESTsecurity 전용백신 1.25.0
 ────────────────────────────────────────────────────────
  시작 시각  : <T> UTC
  실행 기계  : <host> (linux)
@@ -1175,12 +1175,12 @@ Error: internal error: the tool itself crashed. The machine is as the journal re
 [exit=7]
 --- 크래시 기록의 머리 ---
 ==> /tmp/console-capture/sP/logs/crash-<T>-N.txt <==
-remedy 1.24.0 · internal error (panic)
+remedy 1.25.0 · internal error (panic)
 at    : <T>
 where : crates/remedy-cli/src/tee.rs:249:9
 
 ==> /tmp/console-capture/sP/logs/crash-<T>-N.txt <==
-remedy 1.24.0 · internal error (panic)
+remedy 1.25.0 · internal error (panic)
 at    : <T>
 
 ########## R. 조직 복구 키 — apply 가 싣고 restore 가 연다
@@ -1188,7 +1188,7 @@ at    : <T>
 org 키쌍 생성 OK — 공개키 N 바이트
 알림: 이 OS 에는 코드서명 확인이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 ────────────────────────────────────────────────────────
- ESTsecurity 전용백신 1.24.0
+ ESTsecurity 전용백신 1.25.0
  조직 복구 키 시험  (force-org 1.0.0)
 ────────────────────────────────────────────────────────
  시작 시각  : <T> UTC
@@ -1221,7 +1221,7 @@ org 키쌍 생성 OK — 공개키 N 바이트
 --- 조직 키로 연다 (제자리가 아니라 꺼내기) ---
 알림: 이 OS 에는 코드서명 확인이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 ────────────────────────────────────────────────────────
- ESTsecurity 전용백신 1.24.0
+ ESTsecurity 전용백신 1.25.0
 ────────────────────────────────────────────────────────
  시작 시각  : <T> UTC
  실행 기계  : <host> (linux)
@@ -1258,20 +1258,24 @@ _tmp_console-capture_orgsrc_g2.evil
 
 [exit=6]
 
-ESTsecurity 전용백신 1.24.0 · 룰 2026.11.19.2
+ESTsecurity 전용백신 1.25.0 · 룰 2026.11.19.3
 root 권한으로 실행 중입니다.
 알림: 리눅스는 코드서명 확인이 없습니다. 받은 파일은 체크섬으로 확인하십시오.
 
 무엇을 검사할까요? (검사 항목 12개)
   1. 빠른 검사 (권장 · 항목 10개 · 아무것도 바꾸지 않습니다)
   2. 정밀 검사 (항목 11개 · 디스크 전체까지 · 오래 걸릴 수 있습니다)
-  3. CWPdoor 점검 (탐지만)
-  4. CWPdoor 제거
-  5. Ebury 점검 (탐지만)
-  6. Apache HTTP/2 점검 (CVE-2026-119618)
-  7. Java4Shell 점검 (CVE-2026-114938)
-  8. Log4j 점검 (CVE-2021-44228 등)
-  9. nginx2root 점검 (CVE-2026-123007 · CVE-2026-123634 · CVE-2026-123633 · CVE-2026-121810 · CVE-2026-113425)
+
+새로 추가된 항목
+  3. nginx2root 점검 (CVE-2026-123007 · CVE-2026-123634 · CVE-2026-123633 · CVE-2026-121810 · CVE-2026-113425) [11월 19일 추가]
+  4. Java4Shell 점검 (CVE-2026-114938) [11월 18일 추가]
+
+그 밖의 항목
+  5. CWPdoor 점검 (탐지만)
+  6. CWPdoor 제거
+  7. Ebury 점검 (탐지만)
+  8. Apache HTTP/2 점검 (CVE-2026-119618)
+  9. Log4j 점검 (CVE-2021-44228 등)
   10. Node2Shell 점검 (CVE-2026-111497)
   11. OpenSSH 점검 (CVE-2026-123158 · Alpine)
   12. PHP 세션 업로드 진행 설정 점검 (CVE-2026-115560)
@@ -1281,7 +1285,21 @@ root 권한으로 실행 중입니다.
 
 번호를 고르십시오 (0-14): 빠른 검사 — 항목 10개를 검사합니다. 아무것도 바꾸지 않습니다.
 
-[1/10] CWPdoor 점검 (탐지만)
+[1/10] nginx2root 점검 (CVE-2026-123007 · CVE-2026-123634 · CVE-2026-123633 · CVE-2026-121810 · CVE-2026-113425)
+
+검사를 시작합니다.
+검사 완료 : 흔적 0건 · 취약 0건
+
+취약한 곳을 찾지 못했습니다.
+
+[2/10] Java4Shell 점검 (CVE-2026-114938)
+
+검사를 시작합니다.
+검사 완료 : 흔적 0건 · 취약 0건
+
+취약한 곳을 찾지 못했습니다.
+
+[3/10] CWPdoor 점검 (탐지만)
 
 검사를 시작합니다.
 검사 완료 : 흔적 0건 · 위협 0건
@@ -1290,7 +1308,7 @@ root 권한으로 실행 중입니다.
 
 관측이 불완전해 '위협 없음' 을 말할 수 없습니다.
 
-[2/10] CWPdoor 제거
+[4/10] CWPdoor 제거
 
 검사를 시작합니다.
 검사 완료 : 흔적 0건 · 위협 0건
@@ -1299,33 +1317,19 @@ root 권한으로 실행 중입니다.
 
 관측이 불완전해 '위협 없음' 을 말할 수 없습니다.
 
-[3/10] Ebury 점검 (탐지만)
+[5/10] Ebury 점검 (탐지만)
 
 검사를 시작합니다.
 검사 완료 : 흔적 0건 · 위협 0건
 
 위협이 발견되지 않았습니다.
 
-[4/10] Apache HTTP/2 점검 (CVE-2026-119618)
+[6/10] Apache HTTP/2 점검 (CVE-2026-119618)
 
 검사를 시작합니다.
 검사 완료 : 흔적 0건 · 취약 0건
   안내: 점검 대상이 이 기계에 없습니다 — 선언한 자리 16곳이 전부 존재하지 않습니다: /etc/apache2 · /etc/httpd · /opt/apache/bin · /opt/apache/conf · /opt/apache2/bin · /opt/apache2/conf · /opt/httpd/bin · /opt/httpd/conf · /opt/lampp/bin · /opt/lampp/etc · /usr/local/apache/bin · /usr/local/apache/conf · /usr/local/apache2/bin · /usr/local/apache2/conf · /usr/local/httpd/bin · /usr/local/httpd/conf
         경로가 틀린 것이 아닌지도 함께 보십시오.
-
-취약한 곳을 찾지 못했습니다.
-
-[5/10] Java4Shell 점검 (CVE-2026-114938)
-
-검사를 시작합니다.
-검사 완료 : 흔적 0건 · 취약 0건
-
-취약한 곳을 찾지 못했습니다.
-
-[6/10] nginx2root 점검 (CVE-2026-123007 · CVE-2026-123634 · CVE-2026-123633 · CVE-2026-121810 · CVE-2026-113425)
-
-검사를 시작합니다.
-검사 완료 : 흔적 0건 · 취약 0건
 
 취약한 곳을 찾지 못했습니다.
 
@@ -1359,12 +1363,12 @@ root 권한으로 실행 중입니다.
 
 ────────────────────────────────────────────────────────
 빠른 검사 결과 — 항목 10개 · 아무것도 바꾸지 않았습니다
+  nginx2root 점검 (CVE-2026-123007 · CVE-2026-123634 · CVE-2026-123633 · CVE-2026-121810 · CVE-2026-113425) — 취약한 곳을 찾지 못했습니다.
+  Java4Shell 점검 (CVE-2026-114938) — 취약한 곳을 찾지 못했습니다.
   CWPdoor 점검 (탐지만) — 해당 없음 (검사할 경로가 이 기계에 없습니다)
   CWPdoor 제거 — 해당 없음 (검사할 경로가 이 기계에 없습니다)
   Ebury 점검 (탐지만) — 위협이 발견되지 않았습니다.
   Apache HTTP/2 점검 (CVE-2026-119618) — 취약한 곳을 찾지 못했습니다.
-  Java4Shell 점검 (CVE-2026-114938) — 취약한 곳을 찾지 못했습니다.
-  nginx2root 점검 (CVE-2026-123007 · CVE-2026-123634 · CVE-2026-123633 · CVE-2026-121810 · CVE-2026-113425) — 취약한 곳을 찾지 못했습니다.
   Node2Shell 점검 (CVE-2026-111497) — 취약한 곳을 찾지 못했습니다.
   OpenSSH 점검 (CVE-2026-123158 · Alpine) — 취약한 곳을 찾지 못했습니다.
   PHP 세션 업로드 진행 설정 점검 (CVE-2026-115560) — 취약한 곳을 찾지 못했습니다.
@@ -1377,19 +1381,23 @@ root 권한으로 실행 중입니다.
   디스크 전체까지 보려면 — 2. 정밀 검사 (항목 11개 · 디스크 전체까지 · 오래 걸릴 수 있습니다)
 
 Enter 를 누르면 메뉴로 돌아갑니다. 
-ESTsecurity 전용백신 1.24.0 · 룰 2026.11.19.2
+ESTsecurity 전용백신 1.25.0 · 룰 2026.11.19.3
 root 권한으로 실행 중입니다.
 
 무엇을 검사할까요? (검사 항목 12개)
   1. 빠른 검사 (권장 · 항목 10개 · 아무것도 바꾸지 않습니다)
   2. 정밀 검사 (항목 11개 · 디스크 전체까지 · 오래 걸릴 수 있습니다)
-  3. CWPdoor 점검 (탐지만)
-  4. CWPdoor 제거
-  5. Ebury 점검 (탐지만)
-  6. Apache HTTP/2 점검 (CVE-2026-119618)
-  7. Java4Shell 점검 (CVE-2026-114938)
-  8. Log4j 점검 (CVE-2021-44228 등)
-  9. nginx2root 점검 (CVE-2026-123007 · CVE-2026-123634 · CVE-2026-123633 · CVE-2026-121810 · CVE-2026-113425)
+
+새로 추가된 항목
+  3. nginx2root 점검 (CVE-2026-123007 · CVE-2026-123634 · CVE-2026-123633 · CVE-2026-121810 · CVE-2026-113425) [11월 19일 추가]
+  4. Java4Shell 점검 (CVE-2026-114938) [11월 18일 추가]
+
+그 밖의 항목
+  5. CWPdoor 점검 (탐지만)
+  6. CWPdoor 제거
+  7. Ebury 점검 (탐지만)
+  8. Apache HTTP/2 점검 (CVE-2026-119618)
+  9. Log4j 점검 (CVE-2021-44228 등)
   10. Node2Shell 점검 (CVE-2026-111497)
   11. OpenSSH 점검 (CVE-2026-123158 · Alpine)
   12. PHP 세션 업로드 진행 설정 점검 (CVE-2026-115560)
@@ -1403,7 +1411,7 @@ root 권한으로 실행 중입니다.
 
 알림: 이 OS 에는 코드서명 확인이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 ────────────────────────────────────────────────────────
- ESTsecurity 전용백신 1.24.0
+ ESTsecurity 전용백신 1.25.0
  PHP2Shell · Apache HTTP/2 원격 점검 (웹서버 응답 헤더)  (php2shell-url-check 0.2.0)
 ────────────────────────────────────────────────────────
  시작 시각  : <T> UTC
@@ -1437,7 +1445,7 @@ URL 점검은 '양호' 를 내지 않습니다 — 그 서버에서 remedy 의 P
 --- 서명 파일(MANIFEST.minisig)을 지운 remedy-net ---
 알림: 이 OS 에는 코드서명 확인이 없어 공식 배포본인지 스스로 확인하지 못합니다. 받은 파일은 체크섬으로 확인하십시오
 ────────────────────────────────────────────────────────
- ESTsecurity 전용백신 1.24.0
+ ESTsecurity 전용백신 1.25.0
  PHP2Shell · Apache HTTP/2 원격 점검 (웹서버 응답 헤더)  (php2shell-url-check 0.2.0)
 ────────────────────────────────────────────────────────
  시작 시각  : <T> UTC
@@ -1453,20 +1461,24 @@ URL 점검은 '양호' 를 내지 않습니다 — 그 서버에서 remedy 의 P
 
 [exit=1]
 
-ESTsecurity 전용백신 1.24.0 · 룰 2026.11.19.2
+ESTsecurity 전용백신 1.25.0 · 룰 2026.11.19.3
 root 권한으로 실행 중입니다.
 알림: 리눅스는 코드서명 확인이 없습니다. 받은 파일은 체크섬으로 확인하십시오.
 
 무엇을 검사할까요? (검사 항목 12개)
   1. 빠른 검사 (권장 · 항목 10개 · 아무것도 바꾸지 않습니다)
   2. 정밀 검사 (항목 11개 · 디스크 전체까지 · 오래 걸릴 수 있습니다)
-  3. CWPdoor 점검 (탐지만)
-  4. CWPdoor 제거
-  5. Ebury 점검 (탐지만)
-  6. Apache HTTP/2 점검 (CVE-2026-119618)
-  7. Java4Shell 점검 (CVE-2026-114938)
-  8. Log4j 점검 (CVE-2021-44228 등)
-  9. nginx2root 점검 (CVE-2026-123007 · CVE-2026-123634 · CVE-2026-123633 · CVE-2026-121810 · CVE-2026-113425)
+
+새로 추가된 항목
+  3. nginx2root 점검 (CVE-2026-123007 · CVE-2026-123634 · CVE-2026-123633 · CVE-2026-121810 · CVE-2026-113425) [11월 19일 추가]
+  4. Java4Shell 점검 (CVE-2026-114938) [11월 18일 추가]
+
+그 밖의 항목
+  5. CWPdoor 점검 (탐지만)
+  6. CWPdoor 제거
+  7. Ebury 점검 (탐지만)
+  8. Apache HTTP/2 점검 (CVE-2026-119618)
+  9. Log4j 점검 (CVE-2021-44228 등)
   10. Node2Shell 점검 (CVE-2026-111497)
   11. OpenSSH 점검 (CVE-2026-123158 · Alpine)
   12. PHP 세션 업로드 진행 설정 점검 (CVE-2026-115560)
@@ -1476,7 +1488,21 @@ root 권한으로 실행 중입니다.
 
 번호를 고르십시오 (0-14): 빠른 검사 — 항목 10개를 검사합니다. 아무것도 바꾸지 않습니다.
 
-[1/10] CWPdoor 점검 (탐지만)
+[1/10] nginx2root 점검 (CVE-2026-123007 · CVE-2026-123634 · CVE-2026-123633 · CVE-2026-121810 · CVE-2026-113425)
+
+검사를 시작합니다.
+검사 완료 : 흔적 0건 · 취약 0건
+
+취약한 곳을 찾지 못했습니다.
+
+[2/10] Java4Shell 점검 (CVE-2026-114938)
+
+검사를 시작합니다.
+검사 완료 : 흔적 0건 · 취약 0건
+
+취약한 곳을 찾지 못했습니다.
+
+[3/10] CWPdoor 점검 (탐지만)
 
 검사를 시작합니다.
 결과 폴더 : /tmp/console-capture/scan-all/pkg/out/<T>  (artifacts.json · scan.json · plan.json)
@@ -1485,7 +1511,7 @@ root 권한으로 실행 중입니다.
 
 위협 발견, 치료하지 않았습니다.
 
-[2/10] CWPdoor 제거
+[4/10] CWPdoor 제거
 
 검사를 시작합니다.
 결과 폴더 : /tmp/console-capture/scan-all/pkg/out/<T>  (artifacts.json · scan.json · plan.json)
@@ -1502,33 +1528,19 @@ root 권한으로 실행 중입니다.
 
 위협 발견, 치료하지 않았습니다.
 
-[3/10] Ebury 점검 (탐지만)
+[5/10] Ebury 점검 (탐지만)
 
 검사를 시작합니다.
 검사 완료 : 흔적 0건 · 위협 0건
 
 위협이 발견되지 않았습니다.
 
-[4/10] Apache HTTP/2 점검 (CVE-2026-119618)
+[6/10] Apache HTTP/2 점검 (CVE-2026-119618)
 
 검사를 시작합니다.
 검사 완료 : 흔적 0건 · 취약 0건
   안내: 점검 대상이 이 기계에 없습니다 — 선언한 자리 16곳이 전부 존재하지 않습니다: /etc/apache2 · /etc/httpd · /opt/apache/bin · /opt/apache/conf · /opt/apache2/bin · /opt/apache2/conf · /opt/httpd/bin · /opt/httpd/conf · /opt/lampp/bin · /opt/lampp/etc · /usr/local/apache/bin · /usr/local/apache/conf · /usr/local/apache2/bin · /usr/local/apache2/conf · /usr/local/httpd/bin · /usr/local/httpd/conf
         경로가 틀린 것이 아닌지도 함께 보십시오.
-
-취약한 곳을 찾지 못했습니다.
-
-[5/10] Java4Shell 점검 (CVE-2026-114938)
-
-검사를 시작합니다.
-검사 완료 : 흔적 0건 · 취약 0건
-
-취약한 곳을 찾지 못했습니다.
-
-[6/10] nginx2root 점검 (CVE-2026-123007 · CVE-2026-123634 · CVE-2026-123633 · CVE-2026-121810 · CVE-2026-113425)
-
-검사를 시작합니다.
-검사 완료 : 흔적 0건 · 취약 0건
 
 취약한 곳을 찾지 못했습니다.
 
@@ -1562,12 +1574,12 @@ root 권한으로 실행 중입니다.
 
 ────────────────────────────────────────────────────────
 빠른 검사 결과 — 항목 10개 · 아무것도 바꾸지 않았습니다
+  nginx2root 점검 (CVE-2026-123007 · CVE-2026-123634 · CVE-2026-123633 · CVE-2026-121810 · CVE-2026-113425) — 취약한 곳을 찾지 못했습니다.
+  Java4Shell 점검 (CVE-2026-114938) — 취약한 곳을 찾지 못했습니다.
   CWPdoor 점검 (탐지만) — 위협 발견, 치료하지 않았습니다.
   CWPdoor 제거 — 위협 발견, 치료하지 않았습니다.
   Ebury 점검 (탐지만) — 위협이 발견되지 않았습니다.
   Apache HTTP/2 점검 (CVE-2026-119618) — 취약한 곳을 찾지 못했습니다.
-  Java4Shell 점검 (CVE-2026-114938) — 취약한 곳을 찾지 못했습니다.
-  nginx2root 점검 (CVE-2026-123007 · CVE-2026-123634 · CVE-2026-123633 · CVE-2026-121810 · CVE-2026-113425) — 취약한 곳을 찾지 못했습니다.
   Node2Shell 점검 (CVE-2026-111497) — 취약한 곳을 찾지 못했습니다.
   OpenSSH 점검 (CVE-2026-123158 · Alpine) — 취약한 곳을 찾지 못했습니다.
   PHP 세션 업로드 진행 설정 점검 (CVE-2026-115560) — 취약한 곳을 찾지 못했습니다.
@@ -1582,19 +1594,23 @@ root 권한으로 실행 중입니다.
   디스크 전체까지 보려면 — 2. 정밀 검사 (항목 11개 · 디스크 전체까지 · 오래 걸릴 수 있습니다)
 
 Enter 를 누르면 메뉴로 돌아갑니다. 
-ESTsecurity 전용백신 1.24.0 · 룰 2026.11.19.2
+ESTsecurity 전용백신 1.25.0 · 룰 2026.11.19.3
 root 권한으로 실행 중입니다.
 
 무엇을 검사할까요? (검사 항목 12개)
   1. 빠른 검사 (권장 · 항목 10개 · 아무것도 바꾸지 않습니다)
   2. 정밀 검사 (항목 11개 · 디스크 전체까지 · 오래 걸릴 수 있습니다)
-  3. CWPdoor 점검 (탐지만)
-  4. CWPdoor 제거
-  5. Ebury 점검 (탐지만)
-  6. Apache HTTP/2 점검 (CVE-2026-119618)
-  7. Java4Shell 점검 (CVE-2026-114938)
-  8. Log4j 점검 (CVE-2021-44228 등)
-  9. nginx2root 점검 (CVE-2026-123007 · CVE-2026-123634 · CVE-2026-123633 · CVE-2026-121810 · CVE-2026-113425)
+
+새로 추가된 항목
+  3. nginx2root 점검 (CVE-2026-123007 · CVE-2026-123634 · CVE-2026-123633 · CVE-2026-121810 · CVE-2026-113425) [11월 19일 추가]
+  4. Java4Shell 점검 (CVE-2026-114938) [11월 18일 추가]
+
+그 밖의 항목
+  5. CWPdoor 점검 (탐지만)
+  6. CWPdoor 제거
+  7. Ebury 점검 (탐지만)
+  8. Apache HTTP/2 점검 (CVE-2026-119618)
+  9. Log4j 점검 (CVE-2021-44228 등)
   10. Node2Shell 점검 (CVE-2026-111497)
   11. OpenSSH 점검 (CVE-2026-123158 · Alpine)
   12. PHP 세션 업로드 진행 설정 점검 (CVE-2026-115560)
@@ -1656,7 +1672,7 @@ CWPdoor 제거
 
 ────────────────────────────────────────────────────────
 다음 할 일
-  먼저 4. CWPdoor 제거를 고른 뒤:
+  먼저 6. CWPdoor 제거를 고른 뒤:
     치료가 유지되는지 보려면 — 3. 치료가 유지됐는지 다시 보기
     오탐이라면 — 4. 치료 전으로 복원하기
     오탐을 신고하려면 — 5. 신고에 붙일 것 모으기
@@ -1666,19 +1682,23 @@ CWPdoor 제거
     /tmp/console-capture/scan-all/pkg/plugins/cwpdoor-2-clean/RELEASE.md
 
 Enter 를 누르면 메뉴로 돌아갑니다. 
-ESTsecurity 전용백신 1.24.0 · 룰 2026.11.19.2
+ESTsecurity 전용백신 1.25.0 · 룰 2026.11.19.3
 root 권한으로 실행 중입니다.
 
 무엇을 검사할까요? (검사 항목 12개)
   1. 빠른 검사 (권장 · 항목 10개 · 아무것도 바꾸지 않습니다)
   2. 정밀 검사 (항목 11개 · 디스크 전체까지 · 오래 걸릴 수 있습니다)
-  3. CWPdoor 점검 (탐지만)
-  4. CWPdoor 제거
-  5. Ebury 점검 (탐지만)
-  6. Apache HTTP/2 점검 (CVE-2026-119618)
-  7. Java4Shell 점검 (CVE-2026-114938)
-  8. Log4j 점검 (CVE-2021-44228 등)
-  9. nginx2root 점검 (CVE-2026-123007 · CVE-2026-123634 · CVE-2026-123633 · CVE-2026-121810 · CVE-2026-113425)
+
+새로 추가된 항목
+  3. nginx2root 점검 (CVE-2026-123007 · CVE-2026-123634 · CVE-2026-123633 · CVE-2026-121810 · CVE-2026-113425) [11월 19일 추가]
+  4. Java4Shell 점검 (CVE-2026-114938) [11월 18일 추가]
+
+그 밖의 항목
+  5. CWPdoor 점검 (탐지만)
+  6. CWPdoor 제거
+  7. Ebury 점검 (탐지만)
+  8. Apache HTTP/2 점검 (CVE-2026-119618)
+  9. Log4j 점검 (CVE-2021-44228 등)
   10. Node2Shell 점검 (CVE-2026-111497)
   11. OpenSSH 점검 (CVE-2026-123158 · Alpine)
   12. PHP 세션 업로드 진행 설정 점검 (CVE-2026-115560)

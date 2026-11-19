@@ -549,6 +549,61 @@ fn a_blocked_process_adds_the_container_hint() {
         assert!(!r.contains("다시 돌리") && !r.contains("run again"), "{r}");
     }
 
+    // Windows 에서 실행 파일 경로조차 알아내지 못한 프로세스(`pid N`)는 폴더가 아니다(1.25.0) — 실제 PC 에서
+    // *"디렉터리 열기 37회"* 로 말해 폴더를 찾게 했다. 폴더와 섞이면 전처럼 폴더 문장이다.
+    let pids = Observation {
+        denied_dirs: 3,
+        denied_paths: vec!["pid 1076".into(), "pid 1544".into(), "pid 11876".into()],
+        ..Default::default()
+    };
+    let ko = &pids.reasons_in(Lang::Ko)[0];
+    assert!(
+        ko.starts_with("실행 파일을 알아내지 못한 프로세스 3개 (관리자 권한으로도 열리지 않습니다"),
+        "{ko}"
+    );
+    assert!(!ko.contains("디렉터리"), "{ko}");
+    let en = &pids.reasons_in(Lang::En)[0];
+    assert!(
+        en.starts_with("3 processes whose executable could not be identified"),
+        "{en}"
+    );
+    let mixed = Observation {
+        denied_dirs: 2,
+        denied_paths: vec!["pid 1076".into(), "c:\\locked".into()],
+        ..Default::default()
+    };
+    assert!(
+        mixed.reasons_in(Lang::Ko)[0].starts_with("접근이 거부된 디렉터리 열기 2회"),
+        "{:?}",
+        mixed.reasons_in(Lang::Ko)
+    );
+    // 표본이 전수가 아니면(상한 32) 보이지 않는 몫이 폴더일 수 있다 — 표본이 모두 프로세스여도 폴더 문장이다.
+    let sampled = Observation {
+        denied_dirs: 40,
+        denied_paths: (0..32).map(|i| format!("pid {}", 1000 + 4 * i)).collect(),
+        ..Default::default()
+    };
+    assert!(
+        sampled.reasons_in(Lang::Ko)[0].starts_with("접근이 거부된 디렉터리 열기 40회"),
+        "{:?}",
+        sampled.reasons_in(Lang::Ko)
+    );
+    // 사유 줄 뒤의 다른 사유(미수집 subject 등)는 그대로 이어진다 — 프로세스 문장이 뒤를 끊지 않는다. 미수집 subject 는
+    // 거부 줄 **뒤에** 서는 사유라 차례까지 본다(잘림 줄은 거부 줄보다 앞이라 이것을 재지 못한다).
+    let with_more = Observation {
+        denied_dirs: 1,
+        denied_paths: vec!["pid 7".into()],
+        uncollected_subjects: vec![Subject::Package],
+        ..Default::default()
+    };
+    let more = with_more.reasons_in(Lang::Ko);
+    assert_eq!(more.len(), 2, "{more:?}");
+    assert!(
+        more[0].starts_with("실행 파일을 알아내지 못한 프로세스 1개"),
+        "{more:?}"
+    );
+    assert!(more[1].contains("package"), "{more:?}");
+
     // 폴더 · 커널 표에는 붙이지 않는다 — 그 사람에게 컨테이너는 틀린 안내다.
     for path in ["c:\\locked", "/etc/ssl/private", "/proc/net/unix", "/proc/"] {
         let one = Observation {

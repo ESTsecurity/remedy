@@ -339,6 +339,60 @@ fn a_product_needs_core_1_21_0() {
     );
 }
 
+// ───────────────────────────── 더한 날 (`added` · 2026-11-19 · 코어 1.25.0)
+
+/// 더한 날을 적은 모양 — 각 시험이 한 곳만 비튼다.
+fn with_added() -> String {
+    BASE.replace("min_core: '1.0.0'", "min_core: '1.25.0'")
+        .replace("name: {", "added: \"2026-11-19\"\nname: {")
+}
+
+#[test]
+fn a_rule_with_an_added_date_is_clean() {
+    let y = with_added();
+    assert!(errors(&y).is_empty(), "{:?}", errors(&y));
+    // 따옴표 없이 적어도 날짜 글자 그대로 읽힌다 — YAML 의 날짜 꼴이 다른 값으로 바뀌지 않는다.
+    let bare = y.replace("added: \"2026-11-19\"", "added: 2026-11-19");
+    assert!(errors(&bare).is_empty(), "{:?}", errors(&bare));
+    let m = serde_yaml_ng::from_str::<PluginManifest>(&bare).expect("읽힌다");
+    assert_eq!(m.added.as_deref(), Some("2026-11-19"));
+}
+
+#[test]
+fn an_added_date_must_be_a_real_day() {
+    for bad in [
+        "2026-11-31",
+        "2026-02-29",
+        "2026/11/19",
+        "2026-11-1",
+        "어제",
+    ] {
+        let e = errors(&with_added().replace("2026-11-19", bad));
+        assert!(e.iter().any(|x| x.starts_with("added ::")), "{bad}: {e:?}");
+    }
+}
+
+#[test]
+fn an_empty_added_value_is_refused_not_silently_dropped() {
+    // `product:` 와 같은 까닭 — 키만 적고 값을 비우면 새로 추가된 항목에서 조용히 빠진다.
+    for empty in ["added:\n", "added: null\n", "added: ~\n"] {
+        let y = with_added().replace("added: \"2026-11-19\"\n", empty);
+        let r = serde_yaml_ng::from_str::<PluginManifest>(&y);
+        assert!(r.is_err(), "{empty:?} 가 통과했다");
+    }
+}
+
+#[test]
+fn an_added_date_needs_core_1_25_0() {
+    // 낮은 코어는 이 칸을 모른다(매니페스트를 읽다 멈춘다) — 요구 판을 적어야 로드 단계가 그 차이를 말한다.
+    let e = errors(&with_added().replace("min_core: '1.25.0'", "min_core: '1.24.0'"));
+    assert!(
+        e.iter()
+            .any(|x| x.starts_with("min_core ::") && x.contains("1.25.0")),
+        "{e:?}"
+    );
+}
+
 // ───────────────────────────── 네트워크 점검 (`network` · 2026-11-10 · 코어 1.4.0)
 
 /// 네트워크 점검 룰의 온전한 모양 — 이 기계를 읽는 칸이 전부 비어 있다. 각 시험이 한 곳만 비튼다.

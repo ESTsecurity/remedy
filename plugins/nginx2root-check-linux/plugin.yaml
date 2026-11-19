@@ -28,12 +28,13 @@
 # - 커널 SCTP 결함 — 공지에 CVE · 고친 판이 없다(꼭 할 일에 막는 법)
 schema_version: 1
 id: nginx2root-check-linux
-version: 0.1.1
-min_core: "1.21.0"  # product 는 1.21.0 · label 은 1.13.0 · file_names 는 1.11.0
+version: 0.1.2
+min_core: "1.25.0"  # added 는 1.25.0 · product 는 1.21.0 · label 은 1.13.0 · file_names 는 1.11.0
 platforms: [linux]
 
 kind: check
 product: nginx
+added: "2026-11-19"
 
 name:
   ko: "nginx2root 점검 (CVE-2026-123007 · CVE-2026-123634 · CVE-2026-123633 · CVE-2026-121810 · CVE-2026-113425)"
