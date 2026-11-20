@@ -133,9 +133,9 @@ pub(crate) fn lines(found: &[Found<'_>], lang: Lang, dash: &str) -> Vec<String> 
             let rest = rest.join(" · ");
             out.push(lang.pick(
                 format!(
-                    "  {product}{dash}버전으로 판정하지 않는 항목입니다(올려도 남을 수 있습니다): {rest}"
+                    "  {product}{dash}버전으로만 판정하지 않는 항목입니다(올려도 남을 수 있습니다): {rest}"
                 ),
-                format!("  {product}{dash}not judged by version (may remain after upgrading): {rest}"),
+                format!("  {product}{dash}not judged by version alone (may remain after upgrading): {rest}"),
             ));
         }
     }
@@ -264,7 +264,7 @@ mod tests {
         );
         assert_eq!(
             got[1],
-            "  PHP — 버전으로 판정하지 않는 항목입니다(올려도 남을 수 있습니다): PHP 세션 점검"
+            "  PHP — 버전으로만 판정하지 않는 항목입니다(올려도 남을 수 있습니다): PHP 세션 점검"
         );
     }
 

@@ -60,7 +60,7 @@
 # - 실행 중인 PHP 가 고친 판을 실었는가 — 고친 뒤에는 IIS · Apache · PHP 를 다시 시작한다.
 schema_version: 1
 id: php2shell-check-windows
-version: 0.4.2
+version: 0.4.3
 min_core: "1.21.0"  # product 는 1.21.0 · 가운데 별표 레지스트리 루트(`Services\*\Parameters`)는 1.10.0 · 실린 모듈은 1.9.0 · IIS 설정(XML)은 1.6.0
 platforms: [windows]
 
@@ -115,7 +115,25 @@ scan_roots:
 
 # 구조적 설정은 IIS 설정만, 줄 단위 설정은 Apache 설정만 읽는다 — PHP 폴더의 JSON · XML · `php.ini` 는
 # 이 룰이 볼 것이 아니다.
+# 파일은 PHP 자리만 걷는다(0.4.3) — WampServer 는 Apache 폴더(`bin\apache\apache2.4.x\bin`)에 코어 DLL 링크를 두는데, 그
+# 자리까지 걸으면 그 링크(해시가 없다)를 해시가 맞지 않는 설치본으로 세어 고친 공식 빌드로 올려도 6 이었다(PHP 11월 보안
+# 업데이트 점검 Windows 룰과 같은 목록).
 subject_roots:
+  file:
+    - 'C:\php'
+    - 'C:\Program Files\PHP'
+    - 'C:\Program Files (x86)\PHP'
+    - 'C:\xampp\php'
+    - 'C:\wamp64\bin\php'
+    - 'C:\wamp\bin\php'
+    - 'C:\laragon\bin\php'
+    - 'C:\tools\php85'
+    - 'C:\tools\php84'
+    - 'C:\tools\php83'
+    - 'C:\tools\php82'
+    - 'C:\tools\php81'
+    - 'C:\tools\php80'
+    - 'C:\tools\php74'
   structured_config: ['C:\Windows\System32\inetsrv\config']
   text_config:
     - 'C:\Apache24\conf'

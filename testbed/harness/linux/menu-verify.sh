@@ -443,7 +443,7 @@ items "$REPO/testbed/harness/baseline/console/console-win.txt" >"$OUT/items-win.
     echo "same_php_exit=$(sed -n 's/^same_php_exit=//p' "$OUT/run.txt")"
     echo "same_php_block=$(grep -c -F "$hp" "$sp" 2>/dev/null)"
     echo "same_php_upgrade=$(grep -c -E '^  PHP (—|-) php8\.2-cli 의 버전을 8\.2\.35-1~deb12u1 이상으로 올리면 이 항목이 해결됩니다: PHP2Shell 점검' "$sp" 2>/dev/null)"
-    echo "same_php_rest=$(grep -c -E '^  PHP (—|-) 버전으로 판정하지 않는 항목입니다\(올려도 남을 수 있습니다\): PHP 세션 업로드 진행 설정 점검' "$sp" 2>/dev/null)"
+    echo "same_php_rest=$(grep -c -E '^  PHP (—|-) 버전으로만 판정하지 않는 항목입니다\(올려도 남을 수 있습니다\): PHP 세션 업로드 진행 설정 점검' "$sp" 2>/dev/null)"
 } | tee "$OUT/verdict.txt"
 v() { sed -n "s/^$1=//p" "$OUT/verdict.txt"; }
 [ "$(v items_diff)" = 0 ] && [ -n "$(v linux_rules)" ] \

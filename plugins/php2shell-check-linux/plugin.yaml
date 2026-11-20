@@ -50,7 +50,7 @@
 # 줄. 선언한 자리 밖이면 *확인 필요* 로 그 경로를 적는다 — 그 파일은 열지 않는다.
 schema_version: 1
 id: php2shell-check-linux
-version: 0.6.2
+version: 0.6.3
 min_core: "1.21.0"  # product 는 1.21.0 · 시작 스크립트의 서비스는 1.10.0 · 패키지 파일 대조(file.package · package_match)는 1.7.0
 platforms: [linux]
 
@@ -465,6 +465,17 @@ detect:
       all:
         - { field: path, op: matches, value: '^/usr/(bin/php(-cgi)?|sbin/php-fpm|lib64/httpd/modules/libphp[0-9]?\.so)$' }
         - { field: sha256, op: exists }
+  # 같은 자리의 정규 파일 가운데 **어느 패키지도 깔지 않은 것**(0.6.3) — RPM 의 PHP 패키지가 있어도 그 파일은 패키지의 것이
+  # 아니다(예: 고친 `php-cli` 옆에 따로 놓은 `/usr/sbin/php-fpm`). 0.6.2 는 `not rpm_php` 로 그 파일을 패키지의 것으로 보아
+  # 0 이었다. 파일 소유는 dpkg · RPM 만 채운다(apk 는 비어 — Alpine 의 정규 `/usr/bin/php` 는 전처럼 확인 필요).
+  - id: bin_rpm_unowned
+    subject: file
+    where:
+      all:
+        - { field: path, op: matches, value: '^/usr/(bin/php(-cgi)?|sbin/php-fpm|lib64/httpd/modules/libphp[0-9]?\.so)$' }
+        - { field: sha256, op: exists }
+    exclude:
+      - { field: package, op: matches, value: '.' }
 
   # ── 선언한 자리 밖에서 실행 중인 PHP (0.2.0) ──────────────────────────────────
   #
@@ -559,10 +570,15 @@ verdict:
       why:
         ko: "패키지 밖의 PHP(공식 이미지 · 직접 빌드)가 공식 빌드의 해시와 맞지 않아 패치 여부를 가리지 못했습니다 — 버전과 받은 곳을 확인하고, 쓰는 계열의 고친 버전(8.2 는 8.2.35 · 8.3 은 8.3.36 · 8.4 는 8.4.27 · 8.5 는 8.5.12, 8.1 이하는 고친 버전 없음) 이상인지 보십시오"
         en: "a PHP outside any package (official image or own build) does not match an official build hash, so its patch status cannot be told - check its version and origin, and whether it is at or above the fixed release of its line (8.2.35 for 8.2, 8.3.36 for 8.3, 8.4.27 for 8.4, 8.5.12 for 8.5; 8.1 and older have no fix)"
-    - when: "bin_rpm and not rpm_php"
+    # 어느 패키지도 깔지 않은 파일은 아래 줄이 짚는다(0.6.3) — 이 줄은 PHP 가 아닌 이름의 패키지가 깐 파일만 남는다.
+    - when: "bin_rpm and not rpm_php and not bin_rpm_unowned"
       why:
         ko: "RPM 계열의 자리에 패키지가 깔지 않은 PHP 가 있습니다(RPM 의 PHP 패키지가 없습니다) — 버전과 받은 곳을 확인하십시오"
         en: "a PHP that no RPM package installed sits in an RPM system location (no RPM PHP package is present) - check its version and origin"
+    - when: "bin_rpm_unowned"
+      why:
+        ko: "RPM 계열의 자리에 어느 패키지도 깔지 않은 PHP 실행 파일이 있습니다(위 경로) — 패키지의 PHP 와 따로 놓인 파일이라 패키지 버전으로 판정하지 않았습니다. 그 파일의 버전과 받은 곳을 확인하십시오"
+        en: "a PHP executable that no package installed sits in an RPM system location (path above) - it is not the packaged PHP, so it was not judged by the package version; check its version and origin"
     - when: "running_php"
       why:
         ko: "이 점검이 보는 자리 밖에서 PHP 가 실행 중입니다(위 경로) — 그 PHP 는 판정하지 않았습니다. 그 PHP 의 버전과 받은 곳(패키지 · 공급사 · 직접 빌드)을 확인하십시오"

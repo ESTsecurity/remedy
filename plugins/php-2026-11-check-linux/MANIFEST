@@ -1,4 +1,4 @@
 # remedy plugin manifest v1
-a8ac2e92237fcb7560259c69b97dbe8bf3a239b18aee0fff68655ad1fc125722  RELEASE.md
-7fc8fa1463c606fd95ac6d86c64721a079f914fea16c3583b8e7b4168b85e844  plugin.yaml
+28cece3310d1dda44f8eeb2d7aedf49d3fd0cec2104202af2a2b2fea4e96cf4c  RELEASE.md
+fb4bf8c92e4ef49162648e825e0a9cb199f2af22afbafa471ef3d8192ea9e2de  plugin.yaml
 36c2557983acd7ce8ff3973e3c3f59edab14c733de1a18d09d5484613fd6e7f3  rules/php.yar

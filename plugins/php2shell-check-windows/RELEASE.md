@@ -1,6 +1,17 @@
 # php2shell-check-windows — 릴리스 기록
 
-**버전 0.4.2** · 대상: PHP2Shell(CVE-2026-109618 · CVE-2026-109619) — Windows 의 PHP · **점검**(바꾸지 않는다)
+**버전 0.4.3** · 대상: PHP2Shell(CVE-2026-109618 · CVE-2026-109619) — Windows 의 PHP · **점검**(바꾸지 않는다)
+
+## 0.4.3 — 파일은 PHP 자리만 (2026-11-20)
+
+파일(코어 DLL)은 PHP 자리 14곳만 걷는다(`subject_roots.file` — PHP 11월 보안 업데이트 점검 Windows 룰과 같은 목록). 0.4.2 는
+Apache 폴더까지 걸어, WampServer 가 Apache 폴더(`bin\apache\apache2.4.x\bin`)에 두는 코어 DLL 링크(해시가 없다)를 해시가 맞지
+않는 설치본으로 세어 고친 공식 빌드로 올려도 *확인 필요(6)* 였다(Apache 자리를 더한 0.3.0 부터). 판정 규칙 · 해시 목록은 0.4.2
+와 같다.
+
+검증(2026-11-20): 랩 VM 의 실제 수집(`testbed/harness/host/Invoke-Php202611Verify.ps1` 의 W 칸 · 개발 꾸러미) — WampServer
+8.3.37(공식 NTS) + Apache bin 링크 **0**(0.4.2 는 6) · 8.3.35 + 링크 2(공식 영향 판 해시) · 8.3.37 + 링크 + Apache 설정 줄 0 · G1
+청정 코퍼스 `win10x64-*` 11개 모두 0.
 
 ## 0.4.2 — 11월 보안 업데이트의 공식 빌드 (2026-11-20)
 
@@ -110,9 +121,8 @@ PHP(`php.exe` · `php-cgi.exe` · `php-win.exe`)이면 **확인 필요(6)** 로 
 - php.net 의 2026-10-26 Windows 재빌드(`8.x.y-1`)가 바꾼 Brotli(CVE-2026-111497)는 이 룰의 판정이 아니다 —
   `node2shell-check-windows` 가 PHP 폴더의 `brotlidec.dll` 로 본다. 재빌드의 코어 DLL 해시는 이 룰의 고친 버전
   목록에 있다(PHP 버전 번호가 같아 해시로만 가린다).
-- WampServer 가 Apache 폴더(`bin\apache\apache2.4.x\bin`)에 두는 코어 DLL 링크의 대상 — 이 룰은 그 링크를 해시 없는
-  설치본으로 세어, 고친 공식 빌드로 올려도 확인 필요(6)다(다음 판에서 PHP 자리만 걷게 고칠 후보 · PHP 11월 보안 업데이트
-  점검은 링크를 세지 않는다).
+- PHP 자리 밖의 파일 — WampServer 가 Apache 폴더(`bin\apache\apache2.4.x\bin`)에 두는 코어 DLL 링크는 설치본으로 세지 않는다
+  (0.4.3 · 그 대상은 PHP 판 폴더에서 본다). 0.4.2 까지는 그 링크를 해시 없는 설치본으로 세어 고친 공식 빌드도 확인 필요(6)였다.
 
 ## 근거 — 공개 공지와 공식 빌드
 
