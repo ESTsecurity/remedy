@@ -1,7 +1,7 @@
 ﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
-    출시의 Windows 랩 묶음 — 지난 공개본(A)과 이번 판(B)을 랩 VM 과 이 기계에서 나란히 재는 26단계
+    출시의 Windows 랩 묶음 — 지난 공개본(A)과 이번 판(B)을 랩 VM 과 이 기계에서 나란히 재는 27단계
     (docs/개발-안내.md "출시 검증").
 
 .DESCRIPTION
@@ -16,6 +16,8 @@
       apache        이번 판의 Apache HTTP/2 점검 룰 하네스(`Invoke-ApacheVerify.ps1` — 설치본 모양마다 0 · 2 · 6)
       java4shell    이번 판의 Java4Shell 점검 룰 하네스(`Invoke-Java4ShellVerify.ps1` — 홈 모양마다 0 · 2 · 6 · 진짜 JDK 하나)
       nginx         이번 판의 nginx2root 점검 룰 하네스(`Invoke-Nginx2rootVerify.ps1` — 설치본 모양마다 0 · 2 · 6 · 진짜 zip 셋)
+      php2611       이번 판의 PHP 11월 보안 업데이트 점검 룰 하네스(`Invoke-Php202611Verify.ps1` — 설치본 모양마다 0 · 2 · 6 ·
+                    진짜 코어 DLL 여섯)
       종료 코드     exit5-guard · exit6-obs · exit3-partial — 이번 판의 가드 중단 5 · 관측 불완전 6 · 일부 실패 3
                     (`Invoke-GuardVerify` · `Invoke-ObsVerify` · `Invoke-PartialVerify` `-Package`) · exit5-sign — 서명
                     확인 0 · 5(`Invoke-SignVerify -Package` · 이 기계). A/B 가 아니라 정한 값을 단정한다
@@ -145,6 +147,28 @@ foreach ($nv in @('1.31.9', '1.30.7', '1.30.6')) {
         } catch { Remove-Item "$nz.part" -ErrorAction SilentlyContinue }
     }
     if (-not (Test-Path -LiteralPath $nz)) { Stop-Setup "nginx-$nv.zip 을 받지 못했다(nginx.org)" }
+}
+
+# downloads.php.net 의 Windows zip 여섯 — PHP 11월 보안 업데이트 점검 룰 하네스가 코어 DLL 하나씩만 꺼내 쓴다(실행하지 않는다).
+# 고친 판 둘은 지금 releases 에, 옛 판은 releases/archives 에 있다(다음 상류 판이 나오면 고친 판도 archives 로 옮겨 간다 —
+# 둘 다 본다). SHA-256 · 코어 DLL 해시는 Invoke-Php202611Verify.ps1 이 다시 대조한다. 8.3.35 는 위에서 받은 zip 을 옮겨 둔다.
+$phpWinDir = Join-Path $Inputs 'php-win'
+New-Item -ItemType Directory -Force $phpWinDir | Out-Null
+if (-not (Test-Path -LiteralPath (Join-Path $phpWinDir 'php-8.3.35-nts-Win32-vs16-x64.zip'))) {
+    Copy-Item -LiteralPath $phpZip -Destination $phpWinDir
+}
+foreach ($pn in @('php-8.3.37-nts-Win32-vs16-x64.zip', 'php-8.5.13-Win32-vs17-x64.zip', 'php-8.5.12-Win32-vs17-x64.zip',
+        'php-8.4.27-nts-Win32-vs17-x64.zip', 'php-8.2.35-nts-Win32-vs16-x64.zip')) {
+    $pz = Join-Path $phpWinDir $pn
+    if (-not (Test-Path -LiteralPath $pz)) {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        $ProgressPreference = 'SilentlyContinue'
+        foreach ($pu in @("https://downloads.php.net/~windows/releases/$pn", "https://downloads.php.net/~windows/releases/archives/$pn")) {
+            try { Invoke-WebRequest -UseBasicParsing -OutFile "$pz.part" -Uri $pu; Move-Item "$pz.part" $pz; break }
+            catch { Remove-Item "$pz.part" -ErrorAction SilentlyContinue }
+        }
+    }
+    if (-not (Test-Path -LiteralPath $pz)) { Stop-Setup "$pn 을 받지 못했다(downloads.php.net)" }
 }
 
 $jars = Join-Path $Inputs 'jars'
@@ -300,6 +324,11 @@ Step 'java4shell' {
 # 이번 판의 nginx2root 점검 룰 하네스 — 놓은 설치본 · 서비스 · 프로세스는 하네스가 치운다(되돌리기는 아래 reset6).
 Step 'nginx' {
     & (Join-Path $h 'Invoke-Nginx2rootVerify.ps1') -Package $Package -NginxZipDir $nginxDir -LogDir (Join-Path $LogDir 'nginx')
+} $verdictLine
+# 이번 판의 PHP 11월 보안 업데이트 점검 룰 하네스 — 놓은 설치본 · 서비스 · 프로세스 · 링크는 하네스가 치운다(되돌리기는 아래
+# reset6). 치울 자리가 시작 전에 랩에 있으면 아무것도 지우지 않고 멈춘다 — 그때는 판정 줄이 없어 실패로 센다.
+Step 'php2611' {
+    & (Join-Path $h 'Invoke-Php202611Verify.ps1') -Package $Package -PhpZipDir $phpWinDir -LogDir (Join-Path $LogDir 'php2611')
 } $verdictLine
 # 종료 코드의 Windows 회귀 — A/B 가 아니라 정한 값을 단정한다(전에는 출시 경로 밖 `Invoke-Sweep` 에서만 돌았다).
 # 가드 중단 5(상한 · 보호 경로) · 관측 불완전 6 · 일부 실패 3. Partial 은 남의 감염이 없고 게스트에 node.exe 가 있어야

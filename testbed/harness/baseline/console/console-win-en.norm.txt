@@ -175,7 +175,7 @@ Nothing to do.
 
 === 0. 인자 없이 띄웠다 — 메뉴 (그만두기로 끝냈다) ===
 
-ESTsecurity Dedicated Cleaner 1.25.1 · rules 2026.11.19.3
+ESTsecurity Dedicated Cleaner 1.25.1 · rules 2026.11.20.2
 Rule: EvilAI (Locust) Removal
 Running with administrator rights.
 Notice: unsigned build. Check the downloaded file's checksum.
@@ -195,7 +195,7 @@ Choose a number (0-3):
 
 === 모두 검사 — 고르는 화면 1 번 (빠른 검사) ===
 
-ESTsecurity Dedicated Cleaner 1.25.1 · rules 2026.11.19.3
+ESTsecurity Dedicated Cleaner 1.25.1 · rules 2026.11.20.2
 Running with administrator rights.
 Notice: unsigned build. Check the downloaded file's checksum.
 
@@ -235,7 +235,7 @@ Next
   To look at whole disks too — 2. Full scan (3 items · whole disks too · can take a long time)
 
 
-ESTsecurity Dedicated Cleaner 1.25.1 · rules 2026.11.19.3
+ESTsecurity Dedicated Cleaner 1.25.1 · rules 2026.11.20.2
 Running with administrator rights.
 
 What would you like to check? (3 items)
