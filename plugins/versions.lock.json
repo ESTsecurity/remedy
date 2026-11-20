@@ -140,7 +140,7 @@
   "php-2026-11-check-linux": {
     "version": "0.1.2",
     "files": {
-      "plugin.yaml": "fb4bf8c92e4ef49162648e825e0a9cb199f2af22afbafa471ef3d8192ea9e2de",
+      "plugin.yaml": "9166b2ea6592c05e8dc15bccee84a9e47991e42413242b034a6dc077404f76f4",
       "rules/php.yar": "36c2557983acd7ce8ff3973e3c3f59edab14c733de1a18d09d5484613fd6e7f3"
     }
   },
@@ -153,7 +153,7 @@
   "php-session-check-linux": {
     "version": "0.6.1",
     "files": {
-      "plugin.yaml": "1b3aa5bb327f33ea9ddba5d8c764b53e5a83e053538b272c7fe666920517ec0d",
+      "plugin.yaml": "90064497694beb846c31e7c4b7cda1d6b4d1aa01a6bf87687975a4791bffb271",
       "rules/php.yar": "1c57d50b6d4ba4f3b3c416f2d161b4a0a925d22d18dfaa6399e8a3c97fbbaf99"
     }
   },
@@ -166,7 +166,7 @@
   "php2shell-check-linux": {
     "version": "0.6.3",
     "files": {
-      "plugin.yaml": "e9406b772abcd930e4642a969f5f4449f580f11e41f0c0b534452a808a957afe"
+      "plugin.yaml": "2224e154ba7847f7458583513d2332614530051f10a44c2b0ed1afe251cbaccf"
     }
   },
   "php2shell-check-windows": {

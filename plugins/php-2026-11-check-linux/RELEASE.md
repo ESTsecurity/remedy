@@ -8,12 +8,23 @@
 RPM 계열의 PHP 자리(`/usr/bin/php` · `php-cgi` · `/usr/sbin/php-fpm` · httpd 의 `libphp*.so`)에 **어느 패키지도 깔지 않은
 정규 파일**이 있으면 확인 필요(6)로 그 경로를 짚는다(`bin_rpm_unowned` — 새 까닭 줄). 0.1.1 은 RPM 의 PHP 패키지가 있으면 그
 자리의 파일을 모두 패키지의 것으로 보아(`not rpm_php`), 고친 `php-cli` 옆에 따로 놓은 `/usr/sbin/php-fpm` 이 있어도 0 이었다.
-파일 소유는 dpkg · RPM 만 채운다(apk 는 비어 있어 Alpine 의 정규 `/usr/bin/php` 는 전처럼 확인 필요). PHP 가 아닌 이름의
-패키지가 깐 파일은 옛 줄(RPM 의 PHP 패키지가 없습니다)이 그대로 짚는다. 그 밖의 판정은 0.1.1 과 같다.
+파일 소유는 dpkg · RPM 만 채운다(apk 는 비어 있어 Alpine 의 정규 `/usr/bin/php` 는 전처럼 확인 필요). `/usr/sbin/php-fpm` 은
+같은 이름의 `/usr/bin/php-fpm` 을 패키지가 깔았으면 세지 않는다(`sbin_fpm_unowned` · `bin_fpm_owned`) — `/usr/sbin` 이 `bin` 으로
+가는 링크인 Fedora 42 이후는 수집기가 그 뿌리를 따라 걸어, 패키지가 깐 `/usr/bin/php-fpm` 이 소유 없는 `/usr/sbin/php-fpm` 으로
+한 번 더 온다. PHP 가 아닌 이름의 패키지가 깐 파일은 RPM 의 PHP 패키지가 없을 때 첫 줄(그 패키지를 확인하라는 까닭)이 짚는다 —
+RPM 의 PHP 패키지가 있으면 짚지 않는다(그 패키지의 판을 볼 규칙이 없다 · 드문 꼴). 패키지가 깐 실행 파일이 그 기록과 다른지
+보는 자리(`pkg_bin_changed`)에 합친 bin 의 패키지 자리 `/usr/bin/php-fpm` 을 더했다 — 0.1.1 은 그 자리를 보지 않아 바뀐 파일도
+그 패키지의 판으로 판정했다. 그 밖의 판정은 0.1.1 과 같다.
 
-검증(2026-11-20): `remedy evaluate` 합성 수집 결과(하네스의 Rocky 9 스냅숏에 기록만 더함) — 고친 RPM PHP(8.3.37) + 패키지 밖
-`/usr/sbin/php-fpm` **6**(0.1.1 은 0) · PHP 패키지 없음 + 패키지 밖 파일 6 · 고친 RPM PHP 만 0 · 그 밖의 합성 32 경우는 0.1.1 과
-같다 · G1 청정 코퍼스 `docker-*` · `wsl-*` 19개 모두 0 · rc 묶음의 리눅스 하네스(`php2611`)는 출시 rc 로.
+검증(2026-11-20):
+
+- `remedy evaluate` 합성 수집 결과(하네스의 Rocky 9 스냅숏에 기록만 더함) — 고친 RPM PHP(8.3.37) + 패키지 밖 `/usr/sbin/php-fpm`
+  **6**(0.1.1 은 0) · Fedora 꼴 합친 bin 의 고친 PHP 0 · 그 꼴에 패키지 밖 `php-fpm` 6 · 그 꼴의 `/usr/bin/php-fpm` 이 패키지
+  기록과 다르면 고친 판 6(0.1.1 은 0) · 영향 판 6(0.1.1 은 패키지의 판으로 취약) · 고친 RPM PHP 만 0 · 그 밖의 합성 35 경우는
+  0.1.1 과 같다.
+- 실제 Fedora 42 컨테이너(`/usr/sbin -> bin` · `php-fpm 8.4.21-1.fc42` 를 저장소에서 깔고 공개본 1.25.2 로 수집): `/usr/sbin/php-fpm`
+  이 소유 없이 한 번 더 온다 — 판을 8.4.28 로 바꾼 사본에서 0.1.1 0 · 이 판의 첫 꼴(`/usr/sbin/php-fpm` 을 함께 센 것) 6 · 0.1.2 0.
+- G1 청정 코퍼스 `docker-*` · `wsl-*` 19개 모두 0 · rc 묶음의 리눅스 하네스(`php2611`)는 출시 rc 로.
 
 ## 0.1.1 — 정식 출시 전 버전은 확인 필요 (2026-11-20 · 3차)
 

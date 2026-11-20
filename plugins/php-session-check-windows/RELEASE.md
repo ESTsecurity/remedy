@@ -11,7 +11,7 @@ Apache 가 읽는 `php.ini` 와 Apache 설정의 `php_admin_flag` 줄이 그 자
 
 검증(2026-11-20): 랩 VM 의 실제 수집(`testbed/harness/host/Invoke-Php202611Verify.ps1` 의 W 칸 · 개발 꾸러미) — WampServer
 8.3.37 + Apache bin 링크 **0**(0.5.0 은 6) · 8.3.35 + 링크 6(판 폴더의 코어 DLL 은 그대로 찾는다) · 8.3.37 + 링크 + Apache
-설정의 `php_admin_flag session.upload_progress.enabled on` 6(고친 버전이지만 직접 켰다는 까닭) · G1 청정 코퍼스 `win10x64-*` 11개 모두 0.
+설정의 `php_admin_flag session.upload_progress.enabled on` 6(고친 버전이지만 직접 켰다는 까닭) · G1 청정 코퍼스 `win10x64-*` 10개 모두 0.
 
 ## 0.5.0 — 고친 판이고 직접 켠 설정이 없으면 0 (2026-11-20)
 
@@ -34,7 +34,7 @@ PHP 의 2026-11-19 보안 업데이트(8.2.36 · 8.3.37 · 8.4.28 · 8.5.13)가 
 검증(2026-11-20): 깨끗한 Windows 스냅샷에 `C:\php` 의 코어 DLL 기록(공식 zip 에서 잰 해시 · 파일 버전)과 설정 줄을 더한
 `remedy evaluate` 12 — 8.3.37 설정 없음 **0**(0.4.1 은 6) · 직접 켬 6(새 까닭) · 끔 **0** · 8.3.36 6 · `8.6.0RC3` 6 · 버전 정보
 없음 6 · 고친 판과 8.2.35 가 함께 6 · `On ; 주석` 6 · `Off ; 주석` **0** · Apache 설정의 `php_admin_flag … on` 6 · `off` **0** ·
-`php_value … 1` 6 · G1 청정 코퍼스 `win10x64-*` 11개 모두 0.
+`php_value … 1` 6 · G1 청정 코퍼스 `win10x64-*` 10개 모두 0.
 
 ## 0.4.1 — 같은 제품의 묶음 열쇠 (2026-11)
 

@@ -252,7 +252,8 @@ PY
     #    취약 · 묶음 줄 하나가 2.0-1 로 둘을 푼다. 1.7-1: B 를 고치며 올린 판이 아니라 A 만 고친 판 — A 는 양호 · B 만.
     #    2.0-1: 둘 다 양호 · 묶음 줄 없음.
     # 2) 실제 PHP 짝 — 통합 꾸러미로. php8.2-cli 8.2.20-1~deb12u1(source php8.2)을 세우면 PHP2Shell 점검은 취약(고친 판
-    #    8.2.35-1~deb12u1), PHP 세션 점검은 확인 필요(판정을 세우지 않는다) — 묶음이 판 줄 밑에 세션 점검을 따로 적는다.
+    #    8.2.35-1~deb12u1), PHP 11월 보안 업데이트 점검도 취약(고친 판 8.2.36 · 룰 2026.11.20 부터) — 같은 설치본이라 묶음 줄
+    #    하나가 높은 8.2.36 으로 둘을 푼다. PHP 세션 점검은 확인 필요(판정을 세우지 않는다) — 묶음이 판 줄 밑에 따로 적는다.
     local status=/var/lib/dpkg/status
     cp "$status" "$w/dpkg-status.orig" || return 13
     fake_pkg() {
@@ -442,8 +443,8 @@ items "$REPO/testbed/harness/baseline/console/console-win.txt" >"$OUT/items-win.
     echo "same_ab_20_block=$(grep -c -F "$hp" "$s20" 2>/dev/null)"
     echo "same_php_exit=$(sed -n 's/^same_php_exit=//p' "$OUT/run.txt")"
     echo "same_php_block=$(grep -c -F "$hp" "$sp" 2>/dev/null)"
-    echo "same_php_upgrade=$(grep -c -E '^  PHP (—|-) php8\.2-cli 의 버전을 8\.2\.35-1~deb12u1 이상으로 올리면 이 항목이 해결됩니다: PHP2Shell 점검' "$sp" 2>/dev/null)"
-    echo "same_php_rest=$(grep -c -E '^  PHP (—|-) 버전으로만 판정하지 않는 항목입니다\(올려도 남을 수 있습니다\): PHP 세션 업로드 진행 설정 점검' "$sp" 2>/dev/null)"
+    echo "same_php_upgrade=$(grep -c -E '^  PHP (—|-) php8\.2-cli 의 버전을 8\.2\.36 이상으로 올리면 이 2개 항목이 모두 해결됩니다: (PHP 11월 보안 업데이트 점검( \([^)]*\))? · PHP2Shell 점검|PHP2Shell 점검( \([^)]*\))? · PHP 11월 보안 업데이트 점검)' "$sp" 2>/dev/null)"
+    echo "same_php_rest=$(grep -c -E '^  PHP (—|-) 위 버전으로 올려도 남을 수 있는 항목입니다: PHP 세션 업로드 진행 설정 점검' "$sp" 2>/dev/null)"
 } | tee "$OUT/verdict.txt"
 v() { sed -n "s/^$1=//p" "$OUT/verdict.txt"; }
 [ "$(v items_diff)" = 0 ] && [ -n "$(v linux_rules)" ] \
