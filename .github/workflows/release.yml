@@ -98,7 +98,7 @@ jobs:
       # 공개해도 최신 Release 로 걸리지 않는다.
       #
       # 본문은 처음 온 사람이 읽는다 — 무엇을 받아 어떻게 실행하는지가 맨 앞이다. 틀은
-      # .github/release-notes.md 이고(2026-11-18 부터 · 해요체), ci/release-notes.sh 가 이 태그의 값으로 채운다 —
+      # .github/release-notes.md 이고(말투 · 꼴은 그 틀의 머리 주석), ci/release-notes.sh 가 이 태그의 값으로 채운다 —
       # 바뀐 내용은 업데이트 내역의 이 버전 칸, 위협 묶음과 표는 README 의 표(`cargo xtask threats` 가 룰과 같은지 매
       # 커밋 본다)와 룰 매니페스트. 칸이 없거나 꼴이 어긋나면(끊긴 코드 블록 등) 그 스크립트가 멈춘다.
       - name: draft release

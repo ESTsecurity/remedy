@@ -5,20 +5,24 @@
 #   bash ci/release-notes.sh <태그>      저장소 루트에서 — 태그는 v<엔진 버전>[-rc.N] · rules-<룰 버전>[-rc.N]
 #
 # 채우는 것:
-#   {{ENGINE}} · {{RULES}}   Cargo.toml 의 엔진 버전 · plugins/RULES-VERSION
 #   {{CHANGES}}              docs/업데이트-내역.md 의 이 버전 칸 — 없으면 멈춘다(바뀐 내용이 빠진 본문을 올리지 않는다).
 #                            칸의 이름은 머리의 앞 낱말이다 — 엔진이 바뀐 출시는 `<엔진 버전>`, 룰만 바뀐 출시는 `룰 <룰 버전>`
 #   {{SINCE}}                (`<지난 칸>` → `<이 칸>`) — 지난 칸은 그 파일에서 바로 아래 칸
-#   {{TABLE}}                README 의 위협 표(`cargo xtask threats` 가 룰과 같은지 매 커밋 본다)를 해요체로 — 정렬 표시와
-#                            '하는 일' 칸. 모르는 '하는 일' 문구면 멈춘다(아래 job_ko 에 한 줄 더한다)
-#   {{SUMMARY}}              그 표의 줄마다 룰 매니페스트로 가른 묶음 — 치료(remediate) · 악성코드 찾기(그 밖) · 취약한
-#                            버전 · 설정 찾기(kind: check) · 원격 점검(network). 묶음 안에서는 OS 로 다시 묶는다
-#   {{COUNT}} · {{REPO_URL}} · {{HISTORY_URL}}
+#   {{TABLE}}                README 의 위협 표(`cargo xtask threats` 가 룰과 같은지 매 커밋 본다)를 본문의 꼴로 — 정렬 표시와
+#                            '하는 일' 칸을 '방식' 칸으로(머리 · 값). Windows · Linux 칸의 차례가 다르거나 모르는 '하는 일'
+#                            문구면 멈춘다(아래 job_ko — 그 문구는 xtask/src/threats.rs 가 짓는다)
+#   {{SUMMARY}}              그 표의 줄마다 룰 매니페스트로 가른 묶음 — 악성코드 치료(remediate) · 악성코드 검사(그 밖) ·
+#                            취약한 버전 · 설정 검사(kind: check) · 네트워크 기반 점검(network). 묶음 안에서는 OS 로 다시 묶는다
+#   {{REPO_URL}} · {{HISTORY_URL}}
 #
 # 다 채운 뒤 채우지 못한 자리 · 닫히지 않은 코드 블록 · 짝이 맞지 않는 <details> · 상대 링크가 있으면 멈춘다 — 2026-11-18
 # 에 손으로 다듬은 본문이 확인 명령 중간에서 끊긴 채 공개된 일이 있었다. 긴급 경로는 rc 없이 정식 태그에서 처음 돌므로
 # 태그를 밀기 전에 미리 본다(docs/긴급-대응.md).
 set -euo pipefail
+# 로캘을 배포 잡(ubuntu · C.UTF-8)과 같게 맞춘다 — 로캘이 비어 있는 Git Bash 에서는 [[:space:]] 가 바이트 0xA0 을 공백으로
+# 봐, 아래 trim 이 '참고' 의 '고'(EA B3 A0)처럼 그 바이트로 끝나는 글자를 잘랐다(2026-11-20 미리 보기). 태그 전 미리 보기가
+# 배포 잡과 같은 본문을 내야 한다.
+export LC_ALL=C.UTF-8
 
 tag=${1:-}
 [ -n "$tag" ] || { echo "쓰는 법: bash ci/release-notes.sh <태그>" >&2; exit 2; }
@@ -61,12 +65,12 @@ if [ -z "$rows" ]; then
     exit 1
 fi
 
-# README 의 '하는 일'(합쇼체 · xtask threats 가 짓는다) → 본문의 해요체.
+# README 의 '하는 일'(합쇼체 문장 · xtask threats 가 짓는다) → 본문 표의 '방식'(이름 · 이슈 #120).
 job_ko() {
     case "$1" in
-        '찾기만 합니다') printf '%s' '찾기만 해요' ;;
-        '찾아서 치료합니다 (복원할 수 있습니다)') printf '%s' '찾아서 치료해요 (되돌릴 수 있어요)' ;;
-        '적어 주신 주소의 서버를 바깥에서 봅니다 (네트워크 사용)') printf '%s' '입력한 서버 주소를 바깥에서 점검해요 (네트워크 사용)' ;;
+        '찾기만 합니다') printf '%s' '검사' ;;
+        '찾아서 치료합니다 (복원할 수 있습니다)') printf '%s' '악성코드 치료' ;;
+        '적어 주신 주소의 서버를 바깥에서 봅니다 (네트워크 사용)') printf '%s' '웹서버 주소 대상 네트워크 기반 점검' ;;
         *) return 1 ;;
     esac
 }
@@ -79,11 +83,20 @@ trim() {
 
 declare -A items=()
 table=""
-count=0
 n=0
 while IFS= read -r line; do
     n=$((n + 1))
-    if [ "$n" = 1 ]; then table+="$line"$'\n'; continue; fi
+    if [ "$n" = 1 ]; then
+        # 칸은 자리로 읽는다(아래 read · OS 묶음) — 셋째 · 넷째 칸이 Windows · Linux 가 아니면 묶음을 엉뚱한 OS 로 짓지
+        # 않고 멈춘다. 둘째 칸('하는 일')은 머리를 '방식' 으로 바꿔 쓰고 값은 job_ko 가 본다. 그 밖의 칸 이름은 그대로 옮긴다.
+        IFS='|' read -r _ h_name _ h_win h_lin h_ref _ <<<"$line"
+        if [ "$(trim "$h_win")" != Windows ] || [ "$(trim "$h_lin")" != Linux ]; then
+            echo "::error::README 위협 표의 머리가 '$line' 이다 — ci/release-notes.sh 는 셋째 · 넷째 칸을 Windows · Linux 로 읽는다" >&2
+            exit 1
+        fi
+        table+="| $(trim "$h_name") | 방식 | Windows | Linux | $(trim "$h_ref") |"$'\n'
+        continue
+    fi
     if [ "$n" = 2 ]; then table+='| :--- | :--- | :--- | :--- | :--- |'$'\n'; continue; fi
     IFS='|' read -r _ name job win lin ref _ <<<"$line"
     name=$(trim "$name")
@@ -92,11 +105,10 @@ while IFS= read -r line; do
     lin=$(trim "$lin")
     ref=$(trim "$ref")
     if ! job2=$(job_ko "$job"); then
-        echo "::error::README 위협 표의 '하는 일' 이 모르는 문구다: '$job' — ci/release-notes.sh 의 job_ko 에 해요체를 더한다" >&2
+        echo "::error::README 위협 표의 '하는 일' 이 모르는 문구다: '$job' — ci/release-notes.sh 의 job_ko 에 본문 표의 '방식' 이름을 더한다" >&2
         exit 1
     fi
     table+="| $name | $job2 | $win | $lin | $ref |"$'\n'
-    count=$((count + 1))
     # 그 줄의 룰 — 두 OS 칸 가운데 먼저 적힌 것. 두 OS 의 룰은 하는 일이 같다.
     id=$(printf '%s %s' "$win" "$lin" | sed -n 's/^[^`]*`\([^`]*\)`.*/\1/p')
     y="plugins/$id/plugin.yaml"
@@ -120,10 +132,10 @@ table=${table%$'\n'}
 
 titles=(
     ''
-    '**찾아서 치료해요** (치료하기 전에 원본을 보관해서 나중에 되돌릴 수 있어요)'
-    '**악성코드가 있는지 찾아만 줘요** (아무것도 바꾸지 않아요)'
-    '**취약한 버전 · 설정이 있는지 찾아만 줘요** (아무것도 바꾸지 않아요)'
-    '**입력한 웹서버 주소를 네트워크로 점검해요** (네트워크 사용)'
+    '**악성코드 치료 항목** (치료하기 전 원본을 보관해서 복원 가능)'
+    '**악성코드 검사 항목** (치료가 아닌 탐지만 진행)'
+    '**취약한 버전 · 설정 검사** (취약한 버전 · 설정 탐지만 진행)'
+    '**웹서버 주소 대상 네트워크 기반 점검** (네트워크 사용)'
 )
 summary=""
 for c in 1 2 3 4; do
@@ -159,10 +171,7 @@ while IFS= read -r line || [ -n "$line" ]; do
         '{{SUMMARY}}') out+="$summary"$'\n'; continue ;;
         '{{TABLE}}') out+="$table"$'\n'; continue ;;
     esac
-    line=${line//'{{ENGINE}}'/"$engine"}
-    line=${line//'{{RULES}}'/"$rules"}
     line=${line//'{{SINCE}}'/"$since"}
-    line=${line//'{{COUNT}}'/"$count"}
     line=${line//'{{REPO_URL}}'/"$repo_url"}
     line=${line//'{{HISTORY_URL}}'/"$history_url"}
     out+="$line"$'\n'

@@ -1,11 +1,11 @@
-//! 위협 표 — README 와 릴리스 본문의 *"다루는 위협"* 을 **룰 매니페스트에서 만든다**.
+//! 위협 표 — README 의 *"다루는 위협"* 표(릴리스 본문의 위협 표 · 묶음도 이것으로 짓는다)를 **룰 매니페스트에서 만든다**.
 //!
 //! # 왜 생성하는가
 //!
 //! 꾸러미가 OS 별 통합이 되면 받기 전에 무엇이 들었는지 알 자리가 README 와 릴리스 본문뿐이다.
 //! 손으로 쓴 표는 룰이 늘 때 반드시 어긋난다 — 그래서 `plugins/*/plugin.yaml` 에서 만들고,
 //! `cargo xtask all` 이 README 의 표가 그것과 같은지 본다(`schema` 와 같은 모양). 릴리스 본문은
-//! 배포 잡이 README 의 같은 구간을 옮긴다.
+//! 배포 잡의 `ci/release-notes.sh` 가 README 의 같은 구간을 읽어 본문의 꼴로 바꿔 옮긴다(`table` 의 설명).
 //!
 //! ```text
 //! cargo xtask threats                README 의 표가 지금 룰과 같은가 (아니면 실패)
@@ -68,13 +68,18 @@ struct Row {
     linux: Vec<String>,
 }
 
-/// README 와 릴리스 본문에 같은 꼴로 들어가는 표. Windows 에 있는 줄이 먼저, 그 안은 폴더 이름순(처음 나온 차례).
 /// 표에 서는 룰인가 — 데이터 룰(`kind: data` · 코어 1.12.0)은 위협을 다루지 않고 동반 프로그램이 읽는
 /// 기준을 담을 뿐이라 표에 서지 않는다. 꾸러미에는 들어간다(`--dirs`).
 fn listed(m: &PluginManifest) -> bool {
     m.kind != Some(remedy_sdk::manifest::PluginKind::Data)
 }
 
+/// README 의 위협 표. Windows 에 있는 줄이 먼저, 그 안은 폴더 이름순(처음 나온 차례).
+///
+/// 릴리스 본문은 `ci/release-notes.sh` 가 이 표를 읽어 '하는 일' 칸을 '방식' 칸(머리 · 값)으로 바꿔 넣는다 — 칸은
+/// 자리로 읽고(셋째 · 넷째가 Windows · Linux 가 아니면 멈춘다), 값은 그 스크립트의 `job_ko` 가 아는 `does` 문구여야
+/// 한다. 칸의 차례나 `does` 문구를 바꾸면 그 스크립트도 같은 PR 에서 고친다 — PR 의 CI 는 그 스크립트를 돌리지 않아
+/// 태그 때에야 멈춘다.
 fn table(plugins: &[(PathBuf, PluginManifest)]) -> String {
     let mut rows: Vec<Row> = Vec::new();
     for (dir, m) in plugins.iter().filter(|(_, m)| listed(m)) {
