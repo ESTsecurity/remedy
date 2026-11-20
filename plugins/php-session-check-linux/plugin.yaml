@@ -307,6 +307,7 @@ detect:
     where:
       all:
         - { field: path, op: equals, value: "/usr/bin/php-fpm" }
+        - { field: sha256, op: exists }
         - { field: package, op: matches, value: '.' }
   - id: stale_php
     subject: process

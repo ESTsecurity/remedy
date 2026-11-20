@@ -189,7 +189,8 @@ detect:
     label:
       ko: "PHP 11월 보안 업데이트의 영향을 받는 버전(RPM 패키지) — 그 계열의 고친 버전(8.5.13 · 8.4.28 · 8.3.37 · 8.2.36) 이상으로 올리거나 공급사(RHEL · Oracle · SUSE · Remi 등)의 고친 패키지 · 공지를 따르십시오(8.1 이하는 상류의 고친 버전이 없습니다)"
       en: "affected by the PHP November security update (RPM package) - upgrade to the fixed release of its line (8.5.13, 8.4.28, 8.3.37, 8.2.36), or follow the vendor's (RHEL, Oracle, SUSE, Remi and so on) fixed package and advisory; 8.1 and older have no upstream fix"
-  # RPM 의 PHP 런타임 패키지가 있는가 — 아래 `bin_rpm` 이 *"패키지가 깔지 않은 PHP"* 를 가를 때 쓴다.
+  # RPM 의 PHP 런타임 패키지가 있는가 — verdict 의 첫 RPM 자리 줄(PHP 가 아닌 이름의 패키지가 깐 파일)이 쓴다. 어느
+  # 패키지도 깔지 않았는지는 파일의 `package` 칸(`bin_rpm_unowned` · `sbin_fpm_unowned`)이 가른다.
   - id: rpm_php
     subject: package
     where:
@@ -226,15 +227,18 @@ detect:
       - { field: package, op: matches, value: '.' }
       - { yara: "rules/php.yar:php_version_string" }
 
-  # ── 3. RPM 의 자리에 놓인 PHP — 패키지가 깔지 않았다면 확인 필요 ─────────────────────
+  # ── 3. RPM 의 자리에 놓인 PHP — PHP 패키지가 깔지 않았다면 확인 필요 ─────────────────
   #
   # 정규 파일만 본다(`sha256` 이 있다). Debian 계열의 `/usr/bin/php` 는 대안(alternatives) 링크라 해시가 없다.
-  - id: bin_rpm
+  # 그 가운데 **패키지가 깐 것**(0.1.2 — 0.1.1 의 `bin_rpm` 은 소유를 보지 않았다): RPM 의 PHP 패키지가 없으면 그 파일은
+  # 이 점검이 PHP 패키지로 알아보지 못한 패키지의 것이다. 합친 bin 의 패키지 자리 `/usr/bin/php-fpm` 도 본다.
+  - id: bin_rpm_owned
     subject: file
     where:
       all:
-        - { field: path, op: matches, value: '^/usr/(bin/php(-cgi)?|sbin/php-fpm|lib64/httpd/modules/libphp[0-9]?\.so)$' }
+        - { field: path, op: matches, value: '^/usr/(bin/php(-cgi|-fpm)?|sbin/php-fpm|lib64/httpd/modules/libphp[0-9]?\.so)$' }
         - { field: sha256, op: exists }
+        - { field: package, op: matches, value: '.' }
   # 같은 자리의 정규 파일 가운데 **어느 패키지도 깔지 않은 것**(0.1.2 · PHP2Shell 룰 0.6.3 과 같은 줄) — RPM 의 PHP 패키지가
   # 있어도 그 파일은 패키지의 것이 아니다(예: 고친 `php-cli` 옆에 따로 놓은 `/usr/sbin/php-fpm`). 0.1.1 은 `not rpm_php` 로 그
   # 파일을 패키지의 것으로 보아 0 이었다. 파일 소유는 dpkg · RPM 만 채운다(apk 는 비어 있다).
@@ -263,6 +267,7 @@ detect:
     where:
       all:
         - { field: path, op: equals, value: "/usr/bin/php-fpm" }
+        - { field: sha256, op: exists }
         - { field: package, op: matches, value: '.' }
 
   # ── 선언한 자리 밖에서 실행 중 · 서비스 · Apache 설정의 PHP — PHP2Shell 룰 0.6.1 과 같은 줄 ──────────────
@@ -333,10 +338,10 @@ verdict:
       why:
         ko: "패키지로 깔지 않은 PHP(위 경로)에서 정식 버전을 읽지 못했습니다(버전 문자열이 없거나 정식 출시 전 버전 — RC · 개발 빌드입니다) — 그 경로의 php -v 로 버전을 확인하십시오(8.5 는 8.5.13 · 8.4 는 8.4.28 · 8.3 은 8.3.37 · 8.2 는 8.2.36 보다 낮거나 8.1 이하면 영향을 받습니다)"
         en: "a release version could not be read from the PHP above, outside any package (no version string, or a pre-release - RC or development build) - check it with that path's php -v (below 8.5.13 for 8.5, 8.4.28 for 8.4, 8.3.37 for 8.3, 8.2.36 for 8.2, or 8.1 and older, is affected)"
-    # RPM 자리의 PHP 실행 파일(0.1.2) — 셋으로 가른다. 어느 패키지도 깔지 않은 파일은 둘째 · 셋째 줄(셋째는
-    # `/usr/sbin/php-fpm` — 같은 이름의 `/usr/bin/php-fpm` 을 패키지가 깔았으면 합친 bin 의 링크라 세지 않는다), PHP 패키지가
-    # 아닌 이름의 패키지가 깐 파일은 RPM 의 PHP 패키지가 없을 때 첫 줄이 짚는다.
-    - when: "bin_rpm and not rpm_php and not bin_rpm_unowned and not (sbin_fpm_unowned and not bin_fpm_owned)"
+    # RPM 자리의 PHP 실행 파일(0.1.2) — 셋으로 가른다. PHP 패키지가 아닌 이름의 패키지가 깐 파일은 RPM 의 PHP 패키지가
+    # 없을 때 첫 줄이(어느 패키지도 깔지 않은 파일이 함께 있어도), 어느 패키지도 깔지 않은 파일은 둘째 · 셋째 줄이 짚는다
+    # (셋째는 `/usr/sbin/php-fpm` — 같은 이름의 `/usr/bin/php-fpm` 을 패키지가 깔았으면 합친 bin 의 링크라 세지 않는다).
+    - when: "bin_rpm_owned and not rpm_php"
       why:
         ko: "RPM 계열의 자리에 이 점검이 PHP 패키지로 알아보지 못한 패키지가 깐 PHP 실행 파일이 있습니다(위 경로 · RPM 의 PHP 패키지가 없습니다) — 그 패키지의 버전과 받은 곳을 확인하십시오"
         en: "a PHP executable in an RPM system location was installed by a package this check does not recognise as a PHP package (path above; no RPM PHP package is present) - check that package's version and origin"
