@@ -124,6 +124,46 @@ function Find-VmRun {
     (Get-Command vmrun -ErrorAction SilentlyContinue).Source
 }
 
+# vmrun 을 부르고 **그 프로세스가 끝나기만** 기다린다(2026-11-20). `vmrun -T ws start <vmx> gui` 는 따로 띄운 Workstation
+# 창이 없으면 도우미 `vmware.exe -q -t -x` 를 남기고 끝나는데, 그 도우미가 vmrun 의 표준 출력 · 오류를 물려받아 연 채로 둔다 —
+# `& vmrun …` 으로 출력을 받으면 PowerShell 이 그 파이프의 끝(EOF)을 기다리며 멈춘다(호스트 재부팅 뒤 Reset-Vm 이 '전원 켜기'
+# 에서 두 번 · VM 은 켜져 있었다). 여기서는 프로세스가 끝나면 출력의 끝(EOF)을 몇 초(`-DrainSec`)만 더 기다려 끝이 온 쪽만
+# 쓴다 — 도우미가 문 쪽은 이미 온 출력까지 버리고(ReadToEndAsync 는 끝에서만 돌려준다) Output 에 그 표지를 붙인다.
+# `Start-Process -Wait` 는 쓰지 않는다 — 자손 프로세스까지 기다려 같은 자리에서 멈춘다. 돌려주는 것: ExitCode · Output.
+function Invoke-VmRunExe {
+    param(
+        [Parameter(Mandatory = $true)] [string] $Exe,
+        [Parameter(Mandatory = $true)] [string[]] $Argv,
+        [int] $TimeoutSec = 600,
+        [int] $DrainSec = 3
+    )
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = $Exe
+    $psi.Arguments = ($Argv | ForEach-Object {
+            if ($_ -match '[\s"]') { '"' + ($_ -replace '"', '\"') + '"' } else { $_ }
+        }) -join ' '
+    $psi.UseShellExecute = $false
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+    $psi.CreateNoWindow = $true
+    $proc = [System.Diagnostics.Process]::Start($psi)
+    $readOut = $proc.StandardOutput.ReadToEndAsync()
+    $readErr = $proc.StandardError.ReadToEndAsync()
+    if (-not $proc.WaitForExit($TimeoutSec * 1000)) {
+        try { $proc.Kill() } catch { }
+        throw "vmrun 이 ${TimeoutSec}초 안에 끝나지 않았다: $($Argv -join ' ')"
+    }
+    try {
+        [void][System.Threading.Tasks.Task]::WaitAll([System.Threading.Tasks.Task[]]@($readOut, $readErr), $DrainSec * 1000)
+    } catch { }
+    $done = @(@($readOut, $readErr) | Where-Object { $_.IsCompleted -and -not $_.IsFaulted })
+    $text = ($done | ForEach-Object { $_.Result }) -join "`n"
+    if ($done.Count -lt 2) {
+        $text = "$text`n(출력의 끝이 ${DrainSec}초 안에 오지 않아 그 쪽은 읽지 못했다 - 도우미가 파이프를 물었을 수 있다)"
+    }
+    [pscustomobject]@{ ExitCode = $proc.ExitCode; Output = "$text".Trim() }
+}
+
 # 돌고 있는 게스트의 IP. 찾지 못하면 `$null` — 부르는 쪽이 판단한다.
 #
 # **돌고 있는 VM 이 정확히 하나일 때만** 고른다. 여럿이면 어느 것이 랩인지

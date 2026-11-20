@@ -22,10 +22,13 @@
 #
 #   A  이미지 4 — 깐 PHP 의 판이 그 갈래의 고친 판 아래다(Debian 12 의 8.2 · Ubuntu 24.04 의 8.3 · Rocky 9 의 8.0(지원 끝) ·
 #      Alpine 3.22 의 8.3 — 배포판은 고친 판을 아직 내지 않았다 · 2026-11-19)
-#   B  패키지 8 — 배포판 넷 깐 그대로 2 · Debian 의 8.2.36 꼴 0 · 8.1 꼴(지원 끝) 2 · Alpine 8.3.37-r0 0 · 8.3.36-r1 2
+#   B  패키지 9 — 배포판 넷 깐 그대로 2 · Debian 의 8.2.36 꼴 0 · 8.1 꼴(지원 끝) 2 · Alpine 8.3.37-r0 0 · 8.3.36-r1 2 · 한 자리
+#      이름 `php8` 8.0.30-r0(지원 끝 · Alpine 3.16 의 이름 꼴 · 0.1.1) 2
 #   O  공식 이미지 3 — php:8.3.36-cli · php:8.3.36-fpm · php:8.2-apache(8.2.35) 모두 2
-#   X  직접 빌드 7 — /usr/local/php 의 8.4.27 2 · 8.4.28 0 · 판 없음 6 · /opt/php 의 7.4.33(지원 끝) 2 · /usr/local/bin 의 8.5.13
-#      0 · 8.5.12 2 · 판마다 하위 폴더(/opt/php/8.3/bin — 룰이 내용을 담지 않는 자리) 6
+#   X  직접 빌드 12 — /usr/local/php 의 8.4.27 2 · 8.4.28 0 · 판 없음 6 · /opt/php 의 7.4.33(지원 끝) 2 · /usr/local/bin 의 8.5.13
+#      0 · 8.5.12 2 · 판마다 하위 폴더(/opt/php/8.3/bin — 룰이 내용을 담지 않는 자리) 6 · 정식 출시 전 버전(0.1.1) — 시험판
+#      8.6.0RC7 6 · 개발 빌드 8.6.0-dev 6 · 영향 판의 시험판 8.5.12RC1 2 · 실행 파일 둘의 섞임(0.1.1 — 파일마다 가린다) —
+#      8.4.28 + /opt/php 의 8.6.0RC7 6 · 8.4.28 + 판 없음 6
 #   P  프로세스 · 서비스 3 — 자리 밖에서 도는 PHP 6 · 자리 밖을 띄우는 서비스 6 · 지워진 실행 파일로 도는 PHP 6
 #   N  PHP 없음 2 — Debian · Alpine 0
 #   S  화면 4 — 취약 줄의 올릴 버전 문구 · 버전 못 읽음 까닭 · 미해소 경고 0 · 내부 낱말(판 · 갈래) 0
@@ -138,6 +141,10 @@ deb_set() { # 갈래(8.2) · 판
     printf "sed -i -E '/^Package: php%s-(cli|cgi|fpm)\$/,/^\$/ s/^Version: .*/Version: %s/' /var/lib/dpkg/status && [ \"\$(dpkg-query -W -f='\${Version}' php%s-cli)\" = '%s' ]" "$1" "$2" "$1" "$2"
 }
 apk_set() { printf "sed -i '/^P:php83\$/,/^\$/ s/^V:.*/V:%s/' /lib/apk/db/installed && [ \"\$(sed -n '/^P:php83\$/,/^\$/ s/^V://p' /lib/apk/db/installed)\" = '%s' ]" "$1" "$1"; }
+# php83 칸을 다른 이름 · 판으로 — 옛 Alpine 의 한 자리 이름(`php8` · `php7`) 꼴.
+apk_rename() { # 이름 · 판
+    printf "sed -i '/^P:php83\$/,/^\$/ s/^V:.*/V:%s/' /lib/apk/db/installed && sed -i 's/^P:php83\$/P:%s/' /lib/apk/db/installed && [ \"\$(sed -n '/^P:%s\$/,/^\$/ s/^V://p' /lib/apk/db/installed)\" = '%s' ]" "$2" "$1" "$1" "$2"
+}
 # 직접 빌드 자리 채우기 — 판 문자열만 담은 파일(실행 파일이 아니다).
 bin_put() { # 폴더 · 이름 · 담을 글자
     printf "mkdir -p %s && printf 'x\\\\000%s\\\\000x' >%s/%s && [ -s %s/%s ]" "$1" "$3" "$1" "$2" "$1" "$2"
@@ -152,6 +159,7 @@ run_case b05-deb-8236 debian12 0 "$(deb_set 8.2 8.2.36-1~deb12u1)" "Debian 꼴 8
 run_case b06-deb-eol81 debian12 2 "$(deb_set 8.2 8.1.31-1)" "8.1 꼴 — 지원 끝 · 고친 판 없음"
 run_case b07-alpine-8337 alpine322 0 "$(apk_set 8.3.37-r0)" "Alpine 꼴 8.3.37-r0 — 고친 판"
 run_case b08-alpine-8336 alpine322 2 "$(apk_set 8.3.36-r1)" "Alpine 꼴 8.3.36-r1"
+run_case b09-alpine-php8-eol alpine322 2 "$(apk_rename php8 8.0.30-r0)" "Alpine 한 자리 이름 php8 8.0.30-r0 — 지원 끝"
 
 echo "── O. 공식 이미지 ──"
 run_case o01-official-cli php:8.3.36-cli 2 ":" "php:8.3.36-cli — /usr/local/bin/php"
@@ -167,6 +175,17 @@ run_case x05-local-8513 debian:12 0 "$(bin_put /usr/local/bin php 'X-Powered-By:
 run_case x06-local-8512 debian:12 2 "$(bin_put /usr/local/bin php 'X-Powered-By: PHP/8.5.12')" "/usr/local/bin/php 8.5.12"
 run_case x07-src-subdir debian:12 6 "$(bin_put /opt/php/8.3/bin php 'X-Powered-By: PHP/8.3.36')" \
     "/opt/php/8.3/bin/php 8.3.36 — 판마다 하위 폴더(내용을 담지 않아 판을 읽지 못함 · 다 보지 못함)"
+# 정식 출시 전 버전(0.1.1) — 판 뒤가 글자나 -dev 면 정식 판으로 세지 않는다. 영향 판의 시험판은 그대로 취약이다.
+run_case x08-local-rc debian:12 6 "$(bin_put /usr/local/bin php 'X-Powered-By: PHP/8.6.0RC7')" "/usr/local/bin/php 8.6.0RC7 — 시험판"
+run_case x09-local-dev debian:12 6 "$(bin_put /usr/local/bin php 'X-Powered-By: PHP/8.6.0-dev')" "/usr/local/bin/php 8.6.0-dev — 개발 빌드"
+run_case x10-local-rc-affected debian:12 2 "$(bin_put /usr/local/bin php 'X-Powered-By: PHP/8.5.12RC1')" "/usr/local/bin/php 8.5.12RC1 — 영향 판의 시험판"
+# 실행 파일 둘의 섞임(0.1.1) — 판을 읽은 고친 판이 다른 실행 파일의 판 없음을 가리지 않는다.
+run_case x11-mixed-rc debian:12 6 \
+    "$(bin_put /usr/local/php/bin php 'X-Powered-By: PHP/8.4.28') && $(bin_put /opt/php/bin php 'X-Powered-By: PHP/8.6.0RC7')" \
+    "8.4.28 + /opt/php/bin/php 8.6.0RC7"
+run_case x12-mixed-noversion debian:12 6 \
+    "$(bin_put /usr/local/php/bin php 'X-Powered-By: PHP/8.4.28') && $(bin_put /opt/php/bin php no-version-here)" \
+    "8.4.28 + /opt/php/bin/php 판 없음"
 
 echo "── P. 프로세스 · 서비스 ──"
 run_case p01-outside-running debian:12 6 \

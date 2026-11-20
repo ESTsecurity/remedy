@@ -28,7 +28,8 @@
 # - 공식 빌드 해시: downloads.php.net 의 Windows x64(TS · NTS) 코어 DLL — 취약 `php-8.3.35`, 고친 판
 #   `php-8.2.35` · `8.3.36` · `8.4.27` · `8.5.12` 와 그 **`-1` 재빌드**(2026-10-26 · Brotli 1.2.1 —
 #   PHP 판 번호는 같고 파일은 전부 다시 지어졌다). 각 ZIP 의 SHA-256 을 같은 자리의 SBOM(`.cdx.json`)
-#   과 맞춘 뒤 코어 DLL 을 쟀다(2026-11-09)
+#   과 맞춘 뒤 코어 DLL 을 쟀다(2026-11-09). 2026-11-19 보안 업데이트의 `php-8.2.36` · `8.3.37` · `8.4.28` · `8.5.13`
+#   (TS · NTS)도 고친 판이다 — 각 ZIP 의 SHA-256 을 같은 자리의 `sha256sum.txt` 와 맞춘 뒤 코어 DLL 을 쟀다(2026-11-20 · 0.4.2)
 #
 # # 선언한 자리 밖의 PHP 는 찾아서 알린다 (0.2.0)
 #
@@ -59,7 +60,7 @@
 # - 실행 중인 PHP 가 고친 판을 실었는가 — 고친 뒤에는 IIS · Apache · PHP 를 다시 시작한다.
 schema_version: 1
 id: php2shell-check-windows
-version: 0.4.1
+version: 0.4.2
 min_core: "1.21.0"  # product 는 1.21.0 · 가운데 별표 레지스트리 루트(`Services\*\Parameters`)는 1.10.0 · 실린 모듈은 1.9.0 · IIS 설정(XML)은 1.6.0
 platforms: [windows]
 
@@ -173,6 +174,15 @@ detect:
             - "a3d2acd1453aaff16be437fd9975f8b923cc190095931158bc8e1444d0db3069"   # 8.5.12 windows/amd64 ts php8ts.dll
             - "7f9c2ab08b1668426e4ee0cd571b7012030dad1f99ff435a9efd7b8161c7b086"   # 8.5.12-1 windows/amd64 nts php8.dll
             - "2cad79b8aca7ccb8051d24e76ee394a1bf10f6f1fb0a0698ec570f4e6f4cbd5b"   # 8.5.12-1 windows/amd64 ts php8ts.dll
+            # 2026-11-19 보안 업데이트(0.4.2) — 11월 판도 PHP2Shell 을 고친 판이다.
+            - "0e7661a73fd48d8f01017ee466cd09c6f16c389bc6ac5e6926b252008c219a41"   # 8.2.36 windows/amd64 nts php8.dll
+            - "35141c749089ecc772fb6241765ebdce7ca6f9507051c8faabca3ff8f735af70"   # 8.2.36 windows/amd64 ts php8ts.dll
+            - "7358488e57a19cfd12ddaeabf0548e08ae62a8ee6d20cbb8870bd88bbf31cbe1"   # 8.3.37 windows/amd64 nts php8.dll
+            - "2db25f9b03dcdeda268e9ada8e93a1b13124a1a823d71e19cf7e75b8d787cc53"   # 8.3.37 windows/amd64 ts php8ts.dll
+            - "55a2383e420109ffb14ba474f0a01d91a1459d749458d2055f630803bcc04cc1"   # 8.4.28 windows/amd64 nts php8.dll
+            - "112dd08fd9c14a63bea59c6be0d6dc20f49e2ab3eb8d5898714001a0a083cc58"   # 8.4.28 windows/amd64 ts php8ts.dll
+            - "63c389555a7b7e039e918424145452c65c113d9aa2eaca587f1d82a51ff58649"   # 8.5.13 windows/amd64 nts php8.dll
+            - "7211a9f3b4b0f8c0ec575e91777125c0e5ac612ffc3dea6ca7680575bb216900"   # 8.5.13 windows/amd64 ts php8ts.dll
 
   # 판이 그 계열의 수정 판보다 낮다 — 또는 수정 판이 없는 계열(5.4~8.1). 따옴표는 **필수다**:
   # 없으면 YAML 이 `8.2` 를 수로 읽어 뒤의 0 이 사라진다.

@@ -1,13 +1,18 @@
 # PHP 세션 업로드 진행 설정 점검 — Windows (CVE-2026-115560 · php.net 2026-10-23 공지)
 #
-# **판 번호로 답할 수 없다.** 공지는 수정 판을 내지 않았고(다음 정기 판에서 고친다), 위험은 세
-# 조건이 겹칠 때뿐이다 — `session.upload_progress.enabled` 가 켜져 있고, 서버 설정의
-# `session.serialize_handler` 가 `php_binary` · `php_serialize` 이며, **앱이 `session_start()` 전에
-# `ini_set()` 으로 그것을 `php` 로 바꾼다.** 셋째는 앱 코드라 이 도구가 보지 못한다. 그래서 이 룰은
-# **판정(2)을 세우지 않고** PHP 가 있으면 늘 *확인 필요(6)* 로, 설정 상태에 따라 까닭을 갈라 적는다.
+# **판정(2)은 세우지 않는다.** 위험은 세 조건이 겹칠 때뿐이다 — `session.upload_progress.enabled` 가 켜져 있고, 서버
+# 설정의 `session.serialize_handler` 가 `php_binary` · `php_serialize` 이며, **앱이 `session_start()` 전에 `ini_set()` 으로
+# 그것을 `php` 로 바꾼다**(또는 같은 세션을 쓰는 설정끼리 직렬화기가 다르다). 셋째는 앱 코드라 이 도구가 보지 못한다.
+# 그래서 PHP 가 있으면 *확인 필요(6)* 로, 설정 상태에 따라 까닭을 갈라 적는다.
 #
-# 권고(공지): 다음 정기 판까지 `session.upload_progress.enabled=0`. 실행 중에 handler 를 바꾸지 않는
-# 앱은 켜 둬도 된다. 바꾼 값은 IIS · Apache · PHP 를 다시 시작해야 실린다.
+# **고친 판(0.5.0)** — 2026-10-23 공지 때는 고친 판이 없었고, 2026-11-19 보안 업데이트(8.2.36 · 8.3.37 · 8.4.28 · 8.5.13)가
+# 이 결함을 고쳤다(GHSA-658j-r8rw-q6mx). 그래서 **찾은 코어 DLL 이 모두 고친 판 이상이고 직접 켠 설정이 없으면 0** 이다. 판은
+# PHP 11월 보안 업데이트 점검(`php-2026-11-check-windows` 0.1.0)과 같이 코어 DLL 의 파일 버전으로 읽는다 — 정식 판을 읽지
+# 못한 코어 DLL(버전 정보 없음 · RC · 개발 빌드)은 고친 판으로 세지 않는다. 고친 판이어도 직접 켰다면 설정끼리 다른
+# 직렬화기는 막지 않으므로 *확인 필요* 로 남는다.
+#
+# 권고(공지): 고친 판으로 올린다. 그 전에는 `session.upload_progress.enabled=0`. 바꾼 값은 IIS · Apache · PHP 를 다시
+# 시작해야 실린다.
 #
 # **선언한 자리 밖의 PHP 는 찾아서 알린다** (0.2.0) — IIS 설정(FastCGI · 핸들러)과 실행 중 프로세스로
 # 찾으면 *확인 필요* 로 그 경로를 적는다. 그 PHP 의 설정은 열지 않는다(PHP2Shell Windows 룰과 같은 규칙).
@@ -17,7 +22,7 @@
 # 0.4.0 부터 **NSSM** 이 감싸 띄우는 PHP(`Services\<이름>\Parameters` 의 `Application`)도 본다.
 schema_version: 1
 id: php-session-check-windows
-version: 0.4.1
+version: 0.5.0
 min_core: "1.21.0"  # product 는 1.21.0 · 가운데 별표 레지스트리 루트(`Services\*\Parameters`)는 1.10.0 · 실린 모듈은 1.9.0 · IIS 설정(XML)은 1.6.0
 platforms: [windows]
 
@@ -69,23 +74,58 @@ subject_roots:
 subjects: [file, text_config, structured_config, process, service, registry_value]
 
 detect:
+  # 켬 · 끔은 두 꼴로 읽는다(0.5.0) — php.ini 꼴 `키 = 값`(값 뒤의 `; 주석` 도 받는다 — 수집기는 줄 머리의 주석만 버린다)과
+  # Apache 설정의 `php_admin_flag 키 값` 꼴(XAMPP · WampServer · Apache 의 httpd.conf · 가상 호스트 — `=` 가 없어 key · value 가
+  # 비고 line 만 온다). 고친 판에서는 켬을 놓치면 0 이 되므로 둘을 다 본다. 리눅스 룰과 같은 식이다(FPM 풀 꼴도 함께 받는다).
   - id: upload_on
     subject: text_config
     where:
-      all:
-        - { field: key, op: equals, value: "session.upload_progress.enabled" }
-        - { field: value, op: matches, value: '(?i)^\s*"?(on|1|true|yes)"?\s*$' }
+      any:
+        - all:
+            - { field: key, op: matches, value: '^(session\.upload_progress\.enabled|php(_admin)?_(value|flag)\[\s*session\.upload_progress\.enabled\s*\])$' }
+            - { field: value, op: matches, value: '(?i)^\s*"?(on|1|true|yes)"?\s*(;.*)?$' }
+        - { field: line, op: matches, value: '^(?i:php(_admin)?_(value|flag))\s+"?session\.upload_progress\.enabled"?\s+"?(?i:on|1|true|yes)"?(\s|$)' }
   - id: upload_off
     subject: text_config
     where:
-      all:
-        - { field: key, op: equals, value: "session.upload_progress.enabled" }
-        - { field: value, op: matches, value: '(?i)^\s*"?(off|0|false|no|none)?"?\s*$' }
+      any:
+        - all:
+            - { field: key, op: matches, value: '^(session\.upload_progress\.enabled|php(_admin)?_(value|flag)\[\s*session\.upload_progress\.enabled\s*\])$' }
+            - { field: value, op: matches, value: '(?i)^\s*"?(off|0|false|no|none)?"?\s*(;.*)?$' }
+        - { field: line, op: matches, value: '^(?i:php(_admin)?_(value|flag))\s+"?session\.upload_progress\.enabled"?\s+"?(?i:off|0|false|no|none)"?(\s|$)' }
   # PHP 가 있는가 — 코어 DLL(확장 DLL 은 PHP 가 아니다).
   - id: php_core
     subject: file
     where:
       - { field: path, op: matches, value: '(?i)\\php[5-8](ts)?\.dll$' }
+  # 판 사실(0.5.0) — PHP 11월 보안 업데이트 점검과 같은 판 규칙. 판정이 아니라 **'고치지 않은 PHP 가 있는가'** 를 가르는 데만
+  # 쓴다(label 이 없다). 코어 DLL 마다 본다 — 고친 판 아래 · 8.1 이하(`core_unfixed`) 또는 정식 판을 읽지 못함(`core_unknown` —
+  # 버전 정보 없음 · RC · 개발 빌드)이면 고친 판으로 세지 않는다. 따옴표는 필수다(YAML 이 `8.2` 를 수로 읽는다).
+  - id: core_unfixed
+    subject: file
+    where:
+      all:
+        - { field: path, op: matches, value: '(?i)\\php[5-8](ts)?\.dll$' }
+        - any:
+            - all:
+                - { field: version, op: matches, value: '^8\.5\.' }
+                - { field: version, op: version_lt, value: "8.5.13" }
+            - all:
+                - { field: version, op: matches, value: '^8\.4\.' }
+                - { field: version, op: version_lt, value: "8.4.28" }
+            - all:
+                - { field: version, op: matches, value: '^8\.3\.' }
+                - { field: version, op: version_lt, value: "8.3.37" }
+            - all:
+                - { field: version, op: matches, value: '^8\.2\.' }
+                - { field: version, op: version_lt, value: "8.2.36" }
+            - { field: version, op: matches, value: '^([5-7]|8\.[01])\.' }
+  - id: core_unknown
+    subject: file
+    where:
+      - { field: path, op: matches, value: '(?i)\\php[5-8](ts)?\.dll$' }
+    exclude:
+      - { field: version, op: matches, value: '^[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?$' }
 
   # ── 선언한 자리 밖의 PHP (0.2.0) — PHP2Shell Windows 룰과 같은 세 규칙 ──────────────
   - id: iis_php
@@ -150,40 +190,44 @@ detect:
       - { field: line, op: matches, value: '(?i)^\s*LoadModule\s+php\d*_module\s+"?((c:)?[\\/](php|xampp[\\/]php|wamp64[\\/]bin[\\/]php|wamp[\\/]bin[\\/]php|laragon[\\/]bin[\\/]php|tools[\\/]php(85|84|83|82|81|80|74)|program files( \(x86\))?[\\/]php)|\$\{install_dir\}[\\/]bin[\\/]php)[\\/]' }
 
 # **판정(2)은 세우지 않는다** — 위 머리말의 까닭. `require` 는 문법상 있어야 하므로 늘 거짓인 식을
-# 적는다(`count(x) >= 0` 은 늘 참이다).
+# 적는다(`count(x) >= 0` 은 늘 참이다). 고치지 않은 PHP 가 있는가는 `core_unfixed or core_unknown` 이다(0.5.0).
 verdict:
   require: "not (count(php_core) >= 0) and not (count(upload_on) >= 0)"
   unconfirmed:
     # PHP 가 있을 때만 본다 — 지운 PHP 의 설정 파일이 남은 기계는 해당 없음이다.
-    - when: "upload_on and php_core"
+    - when: "upload_on and php_core and (core_unfixed or core_unknown)"
       why:
-        ko: "session.upload_progress.enabled 가 켜져 있습니다 — 앱이 실행 중에 session.serialize_handler 를 php 로 바꾼다면(ini_set) 0 으로 두고 웹 서버와 PHP 를 다시 시작하십시오(php.net 공지)"
-        en: "session.upload_progress.enabled is on - if the application switches session.serialize_handler to php at run time (ini_set), set it to 0 and restart the web server and PHP (php.net advisory)"
-    - when: "upload_off and not upload_on and php_core"
+        ko: "session.upload_progress.enabled 가 켜져 있습니다 — 앱이 실행 중에 session.serialize_handler 를 php 로 바꾼다면(ini_set) 0 으로 두고 웹 서버와 PHP 를 다시 시작하십시오. 고친 버전으로 세지 않은 PHP 가 있습니다 — 고치기 전 버전이면 그 계열의 고친 버전(8.5.13 · 8.4.28 · 8.3.37 · 8.2.36) 이상으로 올리십시오(8.1 이하는 고친 버전이 없어 8.2 이상으로 옮깁니다). 버전 정보가 없거나 정식 출시 전 버전(RC · 개발 빌드)인 PHP 는 PHP 11월 보안 업데이트 점검 항목의 안내를 따르십시오(php.net 공지)"
+        en: "session.upload_progress.enabled is on - if the application switches session.serialize_handler to php at run time (ini_set), set it to 0 and restart the web server and PHP. A PHP not counted as fixed is present - if it predates the fix, upgrade to the fixed release of its line (8.5.13, 8.4.28, 8.3.37, 8.2.36) or later (8.1 and older have no fixed release - move to 8.2 or later); for a PHP without version information or a pre-release build (RC, development build), follow the PHP November security update check (php.net advisory)"
+    - when: "upload_on and php_core and not (core_unfixed or core_unknown)"
       why:
-        ko: "session.upload_progress.enabled 를 끈 설정이 있습니다 — 실행 중인 PHP 에 반영됐는지(다시 시작했는지)는 이 도구가 보지 못합니다. 바꾼 뒤 다시 시작하지 않았다면 웹 서버와 PHP 를 다시 시작하십시오"
-        en: "a setting turns session.upload_progress.enabled off - whether the running PHP has picked it up (restarted) cannot be seen by this tool; if it was not restarted after the change, restart the web server and PHP"
-    - when: "php_core and not upload_on and not upload_off"
+        ko: "고친 버전이지만 session.upload_progress.enabled 를 설정에서 직접 켰습니다 — 고친 버전도 설정끼리 다른 직렬화기는 막지 않습니다. 같은 세션을 쓰는 앱 · 풀 · 가상 호스트 · CLI 의 session.serialize_handler 를 같게 맞추거나, 쓰지 않으면 0 으로 두고 웹 서버와 PHP 를 다시 시작하십시오(php.net 공지)"
+        en: "a fixed release, but a setting turns session.upload_progress.enabled on - the fix does not stop different serializers between settings; make session.serialize_handler the same for every application, pool, virtual host and CLI sharing the sessions, or set it to 0 if unused and restart the web server and PHP (php.net advisory)"
+    - when: "upload_off and not upload_on and php_core and (core_unfixed or core_unknown)"
       why:
-        ko: "session.upload_progress.enabled 설정을 찾지 못했습니다(기본값은 켜짐) — 앱이 실행 중에 session.serialize_handler 를 php 로 바꾼다면(ini_set) 0 으로 두고 웹 서버와 PHP 를 다시 시작하십시오(php.net 공지)"
-        en: "no session.upload_progress.enabled setting was found (the default is on) - if the application switches session.serialize_handler to php at run time (ini_set), set it to 0 and restart the web server and PHP (php.net advisory)"
+        ko: "session.upload_progress.enabled 를 끈 설정이 있습니다 — 실행 중인 PHP 에 반영됐는지(다시 시작했는지)는 이 도구가 보지 못합니다. 바꾼 뒤 다시 시작하지 않았다면 웹 서버와 PHP 를 다시 시작하십시오. 고친 버전으로 세지 않은 PHP 가 있습니다 — 고치기 전 버전이면 그 계열의 고친 버전(8.5.13 · 8.4.28 · 8.3.37 · 8.2.36) 이상으로 올리십시오(8.1 이하는 고친 버전이 없어 8.2 이상으로 옮깁니다). 버전 정보가 없거나 정식 출시 전 버전(RC · 개발 빌드)인 PHP 는 PHP 11월 보안 업데이트 점검 항목의 안내를 따르십시오"
+        en: "a setting turns session.upload_progress.enabled off - whether the running PHP has picked it up (restarted) cannot be seen by this tool; if it was not restarted after the change, restart the web server and PHP. A PHP not counted as fixed is present - if it predates the fix, upgrade to the fixed release of its line (8.5.13, 8.4.28, 8.3.37, 8.2.36) or later (8.1 and older have no fixed release - move to 8.2 or later); for a PHP without version information or a pre-release build (RC, development build), follow the PHP November security update check"
+    - when: "php_core and not upload_on and not upload_off and (core_unfixed or core_unknown)"
+      why:
+        ko: "session.upload_progress.enabled 설정을 찾지 못했습니다(고친 버전 전의 기본값은 켜짐) — 앱이 실행 중에 session.serialize_handler 를 php 로 바꾼다면(ini_set) 0 으로 두고 웹 서버와 PHP 를 다시 시작하십시오. 고친 버전으로 세지 않은 PHP 가 있습니다 — 고치기 전 버전이면 그 계열의 고친 버전(8.5.13 · 8.4.28 · 8.3.37 · 8.2.36) 이상으로 올리십시오(8.1 이하는 고친 버전이 없어 8.2 이상으로 옮깁니다). 버전 정보가 없거나 정식 출시 전 버전(RC · 개발 빌드)인 PHP 는 PHP 11월 보안 업데이트 점검 항목의 안내를 따르십시오(php.net 공지)"
+        en: "no session.upload_progress.enabled setting was found (on by default before the fixed release) - if the application switches session.serialize_handler to php at run time (ini_set), set it to 0 and restart the web server and PHP. A PHP not counted as fixed is present - if it predates the fix, upgrade to the fixed release of its line (8.5.13, 8.4.28, 8.3.37, 8.2.36) or later (8.1 and older have no fixed release - move to 8.2 or later); for a PHP without version information or a pre-release build (RC, development build), follow the PHP November security update check (php.net advisory)"
     - when: "iis_php or running_php"
       why:
-        ko: "이 점검이 보는 자리 밖의 PHP 를 IIS 가 쓰거나 그 PHP 가 실행 중입니다(위 경로) — 그 PHP 의 설정은 보지 않았습니다. 그 PHP 의 session.upload_progress.enabled 를 확인하십시오(기본값은 켜짐)"
-        en: "IIS uses, or there is running, a PHP outside the places this check reads (path above) - its settings were not read; check session.upload_progress.enabled for that PHP (the default is on)"
+        ko: "이 점검이 보는 자리 밖의 PHP 를 IIS 가 쓰거나 그 PHP 가 실행 중입니다(위 경로) — 그 PHP 의 설정은 보지 않았습니다. 그 PHP 의 session.upload_progress.enabled 를 확인하십시오(고친 버전 전의 기본값은 켜짐)"
+        en: "IIS uses, or there is running, a PHP outside the places this check reads (path above) - its settings were not read; check session.upload_progress.enabled for that PHP (on by default before the fixed release)"
     - when: "iis_shared"
       why:
-        ko: "IIS 가 공유 설정을 씁니다 — 다른 자리에 있는 그 설정이 가리키는 PHP 와 그 설정은 보지 않았습니다. 그 PHP 의 session.upload_progress.enabled 를 확인하십시오(기본값은 켜짐)"
-        en: "IIS uses a shared configuration - PHP referenced from that configuration elsewhere, and its settings, were not read; check session.upload_progress.enabled for that PHP (the default is on)"
+        ko: "IIS 가 공유 설정을 씁니다 — 다른 자리에 있는 그 설정이 가리키는 PHP 와 그 설정은 보지 않았습니다. 그 PHP 의 session.upload_progress.enabled 를 확인하십시오(고친 버전 전의 기본값은 켜짐)"
+        en: "IIS uses a shared configuration - PHP referenced from that configuration elsewhere, and its settings, were not read; check session.upload_progress.enabled for that PHP (on by default before the fixed release)"
     - when: "module_php"
       why:
-        ko: "이 점검이 보는 자리 밖의 PHP 가 다른 프로그램(위 경로)에 모듈로 실려 있습니다(괄호 안이 그 PHP) — 그 PHP 의 설정은 보지 않았습니다. 그 PHP 의 session.upload_progress.enabled 를 확인하십시오(기본값은 켜짐)"
-        en: "a PHP outside the places this check reads is loaded as a module into another program (path above; the PHP is in brackets) - its settings were not read; check session.upload_progress.enabled for that PHP (the default is on)"
+        ko: "이 점검이 보는 자리 밖의 PHP 가 다른 프로그램(위 경로)에 모듈로 실려 있습니다(괄호 안이 그 PHP) — 그 PHP 의 설정은 보지 않았습니다. 그 PHP 의 session.upload_progress.enabled 를 확인하십시오(고친 버전 전의 기본값은 켜짐)"
+        en: "a PHP outside the places this check reads is loaded as a module into another program (path above; the PHP is in brackets) - its settings were not read; check session.upload_progress.enabled for that PHP (on by default before the fixed release)"
     - when: "apache_unread"
       why:
-        ko: "Apache(위 경로)에 실린 모듈 목록을 읽지 못해 그 Apache 가 PHP 를 싣는지 보지 못했습니다 — Apache 설정(httpd.conf)의 LoadModule php_module 줄이 가리키는 PHP 의 session.upload_progress.enabled 를 확인하십시오(기본값은 켜짐)"
-        en: "the list of modules loaded into Apache (path above) could not be read, so whether it loads PHP was not seen - check session.upload_progress.enabled for the PHP named by the LoadModule php_module line of its configuration (httpd.conf; the default is on)"
+        ko: "Apache(위 경로)에 실린 모듈 목록을 읽지 못해 그 Apache 가 PHP 를 싣는지 보지 못했습니다 — Apache 설정(httpd.conf)의 LoadModule php_module 줄이 가리키는 PHP 의 session.upload_progress.enabled 를 확인하십시오(고친 버전 전의 기본값은 켜짐)"
+        en: "the list of modules loaded into Apache (path above) could not be read, so whether it loads PHP was not seen - check session.upload_progress.enabled for the PHP named by the LoadModule php_module line of its configuration (httpd.conf; on by default before the fixed release)"
     - when: "service_php or nssm_php or apache_php"
       why:
-        ko: "이 점검이 보는 자리 밖의 PHP 를 서비스가 띄우거나 Apache 설정이 싣습니다(위 서비스 · 설정 줄의 경로) — 그 PHP 의 설정은 보지 않았습니다. 그 PHP 의 session.upload_progress.enabled 를 확인하십시오(기본값은 켜짐)"
-        en: "a service starts, or the Apache configuration loads, a PHP outside the places this check reads (the path in the service or configuration line above) - its settings were not read; check session.upload_progress.enabled for that PHP (the default is on)"
+        ko: "이 점검이 보는 자리 밖의 PHP 를 서비스가 띄우거나 Apache 설정이 싣습니다(위 서비스 · 설정 줄의 경로) — 그 PHP 의 설정은 보지 않았습니다. 그 PHP 의 session.upload_progress.enabled 를 확인하십시오(고친 버전 전의 기본값은 켜짐)"
+        en: "a service starts, or the Apache configuration loads, a PHP outside the places this check reads (the path in the service or configuration line above) - its settings were not read; check session.upload_progress.enabled for that PHP (on by default before the fixed release)"

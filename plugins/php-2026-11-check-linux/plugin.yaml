@@ -28,7 +28,7 @@
 # - 컨테이너 안 · Windows(`php-2026-11-check-windows` — 다음 차수)
 schema_version: 1
 id: php-2026-11-check-linux
-version: 0.1.0
+version: 0.1.1
 min_core: "1.25.0"  # added 는 1.25.0 · product 는 1.21.0 · 시작 스크립트의 서비스는 1.10.0 · package_match 는 1.7.0
 platforms: [linux]
 
@@ -148,7 +148,7 @@ detect:
     where:
       all:
         - { field: manager, op: equals, value: apk }
-        - { field: name, op: matches, value: '^php[0-9]{2}(-(cgi|fpm|apache2))?$' }
+        - { field: name, op: matches, value: '^php[0-9]+(-(cgi|fpm|apache2))?$' }
         - any:
             - all:
                 - { field: version, op: matches, value: '^8\.5\.' }
@@ -213,7 +213,10 @@ detect:
     label:
       ko: "패키지로 깔지 않은 PHP(공식 Docker 이미지 · 직접 빌드)의 영향을 받는 버전 — 그 계열의 고친 버전(8.5.13 · 8.4.28 · 8.3.37 · 8.2.36) 이상으로 올리십시오(8.1 이하는 고친 버전이 없습니다)"
       en: "a PHP outside any package (official image or own build) in the affected range - upgrade to the fixed release of its line (8.5.13, 8.4.28, 8.3.37, 8.2.36); 8.1 and older have no fix"
-  - id: bin_php
+  # 정식 판을 읽지 못한 실행 파일 — 파일마다 가른다(0.1.1). 0.1.0 의 기계 단위 식(`bin_php and not bin_version_known`)은
+  # 판을 읽은 다른 실행 파일 하나가 RC · 개발 빌드 · 판 없는 실행 파일을 가렸다. 본문을 담지 못하면 YARA 가 '모름' 이라
+  # 빼지 못해 남는다(판을 재지 못한 PHP 는 확인 필요).
+  - id: bin_version_unknown
     subject: file
     where:
       all:
@@ -221,14 +224,7 @@ detect:
         - { field: sha256, op: exists }
     exclude:
       - { field: package, op: matches, value: '.' }
-  - id: bin_version_known
-    subject: file
-    where:
-      all:
-        - { field: path, op: matches, value: '^(/usr/local/(bin/php(-cgi)?|sbin/php-fpm|lib/libphp[0-9]*\.so)|/usr/lib/apache2/modules/libphp\.so|/(usr/local|opt)/php/(.+/)?(s?bin/(php|php-cgi|php-fpm)[0-9.]*|lib(64)?/libphp[0-9.]*\.so))$' }
-        - { yara: "rules/php.yar:php_version_string" }
-    exclude:
-      - { field: package, op: matches, value: '.' }
+      - { yara: "rules/php.yar:php_version_string" }
 
   # ── 3. RPM 의 자리에 놓인 PHP — 패키지가 깔지 않았다면 확인 필요 ─────────────────────
   #
@@ -304,10 +300,10 @@ collect_extra:
 verdict:
   require: "((deb_vuln_85 or deb_vuln_84 or deb_vuln_83 or deb_vuln_82 or deb_eol or apk_vuln or rpm_vuln) and not pkg_bin_changed) or bin_vuln"
   unconfirmed:
-    - when: "bin_php and not bin_version_known"
+    - when: "bin_version_unknown"
       why:
-        ko: "패키지로 깔지 않은 PHP(위 경로)의 버전을 읽지 못했습니다 — 그 경로의 php -v 로 버전을 확인하십시오(8.5 는 8.5.13 · 8.4 는 8.4.28 · 8.3 은 8.3.37 · 8.2 는 8.2.36 보다 낮거나 8.1 이하면 영향을 받습니다)"
-        en: "the version of the PHP above, outside any package, could not be read - check it with that path's php -v (below 8.5.13 for 8.5, 8.4.28 for 8.4, 8.3.37 for 8.3, 8.2.36 for 8.2, or 8.1 and older, is affected)"
+        ko: "패키지로 깔지 않은 PHP(위 경로)에서 정식 버전을 읽지 못했습니다(버전 문자열이 없거나 정식 출시 전 버전 — RC · 개발 빌드입니다) — 그 경로의 php -v 로 버전을 확인하십시오(8.5 는 8.5.13 · 8.4 는 8.4.28 · 8.3 은 8.3.37 · 8.2 는 8.2.36 보다 낮거나 8.1 이하면 영향을 받습니다)"
+        en: "a release version could not be read from the PHP above, outside any package (no version string, or a pre-release - RC or development build) - check it with that path's php -v (below 8.5.13 for 8.5, 8.4.28 for 8.4, 8.3.37 for 8.3, 8.2.36 for 8.2, or 8.1 and older, is affected)"
     - when: "bin_rpm and not rpm_php"
       why:
         ko: "RPM 계열의 자리에 패키지가 깔지 않은 PHP 가 있습니다(RPM 의 PHP 패키지가 없습니다) — 버전과 받은 곳을 확인하십시오"

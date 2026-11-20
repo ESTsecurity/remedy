@@ -480,7 +480,7 @@ pub fn run(anchor: Option<&str>) -> Outcome {
                 if cfg!(windows) {
                     lang.t(
                         "검사 룰 폴더(plugins)를 이 실행 파일 옆에서 찾지 못했습니다. 받은 zip 을 \
-                         '모두 압축 풀기'로 푼 뒤, 풀린 폴더의 remedy.exe 를 실행하십시오.",
+                         '압축 풀기'로 푼 뒤, 풀린 폴더의 remedy.exe 를 실행하십시오.",
                         "The rule folder (plugins) is not next to this program. Extract the downloaded \
                          zip with 'Extract All', then run remedy.exe in the extracted folder.",
                     )

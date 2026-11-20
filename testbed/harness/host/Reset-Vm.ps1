@@ -125,8 +125,10 @@ Write-Ok "복원 완료 ($([math]::Round($sw.Elapsed.TotalSeconds,1))s)"
 $running = @(& $VmRun -T ws list | Where-Object { $_ -like "*$([IO.Path]::GetFileName($Vmx))*" })
 if ($running.Count -eq 0) {
     Write-Step "전원 켜기 (화면 모드)"
-    $out = & $VmRun -T ws start $Vmx gui
-    if ($LASTEXITCODE -ne 0) { throw "start 실패 (exit $LASTEXITCODE): $out" }
+    # 출력을 `& $VmRun …` 로 받지 않는다 — Workstation 창이 없으면 vmrun 이 남기는 도우미가 그 파이프를 물어 여기서 멈췄다
+    # (2026-11-20 · VmSession.ps1 의 Invoke-VmRunExe). vmrun 프로세스의 종료만 기다린다.
+    $started = Invoke-VmRunExe -Exe $VmRun -Argv @('-T', 'ws', 'start', $Vmx, 'gui')
+    if ($started.ExitCode -ne 0) { throw "start 실패 (exit $($started.ExitCode)): $($started.Output)" }
     Write-Ok "전원 켬"
 } else {
     Write-Ok "스냅샷이 실행 상태였다 - 부팅 대기 불필요"
