@@ -55,9 +55,9 @@
 | Log4j 점검 (CVE-2021-44228 등) | 찾기만 합니다 | `log4j-check` 0.2.1 | `log4j-check` 0.2.1 | [logging.apache.org](https://logging.apache.org/security.html) |
 | nginx2root 점검 (CVE-2026-123007 · CVE-2026-123634 · CVE-2026-123633 · CVE-2026-121810 · CVE-2026-113425) | 찾기만 합니다 | `nginx2root-check-windows` 0.1.1 | `nginx2root-check-linux` 0.1.2 | [xint.io](https://xint.io/ko/blog/nginx2root-remote-code-execution) |
 | Node2Shell 점검 (CVE-2026-111497) | 찾기만 합니다 | `node2shell-check-windows` 0.4.1 | `node2shell-check-linux` 0.6.1 | [nodejs.org](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases) |
-| PHP 11월 보안 업데이트 점검 (CVE-2026-129474 등 18건) | 찾기만 합니다 | `php-2026-11-check-windows` 0.1.0 | `php-2026-11-check-linux` 0.1.1 | [www.php.net](https://www.php.net/archive/2026.php) |
-| PHP 세션 업로드 진행 설정 점검 (CVE-2026-115560) | 찾기만 합니다 | `php-session-check-windows` 0.5.0 | `php-session-check-linux` 0.6.0 | [www.php.net](https://www.php.net/archive/2026.php) |
-| PHP2Shell 점검 (CVE-2026-109618 · 109619) | 찾기만 합니다 | `php2shell-check-windows` 0.4.2 | `php2shell-check-linux` 0.6.2 | [www.php.net](https://www.php.net/archive/2026.php) |
+| PHP 11월 보안 업데이트 점검 (CVE-2026-129474 등 18건) | 찾기만 합니다 | `php-2026-11-check-windows` 0.1.0 | `php-2026-11-check-linux` 0.1.2 | [www.php.net](https://www.php.net/archive/2026.php) |
+| PHP 세션 업로드 진행 설정 점검 (CVE-2026-115560) | 찾기만 합니다 | `php-session-check-windows` 0.5.1 | `php-session-check-linux` 0.6.1 | [www.php.net](https://www.php.net/archive/2026.php) |
+| PHP2Shell 점검 (CVE-2026-109618 · 109619) | 찾기만 합니다 | `php2shell-check-windows` 0.4.3 | `php2shell-check-linux` 0.6.3 | [www.php.net](https://www.php.net/archive/2026.php) |
 | PHP2Shell · Apache HTTP/2 원격 점검 (웹서버 응답 헤더) | 적어 주신 주소의 서버를 바깥에서 봅니다 (네트워크 사용) | `php2shell-url-check` 0.2.0 | `php2shell-url-check` 0.2.0 | [www.php.net](https://www.php.net/archive/2026.php) |
 | CWPdoor 점검 (탐지만) | 찾기만 합니다 | — | `cwpdoor-1-check` 0.1.2 | [blog.xlab.qianxin.com](https://blog.xlab.qianxin.com/cwpdoor-the-invisible-backdoor-living-inside-control-web-panel/) |
 | CWPdoor 제거 | 찾아서 치료합니다 (복원할 수 있습니다) | — | `cwpdoor-2-clean` 0.1.2 | [blog.xlab.qianxin.com](https://blog.xlab.qianxin.com/cwpdoor-the-invisible-backdoor-living-inside-control-web-panel/) |

@@ -26,15 +26,19 @@
          의 파일 버전을 읽는가 · 갈래 넷의 영향 쪽 — 고친 판의 0 은 'PHP 없음' 의 0 과 같은 종료 코드라 화면의 흔적 2건으로
          찾았음을 함께 본다)
       E  겹친 설치본 2 — 바깥 판 없음 + 안쪽 8.3.37 6(바깥을 안쪽이 채우지 않는다) · 바깥 8.3.37 + 안쪽 8.3.35 2(취약 1건)
-      W  WampServer 1 — 8.3.37 + Apache bin 의 코어 DLL 심볼릭 링크 0(링크를 설치본으로 세지 않는다)
+      W  WampServer 3 — 8.3.37 + Apache bin 의 코어 DLL 심볼릭 링크 0(링크를 설치본으로 세지 않는다) · 8.3.35 + 링크 2 ·
+         8.3.37 + 링크 + Apache 설정의 `php_admin_flag session.upload_progress.enabled on` 0. 같은 꼴에서 세션 점검
+         (php-session-check-windows 0.5.1)과 PHP2Shell 점검(php2shell-check-windows 0.4.3)도 돌린다 — 두 룰도 파일은 PHP
+         자리만 걸어 링크를 세지 않는다(그 전에는 고친 판이어도 6): 세션 0 · 6 · 6(직접 켬) · PHP2Shell 0 · 2 · 0
       L  다른 자리 6(8.3.35) — Program Files\PHP · Program Files\PHP\v8.3(판 폴더) · XAMPP · WampServer(판 폴더) ·
          Laragon(판 폴더) · Chocolatey(C:\tools\php83) 모두 2
       V  판 없음 1 — C:\php 의 자리 채우기 6
       G  설치본 둘 2 — 8.3.37 + Laragon 8.3.35 2 · 8.3.37 + Laragon 판 없음 6(설치본마다 가른다)
       O  자리 밖 4 — 서비스(만들기만) 6 · 도는 php-cgi.exe 6 · 자리 밖을 띄우는 NSSM 서비스 6 · 자리 안 서비스 + 8.3.37 0
       N  PHP 없음 1 — 0
-      S  화면 — 고친 판 셋의 흔적 2건 · 취약 줄의 올릴 버전 · TS 영향 판의 경로 · 판 없음의 까닭 · 자리 밖의 까닭 둘 · 모든
-         화면에 내부 낱말(판 · 갈래) 0 · 룰 파일의 ko 문구 전부에 내부 낱말 0
+      S  화면 — 고친 판 넷의 흔적 2건 · 취약 줄의 올릴 버전 · TS 영향 판의 경로 · 판 없음의 까닭 · 자리 밖의 까닭 둘 · W3 의
+         세션 점검이 직접 켰다는 까닭 · 모든 화면에 내부 낱말(판 · 갈래) 0 · 룰 파일의 ko 문구 전부에 내부 낱말 0
+      꾸러미에 세션 · PHP2Shell 점검 룰이 함께 있어야 한다(W 칸이 쓴다 — 없으면 시작 전에 멈춘다). 칸은 모두 47이다.
 
     `-LogDir` 에 경우마다 화면(`<칸>.txt`)과 summary.txt 를 남긴다. 끝줄은 `판정 N/T · 실패 M` 이다.
     종료 코드: 0 = 모든 칸 통과 · 1 = 하나라도 실패.
@@ -78,10 +82,15 @@ $PhpZipDir = (Resolve-Path -LiteralPath $PhpZipDir).ProviderPath
 New-Item -ItemType Directory -Force $LogDir | Out-Null
 $LogDir = (Resolve-Path -LiteralPath $LogDir).ProviderPath
 $rule = 'php-2026-11-check-windows'
+# 같은 꼴에서 함께 재는 룰(W 칸의 `others`) — 꾸러미에 함께 든다.
+$otherRules = @('php-session-check-windows', 'php2shell-check-windows')
 $exe = Join-Path $Package 'remedy.exe'
 $ruleDir = Join-Path $Package "plugins\$rule"
 foreach ($p in @($exe, (Join-Path $ruleDir 'plugin.yaml'))) {
     if (-not (Test-Path -LiteralPath $p)) { throw "없다: $p" }
+}
+foreach ($o in $otherRules) {
+    if (-not (Test-Path -LiteralPath (Join-Path $Package "plugins\$o\plugin.yaml"))) { throw "없다: plugins\$o" }
 }
 $utf8 = New-Object System.Text.UTF8Encoding $false
 $summary = Join-Path $LogDir 'summary.txt'
@@ -191,7 +200,20 @@ $cases = @(
     # 설치본이 아니다 — 고친 판이면 0(흔적 2건: PHP 판 폴더의 코어 DLL 하나).
     @{ id = 'W1'; what = 'WampServer — 8.3.37 + Apache bin 의 코어 DLL 링크'; expect = 0;
        installs = @('C:\wamp64\bin\php\php8.3.37|real-8.3.37');
-       link = 'C:\wamp64\bin\apache\apache2.4.62\bin\php8.dll|C:\wamp64\bin\php\php8.3.37\php8.dll'; screen = '흔적 2건' },
+       link = 'C:\wamp64\bin\apache\apache2.4.62\bin\php8.dll|C:\wamp64\bin\php\php8.3.37\php8.dll'; screen = '흔적 2건';
+       others = [ordered]@{ 'php-session-check-windows' = 0; 'php2shell-check-windows' = 0 } },
+    # 대조 — 같은 꼴의 영향 판: PHP 판 폴더의 코어 DLL 은 그대로 찾는다(세션 6 · PHP2Shell 공식 8.3.35 해시 → 2).
+    @{ id = 'W2'; what = 'WampServer — 8.3.35 + Apache bin 의 코어 DLL 링크'; expect = 2;
+       installs = @('C:\wamp64\bin\php\php8.3.35|real-8.3.35');
+       link = 'C:\wamp64\bin\apache\apache2.4.62\bin\php8.dll|C:\wamp64\bin\php\php8.3.35\php8.dll';
+       others = [ordered]@{ 'php-session-check-windows' = 6; 'php2shell-check-windows' = 2 } },
+    # 고친 판이어도 Apache 설정에서 직접 켰으면 세션 점검은 6(설정끼리 다른 직렬화기 — 0.5.0 의 Apache 줄 꼴).
+    @{ id = 'W3'; what = 'WampServer — 8.3.37 + 링크 + Apache 설정에서 업로드 진행 켬'; expect = 0;
+       installs = @('C:\wamp64\bin\php\php8.3.37|real-8.3.37');
+       link = 'C:\wamp64\bin\apache\apache2.4.62\bin\php8.dll|C:\wamp64\bin\php\php8.3.37\php8.dll';
+       conf = 'C:\wamp64\bin\apache\apache2.4.62\conf\extra\httpd-vhosts.conf|    php_admin_flag session.upload_progress.enabled on';
+       others = [ordered]@{ 'php-session-check-windows' = 6; 'php2shell-check-windows' = 0 };
+       otherScreen = @{ 'php-session-check-windows' = '고친 버전이지만 session.upload_progress.enabled 를 설정에서 직접 켰습니다' } },
     @{ id = 'G1'; what = '8.3.37 + Laragon 8.3.35 — 설치본마다'; expect = 2;
        installs = @('C:\php|real-8.3.37', 'C:\laragon\bin\php\php-8.3.35-nts-Win32-vs16-x64|real-8.3.35') },
     @{ id = 'G2'; what = '8.3.37 + Laragon 판 없음'; expect = 6;
@@ -246,6 +268,9 @@ try {
     }
     Copy-GuestFile -Session $session -Source $exe -Destination "$g\remedy.exe"
     Copy-Item -LiteralPath $ruleDir -Destination "$g\plugins" -ToSession $session -Recurse -Force
+    foreach ($o in $otherRules) {
+        Copy-Item -LiteralPath (Join-Path $Package "plugins\$o") -Destination "$g\plugins" -ToSession $session -Recurse -Force
+    }
     foreach ($v in $zips.Keys) {
         Invoke-Command -Session $session -ArgumentList "$g\real\$v" -ScriptBlock { param($d) New-Item -ItemType Directory -Force $d | Out-Null }
         Copy-GuestFile -Session $session -Source (Join-Path (Join-Path $dllRoot $v) $zips[$v].dll) -Destination "$g\real\$v\$($zips[$v].dll)"
@@ -253,8 +278,8 @@ try {
 
     foreach ($c in $cases) {
         $setupScript = $guestTools.ToString()
-        Invoke-Command -Session $session -ArgumentList $setupScript, $c.installs, $c.service, $c.process, $c.serviceIn, $c.nssm, $keep, $c.link -ScriptBlock {
-            param($tools, $installs, $service, $process, $serviceIn, $nssm, $keep, $link)
+        Invoke-Command -Session $session -ArgumentList $setupScript, $c.installs, $c.service, $c.process, $c.serviceIn, $c.nssm, $keep, $c.link, $c.conf -ScriptBlock {
+            param($tools, $installs, $service, $process, $serviceIn, $nssm, $keep, $link, $conf)
             . ([scriptblock]::Create($tools))
             Clear-Layouts $keep
             foreach ($i in @($installs)) {
@@ -266,6 +291,12 @@ try {
                 New-Item -ItemType Directory -Force (Split-Path -Parent $linkPath) | Out-Null
                 New-Item -ItemType SymbolicLink -Path $linkPath -Target $linkTarget | Out-Null
                 if (-not (Get-Item -LiteralPath $linkPath).LinkType) { throw "링크를 만들지 못했다: $linkPath" }
+            }
+            # 설정 파일 한 줄 — `파일|줄`(WampServer 의 Apache 설정 꼴 · 하네스가 만드는 Apache 폴더 안이라 치울 때 함께 지워진다).
+            if ($conf) {
+                $confPath, $confLine = ([string]$conf) -split '\|', 2
+                New-Item -ItemType Directory -Force (Split-Path -Parent $confPath) | Out-Null
+                [IO.File]::WriteAllText($confPath, $confLine + "`r`n", (New-Object System.Text.UTF8Encoding $false))
             }
             # NSSM 꼴 — 서비스의 실행 파일은 감싸는 프로그램(없어도 된다 · 시작하지 않는다)이고 띄우는 것은 Parameters 의
             # Application 값이다(NSSM 이 쓰는 자리 그대로).
@@ -297,6 +328,20 @@ try {
         Check $c.id $c.what ($r.exit -eq $c.expect) ("종료 {0} (기대 {1})" -f $r.exit, $c.expect)
         if ($c.screen) {
             Check "S-$($c.id)" "화면 — $($c.what)" ($screen.Contains($c.screen)) $c.screen
+        }
+        # 같은 꼴에서 다른 룰 — 화면은 `<칸>-<룰>.txt`(내부 낱말 셈은 이 룰의 화면만 본다).
+        if ($c.others) {
+            foreach ($o in @($c.others.Keys)) {
+                $ro = Invoke-GuestExe -Session $session -Path "$g\remedy.exe" -WorkingDirectory $g `
+                    -Arguments @('scan', '--plugin', "$g\plugins\$o\plugin.yaml", '--out-dir', "$g\out\$($c.id)-$o")
+                $oScreen = [string]$ro.out + [string]$ro.err
+                [IO.File]::WriteAllText((Join-Path $LogDir "$($c.id)-$o.txt"), ("exit={0}`n{1}" -f $ro.exit, $oScreen), $utf8)
+                $want = $c.others[$o]
+                Check "$($c.id)-$o" "$($c.what) — $o" ($ro.exit -eq $want) ("종료 {0} (기대 {1})" -f $ro.exit, $want)
+                if ($c.otherScreen -and $c.otherScreen[$o]) {
+                    Check "S-$($c.id)-$o" "화면 — $($c.what) — $o" ($oScreen.Contains($c.otherScreen[$o])) $c.otherScreen[$o]
+                }
+            }
         }
     }
     # 고객 화면의 낱말 — 내부 낱말 '판'(배포판 · 판정 · 판단은 센다 밖) · '갈래' 가 없다. 화면에 나온 문구(S-W)와, 화면에 나오지

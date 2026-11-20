@@ -7,7 +7,10 @@
 //! - **같은 설치본이면 가장 높은 판 하나로 모두 풀린다.** 패키지 이름이나 파일 경로가 같은 자리에서 둘 이상의 룰이
 //!   맞으면, 그 가운데 가장 높은 고친 판으로 올리면 낮은 판을 요구하는 줄은 맞지 않는다. 설치본이 다르면(같은 기계의
 //!   PHP 7.4 와 8.2) 판의 계열이 달라 섞지 않는다.
-//! - **판으로 보지 않는 발견은 그 밑에 따로 적는다**(설정 · 고친 판을 모르는 줄) — 올려도 남을 수 있다.
+//! - **고친 판을 하나도 내지 않은 룰은 그 밑에 따로 적는다**(설정 · 확인 필요만 남은 룰 · 판정이 지원 끝 계열 같은 판 정규식
+//!   만으로 선 룰) — 위 판으로 올려도 남을 수 있다(1.25.3 — 그 전 문구 '버전으로 판정하지 않는 항목' 은 버전과 설정을 함께
+//!   보는 세션 점검과 판만으로 취약인 지원 끝 계열에 맞지 않았다). 한 룰이 고친 판이 있는 설치본과 없는 설치본을 함께 내면
+//!   그 룰은 판 줄에만 들고 이 줄에는 서지 않는다 — 판 줄의 '해결됩니다' 가 그 룰의 나머지 설치본까지 말하지는 않는다.
 //! - **대체 관계는 적지 않는다**(결정 ③) — 배포판이 CVE 를 따로 고치면 대체로 숨긴 발견이 조용히 빠진다.
 
 use remedy_sdk::artifact::ScanBody;
@@ -132,10 +135,10 @@ pub(crate) fn lines(found: &[Found<'_>], lang: Lang, dash: &str) -> Vec<String> 
         if !rest.is_empty() {
             let rest = rest.join(" · ");
             out.push(lang.pick(
+                format!("  {product}{dash}위 버전으로 올려도 남을 수 있는 항목입니다: {rest}"),
                 format!(
-                    "  {product}{dash}버전으로 판정하지 않는 항목입니다(올려도 남을 수 있습니다): {rest}"
+                    "  {product}{dash}may remain after upgrading to the versions above: {rest}"
                 ),
-                format!("  {product}{dash}not judged by version (may remain after upgrading): {rest}"),
             ));
         }
     }
@@ -240,9 +243,9 @@ mod tests {
         );
     }
 
-    /// 판으로 보지 않는 발견(설정)은 판 줄 밑에 따로 — 올려도 남는다.
+    /// 고친 판을 내지 않은 룰(설정 · 확인 필요)은 판 줄 밑에 따로 — 위 판으로 올려도 남을 수 있다.
     #[test]
-    fn a_finding_not_judged_by_version_is_listed_under_the_upgrade() {
+    fn a_rule_without_a_fix_is_listed_under_the_upgrade() {
         let v = [fix("php8.2-cli", "pkg_version_lt", "8.2.35-1~deb12u1")];
         let found = [
             Found {
@@ -264,7 +267,7 @@ mod tests {
         );
         assert_eq!(
             got[1],
-            "  PHP — 버전으로 판정하지 않는 항목입니다(올려도 남을 수 있습니다): PHP 세션 점검"
+            "  PHP — 위 버전으로 올려도 남을 수 있는 항목입니다: PHP 세션 점검"
         );
     }
 

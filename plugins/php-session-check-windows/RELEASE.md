@@ -1,6 +1,17 @@
 # php-session-check-windows — 릴리스 기록
 
-**버전 0.5.0** · 대상: PHP 세션 업로드 진행 설정(CVE-2026-115560 · php.net 2026-10-23 공지) — Windows · **점검**(바꾸지 않는다)
+**버전 0.5.1** · 대상: PHP 세션 업로드 진행 설정(CVE-2026-115560 · php.net 2026-10-23 공지) — Windows · **점검**(바꾸지 않는다)
+
+## 0.5.1 — 파일은 PHP 자리만 (2026-11-20)
+
+파일(코어 DLL)은 PHP 자리 14곳만 걷는다(`subject_roots.file` — PHP 11월 보안 업데이트 점검 Windows 룰과 같은 목록). 0.5.0 은
+Apache 폴더까지 걸어, WampServer 가 Apache 폴더(`bin\apache\apache2.4.x\bin`)에 두는 코어 DLL 링크(본문 · 버전이 없다)를 판 없는
+코어 DLL 로 세어 고친 버전으로 올려도 *확인 필요(6)* 였다. 설정(`text_config`)은 그대로 Apache 폴더도 읽는다 — WampServer 의
+Apache 가 읽는 `php.ini` 와 Apache 설정의 `php_admin_flag` 줄이 그 자리에 있다. 판정 규칙은 0.5.0 과 같다.
+
+검증(2026-11-20): 랩 VM 의 실제 수집(`testbed/harness/host/Invoke-Php202611Verify.ps1` 의 W 칸 · 개발 꾸러미) — WampServer
+8.3.37 + Apache bin 링크 **0**(0.5.0 은 6) · 8.3.35 + 링크 6(판 폴더의 코어 DLL 은 그대로 찾는다) · 8.3.37 + 링크 + Apache
+설정의 `php_admin_flag session.upload_progress.enabled on` 6(고친 버전이지만 직접 켰다는 까닭) · G1 청정 코퍼스 `win10x64-*` 10개 모두 0.
 
 ## 0.5.0 — 고친 판이고 직접 켠 설정이 없으면 0 (2026-11-20)
 
@@ -17,14 +28,13 @@ PHP 의 2026-11-19 보안 업데이트(8.2.36 · 8.3.37 · 8.4.28 · 8.5.13)가 
 고친 판에서는 '켬' 을 놓치면 0 이 되므로 켬 · 끔을 두 꼴로 읽는다 — `php.ini` 꼴 `키 = 값`(값 뒤의 `; 주석` 도)과 Apache 설정의
 `php_admin_flag 키 값` · `php_value 키 값` 꼴(XAMPP · WampServer · Apache 의 설정 폴더 — 이미 보는 자리다).
 
-알려진 것: WampServer 는 Apache 폴더(`bin\apache\apache2.4.x\bin`)에 코어 DLL 링크를 두는데, 이 룰은 그 링크를 버전 정보 없는
-코어 DLL 로 세어 고친 버전으로 올려도 *확인 필요(6)* 다(다음 판에서 PHP 자리만 걷게 고칠 후보 — PHP 11월 보안 업데이트 점검은
-링크를 세지 않는다).
+알려진 것(0.5.1 에서 고침): WampServer 는 Apache 폴더(`bin\apache\apache2.4.x\bin`)에 코어 DLL 링크를 두는데, 이 판은 그 링크를
+버전 정보 없는 코어 DLL 로 세어 고친 버전으로 올려도 *확인 필요(6)* 였다.
 
 검증(2026-11-20): 깨끗한 Windows 스냅샷에 `C:\php` 의 코어 DLL 기록(공식 zip 에서 잰 해시 · 파일 버전)과 설정 줄을 더한
 `remedy evaluate` 12 — 8.3.37 설정 없음 **0**(0.4.1 은 6) · 직접 켬 6(새 까닭) · 끔 **0** · 8.3.36 6 · `8.6.0RC3` 6 · 버전 정보
 없음 6 · 고친 판과 8.2.35 가 함께 6 · `On ; 주석` 6 · `Off ; 주석` **0** · Apache 설정의 `php_admin_flag … on` 6 · `off` **0** ·
-`php_value … 1` 6 · G1 청정 코퍼스 `win10x64-*` 11개 모두 0.
+`php_value … 1` 6 · G1 청정 코퍼스 `win10x64-*` 10개 모두 0.
 
 ## 0.4.1 — 같은 제품의 묶음 열쇠 (2026-11)
 

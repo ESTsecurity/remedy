@@ -22,7 +22,7 @@
 # 0.4.0 부터 **NSSM** 이 감싸 띄우는 PHP(`Services\<이름>\Parameters` 의 `Application`)도 본다.
 schema_version: 1
 id: php-session-check-windows
-version: 0.5.0
+version: 0.5.1
 min_core: "1.21.0"  # product 는 1.21.0 · 가운데 별표 레지스트리 루트(`Services\*\Parameters`)는 1.10.0 · 실린 모듈은 1.9.0 · IIS 설정(XML)은 1.6.0
 platforms: [windows]
 
@@ -68,7 +68,26 @@ scan_roots:
   # NSSM 이 띄우는 프로그램이 적힌 자리(0.4.0) — PHP2Shell Windows 룰 0.4.0 과 같은 자리다.
   - 'HKLM\SYSTEM\CurrentControlSet\Services\*\Parameters'
 
+# 파일은 PHP 자리만 걷는다(0.5.1) — WampServer 는 Apache 폴더(`bin\apache\apache2.4.x\bin`)에 코어 DLL 링크를 두는데, 그
+# 자리까지 걸으면 그 링크(본문 · 버전이 없다)를 판 없는 코어 DLL 로 세어 고친 판으로 올려도 6 이었다(PHP 11월 보안 업데이트
+# 점검 Windows 룰과 같은 목록). 설정(`text_config`)은 좁히지 않는다 — WampServer 의 Apache 가 읽는 `php.ini` 와 Apache
+# 설정의 `php_admin_flag` 줄이 Apache 폴더에 있다.
 subject_roots:
+  file:
+    - 'C:\php'
+    - 'C:\Program Files\PHP'
+    - 'C:\Program Files (x86)\PHP'
+    - 'C:\xampp\php'
+    - 'C:\wamp64\bin\php'
+    - 'C:\wamp\bin\php'
+    - 'C:\laragon\bin\php'
+    - 'C:\tools\php85'
+    - 'C:\tools\php84'
+    - 'C:\tools\php83'
+    - 'C:\tools\php82'
+    - 'C:\tools\php81'
+    - 'C:\tools\php80'
+    - 'C:\tools\php74'
   structured_config: ['C:\Windows\System32\inetsrv\config']
 
 subjects: [file, text_config, structured_config, process, service, registry_value]
