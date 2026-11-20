@@ -78,8 +78,8 @@ fn listed(m: &PluginManifest) -> bool {
 ///
 /// 릴리스 본문은 `ci/release-notes.sh` 가 이 표를 읽어 '하는 일' 칸을 '방식' 칸(머리 · 값)으로 바꿔 넣는다 — 칸은
 /// 자리로 읽고(셋째 · 넷째가 Windows · Linux 가 아니면 멈춘다), 값은 그 스크립트의 `job_ko` 가 아는 `does` 문구여야
-/// 한다. 칸의 차례나 `does` 문구를 바꾸면 그 스크립트도 같은 PR 에서 고친다 — PR 의 CI 는 그 스크립트를 돌리지 않아
-/// 태그 때에야 멈춘다.
+/// 한다. 칸의 차례나 `does` 문구를 바꾸면 그 스크립트도 같은 PR 에서 고친다 — PR 의 CI 가 `ci/release-notes-test.sh`
+/// 로 지금 README 의 표를 그 스크립트에 넣어 본다(배포의 초안 잡은 태그에서만 돈다).
 fn table(plugins: &[(PathBuf, PluginManifest)]) -> String {
     let mut rows: Vec<Row> = Vec::new();
     for (dir, m) in plugins.iter().filter(|(_, m)| listed(m)) {

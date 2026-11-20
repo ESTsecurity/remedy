@@ -26,7 +26,7 @@
 #   RHSA-2026:88693(7.9 — **CVE-2026-109619 만** 고친다)
 # - Oracle Linux: ELSA-2026-87080(8.10 php:7.4) · ELSA-2026-87151(9.8)
 # - SUSE: SUSE-SU-2026:4844-1(SLES 15 SP7 php8)
-# - 공식 빌드 해시: Docker 공식 이미지 `php:8.3.35-*` · `php:8.3.36-*`(amd64 · 386 — cli · fpm · apache)
+# - 공식 빌드 해시: Docker 공식 이미지 `php:8.3.35-*` · `php:8.3.36-*` · `php:8.3.37-*`(amd64 · 386 — cli · fpm · apache)
 #   와 지원이 끝난 `php:5.6.40-cli` · `php:7.4.33-cli`(amd64)의 실행 파일 · 코어 라이브러리
 #
 # # 이 룰이 보지 않는 것
@@ -50,7 +50,7 @@
 # 줄. 선언한 자리 밖이면 *확인 필요* 로 그 경로를 적는다 — 그 파일은 열지 않는다.
 schema_version: 1
 id: php2shell-check-linux
-version: 0.6.1
+version: 0.6.2
 min_core: "1.21.0"  # product 는 1.21.0 · 시작 스크립트의 서비스는 1.10.0 · 패키지 파일 대조(file.package · package_match)는 1.7.0
 platforms: [linux]
 
@@ -436,6 +436,22 @@ detect:
           - "9ffb5ad79a6c4aabffc957b7da6f7b6c85d62f5b716d2c3646c565cc5417f54a"   # 8.3.36 linux/amd64 cli /usr/local/lib/libphp.so (php@sha256:6281022…)
           - "202d8b1c3f28b53b08f7f6f262bfc0c54a55f61ddcd5bf872797aa82d399ee0d"   # 8.3.36 linux/amd64 fpm /usr/local/bin/php (php@sha256:03af352…)
           - "cb761a313cce69efa4a02098f68c72b35db1bb6977bc0c537d7d4c8a0eacd4ef"   # 8.3.36 linux/amd64 fpm /usr/local/sbin/php-fpm (php@sha256:03af352…)
+          # 2026-11-19 보안 업데이트의 8.3.37(0.6.2) — PHP2Shell 도 고친 판이다. 2026-11-20 에 받은
+          # `php:8.3.37-*`(2026-11-19 에 지은 이미지 · cli php@sha256:551a1dc… · fpm 91e22c4… · apache d4f0072…).
+          - "8bcc38f6ec18769d4aee79f993bedde58d54f6028291177268e640c834b50be2"   # 8.3.37 linux/386 apache /usr/lib/apache2/modules/libphp.so
+          - "74222542218dd91c94edf54a6a13c8b10b1bdd513961aac663dbece9bf6d2895"   # 8.3.37 linux/386 apache /usr/local/bin/php
+          - "b77ca31906f638ffe0bbeb702c2400669a427bb2af469fd061c73fcd12de64a4"   # 8.3.37 linux/386 cli /usr/local/bin/php
+          - "3f7cafb1d5022c40dfe74da1dfe77da69c15daee2ff92652e956a2cf97ce75a5"   # 8.3.37 linux/386 cli /usr/local/bin/php-cgi
+          - "823d5e259f57e38b889825e943259d57e3eab4bb11c445a0bbdea027ca221537"   # 8.3.37 linux/386 cli /usr/local/lib/libphp.so
+          - "4ccc6ec0efde134c8cf50442f7d5d406287257b6409814cb1e483c40fd5c1637"   # 8.3.37 linux/386 fpm /usr/local/bin/php
+          - "8e716bf6925523bc837919cd3ded3372331dd603faa7ac300188ac08fbffa956"   # 8.3.37 linux/386 fpm /usr/local/sbin/php-fpm
+          - "9394b211cce52ea22eaf7fd9ad2791c8c146d30cc3159f3a86839f558c95999e"   # 8.3.37 linux/amd64 apache /usr/lib/apache2/modules/libphp.so
+          - "dc6c820ca877da0b28bdf73ec15e730cd6599fb4b123b07057c08da76a6a7706"   # 8.3.37 linux/amd64 apache /usr/local/bin/php
+          - "54bef5e946f0754085edd6aa3ca35b131e6bd76e16e904a4b2a1cd5a075a91e1"   # 8.3.37 linux/amd64 cli /usr/local/bin/php
+          - "704e77f7ab9e1721ad20756a0dd2a4f60eb72e4aa09ceb24baff55d0a6f1d974"   # 8.3.37 linux/amd64 cli /usr/local/bin/php-cgi
+          - "9b00a9dc4b4ed27632989d0acf7dbcc025fb3114ddfe9103caaac0fd7063107b"   # 8.3.37 linux/amd64 cli /usr/local/lib/libphp.so
+          - "381e5b353db3c8e350971eefb766cbad6ab0466849ea1359c3ffb9c3f4533676"   # 8.3.37 linux/amd64 fpm /usr/local/bin/php
+          - "8d15b869c51153c7fdba009f7c6c6fc97f4df248f1b271237409f5c023f1cacf"   # 8.3.37 linux/amd64 fpm /usr/local/sbin/php-fpm
 
   # ── 3. RPM 의 자리에 놓인 PHP — 패키지가 깔지 않았다면 확인 필요 ───────────
   #

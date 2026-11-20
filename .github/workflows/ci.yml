@@ -83,6 +83,10 @@ jobs:
         run: cargo xtask leaks
       - name: xtask all
         run: cargo xtask all
+      # 릴리스 본문 스크립트(ci/release-notes.sh)는 배포의 초안 잡에서만 돈다 — 태그 때에야 멈추지 않게, 지금 README 의 위협
+      # 표 · 룰로 새 꼴 칸의 본문과 멈춤 장치를 PR 에서 본다(2026-11-20).
+      - name: release notes script
+        run: bash ci/release-notes-test.sh
       - name: clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
       # 실행 파일에 들어가는 코드는 화면에 `println!` 류로 쓰지 않는다 — 읽는 쪽이 먼저 닫힌 파이프(`| head`)에서
