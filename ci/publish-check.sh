@@ -26,23 +26,28 @@ exposure() {
         [ -n "$path" ] || continue
         case "$path" in docs/changes/README.md) continue ;; esac
         sha=$(git log --diff-filter=A --format=%H -1 "$tag" -- "$path")
-        pr=$(gh api "repos/$GH_REPO/commits/$sha/pulls" --jq '.[0] | "\(.number)\t\(.created_at)"' 2>/dev/null || true)
-        rules=$(git show "$tag:$path" | sed -n '2,6s/^rules: *\[\(.*\)\].*/\1/p' | tr -d ' ')
-        if [ -z "$pr" ]; then
-            echo "| \`$path\` | — | — | PR 없음 | $rules |"
+        pr=""
+        [ -z "$sha" ] || pr=$(gh api "repos/$GH_REPO/commits/$sha/pulls" --jq '.[0] | "\(.number)\t\(.created_at)"' 2>/dev/null || true)
+        # 머리(첫 '---' 와 다음 '---' 사이)의 한 줄 꼴 'rules: [a, b]' — 조각 검사(cargo xtask fragments)가 그 꼴만 받는다.
+        rules=$(git show "$tag:$path" | awk 'NR == 1 { next } /^---$/ { exit } { print }' |
+            sed -n 's/^rules: *\[\(.*\)\].*/\1/p' | tr -d ' ')
+        check_rule=""
+        for id in ${rules//,/ }; do
+            if git show "$tag:plugins/$id/plugin.yaml" 2>/dev/null | grep -qE '^kind:[[:space:]]*check'; then check_rule=$id; break; fi
+        done
+        if [ -z "$pr" ] || [ "$pr" = $'null\tnull' ]; then
+            echo "| \`$path\` | — | — | PR 을 찾지 못했다 | $rules |"
+            # 점검 룰인데 잴 수 없으면 넘은 것으로 센다 — 모르는 것을 상한 안으로 읽지 않는다(사람이 까닭을 적고 닫는다).
+            [ -z "$check_rule" ] || over+=("$check_rule(PR 을 찾지 못했다)")
             continue
         fi
         opened=${pr#*$'\t'}
         mins=$(( (pub_s - $(date -u -d "$opened" +%s)) / 60 ))
         echo "| \`$path\` | #${pr%%$'\t'*} | $opened | ${mins}분 | $rules |"
         # 점검 룰만 상한에 건다(악성코드 탐지 · 치료 룰은 모아 내지 않는다 — 그 규칙 그대로).
-        for id in ${rules//,/ }; do
-            if git show "$tag:plugins/$id/plugin.yaml" 2>/dev/null | grep -qE '^kind:[[:space:]]*check'; then
-                if [ "$mins" -gt "$LIMIT_MIN" ]; then over+=("$id(#${pr%%$'\t'*} · ${mins}분)"); fi
-                break
-            fi
-        done
-    done < <(comm -13 <(git ls-tree -r --name-only "$prev" -- docs/changes | sort) <(git ls-tree -r --name-only "$tag" -- docs/changes | sort))
+        if [ -n "$check_rule" ] && [ "$mins" -gt "$LIMIT_MIN" ]; then over+=("$check_rule(#${pr%%$'\t'*} · ${mins}분)"); fi
+    done < <(comm -13 <(git -c core.quotePath=false ls-tree -r --name-only "$prev" -- docs/changes | sort) \
+        <(git -c core.quotePath=false ls-tree -r --name-only "$tag" -- docs/changes | sort))
     echo
     if [ ${#over[@]} -gt 0 ]; then
         echo "**${LIMIT_MIN}분을 넘긴 점검 룰: ${over[*]}** — '모아 내기 멈춤' 이슈를 열었다(다음 묶음은 그 이슈를 닫을 때까지 서지 않는다)."
@@ -117,6 +122,17 @@ echo "e 본문 $(wc -l <<<"$body")줄 · $(grep -m1 '^## 2\.' <<<"$body" || true
 
 # f 버전 검사 — 지금 Latest 와 견준다(조상 · 룰 버전 · 엔진 역행).
 bash ci/version-check.sh "$TAG" --ref "$TAG" | sed 's/^/f /'
+# 룰만 바뀐 출시는 초안이 실은 엔진(초안 이름의 '프로그램 <엔진>' — 배포 잡이 그때의 Latest 에서 받아 실었다)이 **지금**
+# Latest 의 엔진과 같아야 한다. 초안을 만든 뒤 엔진 출시가 공개되면 그 초안은 옛 엔진을 싣는다 — 공개하면 Latest 의 엔진이
+# 뒤로 간다(버전 검사는 조상 · 룰 버전만 보아 지나간다 · 2026-11-21 반박 검토).
+if [[ "$TAG" == rules-* ]]; then
+    engine_of() { sed -nE 's/^프로그램 ([0-9]+\.[0-9]+\.[0-9]+) · 룰 .*$/\1/p'; }
+    draft_engine=$(jq -r .name <<<"$rel" | engine_of)
+    latest_engine=$(gh release view --json name --jq .name | engine_of)
+    [ -n "$draft_engine" ] && [ "$draft_engine" = "$latest_engine" ] ||
+        fail "f 초안이 싣는 엔진(${draft_engine:-?})이 지금 Latest 의 엔진(${latest_engine:-?})과 다르다 — bash ci/batch.sh clean $TAG 로 치우고 다시 묶는다"
+    echo "f 싣는 엔진 $draft_engine = 지금 Latest 의 엔진"
+fi
 
 # g 엔진 출시가 진행 중이면 룰 공개를 멈춘다(결정 R2).
 if [[ "$TAG" == rules-* ]]; then

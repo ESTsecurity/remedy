@@ -4,10 +4,11 @@
 #
 #   bash ci/release-notes-test.sh      (저장소 루트에서)
 #
-# 위협 표는 지금 README 의 표(`cargo xtask threats` 가 짓는 꼴 — 표 머리 · '하는 일' 문구가 스크립트의 칸 읽기 · `job_ko` 와
-# 어긋나면 여기서 깨진다)를 `--table` 로 주고, 바뀐 내용은 두 종류의 칸 본문을 `--changes` 로 준다(배포 잡은 둘을
-# `cargo xtask threats --print` · `cargo xtask changes` 로 짓는다). 버전은 가짜 값(룰 2099.01.01 · 엔진 9.9.9)이고 지금
-# Latest 는 `--prev` 로 준다. 망 · cargo 를 쓰지 않는다. Git Bash · 리눅스 어디서나 돈다.
+# 위협 표는 배포 잡과 같은 `cargo xtask threats --print`(지금 트리의 룰 매니페스트 — 표 머리 · '하는 일' 문구가 스크립트의 칸
+# 읽기 · `job_ko` 와 어긋나면 여기서 깨진다)를 `--table` 로 주고, 바뀐 내용은 두 종류의 칸 본문을 `--changes` 로 준다(배포
+# 잡은 `cargo xtask changes` 로 짓는다). README 의 표는 하루 한 번 짓는 생성물이라 하루 늦을 수 있어 쓰지 않는다 — 룰
+# 폴더를 지우거나 이름을 바꾼 PR 에서 옛 줄 때문에 잘못 멈췄다(2026-11-21 반박 검토). 버전은 가짜 값(룰 2099.01.01 · 엔진
+# 9.9.9)이고 지금 Latest 는 `--prev` 로 준다. 망을 쓰지 않는다 — cargo 는 그 표를 짓는 데만 쓴다. Git Bash · 리눅스에서 돈다.
 #
 # 종료 코드: 0 = 모든 경우가 기대대로 · 1 = 하나라도 아니다 · 2 = 저장소 루트에서 부르지 않았다.
 set -u
@@ -22,7 +23,10 @@ cp ci/release-notes.sh "$BASE/ci/"
 cp .github/release-notes.md "$BASE/.github/"
 cp Cargo.toml "$BASE/"
 cp -r plugins "$BASE/plugins"
-sed -n '/<!-- threats:begin/,/<!-- threats:end -->/p' README.md | sed '1d;$d' >"$BASE/table.md"
+if ! cargo xtask threats --print 2>/dev/null | tr -d '\r' | sed '/^$/d' >"$BASE/table.md" || [ ! -s "$BASE/table.md" ]; then
+    echo "위협 표를 짓지 못했다 — cargo xtask threats --print" >&2
+    exit 2
+fi
 
 # 두 종류의 칸 본문 — 엔진(위협 소제목 · 프로그램 · 접는 블록 둘)과 룰만(위협 소제목 · 그 밖). 줄 끝의 \ 는 칸 규칙의 항목 안
 # 줄바꿈이다(칸마다 둘 — 본문에 그대로 옮겨지는지 render 가 센다).

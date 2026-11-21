@@ -175,6 +175,20 @@ fn releases(text: &str) -> Result<Vec<Release>, String> {
 
 /// 업데이트 내역의 생성 구간 — 조각을 쓴 출시마다(새것부터) 그 출시가 새로 실은 조각으로.
 fn history_section(root: &Path, rels: &[Release]) -> Result<String, String> {
+    // 목록은 조각을 쓴 첫 출시보다 앞까지 닿아야 한다 — 칸은 앞 출시와 견줘 지으므로 가장 옛 줄에는 칸이 서지 않는다. 그 줄이
+    // 조각을 실은 출시면 목록이 잘린 것이고, 그 출시의 칸이 조용히 빠진다(2026-11-21 반박 검토 · 하루 20 ~ 30 출시).
+    if let Some(oldest) = rels.last() {
+        if gitbase::exists(root, &oldest.tag)
+            && gitbase::ls(root, &oldest.tag, fragments::DIR)?
+                .iter()
+                .any(|p| fragments::is_fragment(p))
+        {
+            return Err(format!(
+                "--releases 의 가장 옛 출시 {} 가 조각을 실었다 — 목록이 잘렸다(조각을 쓰기 전의 출시까지 준다)",
+                oldest.tag
+            ));
+        }
+    }
     let mut parts = Vec::new();
     for pair in rels.windows(2) {
         let (new, old) = (&pair[0], &pair[1]);

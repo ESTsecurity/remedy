@@ -62,7 +62,7 @@ struct Head {
 }
 
 /// 조각 파일인가 — `docs/changes/` 바로 아래의 `.md`(그 폴더의 안내 `README.md` 는 빼고).
-fn is_fragment(path: &str) -> bool {
+pub(crate) fn is_fragment(path: &str) -> bool {
     let Some(name) = path.strip_prefix(&format!("{DIR}/")) else {
         return false;
     };
@@ -94,6 +94,18 @@ pub(crate) fn parse(path: &str, text: &str) -> Result<Fragment, String> {
     };
     if section == Section::Rules && head.rules.is_empty() {
         return Err(format!("{path}: section 이 rules 인데 rules 가 비었다"));
+    }
+    // 한 줄 꼴만 — 공개 걸음(ci/publish-check.sh 의 보인 시간)이 셸로 그 줄을 읽는다. 블록 꼴(`rules:` 아래 `- id`)은 이
+    // 파서가 받아도 거기서는 빈 값이 되어 60분 상한을 조용히 건너뛰었다(2026-11-21 반박 검토).
+    if section == Section::Rules
+        && !rest[..end].lines().any(|l| {
+            let t = l.trim_end();
+            t.starts_with("rules:") && t.contains('[') && t.ends_with(']')
+        })
+    {
+        return Err(format!(
+            "{path}: rules 는 한 줄로 적는다 — 'rules: [id, id]'(공개 걸음이 그 줄을 읽는다)"
+        ));
     }
     if section != Section::Rules && !head.rules.is_empty() {
         return Err(format!("{path}: rules 는 section 이 rules 일 때만 쓴다"));
@@ -483,6 +495,8 @@ mod tests {
             ("section: rules\nrules: [a]", "* x\n```\n코드", "코드 블록"),
             ("section: rules\nrules: [a]", "* {{CHANGES}}", "'{{'"),
             ("section: rules\nrules: [a]", "", "본문이 비었다"),
+            // 블록 꼴은 YAML 로는 맞지만 공개 걸음의 셸이 읽지 못한다 — 한 줄로만 받는다.
+            ("section: rules\nrules:\n  - a", "* x", "한 줄로"),
         ];
         for (head, body, want) in bad {
             let e = frag("docs/changes/x.md", head, body).expect_err(head);

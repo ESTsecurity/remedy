@@ -83,20 +83,28 @@ pub fn resolve(root: &Path, args: &[String]) -> Result<String, String> {
     )
 }
 
+/// NUL 로 가른 이름들 — `-z` 출력. 한글 같은 비ASCII 이름을 git 이 따옴표 · 8진 표기로 바꾸지 않는다(`-z` 가 없으면
+/// `"docs/changes/\355…"` 꼴로 나와 그 이름의 조각이 릴리스 본문에서 조용히 빠졌다 · 2026-11-21 반박 검토).
+fn nul_names(out: &[u8]) -> Vec<String> {
+    out.split(|b| *b == 0)
+        .filter(|n| !n.is_empty())
+        .map(|n| String::from_utf8_lossy(n).into_owned())
+        .collect()
+}
+
 /// `rev` 의 `path` 아래 파일 이름(저장소 기준 · `/` 구분). 없으면 빈 목록.
 pub fn ls(root: &Path, rev: &str, path: &str) -> Result<Vec<String>, String> {
-    let out = git(root, &["ls-tree", "-r", "--name-only", rev, "--", path])?;
+    let out = git(
+        root,
+        &["ls-tree", "-r", "-z", "--name-only", rev, "--", path],
+    )?;
     if !out.status.success() {
         return Err(format!(
             "git ls-tree {rev} -- {path} 실패: {}",
             String::from_utf8_lossy(&out.stderr).trim()
         ));
     }
-    Ok(String::from_utf8_lossy(&out.stdout)
-        .lines()
-        .map(str::to_string)
-        .filter(|l| !l.is_empty())
-        .collect())
+    Ok(nul_names(&out.stdout))
 }
 
 /// `rev` 의 `path` 의 바이트. 그 자리에 파일이 없으면 `None`.
@@ -117,13 +125,17 @@ pub fn show(root: &Path, rev: &str, path: &str) -> Result<Option<Vec<u8>>, Strin
 
 /// 추적하는 파일 가운데 `pathspec` 에 걸리는 것(작업 트리 기준).
 pub fn tracked(root: &Path, pathspec: &[&str]) -> Result<Vec<String>, String> {
-    let mut args = vec!["ls-files", "--"];
+    let mut args = vec!["ls-files", "-z", "--"];
     args.extend_from_slice(pathspec);
-    Ok(git_text(root, &args)?
-        .lines()
-        .map(str::to_string)
-        .filter(|l| !l.is_empty())
-        .collect())
+    let out = git(root, &args)?;
+    if !out.status.success() {
+        return Err(format!(
+            "git {} 실패: {}",
+            args.join(" "),
+            String::from_utf8_lossy(&out.stderr).trim()
+        ));
+    }
+    Ok(nul_names(&out.stdout))
 }
 
 /// 오늘(KST)의 날 수 — 1970-01-01 부터 센 날. 사람이 적는 날짜(`added` · 룰 버전)는 한국 날짜다.
@@ -134,4 +146,32 @@ pub fn today_kst() -> i64 {
         .unwrap_or(0)
         + 9 * 3600;
     (secs / 86_400) as i64
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 한글 이름이 적은 그대로 돌아온다 — `-z` 없이 읽으면 따옴표 · 8진 표기라 같은 이름으로 견줄 수 없었다.
+    #[test]
+    fn names_with_hangul_come_back_as_written() {
+        let root = crate::workspace_root();
+        let names = ls(&root, "HEAD", "docs").expect("ls-tree");
+        assert!(
+            names.iter().any(|n| n == "docs/위협별-안내.md"),
+            "{names:?}"
+        );
+        assert!(names.iter().all(|n| !n.starts_with('"')), "{names:?}");
+        let t = tracked(&root, &["docs/위협별-안내.md"]).expect("ls-files");
+        assert_eq!(t, vec!["docs/위협별-안내.md".to_string()]);
+    }
+
+    #[test]
+    fn nul_separated_names_split_cleanly() {
+        assert_eq!(
+            nul_names(b"a/b.md\0docs/\xec\xa1\xb0\xea\xb0\x81.md\0"),
+            vec!["a/b.md".to_string(), "docs/조각.md".to_string()]
+        );
+        assert!(nul_names(b"").is_empty());
+    }
 }

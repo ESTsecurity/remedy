@@ -187,7 +187,8 @@ checks() {
     # ① 바뀐 리눅스 룰의 하네스 · G9 재료(.yar 바이트)
     local harness=() id plat yar_changed=()
     while IFS= read -r id; do
-        [ -n "$id" ] && [ -f "plugins/$id/plugin.yaml" ] || continue
+        # 묶음의 커밋에 있는 룰만 — 지운 룰은 그 커밋에 없다(없는 자리를 git show 하면 set -e 아래에서 그대로 멈춘다).
+        [ -n "$id" ] && git cat-file -e "$commit:plugins/$id/plugin.yaml" 2>/dev/null || continue
         plat=$(git show "$commit:plugins/$id/plugin.yaml" | sed -n 's/^platforms: *\[\(.*\)\].*/\1/p')
         if [[ "$plat" == *linux* ]]; then
             if h=$(harness_of "$id"); then
@@ -199,22 +200,38 @@ checks() {
         if [[ "$plat" == *windows* ]]; then
             notes+=("① $id(Windows) 의 하네스는 차례 3 전까지 이 명령이 돌리지 않는다 — 그 룰의 PR 전 하네스 기록을 승인 전에 본다")
         fi
-        for y in $(git ls-tree -r --name-only "$commit" -- "plugins/$id/rules" | grep '\.yar$' || true); do
-            local a b
+        for y in $(git -c core.quotePath=false ls-tree -r --name-only "$commit" -- "plugins/$id/rules" | grep '\.yar$' || true); do
+            local a b=""
             a=$(git show "$commit:$y" | sha256sum | cut -d' ' -f1)
-            b=$(git show "$LATEST:$y" 2>/dev/null | sha256sum | cut -d' ' -f1)
+            # Latest 에 없는 .yar(새 룰 · 더한 규칙)는 b 가 비어 바뀐 것으로 센다 — 없는 자리를 git show 하면 128 이라 먼저
+            # 묻는다(전에는 set -e 아래 그 대입에서 메시지 없이 멈춰 YARA 가 든 새 룰의 묶음을 낼 수 없었다 · 반박 검토).
+            if git cat-file -e "$LATEST:$y" 2>/dev/null; then b=$(git show "$LATEST:$y" | sha256sum | cut -d' ' -f1); fi
             [ "$a" = "$b" ] || yar_changed+=("$y")
         done
     done < <(changed_rules "$commit")
     local rec
     rec=$(records_only "$commit" | tr '\n' ' ')
     [ -z "$rec" ] || notes+=("① 출시 기록(RELEASE.md)만 바뀐 룰 — 판정이 그대로라 하네스를 돌리지 않았다: $rec")
-    # ④ G9 — YARA 가 바뀐 룰이 있으면 코퍼스를 재야 한다(이 명령은 그 결과를 대신 만들지 않는다).
-    if [ ${#yar_changed[@]} -gt 0 ] && [ -z "${G9_DONE:-}" ]; then
-        die "④ G9 — YARA 가 바뀐 룰이 있다: ${yar_changed[*]} — cargo xtask yara 로 정상 파일 코퍼스를 잰 뒤 G9_DONE=<기록 파일> bash ci/batch.sh publish $tag"
+    # ④ G9 — YARA 가 바뀐 룰이 있으면 코퍼스를 잰 기록(G9_DONE)이 있어야 하고, 그 기록에 초안 꾸러미의 그 .yar 의 sha256 이
+    # 적혀 있어야 한다 — 잰 .yar 와 공개할 .yar 가 같은 바이트인지 여기서 견준다(docs/긴급-대응.md ④). 이 명령은 잰 결과를
+    # 대신 만들지 않는다.
+    if [ ${#yar_changed[@]} -gt 0 ]; then
+        [ -n "${G9_DONE:-}" ] && [ -f "$G9_DONE" ] ||
+            die "④ G9 — YARA 가 바뀐 룰이 있다: ${yar_changed[*]} — cargo xtask yara 로 정상 파일 코퍼스를 재고, 잰 .yar 의 sha256(sha256sum plugins/<룰>/rules/*.yar)을 그 기록에 적은 뒤 G9_DONE=<기록 파일> bash ci/batch.sh publish $tag"
+        local p base hy
+        for y in "${yar_changed[@]}"; do
+            p=""
+            for base in "$d/linux/remedy-linux-x64" "$d/win/remedy-windows-x64"; do
+                if [ -f "$base/$y" ]; then p="$base/$y"; break; fi
+            done
+            [ -n "$p" ] || die "④ G9 — 초안 꾸러미에 $y 가 없다"
+            hy=$(sha256sum "$p" | cut -d' ' -f1)
+            grep -qi -- "$hy" "$G9_DONE" || die "④ G9 — 기록 $G9_DONE 에 초안의 $y(sha256 $hy)가 없다 — G9 를 잰 .yar 와 다를 수 있다"
+        done
+        notes+=("④ G9 — YARA 가 바뀐 룰 ${#yar_changed[@]}개 · 초안의 .yar 가 기록 $G9_DONE 의 sha256 과 같다")
+    else
+        notes+=("④ G9 — 바뀐 룰의 YARA 가 지금 Latest 와 같은 바이트다(또는 YARA 가 없다)")
     fi
-    [ ${#yar_changed[@]} -eq 0 ] || notes+=("④ G9 — YARA 가 바뀐 룰 ${#yar_changed[@]}개 · 기록 $G9_DONE")
-    [ ${#yar_changed[@]} -gt 0 ] || notes+=("④ G9 — 바뀐 룰의 YARA 가 지금 Latest 와 같은 바이트다(또는 YARA 가 없다)")
 
     # ①②③ 리눅스 — docker(Windows 면 WSL).
     local hargs=() h
@@ -411,7 +428,9 @@ cmd_views() {
     br="views/$(date -u -d '+9 hours' +%Y%m%d-%H%M)"
     git switch -q -c "$br" origin/main
     tsv=$(mktemp)
-    gh release list --limit 100 --json tagName,name,publishedAt,isDraft,isPrerelease \
+    # 공개한 출시 전부를 준다 — 생성 구간은 조각을 쓴 출시마다 그 앞 출시와 견줘 짓는다. 목록이 조각을 쓴 첫 출시보다 앞까지
+    # 닿지 않으면 views 가 멈춘다(잘린 목록의 가장 옛 칸이 조용히 빠지지 않게).
+    gh release list --limit 2000 --json tagName,name,publishedAt,isDraft,isPrerelease \
         --jq '[.[] | select(.isDraft | not) | select(.isPrerelease | not)] | sort_by(.publishedAt) | reverse | .[] | [.tagName, .name, .publishedAt] | @tsv' >"$tsv"
     cargo xtask views --write --releases "$tsv"
     rm -f "$tsv"
