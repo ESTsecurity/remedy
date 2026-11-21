@@ -146,13 +146,9 @@ fn sign_companion(args: &[String]) -> Result<(), String> {
             dir.display()
         ));
     }
-    sign_tree(
-        &dir,
-        COMPANION,
-        env!("CARGO_PKG_VERSION"),
-        &sk_path,
-        &signed_at,
-    )
+    // 버전은 실을 엔진의 것 — 룰만 바뀐 출시는 지난 공개본의 실행 파일을 실어 이 작업 공간의 버전이 아닐 수 있다.
+    let version = crate::package::engine_version()?;
+    sign_tree(&dir, COMPANION, &version, &sk_path, &signed_at)
 }
 
 /// 동반 프로그램의 이름 — 폴더 이름이자 서명 주석의 이름이다(본체의 `net::NAME` 과 같은 값).

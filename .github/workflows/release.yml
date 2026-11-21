@@ -89,26 +89,32 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: write
-    # 버전 검사가 견준 지난 정식 공개본 — 룰만 바뀐 출시의 두 OS 잡이 그 Release 에서 실행 파일을 받는다.
+    # 버전 검사가 견준 지금 Latest(지난 공개본) · 이 출시가 싣는 엔진 · 룰 버전 — 두 OS 잡이 쓴다(룰만 바뀐 출시는 그
+    # Release 에서 실행 파일을 받는다 · 꾸러미의 룰 버전 파일 · README 의 '프로그램' 줄 · 동반 프로그램의 서명 버전).
     outputs:
       prev: ${{ steps.policy.outputs.prev }}
+      engine: ${{ steps.policy.outputs.engine }}
+      rules: ${{ steps.policy.outputs.rules }}
     steps:
-      # 역사와 태그를 다 받는다 — 아래 버전 검사가 지난 공개본의 태그와 견준다.
+      # 역사와 태그를 다 받는다 — 아래 버전 검사가 지금 Latest 의 태그와 견준다.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           fetch-depth: 0
-      # 태그의 꼴과 버전이 정책을 따르는가 — 태그 = 엔진 버전(v) · 룰 버전(rules), 엔진이 바뀌었으면 v 로 버전을
-      # 올렸는가, 룰만 바뀌었으면 엔진이 그대로인가(버전 문자열까지), 룰이 바뀌었으면 룰 버전을 올렸는가
-      # (docs/개발-안내.md "버전 번호"). 시험판 태그에서도 돈다 — 정식 태그를 밀기 전에 걸린다. 엔진 버전은
-      # `xtask package` 가 README 에 적는 것과 같은 줄에서, 룰 버전은 같은 파일에서 읽는다.
+      # 태그의 꼴과 버전이 정책을 따르는가 — 견주는 것은 **지금 Latest**(gh 로 읽는다 · 2026-11-21 부터)다. Latest 가 이
+      # 커밋의 조상인가, 룰이 바뀌었으면 룰 버전을 Latest 보다 올렸는가, 엔진 출시면 엔진이 Latest 가 싣는 엔진과 다르고
+      # 버전이 높은가(docs/개발-안내.md "버전 번호"). 룰만 바뀐 출시는 main 의 엔진이 공개본보다 앞서 있어도 선다 — 싣는
+      # 엔진은 Latest 의 것이고, 아래 OS 잡이 그 실행 파일로 모든 룰을 lint 한다. 시험판 태그에서도 돈다.
       - name: version policy
         id: policy
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: bash ci/version-check.sh "$GITHUB_REF_NAME"
-      # 룰만 바뀐 출시는 지난 공개본의 실행 파일을 그대로 싣는다 — 그 공개본이 **공개된 정식 · 불변 Release** 이고 자산
-      # 셋이 다 있는지 초안을 만들기 전에 본다. 버전 검사는 git 태그만 보고 고르므로 그 Release 가 아직 초안(진행 중인
-      # 출시)일 수 있고, 잡의 토큰은 초안도 받는다 — 공개하지 않은 실행 파일은 싣지 않는다. 불변이 아니면 공개 뒤 자산을
-      # 바꿀 수 있어 받은 파일이 공개한 그것이라는 보증이 없다(`ci/release.sh` 의 `fetch-prev` 가 받기 전에 같은 것을 다시 본다).
+      # 룰만 바뀐 출시는 지금 Latest 의 실행 파일을 그대로 싣는다 — 그 Release 가 **공개된 정식 · 불변 Release** 이고 자산
+      # 셋이 다 있는지 초안을 만들기 전에 본다. 버전 검사가 gh 의 Latest 를 고르지만(2026-11-21 — 전에는 git 태그로 골라
+      # 초안일 수 있었다), 잡의 토큰은 초안도 받으므로 받기 전에 다시 본다 — 공개하지 않은 실행 파일은 싣지 않는다. 불변이
+      # 아니면 공개 뒤 자산을 바꿀 수 있어 받은 파일이 공개한 그것이라는 보증이 없다(`ci/release.sh` 의 `fetch-prev` 도 본다).
       - name: previous release
         if: startsWith(github.ref_name, 'rules-')
         env:
@@ -123,20 +129,22 @@ jobs:
             --jq '"\(.isDraft) \(.isPrerelease) \(.isImmutable) " + ([.assets[].name] | sort | join(" "))' 2>/dev/null || echo none)
           echo "지난 공개본 $PREV: $state"
           if [ "$state" != "false false true SHA256SUMS remedy-linux-x64.tar.gz remedy-windows-x64.zip" ]; then
-            echo "::error::$PREV 가 공개된 정식 · 불변 Release(자산 셋)가 아니다 — 그 출시를 먼저 공개하거나 긴급 가지로 간다(docs/긴급-대응.md)"
+            echo "::error::$PREV 가 공개된 정식 · 불변 Release(자산 셋)가 아니다 — 룰만 바뀐 출시가 실을 실행 파일이 없다(지금 Latest 를 바로잡거나 엔진 출시로 낸다)"
             exit 1
           fi
       # 다시 돌릴 때를 위해 — 같은 태그의 초안이 있으면 그것에 올리고, 이미 공개된
       # Release 면 건드리지 않고 멈춘다. 시험판 태그의 초안은 시험판으로 만든다 — 누가
       # 공개해도 최신 Release 로 걸리지 않는다.
       #
-      # 본문은 처음 온 사람이 읽는다 — 무엇을 받아 어떻게 실행하는지가 맨 앞이다. 틀은
-      # .github/release-notes.md 이고(말투 · 꼴은 그 틀의 머리 주석), ci/release-notes.sh 가 이 태그의 값으로 채운다 —
-      # 바뀐 내용은 업데이트 내역의 이 버전 칸, 위협 묶음과 표는 README 의 표(`cargo xtask threats` 가 룰과 같은지 매
-      # 커밋 본다)와 룰 매니페스트. 칸이 없거나 꼴이 어긋나면(끊긴 코드 블록 등) 그 스크립트가 멈춘다.
+      # 본문은 리눅스 잡이 도구를 지은 뒤 채운다(그 잡의 'release notes') — 바뀐 내용은 이 태그가 Latest 뒤에 새로 실은
+      # 업데이트 내역 조각(`cargo xtask changes`), 위협 표는 태그 나무의 매니페스트(`cargo xtask threats --print`)에서
+      # 짓는데 이 잡에는 도구가 없다. 리눅스 잡은 Windows 잡보다 짧아 그 걸음이 출시를 늦추지 않는다. 그때까지 본문은
+      # 아래 표지 한 줄이고, 공개 걸음(.github/workflows/publish.yml)은 그 표지가 남은 초안을 공개하지 않는다.
       - name: draft release
         env:
           GH_TOKEN: ${{ github.token }}
+          ENGINE: ${{ steps.policy.outputs.engine }}
+          RULES: ${{ steps.policy.outputs.rules }}
         run: |
           state=$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft 2>/dev/null || echo none)
           if [ "$state" = true ]; then
@@ -149,19 +157,20 @@ jobs:
           fi
           # Release 이름은 두 버전을 함께, **출시의 종류와 상관없이 한 꼴로** 적는다 — `프로그램 <엔진> · 룰 <룰>`(2026-11-19 ·
           # 전에는 룰만 바뀐 출시가 `룰 … · 프로그램 …` 으로 차례가 거꾸로였고 1.19.1 까지는 태그 그대로였다 — 지난 제목도 이
-          # 꼴로 고쳤다). 시험판의 꼬리 `-rc.<N>` 은 태그가 이름 붙인 버전에 붙는다. 본문은 ci/release-notes.sh 가 짓는다 —
-          # 그 스크립트가 업데이트 내역의 이 버전 칸을 찾지 못하거나 꼴이 어긋나면 멈추고, 그때는 초안을 만들지 않는다.
-          # 리눅스 확인 명령이 `grep | sha256sum -c` 꼴인 까닭: `--ignore-missing` 은 coreutils 8.25 부터라 CentOS 7 급(8.22)이
-          # 거부한다(틀 .github/release-notes.md 의 4.).
-          version=$(grep -m1 -E '^\s*version' Cargo.toml | cut -d'"' -f2)
-          rules=$(tr -d '\r\n' <plugins/RULES-VERSION)
+          # 꼴로 고쳤다). 시험판의 꼬리 `-rc.<N>` 은 태그가 이름 붙인 버전에 붙는다. 엔진은 **싣는 엔진**(룰만 바뀐 출시는
+          # Latest 의 것 — 이 나무의 Cargo.toml 이 앞서 있을 수 있다), 룰 버전은 태그(엔진 출시는 주석 태그의 메시지)에서
+          # 버전 검사가 읽은 값이다. 다음 출시의 버전 검사가 이 이름을 읽는다 — 꼴을 바꾸지 않는다.
+          if [ -z "$ENGINE" ] || [ -z "$RULES" ]; then
+            echo "::error::버전 검사가 싣는 엔진 · 룰 버전을 내지 않았다"
+            exit 1
+          fi
           rc=
           if [[ "$GITHUB_REF_NAME" =~ (-rc\.[0-9]+)$ ]]; then rc=${BASH_REMATCH[1]}; fi
           case "$GITHUB_REF_NAME" in
-            rules-*) title="프로그램 $version · 룰 $rules$rc" ;;
-            *) title="프로그램 $version$rc · 룰 $rules" ;;
+            rules-*) title="프로그램 $ENGINE · 룰 $RULES$rc" ;;
+            *) title="프로그램 $ENGINE$rc · 룰 $RULES" ;;
           esac
-          bash ci/release-notes.sh "$GITHUB_REF_NAME" >"$RUNNER_TEMP/notes.md"
+          printf '%s\n' '<!-- remedy:notes-pending — 리눅스 잡이 본문을 짓는다. 이 줄이 남은 초안은 공개하지 않는다 -->' >"$RUNNER_TEMP/notes.md"
           pre=
           if [[ "$GITHUB_REF_NAME" == *-rc.* ]]; then pre=--prerelease; fi
           gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft $pre --verify-tag \
@@ -193,9 +202,15 @@ jobs:
       COMPANION: companion/remedy-net
       # 코드서명의 주체 — 서명본마다 이 이름과 견준다. 서명된 파일마다 들어 있는 공개된 이름이다.
       CODESIGN_SUBJECT: "CN=ESTsecurity Corp., O=ESTsecurity Corp., L=Seoul, C=KR"
-      # 룰만 바뀐 출시인가 — 그때는 짓지 않고 지난 공개본(`PREV` — 버전 검사가 견준 태그)의 실행 파일을 싣는다.
+      # 룰만 바뀐 출시인가 — 그때는 짓지 않고 지난 공개본(`PREV` — 버전 검사가 견준 지금 Latest)의 실행 파일을 싣는다.
       REUSE: ${{ github.event_name == 'push' && startsWith(github.ref_name, 'rules-') }}
       PREV: ${{ needs.draft.outputs.prev }}
+      # 이 출시가 싣는 엔진 · 룰 버전(버전 검사) — 꾸러미의 룰 버전 파일 · README 의 '프로그램' 줄 · 동반 프로그램의 서명
+      # 버전 · 실행 파일의 버전 대조가 쓴다(`xtask/src/package.rs` 의 `engine_version`). 시험 실행과 엔진 출시의 둘째 걸음은
+      # draft 잡을 건너뛰어 비어 있다 — 그때 엔진은 이 나무의 Cargo.toml 이고 룰 버전은 초안의 이름에서 읽는다.
+      ENGINE_VERSION: ${{ needs.draft.outputs.engine }}
+      RULES_VERSION: ${{ needs.draft.outputs.rules }}
+      REMEDY_ENGINE_VERSION: ${{ needs.draft.outputs.engine }}
     steps:
       # 둘째 걸음은 엔진 출시(`v*`)의 초안에서만 — 다른 자리에서 부르면 아무것도 하지 않고 멈춘다. 룰만 바뀐 출시는
       # 태그 push 한 번으로 끝나 둘째 걸음이 없다.
@@ -274,6 +289,12 @@ jobs:
         run: |
           bash ci/release.sh fetch-signed signed
           echo "CODESIGN_DIR=signed" >>"$GITHUB_ENV"
+      # 싣는 실행 파일로 이 OS 의 룰을 모두 lint 한다(2026-11-21) — 룰만 바뀐 출시는 지난 공개본의 엔진을 싣는데 main 의
+      # 엔진은 앞서 있을 수 있다. 그 엔진이 모르는 칸(매니페스트는 모르는 칸을 거부한다) · 그보다 높은 min_core 를 쓴 룰은
+      # 여기서 멈춘다 — 그 룰은 그 엔진을 낸 뒤의 출시로 간다. 비밀이 들어오기 전 걸음이다. 경고는 실패가 아니다.
+      - name: lint with the shipped engine
+        if: env.BIN_DIR != ''
+        run: bash ci/release.sh lint "$BIN_DIR/remedy.exe"
       # 시험 실행 — 룰만 바뀐 출시의 받기 반쪽을 지금 Latest 로 돌려 본다: 받기 · 체크섬 · (아래 걸음의) 코드서명 확인 ·
       # 정적 링크 · 그 본체가 그 동반 프로그램을 띄우는가. 받은 것은 이 실행의 꾸러미에 쓰지 않는다. 배포 키가 없어 그
       # 실행 파일로 이번 룰의 서명을 확인하는 것은 여기서 재지 못한다(첫머리). 실제 출시와 같은 차례로 — 토큰이 있는
@@ -326,6 +347,13 @@ jobs:
           mkdir -p "$COMPANION"
           cp "$BIN_DIR/remedy-net.exe" "$COMPANION/"
           bash ci/release.sh sign-companion "$COMPANION"
+      # 룰 버전은 저장소에 두지 않는다(2026-11-21 · 출시 때 정한다) — 꾸러미에 넣을 파일을 작업 폴더에 쓴다. 엔진은 화면에
+      # 적기만 한다(`remedy_sdk::rules_version`). 시험 실행은 쓰지 않는다(README 의 '룰' 줄 없이 꾸린다).
+      - name: rules version
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash ci/release.sh rules-version
       - name: package
         if: github.event_name != 'push' || env.REUSE == 'true'
         run: |
@@ -374,13 +402,19 @@ jobs:
       TARGET: x86_64-unknown-linux-musl
       PKG: dist/remedy-linux-x64
       COMPANION: companion/remedy-net
-      # 룰만 바뀐 출시인가 — 그때는 짓지 않고 지난 공개본(`PREV` — 버전 검사가 견준 태그)의 실행 파일을 싣는다.
+      # 룰만 바뀐 출시인가 — 그때는 짓지 않고 지난 공개본(`PREV` — 버전 검사가 견준 지금 Latest)의 실행 파일을 싣는다.
       REUSE: ${{ github.event_name == 'push' && startsWith(github.ref_name, 'rules-') }}
       PREV: ${{ needs.draft.outputs.prev }}
+      # 이 출시가 싣는 엔진 · 룰 버전(버전 검사 · Windows 잡의 같은 줄).
+      ENGINE_VERSION: ${{ needs.draft.outputs.engine }}
+      RULES_VERSION: ${{ needs.draft.outputs.rules }}
+      REMEDY_ENGINE_VERSION: ${{ needs.draft.outputs.engine }}
     steps:
+      # 역사와 태그를 다 받는다 — 릴리스 본문의 바뀐 내용이 'Latest 뒤에 새로 든 조각' 이라 그 태그의 트리와 견준다.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0
       # wasmtime 의 빌드 스크립트가 C 파일 하나를 musl 로 컴파일한다. cc-rs 는 타깃 접두가
       # 붙은 이름을 먼저 찾는다 — 없으면 `ci/linux-static-docker.sh` 처럼 링크를 건다. 엔진을 짓지 않는 룰만
       # 바뀐 출시에는 필요 없다(도구 xtask 는 호스트 타깃으로 짓는다 — CI 의 리눅스 잡이 이것 없이 짓는다).
@@ -404,6 +438,27 @@ jobs:
         run: bash ci/release.sh pubkey
       - name: xtask
         run: cargo build --locked -p xtask
+      # 지금 Latest 와 견준 룰 잠금 · 조각(2026-11-21) — 파일이 바뀐 룰은 `version` 을 올렸는가 · 버전을 올린 룰마다 Latest
+      # 뒤에 더한 조각이 있는가. PR 의 CI 는 병합 바탕과 견주지만 PR 은 갱신 없이 병합하므로, 공개본과 같은 판의 다른 룰이
+      # 나가지 않게 출시가 Latest 와 다시 본다(`cargo xtask plugin-lock` · `fragments` · `--base`).
+      - name: rules against latest
+        if: github.event_name == 'push'
+        run: |
+          cargo xtask plugin-lock --base "$PREV"
+          cargo xtask fragments --base "$PREV"
+      # 릴리스 본문 — draft 잡이 표지 한 줄로 만든 초안의 본문을 채운다. 바뀐 내용은 이 태그가 Latest 뒤에 새로 실은
+      # 업데이트 내역 조각, 위협 표는 이 태그 나무의 매니페스트에서 짓는다(`ci/release-notes.sh` — 칸이 없거나 꼴이
+      # 어긋나면 멈추고, 표지가 남은 초안은 공개 걸음이 공개하지 않는다). 엔진 출시는 첫 걸음에서 채운다(둘째 걸음에는
+      # 이 잡이 돌지 않는다).
+      - name: release notes
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          bash ci/release-notes.sh "$GITHUB_REF_NAME" --prev "$PREV" --engine "$ENGINE_VERSION" \
+            --rules "$RULES_VERSION" >"$RUNNER_TEMP/notes.md"
+          gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --notes-file "$RUNNER_TEMP/notes.md"
+          echo "본문: $(wc -l <"$RUNNER_TEMP/notes.md")줄 · $(grep -m1 '^## 2\.' "$RUNNER_TEMP/notes.md")"
       # 이 OS 의 룰 목록 — 비밀이 없는 걸음에서 한 번 뽑아 둔다(Windows 잡의 같은 걸음).
       - name: rule list
         run: |
@@ -436,6 +491,9 @@ jobs:
             file "$BIN_DIR/$bin" | tee "$RUNNER_TEMP/file-$bin.txt"
             grep -qE 'statically linked|static-pie' "$RUNNER_TEMP/file-$bin.txt"
           done
+      # 싣는 실행 파일로 이 OS 의 룰을 모두 lint 한다(Windows 잡의 같은 걸음에 까닭을 적었다).
+      - name: lint with the shipped engine
+        run: bash ci/release.sh lint "$BIN_DIR/remedy"
       # 시험 실행 — 룰만 바뀐 출시의 받기 반쪽을 지금 Latest 로 돌려 본다(Windows 잡의 같은 걸음 · 토큰이 있는 걸음은
       # 받기만 하고 받은 실행 파일은 토큰이 없는 걸음에서 돌린다).
       - name: previous release rehearsal — fetch
@@ -464,6 +522,12 @@ jobs:
           mkdir -p "$COMPANION"
           cp "$BIN_DIR/remedy-net" "$COMPANION/"
           bash ci/release.sh sign-companion "$COMPANION"
+      # 룰 버전 — 꾸러미에 넣을 파일을 작업 폴더에 쓴다(Windows 잡의 같은 걸음).
+      - name: rules version
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash ci/release.sh rules-version
       # 사고 하나에 룰이 둘일 수 있다(CWPdoor — 점검과 치료). 폴더 이름의 숫자가 안내 모드의 차례다.
       - name: package
         run: |
