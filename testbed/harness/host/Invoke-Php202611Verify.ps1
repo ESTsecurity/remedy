@@ -1,4 +1,11 @@
 ﻿#Requires -Version 5.1
+# 룰: php-2026-11-check-windows — 묶어 낸 출시의 필수 점검 ① 이 이 하네스를 찾아 아래 입력으로 돌린다(Invoke-RuleHarness.ps1 · -Package · -LogDir)
+# 입력: -PhpZipDir php-8.3.37-nts-Win32-vs16-x64.zip - https://downloads.php.net/~windows/releases/php-8.3.37-nts-Win32-vs16-x64.zip|https://downloads.php.net/~windows/releases/archives/php-8.3.37-nts-Win32-vs16-x64.zip
+# 입력: -PhpZipDir php-8.5.13-Win32-vs17-x64.zip - https://downloads.php.net/~windows/releases/php-8.5.13-Win32-vs17-x64.zip|https://downloads.php.net/~windows/releases/archives/php-8.5.13-Win32-vs17-x64.zip
+# 입력: -PhpZipDir php-8.3.35-nts-Win32-vs16-x64.zip 25a8e2ac9ff30f1d768d1447c09a600617fa6e6082729f6e95f008b59c91fe45 https://downloads.php.net/~windows/releases/archives/php-8.3.35-nts-Win32-vs16-x64.zip|https://windows.php.net/downloads/releases/archives/php-8.3.35-nts-Win32-vs16-x64.zip
+# 입력: -PhpZipDir php-8.5.12-Win32-vs17-x64.zip - https://downloads.php.net/~windows/releases/archives/php-8.5.12-Win32-vs17-x64.zip|https://downloads.php.net/~windows/releases/php-8.5.12-Win32-vs17-x64.zip
+# 입력: -PhpZipDir php-8.4.27-nts-Win32-vs17-x64.zip - https://downloads.php.net/~windows/releases/archives/php-8.4.27-nts-Win32-vs17-x64.zip|https://downloads.php.net/~windows/releases/php-8.4.27-nts-Win32-vs17-x64.zip
+# 입력: -PhpZipDir php-8.2.35-nts-Win32-vs16-x64.zip - https://downloads.php.net/~windows/releases/archives/php-8.2.35-nts-Win32-vs16-x64.zip|https://downloads.php.net/~windows/releases/php-8.2.35-nts-Win32-vs16-x64.zip
 <#
 .SYNOPSIS
     PHP 11월 보안 업데이트 점검 룰(php-2026-11-check-windows)을 랩 VM 에서 잰다 — 설치본 모양마다 종료 코드와 화면.

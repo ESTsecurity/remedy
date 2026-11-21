@@ -19,6 +19,34 @@ function Write-Ok   { param($t) Write-Host "    OK   $t" -ForegroundColor Green 
 function Write-Warn { param($t) Write-Host "    주의 $t" -ForegroundColor Yellow }
 function Write-Bad  { param($t) Write-Host "    실패 $t" -ForegroundColor Red }
 
+# ── 이 기계 자신을 랩으로 쓰는 것은 GitHub 호스팅 러너에서만 ─────────────
+#
+# 출시 전 필수 점검을 러너로 옮겼다(2026-11-22 · `.github/workflows/checks.yml`) — Windows 러너는 자기 자신을 랩으로 쓴다
+# (127.0.0.1 로 붙는다). 랩 하네스는 붙은 기계에 가짜 감염을 세우고, 소프트웨어를 지우고, 계정 · 원격 설정을 바꾼다. 개발 PC 가
+# 자기 자신에 붙으면 그 일이 그 PC 에서 일어나므로, 자기 주소로 붙을 때는 호스팅 러너인지 먼저 본다. 환경 변수는 누구나 세울
+# 수 있어 사고만 막는다 — 러너 준비(`Initialize-RunnerLab.ps1`)는 랩 설정 파일이 이미 있는 기계에서도 멈춘다.
+function Assert-HostedRunner {
+    if ($env:GITHUB_ACTIONS -ne 'true' -or $env:RUNNER_ENVIRONMENT -ne 'github-hosted' -or $env:RUNNER_OS -ne 'Windows') {
+        throw ("이 기계 자신을 랩으로 쓰는 일은 GitHub 호스팅 Windows 러너에서만 한다 — GITHUB_ACTIONS={0} · " +
+            "RUNNER_ENVIRONMENT={1} · RUNNER_OS={2}. 랩 하네스는 붙은 기계에 가짜 감염을 세우고 소프트웨어를 지운다") -f
+            $env:GITHUB_ACTIONS, $env:RUNNER_ENVIRONMENT, $env:RUNNER_OS
+    }
+}
+
+# 주소가 이 기계 자신인가 — 루프백 · 컴퓨터 이름 · 이 기계의 IP.
+function Test-SelfAddress {
+    param([string] $Address)
+    $a = "$Address".Trim().ToLowerInvariant()
+    if (-not $a) { return $false }
+    if ($a -eq 'localhost' -or $a -eq '::1' -or $a -like '127.*') { return $true }
+    if ($env:COMPUTERNAME -and $a -eq $env:COMPUTERNAME.ToLowerInvariant()) { return $true }
+    try {
+        $mine = @(Get-NetIPAddress -ErrorAction Stop | ForEach-Object { "$($_.IPAddress)".ToLowerInvariant() })
+        if ($mine -contains $a) { return $true }
+    } catch { }
+    return $false
+}
+
 # ── 랩 값은 `.cargo/*.yml` 에서 읽는다 ──────────────────────────────
 #
 # **스크립트에 박지 않는다.** 랩 주소·VMX 경로·스냅샷 이름은 기계마다 다른데
@@ -298,6 +326,9 @@ function Connect-LabVm {
         [pscredential] $Credential,
         [switch] $SaveCredential
     )
+
+    # 자기 자신에 붙는 것은 호스팅 러너에서만(위 `Assert-HostedRunner`) — 모든 랩 하네스가 이 함수를 지난다.
+    if (Test-SelfAddress $VmAddress) { Assert-HostedRunner }
 
     $credStore = Join-Path $env:LOCALAPPDATA "remedy-lab\vm-cred.xml"
     $Credential = Get-LabCredential -VmAddress $VmAddress -Credential $Credential -CredStore $credStore

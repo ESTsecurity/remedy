@@ -1,4 +1,6 @@
 ﻿#Requires -Version 5.1
+# 룰: apache-http2-check-windows — 묶어 낸 출시의 필수 점검 ① 이 이 하네스를 찾아 아래 입력으로 돌린다(Invoke-RuleHarness.ps1 · -Package · -LogDir)
+# 입력: -ApacheZip httpd-2.4.71-261112-Win64-VS18.zip 44961a929dff16b767b3adbcea55760a942a00239b2891dc55806be34029e1fc https://www.apachelounge.com/download/VS18/binaries/httpd-2.4.71-261112-Win64-VS18.zip
 <#
 .SYNOPSIS
     Apache HTTP/2 점검 룰(apache-http2-check-windows)을 랩 VM 에서 잰다 — 설치본 모양마다 종료 코드와 화면.

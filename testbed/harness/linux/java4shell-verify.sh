@@ -1,5 +1,6 @@
 #!/bin/bash
 # 룰: java4shell-check-linux — 묶어 낸 출시(ci/batch.sh)가 바뀐 룰의 필수 점검 ① 로 이 하네스를 찾는다(--bin · --plugins · --out)
+# 이미지: debian:12 ubuntu:24.04 ubuntu:22.04 rockylinux:9 alpine:3.22 amazonlinux:2023 eclipse-temurin:17-jre eclipse-temurin:21-jre eclipse-temurin:25-jre amazoncorretto:21 amazoncorretto:17 tomcat:9.0-jdk11
 # Java4Shell 점검 룰(java4shell-check-linux)을 배포판 · 배포사 이미지에서 잰다.
 #
 # 호스트(WSL)에서, 저장소 루트:

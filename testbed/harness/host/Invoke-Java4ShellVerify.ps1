@@ -1,4 +1,6 @@
 ﻿#Requires -Version 5.1
+# 룰: java4shell-check-windows — 묶어 낸 출시의 필수 점검 ① 이 이 하네스를 찾아 아래 입력으로 돌린다(Invoke-RuleHarness.ps1 · -Package · -LogDir)
+# 입력: -JdkZip OpenJDK17U-jdk_x64_windows_hotspot_17.0.21_9.zip 98518ecf554465057ee5509462631deeee374bc368c12a411d225cd29381f84b https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.21%2B9/OpenJDK17U-jdk_x64_windows_hotspot_17.0.21_9.zip
 <#
 .SYNOPSIS
     Java4Shell 점검 룰(java4shell-check-windows)을 랩 VM 에서 잰다 — 홈 모양마다 종료 코드와 화면.

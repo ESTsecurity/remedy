@@ -1,5 +1,6 @@
 #!/bin/bash
 # 룰: cwpdoor-1-check, cwpdoor-2-clean — 묶어 낸 출시(ci/batch.sh)가 바뀐 룰의 필수 점검 ① 로 이 하네스를 찾는다(--bin · --plugins · --out)
+# 이미지: rust:1.96-bookworm
 # CWPdoor 두 꾸러미(cwpdoor-1-check · cwpdoor-2-clean)를 리눅스 컨테이너에서 잰다.
 #
 # 호스트(WSL)에서, 저장소 루트:

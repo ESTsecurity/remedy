@@ -1,18 +1,23 @@
 #!/bin/bash
 # 룰만 바뀐 출시를 묶어 낸다 — 명령 하나와 승인 한 번(2026-11-21 · 목표 remedy_하루30건_대응체계 차례 2 · docs/긴급-대응.md).
 #
-#   bash ci/batch.sh [--rc]              main 의 머리를 묶어 낸다 — 룰 버전 → 태그 → 초안 → 필수 점검 → 승인 → 공개
+#   bash ci/batch.sh [--rc] [--local]    main 의 머리를 묶어 낸다 — 룰 버전 → 태그 → 초안 → 필수 점검 → 승인 → 공개
 #   bash ci/batch.sh status              지금 Latest · 진행 중인 출시 · 다음 묶음에 들 조각 · 멈춤 이슈
-#   bash ci/batch.sh publish <태그>      이미 올라온 초안을 이어 낸다 — 필수 점검 → 승인 → 공개
-#   bash ci/batch.sh approve <태그>      승인 대기(종료 3)에서 잇는다 — 점검한 그 파일로 공개(카드로 받은 승인 뒤)
+#   bash ci/batch.sh publish <태그> [--local]  이미 올라온 초안을 이어 낸다 — 필수 점검 → 승인 → 공개
+#   bash ci/batch.sh approve <태그>      승인 대기(종료 3)에서 잇는다 — 점검한 그 파일로 공개(카드로 받은 승인 뒤 · 어느 PC 든)
 #   bash ci/batch.sh clean <태그>        실패한 초안을 지운다(태그는 남는다 — 다음 묶음은 다음 룰 버전을 쓴다)
 #   bash ci/batch.sh views               하루 한 번 — 생성물(README 두 표 · 업데이트 내역 · 하네스 표)을 PR 하나로 갈아 끼운다
 #   bash ci/batch.sh engine-tag <v태그>  엔진 출시의 주석 태그(메시지 '프로그램 <엔진> · 룰 <룰 버전>')를 짓고 민다
-#   bash ci/batch.sh selftest            다음 룰 버전 · 시험판 번호 · 자산 목록의 갈래를 망 없이 합성 값으로 시험한다(CI)
+#   bash ci/batch.sh harnesses <지난 공개본 | all> <커밋> <linux | windows>
+#                                        바뀐 룰의 하네스(필수 점검 ①) — 점검 잡(checks.yml)이 스스로 셈한다
+#   bash ci/batch.sh selftest            다음 룰 버전 · 시험판 번호 · 자산 목록 · 하네스 찾기 · 요약 덩이를 망 없이 시험한다(CI)
 #
-# 누가 · 어디서 — 조직 Owner 가 저장소 루트에서. git · gh(로그인) · bash · cargo 가 있으면 어느 PC 든 묶음 · 태그 · 공개까지
-# 간다. 필수 점검은 차례 3(검증을 PC 밖으로) 전까지 리눅스 몫이 docker(Windows 면 WSL), Windows 몫이 랩 VM 이 있는 PC 에서
-# 돈다 — 없으면 그 자리에서 멈추고 무엇이 모자라는지 적는다(그때는 그 PC 에서 `publish <태그>` 로 잇는다).
+# 누가 · 어디서 — 조직 Owner 가 저장소 루트에서. git · gh(로그인) · bash · cargo 가 있으면 어느 PC 든 묶음 · 태그 · 필수 점검 ·
+# 공개까지 간다(차례 3 · 2026-11-22). 필수 점검 ①②③ 은 GitHub 호스팅 러너가 돈다 — `.github/workflows/checks.yml` 을 그 태그와
+# 자산 셋의 해시로 부르고 끝까지 본다(리눅스 잡 · Windows 잡 — Windows 러너는 자기 자신을 랩으로 쓴다). 공개 워크플로가 그
+# 실행의 성공을 다시 본다(확인 i — 그 태그 커밋 · 그 자산 셋 · 잡 둘). `--local` 은 지금까지의 PC 점검이다 — 리눅스 몫이
+# docker(Windows 면 WSL), Windows 몫이 랩 VM 이 있는 PC 에서 돈다(러너가 막힌 날 · 둘을 견줄 때 · 공개 확인은 i 대신 d 의 묶기).
+# ④ G9 는 어느 쪽이든 이 명령이 기록(G9_DONE)과 초안의 .yar 바이트를 견준다.
 #
 # 사람이 하는 것은 이 명령과 마지막의 승인(y) 하나다(결정 D — 출시마다 사람 한 번). 작업자가 터미널 없이 돌리면 점검까지 하고
 # 승인 대기(종료 3)로 멈춘다 — 사람이 결과를 보고 승인하면(카드) 작업자가 `approve <태그>` 로 잇는다. 공개 자체는 GitHub 의
@@ -73,6 +78,40 @@ assets_arg() {
     echo "${out% }"
 }
 
+# 자산 목록의 열쇠 — 점검 실행의 제목('점검 <태그> <KEY>')과 공개 확인 i 가 같은 값을 쓴다(줄바꿈 없이 sha256).
+assets_key() { printf '%s' "$1" | sha256sum | cut -d' ' -f1; }
+
+# 하네스 자리 — 리눅스는 testbed/harness/linux/*.sh · Windows 는 testbed/harness/host/*.ps1(selftest 가 HARNESS_ROOT 로 바꾼다).
+harness_files() {
+    local root=${HARNESS_ROOT:-testbed/harness} f
+    case "$1" in
+        linux) for f in "$root"/linux/*.sh; do [ -f "$f" ] && echo "$f"; done ;;
+        windows) for f in "$root"/host/*.ps1; do [ -f "$f" ] && echo "$f"; done ;;
+    esac
+    return 0
+}
+
+# 그 룰의 하네스 — 머리 10줄 안의 `# 룰: <id>[, <id>…] — …` 줄이 그 룰을 적은 것. 목록의 첫 자리도 찾는다(2026-11-22 전의
+# 꼴 `^# 룰: .*(^|[ ,])<id>` 는 첫 자리 앞의 빈칸을 머리가 먹어 첫 룰을 찾지 못했다 — 둘째 자리만 찾았다).
+harness_of() {
+    local id=$1 os=$2 f
+    for f in $(harness_files "$os"); do
+        if sed -n '1,10p' "$f" | grep -qE "^# 룰: (.*[ ,])?$id([ ,—]|$)"; then
+            echo "$f"
+            return 0
+        fi
+    done
+    return 1
+}
+
+# 점검 실행 기록의 요약 덩이 — 잡이 '<<<summary <os>' 와 '>>>summary <os>' 사이에 찍은 줄(표지는 ASCII — Windows 잡의
+# PowerShell 걸음도 찍을 수 있게). 입력은 `gh run view <id> --log` 꼴(잡 · 걸음 · '<시각> <줄>' 이 탭으로). 걸음 머리에 보이는
+# 스크립트 줄은 색 부호로 시작해 표지와 맞지 않는다.
+summary_blocks() {
+    cut -f3- | sed -E 's/^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z ?//' | tr -d '\r' |
+        awk '/^<<<summary (linux|windows)$/ { f = 1; print "── " $2; next } /^>>>summary (linux|windows)$/ { f = 0; next } f'
+}
+
 selftest() {
     local pass=0 bad=0
     t() { if [ "$2" = "$3" ]; then pass=$((pass + 1)); echo "통과  $1"; else bad=$((bad + 1)); echo "실패  $1 — '$2'(기대 '$3')"; fi; }
@@ -91,7 +130,40 @@ selftest() {
     t "자산이 모자라면 목록을 짓지 않는다" "$(assets_arg "$d" || echo 없음)" 없음
     printf c >"$d/SHA256SUMS"
     t "자산 목록" "$(assets_arg "$d" | tr ' ' '\n' | cut -d: -f1 | tr '\n' ' ')" "remedy-linux-x64.tar.gz remedy-windows-x64.zip SHA256SUMS "
+    # 열쇠는 줄바꿈 없는 목록의 sha256 — checks.yml 의 제목 · publish-check.sh 의 i 가 같은 꼴로 짓는다.
+    t "자산 목록의 열쇠" "$(assets_key 'remedy-linux-x64.tar.gz:aa remedy-windows-x64.zip:bb SHA256SUMS:cc')" \
+        4d89ca839f16741dcefc2e924af5be8314d76cc6dc1124b434b9dee6e88030d1
     rm -rf "$d"
+    # 하네스 찾기 — 목록의 첫 자리 · 둘째 자리 · 앞부분만 같은 id(맞지 않아야 한다) · OS 마다 다른 자리.
+    d=$(mktemp -d)
+    mkdir -p "$d/linux" "$d/host"
+    printf '#!/bin/bash\n# 룰: alpha-check, beta-clean — 설명\n' >"$d/linux/ab-verify.sh"
+    printf '#!/bin/bash\n# 룰: gamma-check-linux — 설명\n' >"$d/linux/g-verify.sh"
+    printf '#!/bin/bash\n# 쓰는 법만 있다\n' >"$d/linux/tool.sh"
+    printf '#Requires -Version 5.1\n# 룰: gamma-check-windows — 설명\n# 입력: -X a.zip - https://example.invalid/a.zip\n' >"$d/host/Invoke-GVerify.ps1"
+    t "하네스 — 목록의 첫 자리" "$(HARNESS_ROOT=$d harness_of alpha-check linux)" "$d/linux/ab-verify.sh"
+    t "하네스 — 목록의 둘째 자리" "$(HARNESS_ROOT=$d harness_of beta-clean linux)" "$d/linux/ab-verify.sh"
+    t "하네스 — 한 자리 줄" "$(HARNESS_ROOT=$d harness_of gamma-check-linux linux)" "$d/linux/g-verify.sh"
+    t "하네스 — 앞부분만 같은 id 는 아니다" "$(HARNESS_ROOT=$d harness_of gamma-check linux || echo 없음)" 없음
+    t "하네스 — Windows 자리" "$(HARNESS_ROOT=$d harness_of gamma-check-windows windows)" "$d/host/Invoke-GVerify.ps1"
+    t "하네스 — 다른 OS 의 자리는 보지 않는다" "$(HARNESS_ROOT=$d harness_of gamma-check-windows linux || echo 없음)" 없음
+    t "하네스 — all 은 '# 룰:' 줄을 단 것만" "$(HARNESS_ROOT=$d cmd_harnesses all HEAD linux | tr '\n' ' ')" \
+        "$d/linux/ab-verify.sh $d/linux/g-verify.sh "
+    rm -rf "$d"
+    # 요약 덩이 — 표지 사이만 · 걸음 머리의 스크립트 줄(색 부호)은 표지가 아니다 · CR 을 뗀다.
+    d=$(mktemp)
+    printf '%s\t%s\t%s\n' \
+        linux summary "2026-11-22T01:02:03.1234567Z $(printf '\033[36;1m')echo '<<<summary linux'$(printf '\033[0m')" \
+        linux summary '2026-11-22T01:02:03.2Z 앞 줄' \
+        linux summary '2026-11-22T01:02:03.3Z <<<summary linux' \
+        linux summary '2026-11-22T01:02:03.4Z package  통과' \
+        linux summary '2026-11-22T01:02:03.5Z >>>summary linux' \
+        windows summary "$(printf '2026-11-22T01:02:04.1Z <<<summary windows\r')" \
+        windows summary "$(printf '2026-11-22T01:02:04.2Z demo  통과\r')" \
+        windows summary "$(printf '2026-11-22T01:02:04.3Z >>>summary windows\r')" \
+        windows summary '2026-11-22T01:02:04.4Z 뒤 줄' >"$d"
+    t "요약 덩이" "$(summary_blocks <"$d" | tr '\n' '|')" "── linux|package  통과|── windows|demo  통과|"
+    rm -f "$d"
     echo "--- 통과 $pass · 실패 $bad"
     [ "$bad" = 0 ]
 }
@@ -168,38 +240,41 @@ records_only() {
         <(changed_rules "$1")
 }
 
-# 리눅스 룰 하네스 — 머리의 `# 룰:` 줄이 그 룰을 적은 것.
-harness_of() {
-    local id=$1 f
-    for f in testbed/harness/linux/*.sh; do
-        if sed -n '1,10p' "$f" | grep -qE "^# 룰: .*(^|[ ,])$id([ ,—]|$)"; then
-            echo "$f"
-            return 0
-        fi
-    done
-    return 1
-}
-
-checks() {
-    local tag=$1 commit=$2 d=$3 notes=()
-    say "필수 점검 — 지난 공개본 $LATEST 의 꾸러미를 받는다"
-    fetch_draft "$LATEST" "$d/prev"
-    # ① 바뀐 리눅스 룰의 하네스 · G9 재료(.yar 바이트)
-    local harness=() id plat yar_changed=()
+# 바뀐 룰의 하네스 — 점검 잡(checks.yml)이 스스로 셈한다(R2 — 입력으로 받지 않아 뺄 수 없다). stdout 에 하네스 경로를 한
+# 줄씩, 하네스가 없는 룰은 stderr 에 알림 한 줄씩. 첫 인자가 all 이면 그 OS 의 `# 룰:` 줄을 단 하네스 전부다(견주기).
+cmd_harnesses() {
+    local base=${1:?지난 공개본 태그 | all} commit=${2:?커밋} os=${3:?linux | windows} id plat h list=" "
+    case "$os" in linux | windows) ;; *) die "harnesses 의 OS 는 linux | windows 다: $os" ;; esac
+    if [ "$base" = all ]; then
+        for h in $(harness_files "$os"); do
+            if sed -n '1,10p' "$h" | grep -q '^# 룰: '; then echo "$h"; fi
+        done
+        return 0
+    fi
+    # 두 커밋이 이 사본에 있어야 한다 — 없으면 아래 견주기가 프로세스 치환 안에서 조용히 실패해 목록이 빈다(① 이 빠진다).
+    git rev-parse -q --verify "$base^{commit}" >/dev/null || die "지난 공개본 $base 가 이 사본에 없다(git fetch --tags)"
+    git rev-parse -q --verify "$commit^{commit}" >/dev/null || die "커밋 $commit 이 이 사본에 없다"
+    LATEST=$base
     while IFS= read -r id; do
         # 묶음의 커밋에 있는 룰만 — 지운 룰은 그 커밋에 없다(없는 자리를 git show 하면 set -e 아래에서 그대로 멈춘다).
         [ -n "$id" ] && git cat-file -e "$commit:plugins/$id/plugin.yaml" 2>/dev/null || continue
         plat=$(git show "$commit:plugins/$id/plugin.yaml" | sed -n 's/^platforms: *\[\(.*\)\].*/\1/p')
-        if [[ "$plat" == *linux* ]]; then
-            if h=$(harness_of "$id"); then
-                printf '%s\n' "${harness[@]:-}" | grep -qxF -- "$h" || harness+=("$h")
-            else
-                notes+=("① $id 의 리눅스 하네스가 없다(머리의 '# 룰:' 줄) — ③ 기존 동작과 24시간 안의 rc 묶음이 본다")
-            fi
+        [[ "$plat" == *"$os"* ]] || continue
+        if h=$(harness_of "$id" "$os"); then
+            case "$list" in *" $h "*) ;; *) list+="$h "; echo "$h" ;; esac
+        else
+            echo "① $id($os) 의 하네스가 없다(머리의 '# 룰:' 줄) — ③ 기존 동작과 24시간 안의 rc 묶음이 본다" >&2
         fi
-        if [[ "$plat" == *windows* ]]; then
-            notes+=("① $id(Windows) 의 하네스는 차례 3 전까지 이 명령이 돌리지 않는다 — 그 룰의 PR 전 하네스 기록을 승인 전에 본다")
-        fi
+    done < <(changed_rules "$commit")
+    return 0
+}
+
+checks() {
+    local tag=$1 commit=$2 d=$3 notes=()
+    # ④ G9 재료 — 바뀐 룰의 .yar 바이트(지금 Latest 와 견준다)
+    local id y yar_changed=()
+    while IFS= read -r id; do
+        [ -n "$id" ] && git cat-file -e "$commit:plugins/$id/plugin.yaml" 2>/dev/null || continue
         for y in $(git -c core.quotePath=false ls-tree -r --name-only "$commit" -- "plugins/$id/rules" | grep '\.yar$' || true); do
             local a b=""
             a=$(git show "$commit:$y" | sha256sum | cut -d' ' -f1)
@@ -233,8 +308,61 @@ checks() {
         notes+=("④ G9 — 바뀐 룰의 YARA 가 지금 Latest 와 같은 바이트다(또는 YARA 가 없다)")
     fi
 
+    if [ "$MODE" = local ]; then checks_local "$tag" "$commit" "$d"; else checks_runner "$tag" "$d"; fi
+    printf '%s\n' "${notes[@]}"
+}
+
+# 러너 점검 — checks.yml 을 그 태그 · 자산 셋 · 열쇠로 부르고 끝까지 본다. 잡이 바뀐 룰의 하네스를 스스로 셈하고(R2) 지난
+# 공개본을 익명으로 받는다. 결과는 두 잡이 기록에 찍은 요약 덩이다. 성공하면 CHECK_RUN 에 실행 번호를 둔다.
+checks_runner() {
+    local tag=$1 d=$2 assets key before id="" i x ok=true
+    assets=$(assets_arg "$d") || die "초안의 자산 셋이 없다($d)"
+    key=$(assets_key "$assets")
+    # 부르기 전에 있던 실행을 적어 둔다 — 같은 태그 · 같은 자산으로 전에 부른 실행을 이 실행으로 잘못 집지 않게.
+    before=" $(gh run list --workflow checks.yml --limit 50 --json databaseId --jq '.[].databaseId' | tr '\n' ' ') "
+    say "필수 점검 — 러너(checks.yml · 리눅스 잡 · Windows 잡 · 자산 열쇠 ${key:0:12})"
+    gh workflow run checks.yml --ref "$tag" -f tag="$tag" -f assets="$assets" -f key="$key" >/dev/null ||
+        die "점검 워크플로를 부르지 못했다(gh workflow run checks.yml --ref $tag)"
+    for i in $(seq 1 30); do
+        sleep 4
+        for x in $(gh run list --workflow checks.yml --event workflow_dispatch --limit 20 --json databaseId,displayTitle \
+            --jq ".[] | select(.displayTitle == \"점검 $tag $key\") | .databaseId"); do
+            case "$before" in *" $x "*) ;; *) id=$x; break ;; esac
+        done
+        [ -n "$id" ] && break
+    done
+    [ -n "$id" ] || die "점검 실행을 찾지 못했다 — gh run list --workflow checks.yml"
+    say "점검 실행 $id 를 기다린다(두 잡)"
+    gh run watch "$id" --exit-status --interval 15 >/dev/null || ok=false
+    echo
+    echo "── 필수 점검 결과(러너 · 실행 $id) ─────────────────────────"
+    local log
+    log=$(mktemp)
+    if gh run view "$id" --log >"$log" 2>/dev/null; then summary_blocks <"$log"; else echo "(실행 $id 의 기록을 받지 못했다 — gh run view $id --log)"; fi
+    rm -f "$log"
+    [ "$ok" = true ] || die "점검 실행 $id 가 실패했다 — 위 요약 · gh run view $id --log-failed · 고친 뒤 bash ci/batch.sh publish $tag"
+    CHECK_RUN=$id
+}
+
+# PC 점검(--local) — 차례 3 전의 길. 리눅스 몫은 docker(Windows 면 WSL), Windows 몫은 이 PC 의 랩 VM 이다. Windows 룰 하네스(①)는
+# 돌리지 않는다(러너 점검만 돈다) — 그 룰의 PR 전 하네스 기록을 승인 전에 본다.
+checks_local() {
+    local tag=$1 commit=$2 d=$3 harness=() h
+    say "필수 점검 — 지난 공개본 $LATEST 의 꾸러미를 받는다"
+    fetch_draft "$LATEST" "$d/prev"
+    # 목록은 파일로 받고 종료 코드를 본다 — 프로세스 치환 안에서 멈추면 목록이 빈 채 ① 이 소리 없이 빠진다.
+    (cmd_harnesses "$LATEST" "$commit" linux) >"$d/harnesses-linux.txt" 2>"$d/harness-notes.txt" ||
+        { cat "$d/harness-notes.txt"; die "리눅스 하네스 목록을 셈하지 못했다"; }
+    (cmd_harnesses "$LATEST" "$commit" windows) >"$d/harnesses-windows.txt" 2>>"$d/harness-notes.txt" ||
+        { cat "$d/harness-notes.txt"; die "Windows 하네스 목록을 셈하지 못했다"; }
+    while IFS= read -r h; do harness+=("$h"); done <"$d/harnesses-linux.txt"
+    while IFS= read -r h; do
+        echo "① $h — Windows 룰 하네스는 --local 에서 돌리지 않는다(러너 점검만 돈다) — 그 룰의 PR 전 하네스 기록을 승인 전에 본다" \
+            >>"$d/harness-notes.txt"
+    done <"$d/harnesses-windows.txt"
+
     # ①②③ 리눅스 — docker(Windows 면 WSL).
-    local hargs=() h
+    local hargs=()
     if [ ${#harness[@]} -eq 0 ]; then hargs=(--harness none); else for h in "${harness[@]}"; do hargs+=(--harness "$h"); done; fi
     say "필수 점검 — 리눅스(하네스 ${#harness[@]}개 · 정식 파일 · 기존 동작)"
     local rel_new rel_prev rel_out
@@ -261,11 +389,11 @@ checks() {
             -LogDir "$(mkdir -p "$d/windows-checks" && cd "$d/windows-checks" && pwd -W)" >"$d/windows-checks.log" 2>&1 ||
             die "Windows 필수 점검이 실패했다 — ${d#"$PWD"/}/windows-checks/summary.txt"
     else
-        die "Windows 필수 점검을 돌릴 랩이 이 PC 에 없다(.cargo/windows_lab.yml) — 랩이 있는 PC 에서 bash ci/batch.sh publish $tag 로 잇는다"
+        die "Windows 필수 점검을 돌릴 랩이 이 PC 에 없다(.cargo/windows_lab.yml) — 러너 점검(--local 없이) 이나 랩이 있는 PC 에서 bash ci/batch.sh publish $tag --local"
     fi
 
     echo
-    echo "── 필수 점검 결과 ─────────────────────────────────────────"
+    echo "── 필수 점검 결과(이 PC) ──────────────────────────────────"
     cat "$d/linux-checks/summary.txt"
     tr -d '\r' <"$d/windows-checks/summary.txt"
     local f
@@ -274,16 +402,18 @@ checks() {
         echo "③ 화면 차이 $(basename "$f") — 새 룰의 줄 · 룰 버전 줄뿐인지 본다:"
         sed -n '1,40p' "$f"
     done
-    printf '%s\n' "${notes[@]}"
+    cat "$d/harness-notes.txt"
 }
 
 # 점검을 마친 표지 — 승인 걸음(approve)이 이것으로 '점검한 그 파일' 인지 본다. 점검이 모두 지난 뒤에만 쓴다.
-mark_checked() { { echo "$1"; assets_arg "$2"; } >"$2/checked.txt"; }
+# 줄 셋: 태그 · 자산 셋 · 점검 자리(`runner <실행 번호>` | `local`).
+mark_checked() { { echo "$1"; assets_arg "$2"; echo "$3"; } >"$2/checked.txt"; }
 
 # 승인 한 번(결정 D). 터미널이면 y/N 을 묻는다. 터미널이 아니면(작업자가 돌린 셸) 승인을 기다리며 종료 3 으로 멈춘다 —
 # 사람이 결과를 보고 승인하면(카드) 작업자가 `bash ci/batch.sh approve <태그>` 로 잇는다. 그 뒤 공개 워크플로를 부르고 끝까지 본다.
+# 점검 자리(runner | local)를 함께 넘긴다 — runner 면 공개 확인 i 가 그 자산 셋으로 돈 러너 점검의 성공을 다시 본다.
 approve_and_publish() {
-    local tag=$1 d=$2 dry=$3 approved=${4:-} assets ans id i x
+    local tag=$1 d=$2 dry=$3 mode=$4 approved=${5:-} assets ans id i x
     assets=$(assets_arg "$d") || die "점검한 자산 셋이 없다($d)"
     if [ "$dry" = false ] && [ "$approved" != approved ]; then
         if [ ! -t 0 ]; then
@@ -298,7 +428,7 @@ approve_and_publish() {
     # 부르기 전에 있던 실행을 적어 둔다 — 같은 태그를 전에 부른 실행(시험판의 거듭된 시험 등)을 이 실행으로 잘못 집지 않게.
     local before
     before=" $(gh run list --workflow publish.yml --limit 30 --json databaseId --jq '.[].databaseId' | tr '\n' ' ') "
-    gh workflow run publish.yml -f tag="$tag" -f assets="$assets" -f dry_run="$dry" >/dev/null
+    gh workflow run publish.yml -f tag="$tag" -f assets="$assets" -f dry_run="$dry" -f checks="$mode" >/dev/null
     id=""
     for i in $(seq 1 30); do
         sleep 4
@@ -367,10 +497,11 @@ cmd_batch() {
 }
 
 publish_tail() {
-    local tag=$1 commit=$2 rc=$3 d
+    local tag=$1 commit=$2 rc=$3 d where
     d="testbed/harness/results/batch/$tag"
     say "초안을 받아 잰다 → $d"
     fetch_draft "$tag" "$d"
+    CHECK_RUN=""
     if [[ "$tag" == v* ]]; then
         # 엔진 출시는 평소 경로다 — 공개 전 검증은 rc 의 두 OS rc 묶음과 정식의 최종 확인(docs/개발-안내.md "출시 검증"
         # 4 · 6)이다. 여기서는 그 검증을 다시 돌리지 않고, 승인 뒤 공개 워크플로가 기계 확인 · 공개 · 익명 확인을 한다.
@@ -378,12 +509,14 @@ publish_tail() {
     else
         checks "$tag" "$commit" "$d"
     fi
-    mark_checked "$tag" "$d"
+    where=$MODE
+    [ -z "$CHECK_RUN" ] || where="runner $CHECK_RUN"
+    mark_checked "$tag" "$d" "$where"
     if [ "$rc" = 1 ]; then
-        approve_and_publish "$tag" "$d" true
+        approve_and_publish "$tag" "$d" true "$MODE"
         say "시험판 $tag 의 공개 걸음을 시험했다(공개하지 않았다) — 초안은 bash ci/batch.sh clean $tag 로 치운다"
     else
-        approve_and_publish "$tag" "$d" false
+        approve_and_publish "$tag" "$d" false "$MODE"
     fi
 }
 
@@ -398,19 +531,33 @@ cmd_publish() {
     publish_tail "$tag" "$commit" "$rc"
 }
 
-# 승인 대기(종료 3)에서 잇는다 — 점검을 다시 돌리지 않고, 점검한 그 파일(checked.txt 의 digest)이 지금도 그 폴더에 있는지만 본다.
-# 공개 워크플로가 초안의 자산이 그 digest 와 같은지 다시 본다.
+# 승인 대기(종료 3)에서 잇는다 — 점검을 다시 돌리지 않는다. 이 PC 에 점검 기록(checked.txt)이 있으면 점검한 그 파일이 지금도
+# 그 폴더에 있는지 본다. 없으면(다른 PC · R6) 초안을 다시 받아 같은 자산 셋으로 돈 러너 점검의 성공 실행을 찾는다 — PC 점검
+# (--local)은 그 PC 에서만 잇는다. 공개 워크플로가 초안의 자산이 그 해시와 같은지(d) · 그 러너 점검이 성공했는지(i) 다시 본다.
 cmd_approve() {
-    local tag=${1:?태그} d dry=false
+    local tag=${1:?태그} d dry=false mode run
     d="testbed/harness/results/batch/$tag"
     fresh_tools
     load_latest
-    [ -f "$d/checked.txt" ] || die "$tag 의 점검 기록이 없다($d/checked.txt) — bash ci/batch.sh publish $tag"
-    [ "$(sed -n 1p "$d/checked.txt")" = "$tag" ] && [ "$(sed -n 2p "$d/checked.txt")" = "$(assets_arg "$d")" ] ||
-        die "점검한 파일이 그 폴더에 그대로가 아니다 — bash ci/batch.sh publish $tag 로 다시 잰다"
     [ "$(gh release view "$tag" --json isDraft --jq .isDraft)" = true ] || die "$tag 는 초안이 아니다"
     [[ "$tag" == *-rc.* ]] && dry=true
-    approve_and_publish "$tag" "$d" "$dry" approved
+    if [ -f "$d/checked.txt" ]; then
+        [ "$(sed -n 1p "$d/checked.txt")" = "$tag" ] && [ "$(sed -n 2p "$d/checked.txt")" = "$(assets_arg "$d")" ] ||
+            die "점검한 파일이 그 폴더에 그대로가 아니다 — bash ci/batch.sh publish $tag 로 다시 잰다"
+        mode=$(sed -n 3p "$d/checked.txt" | cut -d' ' -f1)
+        case "$mode" in runner | local) ;; *) die "점검 기록의 셋째 줄(점검 자리)이 없다 — bash ci/batch.sh publish $tag 로 다시 잰다" ;; esac
+    elif [[ "$tag" == rules-* ]]; then
+        say "이 PC 에 점검 기록이 없다 — 초안을 다시 받아 같은 자산 셋으로 돈 러너 점검을 찾는다"
+        fetch_draft "$tag" "$d"
+        run=$(bash ci/publish-check.sh --checks-run "$tag" "$(assets_arg "$d")") ||
+            die "$tag 의 이 자산 셋으로 성공한 러너 점검이 없다 — bash ci/batch.sh publish $tag"
+        say "러너 점검 실행 $run — 그 태그 커밋 · 이 자산 셋 · 잡 둘 성공"
+        mark_checked "$tag" "$d" "runner $run"
+        mode=runner
+    else
+        die "$tag 의 점검 기록이 없다($d/checked.txt) — bash ci/batch.sh publish $tag"
+    fi
+    approve_and_publish "$tag" "$d" "$dry" "$mode" approved
 }
 
 cmd_clean() {
@@ -487,6 +634,17 @@ cmd_engine_tag() {
     say "엔진 태그 $tag(프로그램 $engine · 룰 $v) → ${commit:0:12} — 코드서명 걸음: testbed/harness/host/Invoke-ReleaseCodeSign.ps1 -Tag $tag"
 }
 
+# 점검 자리 — 기본은 러너(checks.yml). `--local` 은 묶음 · publish 에만 받는다(이 PC 의 WSL · 랩 · 어느 자리에 두어도).
+MODE=runner
+args=()
+for a in "$@"; do
+    if [ "$a" = --local ]; then MODE=local; else args+=("$a"); fi
+done
+set -- "${args[@]+"${args[@]}"}"
+if [ "$MODE" = local ]; then
+    case "${1:-}" in "" | --rc | publish) ;; *) echo "batch: --local 은 묶음 · publish 에만 받는다" >&2; exit 2 ;; esac
+fi
+
 case "${1:-}" in
     selftest) selftest ;;
     status) cmd_status ;;
@@ -495,7 +653,8 @@ case "${1:-}" in
     clean) cmd_clean "${2:-}" ;;
     views) cmd_views ;;
     engine-tag) cmd_engine_tag "${2:-}" ;;
+    harnesses) cmd_harnesses "${2:-}" "${3:-}" "${4:-}" ;;
     --rc) cmd_batch 1 ;;
     "") cmd_batch 0 ;;
-    *) echo "쓰는 법: bash ci/batch.sh [--rc] | status | publish <태그> | approve <태그> | clean <태그> | views | engine-tag <v태그> | selftest" >&2; exit 2 ;;
+    *) echo "쓰는 법: bash ci/batch.sh [--rc] [--local] | status | publish <태그> [--local] | approve <태그> | clean <태그> | views | engine-tag <v태그> | harnesses <지난 공개본 | all> <커밋> <linux | windows> | selftest" >&2; exit 2 ;;
 esac
