@@ -1,4 +1,0 @@
-# remedy plugin manifest v1
-20496ca5ae76207be407ee9e4f26f5f75f23c90e7b73277f3273e5f43e4a83ab  RELEASE.md
-fb1e6baa7b610d5ae862c72f60f60ab5b10b5a34dcabf66be62f6829e1a95dcd  plugin.yaml
-390d207541bc4198d7deef89593bfc933e7a5599f5db166677ee1f567445b981  rules/nginx.yar
