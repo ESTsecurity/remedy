@@ -8,8 +8,10 @@
 #   ci/release.sh verify <remedy> <플러그인 폴더>… 룰마다 — 박힌 앵커로 확인하고, 서명 뒤 고친 사본을 거부하는가
 #   ci/release.sh verify-engine <remedy> <플러그인 폴더>  잡마다 한 번 — 링크된 엔진이 도는가 · 다른 키의 서명을 거부하는가
 #   ci/release.sh verify-companion <remedy>      꾸러미에서 본체가 동반 프로그램을 띄우는가 · 바뀐 것은 안 띄우는가
-#   ci/release.sh engine-version <실행 파일>…     실행 파일의 버전 줄이 이 커밋의 엔진 버전(Cargo.toml)인가
+#   ci/release.sh engine-version <실행 파일>…     실행 파일의 버전 줄이 이 출시가 싣는 엔진 버전(`ENGINE_VERSION` · 없으면 Cargo.toml)인가
 #   ci/release.sh readme <README.txt>            꾸러미의 안내문이 앵커 판인가
+#   ci/release.sh lint <remedy 실행 파일>         싣는 실행 파일로 이 OS 의 룰(target/rule-dirs.txt)을 모두 lint 한다
+#   ci/release.sh rules-version                  꾸러미에 넣을 룰 버전 파일을 작업 폴더에 쓴다(`RULES_VERSION` · 없으면 초안의 이름)
 #   ci/release.sh fetch-prev <태그> <받을 폴더>    (룰만 바뀐 출시) 지난 공개본의 꾸러미를 받아 체크섬을 재고 실행 파일을 꺼낸다
 #   ci/release.sh handover <지은 폴더>            (Windows 첫 걸음) 지은 실행 파일 둘을 코드서명에 넘긴다 — 초안에 unsigned-*
 #   ci/release.sh fetch-signed <받을 폴더>        (Windows 둘째 걸음) 넘긴 것과 서명본을 받아 서명만 더했는지 잰다
@@ -267,15 +269,17 @@ readme() {
     echo "README: 앵커 판"
 }
 
-# 실행 파일의 버전 줄(`<제품> <버전> (remedy)` · `(remedy-net)`)이 이 커밋의 엔진 버전인가. 지은 파일이면 늘 같다 —
-# 지난 공개본에서 받은 파일(룰만 바뀐 출시)이 다른 버전이면 README 의 '프로그램' 줄 · Release 제목과 어긋난다.
+# 실행 파일의 버전 줄(`<제품> <버전> (remedy)` · `(remedy-net)`)이 이 출시가 싣는 엔진 버전인가. 기대값은 버전 검사가 낸
+# `ENGINE_VERSION`(룰만 바뀐 출시는 Latest 의 엔진 — main 의 Cargo.toml 이 앞서 있을 수 있다)이고, 없으면(시험 실행 · 엔진
+# 출시의 둘째 걸음) 이 커밋의 Cargo.toml 이다. 어긋나면 README 의 '프로그램' 줄 · Release 제목과 실행 파일이 다른 버전이다.
 engine_version() {
     local want exe line
     if [ $# -eq 0 ]; then
         echo "::error::버전 줄을 볼 실행 파일이 없다"
         exit 1
     fi
-    want=$(grep -m1 -E '^\s*version' Cargo.toml | cut -d'"' -f2)
+    want=${ENGINE_VERSION:-}
+    [ -n "$want" ] || want=$(grep -m1 -E '^\s*version' Cargo.toml | cut -d'"' -f2)
     for exe in "$@"; do
         line=$("$exe" --version | tr -d '\r' | sed -n 1p)
         case "$line" in
@@ -288,9 +292,48 @@ engine_version() {
     done
 }
 
+# 싣는 실행 파일로 이 OS 의 룰을 모두 lint 한다(2026-11-21) — 룰만 바뀐 출시는 지난 공개본의 엔진을 싣는데 main 의 엔진은
+# 앞서 있을 수 있다. 그 엔진이 모르는 칸(매니페스트는 모르는 칸을 거부한다) · 그보다 높은 `min_core` 를 쓴 룰은 여기서
+# 멈춘다(`remedy_sdk::validate` — 린트는 그 결과를 그대로 담는다). 경고는 실패가 아니다. 목록은 'rule list' 걸음의 파일이다.
+lint() {
+    local exe=${1:?remedy 실행 파일} d rc=0 files=()
+    while IFS= read -r d; do
+        [ -n "$d" ] && files+=("$d/plugin.yaml")
+    done <target/rule-dirs.txt
+    if [ ${#files[@]} -eq 0 ]; then
+        echo "::error::lint 할 룰이 없다(target/rule-dirs.txt)"
+        exit 1
+    fi
+    "$exe" plugin lint "${files[@]}" >"$base/lint.txt" 2>&1 || rc=$?
+    tr -d '\r' <"$base/lint.txt" | tail -n 2
+    if [ "$rc" != 0 ]; then
+        tr -d '\r' <"$base/lint.txt" | grep -E '^/|^[^ ]|오류' | head -40
+        echo "::error::싣는 엔진($("$exe" --version | tr -d '\r' | sed -n 1p))이 읽지 못하는 룰이 있다(종료 $rc) — 그 룰은 그 엔진을 낸 뒤의 출시로"
+        exit 1
+    fi
+    echo "lint: 룰 ${#files[@]}개 · 싣는 엔진으로 오류 0"
+}
+
+# 꾸러미에 넣을 룰 버전 파일(`plugins/RULES-VERSION`)을 작업 폴더에 쓴다 — 2026-11-21 부터 저장소에 두지 않고 출시 때
+# 정한다. 값은 버전 검사가 낸 `RULES_VERSION` 이고, 없으면(엔진 출시의 둘째 걸음 — draft 잡을 건너뛴다) 첫 걸음이 만든
+# 초안의 이름('프로그램 <엔진> · 룰 <룰>')에서 읽는다.
+rules_version() {
+    local v=${RULES_VERSION:-} name
+    if [ -z "$v" ]; then
+        name=$(gh release view "${GITHUB_REF_NAME:?}" --repo "${GITHUB_REPOSITORY:?}" --json name --jq .name 2>/dev/null || true)
+        v=$(sed -nE 's/^프로그램 [0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)? · 룰 ([0-9]{4}\.[0-9]{2}\.[0-9]{2}(\.[0-9]+)?)(-rc\.[0-9]+)?$/\2/p' <<<"$name")
+    fi
+    if ! [[ "$v" =~ ^[0-9]{4}\.[0-9]{2}\.[0-9]{2}(\.[0-9]+)?$ ]]; then
+        echo "::error::룰 버전을 얻지 못했다('$v') — 버전 검사의 출력(rules)이나 초안의 이름에 있어야 한다"
+        exit 1
+    fi
+    printf '%s\n' "$v" >plugins/RULES-VERSION
+    echo "룰 버전: $v"
+}
+
 # (룰만 바뀐 출시) 지난 공개본의 꾸러미를 받아 체크섬을 재고 실행 파일 둘을 꺼낸다 — 엔진을 다시 짓지 않고, Windows 는
-# 코드서명된 그 파일을 그대로 싣는다. <태그>는 버전 검사가 견준 지난 정식 공개본이다(`ci/version-check.sh` 가 낸
-# `prev`) — 엔진이 같다는 보증은 그 태그에 대해서만 선다. GitHub 의 Latest 가 아니다(긴급 가지를 합친 뒤에는 둘이 다르다).
+# 코드서명된 그 파일을 그대로 싣는다. <태그>는 버전 검사가 견준 지금 Latest 다(`ci/version-check.sh` 가 낸 `prev` ·
+# 2026-11-21 부터 — 전에는 첫 부모 역사에서 가장 가까운 정식 태그였다).
 #
 # <받을 폴더>에 실행 파일 둘을 나란히 두고(`BIN_DIR` 로 쓰는 꼴), 그 아래 `package/` 에 꾸러미를 푼 그대로 둔다.
 # 받은 파일은 여기서 실행하지 않는다 — 읽기만 한다.
@@ -413,12 +456,14 @@ verify-engine) verify_engine "$@" ;;
 verify-companion) verify_companion "$@" ;;
 engine-version) engine_version "$@" ;;
 readme) readme "$@" ;;
+lint) lint "$@" ;;
+rules-version) rules_version "$@" ;;
 fetch-prev) fetch_prev "$@" ;;
 handover) handover "$@" ;;
 fetch-signed) fetch_signed "$@" ;;
 clear-handover) clear_handover ;;
 *)
-    echo "쓰는 법: ci/release.sh pubkey | sign <폴더>… | sign-companion <폴더> | verify <remedy> <폴더>… | verify-engine <remedy> <폴더> | verify-companion <remedy> | engine-version <실행 파일>… | readme <README.txt> | fetch-prev <태그> <받을 폴더> | handover <지은 폴더> | fetch-signed <받을 폴더> | clear-handover" >&2
+    echo "쓰는 법: ci/release.sh pubkey | sign <폴더>… | sign-companion <폴더> | verify <remedy> <폴더>… | verify-engine <remedy> <폴더> | verify-companion <remedy> | engine-version <실행 파일>… | readme <README.txt> | lint <remedy> | rules-version | fetch-prev <태그> <받을 폴더> | handover <지은 폴더> | fetch-signed <받을 폴더> | clear-handover" >&2
     exit 2
     ;;
 esac

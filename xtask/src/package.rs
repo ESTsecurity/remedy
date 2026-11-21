@@ -60,8 +60,9 @@ pub fn run(root: &Path, args: &[String]) -> Result<(), String> {
         ));
     }
 
-    // 룰 버전 — 꼴이 틀렸으면 붓기 전에 멈춘다(아래 서명 확인과 같은 까닭).
+    // 룰 버전 · 배포 잡이 준 엔진 버전 — 꼴이 틀렸으면 붓기 전에 멈춘다(아래 서명 확인과 같은 까닭).
     let rules = rules_version(root)?;
+    shipped_engine()?;
 
     // ── 1. 서명이 맞는가 ─────────────────────────────────────────
     //
@@ -306,7 +307,7 @@ fn verified_companion(dir: &Path, pubkey: &Path, bin: &Path) -> Result<Companion
             dir.display()
         ));
     }
-    let core = env!("CARGO_PKG_VERSION");
+    let core = engine_version()?;
     if version != core {
         return Err(format!(
             "{} 는 버전 {version} 으로 서명됐는데 코어는 {core} 다 — 본체는 같은 버전의 동반 \
@@ -333,6 +334,32 @@ fn verified_companion(dir: &Path, pubkey: &Path, bin: &Path) -> Result<Companion
         dir: dir.to_path_buf(),
         tree,
     })
+}
+
+/// 배포 잡이 준 '실을 엔진의 버전'(`REMEDY_ENGINE_VERSION` · X.Y.Z) — 없으면 `None`. 룰만 바뀐 출시는 지난 공개본(지금
+/// Latest)의 실행 파일을 싣는데, main 의 엔진이 그 공개본보다 앞서 있으면 이 나무의 버전과 다르다(2026-11-21 · 룰 출시
+/// 줄을 엔진 상태와 뗐다). 배포 잡은 버전 검사의 `engine` 을 이 이름으로 준다(`ci/version-check.sh`).
+fn shipped_engine() -> Result<Option<String>, String> {
+    match std::env::var("REMEDY_ENGINE_VERSION") {
+        Ok(v) if !v.is_empty() => {
+            let ok = v.split('.').count() == 3
+                && v.split('.')
+                    .all(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit()));
+            if ok {
+                Ok(Some(v))
+            } else {
+                Err(format!("REMEDY_ENGINE_VERSION '{v}' 이 X.Y.Z 꼴이 아니다"))
+            }
+        }
+        _ => Ok(None),
+    }
+}
+
+/// 꾸러미에 실을 엔진의 버전 — 배포 잡이 줬으면 그 값(`shipped_engine`), 아니면 이 도구를 지은 작업 공간의 버전이다.
+/// 동반 프로그램의 서명 버전과 담을 때의 같은 버전 확인이 이 값을 쓴다 — 본체는 자기와 같은 버전으로 서명된 동반 프로그램만
+/// 띄우므로, 여기가 어긋나면 받은 사람의 원격 점검이 서지 않는다.
+pub(crate) fn engine_version() -> Result<String, String> {
+    Ok(shipped_engine()?.unwrap_or_else(|| env!("CARGO_PKG_VERSION").to_string()))
 }
 
 /// 룰 버전 — 저장소의 `plugins/RULES-VERSION`(`remedy_sdk::rules_version`). 없으면 `None`(저장소 밖의 뿌리 ·
@@ -447,14 +474,20 @@ fn readme(
     // 목록(기본 상태 폴더)도 읽고, root 가 명령으로 한 번 돌린 뒤의 그 폴더는 root 만
     // 연다(2026-11-07 실측: sudo 없이 `revocations.sig … Permission denied` · 종료 4).
     let sudo = if win { "" } else { "sudo " };
-    let core = std::fs::read_to_string(root.join("Cargo.toml"))
-        .ok()
-        .and_then(|t| {
-            t.lines()
-                .find(|l| l.trim_start().starts_with("version"))
-                .and_then(|l| l.split('"').nth(1).map(str::to_string))
-        })
-        .unwrap_or_else(|| "?".into());
+    // 실을 엔진의 버전 — 배포 잡이 주면 그 값이다(룰만 바뀐 출시는 지난 공개본의 실행 파일이라 이 나무의 Cargo.toml 이
+    // 아닐 수 있다 · `shipped_engine`). 주지 않으면 전처럼 이 뿌리의 Cargo.toml 이다. 틀린 꼴은 꾸러미를 짓기 전에
+    // 동반 프로그램 확인(`engine_version`)이 막는다.
+    let core = match shipped_engine() {
+        Ok(Some(v)) => v,
+        _ => std::fs::read_to_string(root.join("Cargo.toml"))
+            .ok()
+            .and_then(|t| {
+                t.lines()
+                    .find(|l| l.trim_start().starts_with("version"))
+                    .and_then(|l| l.split('"').nth(1).map(str::to_string))
+            })
+            .unwrap_or_else(|| "?".into()),
+    };
 
     // 검사 항목 — 데이터 룰(코어 1.12.0)은 동반 프로그램이 읽는 기준일 뿐이라 검사 항목 · 실행 명령 ·
     // 할 일 안내에 서지 않는다. 서명 확인 줄(아래)에는 선다 — 받는 사람이 그 폴더도 확인할 수 있다.

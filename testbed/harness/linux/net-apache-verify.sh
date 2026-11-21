@@ -9,7 +9,8 @@
 #        --out <결과 폴더> [--anchor <공개키 base64>]
 #
 # `--bin` 은 리눅스 remedy-net(musl 정적 — 개발 빌드는 `musl-dev-build.sh --net`, rc 는 꾸러미의 것), `--criteria` 는
-# 그것이 확인할 판정 기준 폴더(저장소의 `plugins/remedy-net-criteria` 면 개발 키라 `--anchor` 로 그 공개키를 준다 — 개발
+# 그것이 확인할 판정 기준 폴더(저장소의 `plugins/remedy-net-criteria` 는 서명이 없다 — `bash ci/dev-sign.sh --out <폴더>
+# plugins/remedy-net-criteria` 로 일회용 키 사본을 만들어 그 폴더와 `--anchor "$(cat <폴더>/anchor.txt)"` 를 준다 · 개발
 # 빌드만 받는다). `--images` 는 tar 를 두는 폴더다(Windows 쪽에 두면 Windows 의 `Invoke-NetApache.ps1` 도 읽는다 · 없는
 # tar 만 만든다).
 #

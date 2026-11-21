@@ -1,4 +1,5 @@
 #!/bin/bash
+# 룰: php-2026-11-check-linux — 묶어 낸 출시(ci/batch.sh)가 바뀐 룰의 필수 점검 ① 로 이 하네스를 찾는다(--bin · --plugins · --out)
 # PHP 11월 보안 업데이트 점검 룰(php-2026-11-check-linux)을 배포판 · 공식 이미지 컨테이너에서 잰다.
 #
 # 호스트(WSL)에서, 저장소 루트:

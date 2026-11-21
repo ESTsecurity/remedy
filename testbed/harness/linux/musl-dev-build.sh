@@ -6,10 +6,11 @@
 #   bash testbed/harness/linux/musl-dev-build.sh <결과 폴더(WSL 경로)> [--cargo-home <Windows 쪽 CARGO_HOME 의 WSL 경로>] [--net]
 #
 # `--net` 이면 동반 프로그램 `remedy-net` 도 같은 꼴로 지어 `<결과 폴더>/remedy-net` 에 둔다(remedy-net 의 이미지 ·
-# 컨테이너 하네스용 · 코어 1.18.0). 기준 폴더의 개발 키 서명은 `REMEDY_NET_ANCHOR`(개발 빌드만 읽는다)로 확인한다.
+# 컨테이너 하네스용 · 코어 1.18.0). 판정 기준 폴더의 서명은 `REMEDY_NET_ANCHOR`(개발 빌드만 읽는다)로 확인한다 — 저장소
+# 사본에는 서명이 없어(2026-11-21) `ci/dev-sign.sh` 로 일회용 키 사본을 만들어 그 앵커를 준다.
 #
 # 리눅스 룰의 하네스(`<룰>-verify.sh --bin`)는 Alpine 과 옛 glibc 에서도 도는 musl 정적 실행 파일을 받는다. 배포본도 그
-# 꼴이지만 배포 앵커가 박혀 저장소의 개발 키 서명 룰을 거부한다 — 그래서 PR 전에는 이 개발 빌드로 잰다. 정식 파일로
+# 꼴이지만 배포 앵커가 박혀 배포 키로 서명하지 않은 룰을 거부한다 — 그래서 PR 전에는 이 개발 빌드로 잰다. 정식 파일로
 # 다시 재는 것은 출시 전 필수 점검 ① 이다(docs/긴급-대응.md).
 #
 # - 컨테이너: `rust:<판>-bookworm`(rust-toolchain.toml 의 판 · --pull=never). musl-tools 는 apt 로 깐다(wasmtime 의 빌드

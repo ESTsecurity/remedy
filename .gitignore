@@ -35,3 +35,11 @@ testbed/ai-exam/exam-bundle*.txt
 
 # Claude Code 의 이 기계 전용 설정 — 허락한 명령과 이 기계의 경로가 쌓인다.
 /.claude/settings.local.json
+
+# 출시 때 짓는 것 — 저장소에 두지 않는다(2026-11-21 · 목표 remedy_하루30건_대응체계 차례 2). 룰 버전은 출시 때
+# `ci/batch.sh` 가 정하고 배포 잡이 꾸러미에 써 넣는다. 룰 폴더의 서명(MANIFEST · MANIFEST.minisig)은 배포 잡이 배포 키로
+# 하고, 개발 · 시험은 그 자리에서 일회용 키로 한다(`ci/sign-check.sh` · `ci/dev-sign.sh`). 잠금은 git 의 바탕과 견준다.
+/plugins/RULES-VERSION
+/plugins/versions.lock.json
+/plugins/*/MANIFEST
+/plugins/*/MANIFEST.minisig

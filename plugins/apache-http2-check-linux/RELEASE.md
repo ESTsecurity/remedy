@@ -109,8 +109,8 @@ Linux 는 2026-11-13 에 공지가 없다(OSV · Oracle 의 CVE 페이지).
 | G9 | 룰의 검체 오탐(YARA) | **통과(공개 뒤)** | 2026-11-14 · 0.1.0(1.15.0) 공개 뒤에 쟀다 — 공개 전에 빠뜨렸다(`docs/긴급-대응.md` 의 1.15.0 기록). 정상 설치 열넷(Debian 12 · Ubuntu 24.04 · 22.04 · Rocky 9 · 8 · AlmaLinux 9 · Oracle Linux 9 · Amazon Linux 2023 · 2 · openSUSE Leap 15.6 · Alpine 3.22 · OpenSSH 하네스 이미지 셋)의 `/etc` · `/usr` 79,684개에 `cargo xtask yara`: `apache_h2_loadmodule` 10(모두 mod_http2 를 싣는 설정) · `apache_h2_protocols` 8(설정 5 · RHEL 계열이 까는 mod_http2 의 README 문서 3 — 룰은 YARA 를 설정 자리에만 건다) · `apache_version_affected` 28(모두 판 2.4.55 ~ 2.4.70 배포판의 Apache 실행 파일 · 모듈 — 룰은 패키지가 깔지 않은 직접 빌드의 `bin/httpd` 에만 건다). 못 훑은 것은 리눅스 링크뿐(11,660) · 16 MiB 를 넘은 3개는 64 MiB 상한으로 다시 읽어 맞음 0 |
 | 하네스 | `testbed/harness/linux/apache-verify.sh` | **55/55** | 2026-11-13 · 코어 1.14.0 musl 정적 개발 빌드 · 경우마다 네트워크 없는 컨테이너 — 깐 판을 배포판 자신이 견줌 7(고친 판 Debian 12 · Ubuntu 24.04 · 22.04 · Alpine 3.22 · Amazon Linux 2 · **실제 취약 판** Rocky 9 `2.0.26-6.el9_8.2` · Amazon Linux 2023 `1:2.4.69`) · dpkg 13 · rpm 10 · RHEL 스트림 7(EUS 의 고친 판 0 · 끝난 마이너 2 · RHEL 8 0) · Alpine 4 · 직접 빌드 4(XAMPP 포함) · Apache 없음 2 · 다시 시작하지 않은 Apache 6 · 화면 다섯(찾은 줄 아래 CVE · 확인 필요 까닭 셋 · 미해소 경고 0) · **설정 폴더에 둔 가짜 TLS 키의 본문 · 기록 0** |
 
-## 서명 — 저장소 사본은 개발용 키, 배포본은 배포 키
+## 서명 — 배포본은 배포 키
 
-저장소의 `MANIFEST` · `MANIFEST.minisig` 는 저장소 사본을 확인하려고 **개발용 키로** 서명한 것이다. 배포본은 태그의 배포
-잡이 배포 키로 다시 서명하고 그 공개키를 박아 빌드하므로, 내려받은 배포 파일에 든 이 폴더는 배포 키의 서명이다(`plugin
-verify` 로 확인한다). 개발용 키로 서명된 룰은 배포 앵커가 박힌 실행 파일에서 거부된다.
+저장소의 이 폴더에는 서명이 없다(2026-11-21 부터 — 그 전에는 저장소 사본을 확인하려고 **개발용 키로** 서명한 `MANIFEST` ·
+`MANIFEST.minisig` 를 두었다). 배포본은 태그의 배포 잡이 배포 키로 서명하고 그 공개키를 박아 빌드하므로, 내려받은 배포 파일에 든
+이 폴더는 배포 키의 서명이다(`plugin verify` 로 확인한다).

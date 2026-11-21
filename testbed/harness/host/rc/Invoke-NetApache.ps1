@@ -15,10 +15,11 @@
     remedy-net.exe — rc 면 꾸러미의 `remedy-net\remedy-net.exe`, PR 전이면 개발 빌드.
 
 .PARAMETER Criteria
-    판정 기준 폴더 — rc 면 꾸러미의 `plugins\remedy-net-criteria`, 개발 빌드면 저장소의 것과 `-Anchor`.
+    판정 기준 폴더 — rc 면 꾸러미의 `plugins\remedy-net-criteria`, 개발 빌드면 일회용 키로 서명한 저장소의 사본과
+    `-Anchor`(저장소 사본에는 서명이 없다 — Git Bash 에서 `bash ci/dev-sign.sh --out <폴더> plugins/remedy-net-criteria`).
 
 .PARAMETER Anchor
-    개발 키의 공개키(base64 한 줄) — 개발 빌드만 받는다. 배포 빌드는 박힌 키를 쓴다.
+    그 사본을 서명한 일회용 키의 공개키(base64 한 줄 · `<폴더>\anchor.txt`) — 개발 빌드만 받는다. 배포 빌드는 박힌 키를 쓴다.
 
 .EXAMPLE
     .\testbed\harness\host\rc\Invoke-NetApache.ps1 -Bin <remedy-net.exe> -Criteria <기준 폴더> -ImagesDir <tar 폴더> -OutDir <폴더>

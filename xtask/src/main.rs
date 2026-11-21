@@ -14,7 +14,9 @@ mod docs;
 mod exam;
 mod examapply;
 mod fixture;
+mod fragments;
 mod fuzz;
+mod gitbase;
 mod guide;
 mod leaks;
 mod metrics;
@@ -29,6 +31,7 @@ mod snapshots;
 mod staticlink;
 mod threats;
 mod trace;
+mod views;
 mod yara;
 
 use std::path::{Path, PathBuf};
@@ -81,8 +84,27 @@ fn main() -> ExitCode {
         // 못 하지만, 재었다는 증거가 지금 자료와 맞는지는 여기서 본다.
         Some("exam-apply") => examapply::run(&root),
         // **룰을 고치면 플러그인 버전을 올린다** (2026-09-06). 린트는 한 파일만
-        // 보므로 "전과 달라졌는가" 는 저장소 게이트가 본다.
-        Some("plugin-lock") => pluginlock::run(&root, write),
+        // 보므로 "전과 달라졌는가" 는 저장소 게이트가 본다 — 견주는 상대는 git 의 바탕이다(2026-11-21).
+        Some("plugin-lock") => {
+            let args: Vec<String> = std::env::args().skip(2).collect();
+            pluginlock::run(&root, &args)
+        }
+        // 업데이트 내역 조각(docs/changes/)의 꼴 · 버전을 올린 룰마다 조각이 있는가(2026-11-21 · `all` 에도 있다).
+        Some("fragments") => {
+            let args: Vec<String> = std::env::args().skip(2).collect();
+            fragments::check(&root, &args)
+        }
+        // 두 커밋 · 태그 사이에 더한 조각으로 지은 업데이트 내역 칸의 본문 — 배포 잡의 릴리스 본문 2절.
+        Some("changes") => {
+            let args: Vec<String> = std::env::args().skip(2).collect();
+            fragments::changes(&root, &args)
+        }
+        // 하루 한 번 갈아 끼우는 생성물(README 두 표 · 업데이트 내역의 생성 구간 · 하네스 표). `all` 에 넣지 않는다 —
+        // 생성물은 하루 늦을 수 있는 것이 설계다(출시는 태그 나무와 git 만 읽는다).
+        Some("views") => {
+            let args: Vec<String> = std::env::args().skip(2).collect();
+            views::run(&root, &args)
+        }
         // 동반 프로그램의 판정 기준(데이터 룰)이 읽히고 본체의 점검 룰과 같은 값인가 (코어 1.12.0).
         Some("net-criteria") => netcriteria::run(&root),
         // 하네스 `.ps1` 의 `"$n개"` — PowerShell 이 한글까지 변수 이름으로 읽어 빈 값으로 편다.
@@ -108,9 +130,11 @@ fn main() -> ExitCode {
             .and_then(|()| screens::run(&root))
             .and_then(|()| snapshots::run(&root))
             .and_then(|()| examapply::run(&root))
-            .and_then(|()| pluginlock::run(&root, false))
-            // README 의 *다루는 위협* 표가 룰 매니페스트와 같은가 — 손으로 쓴 표는 룰이 늘면 어긋난다.
+            .and_then(|()| pluginlock::run(&root, &[]))
+            // 룰 매니페스트로 *다루는 위협* 표를 지을 수 있는가 — README 의 표는 하루 한 번 views 가 갈아 끼운다.
             .and_then(|()| threats::run(&root, &[]))
+            // 업데이트 내역 조각의 꼴 · 버전을 올린 룰마다 조각 · 지운 파일이 되살아나지 않았는가.
+            .and_then(|()| fragments::check(&root, &[]))
             // 동반 프로그램의 기준과 본체의 점검 룰이 같은 공지의 같은 값인가 — 한쪽만 고치면 여기서 걸린다.
             .and_then(|()| netcriteria::run(&root))
             // 하네스의 판정 문구가 빈 값으로 펴지는 자리 — 2026-11-16 메뉴 하네스에서 한 칸을 실패시키고 한 칸을 공허하게 만든 것.
@@ -190,9 +214,13 @@ fn main() -> ExitCode {
         // 하위 명령을 모두 적는다 — 1.21.1 까지는 `threats` 와 `sign` 의 `companion` · `allowlist` 가 빠졌고,
         // 줄 잇기(`\`)가 빠진 줄은 소스의 들여쓰기가 그대로 찍혔다.
         None => Err(
-            "사용법: cargo xtask <arch|trace|schema|guide|snapshots|exam-apply|plugin-lock|net-criteria|\
+            "사용법: cargo xtask <arch|trace|schema|guide|snapshots|exam-apply|net-criteria|\
              ps1-vars|threats|all> [--write]\n  \
-             cargo xtask threats --dirs <windows|linux>\n  \
+             cargo xtask threats [--check | --write | --print | --dirs <windows|linux>]\n  \
+             cargo xtask plugin-lock [--base <ref>]\n  \
+             cargo xtask fragments [--base <ref>]\n  \
+             cargo xtask changes --since <ref> [--head <ref>]\n  \
+             cargo xtask views <--check|--write> [--releases <파일>]\n  \
              cargo xtask metrics [--state-dir <디렉터리>] [--lang ko|en]\n  \
              cargo xtask static <바이너리 경로>...\n  \
              cargo xtask codesign <서명 전 실행 파일> <서명본>\n  \

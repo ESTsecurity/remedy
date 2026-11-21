@@ -1,4 +1,0 @@
-# remedy plugin manifest v1
-428499cf6adf20d6015eaa9ac4ceb69ce57f52ca4002dd84f810245226420ecb  RELEASE.md
-224a0dd91d2a2092376d496d8cef7a18d34857e54df4906e99b04e3e31e7b9aa  plugin.yaml
-4d94a1f41baab8732e41067125282d213eaf742209b48bf89acb575939c292ec  rules/sshd.yar

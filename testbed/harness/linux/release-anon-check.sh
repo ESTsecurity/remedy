@@ -13,7 +13,7 @@ set -u
 TAG=${1:?태그}
 V=${2:?확인한 파일 폴더}
 W=${3:?빈 작업 폴더}
-REPO=ESTsecurity/remedy
+REPO=${GITHUB_REPOSITORY:-ESTsecurity/remedy}
 # 확인한 파일 폴더를 **작업 폴더로 옮기기 전에** 절대 경로로 바꾼다 — 상대 경로를 주면 아래 `cd` 뒤에 엉뚱한 자리를
 # 가리켜, 받은 바이트가 같아도 여섯 줄 모두 '다르다' 로 실패했다(2026-11-19 v1.25.0 공개 뒤 — 같은 파일을 절대 경로로
 # 다시 재 모두 같았다).
@@ -25,7 +25,13 @@ echo "== latest Release (API · 익명)"
 curl -s -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/$REPO/releases/latest" >latest.json
 grep -oE '"(tag_name|immutable|draft|prerelease)": *("[^"]*"|true|false)' latest.json
 grep -q "\"tag_name\": *\"$TAG\"" latest.json || { echo "  latest 가 $TAG 가 아니다"; bad=1; }
-echo "자산 수: $(grep -c '"browser_download_url"' latest.json)"
+# 출력만 하던 셋도 판정한다(2026-11-21 · 공개 워크플로가 이 스크립트로 공개를 끝낸다) — 공개한 것이 불변 · 정식이고 자산이 셋이다.
+grep -qE '"immutable": *true' latest.json || { echo "  불변이 아니다"; bad=1; }
+grep -qE '"draft": *false' latest.json || { echo "  아직 초안이다"; bad=1; }
+grep -qE '"prerelease": *false' latest.json || { echo "  시험판이다"; bad=1; }
+n=$(grep -c '"browser_download_url"' latest.json)
+echo "자산 수: $n"
+[ "$n" = 3 ] || { echo "  자산이 셋이 아니다"; bad=1; }
 echo "== 받기(리다이렉트 뒤 상태)와 바이트"
 for a in remedy-linux-x64.tar.gz remedy-windows-x64.zip SHA256SUMS; do
     for u in "https://github.com/$REPO/releases/latest/download/$a" \

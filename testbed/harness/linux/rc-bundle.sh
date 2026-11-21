@@ -1,5 +1,6 @@
 #!/bin/bash
-# 출시의 리눅스 rc 묶음 — 지난 공개본(A)과 이번 판(B)을 나란히 재는 21단계(docs/개발-안내.md "출시 검증").
+# 출시의 리눅스 rc 묶음 — 지난 공개본(A)과 이번 판(B)을 나란히 재는 단계들(docs/개발-안내.md "출시 검증" · 단계 수는 하네스
+# 머리 줄로 찾는 새 룰 하네스만큼 늘어 글자로 적지 않는다 — 결과의 summary.txt 가 센다).
 #
 # 호스트(WSL · 기본 사용자)에서, 저장소 루트:
 #
@@ -174,6 +175,15 @@ step apache by_exit bash $L/apache-verify.sh --bin "$X/remedy" --plugins "$X/plu
 step java4shell by_exit bash $L/java4shell-verify.sh --bin "$X/remedy" --plugins "$X/plugins" --out "$OUT/java4shell"
 step nginx by_exit bash $L/nginx-verify.sh --bin "$X/remedy" --plugins "$X/plugins" --out "$OUT/nginx"
 step php2611 by_exit bash $L/php-2026-11-verify.sh --bin "$X/remedy" --plugins "$X/plugins" --out "$OUT/php2611"
+# 머리 줄로 찾는 새 룰 하네스(2026-11-21) — 새 룰 PR 이 이 스크립트를 고치지 않게(셋이 함께 지으면 이 자리가 부딪혔다), 하네스
+# 머리 40줄 안의 `# rc 묶음: <단계 이름>` 줄을 읽어 손으로 적은 하네스 뒤에 이름순으로 돈다. 표준 인자(`--bin` · `--plugins` ·
+# `--out`)를 받는 하네스여야 한다. 손으로 적은 단계와 이름이 같으면 두 번 돌지 않는다.
+for h in "$L"/*.sh; do
+    stage=$(sed -n '1,40s/^# rc 묶음: *\([a-z0-9][a-z0-9-]*\).*/\1/p' "$h" | head -1)
+    [ -n "$stage" ] || continue
+    case " cwpdoor ebury log4j openssh apache java4shell nginx php2611 engine " in *" $stage "*) continue ;; esac
+    step "$stage" by_exit bash "$h" --bin "$X/remedy" --plugins "$X/plugins" --out "$OUT/$stage"
+done
 # apache 단계가 지은 하네스 이미지를 쓴다 — 그 뒤에 둔다. tar 는 Windows 묶음도 읽는다(`apache-images`).
 step net-apache by_exit bash $L/net-apache-verify.sh --bin "$X/remedy-net/remedy-net" \
     --criteria "$X/plugins/remedy-net-criteria" --images "$INPUTS/apache-images" --out "$OUT/net-apache"

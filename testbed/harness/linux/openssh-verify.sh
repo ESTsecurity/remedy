@@ -1,4 +1,5 @@
 #!/bin/bash
+# 룰: openssh-musl-check — 묶어 낸 출시(ci/batch.sh)가 바뀐 룰의 필수 점검 ① 로 이 하네스를 찾는다(--bin · --plugins · --out)
 # OpenSSH 점검 룰(openssh-musl-check)을 Alpine 컨테이너에서 잰다.
 #
 # 호스트(WSL)에서, 저장소 루트:

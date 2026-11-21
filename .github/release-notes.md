@@ -2,12 +2,13 @@
   GitHub Release 본문의 틀 — 배포 워크플로가 태그마다 `bash ci/release-notes.sh <태그>` 로 채워 초안에 올린다.
   여기를 고치면 다음 출시부터 그 꼴이다. 미리 보기: `bash ci/release-notes.sh v<엔진 버전>` (또는 `rules-<룰 버전>`).
 
-  - 한 줄짜리 {{CHANGES}} · {{SUMMARY}} · {{TABLE}} 은 덩어리를 넣는 자리다 — 바뀐 내용은 docs/업데이트-내역.md 의 그 버전
-    칸, 묶음과 표는 README 의 위협 표와 룰 매니페스트(kind · remediate · network)에서 짓는다. 그 밖의 {{…}} 는 값이다.
+  - 한 줄짜리 {{CHANGES}} · {{SUMMARY}} · {{TABLE}} 은 덩어리를 넣는 자리다 — 바뀐 내용은 이 태그가 지금 Latest 뒤에 새로
+    실은 업데이트 내역 조각(docs/changes/ · cargo xtask changes), 묶음과 표는 태그 나무의 룰 매니페스트(cargo xtask threats
+    --print · kind · remediate · network)에서 짓는다. 그 밖의 {{…}} 는 값이다.
   - 릴리스 본문은 줄바꿈을 그대로 그린다 — 한 문단 · 한 항목을 한 줄에 적는다. 항목 아래 두 칸 들여 쓴 줄은 그 항목 안의
     줄바꿈이다.
   - 말투는 합쇼체다 — 단계 안내는 '…합니다', 경고 · 금지만 '…하십시오'(2026-11-20 · 이슈 #120 의 개선안 — 2026-11-18 ~
-    룰 2026.11.20.2 의 본문은 해요체였다). 2. 의 칸은 위협마다 ### 소제목으로 나뉜다(칸의 꼴은 docs/업데이트-내역.md 머리).
+    룰 2026.11.20.2 의 본문은 해요체였다). 2. 의 칸은 위협마다 ### 소제목으로 나뉜다(조각의 꼴은 docs/changes/README.md).
   - 1. 의 빠른 검사 · 정밀 검사 문단은 한 OS 의 꾸러미에 디스크 전체를 보는 룰(scan_roots 가 %FIXED_DISKS% · 지금은
     log4j-check)과 그 밖의 로컬 룰이 함께 들 때의 화면이다(crates/remedy-cli/src/guided.rs · 받은 폴더의 README.txt 는
     xtask/src/package.rs 가 같은 조건으로 가른다). log4j-check 를 빼거나 그 scan_roots 를 바꾸면 이 문단을 고친다.
@@ -37,7 +38,7 @@
 
 {{CHANGES}}
 
-버전마다 변경 내용은 [업데이트 내역]({{HISTORY_URL}})에 있습니다.
+지난 버전의 변경 내용은 [릴리스 목록]({{HISTORY_URL}})에 있습니다.
 
 ---
 

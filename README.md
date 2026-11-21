@@ -91,6 +91,7 @@
 위협마다의 *치료하면 바뀌는 것 · 꼭 할 일 · 못 보는 것* 은 [`docs/위협별-안내.md`](docs/위협별-안내.md) 에 있습니다.
 인터넷이 막힌 곳이면 받은 폴더의 `plugins/<룰>/RELEASE.md` 에 같은 차례가 있습니다.
 
+<!-- guide:begin — `cargo xtask views --write` 가 docs/위협별-안내.md 의 '안내 표' 줄에서 만든다. 손으로 고치지 않는다 -->
 | 위협 | OS | 안내 |
 |---|---|---|
 | CWPdoor (Control Web Panel) | Linux | [치료 뒤 할 일](docs/위협별-안내.md#cwpdoor) |
@@ -106,6 +107,7 @@
 | PHP — PHP2Shell · 세션 업로드 진행 설정 | Windows · Linux | [점검 결과 읽기](docs/위협별-안내.md#php2shell) |
 | 원격 점검 — 웹서버 응답 헤더 | Windows · Linux | [쓰는 법 · 한계](docs/위협별-안내.md#url-check) |
 | 이미지 파일 · 컨테이너 | Windows · Linux | [쓰는 법](docs/위협별-안내.md#image-container) |
+<!-- guide:end -->
 
 ## 받은 파일 확인
 
