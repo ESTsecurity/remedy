@@ -1,0 +1,91 @@
+# 공개 — 초안 Release 를 **한 번에 하나씩** 공개한다(2026-11-21 · 목표 remedy_하루30건_대응체계 차례 2 · docs/긴급-대응.md).
+#
+# 부르는 것은 `bash ci/batch.sh` 다 — 조직 Owner 가 필수 점검 결과를 보고 승인(y)하면 그 명령이 이 워크플로를 태그와 **점검한
+# 자산의 해시**로 부른다(결정 D — 출시마다 사람 한 번 · 승인한 사람은 이 실행의 actor 로 남는다). 손으로 부를 때도 같다:
+#   gh workflow run publish.yml -f tag=<태그> -f assets='<이름:sha256> <이름:sha256> <이름:sha256>' [-f dry_run=true]
+#
+# 공개 전에 기계가 본다(하나라도 어긋나면 공개하지 않는다):
+#   a 태그가 정식 꼴이다(dry_run 이면 시험판도 받는다)
+#   b 그 태그의 초안이 있고, 시험판 표시가 태그와 맞고, 이 저장소의 배포 워크플로(github-actions[bot])가 만들었다
+#   c 그 태그의 배포 실행(release.yml · push)이 성공했다 — 엔진 출시는 둘째 걸음(workflow_dispatch)도
+#   d 자산이 정확히 셋이고, 해시가 점검한 그 파일(입력)과 같고, SHA256SUMS 의 두 줄이 두 꾸러미와 같다
+#   e 본문에 리눅스 잡의 표지(remedy:notes-pending) · 채우지 못한 자리가 없다
+#   f 버전 검사(ci/version-check.sh)가 지금 Latest 와 견줘 통과한다 — Latest 가 조상 · 룰 버전이 Latest 보다 높다 · 룰만 바뀐
+#     출시는 엔진이 Latest 와 같고 엔진 출시는 더 높다(역행 거절)
+#   g 룰만 바뀐 출시인데 엔진 출시의 초안이 있으면 공개하지 않는다(결정 R2 — 엔진 rc → 공개 동안 룰 공개를 멈춘다)
+#   h 태그 커밋의 main push CI 가 실패로 끝났으면 공개하지 않는다(아직 돌면 기록만 한다)
+# 공개 뒤 180초에 익명 확인(testbed/harness/linux/release-anon-check.sh)을 돌린다 — 받은 바이트가 공개 전에 받은 그 파일과
+# 다르면 지난 Latest 를 다시 Latest 로 두고 실패한다(docs/긴급-대응.md ⑤). 룰마다 보인 시간(그 조각을 들인 PR 을 연 때 → 공개)을
+# 잡 요약에 적고, 60분을 넘긴 취약점 점검 룰이 있으면 '모아 내기 멈춤' 이슈를 연다 — 그 이슈가 열린 동안 `ci/batch.sh` 는 다음
+# 묶음을 시작하지 않는다(AGENTS.md *배포 전 룰은 올리지 않는다* 의 예외).
+#
+# 한 번에 하나 — 고정 이름의 concurrency 그룹이다. 기다리는 자리는 하나라 새 실행이 기다리던 실행을 밀어낸다(GitHub 기본) —
+# 뒤 묶음이 앞 묶음을 다 담으므로 룰은 빠지지 않는다. 공개는 GITHUB_TOKEN(contents: write)이 한다.
+
+name: Publish
+run-name: 공개 ${{ inputs.tag }}${{ inputs.dry_run && ' (시험)' || '' }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 공개할 태그(초안)
+        required: true
+      assets:
+        description: "점검한 자산 셋의 해시 — '<이름>:<sha256>' 셋을 빈칸으로"
+        required: true
+      dry_run:
+        description: 확인만 하고 공개하지 않는다(시험판의 리허설)
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  actions: read
+  issues: write
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ inputs.tag }}
+      ASSETS: ${{ inputs.assets }}
+      DRY: ${{ inputs.dry_run }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: final checks
+        run: bash ci/publish-check.sh "$TAG" "$ASSETS" "$DRY" "$RUNNER_TEMP/assets"
+      - name: publish
+        if: inputs.dry_run != true
+        run: |
+          prev=$(gh release view --json tagName --jq .tagName)
+          echo "PREV_LATEST=$prev" >>"$GITHUB_ENV"
+          gh release edit "$TAG" --draft=false --latest
+          got=$(gh release view --json tagName,isImmutable --jq '.tagName + " " + (.isImmutable | tostring)')
+          echo "Latest: $got"
+          [ "$got" = "$TAG true" ] || { echo "::error::공개한 뒤 Latest 가 '$TAG true' 가 아니다: $got"; exit 1; }
+          echo "PUBLISHED_AT=$(gh release view "$TAG" --json publishedAt --jq .publishedAt)" >>"$GITHUB_ENV"
+      # 공개 직후 1 ~ 3분은 익명 latest 가 옛 판을 줄 수 있다 — 180초 뒤에 잰다.
+      - name: anonymous check
+        if: inputs.dry_run != true
+        run: |
+          sleep 180
+          mkdir -p "$RUNNER_TEMP/anon"
+          if ! bash testbed/harness/linux/release-anon-check.sh "$TAG" "$RUNNER_TEMP/assets" "$RUNNER_TEMP/anon"; then
+            echo "::error::익명으로 받은 것이 점검한 파일과 다르다 — 지난 Latest($PREV_LATEST)를 다시 Latest 로 둔다"
+            gh release edit "$PREV_LATEST" --latest || true
+            exit 1
+          fi
+      - name: exposure
+        if: inputs.dry_run != true
+        run: bash ci/publish-check.sh --exposure "$TAG" "$PUBLISHED_AT" "$PREV_LATEST" >>"$GITHUB_STEP_SUMMARY"

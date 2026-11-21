@@ -4,7 +4,11 @@
 # 호스트(WSL)에서, 저장소 루트:
 #
 #   bash testbed/harness/linux/emergency-checks.sh --new <정식 remedy-linux-x64.tar.gz> \
-#        --prev <지난 공개본 remedy-linux-x64.tar.gz> --out <결과 폴더> --harness <새 룰의 하네스 스크립트 | none>
+#        --prev <지난 공개본 remedy-linux-x64.tar.gz> --out <결과 폴더> --harness <새 룰의 하네스 스크립트 | none> \
+#        [--harness <또 하나> …]
+#
+# 묶어 낸 출시(2026-11-21 · `ci/batch.sh`)는 그 묶음의 바뀐 룰마다 하네스를 하나씩 준다 — `--harness` 를 되풀이한다. 하나면
+# 결과는 전처럼 `<결과>/harness/` 이고, 여럿이면 `<결과>/harness-<하네스 이름>/` 이다.
 #
 # `--new` 는 태그의 배포 잡이 올린 **초안을 내려받은 그 파일**이다 — 공개할 파일을 잰다. 같은 폴더에 받은 `SHA256SUMS` 가
 # 있으면 그 줄로 체크섬도 잰다. `--prev` 는 지금 Latest 인 공개본이다(룰만 바뀐 출시의 배포 잡이 실행 파일을 받은 그
@@ -30,21 +34,27 @@ set -u
 NEW=""
 PREV=""
 OUT=""
-HARNESS=""
+HARNESSES=()
 while [ $# -gt 0 ]; do
     case "$1" in
         --new) NEW=$2; shift 2 ;;
         --prev) PREV=$2; shift 2 ;;
         --out) OUT=$2; shift 2 ;;
-        --harness) HARNESS=$2; shift 2 ;;
+        --harness) HARNESSES+=("$2"); shift 2 ;;
         *) echo "모르는 인자: $1" >&2; exit 2 ;;
     esac
 done
 [ -f "$NEW" ] || { echo "--new <정식 tar.gz> 가 필요하다" >&2; exit 2; }
 [ -f "$PREV" ] || { echo "--prev <지난 공개본 tar.gz> 가 필요하다" >&2; exit 2; }
 [ -n "$OUT" ] || { echo "--out <결과 폴더> 가 필요하다" >&2; exit 2; }
-[ -n "$HARNESS" ] || { echo "--harness <새 룰의 하네스 | none> 가 필요하다 — 리눅스 룰이 아니면 none 을 적는다" >&2; exit 2; }
-[ "$HARNESS" = none ] || [ -f "$HARNESS" ] || { echo "--harness 가 없다: $HARNESS" >&2; exit 2; }
+[ ${#HARNESSES[@]} -gt 0 ] || { echo "--harness <새 룰의 하네스 | none> 가 필요하다 — 리눅스 룰이 아니면 none 을 적는다" >&2; exit 2; }
+if [ "${HARNESSES[0]}" = none ]; then
+    [ ${#HARNESSES[@]} = 1 ] || { echo "--harness none 은 혼자 쓴다" >&2; exit 2; }
+else
+    for h in "${HARNESSES[@]}"; do
+        [ -f "$h" ] || { echo "--harness 가 없다: $h" >&2; exit 2; }
+    done
+fi
 command -v docker >/dev/null || { echo "docker 가 없다" >&2; exit 2; }
 for base in debian:12 ubuntu:24.04; do
     docker image inspect "$base" >/dev/null 2>&1 || { echo "$base 이미지가 없다 — docker pull $base" >&2; exit 2; }
@@ -66,12 +76,15 @@ fail=0
 note "시작 $(date '+%Y-%m-%d %H:%M:%S') · 새 파일 $("$W/new/remedy" --version 2>/dev/null | grep -m1 -E '[0-9]+\.[0-9]+\.[0-9]+') · 지난 공개본 $("$W/prev/remedy" --version 2>/dev/null | grep -m1 -E '[0-9]+\.[0-9]+\.[0-9]+')"
 
 # ── 1. 새 룰 하네스 ─────────────────────────────────────────────────────────────
-if [ "$HARNESS" != none ]; then
-    t0=$(date +%s)
-    bash "$HARNESS" --bin "$W/new/remedy" --plugins "$W/new/plugins" --out "$OUT/harness" >"$OUT/harness.log" 2>&1
-    rc=$?
-    [ "$rc" = 0 ] || fail=1
-    note "1 새 룰 하네스 · 종료 $rc · $(tail -n 1 "$OUT/harness/verdict.txt" 2>/dev/null) · $(( $(date +%s) - t0 ))초"
+if [ "${HARNESSES[0]}" != none ]; then
+    for h in "${HARNESSES[@]}"; do
+        if [ ${#HARNESSES[@]} = 1 ]; then d=harness; else d="harness-$(basename "$h" .sh)"; fi
+        t0=$(date +%s)
+        bash "$h" --bin "$W/new/remedy" --plugins "$W/new/plugins" --out "$OUT/$d" >"$OUT/$d.log" 2>&1
+        rc=$?
+        [ "$rc" = 0 ] || fail=1
+        note "1 새 룰 하네스($(basename "$h")) · 종료 $rc · $(tail -n 1 "$OUT/$d/verdict.txt" 2>/dev/null) · $(( $(date +%s) - t0 ))초"
+    done
 else
     note "1 새 룰 하네스 · 건너뜀(--harness none — 리눅스 룰이 아니다)"
 fi
