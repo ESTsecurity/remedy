@@ -65,6 +65,6 @@ ss -axp | grep integrity                                      # 돌고 있는 �
 
 하네스: `testbed/harness/linux/cwpdoor-verify.sh` — A1(CWP 없음 6) · B1(정상 0) · C1(감염 2) · C2(그대로).
 
-## 서명 — 저장소 사본은 개발용 키, 배포본은 배포 키
+## 서명 — 배포본은 배포 키
 
 `cwpdoor-2-clean/RELEASE.md` 의 같은 절과 같다.
