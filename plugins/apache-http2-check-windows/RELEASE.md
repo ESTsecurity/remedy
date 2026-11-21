@@ -1,6 +1,13 @@
 # apache-http2-check-windows — 릴리스 기록
 
-**버전 0.1.1** · 대상: Apache HTTP Server 의 mod_http2 원격 코드 실행(CVE-2026-119618) — Windows · **점검**(바꾸지 않는다)
+**버전 0.1.2** · 대상: Apache HTTP Server 의 mod_http2 원격 코드 실행(CVE-2026-119618) — Windows · **점검**(바꾸지 않는다)
+
+## 0.1.2 — G1 근거를 잰 값으로 (2026-11-21)
+
+아래 게이트 표의 G1 근거를 이 룰로 직접 잰 값으로 바꿨다. 0.1.1 까지 근거로 적은 시험(`plugins_find_nothing_in_clean_environments`)은
+손으로 적는 목록(`crates/remedy-core/tests/corpus.rs` 의 `plugins()`)의 룰만 돌고, 이 룰은 그 목록에 없다. 공개본 1.25.3 의
+실행 파일로 Windows 청정 스냅샷(`win10x64-*`)마다 `remedy evaluate` 를 돌리니 10/10 모두 판정 0(종료 0)이었다. 판정 · 찾는
+자리 · 문구는 0.1.1 과 같다.
 
 ## 0.1.1 — 같은 제품의 묶음 열쇠 (2026-11)
 
@@ -99,7 +106,7 @@ XAMPP 에는 고친 판이 없으므로 화면은 *"HTTP/2 를 꺼야 합니다"
 
 | # | 게이트 | 상태 | 근거 |
 |---|---|---|---|
-| G1 | 청정 환경 무해성 | **통과** | 2026-11-14 · 청정 스냅샷에서 판정 0(`plugins_find_nothing_in_clean_environments`) — 청정 코퍼스에는 Apache 가 깔린 기계가 없다 |
+| G1 | 청정 환경 무해성 | **통과** | 2026-11-21 · 공개본 1.25.3 의 실행 파일로 Windows 청정 스냅샷(`win10x64-*`)마다 `remedy evaluate` — 10/10 모두 판정 0(종료 0). 청정 코퍼스에는 Apache 가 깔린 기계가 없다. 0.1.1 까지는 이 룰을 돌리지 않는 시험(`plugins_find_nothing_in_clean_environments`)을 근거로 적었다 |
 | G2~G4 | 복원 · 계획 · 치료 | **미해당** | 바꾸는 것이 없다 |
 | G9 | 룰의 검체 오탐(YARA) | **통과** | 2026-11-14 · 공개 전 · `cargo xtask yara` — 진짜 Apache Lounge 2.4.71 트리 999개: `apache_version_affected` 맞음 0 · `apache_version_any` 맞음 6(`libhttpd.dll` 과 판 문자열을 담은 모듈 다섯 — 이 규칙이 뜻한 파일) · 이 기계의 `C:\Windows\System32` 28,694개(상한 256 MiB): 두 규칙 모두 맞음 0 · 못 훑음 562(접근 거부 553 · 사용 중 8 · 256 MiB 초과 1). 판정에서 두 규칙은 경로 규칙이 고른 `\bin\libhttpd.dll` 에만 쓰인다 |
 | 하네스 | `testbed/harness/host/Invoke-ApacheVerify.ps1` | **31/31** | 2026-11-14 · Windows 랩 VM · 코어 1.16.0 개발 빌드(일회용 키를 앵커로 박고 그 키로 이 룰을 서명) — 진짜 Apache Lounge 2.4.71(HTTP/2 를 켬 · 기본) 0 · Apache Lounge 자리의 2.4.65 + HTTP/2 2 · 기본 6 · 모듈만 6 · Protocols 만 6 · Protocols 가 `extra\httpd-ssl.conf` 에 2 · 2.4.70 h2c 2 · 2.4.55 2 · 2.4.54 0 · Protocols 주석 6 · 2.2.34 0 · 서버 판 없음 6 · `conf\original` 에만 6 · XAMPP · WampServer · Laragon · 옛 설치 프로그램 자리 2 · **설치본 둘: XAMPP 2.4.65 기본 + HTTP/2 를 켠 2.4.71 → 6**(가르지 않으면 2) · 둘 다 켬 2 · WampServer 2.4.65 기본 + XAMPP 2.4.71 켬 6 · 자리 밖 서비스 6 · 자리 밖에서 도는 `httpd.exe` 6 · 자리 안 서비스 + 2.4.71 0 · 없음 0 · 화면 넷(CVE 문구 · 흔적 없음 · 판 없음 · 자리 밖의 까닭) · 개인키 표지가 결과 파일 셋 · 화면에 0 |

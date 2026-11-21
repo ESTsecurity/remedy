@@ -48,7 +48,7 @@
 # - 2.x 를 쓰는 앱이 `JndiLookup.class` 를 뺐는가 — 판으로 판정한다(뺀 jar 도 45105 · 44832 가 남는다)
 schema_version: 1
 id: log4j-check
-version: 0.2.1
+version: 0.2.2
 min_core: "1.21.0"  # product 는 1.21.0
 platforms: [windows, linux]
 
