@@ -31,7 +31,8 @@ failed=0
 expect() {
     local want=$1 name=$2 out rc
     shift 2
-    out=$(bash "$CHECK" "$@" 2>&1)
+    # Actions 걸음 안에서 돌면 물려받은 GITHUB_OUTPUT 에 검사가 `prev=` 를 쓴다 — 시험은 그 파일을 건드리지 않는다.
+    out=$(GITHUB_OUTPUT= bash "$CHECK" "$@" 2>&1)
     rc=$?
     if { [ "$want" = ok ] && [ $rc = 0 ]; } || { [ "$want" = fail ] && [ $rc = 1 ]; }; then
         pass=$((pass + 1))
@@ -81,6 +82,28 @@ rules_edit a
 rules 2026.01.07
 commit "룰"
 expect ok   "룰만 바뀐 출시" rules-2026.01.07
+# 잡 안에서는 견준 지난 공개본을 `prev=<태그>` 로 낸다 — 배포 워크플로가 룰만 바뀐 출시의 실행 파일을 거기서 받는다.
+# expect_prev <이름> <기대 태그> <검사 인자…>
+expect_prev() {
+    local name=$1 want=$2 gh_out got
+    shift 2
+    gh_out=$(mktemp)
+    GITHUB_OUTPUT="$gh_out" bash "$CHECK" "$@" >/dev/null 2>&1
+    got=$(cat "$gh_out")
+    rm -f "$gh_out"
+    if [ "$got" = "prev=$want" ]; then
+        pass=$((pass + 1))
+        echo "통과  $name"
+    else
+        failed=$((failed + 1))
+        echo "실패  $name — '$got'(기대 prev=$want)"
+    fi
+}
+expect_prev "지난 공개본을 잡 출력으로 낸다" v1.1.0 rules-2026.01.07
+# 사선이 든 이름(태그 룰셋 밖 — Owner 가 아니어도 만든다)은 더 가까워도 지난 공개본으로 고르지 않는다.
+git tag v9/x
+expect_prev "사선이 든 태그는 지난 공개본으로 고르지 않는다" v1.1.0 rules-2026.01.07
+git tag -d v9/x >/dev/null
 expect ok   "룰 시험판" rules-2026.01.07-rc.1
 expect fail "다른 커밋에 이미 있는 태그" v1.1.0
 git tag rules-2026.01.07
@@ -104,6 +127,13 @@ git tag rules-2026.01.07.2
 setver 1.1.1
 commit "버전만"
 expect fail "버전만 올린 v 태그(같은 버전의 외부 의존성)" v1.1.1
+# 그 커밋에 룰을 더해 rules 태그로 내도 멈춘다 — 룰만 바뀐 출시는 지난 공개본의 실행 파일(옛 버전)을 그대로 싣는다.
+# 이 커밋은 시험 뒤 버린다.
+rules_edit v
+rules 2026.01.07.3
+commit "버전만 올린 채 룰"
+expect fail "엔진 버전만 올린 커밋의 rules 태그" rules-2026.01.07.3
+git reset -q --hard HEAD^
 engine_edit f
 commit "엔진 고침"
 expect ok   "엔진 고침 — 룰 그대로면 룰 버전도 그대로" v1.1.1

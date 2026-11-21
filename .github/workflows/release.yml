@@ -4,7 +4,10 @@
 #
 # 태그는 둘이다(`docs/개발-안내.md` "버전 번호" · `ci/version-check.sh` 가 본다) — 엔진이 바뀐 출시는
 # `v<엔진 버전>`(Cargo.toml 의 SemVer), 룰만 바뀐 출시는 `rules-<룰 버전>`(plugins/RULES-VERSION 의 날짜).
-# 어느 쪽이든 꾸러미는 같은 차례로 짓는다 — 엔진도 다시 짓고, 룰만 바뀐 출시는 엔진 코드가 지난 공개본과 같다.
+# 꾸러미를 꾸리는 차례는 같고 실행 파일이 오는 곳이 다르다 — `v*` 는 이 커밋에서 짓고, **`rules-*` 는 짓지 않는다**:
+# 버전 검사가 엔진이 같다고 본 지난 정식 공개본의 꾸러미를 받아(체크섬 · 코드서명 · 버전 줄을 잰 뒤) 그 실행 파일을
+# 그대로 싣는다(`ci/release.sh fetch-prev`). 그래서 룰만 바뀐 출시는 태그 push 한 번으로 끝나고 서명하는 기계가
+# 필요 없다 — 받는 사람의 Windows 실행 파일은 지난 공개본과 같은 바이트(같은 코드서명)다.
 #
 # 차례는 `docs/operator.md` §9 그대로다 — 앵커를 박아 빌드 → 룰에 서명 → `xtask
 # package`. 빌드와 꾸러미는 같은 `REMEDY_TRUST_ANCHOR` 아래에서 한다: `package` 가 그
@@ -30,7 +33,8 @@
 #   스크립트는 그 전에 다 돈다.
 # - 캐시를 쓰지 않는다 — 배포물은 빈 자리에서 짓는다.
 # - **Windows 실행 파일의 코드서명(Authenticode)은 잡 밖에서 한다** — 서명 도구(Azure Trusted Signing)와 그
-#   계정이 서명하는 기계에만 있다. 그래서 Windows 는 두 걸음이다.
+#   계정이 서명하는 기계에만 있다. 그래서 **엔진이 바뀐 출시(`v*`)의** Windows 는 두 걸음이다(룰만 바뀐 출시는
+#   이미 서명된 지난 공개본의 실행 파일을 실어 이 걸음이 없다).
 #   1) 태그 실행(첫 걸음)이 지은 `remedy.exe` · `remedy-net.exe` 를 초안에 `unsigned-*` 로 넘기고 멈춘다.
 #   2) 서명하는 기계가 그 둘을 받아 서명해 `signed-*` 로 올리고, 이 워크플로를 **같은 태그에서** 다시 부른다
 #      (`testbed/harness/host/Invoke-ReleaseCodeSign.ps1` — `gh workflow run release.yml --ref <태그>`).
@@ -42,13 +46,17 @@
 #
 # PR 은 배포 경로를 고쳤을 때만 **시험 실행**한다 — 일회용 키로 같은 차례를 돌고
 # 아무것도 올리지 않는다. 비밀을 쓰지 않는다. 코드서명은 하지 않는다(서명 전 실행 파일로 돈다).
+# 룰만 바뀐 출시의 받기 반쪽도 시험 실행에서 돈다 — 지금 Latest 의 꾸러미를 받아 체크섬 · 코드서명 · 정적 링크를 재고
+# 그 본체가 그 동반 프로그램을 띄우는지 본다(`previous release rehearsal`). 받은 실행 파일(배포 키가 박혀 있다)로 이번
+# 룰의 서명을 확인하는 것은 배포 키가 있어야 해서 태그 실행에서만 잰다 — 처음 쓸 때는 시험판 태그(`rules-…-rc.1`)로.
 
 name: Release
 
 on:
   push:
     tags: ["v*", "rules-*"]
-  # 둘째 걸음 — 코드서명한 뒤 같은 태그에서 부른다(첫머리). 배포 태그가 아닌 자리에서 부르면 Windows 잡이 멈춘다.
+  # 둘째 걸음 — 엔진이 바뀐 출시(`v*`)를 코드서명한 뒤 같은 태그에서 부른다(첫머리). 그 밖의 자리에서 부르면 Windows
+  # 잡이 멈춘다.
   workflow_dispatch:
   pull_request:
     paths:
@@ -81,6 +89,9 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: write
+    # 버전 검사가 견준 지난 정식 공개본 — 룰만 바뀐 출시의 두 OS 잡이 그 Release 에서 실행 파일을 받는다.
+    outputs:
+      prev: ${{ steps.policy.outputs.prev }}
     steps:
       # 역사와 태그를 다 받는다 — 아래 버전 검사가 지난 공개본의 태그와 견준다.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -88,11 +99,33 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
       # 태그의 꼴과 버전이 정책을 따르는가 — 태그 = 엔진 버전(v) · 룰 버전(rules), 엔진이 바뀌었으면 v 로 버전을
-      # 올렸는가, 룰만 바뀌었으면 엔진이 그대로인가, 룰이 바뀌었으면 룰 버전을 올렸는가(docs/개발-안내.md "버전 번호").
-      # 시험판 태그에서도 돈다 — 정식 태그를 밀기 전에 걸린다. 엔진 버전은 `xtask package` 가 README 에 적는 것과
-      # 같은 줄에서, 룰 버전은 같은 파일에서 읽는다.
+      # 올렸는가, 룰만 바뀌었으면 엔진이 그대로인가(버전 문자열까지), 룰이 바뀌었으면 룰 버전을 올렸는가
+      # (docs/개발-안내.md "버전 번호"). 시험판 태그에서도 돈다 — 정식 태그를 밀기 전에 걸린다. 엔진 버전은
+      # `xtask package` 가 README 에 적는 것과 같은 줄에서, 룰 버전은 같은 파일에서 읽는다.
       - name: version policy
+        id: policy
         run: bash ci/version-check.sh "$GITHUB_REF_NAME"
+      # 룰만 바뀐 출시는 지난 공개본의 실행 파일을 그대로 싣는다 — 그 공개본이 **공개된 정식 · 불변 Release** 이고 자산
+      # 셋이 다 있는지 초안을 만들기 전에 본다. 버전 검사는 git 태그만 보고 고르므로 그 Release 가 아직 초안(진행 중인
+      # 출시)일 수 있고, 잡의 토큰은 초안도 받는다 — 공개하지 않은 실행 파일은 싣지 않는다. 불변이 아니면 공개 뒤 자산을
+      # 바꿀 수 있어 받은 파일이 공개한 그것이라는 보증이 없다(`ci/release.sh` 의 `fetch-prev` 가 받기 전에 같은 것을 다시 본다).
+      - name: previous release
+        if: startsWith(github.ref_name, 'rules-')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREV: ${{ steps.policy.outputs.prev }}
+        run: |
+          if [ -z "$PREV" ]; then
+            echo "::error::지난 정식 공개본이 없다 — 룰만 바뀐 출시가 실을 실행 파일이 없다"
+            exit 1
+          fi
+          state=$(gh release view "$PREV" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease,isImmutable,assets \
+            --jq '"\(.isDraft) \(.isPrerelease) \(.isImmutable) " + ([.assets[].name] | sort | join(" "))' 2>/dev/null || echo none)
+          echo "지난 공개본 $PREV: $state"
+          if [ "$state" != "false false true SHA256SUMS remedy-linux-x64.tar.gz remedy-windows-x64.zip" ]; then
+            echo "::error::$PREV 가 공개된 정식 · 불변 Release(자산 셋)가 아니다 — 그 출시를 먼저 공개하거나 긴급 가지로 간다(docs/긴급-대응.md)"
+            exit 1
+          fi
       # 다시 돌릴 때를 위해 — 같은 태그의 초안이 있으면 그것에 올리고, 이미 공개된
       # Release 면 건드리지 않고 멈춘다. 시험판 태그의 초안은 시험판으로 만든다 — 누가
       # 공개해도 최신 Release 로 걸리지 않는다.
@@ -134,18 +167,21 @@ jobs:
           gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft $pre --verify-tag \
             --title "$title" --notes-file "$RUNNER_TEMP/notes.md"
 
-  # 세 갈래가 한 잡이다 — 시험 실행(PR): 짓고 꾸려 재기만 한다 · 첫 걸음(태그): 짓고 실행 파일을 넘긴다 · 둘째 걸음
-  # (같은 태그에서 다시 부름): 서명본을 받아 재고 꾸려 올린다(첫머리 '코드서명'). 꾸리는 단계는 시험 실행과 둘째 걸음이
-  # 같다 — `BIN_DIR` 이 지은 자리(시험 실행)나 서명본의 자리(둘째 걸음)를 가리킨다.
+  # 네 갈래가 한 잡이다 — 시험 실행(PR): 짓고 꾸려 재기만 한다 · 엔진 출시의 첫 걸음(`v*` 태그): 짓고 실행 파일을
+  # 넘긴다 · 둘째 걸음(같은 `v*` 태그에서 다시 부름): 서명본을 받아 재고 꾸려 올린다(첫머리 '코드서명') · 룰만 바뀐
+  # 출시(`rules-*` 태그 — `REUSE`): 지난 공개본의 서명된 실행 파일을 받아 재고 꾸려 올린다(한 걸음). 꾸리는 단계는 넷이
+  # 같다 — `BIN_DIR` 이 지은 자리(시험 실행) · 서명본의 자리(둘째 걸음) · 지난 공개본에서 받은 자리(룰만 바뀐 출시)를
+  # 가리킨다.
   release-windows:
     needs: draft
     # 시험 실행 · 둘째 걸음에서는 draft 를 건너뛴다 — 그때도 돈다.
     if: ${{ !cancelled() && (needs.draft.result == 'success' || needs.draft.result == 'skipped') }}
     runs-on: windows-2025
     timeout-minutes: 60
-    # 서명 비밀은 둘째 걸음만 받는다 — Environment 는 배포 태그(`v*` · `rules-*`)의 실행만 들인다. 첫 걸음은 짓고
-    # 넘길 뿐이라 들어가지 않는다. 빈 이름은 Environment 없음이다.
-    environment: ${{ github.event_name == 'workflow_dispatch' && 'release' || '' }}
+    # 서명 비밀은 꾸려 올리는 실행만 받는다 — 엔진 출시의 둘째 걸음과 룰만 바뀐 출시. Environment 는 배포 태그
+    # (`v*` · `rules-*`)의 실행만 들인다. 엔진 출시의 첫 걸음은 짓고 넘길 뿐이라 들어가지 않는다(서드파티 빌드
+    # 스크립트가 도는 실행이다). 빈 이름은 Environment 없음이다.
+    environment: ${{ (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && startsWith(github.ref_name, 'rules-'))) && 'release' || '' }}
     permissions:
       contents: write
     defaults:
@@ -155,65 +191,113 @@ jobs:
       TARGET: x86_64-pc-windows-msvc
       PKG: dist/remedy-windows-x64
       COMPANION: companion/remedy-net
-      # 코드서명의 주체 — 둘째 걸음이 서명본마다 이 이름과 견준다. 서명된 파일마다 들어 있는 공개된 이름이다.
+      # 코드서명의 주체 — 서명본마다 이 이름과 견준다. 서명된 파일마다 들어 있는 공개된 이름이다.
       CODESIGN_SUBJECT: "CN=ESTsecurity Corp., O=ESTsecurity Corp., L=Seoul, C=KR"
+      # 룰만 바뀐 출시인가 — 그때는 짓지 않고 지난 공개본(`PREV` — 버전 검사가 견준 태그)의 실행 파일을 싣는다.
+      REUSE: ${{ github.event_name == 'push' && startsWith(github.ref_name, 'rules-') }}
+      PREV: ${{ needs.draft.outputs.prev }}
     steps:
-      # 둘째 걸음은 배포 태그의 초안에서만 — 다른 자리에서 부르면 아무것도 하지 않고 멈춘다.
+      # 둘째 걸음은 엔진 출시(`v*`)의 초안에서만 — 다른 자리에서 부르면 아무것도 하지 않고 멈춘다. 룰만 바뀐 출시는
+      # 태그 push 한 번으로 끝나 둘째 걸음이 없다.
       - name: release tag
         if: github.event_name == 'workflow_dispatch'
         run: |
           case "$GITHUB_REF" in
-            refs/tags/v* | refs/tags/rules-*) echo "둘째 걸음: $GITHUB_REF_NAME" ;;
-            *) echo "::error::둘째 걸음은 배포 태그에서 부른다 — gh workflow run release.yml --ref <태그> ($GITHUB_REF)"; exit 1 ;;
+            refs/tags/v*) echo "둘째 걸음: $GITHUB_REF_NAME" ;;
+            refs/tags/rules-*) echo "::error::룰만 바뀐 출시($GITHUB_REF_NAME)에는 둘째 걸음이 없다 — 태그 push 의 실행이 지난 공개본의 서명된 실행 파일로 끝까지 올린다"; exit 1 ;;
+            *) echo "::error::둘째 걸음은 엔진 출시의 태그에서 부른다 — gh workflow run release.yml --ref v<버전> ($GITHUB_REF)"; exit 1 ;;
           esac
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # 잠금 파일이 매니페스트와 맞는가를 첫 cargo 호출로 본다 — 시험 실행은 아래 공개키 걸음이 일회용 키를 만드느라
+      # 잠금 없이 cargo 를 부르는데, 그 호출이 어긋난 잠금 파일을 조용히 고쳐 쓰면 뒤의 `--locked` 빌드가 모두 지난다.
       - name: toolchain
-        run: rustc --version && cargo --version
-      # 서명 도구를 비밀이 들어오기 전에 짓는다 — 서명 단계는 지어 둔 것을 돌릴 뿐이다.
-      - name: xtask
-        run: cargo build --locked -p xtask
+        run: rustc --version && cargo --version && cargo fetch --locked
+      # 공개키를 도구보다 먼저 준비한다 — 도구(xtask)가 기대는 크레이트가 `REMEDY_TRUST_ANCHOR` 를 컴파일할 때 읽어,
+      # 그 값이 도구를 지은 뒤에 서면 다음 `cargo xtask` 가 도구를 다시 짓는다. 그 다시 짓기가 서명 비밀이 든 걸음에서
+      # 일어나지 않게 한다(시험 실행은 일회용 키를 만드느라 이 걸음에서 도구를 한 번 짓고 아래에서 다시 짓는다).
       - name: public key
         env:
           ANCHOR: ${{ vars.REMEDY_TRUST_ANCHOR }}
         run: bash ci/release.sh pubkey
+      # 서명 도구를 비밀이 들어오기 전에 짓는다 — 서명 단계는 지어 둔 것을 돌릴 뿐이다.
+      - name: xtask
+        run: cargo build --locked -p xtask
+      # 이 OS 의 룰 목록 — 비밀이 없는 걸음에서 한 번 뽑아 둔다. 뒤 걸음들이 이 파일을 읽는다(명령 치환을 `for` 의
+      # 목록 자리에 두면 실패가 삼켜져, 목록을 못 뽑았는데 룰 0개로 지나간다).
+      - name: rule list
+        run: |
+          cargo xtask threats --dirs windows | tr -d '\r' >target/rule-dirs.txt
+          test -s target/rule-dirs.txt
+          echo "룰 $(wc -l <target/rule-dirs.txt)개"
       - name: build (anchored)
-        if: github.event_name != 'workflow_dispatch'
+        if: github.event_name != 'workflow_dispatch' && env.REUSE != 'true'
         run: cargo build --release --locked --target "$TARGET" -p remedy-cli
       - name: build companion
-        if: github.event_name != 'workflow_dispatch'
-        run: cargo build --release --locked --target "$TARGET" -p remedy-net
+        if: github.event_name != 'workflow_dispatch' && env.REUSE != 'true'
+        run: |
+          cargo build --release --locked --target "$TARGET" -p remedy-net
+          echo "BIN_DIR=target/$TARGET/release" >>"$GITHUB_ENV"
+      # 룰만 바뀐 출시 — 지난 공개본의 꾸러미를 받아 체크섬을 재고 실행 파일 둘을 꺼낸다. 코드서명 · 정적 링크 · 버전
+      # 줄은 아래 걸음들이 그 파일로 잰다.
+      - name: reuse previous executables
+        if: env.REUSE == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          bash ci/release.sh fetch-prev "$PREV" prev-bin
+          {
+            echo "BIN_DIR=prev-bin"
+            echo "CODESIGN_DIR=prev-bin"
+          } >>"$GITHUB_ENV"
       # 정적 CRT · 네트워크 임포트 — 설정이 무시되면 조용히 동적 링크가 나온다. 본체는 네트워크
-      # 임포트가 하나도 없어야 하고, 동반 프로그램은 소켓만 쓴다(OS 의 HTTP 스택은 막는다).
+      # 임포트가 하나도 없어야 하고, 동반 프로그램은 소켓만 쓴다(OS 의 HTTP 스택은 막는다). 지난 공개본에서 받은
+      # 파일에도 돈다 — 내보내는 그 바이트를 본다(파일을 읽기만 한다).
       - name: static
         if: github.event_name != 'workflow_dispatch'
         run: |
-          cargo xtask static "target/$TARGET/release/remedy.exe"
-          cargo xtask static --companion "target/$TARGET/release/remedy-net.exe"
-          echo "BIN_DIR=target/$TARGET/release" >>"$GITHUB_ENV"
-      # 첫 걸음의 끝 — 지은 실행 파일 둘을 초안에 넘기고 멈춘다. 초안은 push 권한자만 본다.
+          cargo xtask static "$BIN_DIR/remedy.exe"
+          cargo xtask static --companion "$BIN_DIR/remedy-net.exe"
+      # 엔진 출시의 첫 걸음의 끝 — 지은 실행 파일 둘을 초안에 넘기고 멈춘다. 초안은 push 권한자만 본다.
       - name: hand over for code signing
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && env.REUSE != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: bash ci/release.sh handover "target/$TARGET/release"
+        run: bash ci/release.sh handover "$BIN_DIR"
       # 둘째 걸음의 시작 — 넘긴 것과 서명한 것을 초안에서 받아, 서명본이 넘긴 그 파일에 서명만 더한 것인지 바이트로
       # 잰다(`cargo xtask codesign`). 맞으면 서명본이 아래 단계의 실행 파일이다(`BIN_DIR`).
       - name: fetch code-signed
         if: github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: bash ci/release.sh fetch-signed signed
+        run: |
+          bash ci/release.sh fetch-signed signed
+          echo "CODESIGN_DIR=signed" >>"$GITHUB_ENV"
+      # 시험 실행 — 룰만 바뀐 출시의 받기 반쪽을 지금 Latest 로 돌려 본다: 받기 · 체크섬 · (아래 걸음의) 코드서명 확인 ·
+      # 정적 링크 · 그 본체가 그 동반 프로그램을 띄우는가. 받은 것은 이 실행의 꾸러미에 쓰지 않는다. 배포 키가 없어 그
+      # 실행 파일로 이번 룰의 서명을 확인하는 것은 여기서 재지 못한다(첫머리). 실제 출시와 같은 차례로 — 토큰이 있는
+      # 걸음은 받기만 하고, 받은 실행 파일은 코드서명을 본 뒤 토큰이 없는 걸음에서 돌린다.
+      - name: previous release rehearsal — fetch
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          latest=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)
+          bash ci/release.sh fetch-prev "$latest" prev-rehearsal
+          echo "CODESIGN_DIR=prev-rehearsal" >>"$GITHUB_ENV"
       # 서명이 유효한가 · 주체가 우리인가 · 타임스탬프가 있는가 — 서명 인증서는 사흘짜리라 타임스탬프가 없으면 사흘 뒤
-      # 서명이 무효가 된다. 판정은 OS 가 한다(체인 검증을 직접 짜지 않는다 — `remedy-wintrust` 첫머리).
+      # 서명이 무효가 된다. 판정은 OS 가 한다(체인 검증을 직접 짜지 않는다 — `remedy-wintrust` 첫머리). 보는 자리는
+      # `CODESIGN_DIR`(앞 걸음이 잡 환경에 쓴다) — 둘째 걸음의 서명본 · 룰만 바뀐 출시가 받은 지난 공개본 · 시험 실행이
+      # 받아 본 Latest. 엔진 출시의 첫 걸음(서명 전)만 건너뛴다. 자리가 비면 멈춘다 — 조용히 건너뛰지 않는다.
       - name: check code signature
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request' || env.REUSE == 'true'
         shell: pwsh
         run: |
+          if (-not $env:CODESIGN_DIR) { "::error::코드서명을 볼 자리(CODESIGN_DIR)가 없다"; exit 1 }
           $bad = 0
           foreach ($name in 'remedy.exe', 'remedy-net.exe') {
-            $s = Get-AuthenticodeSignature -LiteralPath (Join-Path $env:BIN_DIR $name)
+            $s = Get-AuthenticodeSignature -LiteralPath (Join-Path $env:CODESIGN_DIR $name)
             $who = if ($s.SignerCertificate) { $s.SignerCertificate.Subject } else { '(없음)' }
             $ts = if ($s.TimeStamperCertificate) { $s.TimeStamperCertificate.Subject.Split(',')[0] } else { '(없음)' }
             '{0}: {1} · {2} · 주체 {3} · 타임스탬프 {4}' -f $name, $s.Status, $s.SignatureType, $who, $ts
@@ -223,47 +307,63 @@ jobs:
             }
           }
           if ($bad) { exit 1 }
+      - name: previous release rehearsal — check
+        if: github.event_name == 'pull_request'
+        run: |
+          cargo xtask static prev-rehearsal/remedy.exe
+          cargo xtask static --companion prev-rehearsal/remedy-net.exe
+          bash ci/release.sh verify-companion prev-rehearsal/package/remedy.exe
+      # 룰은 한 번에 서명한다 — 키를 한 번만 푼다(`ci/release.sh` 의 `sign_as`). 동반 프로그램의 폴더는 실행 파일만
+      # 가져와 이 커밋의 시각으로 다시 서명한다(지난 공개본에서 받은 실행 파일이어도 같다 — MANIFEST 는 같은 바이트다).
       - name: sign
-        if: github.event_name != 'push'
+        if: github.event_name != 'push' || env.REUSE == 'true'
         env:
           SECRET_KEY: ${{ secrets.REMEDY_SIGN_SECRET_KEY }}
           SECRET_PASSWORD: ${{ secrets.REMEDY_SIGN_PASSWORD }}
         run: |
-          for d in $(cargo xtask threats --dirs windows); do bash ci/release.sh sign "$d"; done
+          mapfile -t dirs <target/rule-dirs.txt
+          bash ci/release.sh sign "${dirs[@]}"
           mkdir -p "$COMPANION"
           cp "$BIN_DIR/remedy-net.exe" "$COMPANION/"
           bash ci/release.sh sign-companion "$COMPANION"
       - name: package
-        if: github.event_name != 'push'
+        if: github.event_name != 'push' || env.REUSE == 'true'
         run: |
+          mapfile -t dirs <target/rule-dirs.txt
           args=()
-          for d in $(cargo xtask threats --dirs windows); do args+=(--plugin "$d"); done
+          for d in "${dirs[@]}"; do args+=(--plugin "$d"); done
           cargo xtask package "${args[@]}" --bin "$BIN_DIR/remedy.exe" \
             --companion "$COMPANION" --out "$PKG" --public-key "$RELEASE_PUBKEY"
-      # 기준 5(b) — 받는 사람이 푸는 그 폴더에서 룰마다 잰다. 동반 프로그램은 본체가 실제로 띄워 본다.
-      # 꾸러미의 실행 파일이 꾸린 그것(둘째 걸음이면 서명본)과 같은지도 본다.
+      # 기준 5(b) — 받는 사람이 푸는 그 폴더에서 잰다. 룰마다: 박힌 앵커로 확인 · 고친 사본 거부. 잡마다 한 번: 엔진이
+      # 도는가 · 다른 키의 서명을 거부하는가(첫 룰로). 동반 프로그램은 본체가 실제로 띄워 본다. 꾸러미의 실행 파일이
+      # 꾸린 그것(둘째 걸음이면 서명본 · 룰만 바뀐 출시면 지난 공개본의 그 파일)과 같은 바이트인지, 그 버전 줄이 이
+      # 커밋의 엔진 버전인지도 본다.
       - name: verify (5b)
-        if: github.event_name != 'push'
+        if: github.event_name != 'push' || env.REUSE == 'true'
         run: |
           bash ci/release.sh readme "$PKG/README.txt"
-          for d in $(cargo xtask threats --dirs windows); do
-            bash ci/release.sh verify "$PKG/remedy.exe" "$PKG/plugins/$(basename "$d")"
-          done
+          mapfile -t dirs <target/rule-dirs.txt
+          pkgdirs=()
+          for d in "${dirs[@]}"; do pkgdirs+=("$PKG/plugins/$(basename "$d")"); done
+          bash ci/release.sh verify "$PKG/remedy.exe" "${pkgdirs[@]}"
+          bash ci/release.sh verify-engine "$PKG/remedy.exe" "${pkgdirs[0]}"
           bash ci/release.sh verify-companion "$PKG/remedy.exe"
+          bash ci/release.sh engine-version "$PKG/remedy.exe" "$PKG/remedy-net/remedy-net.exe"
           cmp "$PKG/remedy.exe" "$BIN_DIR/remedy.exe"
           cmp "$PKG/remedy-net/remedy-net.exe" "$BIN_DIR/remedy-net.exe"
       - name: upload to draft
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' || env.REUSE == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           (cd dist && 7z a -tzip ../remedy-windows-x64.zip remedy-windows-x64 >/dev/null)
           gh release upload "$GITHUB_REF_NAME" remedy-windows-x64.zip --repo "$GITHUB_REPOSITORY" --clobber
-          bash ci/release.sh clear-handover
+          # 코드서명에 넘긴 파일은 엔진 출시의 둘째 걸음에만 있다.
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then bash ci/release.sh clear-handover; fi
 
   release-linux:
     needs: draft
-    # 리눅스는 첫 걸음에서 끝난다 — 둘째 걸음(코드서명 뒤)에는 돌지 않는다.
+    # 리눅스는 태그 push 의 실행에서 끝난다 — 엔진 출시의 둘째 걸음(코드서명 뒤)에는 돌지 않는다.
     if: ${{ !cancelled() && github.event_name != 'workflow_dispatch' && (needs.draft.result == 'success' || needs.draft.result == 'skipped') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 60
@@ -274,13 +374,18 @@ jobs:
       TARGET: x86_64-unknown-linux-musl
       PKG: dist/remedy-linux-x64
       COMPANION: companion/remedy-net
+      # 룰만 바뀐 출시인가 — 그때는 짓지 않고 지난 공개본(`PREV` — 버전 검사가 견준 태그)의 실행 파일을 싣는다.
+      REUSE: ${{ github.event_name == 'push' && startsWith(github.ref_name, 'rules-') }}
+      PREV: ${{ needs.draft.outputs.prev }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       # wasmtime 의 빌드 스크립트가 C 파일 하나를 musl 로 컴파일한다. cc-rs 는 타깃 접두가
-      # 붙은 이름을 먼저 찾는다 — 없으면 `ci/linux-static-docker.sh` 처럼 링크를 건다.
+      # 붙은 이름을 먼저 찾는다 — 없으면 `ci/linux-static-docker.sh` 처럼 링크를 건다. 엔진을 짓지 않는 룰만
+      # 바뀐 출시에는 필요 없다(도구 xtask 는 호스트 타깃으로 짓는다 — CI 의 리눅스 잡이 이것 없이 짓는다).
       - name: musl-tools
+        if: env.REUSE != 'true'
         run: |
           sudo apt-get update -q
           sudo apt-get install -y -q --no-install-recommends musl-tools
@@ -288,51 +393,99 @@ jobs:
             sudo ln -sf "$(command -v musl-gcc)" /usr/local/bin/x86_64-linux-musl-gcc
           fi
           x86_64-linux-musl-gcc --version | head -1
+      # 잠금 파일 확인이 첫 cargo 호출이다 — Windows 잡의 같은 걸음.
       - name: toolchain
-        run: rustc --version && cargo --version
-      - name: xtask
-        run: cargo build --locked -p xtask
+        run: rustc --version && cargo --version && cargo fetch --locked
+      # 공개키를 도구보다 먼저 준비한다 — Windows 잡의 같은 걸음에 까닭을 적었다(서명 비밀이 든 걸음에서 도구를 다시
+      # 짓지 않게).
       - name: public key
         env:
           ANCHOR: ${{ vars.REMEDY_TRUST_ANCHOR }}
         run: bash ci/release.sh pubkey
+      - name: xtask
+        run: cargo build --locked -p xtask
+      # 이 OS 의 룰 목록 — 비밀이 없는 걸음에서 한 번 뽑아 둔다(Windows 잡의 같은 걸음).
+      - name: rule list
+        run: |
+          # 이 잡의 셸은 pipefail 없이 돈다(`bash -e`) — 목록 명령의 실패가 파이프 뒤에 가려지지 않게 켠다.
+          set -o pipefail
+          cargo xtask threats --dirs linux | tr -d '\r' >target/rule-dirs.txt
+          test -s target/rule-dirs.txt
+          echo "룰 $(wc -l <target/rule-dirs.txt)개"
       - name: build (anchored)
+        if: env.REUSE != 'true'
         run: cargo build --release --locked --target "$TARGET" -p remedy-cli
       - name: build companion
-        run: cargo build --release --locked --target "$TARGET" -p remedy-net
-      # 정적인가 — 동적 로더(INTERP)와 NEEDED 가 없어야 한다. 동반 프로그램도 같다.
+        if: env.REUSE != 'true'
+        run: |
+          cargo build --release --locked --target "$TARGET" -p remedy-net
+          echo "BIN_DIR=target/$TARGET/release" >>"$GITHUB_ENV"
+      # 룰만 바뀐 출시 — 지난 공개본의 꾸러미를 받아 체크섬을 재고 실행 파일 둘을 꺼낸다(Windows 잡의 같은 걸음).
+      - name: reuse previous executables
+        if: env.REUSE == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          bash ci/release.sh fetch-prev "$PREV" prev-bin
+          echo "BIN_DIR=prev-bin" >>"$GITHUB_ENV"
+      # 정적인가 — 동적 로더(INTERP)와 NEEDED 가 없어야 한다. 동반 프로그램도 같다. 지난 공개본에서 받은 파일에도
+      # 돈다 — 내보내는 그 바이트를 본다.
       - name: static
         run: |
           for bin in remedy remedy-net; do
-            file "target/$TARGET/release/$bin" | tee "$RUNNER_TEMP/file-$bin.txt"
+            file "$BIN_DIR/$bin" | tee "$RUNNER_TEMP/file-$bin.txt"
             grep -qE 'statically linked|static-pie' "$RUNNER_TEMP/file-$bin.txt"
           done
+      # 시험 실행 — 룰만 바뀐 출시의 받기 반쪽을 지금 Latest 로 돌려 본다(Windows 잡의 같은 걸음 · 토큰이 있는 걸음은
+      # 받기만 하고 받은 실행 파일은 토큰이 없는 걸음에서 돌린다).
+      - name: previous release rehearsal — fetch
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          latest=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)
+          bash ci/release.sh fetch-prev "$latest" prev-rehearsal
+      - name: previous release rehearsal — check
+        if: github.event_name == 'pull_request'
+        run: |
+          for bin in remedy remedy-net; do
+            file "prev-rehearsal/$bin" | tee "$RUNNER_TEMP/file-prev-$bin.txt"
+            grep -qE 'statically linked|static-pie' "$RUNNER_TEMP/file-prev-$bin.txt"
+          done
+          bash ci/release.sh verify-companion prev-rehearsal/package/remedy
+      # 룰은 한 번에 서명한다 — 키를 한 번만 푼다(`ci/release.sh` 의 `sign_as`).
       - name: sign
         env:
           SECRET_KEY: ${{ secrets.REMEDY_SIGN_SECRET_KEY }}
           SECRET_PASSWORD: ${{ secrets.REMEDY_SIGN_PASSWORD }}
         run: |
-          for d in $(cargo xtask threats --dirs linux); do bash ci/release.sh sign "$d"; done
+          mapfile -t dirs <target/rule-dirs.txt
+          bash ci/release.sh sign "${dirs[@]}"
           mkdir -p "$COMPANION"
-          cp "target/$TARGET/release/remedy-net" "$COMPANION/"
+          cp "$BIN_DIR/remedy-net" "$COMPANION/"
           bash ci/release.sh sign-companion "$COMPANION"
       # 사고 하나에 룰이 둘일 수 있다(CWPdoor — 점검과 치료). 폴더 이름의 숫자가 안내 모드의 차례다.
       - name: package
         run: |
+          mapfile -t dirs <target/rule-dirs.txt
           args=()
-          for d in $(cargo xtask threats --dirs linux); do args+=(--plugin "$d"); done
-          cargo xtask package "${args[@]}" --bin "target/$TARGET/release/remedy" \
+          for d in "${dirs[@]}"; do args+=(--plugin "$d"); done
+          cargo xtask package "${args[@]}" --bin "$BIN_DIR/remedy" \
             --companion "$COMPANION" --out "$PKG" --public-key "$RELEASE_PUBKEY"
-      # 기준 5(b) — 받는 사람이 푸는 그 폴더에서 룰마다 잰다. 동반 프로그램은 본체가 실제로 띄워 본다.
+      # 기준 5(b) — 받는 사람이 푸는 그 폴더에서 잰다(Windows 잡의 같은 걸음에 무엇을 룰마다 · 잡마다 한 번 재는지
+      # 적었다). 동반 프로그램은 본체가 실제로 띄워 본다.
       - name: verify (5b)
         run: |
           bash ci/release.sh readme "$PKG/README.txt"
-          for d in $(cargo xtask threats --dirs linux); do
-            bash ci/release.sh verify "$PKG/remedy" "$PKG/plugins/$(basename "$d")"
-          done
+          mapfile -t dirs <target/rule-dirs.txt
+          pkgdirs=()
+          for d in "${dirs[@]}"; do pkgdirs+=("$PKG/plugins/$(basename "$d")"); done
+          bash ci/release.sh verify "$PKG/remedy" "${pkgdirs[@]}"
+          bash ci/release.sh verify-engine "$PKG/remedy" "${pkgdirs[0]}"
           bash ci/release.sh verify-companion "$PKG/remedy"
-          cmp "$PKG/remedy" "target/$TARGET/release/remedy"
-          cmp "$PKG/remedy-net/remedy-net" "target/$TARGET/release/remedy-net"
+          bash ci/release.sh engine-version "$PKG/remedy" "$PKG/remedy-net/remedy-net"
+          cmp "$PKG/remedy" "$BIN_DIR/remedy"
+          cmp "$PKG/remedy-net/remedy-net" "$BIN_DIR/remedy-net"
           test -x "$PKG/remedy-net/remedy-net"
       # root 가 풀면 tar 에 적힌 소유자가 그대로 남는다 — 러너 사용자(uid 1001)로 담으면 그 uid 의
       # 계정이 실행 파일을 바꿔 다음 `sudo ./remedy` 로 root 를 얻는다(v1.1.0 이 그렇게 나갔다).
@@ -349,14 +502,15 @@ jobs:
         run: gh release upload "$GITHUB_REF_NAME" remedy-linux-x64.tar.gz --repo "$GITHUB_REPOSITORY" --clobber
 
   # 체크섬 한 장 — 두 꾸러미가 다 올라간 **뒤** 초안에서 받아 잰다. 받은 사람이 쓰는 그 파일의
-  # 해시여야 한다(잡 안의 사본이 아니라). Windows 꾸러미는 둘째 걸음에서 올라가므로 둘째 걸음에서 돈다 — 리눅스
-  # 꾸러미는 첫 걸음이 이미 올려 두었다(없으면 받기에서 멈춘다).
-  # 조건은 release-windows 와 같은 꼴로 그 잡의 결과를 직접 본다 — `if:` 에 상태 함수가 없으면 암묵의 success() 가
-  # 붙는데, 그것은 조상 잡까지 보아 둘째 걸음에서 건너뛴 `draft` 때문에 이 잡도 건너뛴다(v1.24.0-rc.1 이 그렇게
-  # SHA256SUMS 없이 끝났다).
+  # 해시여야 한다(잡 안의 사본이 아니라). 도는 때는 둘이다 — 엔진 출시는 Windows 꾸러미가 올라가는 둘째 걸음(리눅스
+  # 꾸러미는 첫 걸음이 이미 올려 두었다 — 없으면 받기에서 멈춘다) · 룰만 바뀐 출시는 두 OS 잡이 다 끝난 태그 push 의
+  # 실행. 엔진 출시의 첫 걸음에서는 돌지 않는다(Windows 꾸러미가 아직 없다).
+  # 조건은 두 잡의 결과를 직접 본다 — `if:` 에 상태 함수가 없으면 암묵의 success() 가 붙는데, 그것은 조상 잡까지
+  # 보아 둘째 걸음에서 건너뛴 `draft` · `release-linux` 때문에 이 잡도 건너뛴다(v1.24.0-rc.1 이 그렇게 SHA256SUMS
+  # 없이 끝났다).
   checksums:
-    needs: [release-windows]
-    if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' && needs.release-windows.result == 'success' }}
+    needs: [release-linux, release-windows]
+    if: ${{ !cancelled() && needs.release-windows.result == 'success' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && startsWith(github.ref_name, 'rules-') && needs.release-linux.result == 'success')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:

@@ -6,8 +6,11 @@
 
 .DESCRIPTION
     Windows 실행 파일의 코드서명(Authenticode · Azure Trusted Signing)은 이 기계에서만 된다 — 서명 도구와 그 계정 ·
-    인증서 프로필이 여기 있고 CI 에는 없다. 그래서 배포의 Windows 는 두 걸음이고(`.github/workflows/release.yml`
-    첫머리) 이 스크립트가 그 사이다.
+    인증서 프로필이 여기 있고 CI 에는 없다. 그래서 **엔진이 바뀐 출시(`v*` 태그)의** Windows 는 두 걸음이고
+    (`.github/workflows/release.yml` 첫머리) 이 스크립트가 그 사이다. 룰만 바뀐 출시(`rules-*` 태그)에는 이 걸음이
+    없다 — 지난 공개본의 서명된 실행 파일을 그대로 실어 태그 push 의 실행이 끝까지 올린다(그 태그를 주면 시작하지
+    않고 종료 2). 다만 그 판의 워크플로가 없는 커밋(2026-11-21 전 · 그 커밋에서 낸 긴급 가지)의 rules 태그는 옛 두
+    걸음이라 이 스크립트로 서명한다 — 어느 쪽인지는 그 태그 커밋의 `release.yml` 로 가른다.
 
       1. 그 태그의 초안이 있는지(공개된 Release 는 건드리지 않는다) · 첫 걸음이 넘긴 `unsigned-remedy.exe` ·
          `unsigned-remedy-net.exe` 가 있는지 본다 — 아직이면 `-WaitMinutes` 동안 기다린다
@@ -32,7 +35,7 @@
     않았다.
 
 .EXAMPLE
-    .\testbed\harness\host\Invoke-ReleaseCodeSign.ps1 -Tag rules-2026.11.19-rc.1
+    .\testbed\harness\host\Invoke-ReleaseCodeSign.ps1 -Tag v1.25.0-rc.1
 
 .EXAMPLE
     .\testbed\harness\host\Invoke-ReleaseCodeSign.ps1 -Tag local-check -LocalDir D:\dl\unsigned
@@ -57,7 +60,22 @@ $bins = @('remedy.exe', 'remedy-net.exe')
 if ($LocalDir) {
     if (-not (Test-Path -LiteralPath $LocalDir -PathType Container)) { "-LocalDir 폴더가 없다: $LocalDir"; exit 2 }
     if ($Tag -notmatch '^[A-Za-z0-9._-]+$') { "-Tag 는 결과 폴더 이름으로 쓸 수 있어야 한다: $Tag"; exit 2 }
-} elseif ($Tag -notmatch '^(v|rules-)\S+$') { "태그가 배포 태그(v* · rules-*)가 아니다: $Tag"; exit 2 }
+} elseif ($Tag -match '^rules-') {
+    # 룰만 바뀐 출시가 코드서명 걸음을 지나는지는 **그 태그 커밋의 워크플로**가 정한다 — 워크플로는 태그 커밋의 파일로
+    # 돈다. 지난 공개본의 서명된 실행 파일을 싣는 판(2026-11-21 뒤 · `reuse previous executables` 걸음)이면 넘겨받을
+    # 파일이 없어 기다려도 오지 않는다. 그 전의 커밋에서 낸 rules 태그(그 커밋에서 낸 긴급 가지 등)는 옛 두 걸음이라
+    # 이 스크립트로 서명한다.
+    $flow = @(git show "$($Tag):.github/workflows/release.yml" 2>$null)
+    if ($LASTEXITCODE -ne 0 -or $flow.Count -eq 0) {
+        "태그 $Tag 의 워크플로를 읽지 못했다 - git fetch origin --tags 뒤 다시 부른다"
+        exit 2
+    }
+    if (($flow -join "`n") -match 'reuse previous executables') {
+        "룰만 바뀐 출시($Tag)에는 코드서명 걸음이 없다 - 태그 push 의 배포 실행이 지난 공개본의 서명된 실행 파일로 끝까지 올린다(.github/workflows/release.yml)"
+        exit 2
+    }
+    "태그 $Tag 는 옛 두 걸음의 워크플로로 지어진다 - 코드서명 걸음을 그대로 한다"
+} elseif ($Tag -notmatch '^v\S+$') { "태그가 엔진 출시의 태그(v*)가 아니다: $Tag"; exit 2 }
 try { $SignBat = Resolve-LabValue $SignBat 'host' 'codesign.sign_bat' 'SignBat' } catch { "$_"; exit 2 }
 if (-not (Test-Path -LiteralPath $SignBat -PathType Leaf)) { "서명 도구가 없다: $SignBat"; exit 2 }
 try { $subject = Get-CodeSignSubject } catch { "$_"; exit 2 }

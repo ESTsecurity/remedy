@@ -7,7 +7,8 @@
 #        --prev <지난 공개본 remedy-linux-x64.tar.gz> --out <결과 폴더> --harness <새 룰의 하네스 스크립트 | none>
 #
 # `--new` 는 태그의 배포 잡이 올린 **초안을 내려받은 그 파일**이다 — 공개할 파일을 잰다. 같은 폴더에 받은 `SHA256SUMS` 가
-# 있으면 그 줄로 체크섬도 잰다. `--prev` 는 지금 Latest 인 공개본이다. `--harness` 는 새 룰의 하네스
+# 있으면 그 줄로 체크섬도 잰다. `--prev` 는 지금 Latest 인 공개본이다(룰만 바뀐 출시의 배포 잡이 실행 파일을 받은 그
+# 공개본 — 잡 기록의 '지난 공개본 … 의 실행 파일을 받았다' · 평소에는 Latest 와 같다). `--harness` 는 새 룰의 하네스
 # (`testbed/harness/linux/<룰>-verify.sh` — `--bin` · `--plugins` · `--out` 을 받는 꼴)이고 정식 파일의 정적 실행 파일과
 # **배포 키로 서명된** 룰로 돌린다. 리눅스 룰이 아니어서 돌릴 것이 없으면 `none` 을 **적는다** — 빠뜨린 것과 가른다.
 # 호스트에 docker 와 debian:12 · ubuntu:24.04 이미지가 있어야 한다. 망은 쓰지 않는다.
@@ -16,7 +17,8 @@
 #
 #   1  새 룰 하네스 — 그 하네스가 정한 칸이 모두 통과
 #   2  정식 파일 — 체크섬(받은 `SHA256SUMS`), 엔진 · 동반 프로그램의 버전, 꾸러미에 든 룰 전부의 서명(`plugin verify`),
-#      동반 프로그램이 판정 기준을 알아보는가(`url` · `image` · `container` 도움말의 기준 줄)
+#      동반 프로그램이 판정 기준을 알아보는가(`url` · `image` · `container` 도움말의 기준 줄), 엔진 버전이 지난
+#      공개본과 같으면 **실행 파일 둘이 지난 공개본과 같은 바이트인가**(룰만 바뀐 출시는 그 파일을 그대로 싣는다)
 #   3  기존 동작 — 깨끗한 컨테이너(Debian 12 · Ubuntu 24.04)에서 지난 공개본과 이 파일의 메뉴 '모두 검사' 를 돌려
 #      **종료 코드가 같아야 한다**. 화면은 버전 · 시각 · 회차 · 기계 이름을 가린 뒤의 차이를 남긴다 — 차이가 새 룰의
 #      줄(메뉴 항목 · 번호 밀림 · 그 룰의 검사 덩어리 · 요약 한 줄)뿐인지 사람이 본다(`<결과>/scan-all/*.diff`)
@@ -102,6 +104,22 @@ rc=$?
 [ "$rc" = 0 ] || fail=1
 rules=$(grep -c 'verify exit=' "$OUT/package.log")
 note "2 정식 파일 · 종료 $rc · 룰 서명 $(grep -c 'verify exit=0' "$OUT/package.log")/$rules · $(( $(date +%s) - t0 ))초"
+# 룰만 바뀐 출시는 지난 공개본의 실행 파일을 그대로 싣는다(.github/workflows/release.yml) — 바이트를 먼저 견준다. 둘 다
+# 같으면 통과다. 다르면 버전 줄로 까닭을 가른다 — 두 줄을 다 읽었고 엔진 버전이 다를 때만(엔진이 바뀐 출시와 견줄 때)
+# 견주지 않고 그렇게 적는다. 버전 줄이 같거나 어느 한쪽을 읽지 못했으면 실패다(읽지 못한 것을 다른 것으로 치지 않는다).
+same=0
+cmp -s "$W/new/remedy" "$W/prev/remedy" && same=$((same + 1))
+cmp -s "$W/new/remedy-net/remedy-net" "$W/prev/remedy-net/remedy-net" && same=$((same + 1))
+vnew=$("$W/new/remedy" --version 2>/dev/null | sed -n 1p)
+vprev=$("$W/prev/remedy" --version 2>/dev/null | sed -n 1p)
+if [ "$same" = 2 ]; then
+    note "2 실행 파일 · 지난 공개본과 같은 바이트 2/2"
+elif [ -n "$vnew" ] && [ -n "$vprev" ] && [ "$vnew" != "$vprev" ]; then
+    note "2 실행 파일 · 엔진 버전이 지난 공개본과 달라 견주지 않는다($vprev → $vnew)"
+else
+    fail=1
+    note "2 실행 파일 · 지난 공개본과 같은 바이트 $same/2 — 실패(${vprev:-버전 줄을 읽지 못함} → ${vnew:-버전 줄을 읽지 못함})"
+fi
 
 # ── 3. 기존 동작 — 지난 공개본과 '모두 검사' ─────────────────────────────────────────
 mask() {
