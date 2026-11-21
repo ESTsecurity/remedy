@@ -125,12 +125,21 @@ jobs:
           cargo deny check
       - name: leaks
         run: cargo xtask leaks
-      # 룰 잠금 · 업데이트 내역 조각은 git 바탕과 견준다(xtask/src/gitbase.rs). main 에 병합된 뒤의 실행은 그 병합 커밋의 첫
-      # 부모(병합 전 main)와 견준다 — PR 은 갱신 없이 병합하므로, 두 PR 이 같은 룰을 같은 판으로 고친 어긋남이 여기서 드러난다.
+      # 룰 잠금 · 업데이트 내역 조각은 git 바탕과 견준다(xtask/src/gitbase.rs). PR 의 실행은 받는 가지와의 병합 바탕, main 에
+      # 병합된 뒤의 실행은 **지금 Latest** 다 — 공개본 뒤에 든 변경 전부가 '파일이 바뀐 룰은 버전이 오르고 조각이 있다' 를
+      # 지키는지 본다(출시 잡의 같은 확인을 병합 때 먼저). 병합 커밋의 첫 부모와 견주던 판은 잇따른 병합에서 같은 그룹의 기다리던
+      # 실행이 밀려 취소되면 마지막 PR 만 봤다(2026-11-21 리허설 — #132 · #133 의 병합 뒤 실행이 취소됐다).
       - name: xtask all
         env:
-          REMEDY_BASE: ${{ github.event_name == 'push' && 'HEAD^1' || '' }}
-        run: cargo xtask all
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT" = push ]; then
+            REMEDY_BASE=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)
+            export REMEDY_BASE
+            echo "바탕: 지금 Latest $REMEDY_BASE"
+          fi
+          cargo xtask all
       # 릴리스 본문 스크립트(ci/release-notes.sh)는 배포의 초안 잡에서만 돈다 — 태그 때에야 멈추지 않게, 지금 README 의 위협
       # 표 · 룰로 새 꼴 칸의 본문과 멈춤 장치를 PR 에서 본다(2026-11-20).
       - name: release notes script
@@ -239,11 +248,9 @@ jobs:
       - name: fmt
         if: steps.scope.outputs.light != 'true'
         run: cargo fmt --all -- --check
-      # 룰 잠금 · 업데이트 내역 조각은 git 바탕과 견준다(xtask/src/gitbase.rs). main 에 병합된 뒤의 실행은 그 병합 커밋의 첫
-      # 부모(병합 전 main)와 견준다 — PR 은 갱신 없이 병합하므로, 두 PR 이 같은 룰을 같은 판으로 고친 어긋남이 여기서 드러난다.
+      # 룰 잠금 · 업데이트 내역 조각의 바탕 — 이 잡은 깊이 2 로 받아 태그가 없다. PR 은 병합 ref 의 첫 부모, main 의 실행은
+      # 그 자신(바뀐 것 없음)과 견준다 — main 에서 공개본과 견주는 것은 리눅스 잡이다.
       - name: xtask all
-        env:
-          REMEDY_BASE: ${{ github.event_name == 'push' && 'HEAD^1' || '' }}
         run: cargo xtask all
       - name: clippy
         if: steps.scope.outputs.light != 'true'
