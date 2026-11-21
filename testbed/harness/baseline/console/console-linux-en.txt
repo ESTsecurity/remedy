@@ -218,8 +218,7 @@ ESTsecurity Dedicated Cleaner 1.25.3 (remedy)
 만든 것: r1 100000개 · r2 100000개 · 없는 자리 하나
 [이 기계에서는 검사가 1초 안에 끝나 심장박동이 나오지 않았다 — 형태를 재지 못했다]
 (영어)
-Scanning · files · 2 folders · 147762 entries · 0 processed · root 2/2 · 1s elapsed · /tmp/console-capture/beat/r2
-Scanning · evaluating · 2 folders · 200000 entries · 200000 processed · 2s elapsed
+Scanning · files · 2 folders · 189148 entries · 0 processed · root 2/2 · 1s elapsed · /tmp/console-capture/beat/r2
 
 ########## B. 감염 픽스처
 
@@ -232,8 +231,8 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
  ESTsecurity Dedicated Cleaner 1.25.3
  Library path loader removal  (ldso-preload 1.0.0)
 --------------------------------------------------------
- Started    : 2026-11-20 11:28:49 UTC
- Machine    : 75814b376bae (linux)
+ Started    : 2026-11-21 06:27:20 UTC
+ Machine    : 613dc634120a (linux)
 
 Starting scan.
 Output    : /tmp/console-capture/o1  (artifacts.json | scan.json | plan.json)
@@ -258,8 +257,8 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
  ESTsecurity Dedicated Cleaner 1.25.3
  Library path loader removal  (ldso-preload 1.0.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-20 11:28:49 UTC
- Machine    : 75814b376bae (linux)
+ Started    : 2026-11-21 06:27:20 UTC
+ Machine    : 613dc634120a (linux)
 
 Starting scan.
 Output    : /tmp/console-capture/o2  (artifacts.json · scan.json · plan.json)
@@ -284,8 +283,8 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
  ESTsecurity Dedicated Cleaner 1.25.3
  Library path loader removal  (ldso-preload 1.0.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-20 11:28:49 UTC
- Machine    : 75814b376bae (linux)
+ Started    : 2026-11-21 06:27:20 UTC
+ Machine    : 613dc634120a (linux)
 
 Starting scan.
 Output    : /tmp/console-capture/o3  (artifacts.json · scan.json · plan.json)
@@ -311,8 +310,8 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
  ESTsecurity Dedicated Cleaner 1.25.3
  Library path loader removal  (ldso-preload 1.0.0)
 --------------------------------------------------------
- Started    : 2026-11-20 11:28:49 UTC
- Machine    : 75814b376bae (linux)
+ Started    : 2026-11-21 06:27:20 UTC
+ Machine    : 613dc634120a (linux)
 
 Starting scan.
 Output    : /tmp/console-capture/o-ascii  (artifacts.json | scan.json | plan.json)
@@ -336,11 +335,11 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
  ESTsecurity Dedicated Cleaner 1.25.3
  Library path loader removal  (ldso-preload 1.0.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-20 11:28:50 UTC
- Machine    : 75814b376bae (linux)
+ Started    : 2026-11-21 06:27:20 UTC
+ Machine    : 613dc634120a (linux)
 
 Starting scan.
-scan time 0.1s · walk 0.0s · read 0.0s (127 KB · 9 files) · hash 0.0s · signatures 0.0s (0 files) · 0 too big to hash · other 0.0s
+scan time 0.1s · walk 0.0s · read 0.0s (127 KB · 9 files) · hash 0.0s · signatures 0.0s (0 files) · 0 too big to hash · other 0.1s
 Output    : /tmp/console-capture/o-verbose  (artifacts.json · scan.json · plan.json)
 Scan done : 5 trace(s) · 1 threat(s)
   detail: evidence 5 · groups 1 · verdicts 1
@@ -369,8 +368,8 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
  ESTsecurity Dedicated Cleaner 1.25.3
  Library path loader removal  (ldso-preload 1.0.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-20 11:28:50 UTC
- Machine    : 75814b376bae (linux)
+ Started    : 2026-11-21 06:27:20 UTC
+ Machine    : 613dc634120a (linux)
 
 Starting scan.
 Scan done : 5 trace(s) · 1 threat(s)
@@ -396,8 +395,8 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
  ESTsecurity Dedicated Cleaner 1.25.3
  Library path loader removal  (ldso-preload 1.0.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-20 11:28:50 UTC
- Machine    : 75814b376bae (linux)
+ Started    : 2026-11-21 06:27:21 UTC
+ Machine    : 613dc634120a (linux)
 
 Starting scan.
 Scan done : 5 trace(s) · 1 threat(s)
@@ -423,8 +422,8 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
 ────────────────────────────────────────────────────────
  ESTsecurity Dedicated Cleaner 1.25.3
 ────────────────────────────────────────────────────────
- Started    : 2026-11-20 11:28:50 UTC
- Machine    : 75814b376bae (linux)
+ Started    : 2026-11-21 06:27:21 UTC
+ Machine    : 613dc634120a (linux)
 
 
 4 action(s) will run:
@@ -447,8 +446,8 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
  ESTsecurity Dedicated Cleaner 1.25.3
  Library path loader removal  (ldso-preload 1.0.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-20 11:28:55 UTC
- Machine    : 75814b376bae (linux)
+ Started    : 2026-11-21 06:27:26 UTC
+ Machine    : 613dc634120a (linux)
 
 Starting scan.
 Scan done : 5 trace(s) · 1 threat(s)
@@ -472,14 +471,14 @@ Starting treatment.
 ────────────────────────────────────────────────────────
  Result     : Threat found, treated (4 action(s) done)
  Elapsed    : under 1s
- Quarantine : /tmp/console-capture/s/quarantine/run-1795174135-01b6-c49c676.rq
- Journal    : /tmp/console-capture/s/journal/run-1795174135-01b6-c49c676.jsonl
- To undo    : remedy restore --run run-1795174135-01b6-c49c676 --state-dir /tmp/console-capture/s
- Report FP  : remedy support-bundle --run run-1795174135-01b6-c49c676 --state-dir /tmp/console-capture/s
+ Quarantine : /tmp/console-capture/s/quarantine/run-1795242446-01b6-62056f2.rq
+ Journal    : /tmp/console-capture/s/journal/run-1795242446-01b6-62056f2.jsonl
+ To undo    : remedy restore --run run-1795242446-01b6-62056f2 --state-dir /tmp/console-capture/s
+ Report FP  : remedy support-bundle --run run-1795242446-01b6-62056f2 --state-dir /tmp/console-capture/s
 ────────────────────────────────────────────────────────
  Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
 [exit=1]
-[run_id=run-1795174135-01b6-c49c676]
+[run_id=run-1795242446-01b6-62056f2]
 
 ########## E1. verify — 한국어
 
@@ -487,12 +486,12 @@ Starting treatment.
 ────────────────────────────────────────────────────────
  ESTsecurity 전용백신 1.25.3
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-20 11:28:55 UTC
- 실행 기계  : 75814b376bae (linux)
+ 시작 시각  : 2026-11-21 06:27:26 UTC
+ 실행 기계  : 613dc634120a (linux)
 
 검사를 시작합니다.
 검사 완료 : 흔적 0건 · 위협 0건
-재평가 기록 -> /tmp/console-capture/s/verify/run-1795174135-01b6-c49c676.jsonl
+재평가 기록 -> /tmp/console-capture/s/verify/run-1795242446-01b6-62056f2.jsonl
 
 치료 성공. 같은 검사에서 위협이 다시 나오지 않았습니다.
 [exit=0]
@@ -503,12 +502,12 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
 ────────────────────────────────────────────────────────
  ESTsecurity Dedicated Cleaner 1.25.3
 ────────────────────────────────────────────────────────
- Started    : 2026-11-20 11:28:55 UTC
- Machine    : 75814b376bae (linux)
+ Started    : 2026-11-21 06:27:26 UTC
+ Machine    : 613dc634120a (linux)
 
 Starting scan.
 Scan done : 0 trace(s) · 0 threat(s)
-Re-evaluation record -> /tmp/console-capture/s/verify/run-1795174135-01b6-c49c676.jsonl
+Re-evaluation record -> /tmp/console-capture/s/verify/run-1795242446-01b6-62056f2.jsonl
 
 Treatment succeeded. The same check no longer finds the threat.
 [exit=0]
@@ -519,15 +518,15 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
 ────────────────────────────────────────────────────────
  ESTsecurity Dedicated Cleaner 1.25.3
 ────────────────────────────────────────────────────────
- Started    : 2026-11-20 11:28:55 UTC
- Machine    : 75814b376bae (linux)
+ Started    : 2026-11-21 06:27:26 UTC
+ Machine    : 613dc634120a (linux)
 
 Quarantine : /tmp/console-capture/s/quarantine
 
 1 run(s) can be undone
-  2026-11-20 11:28:55 UTC  run-1795174135-01b6-c49c676 · 98225 bytes
+  2026-11-21 06:27:26 UTC  run-1795242446-01b6-62056f2 · 98225 bytes
 
-To undo : remedy restore --run run-1795174135-01b6-c49c676 --state-dir /tmp/console-capture/s
+To undo : remedy restore --run run-1795242446-01b6-62056f2 --state-dir /tmp/console-capture/s
 [exit=0]
 
 ########## F1. restore — 계획만
@@ -536,13 +535,13 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
 ────────────────────────────────────────────────────────
  ESTsecurity Dedicated Cleaner 1.25.3
 ────────────────────────────────────────────────────────
- Started    : 2026-11-20 11:28:55 UTC
- Machine    : 75814b376bae (linux)
+ Started    : 2026-11-21 06:27:26 UTC
+ Machine    : 613dc634120a (linux)
 
-Quarantine : /tmp/console-capture/s/quarantine/run-1795174135-01b6-c49c676.rq
-Run id     : run-1795174135-01b6-c49c676
-Created    : 2026-11-20 11:28:55 UTC
-Keys       : local(184bebb3)
+Quarantine : /tmp/console-capture/s/quarantine/run-1795242446-01b6-62056f2.rq
+Run id     : run-1795242446-01b6-62056f2
+Created    : 2026-11-21 06:27:26 UTC
+Keys       : local(f0238a7c)
   Note: this quarantine opens only with this machine's key. Reinstalling this machine makes it unopenable, so if it needs restoring, do it before that.
 
 4 item(s) to restore · 95829 bytes
@@ -557,7 +556,7 @@ Keys       : local(184bebb3)
   [e3] /usr/local/lib/.crypt-9d41/libnsl_compat.so.2
         not restorable  ctime: the operating system owns this value; it cannot be restored
         not restorable  btime: this operating system cannot set this value
-  Volume /  needs 95829 · free 965284962304 bytes
+  Volume /  needs 95829 · free 965152907264 bytes
 
 Nothing was done. Check the list above and run again with --yes.
 [exit=2]
@@ -568,13 +567,13 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
 ────────────────────────────────────────────────────────
  ESTsecurity Dedicated Cleaner 1.25.3
 ────────────────────────────────────────────────────────
- Started    : 2026-11-20 11:28:55 UTC
- Machine    : 75814b376bae (linux)
+ Started    : 2026-11-21 06:27:26 UTC
+ Machine    : 613dc634120a (linux)
 
-Quarantine : /tmp/console-capture/s/quarantine/run-1795174135-01b6-c49c676.rq
-Run id     : run-1795174135-01b6-c49c676
-Created    : 2026-11-20 11:28:55 UTC
-Keys       : local(184bebb3)
+Quarantine : /tmp/console-capture/s/quarantine/run-1795242446-01b6-62056f2.rq
+Run id     : run-1795242446-01b6-62056f2
+Created    : 2026-11-21 06:27:26 UTC
+Keys       : local(f0238a7c)
   Note: this quarantine opens only with this machine's key. Reinstalling this machine makes it unopenable, so if it needs restoring, do it before that.
 
 4 item(s) to restore · 95829 bytes
@@ -589,7 +588,7 @@ Keys       : local(184bebb3)
   [e3] /usr/local/lib/.crypt-9d41/libnsl_compat.so.2
         not restorable  ctime: the operating system owns this value; it cannot be restored
         not restorable  btime: this operating system cannot set this value
-  Volume /  needs 95829 · free 965284958208 bytes
+  Volume /  needs 95829 · free 965152903168 bytes
 
   restored [e0] /etc/ld.so.conf.d/libc.conf  (/etc/ld.so.conf.d/libc.conf:3)
   restored [e1] /usr/share/applications/org.example.Editor.desktop  (content · mtime · readonly · mode)
@@ -608,8 +607,8 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
 ────────────────────────────────────────────────────────
  ESTsecurity Dedicated Cleaner 1.25.3
 ────────────────────────────────────────────────────────
- Started    : 2026-11-20 11:28:55 UTC
- Machine    : 75814b376bae (linux)
+ Started    : 2026-11-21 06:27:26 UTC
+ Machine    : 613dc634120a (linux)
 
 
 4 action(s) will run:
@@ -633,10 +632,10 @@ Treating · 2s elapsed
 ────────────────────────────────────────────────────────
  Result     : Threat found, treated (4 action(s) done)
  Elapsed    : 2s
- Quarantine : /tmp/console-capture/s-beat/quarantine/run-1795174130-01ad-89049cb.rq
- Journal    : /tmp/console-capture/s-beat/journal/run-1795174130-01ad-89049cb.jsonl
- To undo    : remedy restore --run run-1795174130-01ad-89049cb --state-dir /tmp/console-capture/s-beat
- Report FP  : remedy support-bundle --run run-1795174130-01ad-89049cb --state-dir /tmp/console-capture/s-beat
+ Quarantine : /tmp/console-capture/s-beat/quarantine/run-1795242441-01ad-2741969.rq
+ Journal    : /tmp/console-capture/s-beat/journal/run-1795242441-01ad-2741969.jsonl
+ To undo    : remedy restore --run run-1795242441-01ad-2741969 --state-dir /tmp/console-capture/s-beat
+ Report FP  : remedy support-bundle --run run-1795242441-01ad-2741969 --state-dir /tmp/console-capture/s-beat
 ────────────────────────────────────────────────────────
  Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
 [exit=1]
@@ -644,7 +643,7 @@ Treating · 2s elapsed
 ########## G. support-bundle
 
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
-Support bundle folder : /tmp/console-capture/bundle/remedy-support-run-1795174135-01b6-c49c676
+Support bundle folder : /tmp/console-capture/bundle/remedy-support-run-1795242446-01b6-62056f2
 
 Included
   plan.json               1932 bytes  the approved treatment plan in full
@@ -654,7 +653,7 @@ Included
   environment.json         457 bytes  program version, OS, self-integrity, engine state
 
 Deliberately left out
-  /tmp/console-capture/s/quarantine/run-1795174135-01b6-c49c676.rq
+  /tmp/console-capture/s/quarantine/run-1795242446-01b6-62056f2.rq
     quarantine container: holds the sample and user file contents. Do not send it; a false-positive is undone on this machine with `remedy restore --run <id>`
   /tmp/console-capture/s/machine.key
     the sealing key that opens the quarantine container. Sending it lets anyone open the container. Never attach it
@@ -678,8 +677,8 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
  ESTsecurity Dedicated Cleaner 1.25.3
  C2 beacon autostart removal  (c2-beacon 1.0.1)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-20 11:28:58 UTC
- Machine    : 75814b376bae (linux)
+ Started    : 2026-11-21 06:27:29 UTC
+ Machine    : 613dc634120a (linux)
 
 Starting scan.
 scan time 0.1s · walk 0.0s · read 0.0s (75 KB · 4 files) · hash 0.0s · signatures 0.0s (0 files) · 0 too big to hash · other 0.1s
@@ -704,8 +703,8 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
  ESTsecurity Dedicated Cleaner 1.25.3
  C2 beacon autostart removal  (c2-beacon 1.0.1)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-20 11:28:58 UTC
- Machine    : 75814b376bae (linux)
+ Started    : 2026-11-21 06:27:29 UTC
+ Machine    : 613dc634120a (linux)
 
 Starting scan.
 Scan done : 4 trace(s) · 1 threat(s)
@@ -726,10 +725,10 @@ Starting treatment.
 ────────────────────────────────────────────────────────
  Result     : Threat found, treated (3 action(s) done)
  Elapsed    : under 1s
- Quarantine : /tmp/console-capture/sq/quarantine/run-1795174138-01e0-e6af0bb.rq
- Journal    : /tmp/console-capture/sq/journal/run-1795174138-01e0-e6af0bb.jsonl
- To undo    : remedy restore --run run-1795174138-01e0-e6af0bb --state-dir /tmp/console-capture/sq
- Report FP  : remedy support-bundle --run run-1795174138-01e0-e6af0bb --state-dir /tmp/console-capture/sq
+ Quarantine : /tmp/console-capture/sq/quarantine/run-1795242449-01e0-ab99f99.rq
+ Journal    : /tmp/console-capture/sq/journal/run-1795242449-01e0-ab99f99.jsonl
+ To undo    : remedy restore --run run-1795242449-01e0-ab99f99 --state-dir /tmp/console-capture/sq
+ Report FP  : remedy support-bundle --run run-1795242449-01e0-ab99f99 --state-dir /tmp/console-capture/sq
 ────────────────────────────────────────────────────────
  Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
 [exit=1]
@@ -799,7 +798,7 @@ Starting treatment.
         "path": "/opt/.cache-9f2/agent.bin",
         "size": 51200,
         "mtime": "2026-09-01T03:12:40Z",
-        "ctime": "2026-11-20T11:28:58Z",
+        "ctime": "2026-11-21T06:27:29Z",
         "sha256": "fec8aa606ec99721bd2a5153d2973816484c18b755e23fd508b1146d954195c7"
       },
       "captures": {},
@@ -824,7 +823,7 @@ Starting treatment.
         "path": "/opt/.cache-9f2/helper.so",
         "size": 24576,
         "mtime": "2026-09-01T03:12:40Z",
-        "ctime": "2026-11-20T11:28:58Z",
+        "ctime": "2026-11-21T06:27:29Z",
         "sha256": "384670229c221ff5384c8b7691d711efe8763a41c48490f184727d334e95f5fe"
       },
       "captures": {},
@@ -849,8 +848,8 @@ Starting treatment.
 ────────────────────────────────────────────────────────
  ESTsecurity 전용백신 1.25.3
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-20 11:28:58 UTC
- 실행 기계  : 75814b376bae (linux)
+ 시작 시각  : 2026-11-21 06:27:29 UTC
+ 실행 기계  : 613dc634120a (linux)
 
 실패: --plan 옵션이 필요합니다
   (종료 코드 4: 사용법·입력 오류)
@@ -859,8 +858,8 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
 ────────────────────────────────────────────────────────
  ESTsecurity Dedicated Cleaner 1.25.3
 ────────────────────────────────────────────────────────
- Started    : 2026-11-20 11:28:58 UTC
- Machine    : 75814b376bae (linux)
+ Started    : 2026-11-21 06:27:29 UTC
+ Machine    : 613dc634120a (linux)
 
 Error: --plan is required
   (exit code 4: usage or input error)
@@ -915,40 +914,40 @@ selftest OK
 
 ########## K. 회차 로그 (심장박동 줄 제외)
 
-restore-run-1795174135-01b6-c49c676.log
-run-1795174129-01a0-2efee3f1.log
-run-1795174129-01a2-3284d80b.log
-run-1795174129-01a4-3606f023.log
-run-1795174129-01a6-398a6d29.log
-run-1795174130-01a8-16c366a.log
-run-1795174130-01ab-50c0d5c.log
-run-1795174130-01ad-89049cb.log
-run-1795174135-01b6-c49c676.log
+restore-run-1795242446-01b6-62056f2.log
+run-1795242440-01a0-292d07f2.log
+run-1795242440-01a2-2cac04e7.log
+run-1795242440-01a4-3010fd9c.log
+run-1795242440-01a6-338d7392.log
+run-1795242440-01a8-37076e70.log
+run-1795242440-01ab-3a9349fb.log
+run-1795242441-01ad-2741969.log
+run-1795242446-01b6-62056f2.log
 --- 치료 회차 로그의 머리부터 치료 시작까지 ---
-2026-11-20T11:28:55Z # remedy 1.25.3 pid 438 · run --plugin /repo/testbed/ai-exam/threats/ldso-preload/reference-plugin/plugin.yaml --out-dir /tmp/console-capture/run --yes --state-dir /tmp/console-capture/s
-2026-11-20T11:28:55Z | ────────────────────────────────────────────────────────
-2026-11-20T11:28:55Z |  ESTsecurity Dedicated Cleaner 1.25.3
-2026-11-20T11:28:55Z |  Library path loader removal  (ldso-preload 1.0.0)
-2026-11-20T11:28:55Z | ────────────────────────────────────────────────────────
-2026-11-20T11:28:55Z |  Started    : 2026-11-20 11:28:55 UTC
-2026-11-20T11:28:55Z |  Machine    : 75814b376bae (linux)
-2026-11-20T11:28:55Z | 
-2026-11-20T11:28:55Z # run_id run-1795174135-01b6-c49c676
-2026-11-20T11:28:55Z | Starting scan.
-2026-11-20T11:28:55Z # scan time 0.1s · walk 0.0s · read 0.0s (127 KB · 9 files) · hash 0.0s · signatures 0.0s (0 files) · 0 too big to hash · other 0.1s
-2026-11-20T11:28:55Z | Scan done : 5 trace(s) · 1 threat(s)
-2026-11-20T11:28:55Z | 
-2026-11-20T11:28:55Z | 4 action(s) will run:
-2026-11-20T11:28:55Z |    1. Remove line from file  /etc/ld.so.conf.d/libc.conf
-2026-11-20T11:28:55Z |       removes only the added line from that file; the file itself is kept
-2026-11-20T11:28:55Z |    2. Strip shortcut arguments  /usr/share/applications/org.example.Editor.desktop
-2026-11-20T11:28:55Z |       strips the added arguments; the shortcut still works
-2026-11-20T11:28:55Z |    3. Quarantine file  /usr/local/lib/.crypt-9d41/.seed
-2026-11-20T11:28:55Z |       moves the file into quarantine — not deleted, and reversible
-2026-11-20T11:28:55Z |    4. Quarantine file  /usr/local/lib/.crypt-9d41/libnsl_compat.so.2
-2026-11-20T11:28:55Z |       moves the file into quarantine — not deleted, and reversible
-2026-11-20T11:28:55Z | 
-2026-11-20T11:28:55Z | Starting treatment.
+2026-11-21T06:27:26Z # remedy 1.25.3 pid 438 · run --plugin /repo/testbed/ai-exam/threats/ldso-preload/reference-plugin/plugin.yaml --out-dir /tmp/console-capture/run --yes --state-dir /tmp/console-capture/s
+2026-11-21T06:27:26Z | ────────────────────────────────────────────────────────
+2026-11-21T06:27:26Z |  ESTsecurity Dedicated Cleaner 1.25.3
+2026-11-21T06:27:26Z |  Library path loader removal  (ldso-preload 1.0.0)
+2026-11-21T06:27:26Z | ────────────────────────────────────────────────────────
+2026-11-21T06:27:26Z |  Started    : 2026-11-21 06:27:26 UTC
+2026-11-21T06:27:26Z |  Machine    : 613dc634120a (linux)
+2026-11-21T06:27:26Z | 
+2026-11-21T06:27:26Z # run_id run-1795242446-01b6-62056f2
+2026-11-21T06:27:26Z | Starting scan.
+2026-11-21T06:27:26Z # scan time 0.1s · walk 0.0s · read 0.0s (127 KB · 9 files) · hash 0.0s · signatures 0.0s (0 files) · 0 too big to hash · other 0.0s
+2026-11-21T06:27:26Z | Scan done : 5 trace(s) · 1 threat(s)
+2026-11-21T06:27:26Z | 
+2026-11-21T06:27:26Z | 4 action(s) will run:
+2026-11-21T06:27:26Z |    1. Remove line from file  /etc/ld.so.conf.d/libc.conf
+2026-11-21T06:27:26Z |       removes only the added line from that file; the file itself is kept
+2026-11-21T06:27:26Z |    2. Strip shortcut arguments  /usr/share/applications/org.example.Editor.desktop
+2026-11-21T06:27:26Z |       strips the added arguments; the shortcut still works
+2026-11-21T06:27:26Z |    3. Quarantine file  /usr/local/lib/.crypt-9d41/.seed
+2026-11-21T06:27:26Z |       moves the file into quarantine — not deleted, and reversible
+2026-11-21T06:27:26Z |    4. Quarantine file  /usr/local/lib/.crypt-9d41/libnsl_compat.so.2
+2026-11-21T06:27:26Z |       moves the file into quarantine — not deleted, and reversible
+2026-11-21T06:27:26Z | 
+2026-11-21T06:27:26Z | Starting treatment.
 
 ########## L. 관측 불완전 (6) — 선언한 자리가 하나도 없다
 
@@ -957,8 +956,8 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
  ESTsecurity Dedicated Cleaner 1.25.3
  missing roots  (force-incomplete 1.0.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-20 11:28:58 UTC
- Machine    : 75814b376bae (linux)
+ Started    : 2026-11-21 06:27:29 UTC
+ Machine    : 613dc634120a (linux)
 
 Starting scan.
 Output    : /tmp/console-capture/o6  (artifacts.json · scan.json · plan.json)
@@ -976,8 +975,8 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
  ESTsecurity Dedicated Cleaner 1.25.3
  check - missing roots  (force-check-absent 1.0.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-20 11:28:58 UTC
- Machine    : 75814b376bae (linux)
+ Started    : 2026-11-21 06:27:29 UTC
+ Machine    : 613dc634120a (linux)
 
 Starting scan.
 Output    : /tmp/console-capture/ochk  (artifacts.json · scan.json · plan.json)
@@ -995,8 +994,8 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
  ESTsecurity Dedicated Cleaner 1.25.3
  check - exposed setting  (force-check-found 1.0.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-20 11:28:58 UTC
- Machine    : 75814b376bae (linux)
+ Started    : 2026-11-21 06:27:29 UTC
+ Machine    : 613dc634120a (linux)
 
 Starting scan.
 Output    : /tmp/console-capture/ochk2  (artifacts.json · scan.json · plan.json)
@@ -1030,8 +1029,8 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
  ESTsecurity Dedicated Cleaner 1.25.3
  check - vulnerable version  (force-check-version 1.0.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-20 11:28:58 UTC
- Machine    : 75814b376bae (linux)
+ Started    : 2026-11-21 06:27:29 UTC
+ Machine    : 613dc634120a (linux)
 
 Starting scan.
 Output    : /tmp/console-capture/ochk3  (artifacts.json · scan.json · plan.json)
@@ -1050,8 +1049,8 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
  ESTsecurity Dedicated Cleaner 1.25.3
  unreadable root  (force-unreadable-root 1.0.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-20 11:28:58 UTC
- Machine    : 75814b376bae (linux)
+ Started    : 2026-11-21 06:27:29 UTC
+ Machine    : 613dc634120a (linux)
 
 Starting scan.
 Output    : /tmp/console-capture/o6b  (artifacts.json · scan.json · plan.json)
@@ -1069,8 +1068,8 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
  ESTsecurity Dedicated Cleaner 1.25.3
  read-only place  (force-partial 1.0.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-20 11:28:58 UTC
- Machine    : 75814b376bae (linux)
+ Started    : 2026-11-21 06:27:29 UTC
+ Machine    : 613dc634120a (linux)
 
 Starting scan.
 Scan done : 2 trace(s) · 1 threat(s)
@@ -1090,10 +1089,10 @@ Starting treatment.
 ────────────────────────────────────────────────────────
  Result     : Treatment failed (nothing was changed)
  Elapsed    : under 1s
- Quarantine : /tmp/console-capture/s7/quarantine/run-1795174138-020e-274bcc05.rq
- Journal    : /tmp/console-capture/s7/journal/run-1795174138-020e-274bcc05.jsonl
- To undo    : remedy restore --run run-1795174138-020e-274bcc05 --state-dir /tmp/console-capture/s7
- Report FP  : remedy support-bundle --run run-1795174138-020e-274bcc05 --state-dir /tmp/console-capture/s7
+ Quarantine : /tmp/console-capture/s7/quarantine/run-1795242449-020e-2352e8c2.rq
+ Journal    : /tmp/console-capture/s7/journal/run-1795242449-020e-2352e8c2.jsonl
+ To undo    : remedy restore --run run-1795242449-020e-2352e8c2 --state-dir /tmp/console-capture/s7
+ Report FP  : remedy support-bundle --run run-1795242449-020e-2352e8c2 --state-dir /tmp/console-capture/s7
 ────────────────────────────────────────────────────────
  Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
 [exit=3]
@@ -1105,8 +1104,8 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
  ESTsecurity Dedicated Cleaner 1.25.3
  read-only place  (force-guard 1.0.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-20 11:28:58 UTC
- Machine    : 75814b376bae (linux)
+ Started    : 2026-11-21 06:27:29 UTC
+ Machine    : 613dc634120a (linux)
 
 Starting scan.
 Error: planning failed: the safety guard rejected the plan (1):
@@ -1121,8 +1120,8 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
  ESTsecurity Dedicated Cleaner 1.25.3
  read-only place  (force-tamper 1.0.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-20 11:28:58 UTC
- Machine    : 75814b376bae (linux)
+ Started    : 2026-11-21 06:27:29 UTC
+ Machine    : 613dc634120a (linux)
 
 Starting scan.
 Scan done : 1 trace(s) · 1 threat(s)
@@ -1137,18 +1136,18 @@ Starting treatment.
 ────────────────────────────────────────────────────────
  Result     : Threat found, treated (1 action(s) done)
  Elapsed    : under 1s
- Quarantine : /tmp/console-capture/s9/quarantine/run-1795174138-0219-311cabd9.rq
- Journal    : /tmp/console-capture/s9/journal/run-1795174138-0219-311cabd9.jsonl
- To undo    : remedy restore --run run-1795174138-0219-311cabd9 --state-dir /tmp/console-capture/s9
- Report FP  : remedy support-bundle --run run-1795174138-0219-311cabd9 --state-dir /tmp/console-capture/s9
+ Quarantine : /tmp/console-capture/s9/quarantine/run-1795242449-0219-2d18e237.rq
+ Journal    : /tmp/console-capture/s9/journal/run-1795242449-0219-2d18e237.jsonl
+ To undo    : remedy restore --run run-1795242449-0219-2d18e237 --state-dir /tmp/console-capture/s9
+ Report FP  : remedy support-bundle --run run-1795242449-0219-2d18e237 --state-dir /tmp/console-capture/s9
 ────────────────────────────────────────────────────────
  Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
  ESTsecurity Dedicated Cleaner 1.25.3
 ────────────────────────────────────────────────────────
- Started    : 2026-11-20 11:28:58 UTC
- Machine    : 75814b376bae (linux)
+ Started    : 2026-11-21 06:27:29 UTC
+ Machine    : 613dc634120a (linux)
 
 
 1 action(s) will run:
@@ -1156,7 +1155,7 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
       moves the file into quarantine — not deleted, and reversible
 
 Starting treatment.
-Error: this plan differs from the one in the journal. Not resuming; plan again (run run-1795174138-0219-311cabd9)
+Error: this plan differs from the one in the journal. Not resuming; plan again (run run-1795242449-0219-2d18e237)
   (exit code 5: stopped by a safety guard (limit, protected path, signature))
 [exit=5]
 --- 무고한 파일은 그대로인가 ---
@@ -1168,25 +1167,25 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
 
 Error: internal error: the tool itself crashed. The machine is as the journal recorded up to this point
   crates/remedy-cli/src/tee.rs:249:9: REMEDY_PANIC_TEST: 개발 빌드 전용 패닉 시험
-  Record: /tmp/console-capture/sP/logs/crash-2026-11-20T11-28-58Z-544.txt
+  Record: /tmp/console-capture/sP/logs/crash-2026-11-21T06-27-29Z-544.txt
   (exit code 7: internal error: the tool itself crashed (attach logs/crash-*.txt to the report))
 [exit=7]
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 
 Error: internal error: the tool itself crashed. The machine is as the journal recorded up to this point
   crates/remedy-cli/src/tee.rs:249:9: REMEDY_PANIC_TEST: 개발 빌드 전용 패닉 시험
-  Record: /tmp/console-capture/sP/logs/crash-2026-11-20T11-28-58Z-545.txt
+  Record: /tmp/console-capture/sP/logs/crash-2026-11-21T06-27-29Z-545.txt
   (exit code 7: internal error: the tool itself crashed (attach logs/crash-*.txt to the report))
 [exit=7]
 --- 크래시 기록의 머리 ---
-==> /tmp/console-capture/sP/logs/crash-2026-11-20T11-28-58Z-544.txt <==
+==> /tmp/console-capture/sP/logs/crash-2026-11-21T06-27-29Z-544.txt <==
 remedy 1.25.3 · internal error (panic)
-at    : 2026-11-20T11:28:58Z
+at    : 2026-11-21T06:27:29Z
 where : crates/remedy-cli/src/tee.rs:249:9
 
-==> /tmp/console-capture/sP/logs/crash-2026-11-20T11-28-58Z-545.txt <==
+==> /tmp/console-capture/sP/logs/crash-2026-11-21T06-27-29Z-545.txt <==
 remedy 1.25.3 · internal error (panic)
-at    : 2026-11-20T11:28:58Z
+at    : 2026-11-21T06:27:29Z
 
 ########## R. 조직 복구 키 — apply 가 싣고 restore 가 연다
 
@@ -1196,8 +1195,8 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
  ESTsecurity Dedicated Cleaner 1.25.3
  read-only place  (force-org 1.0.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-20 11:29:04 UTC
- Machine    : 75814b376bae (linux)
+ Started    : 2026-11-21 06:27:35 UTC
+ Machine    : 613dc634120a (linux)
 
 Starting scan.
 Scan done : 2 trace(s) · 1 threat(s)
@@ -1215,10 +1214,10 @@ Starting treatment.
 ────────────────────────────────────────────────────────
  Result     : Threat found, treated (2 action(s) done)
  Elapsed    : under 1s
- Quarantine : /tmp/console-capture/sR/quarantine/run-1795174144-0232-19a58dd6.rq
- Journal    : /tmp/console-capture/sR/journal/run-1795174144-0232-19a58dd6.jsonl
- To undo    : remedy restore --run run-1795174144-0232-19a58dd6 --state-dir /tmp/console-capture/sR
- Report FP  : remedy support-bundle --run run-1795174144-0232-19a58dd6 --state-dir /tmp/console-capture/sR
+ Quarantine : /tmp/console-capture/sR/quarantine/run-1795242455-0232-15ab047.rq
+ Journal    : /tmp/console-capture/sR/journal/run-1795242455-0232-15ab047.jsonl
+ To undo    : remedy restore --run run-1795242455-0232-15ab047 --state-dir /tmp/console-capture/sR
+ Report FP  : remedy support-bundle --run run-1795242455-0232-15ab047 --state-dir /tmp/console-capture/sR
 ────────────────────────────────────────────────────────
  Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
 [exit=1]
@@ -1228,13 +1227,13 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
 ────────────────────────────────────────────────────────
  ESTsecurity Dedicated Cleaner 1.25.3
 ────────────────────────────────────────────────────────
- Started    : 2026-11-20 11:29:04 UTC
- Machine    : 75814b376bae (linux)
+ Started    : 2026-11-21 06:27:35 UTC
+ Machine    : 613dc634120a (linux)
 
-Quarantine : /tmp/console-capture/sR/quarantine/run-1795174144-0232-19a58dd6.rq
-Run id     : run-1795174144-0232-19a58dd6
-Created    : 2026-11-20 11:29:04 UTC
-Keys       : local(33cf6098) · org(fe5a0480)
+Quarantine : /tmp/console-capture/sR/quarantine/run-1795242455-0232-15ab047.rq
+Run id     : run-1795242455-0232-15ab047
+Created    : 2026-11-21 06:27:35 UTC
+Keys       : local(b673864e) · org(0d3d5dc5)
 Extract mode: items go to /tmp/console-capture/orgout, not to their original place.
   In-place restore is only guaranteed on the original machine.
 
@@ -1245,7 +1244,7 @@ Extract mode: items go to /tmp/console-capture/orgout, not to their original pla
   [e1] /tmp/console-capture/orgout/_tmp_console-capture_orgsrc_g2.evil
         not restorable  ctime: the operating system owns this value; it cannot be restored
         not restorable  btime: this operating system cannot set this value
-  Volume /  needs 20 · free 965284012032 bytes
+  Volume /  needs 20 · free 965151956992 bytes
 
   restored [e0] /tmp/console-capture/orgout/_tmp_console-capture_orgsrc_g1.evil  (content · mtime · readonly · mode)
   restored [e1] /tmp/console-capture/orgout/_tmp_console-capture_orgsrc_g2.evil  (content · mtime · readonly · mode)
@@ -1263,7 +1262,7 @@ _tmp_console-capture_orgsrc_g2.evil
 
 [exit=6]
 
-ESTsecurity Dedicated Cleaner 1.25.3 · rules 2026.11.20.4
+ESTsecurity Dedicated Cleaner 1.25.3 · rules 2026.11.21
 Running with root rights.
 Notice: no code-signing check on Linux. Check the downloaded file's checksum.
 
@@ -1308,11 +1307,11 @@ No vulnerability was found.
 [3/11] Java4Shell check (CVE-2026-114938)
 
 Starting scan.
-Scanning · files · 2345 folders · 17299 entries · 0 processed · root 2/2 · 5s elapsed · …c/index.crates.io-1949cf8c6b5b557f/defmt-1.1.0/src/encoding
-Scanning · files · 4700 folders · 31539 entries · 0 processed · root 2/2 · 10s elapsed · …dex.crates.io-1949cf8c6b5b557f/portable-atomic-1.13.1/tests
-Scanning · files · 7157 folders · 48538 entries · 0 processed · root 2/2 · 15s elapsed · …ry/src/index.crates.io-1949cf8c6b5b557f/utf8parse-0.2.2/src
-Scanning · files · 9051 folders · 58732 entries · 0 processed · root 2/2 · 20s elapsed · …/windows-0.61.3/src/Windows/ApplicationModel/Calls/Provider
-Scanning · files · 10891 folders · 62851 entries · 0 processed · root 2/2 · 25s elapsed · …557f/windows-sys-0.52.0/src/Windows/Win32/Storage/Packaging
+Scanning · files · 2805 folders · 20451 entries · 0 processed · root 2/2 · 5s elapsed · …stry/src/index.crates.io-1949cf8c6b5b557f/h2-0.4.15/benches
+Scanning · files · 5356 folders · 35902 entries · 0 processed · root 2/2 · 10s elapsed · …x.crates.io-1949cf8c6b5b557f/roxmltree-0.21.1/testing-tools
+Scanning · files · 7966 folders · 55689 entries · 0 processed · root 2/2 · 15s elapsed · …8c6b5b557f/windows-0.52.0/src/Windows/Win32/Devices/Display
+Scanning · files · 9992 folders · 60207 entries · 0 processed · root 2/2 · 20s elapsed · …f8c6b5b557f/windows-0.62.2/src/Windows/Wdk/System/Threading
+Scanning · evaluating · 12223 folders · 70082 entries · 794 processed · 25s elapsed
 Scan done : 0 trace(s) · 0 vulnerable
 
 No vulnerability was found.
@@ -1400,7 +1399,7 @@ Next
   To look at whole disks too — 2. Full scan (12 items · whole disks too · can take a long time)
 
 Press Enter to go back to the menu. 
-ESTsecurity Dedicated Cleaner 1.25.3 · rules 2026.11.20.4
+ESTsecurity Dedicated Cleaner 1.25.3 · rules 2026.11.21
 Running with root rights.
 
 What would you like to check? (13 items)
@@ -1434,8 +1433,8 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
  ESTsecurity Dedicated Cleaner 1.25.3
  PHP2Shell · Apache HTTP/2 remote check (web server headers)  (php2shell-url-check 0.2.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-20 11:33:49 UTC
- Machine    : 75814b376bae (linux)
+ Started    : 2026-11-21 06:32:06 UTC
+ Machine    : 613dc634120a (linux)
 
 
 This check uses the network — it sends requests to the addresses you give.
@@ -1460,7 +1459,7 @@ Checking 1 URL(s) — requests are 2 seconds apart, up to 10 seconds per URL.
 What the headers say may differ from what is installed.
 URL checks never say "clear" — confirm on that server with remedy's PHP2Shell, PHP session and Apache HTTP/2 checks.
 Review needed: there is no basis to call the items listed above not vulnerable.
-Report: /tmp/console-capture/scan-all/net-out/remedy-net-url-20261120T113349Z-2a795c1a3be27c35.json
+Report: /tmp/console-capture/scan-all/net-out/remedy-net-url-20261121T063206Z-60e31af07defe927.json
 [exit=6]
 --- 서명 파일(MANIFEST.minisig)을 지운 remedy-net ---
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
@@ -1468,8 +1467,8 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
  ESTsecurity Dedicated Cleaner 1.25.3
  PHP2Shell · Apache HTTP/2 remote check (web server headers)  (php2shell-url-check 0.2.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-20 11:33:49 UTC
- Machine    : 75814b376bae (linux)
+ Started    : 2026-11-21 06:32:06 UTC
+ Machine    : 613dc634120a (linux)
 
 Error: remedy-net is not signed, so it was not started — check that it came from the vendor.
   (exit code 5: stopped by a safety guard (limit, protected path, signature))
@@ -1481,7 +1480,7 @@ Error: remedy-net is not signed, so it was not started — check that it came fr
 
 [exit=1]
 
-ESTsecurity Dedicated Cleaner 1.25.3 · rules 2026.11.20.4
+ESTsecurity Dedicated Cleaner 1.25.3 · rules 2026.11.21
 Running with root rights.
 Notice: no code-signing check on Linux. Check the downloaded file's checksum.
 
@@ -1526,11 +1525,11 @@ No vulnerability was found.
 [3/11] Java4Shell check (CVE-2026-114938)
 
 Starting scan.
-Scanning · files · 2596 folders · 18854 entries · 0 processed · root 2/2 · 5s elapsed · …tes.io-1949cf8c6b5b557f/fixedbitset-0.4.2/.github/workflows
-Scanning · files · 4968 folders · 33294 entries · 0 processed · root 2/2 · 10s elapsed · …rc/index.crates.io-1949cf8c6b5b557f/quick-xml-0.39.4/src/de
-Scanning · files · 7389 folders · 50561 entries · 0 processed · root 2/2 · 15s elapsed · …5b557f/wasmtime-43.0.2/src/runtime/vm/stack_switching/stack
-Scanning · files · 9406 folders · 59455 entries · 0 processed · root 2/2 · 20s elapsed · …o-1949cf8c6b5b557f/windows-0.61.3/src/Windows/Win32/Devices
-Scanning · files · 11318 folders · 63729 entries · 0 processed · root 2/2 · 25s elapsed · …ndows-sys-0.60.2/src/Windows/Win32/Media/WindowsMediaFormat
+Scanning · files · 2919 folders · 21137 entries · 0 processed · root 2/2 · 5s elapsed · …go/registry/src/index.crates.io-1949cf8c6b5b557f/http-1.4.2
+Scanning · files · 5554 folders · 37193 entries · 0 processed · root 2/2 · 10s elapsed · …io-1949cf8c6b5b557f/rustix-1.1.4/src/backend/linux_raw/arch
+Scanning · files · 8095 folders · 56018 entries · 0 processed · root 2/2 · 15s elapsed · …s-0.52.0/src/Windows/Win32/Security/NetworkAccessProtection
+Scanning · files · 9986 folders · 60214 entries · 0 processed · root 2/2 · 20s elapsed · …o-1949cf8c6b5b557f/windows-0.62.2/src/Windows/Wdk/System/IO
+Scanning · files · 11892 folders · 66077 entries · 0 processed · root 2/2 · 25s elapsed · …s.io-1949cf8c6b5b557f/yara-x-1.22.1/src/modules/test_proto2
 Scan done : 0 trace(s) · 0 vulnerable
 
 No vulnerability was found.
@@ -1538,7 +1537,7 @@ No vulnerability was found.
 [4/11] CWPdoor check (detect only)
 
 Starting scan.
-Output    : /tmp/console-capture/scan-all/pkg/out/20261120T113417Z  (artifacts.json · scan.json · plan.json)
+Output    : /tmp/console-capture/scan-all/pkg/out/20261121T063232Z  (artifacts.json · scan.json · plan.json)
 Scan done : 2 trace(s) · 1 threat(s)
    1. /usr/local/cwpsrv/bin/cwpsrv
 
@@ -1547,7 +1546,7 @@ Threat found, not treated.
 [5/11] CWPdoor Removal
 
 Starting scan.
-Output    : /tmp/console-capture/scan-all/pkg/out/20261120T113417Z-2  (artifacts.json · scan.json · plan.json)
+Output    : /tmp/console-capture/scan-all/pkg/out/20261121T063232Z-2  (artifacts.json · scan.json · plan.json)
 Scan done : 3 trace(s) · 1 threat(s)
 If treated, 4 action(s) will run (nothing is changed now):
    1. Stop service  /lib/systemd/system/cwpsrv.service
@@ -1628,7 +1627,7 @@ Next
   To look at whole disks too — 2. Full scan (12 items · whole disks too · can take a long time)
 
 Press Enter to go back to the menu. 
-ESTsecurity Dedicated Cleaner 1.25.3 · rules 2026.11.20.4
+ESTsecurity Dedicated Cleaner 1.25.3 · rules 2026.11.21
 Running with root rights.
 
 What would you like to check? (13 items)
@@ -1693,7 +1692,7 @@ Starting scan.
 
   Note: 1 declared item(s) could not be resolved:
      - '/usr/local/cwpsrv/bin/cwpsrv' does not exist
-Output    : /tmp/console-capture/scan-all/pkg/out/20261120T113419Z-2  (artifacts.json · scan.json · plan.json)
+Output    : /tmp/console-capture/scan-all/pkg/out/20261121T063234Z-2  (artifacts.json · scan.json · plan.json)
 Scan done : 0 trace(s) · 0 threat(s)
 
 No threat was found.
@@ -1717,7 +1716,7 @@ Next
     /tmp/console-capture/scan-all/pkg/plugins/cwpdoor-2-clean/RELEASE.md
 
 Press Enter to go back to the menu. 
-ESTsecurity Dedicated Cleaner 1.25.3 · rules 2026.11.20.4
+ESTsecurity Dedicated Cleaner 1.25.3 · rules 2026.11.21
 Running with root rights.
 
 What would you like to check? (13 items)
