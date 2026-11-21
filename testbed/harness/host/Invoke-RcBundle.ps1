@@ -1,8 +1,8 @@
 ﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
-    출시의 Windows 랩 묶음 — 지난 공개본(A)과 이번 판(B)을 랩 VM 과 이 기계에서 나란히 재는 27단계
-    (docs/개발-안내.md "출시 검증").
+    출시의 Windows 랩 묶음 — 지난 공개본(A)과 이번 판(B)을 랩 VM 과 이 기계에서 나란히 재는 단계들
+    (docs/개발-안내.md "출시 검증" · 단계 수는 하네스 머리 줄로 찾는 새 룰 하네스만큼 늘어 글자로 적지 않는다 — summary.txt 가 센다).
 
 .DESCRIPTION
     `-Package` 는 rc(평소 경로) 또는 공개한 판(긴급 경로의 미룬 검증)을 **내려받아 푼** `remedy-windows-x64` 폴더, `-PackageA`
@@ -330,6 +330,21 @@ Step 'nginx' {
 Step 'php2611' {
     & (Join-Path $h 'Invoke-Php202611Verify.ps1') -Package $Package -PhpZipDir $phpWinDir -LogDir (Join-Path $LogDir 'php2611')
 } $verdictLine
+# 머리 줄로 찾는 새 룰 하네스(2026-11-21) — 새 룰 PR 이 이 스크립트를 고치지 않게(셋이 함께 지으면 이 자리가 부딪혔다), 하네스
+# 머리 40줄 안의 `# rc 묶음: <단계 이름>` 줄을 읽어 손으로 적은 하네스 뒤에 이름순으로 돈다. 표준 인자(`-Package` · `-LogDir` ·
+# `-Inputs` — 시료는 그 하네스가 `-Inputs` 아래에 스스로 받는다)를 받고 끝에 '판정 N/N · 실패 0' 줄을 내는 하네스여야 한다.
+# 손으로 적은 단계와 이름이 같으면 두 번 돌지 않는다.
+$handStages = @('demo', 'menu', 'apache', 'java4shell', 'nginx', 'php2611', 'log4j-disk', 'log4j-positive')
+foreach ($hostHarness in (Get-ChildItem -LiteralPath $h -Filter '*.ps1' | Sort-Object Name)) {
+    $stageName = $null
+    foreach ($headLine in (Get-Content -LiteralPath $hostHarness.FullName -TotalCount 40 -Encoding UTF8)) {
+        if ($headLine -match '^# rc 묶음: *([a-z0-9][a-z0-9-]*)') { $stageName = $Matches[1]; break }
+    }
+    if (-not $stageName -or $handStages -contains $stageName) { continue }
+    $harnessPath = $hostHarness.FullName
+    $stageDir = Join-Path $LogDir $stageName
+    Step $stageName { & $harnessPath -Package $Package -LogDir $stageDir -Inputs $Inputs } $verdictLine
+}
 # 종료 코드의 Windows 회귀 — A/B 가 아니라 정한 값을 단정한다(전에는 출시 경로 밖 `Invoke-Sweep` 에서만 돌았다).
 # 가드 중단 5(상한 · 보호 경로) · 관측 불완전 6 · 일부 실패 3. Partial 은 남의 감염이 없고 게스트에 node.exe 가 있어야
 # 서므로 이 자리다(outside · nssm 이 치운 Node.js 는 reset5 가 되살렸다). 남긴 RunOnce 예약은 아래 reset6 이 되돌린다.

@@ -3,13 +3,18 @@
 //! # 왜 생성하는가
 //!
 //! 꾸러미가 OS 별 통합이 되면 받기 전에 무엇이 들었는지 알 자리가 README 와 릴리스 본문뿐이다.
-//! 손으로 쓴 표는 룰이 늘 때 반드시 어긋난다 — 그래서 `plugins/*/plugin.yaml` 에서 만들고,
-//! `cargo xtask all` 이 README 의 표가 그것과 같은지 본다(`schema` 와 같은 모양). 릴리스 본문은
-//! 배포 잡의 `ci/release-notes.sh` 가 README 의 같은 구간을 읽어 본문의 꼴로 바꿔 옮긴다(`table` 의 설명).
+//! 손으로 쓴 표는 룰이 늘 때 반드시 어긋난다 — 그래서 `plugins/*/plugin.yaml` 에서 만든다. 릴리스 본문은 배포 잡이
+//! **태그 나무의 매니페스트에서** 지은 표(`--print`)를 `ci/release-notes.sh` 가 본문의 꼴로 바꿔 넣는다.
+//!
+//! 2026-11-21 부터 룰 PR 은 README 의 표를 고치지 않는다(목표 remedy_하루30건_대응체계 차례 2 — 셋이 함께 지으면 이웃
+//! 줄이 부딪히고, 같은 위협을 OS 로 나눠 지으면 git 이 충돌 없이 두 줄로 합쳐 표가 틀렸다). README 의 표는 하루 한 번
+//! `cargo xtask views --write` 가 갈아 끼우는 생성물이라 `cargo xtask all` 은 **지을 수 있는가**만 본다.
 //!
 //! ```text
-//! cargo xtask threats                README 의 표가 지금 룰과 같은가 (아니면 실패)
+//! cargo xtask threats                표를 지을 수 있는가(README 와는 견주지 않는다 · `all` 이 부른다)
+//! cargo xtask threats --check        README 의 표가 지금 룰과 같은가 (아니면 실패)
 //! cargo xtask threats --write        README 의 표를 다시 쓴다
+//! cargo xtask threats --print        표를 그대로 낸다(배포 잡의 릴리스 본문)
 //! cargo xtask threats --dirs linux   그 OS 의 룰 폴더 (배포 잡이 서명 · 꾸러미에 쓴다)
 //! ```
 
@@ -22,8 +27,28 @@ const BEGIN: &str =
     "<!-- threats:begin — `cargo xtask threats --write` 가 룰에서 만든다. 손으로 고치지 않는다 -->";
 const END: &str = "<!-- threats:end -->";
 
+/// 그 커밋 · 태그(`rev`)의 제품 룰 — git 에서 `plugins/<이름>/plugin.yaml` 을 읽어 이름순으로. 지난 출시의 업데이트
+/// 내역 칸을 다시 지을 때 그 출시의 이름 · 차례로 짓는다(`crate::fragments`).
+pub(crate) fn plugins_at(root: &Path, rev: &str) -> Result<Vec<(PathBuf, PluginManifest)>, String> {
+    let mut out = Vec::new();
+    for path in crate::gitbase::ls(root, rev, "plugins")? {
+        let parts: Vec<&str> = path.split('/').collect();
+        if parts.len() != 3 || parts[2] != "plugin.yaml" {
+            continue;
+        }
+        let Some(bytes) = crate::gitbase::show(root, rev, &path)? else {
+            continue;
+        };
+        let m: PluginManifest = serde_yaml_ng::from_str(&String::from_utf8_lossy(&bytes))
+            .map_err(|e| format!("{rev}:{path}: {e}"))?;
+        out.push((PathBuf::from("plugins").join(parts[1]), m));
+    }
+    out.sort_by(|a, b| a.0.cmp(&b.0));
+    Ok(out)
+}
+
 /// 제품 룰 — `plugins/<이름>/plugin.yaml` 을 이름순으로.
-fn plugins(root: &Path) -> Result<Vec<(PathBuf, PluginManifest)>, String> {
+pub(crate) fn plugins(root: &Path) -> Result<Vec<(PathBuf, PluginManifest)>, String> {
     let dir = root.join("plugins");
     let mut out = Vec::new();
     for e in std::fs::read_dir(&dir).map_err(|e| format!("{}: {e}", dir.display()))? {
@@ -66,21 +91,23 @@ struct Row {
     refs: String,
     windows: Vec<String>,
     linux: Vec<String>,
+    /// 이 줄에 선 룰의 id(처음 나온 차례) — 업데이트 내역 조각을 위협 소제목으로 묶을 때 쓴다.
+    ids: Vec<String>,
 }
 
 /// 표에 서는 룰인가 — 데이터 룰(`kind: data` · 코어 1.12.0)은 위협을 다루지 않고 동반 프로그램이 읽는
 /// 기준을 담을 뿐이라 표에 서지 않는다. 꾸러미에는 들어간다(`--dirs`).
-fn listed(m: &PluginManifest) -> bool {
+pub(crate) fn listed(m: &PluginManifest) -> bool {
     m.kind != Some(remedy_sdk::manifest::PluginKind::Data)
 }
 
-/// README 의 위협 표. Windows 에 있는 줄이 먼저, 그 안은 폴더 이름순(처음 나온 차례).
-///
-/// 릴리스 본문은 `ci/release-notes.sh` 가 이 표를 읽어 '하는 일' 칸을 '방식' 칸(머리 · 값)으로 바꿔 넣는다 — 칸은
-/// 자리로 읽고(셋째 · 넷째가 Windows · Linux 가 아니면 멈춘다), 값은 그 스크립트의 `job_ko` 가 아는 `does` 문구여야
-/// 한다. 칸의 차례나 `does` 문구를 바꾸면 그 스크립트도 같은 PR 에서 고친다 — PR 의 CI 가 `ci/release-notes-test.sh`
-/// 로 지금 README 의 표를 그 스크립트에 넣어 본다(배포의 초안 잡은 태그에서만 돈다).
-fn table(plugins: &[(PathBuf, PluginManifest)]) -> String {
+/// 표의 줄 이름과 그 줄의 룰 id 를 표의 차례로 — 업데이트 내역의 `### <위협>` 차례가 이것이다(`crate::fragments`).
+pub(crate) fn order(plugins: &[(PathBuf, PluginManifest)]) -> Vec<(String, Vec<String>)> {
+    rows(plugins).into_iter().map(|r| (r.name, r.ids)).collect()
+}
+
+/// 표의 줄 — Windows 에 있는 줄이 먼저, 그 안은 폴더 이름순(처음 나온 차례).
+fn rows(plugins: &[(PathBuf, PluginManifest)]) -> Vec<Row> {
     let mut rows: Vec<Row> = Vec::new();
     for (dir, m) in plugins.iter().filter(|(_, m)| listed(m)) {
         let name = m
@@ -116,10 +143,12 @@ fn table(plugins: &[(PathBuf, PluginManifest)]) -> String {
                     refs,
                     windows: Vec::new(),
                     linux: Vec::new(),
+                    ids: Vec::new(),
                 });
                 rows.len() - 1
             }
         };
+        rows[i].ids.push(m.id.clone());
         if m.platforms.contains(&Platform::Windows) {
             rows[i].windows.push(cell.clone());
         }
@@ -129,6 +158,17 @@ fn table(plugins: &[(PathBuf, PluginManifest)]) -> String {
     }
     // 안정 정렬 — Windows 에 있는 줄이 먼저, 같은 쪽 안에서는 처음 나온 차례(폴더 이름순) 그대로.
     rows.sort_by_key(|r| r.windows.is_empty());
+    rows
+}
+
+/// README 의 위협 표.
+///
+/// 릴리스 본문은 `ci/release-notes.sh` 가 이 표를 읽어 '하는 일' 칸을 '방식' 칸(머리 · 값)으로 바꿔 넣는다 — 칸은
+/// 자리로 읽고(셋째 · 넷째가 Windows · Linux 가 아니면 멈춘다), 값은 그 스크립트의 `job_ko` 가 아는 `does` 문구여야
+/// 한다. 칸의 차례나 `does` 문구를 바꾸면 그 스크립트도 같은 PR 에서 고친다 — PR 의 CI 가 `ci/release-notes-test.sh`
+/// 로 지금 표를 그 스크립트에 넣어 본다(배포 잡은 태그에서만 돈다).
+pub(crate) fn table(plugins: &[(PathBuf, PluginManifest)]) -> String {
+    let rows = rows(plugins);
     let cell = |v: &[String]| {
         if v.is_empty() {
             "—".to_string()
@@ -184,25 +224,48 @@ pub fn run(root: &Path, args: &[String]) -> Result<(), String> {
         return Ok(());
     }
 
+    if args.iter().any(|a| a == "--print") {
+        print!("{}", table(&plugins));
+        return Ok(());
+    }
+
     let path = root.join(README);
     let readme = std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
     let (s, e) = section(&readme)?;
     let want = format!("\n{}", table(&plugins));
     let n = plugins.iter().filter(|(_, m)| listed(m)).count();
-    if readme[s..e] == want {
-        println!("threats OK — README 의 위협 표가 룰 {n}개와 같다");
-        return Ok(());
-    }
+    let same = readme[s..e] == want;
     if args.iter().any(|a| a == "--write") {
+        if same {
+            println!("threats OK — README 의 위협 표가 룰 {n}개와 같다");
+            return Ok(());
+        }
         let next = format!("{}{want}{}", &readme[..s], &readme[e..]);
         std::fs::write(&path, next).map_err(|e| format!("{}: {e}", path.display()))?;
         println!("threats 갱신 — README 의 위협 표를 룰 {n}개로 다시 썼다");
         return Ok(());
     }
-    Err(
-        "README 의 위협 표가 룰과 다르다 — `cargo xtask threats --write` 로 다시 쓰고 커밋할 것"
-            .into(),
-    )
+    if args.iter().any(|a| a == "--check") {
+        if same {
+            println!("threats OK — README 의 위협 표가 룰 {n}개와 같다");
+            return Ok(());
+        }
+        return Err(
+            "README 의 위협 표가 룰과 다르다 — `cargo xtask threats --write`(하루 한 번 `cargo xtask views --write` 가 \
+             함께 한다)"
+                .into(),
+        );
+    }
+    // 기본(`all`) — 표를 지을 수 있는가. README 의 표는 하루 한 번 갈아 끼우는 생성물이라 견주지 않는다.
+    println!(
+        "threats OK — 룰 {n}개로 표를 지었다{}",
+        if same {
+            ""
+        } else {
+            " (README 의 표는 낡았다 — 하루 한 번 `cargo xtask views --write` 가 갈아 끼운다)"
+        }
+    );
+    Ok(())
 }
 
 #[cfg(test)]
@@ -276,6 +339,20 @@ mod tests {
         ]);
         let without = table(&[rule("a-check-linux", "가 점검", "linux")]);
         assert_eq!(with, without);
+    }
+
+    /// 업데이트 내역의 위협 차례 — 표의 줄 차례 그대로이고, 줄마다 그 줄에 선 룰의 id 다.
+    #[test]
+    fn the_order_names_each_row_with_its_rules() {
+        let o = order(&[
+            rule("a-check-linux", "가 점검", "linux"),
+            rule("a-check-windows", "가 점검", "windows"),
+            rule("b-only-linux", "나 점검", "linux"),
+        ]);
+        assert_eq!(o.len(), 2);
+        assert_eq!(o[0].0, "가 점검");
+        assert_eq!(o[0].1, vec!["a-check-linux", "a-check-windows"]);
+        assert_eq!(o[1].0, "나 점검");
     }
 
     #[test]

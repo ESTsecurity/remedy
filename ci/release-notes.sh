@@ -1,68 +1,108 @@
 #!/bin/bash
-# 배포 본문 — 틀(.github/release-notes.md)을 이 태그의 값으로 채워 stdout 에 쓴다. 배포 워크플로의 초안(`draft` 잡)과
-# 로컬 미리 보기가 같은 스크립트를 쓴다.
+# 배포 본문 — 틀(.github/release-notes.md)을 이 태그의 값으로 채워 stdout 에 쓴다. 배포 워크플로(리눅스 잡 — 도구를 지은
+# 뒤 초안의 본문을 바꾼다)와 로컬 미리 보기가 같은 스크립트를 쓴다.
 #
-#   bash ci/release-notes.sh <태그>      저장소 루트에서 — 태그는 v<엔진 버전>[-rc.N] · rules-<룰 버전>[-rc.N]
+#   bash ci/release-notes.sh <태그> [--prev <Latest 의 태그>] [--engine <싣는 엔진>] [--rules <룰 버전>]
+#                            [--changes <파일>] [--table <파일>]
+#
+# 저장소 루트에서 — 태그는 v<엔진 버전>[-rc.N] · rules-<룰 버전>[-rc.N]. 값은 배포 잡이 버전 검사의 출력으로 준다:
+#   --prev     지금 Latest(주지 않으면 gh 로 읽는다) — 비교 구간과 바뀐 내용의 기준
+#   --engine   이 출시가 싣는 엔진(기본 Cargo.toml — 룰만 바뀐 출시는 Latest 의 엔진이라 배포 잡이 준다)
+#   --rules    룰 버전(rules 태그는 이름에서 · v 태그는 주석 태그의 메시지에서 — 없으면 이 인자)
+#   --changes  바뀐 내용(기본 `cargo xtask changes --since <prev>` — 시험이 파일로 준다)
+#   --table    위협 표(기본 `cargo xtask threats --print` — 태그 나무의 매니페스트에서 · 시험이 파일로 준다)
 #
 # 채우는 것:
-#   {{CHANGES}}              docs/업데이트-내역.md 의 이 버전 칸 — 없으면 멈춘다(바뀐 내용이 빠진 본문을 올리지 않는다).
-#                            칸의 이름은 머리의 앞 낱말이다 — 엔진이 바뀐 출시는 `<엔진 버전>`, 룰만 바뀐 출시는 `룰 <룰 버전>`
-#   {{SINCE}}                (`<지난 칸>` → `<이 칸>`) — 지난 칸은 그 파일에서 바로 아래 칸
-#   {{TABLE}}                README 의 위협 표(`cargo xtask threats` 가 룰과 같은지 매 커밋 본다)를 본문의 꼴로 — 정렬 표시와
-#                            '하는 일' 칸을 '방식' 칸으로(머리 · 값). Windows · Linux 칸의 차례가 다르거나 모르는 '하는 일'
-#                            문구면 멈춘다(아래 job_ko — 그 문구는 xtask/src/threats.rs 가 짓는다)
+#   {{CHANGES}}              이 태그가 지금 Latest 뒤에 새로 실은 업데이트 내역 조각(docs/changes/)을 모은 칸 — 없으면
+#                            멈춘다(바뀐 내용이 빠진 본문을 올리지 않는다). 2026-11-21 부터 — 전에는 업데이트 내역 파일의 칸
+#   {{SINCE}}                (`<Latest>` → `<이 출시>`) — 룰만 바뀐 출시는 `룰 <룰 버전>`, 엔진 출시는 `프로그램 <엔진 버전>`
+#   {{TABLE}}                위협 표를 본문의 꼴로 — 정렬 표시와 '하는 일' 칸을 '방식' 칸으로(머리 · 값). Windows · Linux 칸의
+#                            차례가 다르거나 모르는 '하는 일' 문구면 멈춘다(아래 job_ko — 그 문구는 xtask/src/threats.rs 가 짓는다)
 #   {{SUMMARY}}              그 표의 줄마다 룰 매니페스트로 가른 묶음 — 악성코드 치료(remediate) · 악성코드 검사(그 밖) ·
 #                            취약한 버전 · 설정 검사(kind: check) · 네트워크 기반 점검(network). 묶음 안에서는 OS 로 다시 묶는다
-#   {{REPO_URL}} · {{HISTORY_URL}}
+#   {{REPO_URL}} · {{HISTORY_URL}}(릴리스 목록 — 업데이트 내역 파일은 하루 한 번 갈아 끼워 하루 늦을 수 있다)
 #
 # 다 채운 뒤 채우지 못한 자리 · 닫히지 않은 코드 블록 · 짝이 맞지 않는 <details> · 상대 링크가 있으면 멈춘다 — 2026-11-18
-# 에 손으로 다듬은 본문이 확인 명령 중간에서 끊긴 채 공개된 일이 있었다. 긴급 경로는 rc 없이 정식 태그에서 처음 돌므로
-# 태그를 밀기 전에 미리 본다(docs/긴급-대응.md). 이 스크립트 · 틀 · README 표를 고치면 `bash ci/release-notes-test.sh` —
-# 새 꼴 칸 두 종류의 본문과 멈춤 장치를 저장소 밖 사본에서 본다(PR 의 CI 도 돌린다).
+# 에 손으로 다듬은 본문이 확인 명령 중간에서 끊긴 채 공개된 일이 있었다. 조각의 꼴은 PR 에서 `cargo xtask fragments` 가
+# 먼저 본다. 이 스크립트 · 틀을 고치면 `bash ci/release-notes-test.sh` — 두 종류의 본문과 멈춤 장치를 저장소 밖 사본에서
+# 본다(PR 의 CI 도 돌린다).
 set -euo pipefail
 # 로캘을 배포 잡(ubuntu · C.UTF-8)과 같게 맞춘다 — 로캘이 비어 있는 Git Bash 에서는 [[:space:]] 가 바이트 0xA0 을 공백으로
 # 봐, 아래 trim 이 '참고' 의 '고'(EA B3 A0)처럼 그 바이트로 끝나는 글자를 잘랐다(2026-11-20 미리 보기). 태그 전 미리 보기가
 # 배포 잡과 같은 본문을 내야 한다.
 export LC_ALL=C.UTF-8
 
-tag=${1:-}
-[ -n "$tag" ] || { echo "쓰는 법: bash ci/release-notes.sh <태그>" >&2; exit 2; }
+tag="" prev="" engine="" rules="" changes_file="" table_file=""
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --prev) prev=$2; shift 2 ;;
+        --engine) engine=$2; shift 2 ;;
+        --rules) rules=$2; shift 2 ;;
+        --changes) changes_file=$2; shift 2 ;;
+        --table) table_file=$2; shift 2 ;;
+        -*) echo "모르는 인자: $1" >&2; exit 2 ;;
+        *) [ -z "$tag" ] || { echo "태그는 하나만: $1" >&2; exit 2; }; tag=$1; shift ;;
+    esac
+done
+[ -n "$tag" ] || { echo "쓰는 법: bash ci/release-notes.sh <태그> [--prev <태그>] [--engine <X.Y.Z>] [--rules <룰 버전>]" >&2; exit 2; }
 tpl=.github/release-notes.md
-log=docs/업데이트-내역.md
-for f in "$tpl" "$log" README.md Cargo.toml plugins/RULES-VERSION; do
+for f in "$tpl" Cargo.toml; do
     [ -f "$f" ] || { echo "::error::$f 가 없다 — 저장소 루트에서 부를 것" >&2; exit 2; }
 done
 
-engine=$(grep -m1 -E '^\s*version' Cargo.toml | cut -d'"' -f2)
-rules=$(tr -d '\r\n' <plugins/RULES-VERSION)
+[ -n "$engine" ] || engine=$(grep -m1 -E '^\s*version' Cargo.toml | cut -d'"' -f2)
 case "$tag" in
-    rules-*) key="룰 $rules" ;;
-    v*) key=$engine ;;
+    rules-*)
+        name=${tag#rules-}
+        name=${name%-rc.*}
+        [ -z "$rules" ] || [ "$rules" = "$name" ] || { echo "::error::--rules $rules 이 태그 $tag 와 다르다" >&2; exit 2; }
+        rules=$name
+        key="룰 $rules"
+        ;;
+    v*)
+        if [ -z "$rules" ]; then
+            subject=$(git for-each-ref --format='%(contents:subject)' "refs/tags/$tag" 2>/dev/null || true)
+            rules=$(sed -nE 's/^프로그램 [0-9]+\.[0-9]+\.[0-9]+ · 룰 ([0-9.]+)$/\1/p' <<<"$subject")
+        fi
+        [ -n "$rules" ] || { echo "::error::v 태그 $tag 의 룰 버전이 없다 — 주석 태그의 메시지 첫 줄이나 --rules" >&2; exit 2; }
+        key="프로그램 $engine"
+        ;;
     *) echo "::error::태그 $tag 는 v<엔진 버전> 도 rules-<룰 버전> 도 아니다" >&2; exit 2 ;;
 esac
+if [ -z "$prev" ]; then
+    prev=$(gh release view --json tagName --jq .tagName 2>/dev/null) ||
+        { echo "::error::지금 Latest 를 읽지 못했다 — gh 로그인 · GH_TOKEN 을 보거나 --prev 를 준다" >&2; exit 2; }
+fi
 
-# ── 바뀐 내용 — 업데이트 내역의 이 버전 칸 ─────────────────────────────────────────────────────────
-head="## $key"
-changes=$(awk -v h="$head" 'f && /^## / { exit } f { print } index($0, h " ") == 1 || $0 == h { f = 1 }' "$log" |
-    tr -d '\r' | sed '/./,$!d')
-prev=$(awk -v h="$head" 'f && /^## / { print ($2 == "룰" ? $2 " " $3 : $2); exit } index($0, h " ") == 1 || $0 == h { f = 1 }' "$log")
+# ── 바뀐 내용 — Latest 뒤에 새로 든 조각 ─────────────────────────────────────────────────────────────
+if [ -n "$changes_file" ]; then
+    changes=$(tr -d '\r' <"$changes_file" | sed '/./,$!d')
+else
+    changes=$(cargo xtask changes --since "$prev" 2>/dev/null | tr -d '\r' | sed '/./,$!d') || changes=""
+fi
 if [ -z "$changes" ]; then
-    echo "::error::$log 에 '$head' 칸이 없다 — 이 버전에서 바뀐 내용을 먼저 적는다" >&2
+    echo "::error::$prev 뒤에 더한 업데이트 내역 조각이 없다 — 이 출시에서 바뀐 것을 docs/changes/ 에 먼저 적는다(cargo xtask changes --since $prev)" >&2
     exit 1
 fi
-# 제목의 두 칸에 같은 꼴의 이름을 붙인다 — 엔진 출시의 칸 이름은 버전 숫자뿐이라 '룰 2026.11.18.2 → 1.24.0' 처럼 짝이
-# 맞지 않았다(2026-11-18 검토).
-label() { case "$1" in '룰 '*) printf '%s' "$1" ;; *) printf '프로그램 %s' "$1" ;; esac; }
-if [ -n "$prev" ]; then
-    since="(\`$(label "$prev")\` → \`$(label "$key")\`)"
-else
-    since="(\`$(label "$key")\`)"
-fi
+# 제목의 두 칸에 같은 꼴의 이름을 붙인다 — 룰만 바뀐 출시는 `룰 <룰 버전>`, 엔진 출시는 `프로그램 <엔진 버전>`.
+label() {
+    case "$1" in
+        rules-*) local v=${1#rules-}; printf '룰 %s' "${v%-rc.*}" ;;
+        v*) local v=${1#v}; printf '프로그램 %s' "${v%-rc.*}" ;;
+        *) printf '%s' "$1" ;;
+    esac
+}
+since="(\`$(label "$prev")\` → \`$key\`)"
 
-# ── 위협 표와 묶음 — README 의 표 · 룰 매니페스트 ────────────────────────────────────────────────────
-rows=$(sed -n '/<!-- threats:begin/,/<!-- threats:end -->/p' README.md | sed '1d;$d' | tr -d '\r')
+# ── 위협 표와 묶음 — 태그 나무의 매니페스트 ──────────────────────────────────────────────────────────
+if [ -n "$table_file" ]; then
+    table_src=$(tr -d '\r' <"$table_file")
+else
+    table_src=$(cargo xtask threats --print 2>/dev/null | tr -d '\r') || table_src=""
+fi
+rows=$(sed '/^[[:space:]]*$/d' <<<"$table_src")
 if [ -z "$rows" ]; then
-    echo "::error::README 에 위협 표가 없다 — cargo xtask threats --write" >&2
+    echo "::error::위협 표를 짓지 못했다 — cargo xtask threats --print" >&2
     exit 1
 fi
 
@@ -152,7 +192,8 @@ summary=${summary%$'\n'}
 
 # ── 틀 채우기 ────────────────────────────────────────────────────────────────────────────────────
 repo_url="${GITHUB_SERVER_URL:-https://github.com}/${GITHUB_REPOSITORY:-ESTsecurity/remedy}"
-history_url="$repo_url/blob/main/docs/%EC%97%85%EB%8D%B0%EC%9D%B4%ED%8A%B8-%EB%82%B4%EC%97%AD.md"
+# 지난 버전의 변경 내용 — 릴리스 목록(늘 최신이다). 업데이트 내역 파일은 하루 한 번 갈아 끼워 하루 늦을 수 있다.
+history_url="$repo_url/releases"
 out=""
 first=1
 skip=0

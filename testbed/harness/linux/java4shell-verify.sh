@@ -1,4 +1,5 @@
 #!/bin/bash
+# 룰: java4shell-check-linux — 묶어 낸 출시(ci/batch.sh)가 바뀐 룰의 필수 점검 ① 로 이 하네스를 찾는다(--bin · --plugins · --out)
 # Java4Shell 점검 룰(java4shell-check-linux)을 배포판 · 배포사 이미지에서 잰다.
 #
 # 호스트(WSL)에서, 저장소 루트:
@@ -7,8 +8,8 @@
 #        [--out <결과 폴더>]
 #
 # `--bin` 은 **musl 정적** remedy 다(`musl-dev-build.sh` 또는 내려받아 푼 꾸러미의 것). `--plugins` 는
-# `java4shell-check-linux/` 를 담은 폴더다 — 저장소 사본은 개발 키로 서명돼 있어 **개발 빌드**로, 배포 꾸러미의 사본은
-# 배포 키로 서명돼 있어 **공개한 실행 파일**로 잰다.
+# `java4shell-check-linux/` 를 담은 폴더다 — 저장소 사본(서명 없음 · 2026-11-21 부터)은 **개발 빌드**로, 배포 꾸러미의
+# 사본은 배포 키로 서명돼 있어 **공개한 실행 파일**로 잰다.
 #
 # 처음 한 번은 배포판 저장소에 닿아야 한다 — Java 를 깐 이미지를 지어 두고(`remedy-harness/java:*`), 다음부터는 그
 # 이미지를 쓴다. 배포사 이미지(`eclipse-temurin:*` · `amazoncorretto:*` · `tomcat:*`)는 미리 받아 둔다.
