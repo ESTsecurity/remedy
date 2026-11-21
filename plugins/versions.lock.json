@@ -7,9 +7,9 @@
     }
   },
   "apache-http2-check-windows": {
-    "version": "0.1.1",
+    "version": "0.1.2",
     "files": {
-      "plugin.yaml": "1093dd1826a51b019d0d633bc45d53bc3d190e5b1f4fdf44e9dd1cf277d3d1c7",
+      "plugin.yaml": "32b72a60611ef822a2ba0812303807941ae810a79246bf3ed37544b19de08c88",
       "rules/apache.yar": "62e74fe014841c2ba7dabec654e371d108c64dbb9e52b0c39f92325a9bcc8878"
     }
   },
@@ -93,9 +93,9 @@
     }
   },
   "log4j-check": {
-    "version": "0.2.1",
+    "version": "0.2.2",
     "files": {
-      "plugin.yaml": "b0c59ed6d2d2d10e8c22fcbd0a28b48aa6c978633065c5b4da86c19ea520055b"
+      "plugin.yaml": "ce7615025aa2ac83faa5e9e21aa76ff5b655aa8b58273f84c832db00e152959b"
     }
   },
   "nginx2root-check-linux": {
