@@ -338,5 +338,5 @@ platforms: [windows]
 - **메뉴 · *모두 검사만* · 위협 표에 서지 않는다.** `scan` · `run` · `verify` 에 주면 종료 4 다. 꾸러미에는
   `platforms` 대로 들어가고, 받는 사람은 `plugin verify` 로 그 폴더를 확인할 수 있다.
 - **기준을 바꾸면 그 파일과 `version` 만 고친다** — remedy-net 은 다시 짓지 않는다. `plugin-lock` 이 데이터
-  파일까지 잠그고, `cargo xtask net-criteria` 가 remedy-net 의 코드로 읽히는지 · 본체의 점검 룰과 같은 값인지
+  파일까지 git 바탕과 견주고, `cargo xtask net-criteria` 가 remedy-net 의 코드로 읽히는지 · 본체의 점검 룰과 같은 값인지
   본다. 서명은 다른 룰과 같고, remedy-net 은 그 서명을 확인하지 못하면 점검하지 않는다.
