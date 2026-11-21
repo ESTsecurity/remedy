@@ -1031,7 +1031,7 @@ flowchart LR
     R --> L["remedy plugin lint<br/>cargo xtask exam (자동 채점 1~4)"]
     L --> M["실기기 채점 5<br/>랩 VM · 컨테이너"]
     M --> P["태그 — rules-날짜 · v엔진버전<br/>docs/개발-안내.md"]
-    P --> S["Actions 가 짓고 룰을 서명<br/>초안 Release"]
+    P --> S["Actions 가 꾸러미를 짓고 룰을 서명<br/>초안 Release"]
     S --> SG["G9 · 내려받은 파일 확인 뒤 공개<br/>조직 Owner"]
 ```
 
@@ -1041,7 +1041,7 @@ flowchart LR
 | 1. 룰 | 위협 하나에 `plugin.yaml` 하나. 사람은 `docs/plugin-guide/README.md`, AI 는 `machine/AI-CONTEXT.md` 부터. 값을 모르는 지문(해시)은 기계에서 뽑는다 — `20-detect-recipes.md` §값을 모르는 지문 | §7 · §9 |
 | 2. 자동 검사 | `remedy plugin lint` → `cargo xtask exam --threat <id> --dir <회차>` (린트 · 청정 코퍼스 · 감염 탐지 · 계획 완결성). 새 위협이면 `THREAT.md` 와 감염 스냅샷부터 — 절차는 `testbed/ai-exam/README.md` | §4 · §9 |
 | 3. 실기기 | Windows `host\Invoke-ExamApply.ps1 -Threat <id> -Plugin <룰> -Revert` · Linux `linux/invoke-exam-apply.sh --threat <id> --plugin <룰>`. 감염 스냅샷은 `New-ThreatSnapshot.ps1`. 랩을 새로 세우면 `윈도우-VM-배포-시험-절차-전달.md` | §4 |
-| 4. 출시 | 바이너리를 손으로 짓지 않는다 — 태그를 밀면 Actions 가 짓고 룰을 서명해 **초안** Release 에 올린다(`.github/workflows/release.yml`). 룰만 바뀐 출시는 `rules-<날짜>`, 엔진이 바뀐 출시는 `v<엔진 버전>` 태그다. 급한 건은 [`긴급-대응.md`](긴급-대응.md), 평소 경로는 `docs/개발-안내.md` "출시 검증" · "버전 번호". 새 룰 하나가 룰 폴더 밖에서 손대는 자리는 `docs/개발-안내.md` "새 룰을 더할 때" | `docs/개발-안내.md` · `긴급-대응.md` |
+| 4. 출시 | 바이너리를 손으로 짓지 않는다 — 태그를 밀면 Actions 가 꾸러미를 짓고 룰을 서명해 **초안** Release 에 올린다(`.github/workflows/release.yml`). 룰만 바뀐 출시는 `rules-<날짜>`(엔진은 짓지 않고 지난 정식 공개본의 실행 파일을 그대로 싣는다), 엔진이 바뀐 출시는 `v<엔진 버전>` 태그다(Actions 가 엔진을 짓는다). 급한 건은 [`긴급-대응.md`](긴급-대응.md), 평소 경로는 `docs/개발-안내.md` "출시 검증" · "버전 번호". 새 룰 하나가 룰 폴더 밖에서 손대는 자리는 `docs/개발-안내.md` "새 룰을 더할 때" | `docs/개발-안내.md` · `긴급-대응.md` |
 | 5. 배포 파일 | Windows zip · 리눅스 tar.gz 하나에 `remedy(.exe)` 와 그 옆 `plugins/<id>/` 의 룰이 모두 든다. 받은 사람은 풀어서 실행한다 — Windows 는 더블클릭(권한이 없으면 첫 화면이 *관리자 권한으로 다시 열기* 를 권한다), 리눅스는 `sudo ./remedy` | §6 · §11 |
 | 6. 화면 | 화면 문구를 바꿨으면 기준선 4벌을 다시 받고 `console-diff` · `console-doc` 을 돌린다 | §4 · `콘솔은-이렇게-보인다.md` |
 

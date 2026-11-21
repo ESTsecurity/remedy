@@ -8,7 +8,9 @@
 
       1  정식 파일 — 엔진 · 동반 프로그램의 버전, 꾸러미에 든 룰 전부의 서명(`plugin verify`), 동반 프로그램이 판정
          기준을 알아보는가(`url` · `image` · `container` 도움말의 기준 줄), 실행 파일 둘의 코드서명(유효 · Authenticode ·
-         주체가 배포 워크플로의 `CODESIGN_SUBJECT` · 타임스탬프 — `VmSession.ps1` 의 `Get-CodeSignLine`)
+         주체가 배포 워크플로의 `CODESIGN_SUBJECT` · 타임스탬프 — `VmSession.ps1` 의 `Get-CodeSignLine`). `-Prev` 를
+         주면 **실행 파일 둘이 지난 공개본과 같은 바이트인가**도 본다 — 룰만 바뀐 출시는 지난 공개본의 서명된 실행
+         파일을 그대로 싣는다(`.github/workflows/release.yml`). 엔진 버전이 같은데 다르면 실패다
       2  시연 게이트(`Invoke-DemoVerify.ps1 -Bin`) — 그 꾸러미의 remedy.exe 를 랩의 시연 폴더에 세우고 잰다
       3  메뉴 하네스(`Invoke-MenuVerify.ps1 -Package -Prepare -ReinfectOnly`) — 그 꾸러미로 메뉴 흐름 전부
       4  랩 되돌리기(`Reset-Vm.ps1`)
@@ -27,12 +29,19 @@
 .PARAMETER LogDir
     기록을 남길 폴더(회차마다 새 폴더).
 
+.PARAMETER Prev
+    지난 공개본을 내려받아 푼 `remedy-windows-x64` 폴더 — 룰만 바뀐 출시의 배포 잡이 실행 파일을 받은 그 공개본이다
+    (잡 기록의 '지난 공개본 … 의 실행 파일을 받았다' · 평소에는 지금 Latest). 주지 않으면 실행 파일 대조를 건너뛰고
+    그렇게 적는다. 실행 파일을 다시 짓는 옛 워크플로(2026-11-21 전의 커밋 · 그 커밋에서 낸 긴급 가지)의 출시에는 주지
+    않는다 — Windows 실행 파일은 다시 지으면 빌드 칸이 달라 같은 바이트가 아니다.
+
 .EXAMPLE
-    .\testbed\harness\host\Invoke-EmergencyChecks.ps1 -Package D:\dl\x\remedy-windows-x64 -LogDir D:\dl\emergency-win
+    .\testbed\harness\host\Invoke-EmergencyChecks.ps1 -Package D:\dl\x\remedy-windows-x64 -Prev D:\dl\prev\remedy-windows-x64 -LogDir D:\dl\emergency-win
 #>
 param(
     [Parameter(Mandatory = $true)][string] $Package,
-    [Parameter(Mandatory = $true)][string] $LogDir
+    [Parameter(Mandatory = $true)][string] $LogDir,
+    [string] $Prev
 )
 $ErrorActionPreference = 'Continue'
 $h = $PSScriptRoot
@@ -42,6 +51,14 @@ $repo = (Resolve-Path (Join-Path $h '..\..\..')).Path
 $exe = Join-Path $Package 'remedy.exe'
 $net = Join-Path $Package 'remedy-net\remedy-net.exe'
 if (-not (Test-Path -LiteralPath $exe)) { throw "remedy.exe 가 없다: $exe" }
+# 지난 공개본의 실행 파일 둘 — `-Prev` 를 줬을 때만. 이름을 param 과 겹치지 않게 둔다(PowerShell 변수는 대소문자를 안 가린다).
+$oldExe = $null
+$oldNet = $null
+if ($Prev) {
+    $oldExe = Join-Path $Prev 'remedy.exe'
+    $oldNet = Join-Path $Prev 'remedy-net\remedy-net.exe'
+    foreach ($p in @($oldExe, $oldNet)) { if (-not (Test-Path -LiteralPath $p)) { throw "-Prev 에 실행 파일이 없다: $p" } }
+}
 New-Item -ItemType Directory -Force $LogDir | Out-Null
 $summary = Join-Path $LogDir 'summary.txt'
 function Note([string] $line) { $line; [IO.File]::AppendAllText($summary, $line + "`r`n") }
@@ -90,6 +107,23 @@ Step 'package' {
         $out | ForEach-Object { "$_" } | Where-Object { $_ -like 'Criteria:*' }
         '{0} help exit={1}' -f $c, $rc
     }
+    # 지난 공개본과 같은 바이트인가 — 바이트를 먼저 견준다(리눅스 스크립트와 같은 판정). 둘 다 같으면 통과. 다르면 두
+    # 버전 줄을 다 읽었고 엔진 버전이 다를 때만 견주지 않고 적는다 — 버전 줄이 같거나 읽지 못했으면 실패다. 버전 줄은
+    # 위의 `--version` 과 같은 언어(en)로 받는다.
+    if ($oldExe) {
+        $same = 0
+        foreach ($pair in @(@($exe, $oldExe), @($net, $oldNet))) {
+            $a = (Get-FileHash -Algorithm SHA256 -LiteralPath $pair[0]).Hash
+            $b = (Get-FileHash -Algorithm SHA256 -LiteralPath $pair[1]).Hash
+            if ($a -eq $b) { $same++ }
+        }
+        $newLine = "$(@(& $exe --version 2>&1) | Select-Object -First 1)"
+        $oldLine = "$(@(& $oldExe --version 2>&1) | Select-Object -First 1)"
+        if ($same -eq 2) { 'prevbytes=same 2/2' }
+        elseif ($newLine -and $oldLine -and $newLine -ne $oldLine) {
+            'prevbytes=skip engine version differs: {0} -> {1}' -f $oldLine, $newLine
+        } else { 'prevbytes=differ {0}/2 ({1} -> {2})' -f $same, $oldLine, $newLine }
+    } else { 'prevbytes=none' }
     Remove-Item Env:REMEDY_LANG -ErrorAction SilentlyContinue
     foreach ($p in @($exe, $net)) { Get-CodeSignLine -Path $p -Subject $subject }
 } {
@@ -100,11 +134,19 @@ Step 'package' {
     $helpGood = @($help | Where-Object { $_ -match ' help exit=0$' })
     $ver = @($lines | Where-Object { $_ -match '\(exit=0\)$' })
     $codesign = @($lines | Where-Object { $_ -match ' codesign=ok ' })
+    # 지난 공개본 대조 — 그 덩이가 낸 줄 하나로 판정한다(줄이 없으면 그 덩이가 돌지 않은 것이라 실패).
+    $prev = @($lines | Where-Object { $_ -match '^prevbytes=' }) | Select-Object -Last 1
+    $prevOk = [bool]($prev -and $prev -match '^prevbytes=(same|skip|none)')
+    $prevWhat = if (-not $prev) { '지난 공개본 대조 줄 없음' }
+                elseif ($prev -match '^prevbytes=same') { '지난 공개본과 같은 바이트 2/2' }
+                elseif ($prev -match '^prevbytes=skip') { '엔진 버전이 지난 공개본과 달라 견주지 않음' }
+                elseif ($prev -match '^prevbytes=none') { '지난 공개본 대조 없음(-Prev 를 주지 않았다)' }
+                else { '지난 공개본과 다른 바이트 — ' + ($prev -replace '^prevbytes=differ ', '') }
     $ok = ($verify.Count -gt 0) -and ($good.Count -eq $verify.Count) -and ($help.Count -eq 3) -and
-          ($helpGood.Count -eq 3) -and ($ver.Count -eq 2) -and ($codesign.Count -eq 2)
+          ($helpGood.Count -eq 3) -and ($ver.Count -eq 2) -and ($codesign.Count -eq 2) -and $prevOk
     $ok
-    '버전 {0}/2 · 룰 서명 {1}/{2} · 판정 기준 도움말 {3}/3 · 코드서명 {4}/2' -f $ver.Count, $good.Count, $verify.Count, $helpGood.Count,
-        $codesign.Count
+    '버전 {0}/2 · 룰 서명 {1}/{2} · 판정 기준 도움말 {3}/3 · 코드서명 {4}/2 · {5}' -f $ver.Count, $good.Count, $verify.Count,
+        $helpGood.Count, $codesign.Count, $prevWhat
 }
 Step 'demo' { & (Join-Path $h 'Invoke-DemoVerify.ps1') -Bin $exe } $verdictLine
 Step 'menu' { & (Join-Path $h 'Invoke-MenuVerify.ps1') -Package $Package -Prepare -ReinfectOnly } $verdictLine

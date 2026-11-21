@@ -9,8 +9,10 @@
 #
 # 견주는 것은 지난 정식 공개본 — `--ref`(기본 HEAD)의 첫 부모 역사에서 가장 가까운 정식 태그(시험판과 이 태그는 빼고)다.
 #   v 태그      태그 = Cargo.toml 의 버전 · 엔진이 바뀌었다 · 엔진 버전이 더 높다
-#   rules 태그  태그 = plugins/RULES-VERSION · 엔진이 그대로다 · 룰이 바뀌었다
+#   rules 태그  태그 = plugins/RULES-VERSION · 엔진이 그대로다(엔진 버전 문자열도) · 룰이 바뀌었다
 #   둘 다       룰이 바뀌었으면 룰 버전이 더 높고, 그대로면 룰 버전도 그대로다
+# rules 태그의 출시는 지난 공개본의 실행 파일을 그대로 싣는다(.github/workflows/release.yml) — 그 공개본이 여기서 견준
+# 태그다. 잡 안에서 돌면(`GITHUB_OUTPUT`) 그 태그를 `prev=<태그>` 로 낸다.
 # '엔진' 은 실행 파일을 짓는 것 전부다 — crates/ · Cargo.toml · Cargo.lock · rust-toolchain.toml · .cargo/config.toml
 # (Cargo.toml · Cargo.lock 의 엔진 버전 문자열은 가리고 견준다 — 버전만 올린 것은 엔진이 바뀐 것이 아니다).
 # '룰' 은 plugins/ 전부다(룰 버전 파일은 빼고). 지난 공개본이 없으면 견줄 것이 없어 꼴만 본다.
@@ -82,12 +84,16 @@ fi
 if have=$(git rev-parse -q --verify "refs/tags/$TAG^{commit}"); then
     [ "$have" = "$(git rev-parse "$REF^{commit}")" ] || fail "태그 $TAG 는 이미 다른 커밋(${have:0:12})에 있다"
 fi
+# 사선이 든 이름은 빼고 고른 뒤 꼴을 다시 잰다 — `--match` 의 `*` 는 `/` 를 넘어 `v0/x` 같은 이름도 고르는데, 태그 룰셋
+# (`refs/tags/v*` · `refs/tags/rules-*`)의 `*` 는 `/` 를 넘지 않아 그런 이름은 조직 Owner 가 아니어도 만든다. 룰만 바뀐
+# 출시는 고른 태그의 Release 에서 실행 파일을 받아 싣는다 — Owner 만 만드는 정식 태그만 그 출처가 된다.
 PREV=$(git describe --tags --abbrev=0 --first-parent --match 'v[0-9]*' --match 'rules-[0-9]*' \
-    --exclude '*-rc.*' --exclude "$TAG" "$REF" 2>/dev/null || true)
+    --exclude '*-rc.*' --exclude '*/*' --exclude "$TAG" "$REF" 2>/dev/null || true)
 if [ -z "$PREV" ]; then
     echo "지난 정식 공개본이 없다 — 꼴만 봤다($TAG · 엔진 $ENGINE · 룰 $RULES)"
     exit 0
 fi
+[[ "$PREV" =~ ^(v$ENGINE_RE|rules-$RULES_RE)$ ]] || fail "지난 공개본으로 고른 태그 $PREV 가 정식 태그(v<엔진 버전> · rules-<룰 버전>)의 꼴이 아니다"
 PREV_ENGINE=$(engine_at "$PREV")
 PREV_RULES=$(rules_at "$PREV")
 
@@ -100,6 +106,9 @@ if [ "$KIND" = engine ]; then
 else
     [ "$engine_changed" = 0 ] || fail "엔진이 $PREV 와 다르다 — 엔진이 바뀐 출시는 엔진 버전을 올려 v<버전> 으로 낸다"
     [ "$rules_changed" = 1 ] || fail "룰이 $PREV 와 같다 — 낼 것이 없다"
+    # 엔진 나무는 버전 줄을 가리고 견준다 — 버전 문자열만 올린 커밋은 위를 지난다. 그대로 내면 지난 공개본의 실행 파일
+    # (옛 버전)에 새 버전의 README · 제목이 붙는다.
+    [ "$ENGINE" = "$PREV_ENGINE" ] || fail "엔진 버전이 지난 공개본($PREV)의 $PREV_ENGINE 에서 $ENGINE 으로 바뀌었다 — 룰만 바뀐 출시는 그 공개본의 실행 파일을 그대로 싣는다. 버전을 되돌리거나, 엔진을 고쳐 v$ENGINE 으로 낸다"
 fi
 if [ -n "$PREV_RULES" ]; then
     if [ "$rules_changed" = 1 ]; then
@@ -108,4 +117,6 @@ if [ -n "$PREV_RULES" ]; then
         [ "$RULES" = "$PREV_RULES" ] || fail "룰이 $PREV 와 같은데 룰 버전을 $PREV_RULES → $RULES 로 바꿨다"
     fi
 fi
+# 배포 워크플로가 지난 공개본을 받아 쓴다 — 사람이 읽는 아래 줄을 파싱하지 않게 따로 낸다.
+[ -z "${GITHUB_OUTPUT:-}" ] || echo "prev=$PREV" >>"$GITHUB_OUTPUT"
 echo "버전 OK — $TAG · 지난 공개본 $PREV · 엔진 $PREV_ENGINE → $ENGINE · 룰 ${PREV_RULES:-없음} → $RULES"

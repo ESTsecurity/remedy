@@ -8,6 +8,18 @@
 # 서식 · 누출 · 의존 검사는 OS 와 상관없어 리눅스에서만 본다. Windows 는
 # `cfg(windows)` 코드를 컴파일하는 유일한 자리라 린트와 시험을 다시 돈다.
 #
+# **룰 · 문서 · 하네스만 바뀐 PR 은 가벼운 길로 간다**(`scope` 걸음 · 2026-11-21) — 바뀐 것이 `plugins/` · `docs/` ·
+# `README.md` · `testbed/harness/` 안뿐이면 입력이 그대로인 걸음(서식 · 린트 · Windows 의 시험 · 버전 검사 시험)을
+# 건너뛴다. 그 걸음들의 입력은 `crates/` · `xtask/` · `ci/` 와 의존 목록이라 결과가 바탕과 같다. 의존 검사(deny)는
+# 입력에 시간에 따라 바뀌는 권고 DB 가 있어 돌되 막지 않는다(그 걸음). 룰을 읽는 검사(`leaks` · `xtask all` · 릴리스
+# 본문 시험)와 리눅스의 `cargo test` 는 남는다 — 판정 코드에 OS 갈래가 없어 자료를 읽는 시험은 리눅스 한 곳에서 돈다.
+# 잰 값(2026-11-21 · 엔진 0줄 PR 10개): 지금 길은 중앙 20.4분이고 그 대부분이 `cargo test`(리눅스 9분 · Windows
+# 16분)다.
+# - 잡과 그 이름(`linux` · `windows`)은 그대로다 — `main` 룰셋의 필수 검사다. 걸음에만 조건을 건다(잡을 건너뛰면
+#   필수 검사가 통과로 세어진다).
+# - 조건은 **도는 쪽으로 떨어지게** 적는다(`light != 'true'`) — `scope` 가 값을 못 내면 전부 돈다.
+# - PR 이 아닌 실행(main 에 병합된 뒤 · 손으로 · 긴급 가지의 `gh workflow run`)은 늘 전부 돈다.
+#
 # 액션은 GitHub 이 만든 것만 쓰고 커밋 해시로 고정한다. 툴체인은 러너의 rustup 이
 # `rust-toolchain.toml` 을 읽어 받는다.
 
@@ -51,6 +63,33 @@ jobs:
           # 누출 검사가 모든 커밋의 메시지를 본다 — 얕게 받으면 한 커밋만 본다.
           fetch-depth: 0
           persist-credentials: false
+      # 가벼운 길인가(첫머리) — PR 의 HEAD 는 시험용 병합 커밋이고 첫 부모가 바탕이다. 허용 목록 밖이 그대로일 때만
+      # `light=true` 다. 그 가운데 **이미 있던 룰 폴더를 건드리지 않은** PR(새 룰만 더했거나 문서 · 하네스만 고친 것)은
+      # `rescore=false` — 재채점 시험 둘을 건너뛴다. 그 둘은 `testbed/ai-exam`(허용 목록 밖)과 이미 있는 룰 폴더 둘만
+      # 읽고(`xtask/src/exam.rs` 의 `REFERENCES`) 리눅스 시험 시간의 3분의 2 를 쓴다. 어느 명령이든 실패하면 값이 서지
+      # 않아 전부 돈다.
+      - name: scope
+        id: scope
+        run: |
+          light=false
+          rescore=true
+          if [ "$GITHUB_EVENT_NAME" = pull_request ] &&
+             git diff --quiet HEAD^1 HEAD -- . ':!plugins' ':!docs' ':!README.md' ':!testbed/harness'; then
+            light=true
+            # 옮기기 · 이름 바꾸기도 옛 자리를 센다(--no-renames) · 경로는 따옴표 없이 그대로(quotePath) · 이름에 공백이
+            # 있어도 줄 단위로 읽는다. 바탕에 있던 `plugins/<폴더>` 안의 파일이 하나라도 바뀌었으면 rescore=true 다.
+            if names=$(git -c core.quotePath=false diff --no-renames --name-only HEAD^1 HEAD -- plugins) &&
+               base=$(git -c core.quotePath=false ls-tree -d --name-only HEAD^1 plugins/); then
+              rescore=false
+              while IFS= read -r p; do
+                rest=${p#plugins/}
+                # plugins/ 바로 아래 파일(RULES-VERSION · 잠금)과 빈 줄은 룰 폴더가 아니다.
+                case "$rest" in */*) ;; *) continue ;; esac
+                if printf '%s\n' "$base" | grep -qxF -- "plugins/${rest%%/*}"; then rescore=true; fi
+              done <<<"$names"
+            fi
+          fi
+          { echo "light=$light"; echo "rescore=$rescore"; } | tee -a "$GITHUB_OUTPUT"
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
@@ -64,10 +103,15 @@ jobs:
         run: rustc --version && cargo --version
       # 가벼운 것부터 — 앞에서 걸리면 무거운 단계에 분을 쓰지 않는다.
       - name: fmt
+        if: steps.scope.outputs.light != 'true'
         run: cargo fmt --all -- --check
       - name: deny
         # 권고(advisories)는 새 공지가 나오면 코드와 상관없이 빨개진다 — 그때는 해당
         # 여부를 평가해 판을 올리거나, `deny.toml` 에 근거와 재검토 조건을 단다.
+        # 가벼운 길에서도 돌되 막지 않는다 — 입력에 시간에 따라 바뀌는 권고 DB 가 있어 룰만 바뀐 PR 에서도 새 권고가
+        # 보여야 하지만, 엔진과 상관없는 권고가 긴급 룰의 병합을 막지는 않는다(2026-11-19 에 그랬다). 룰만 바뀐 출시는
+        # 지난 공개본의 엔진을 그 권고까지 그대로 싣는다 — 엔진을 고칠 일이면 `v` 출시로 낸다.
+        continue-on-error: ${{ steps.scope.outputs.light == 'true' }}
         # 바이너리는 판과 해시를 고정해 받는다 — `~/.cargo/bin` 은 캐시하지 않아,
         # 소스로 지으면 실행마다 컴파일한다.
         env:
@@ -87,7 +131,13 @@ jobs:
       # 표 · 룰로 새 꼴 칸의 본문과 멈춤 장치를 PR 에서 본다(2026-11-20).
       - name: release notes script
         run: bash ci/release-notes-test.sh
+      # 버전 검사 스크립트(ci/version-check.sh)는 배포의 초안 잡에서만 돈다 — 고치면 태그 때가 아니라 PR 에서 드러나게
+      # 그 시험을 여기서 돈다(임시 저장소에 출시 경우를 지어 돌린다 · 약 20초).
+      - name: version check script
+        if: steps.scope.outputs.light != 'true'
+        run: bash ci/version-check-test.sh
       - name: clippy
+        if: steps.scope.outputs.light != 'true'
         run: cargo clippy --workspace --all-targets -- -D warnings
       # 실행 파일에 들어가는 코드는 화면에 `println!` 류로 쓰지 않는다 — 읽는 쪽이 먼저 닫힌 파이프(`| head`)에서
       # 패닉해, 1.21.0 까지는 치료 도중에 7 로 멈췄다. 쓰는 길은 본체의 `outln!` · `screen_err!` 등과 remedy-net 의
@@ -95,9 +145,21 @@ jobs:
       # 링크하는 작업 공간 크레이트까지 린트를 받는다. 시험 · 예제 · xtask 는 짓지 않고, 빌드 스크립트가 cargo 에
       # 주는 stdout 은 `print_stdout` 이 보지 않는다.
       - name: screen macros
+        if: steps.scope.outputs.light != 'true'
         run: cargo clippy -p remedy-cli -p remedy-net -- -D clippy::print_stdout -D clippy::print_stderr -D clippy::dbg_macro
+      # 가벼운 길에서도 돈다 — 룰 · 문서 · 하네스를 읽는 시험이 여기 있다(G1 의 청정 코퍼스 · 가이드 예제 · 실기기
+      # 증거 · remedy-net 기준 대조).
       - name: test
+        if: steps.scope.outputs.light != 'true' || steps.scope.outputs.rescore != 'false'
         run: cargo test --workspace
+      # 이미 있던 룰 폴더를 건드리지 않은 가벼운 PR — 재채점 시험 둘만 뺀다(`scope` 걸음). 이름이 바뀌면 그 시험이
+      # 다시 돌 뿐이다(느려지는 쪽으로 틀린다).
+      - name: test (without re-scoring)
+        if: steps.scope.outputs.light == 'true' && steps.scope.outputs.rescore == 'false'
+        run: >-
+          cargo test --workspace --
+          --skip every_recorded_run_still_scores_the_same
+          --skip every_threat_has_a_reference_answer_that_passes
       # 디스크가 찬 일이 있다 — 끝에 남은 자리와 크기를 적어 둔다.
       - name: disk
         if: ${{ !cancelled() }}
@@ -113,7 +175,20 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # 바탕(병합 커밋의 첫 부모)까지 받는다 — 아래 `scope` 가 그것과 견준다.
+          fetch-depth: 2
           persist-credentials: false
+      # 가벼운 길인가 — 리눅스 잡의 같은 걸음(첫머리). 가벼운 길의 Windows 는 `xtask all` 까지만 돈다.
+      - name: scope
+        id: scope
+        shell: bash
+        run: |
+          light=false
+          if [ "$GITHUB_EVENT_NAME" = pull_request ] &&
+             git diff --quiet HEAD^1 HEAD -- . ':!plugins' ':!docs' ':!README.md' ':!testbed/harness'; then
+            light=true
+          fi
+          echo "light=$light" | tee -a "$GITHUB_OUTPUT"
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
@@ -126,15 +201,19 @@ jobs:
       - name: toolchain
         run: rustc --version && cargo --version
       - name: fmt
+        if: steps.scope.outputs.light != 'true'
         run: cargo fmt --all -- --check
       - name: xtask all
         run: cargo xtask all
       - name: clippy
+        if: steps.scope.outputs.light != 'true'
         run: cargo clippy --workspace --all-targets -- -D warnings
       # 리눅스 잡과 같은 검사 — `cfg(windows)` 코드는 여기서만 컴파일된다.
       - name: screen macros
+        if: steps.scope.outputs.light != 'true'
         run: cargo clippy -p remedy-cli -p remedy-net -- -D clippy::print_stdout -D clippy::print_stderr -D clippy::dbg_macro
       - name: test
+        if: steps.scope.outputs.light != 'true'
         run: cargo test --workspace
       - name: disk
         if: ${{ !cancelled() }}
