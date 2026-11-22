@@ -107,7 +107,11 @@ remedy 의 감사 로그는 **무엇을 하려 했는가**를 말한다. `Captur
 - **Windows** — `# 입력: -<인자> <파일 이름> <sha256 | -> <주소>[|<주소>…]`(입력 하나에 한 줄 · 처음 20줄 안). `host/Invoke-RuleHarness.ps1` 이 받아(주소를 차례로 · TLS 1.2) SHA-256 을 대조하고(`-` 면 하네스가 스스로 대조한다) 인자 이름이 `Dir` 로 끝나면 폴더를, 아니면 파일을 표준 인자(`-Package` · `-LogDir`)와 함께 준다. 받을 입력이 없는 하네스(합성 자리 채우기만 쓰는 것)는 `# 입력: 없음` 한 줄을 단다 — 입력 줄이 아예 없으면 빠뜨린 것으로 보고 종료 2 로 멈춘다(PR CI 의 windows 필수 검사와 필수 점검 ① 이 실패한다). 러너는 자기 자신을 랩으로 쓴다 — `host/Initialize-RunnerLab.ps1` 이 먼저 서고(GitHub 호스팅 Windows 러너가 아니면 멈춘다), 하네스는 그 랩 설정으로 `127.0.0.1` 에 붙는다
 
 <!-- harness:begin — `cargo xtask views --write` 가 하네스 머리의 '# 하네스 표:' 줄에서 만든다. 손으로 고치지 않는다 -->
-아직 없다 — 머리에 `# 하네스 표: <실행 위치> | <역할>` 줄을 단 하네스가 여기 선다.
+| 파일 | 실행 위치 | 역할 |
+|---|---|---|
+| `linux/node2shell-verify.sh` | WSL · docker(경우마다 네트워크 없는 컨테이너) | node2shell 리눅스 점검의 판정 — 공식 빌드 해시 · 기준 밖 node · 배포판 패키지 |
+| `host/Initialize-RunnerLab.ps1` | GitHub 호스팅 Windows 러너 | 러너를 랩으로 세운다 — 출시 전 필수 점검(`.github/workflows/checks.yml`)의 Windows 잡이 하네스 앞에 부른다 |
+| `host/Invoke-RuleHarness.ps1` | Windows 랩(러너 · 랩 VM) | Windows 룰 하네스 하나를 그 머리의 `# 입력:` 줄대로 받은 입력으로 부른다 — 출시 전 필수 점검 ① |
 <!-- harness:end -->
 
 ### 랩 값은 어디서 오는가 (2026-10-31)
