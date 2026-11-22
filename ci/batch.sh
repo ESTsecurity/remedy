@@ -10,6 +10,8 @@
 #   bash ci/batch.sh engine-tag <v태그>  엔진 출시의 주석 태그(메시지 '프로그램 <엔진> · 룰 <룰 버전>')를 짓고 민다
 #   bash ci/batch.sh harnesses <지난 공개본 | all> <커밋> <linux | windows>
 #                                        바뀐 룰의 하네스(필수 점검 ①) — 점검 잡(checks.yml)이 스스로 셈한다
+#   bash ci/batch.sh pr-harnesses <바탕> <머리> <linux | windows>
+#                                        PR 의 하네스(바뀐 룰 · 고친 하네스) — PR CI(ci.yml)가 러너에서 돈다
 #   bash ci/batch.sh selftest            다음 룰 버전 · 시험판 번호 · 자산 목록 · 하네스 찾기 · 요약 덩이를 망 없이 시험한다(CI)
 #
 # 누가 · 어디서 — 조직 Owner 가 저장소 루트에서. git · gh(로그인) · bash · cargo 가 있으면 어느 PC 든 묶음 · 태그 · 필수 점검 ·
@@ -151,6 +153,31 @@ selftest() {
     t "하네스 — all 은 '# 룰:' 줄을 단 것만" "$(HARNESS_ROOT=$d cmd_harnesses all HEAD linux | tr '\n' ' ')" \
         "$d/linux/ab-verify.sh $d/linux/g-verify.sh "
     rm -rf "$d"
+    # PR 의 하네스 — 바뀐 룰의 하네스(r2) · 고친 하네스(r3) · 둘 다 바뀌면 한 번(r1) · 고친 도구(tool)와 그대로인 하네스(r4)는
+    # 빠진다 · 그 OS 의 하네스가 없는 바뀐 룰(r2 의 Windows)은 알림만.
+    d=$(mktemp -d)
+    (
+        cd "$d"
+        git -c init.defaultBranch=main init -q .
+        mkdir -p plugins/r1 plugins/r2 plugins/r3 plugins/r4 testbed/harness/linux testbed/harness/host
+        for r in r1 r3 r4; do printf 'platforms: [linux]\n' >"plugins/$r/plugin.yaml"; done
+        printf 'platforms: [linux, windows]\n' >plugins/r2/plugin.yaml
+        for r in r1 r2 r3 r4; do printf '#!/bin/bash\n# 룰: %s — 시험\n' "$r" >"testbed/harness/linux/$r-verify.sh"; done
+        printf '#!/bin/bash\n# 도구\n' >testbed/harness/linux/tool.sh
+        git add -A && git -c user.email=t@t -c user.name=t commit -qm base
+        printf 'platforms: [linux]\nx: 1\n' >plugins/r1/plugin.yaml
+        printf 'platforms: [linux, windows]\nx: 1\n' >plugins/r2/plugin.yaml
+        printf '#!/bin/bash\n# 룰: r1 — 시험 2\n' >testbed/harness/linux/r1-verify.sh
+        printf '#!/bin/bash\n# 룰: r3 — 시험 2\n' >testbed/harness/linux/r3-verify.sh
+        printf '#!/bin/bash\n# 도구 2\n' >testbed/harness/linux/tool.sh
+        git add -A && git -c user.email=t@t -c user.name=t commit -qm head
+    ) >/dev/null 2>&1
+    t "PR 의 하네스 — 바뀐 룰 · 고친 하네스 · 둘 다면 한 번" "$(cd "$d" && cmd_pr_harnesses HEAD^ HEAD linux 2>/dev/null | sort | tr '\n' ' ')" \
+        "testbed/harness/linux/r1-verify.sh testbed/harness/linux/r2-verify.sh testbed/harness/linux/r3-verify.sh "
+    t "PR 의 하네스 — 그 OS 의 하네스가 없는 바뀐 룰은 알림만" \
+        "$(cd "$d" && cmd_pr_harnesses HEAD^ HEAD windows 2>&1 >/dev/null | grep -c '하네스가 없다')" 1
+    t "PR 의 하네스 — 알림만이면 목록은 빈다" "$(cd "$d" && cmd_pr_harnesses HEAD^ HEAD windows 2>/dev/null | wc -l)" 0
+    rm -rf "$d"
     # 요약 덩이 — 표지 사이만 · 걸음 머리의 스크립트 줄(색 부호)은 표지가 아니다 · CR 을 뗀다.
     d=$(mktemp)
     printf '%s\t%s\t%s\n' \
@@ -270,6 +297,23 @@ cmd_harnesses() {
         fi
     done < <(changed_rules "$commit")
     return 0
+}
+
+# PR 의 하네스 — PR CI 가 러너에서 돈다(2026-11-22 · 올리기 전에 작업자의 PC 가 돌던 것). 바뀐 룰의 하네스(위 — 바탕은 PR 의
+# 바탕)에, PR 이 고친 그 OS 의 하네스(머리 10줄 안의 '# 룰:' 줄을 단 것)를 더한다. 머리는 이 사본의 지금 트리여야 한다(하네스
+# 자리를 트리에서 읽는다). 출시의 ① 은 바뀐 룰의 하네스만 돈다 — 고친 하네스까지 돌면, 그 룰을 고치지 않은 묶음이 이미
+# 알려진 상류 변화(리눅스 Apache · Java4Shell 하네스 — 배포사가 고친 판을 냈다)에 멈춘다. 그 하네스를 고치는 PR 은 여기서
+# 그 변화를 맞춰야 지난다.
+cmd_pr_harnesses() {
+    local base=${1:?PR 의 바탕} head=${2:?PR 의 머리} os=${3:?linux | windows} f list
+    [ "$base" != all ] || die "pr-harnesses 의 바탕은 커밋이다(PR 의 바탕 — CI 에서는 HEAD^1)"
+    list=$(cmd_harnesses "$base" "$head" "$os") || exit 1
+    for f in $(harness_files "$os"); do
+        sed -n '1,10p' "$f" | grep -q '^# 룰: ' || continue
+        git diff --quiet "$base" "$head" -- "$f" && continue
+        case $'\n'"$list"$'\n' in *$'\n'"$f"$'\n'*) ;; *) list+=$'\n'"$f" ;; esac
+    done
+    printf '%s\n' "$list" | sed '/^$/d'
 }
 
 # ④ G9 — YARA 가 바뀐 룰(지금 Latest 와 견준다)이 있으면 코퍼스를 잰 기록(G9_DONE)이 있어야 하고, 그 기록에 초안 꾸러미의
@@ -663,7 +707,8 @@ case "${1:-}" in
     views) cmd_views ;;
     engine-tag) cmd_engine_tag "${2:-}" ;;
     harnesses) cmd_harnesses "${2:-}" "${3:-}" "${4:-}" ;;
+    pr-harnesses) cmd_pr_harnesses "${2:-}" "${3:-}" "${4:-}" ;;
     --rc) cmd_batch 1 ;;
     "") cmd_batch 0 ;;
-    *) echo "쓰는 법: bash ci/batch.sh [--rc] [--local] | status | publish <태그> [--local] | approve <태그> | clean <태그> | views | engine-tag <v태그> | harnesses <지난 공개본 | all> <커밋> <linux | windows> | selftest" >&2; exit 2 ;;
+    *) echo "쓰는 법: bash ci/batch.sh [--rc] [--local] | status | publish <태그> [--local] | approve <태그> | clean <태그> | views | engine-tag <v태그> | harnesses <지난 공개본 | all> <커밋> <linux | windows> | pr-harnesses <바탕> <머리> <linux | windows> | selftest" >&2; exit 2 ;;
 esac
