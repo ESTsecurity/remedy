@@ -3,6 +3,25 @@
 **버전 0.2.2** · 대상: Log4j(CVE-2021-44228 Log4Shell 계열) · log4j 1.x · logback — Windows · 리눅스의 디스크 전체 jar ·
 war · ear · **점검**(바꾸지 않는다)
 
+## 0 을 내는 갈래
+
+| 갈래 | 근거 | 하네스 칸 |
+|---|---|---|
+| log4j-core 2.17.1 이상(Java 8 의 고친 판과 그 뒤) — 디스크의 파일 · 아카이브 안 | CNA(apache) 레코드 — CVE-2021-44832 를 2.17.1 · 2.12.4 · 2.3.2 에서 고쳤다(`2.0-beta7 through 2.17.0`) · 취약 판 표의 log4j-core 범위가 2.17.0 까지 | `log4j-core 2.17.1` · `log4j-core 2.17.2` · `log4j-core 2.20.0` · `log4j-core 2.24.3` · `c03` · `c08` · `d03` |
+| log4j-core 2.12.4(Java 7 의 고친 판) | CNA(apache) 레코드 — CVE-2021-44832 의 범위가 2.12.4 를 뺀다(`excluding 2.3.2 and 2.12.4`) | `log4j-core 2.12.4` |
+| log4j-core 2.3.2(Java 6 의 고친 판) | CNA(apache) 레코드 — CVE-2021-44832 의 범위가 2.3.2 를 뺀다(`excluding 2.3.2 and 2.12.4`) | `log4j-core 2.3.2` |
+| logback-core 1.2.9 이상(1.2 줄과 그 뒤의 1.4 · 1.5 줄) | CVE-2021-42550 의 CNA 레코드 범위 `<1.2.9 · <1.3.0-alpha11` — 설명의 '1.2.7 and prior' 가 아니라 레코드를 따른다 | `logback-core 1.2.9` · `logback-core 1.2.13` · `logback-core 1.4.14` · `logback-core 1.5.6` |
+| logback-core 1.3 줄의 1.3.0-alpha11 이상 | CVE-2021-42550 의 CNA 레코드 범위 `<1.3.0-alpha11` | `logback-core 1.3.0` |
+| log4j-core 가 아닌 Log4j 2 구성 요소(log4j-api 등) | 취약 판 표(Apache Logging Services 보안 공지 · CNA 레코드)의 2.x 줄은 log4j-core 뿐이다 | `log4j-api 2.14.1` |
+| zip 이 아닌 `.jar`(아카이브가 아니다) | 근거 없음 — 그런 파일을 아카이브가 아니라고 넘기는 까닭이 기록에 없다(잘린 파일 · 깨진 목록은 확인 필요) | `e03` |
+| 로깅 라이브러리(log4j · logback)가 없다 | 공지의 영향 제품이 없다 | `c12` |
+
+## 린트 경고
+
+| 자리 | 까닭 |
+|---|---|
+| `detect[16].where` | `unread`(아카이브를 끝까지 읽지 못한 항목 — 조건이 `error exists` 하나)는 판정식(`verdict.require`)에 들지 않고 확인 필요(`unconfirmed`)에만 쓰인다 · 점검 전용이라 치료 계획이 없어 경고가 말하는 증거 그룹의 상한에 닿지 않는다 · 읽지 못한 항목은 무엇이든 6 이어야 해 조건을 좁히지 않는다 |
+
 ## 0.2.2 — G1 근거를 잰 값으로 (2026-11-21)
 
 아래 게이트 표의 G1 근거를 이 룰로 직접 잰 값으로 바꿨다. 0.2.1 까지 근거로 적은 시험(`plugins_find_nothing_in_clean_environments`)은

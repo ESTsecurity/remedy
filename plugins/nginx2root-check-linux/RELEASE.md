@@ -3,6 +3,18 @@
 **버전 0.1.2** · 대상: nginx 의 결함 다섯 'nginx2root'(CVE-2026-123007 · CVE-2026-123634 · CVE-2026-123633 ·
 CVE-2026-121810 · CVE-2026-113425) — 리눅스 · **점검**(바꾸지 않는다)
 
+## 0 을 내는 갈래
+
+| 갈래 | 근거 | 하네스 칸 |
+|---|---|---|
+| nginx 실행 파일 패키지(dpkg · rpm · apk — nginx.org 저장소 포함)의 상류 판이 1.31.9 이상(mainline 의 고친 판) | nginx.org security_advisories · CHANGES(1.31.9) — 다섯 결함의 영향 판이 모두 1.31.8 에서 끝나고 고친 판은 1.31.9 | `b06` · `b07` · `b08` |
+| nginx 실행 파일 패키지의 상류 판이 1.30.7 ~ 1.30.x(stable 의 고친 판) | nginx.org security_advisories · CHANGES-1.30(1.30.7) — stable 의 고친 판 1.30.7 · Alpine edge · 3.24 의 `nginx` 1.30.7-r0 도 다섯 모두 고쳤다(security.alpinelinux.org · secdb) | `b10` · `b12` |
+| 패키지가 깔지 않은 nginx 실행 파일의 판 문자열(`nginx/<판>`)이 1.31.9 이상 | nginx.org security_advisories · CHANGES(1.31.9) — 고친 판 1.31.9 | `x02` |
+| 패키지가 깔지 않은 nginx 실행 파일의 판 문자열이 1.30.7 ~ 1.30.x | nginx.org security_advisories · CHANGES-1.30(1.30.7) — 고친 판 1.30.7 | `x08` |
+| 보는 자리 안에서 도는 고친 판 nginx(실행 파일이 지워지지 않았다) | 판정표의 확인 필요는 자리 밖 · 지워진 실행 파일로 도는 nginx 뿐 — 도는 nginx 가 싣는 그 실행 파일이 고친 판 1.31.9(nginx.org security_advisories) | `p04` |
+| 상류 판이 0.5.33 아래(패키지 · 직접 빌드) | nginx.org security_advisories — 다섯 결함 가운데 가장 이른 영향 판이 0.5.33(CVE-2026-113425 · 메일 프록시) | 없음 |
+| nginx 없음 | 공지의 영향 제품이 없다 | `n01` · `n02` |
+
 ## 0.1.2 — 더한 날을 적는다 (2026-11-19)
 
 - **매니페스트에 `added: "2026-11-19"`** — 이 룰을 처음 낸 날이다(`rules-2026.11.19`). 엔진 1.25.0 의 고르는 화면이

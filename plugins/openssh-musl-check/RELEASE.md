@@ -2,6 +2,16 @@
 
 **버전 0.1.2** · 대상: OpenSSH 비밀번호 인증 우회(CVE-2026-123158) — Alpine(musl) 의 PAM 없는 sshd · **점검**(바꾸지 않는다)
 
+## 0 을 내는 갈래
+
+| 갈래 | 근거 | 하네스 칸 |
+|---|---|---|
+| 알려진 Alpine 브랜치(3.16 ~ edge)의 `openssh-server`(PAM 없음)가 그 브랜치의 고친 판 이상 | Alpine secdb(브랜치마다 openssh secfixes · 2026-11-13 열 브랜치 확인) — 고친 판 3.21 9.9_p2-r1 · 3.22 10.0_p1-r11 · edge 10.6_p2-r0 등 | `b01` · `b03` · `b10` |
+| 알려진 브랜치 밖의 `openssh-server` 가 상류의 고친 판 10.6_p2 이상 | OpenSSH 10.6p2 — `auth-passwd.c` 의 해시 길이 검사(커밋 4353fdc · GHSA-4fcc-vm97-gx3x) | 없음 |
+| PAM 을 쓰는 sshd(`openssh-server-pam`) — 판이 낮아도 | 근거 없음 — PAM 판이 해당 없다는 출처 줄이 없다(대상 줄의 'PAM 없는 sshd' 뿐) | `b07` |
+| apk 가 아닌 배포판(glibc) | 원인이 musl 의 crypt() 다 — `src/crypt/crypt_sha512.c` 의 `KEY_MAX 256`(넘는 비밀번호에 해시 대신 `"*"`) | `b09` |
+| `openssh-server` 가 없다(`/etc/ssh` 도 없다) | 공지의 영향 제품이 없다 | `b08` |
+
 ## 0.1.2 — 같은 제품의 묶음 열쇠 (2026-11)
 
 같은 제품의 점검 룰을 묶는 열쇠 `product: OpenSSH` 를 적었다(코어 1.21.0 — 화면이 같은 제품의 발견을 한 덩어리로
