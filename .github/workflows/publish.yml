@@ -2,7 +2,7 @@
 #
 # 부르는 것은 `bash ci/batch.sh` 다 — 조직 Owner 가 필수 점검 결과를 보고 승인(y)하면 그 명령이 이 워크플로를 태그와 **점검한
 # 자산의 해시**로 부른다(결정 D — 출시마다 사람 한 번 · 승인한 사람은 이 실행의 actor 로 남는다). 손으로 부를 때도 같다:
-#   gh workflow run publish.yml -f tag=<태그> -f assets='<이름:sha256> <이름:sha256> <이름:sha256>' [-f dry_run=true]
+#   gh workflow run publish.yml -f tag=<태그> -f assets='<이름:sha256> <이름:sha256> <이름:sha256>' [-f dry_run=true] [-f checks=local]
 #
 # 공개 전에 기계가 본다(하나라도 어긋나면 공개하지 않는다):
 #   a 태그가 정식 꼴이다(dry_run 이면 시험판도 받는다)
@@ -15,6 +15,9 @@
 #     — 초안을 만든 뒤 엔진 출시가 공개됐으면 그 초안은 옛 엔진이다)
 #   g 룰만 바뀐 출시인데 엔진 출시의 초안이 있으면 공개하지 않는다(결정 R2 — 엔진 rc → 공개 동안 룰 공개를 멈춘다)
 #   h 태그 커밋의 main push CI 가 실패로 끝났으면 공개하지 않는다(아직 돌면 기록만 한다)
+#   i 룰만 바뀐 출시는 이 자산 셋으로 돈 러너 점검(checks.yml)이 성공했다 — 제목 '점검 <태그> <자산 목록의 sha256>' · 그 실행의
+#     커밋이 태그 커밋 · 잡 linux · windows 둘 다 success(2026-11-22 · 차례 3). checks=local(이 PC 에서 점검 — 러너가 막힌 날)이면
+#     보지 않고 d 의 묶기로 간다
 # 공개 뒤 180초에 익명 확인(testbed/harness/linux/release-anon-check.sh)을 돌린다 — 받은 바이트가 공개 전에 받은 그 파일과
 # 다르면 지난 Latest 를 다시 Latest 로 두고 실패한다(docs/긴급-대응.md ⑤). 룰마다 보인 시간(그 조각을 들인 PR 을 연 때 → 공개)을
 # 잡 요약에 적고, 60분을 넘긴 취약점 점검 룰이 있으면 '모아 내기 멈춤' 이슈를 연다 — 그 이슈가 열린 동안 `ci/batch.sh` 는 다음
@@ -24,7 +27,7 @@
 # 뒤 묶음이 앞 묶음을 다 담으므로 룰은 빠지지 않는다. 공개는 GITHUB_TOKEN(contents: write)이 한다.
 
 name: Publish
-run-name: 공개 ${{ inputs.tag }}${{ inputs.dry_run && ' (시험)' || '' }}
+run-name: 공개 ${{ inputs.tag }}${{ inputs.dry_run && ' (시험)' || '' }}${{ inputs.checks == 'local' && ' (PC 점검)' || '' }}
 
 on:
   workflow_dispatch:
@@ -39,6 +42,11 @@ on:
         description: 확인만 하고 공개하지 않는다(시험판의 리허설)
         type: boolean
         default: false
+      checks:
+        description: 필수 점검을 돈 자리 — runner(checks.yml · 확인 i) | local(이 PC 의 WSL · 랩 — 러너가 막힌 날)
+        type: choice
+        options: [runner, local]
+        default: runner
 
 permissions:
   contents: write
@@ -59,13 +67,14 @@ jobs:
       TAG: ${{ inputs.tag }}
       ASSETS: ${{ inputs.assets }}
       DRY: ${{ inputs.dry_run }}
+      CHECKS: ${{ inputs.checks }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           fetch-depth: 0
       - name: final checks
-        run: bash ci/publish-check.sh "$TAG" "$ASSETS" "$DRY" "$RUNNER_TEMP/assets"
+        run: bash ci/publish-check.sh "$TAG" "$ASSETS" "$DRY" "$RUNNER_TEMP/assets" "$CHECKS"
       - name: publish
         if: inputs.dry_run != true
         run: |

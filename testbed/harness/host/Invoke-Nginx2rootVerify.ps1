@@ -1,4 +1,8 @@
 ﻿#Requires -Version 5.1
+# 룰: nginx2root-check-windows — 묶어 낸 출시의 필수 점검 ① 이 이 하네스를 찾아 아래 입력으로 돌린다(Invoke-RuleHarness.ps1 · -Package · -LogDir)
+# 입력: -NginxZipDir nginx-1.31.9.zip - https://nginx.org/download/nginx-1.31.9.zip
+# 입력: -NginxZipDir nginx-1.30.7.zip - https://nginx.org/download/nginx-1.30.7.zip
+# 입력: -NginxZipDir nginx-1.30.6.zip - https://nginx.org/download/nginx-1.30.6.zip
 <#
 .SYNOPSIS
     nginx2root 점검 룰(nginx2root-check-windows)을 랩 VM 에서 잰다 — 설치본 모양마다 종료 코드와 화면.

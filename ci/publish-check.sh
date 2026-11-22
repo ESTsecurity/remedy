@@ -1,11 +1,13 @@
 #!/bin/bash
 # 공개 워크플로(.github/workflows/publish.yml)의 확인 — 공개 전 최종 확인과 공개 뒤 노출 시간(2026-11-21).
 #
-#   bash ci/publish-check.sh <태그> '<이름:sha256> …' <true|false(시험)> <받을 폴더>
+#   bash ci/publish-check.sh <태그> '<이름:sha256> …' <true|false(시험)> <받을 폴더> <runner|local(점검 자리)>
 #   bash ci/publish-check.sh --exposure <태그> <공개 시각 RFC3339> <지난 Latest 의 태그>
+#   bash ci/publish-check.sh --checks-run <태그> '<이름:sha256> …'   그 자산 셋으로 성공한 러너 점검의 실행 번호(없으면 종료 1)
 #
-# 잡 안에서 돈다(GH_TOKEN · GH_REPO). 최종 확인의 칸 a ~ h 는 그 워크플로 첫머리에 있다 — 하나라도 어긋나면 종료 1 이고 공개하지
-# 않는다. 받을 폴더에는 초안의 자산 셋을 받아 둔다(공개 뒤 익명 확인이 그 바이트와 견준다).
+# 잡 안에서 돈다(GH_TOKEN · GH_REPO). 최종 확인의 칸 a ~ i 는 그 워크플로 첫머리에 있다 — 하나라도 어긋나면 종료 1 이고 공개하지
+# 않는다. 받을 폴더에는 초안의 자산 셋을 받아 둔다(공개 뒤 익명 확인이 그 바이트와 견준다). `--checks-run` 은 i 와 같은 잣대로
+# 실행을 찾는다 — `ci/batch.sh approve` 가 점검 기록이 없는 PC 에서 부른다(gh 로그인 · 저장소 루트).
 #
 # 노출 시간은 이 출시가 새로 실은 업데이트 내역 조각마다 그 조각을 들인 PR 을 연 때 → 공개다(AGENTS.md *배포 전 룰은 올리지
 # 않는다* 의 예외 — 공개된 공지에 근거한 취약점 점검 룰). 60분을 넘긴 점검 룰이 있으면 '모아 내기 멈춤 — <태그>' 이슈를 연다 —
@@ -60,14 +62,36 @@ exposure() {
     fi
 }
 
+# 러너 점검 실행 — 그 태그의 이 자산 셋으로 돈 checks.yml 실행 가운데 성공한 것(R1 · 2026-11-22). 셋이 맞아야 한다: 제목이
+# '점검 <태그> <열쇠>'(열쇠 = 자산 목록의 sha256 · 줄바꿈 없이 — ci/batch.sh 의 assets_key) · 그 실행의 커밋이 태그 커밋 · 잡
+# linux 와 windows 가 둘 다 success(건너뛴 잡도 실행은 success 라 잡을 직접 본다). 가장 새 것의 번호를 낸다.
+checks_run() {
+    local tag=$1 assets=$2 key sha id jobs
+    key=$(printf '%s' "$assets" | sha256sum | cut -d' ' -f1)
+    sha=$(git rev-parse "$tag^{commit}") || return 1
+    for id in $(gh run list --workflow checks.yml --event workflow_dispatch --limit 100 \
+        --json databaseId,headSha,displayTitle,conclusion \
+        --jq ".[] | select(.displayTitle == \"점검 $tag $key\" and .headSha == \"$sha\" and .conclusion == \"success\") | .databaseId"); do
+        jobs=$(gh run view "$id" --json jobs --jq '[.jobs[] | select(.conclusion == "success") | .name] | sort | join(" ")')
+        if [ "$jobs" = "linux windows" ]; then echo "$id"; return 0; fi
+    done
+    return 1
+}
+
 if [ "${1:-}" = --exposure ]; then
     [ $# = 4 ] || { echo "쓰는 법: bash ci/publish-check.sh --exposure <태그> <공개 시각> <지난 Latest>" >&2; exit 2; }
     exposure "$2" "$3" "$4"
     exit 0
 fi
+if [ "${1:-}" = --checks-run ]; then
+    [ $# = 3 ] || { echo "쓰는 법: bash ci/publish-check.sh --checks-run <태그> '<이름:sha256> …'" >&2; exit 2; }
+    checks_run "$2" "$3"
+    exit $?
+fi
 
-[ $# = 4 ] || { echo "쓰는 법: bash ci/publish-check.sh <태그> '<이름:sha256> …' <true|false> <받을 폴더>" >&2; exit 2; }
-TAG=$1 ASSETS=$2 DRY=$3 DIR=$4
+[ $# = 5 ] || { echo "쓰는 법: bash ci/publish-check.sh <태그> '<이름:sha256> …' <true|false> <받을 폴더> <runner|local>" >&2; exit 2; }
+TAG=$1 ASSETS=$2 DRY=$3 DIR=$4 CHECKS=$5
+case "$CHECKS" in runner | local) ;; *) fail "점검 자리가 runner | local 이 아니다: $CHECKS" ;; esac
 
 # a 태그의 꼴
 if [[ "$TAG" =~ ^(v[0-9]+\.[0-9]+\.[0-9]+|rules-$RULES_RE)$ ]]; then rc=false
@@ -105,7 +129,7 @@ gh release download "$TAG" --dir "$DIR" >/dev/null
 for pair in $ASSETS; do
     name=${pair%%:*}
     want=${pair#*:}
-    got=$(sha256sum "$DIR/$name" | cut -d' ' -f1)
+    got=$(sha256sum <"$DIR/$name" | cut -d' ' -f1)
     [ "$got" = "$want" ] || fail "d $name 의 해시가 점검한 파일과 다르다($got · 점검 $want)"
     api=$(jq -r ".assets[] | select(.name == \"$name\") | .digest // \"\"" <<<"$rel")
     [ -z "$api" ] || [ "$api" = "sha256:$got" ] || fail "d $name 의 해시가 GitHub 의 digest 와 다르다($api)"
@@ -149,4 +173,19 @@ case "$ci" in
     "completed success") echo "h 태그 커밋의 main CI 성공" ;;
     *) echo "h 태그 커밋의 main CI: ${ci:-없음}(끝나지 않았다 — 기록만 한다)" ;;
 esac
+
+# i 필수 점검 — 룰만 바뀐 출시는 이 자산 셋으로 돈 러너 점검(checks.yml)이 성공했어야 한다(공개한 바이트 = 점검한 바이트를
+# 기계가 묶는다). 점검 자리가 local(이 PC 의 WSL · 랩 — 러너가 막힌 날)이면 러너 실행을 보지 않고 d 의 묶기(점검한 파일의 해시)로
+# 간다. 엔진 출시는 '출시 검증'(rc 묶음 · 최종 확인)이 공개 전 검증이다.
+if [[ "$TAG" == rules-* ]]; then
+    if [ "$CHECKS" = local ]; then
+        echo "i 필수 점검은 이 PC 에서(checks=local) — 러너 점검 실행을 보지 않는다(묶기는 d)"
+    else
+        run=$(checks_run "$TAG" "$ASSETS") ||
+            fail "i 이 자산 셋으로 성공한 러너 점검(checks.yml · 제목 '점검 $TAG <열쇠>' · 태그 커밋 · 잡 linux · windows)이 없다 — bash ci/batch.sh publish $TAG"
+        echo "i 러너 점검 실행 $run 성공 — 태그 커밋 · 이 자산 셋 · 잡 linux · windows"
+    fi
+else
+    echo "i 엔진 출시 — 필수 점검 대신 '출시 검증'(rc 묶음 · 최종 확인)"
+fi
 echo "최종 확인 통과 — $TAG"

@@ -15,6 +15,11 @@
       3  메뉴 하네스(`Invoke-MenuVerify.ps1 -Package -Prepare -ReinfectOnly`) — 그 꾸러미로 메뉴 흐름 전부
       4  랩 되돌리기(`Reset-Vm.ps1`)
 
+    `-Runner` 면 GitHub 호스팅 Windows 러너가 자기 자신을 랩으로 쓴다(2026-11-22 · `.github/workflows/checks.yml` — 먼저
+    `Initialize-RunnerLab.ps1`). 되돌릴 스냅숏이 없으므로 2 는 시연 기계를 되돌리지 않고 세운 뒤(`New-DemoMachine.ps1 -NoRevert`)
+    준비 없이 재고(`Invoke-DemoVerify.ps1 -NoPrepare`), 4 는 건너뛴다(잡이 끝나면 러너를 버린다). 러너는 랩과 다르다(Windows
+    Server · Defender 실시간 감시 꺼짐) — 그 차이는 24시간 안의 미룬 검증(랩 rc 묶음)이 잰다.
+
     2 를 3 보다 먼저 돌리는 까닭: `-ReinfectOnly` 는 배포를 건너뛰어 시연 폴더의 실행 파일을 앞 회차의 것으로 둔다
     (`Invoke-MenuVerify.ps1` 의 `-Package` 설명). 리눅스 컨테이너 점검과 **나란히 돌리지 않는다** — 랩 되돌리기와
     컨테이너 묶음이 겹치면 메모리가 모자랐다.
@@ -41,11 +46,14 @@
 param(
     [Parameter(Mandatory = $true)][string] $Package,
     [Parameter(Mandatory = $true)][string] $LogDir,
-    [string] $Prev
+    [string] $Prev,
+    # GitHub 호스팅 Windows 러너가 자기 자신을 랩으로 쓴다(머리말). 호스팅 러너가 아니면 멈춘다.
+    [switch] $Runner
 )
 $ErrorActionPreference = 'Continue'
 $h = $PSScriptRoot
 . (Join-Path $h 'VmSession.ps1')
+if ($Runner) { Assert-HostedRunner }
 $subject = Get-CodeSignSubject
 $repo = (Resolve-Path (Join-Path $h '..\..\..')).Path
 $exe = Join-Path $Package 'remedy.exe'
@@ -148,13 +156,25 @@ Step 'package' {
     '버전 {0}/2 · 룰 서명 {1}/{2} · 판정 기준 도움말 {3}/3 · 코드서명 {4}/2 · {5}' -f $ver.Count, $good.Count, $verify.Count,
         $helpGood.Count, $codesign.Count, $prevWhat
 }
-Step 'demo' { & (Join-Path $h 'Invoke-DemoVerify.ps1') -Bin $exe } $verdictLine
+if ($Runner) {
+    # 러너 — 되돌리지 않고 시연 기계를 세운 뒤 준비 없이 잰다(아침 실험의 조각 그대로 · 75/75). 판정은 마지막 '판정' 줄이다.
+    Step 'demo' {
+        & (Join-Path $h 'New-DemoMachine.ps1') -Bin $exe -NoRevert
+        & (Join-Path $h 'Invoke-DemoVerify.ps1') -NoPrepare
+    } $verdictLine
+} else {
+    Step 'demo' { & (Join-Path $h 'Invoke-DemoVerify.ps1') -Bin $exe } $verdictLine
+}
 Step 'menu' { & (Join-Path $h 'Invoke-MenuVerify.ps1') -Package $Package -Prepare -ReinfectOnly } $verdictLine
-Step 'reset' { & (Join-Path $h 'Reset-Vm.ps1') } {
-    param($lines)
-    $ok = [bool]($lines -match '복원 완료')
-    $ok
-    $(if ($ok) { '복원 완료' } else { '복원 완료 줄 없음' })
+if ($Runner) {
+    Note ("reset  건너뜀  0초  {0}  러너 — 잡이 끝나면 러너를 버린다" -f (Get-Date -Format 'HH:mm:ss'))
+} else {
+    Step 'reset' { & (Join-Path $h 'Reset-Vm.ps1') } {
+        param($lines)
+        $ok = [bool]($lines -match '복원 완료')
+        $ok
+        $(if ($ok) { '복원 완료' } else { '복원 완료 줄 없음' })
+    }
 }
 Note ("끝 {0} · {1}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'),
     $(if ($script:failed.Count -eq 0) { '모두 통과' } else { '실패: ' + ($script:failed -join ', ') }))
