@@ -49,12 +49,12 @@
 <!-- threats:begin — `cargo xtask threats --write` 가 룰에서 만든다. 손으로 고치지 않는다 -->
 | 룰 | 하는 일 | Windows | Linux | 참고 |
 |---|---|---|---|---|
-| Apache HTTP/2 점검 (CVE-2026-119618) | 찾기만 합니다 | `apache-http2-check-windows` 0.1.2 | `apache-http2-check-linux` 0.1.2 | [httpd.apache.org](https://httpd.apache.org/security/vulnerabilities_24.html) |
+| Apache HTTP/2 점검 (CVE-2026-119618) | 찾기만 합니다 | `apache-http2-check-windows` 0.1.2 | `apache-http2-check-linux` 0.1.3 | [httpd.apache.org](https://httpd.apache.org/security/vulnerabilities_24.html) |
 | EvilAI(Locust) 제거 | 찾아서 치료합니다 (복원할 수 있습니다) | `evilai-locust` 0.2.0 | — | [www.virustotal.com](https://www.virustotal.com/gui/search/engines%3Ameadowlocust) |
 | Java4Shell 점검 (CVE-2026-114938) | 찾기만 합니다 | `java4shell-check-windows` 0.3.1 | `java4shell-check-linux` 0.3.1 | [openjdk.org](https://openjdk.org/groups/vulnerability/advisories/2026-11-17) |
 | Log4j 점검 (CVE-2021-44228 등) | 찾기만 합니다 | `log4j-check` 0.2.2 | `log4j-check` 0.2.2 | [logging.apache.org](https://logging.apache.org/security.html) |
 | nginx2root 점검 (CVE-2026-123007 · CVE-2026-123634 · CVE-2026-123633 · CVE-2026-121810 · CVE-2026-113425) | 찾기만 합니다 | `nginx2root-check-windows` 0.1.1 | `nginx2root-check-linux` 0.1.2 | [xint.io](https://xint.io/ko/blog/nginx2root-remote-code-execution) |
-| Node2Shell 점검 (CVE-2026-111497) | 찾기만 합니다 | `node2shell-check-windows` 0.4.1 | `node2shell-check-linux` 0.6.1 | [nodejs.org](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases) |
+| Node2Shell 점검 (CVE-2026-111497) | 찾기만 합니다 | `node2shell-check-windows` 0.4.1 | `node2shell-check-linux` 0.6.2 | [nodejs.org](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases) |
 | PHP 11월 보안 업데이트 점검 (CVE-2026-129474 등 18건) | 찾기만 합니다 | `php-2026-11-check-windows` 0.1.0 | `php-2026-11-check-linux` 0.1.2 | [www.php.net](https://www.php.net/archive/2026.php) |
 | PHP 세션 업로드 진행 설정 점검 (CVE-2026-115560) | 찾기만 합니다 | `php-session-check-windows` 0.5.1 | `php-session-check-linux` 0.6.1 | [www.php.net](https://www.php.net/archive/2026.php) |
 | PHP2Shell 점검 (CVE-2026-109618 · 109619) | 찾기만 합니다 | `php2shell-check-windows` 0.4.3 | `php2shell-check-linux` 0.6.3 | [www.php.net](https://www.php.net/archive/2026.php) |
