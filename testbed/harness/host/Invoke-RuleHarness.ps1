@@ -10,7 +10,8 @@
       # 입력: -<인자> <파일 이름> <sha256 | -> <주소>[|<주소>…]
 
     그 파일을 `-Inputs\<인자>\<파일 이름>` 에 받는다(TLS 1.2 · `.part` 에 받은 뒤 옮긴다 · 주소를 차례로 — 이미 있으면 다시
-    받지 않는다). SHA-256 칸이 `-` 가 아니면 대조하고, `-` 면 하네스가 스스로 대조한다(하네스 안에 기대값이 있다).
+    받지 않는다 · PowerShell 로 받지 못한 주소는 Windows 의 curl.exe 로 한 번 더 — PowerShell 의 요청만 막는 곳이 있다).
+    SHA-256 칸이 `-` 가 아니면 대조하고, `-` 면 하네스가 스스로 대조한다(하네스 안에 기대값이 있다).
     인자 이름이 `Dir` 로 끝나면 그 인자에 받은 폴더를, 아니면 받은 파일을 준다. 하네스는 표준 인자 `-Package` · `-LogDir` 와
     그 인자로 따로 띄운 `powershell.exe -File` 에서 돈다(하네스의 `throw` 는 종료 1 이 된다).
 
@@ -77,6 +78,22 @@ foreach ($spec in $specs) {
                 break
             } catch {
                 Write-Host "못 받음  $u — $($_.Exception.Message)"
+                Remove-Item -LiteralPath "$dest.part" -ErrorAction SilentlyContinue
+            }
+            # PowerShell 의 요청만 막는 곳이 있다 — apachelounge.com 은 WindowsPowerShell 사용자 에이전트에 308 → http://localhost/
+            # 를 준다(2026-11-22 · curl 은 200). 받지 못했을 때만 같은 주소를 Windows 의 curl.exe(제 이름 그대로)로 한 번 더 받는다.
+            $curl = Join-Path $env:SystemRoot 'System32\curl.exe'
+            if (Test-Path -LiteralPath $curl) {
+                $ErrorActionPreference = 'Continue'
+                & $curl -fsSL --retry 2 -o "$dest.part" $u
+                $curlCode = $LASTEXITCODE
+                $ErrorActionPreference = 'Stop'
+                if ($curlCode -eq 0 -and (Test-Path -LiteralPath "$dest.part")) {
+                    Move-Item -LiteralPath "$dest.part" -Destination $dest
+                    Write-Host ("받음(curl)  {0}  {1}바이트  ← {2}" -f $fileName, (Get-Item -LiteralPath $dest).Length, $u)
+                    break
+                }
+                Write-Host "못 받음(curl 종료 $curlCode)  $u"
                 Remove-Item -LiteralPath "$dest.part" -ErrorAction SilentlyContinue
             }
         }
