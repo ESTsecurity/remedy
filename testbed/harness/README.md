@@ -2563,10 +2563,11 @@ churn 은 작다. 남겨 두는 이유는 THREAT.md 가 *"`C:\ProgramData` 는 �
 | ① 새 룰 하네스 | `ci/batch.sh` 의 하네스 셈 · `testbed/harness/linux/emergency-checks.sh` · `testbed/harness/host/Invoke-RuleHarness.ps1` | 리눅스 — 종료 1 하네스(`bash ci/emergency-checks-test.sh` 회차 A) · 하네스 없는 바뀐 룰 → 멈춤(`bash ci/batch.sh selftest`). Windows 의 입력 가드 · 하네스 throw 는 손(2026-11-22) | 리눅스 예 · Windows 아니다 |
 | ② 정식 파일 | `emergency-checks.sh` · `testbed/harness/host/Invoke-EmergencyChecks.ps1` | 리눅스 — 데이터 룰 한 파일을 바꾼 꾸러미 → 룰 서명 하나 모자람(회차 B). Windows 는 손(2026-11-14) | 리눅스 예 · Windows 아니다 |
 | ③ 기존 동작 | `emergency-checks.sh` · `Invoke-EmergencyChecks.ps1` | 없음 — 회차 A · B 는 종료 코드가 같은 쪽만 본다. 화면 차이는 사람이 판정한다 | 아니다 |
-| ④ G9 | `ci/batch.sh` 의 G9 대조 · `cargo xtask yara` | 대조 — 기록 없음 · 기록의 sha256 다름 · 초안에 그 `.yar` 없음 → 멈춤, 맞는 기록 · YARA 그대로 → 지남(`bash ci/batch.sh selftest`). 측정(`xtask/src/yara.rs`)은 없음 | 대조만 예 |
+| ④ G9 | `ci/batch.sh` 의 G9 대조 · `cargo xtask yara` | 대조 — 기록 없음 · 기록의 sha256 다름 · 초안에 그 `.yar` 없음 → 멈춤, 맞는 기록 · YARA 그대로 → 지남(`bash ci/batch.sh selftest`). 측정 — 맞는 파일 → 오탐 · 상한 초과 → 못 훑음 · 0개 → 멈춤, 모두 읽고 안 맞음 → 지남(`xtask/src/yara.rs` 의 시험) | 예 |
 | ⑤ 넘길 파일 = 시험한 파일 | `ci/publish-check.sh` 의 d · i · `testbed/harness/linux/release-anon-check.sh` | 공개 전 — 자산 해시 · 받은 바이트 · 올린 이(d) · 점검 실행의 열쇠 · 커밋 · 잡(i)(`bash ci/publish-check-test.sh`). 공개 뒤 익명 확인은 없음 | 공개 전만 예 |
 | ⑥ 치료 룰 | 그 룰의 하네스 칸뿐 | 없음 | 아니다 |
-| G1 청정 코퍼스 | `crates/remedy-core/tests/corpus.rs` | 반드시 맞는 룰을 지어 게이트가 무는지 — 손으로 적는 목록의 룰만 | 목록의 룰만 예 |
+| G1 청정 코퍼스 | `crates/remedy-core/tests/corpus.rs` · `cargo xtask g1`(저장소의 룰 전부) | 반드시 맞는 룰을 지어 게이트가 무는지(두 자리 모두 시험) | 예 |
+| 점검 룰의 0 을 내는 갈래 · 린트 경고의 까닭 | `cargo xtask rule-records` | 표 없음 · 칸 이름 바꿈 · 하네스에 없는 칸 id · 앞부분만 같은 id · 하네스 없는 룰의 칸 id · 빈틈이 바탕보다 늘었다 · 지금 경고가 아닌 자리 · 까닭 없는 경고(`xtask/src/rulerecords.rs` 의 시험) | 예 |
 | 룰 서명 확인 | `ci/release.sh` · `ci/sign-check.sh` | 고친 사본 · 다른 키 · 동반 프로그램 셋 → 종료 5 | 예 |
 | 공개 확인 a ~ j | `ci/publish-check.sh` · `.github/workflows/publish.yml` | 칸마다 하나 이상 — 태그 꼴 · 초안 · 배포 실행 · 자산 · 본문 · 버전 검사와 싣는 엔진 · 엔진 출시 진행 · main CI · 러너 점검 · 멈춤 이슈(`bash ci/publish-check-test.sh`) | 예 |
 | 60분 상한 · 멈춤 이슈 | `ci/publish-check.sh --exposure` · 공개 확인 j · `ci/batch.sh` 의 멈춤 이슈 확인 | 61분 · 59분 · PR 을 못 찾음(노출 셋) · 열린 멈춤 이슈(j · 묶음 시작) | 예 |

@@ -941,13 +941,13 @@ fn values(repo: &Repo, facts: &Facts, hits: &mut Vec<String>, seen: &mut Seen) {
     want(hits, seen, doc, "리눅스 rc 묶음의 단계 수", found, linux);
     let found = stage_counts(&readme, "`host/Invoke-RcBundle.ps1`");
     want(hits, seen, doc, "Windows rc 묶음의 단계 수", found, windows);
-    // 6 하네스 README 가 이름을 적지 않은 하네스 스크립트 0.
+    // 6 하네스 README 가 이름을 적지 않은 하네스 스크립트 0. 머리에 `# 하네스 표:` 줄을 단 하네스는 하루 한 번의 생성물
+    // (`cargo xtask views --write`)이 README 의 표에 적는다 — 룰 PR 은 README 를 고치지 않는다(경로 제한 · `ci/rule-scope.sh`).
+    // 그 줄이 있으면 이름이 적힌 것으로 센다(2026-11-22 — 전에는 새 룰 하네스를 더한 룰 PR 이 여기서 막혔다).
     seen.values += 1;
     for f in repo.files.iter().filter(|f| harness_script(f)) {
         let rel = &f["testbed/harness/".len()..];
-        let base = rel.rsplit('/').next().unwrap_or(rel);
-        let named = readme.contains(rel) || readme.contains(base) || folder_named(&readme, rel);
-        if !named {
+        if !harness_named(&readme, rel, &text(f)) {
             hits.push(format!(
                 "{doc}: `{rel}` — 하네스 README 가 이름을 적지 않은 하네스 스크립트다(표에 한 줄)"
             ));
@@ -1018,6 +1018,19 @@ fn harness_script(f: &str) -> bool {
     f.starts_with("testbed/harness/")
         && !f.starts_with("testbed/harness/results/")
         && (f.ends_with(".sh") || f.ends_with(".ps1") || f.ends_with(".py"))
+}
+
+/// 하네스 README 가 그 스크립트를 적었는가 — 길 · 맨 이름 · 든 폴더, 또는 스크립트 머리 10줄의 `# 하네스 표:` 줄(하루 한 번의
+/// 생성물이 README 표에 적는다).
+fn harness_named(readme: &str, rel: &str, script: &str) -> bool {
+    let base = rel.rsplit('/').next().unwrap_or(rel);
+    script
+        .lines()
+        .take(10)
+        .any(|l| l.trim_start_matches('\u{feff}').starts_with("# 하네스 표:"))
+        || readme.contains(rel)
+        || readme.contains(base)
+        || folder_named(readme, rel)
 }
 
 /// 그 스크립트가 든 폴더(`linux/rc/` 꼴 — 둘째 단부터)를 README 가 인라인 코드로 적었는가. 첫 단(`linux/`)은 모든 하네스의
@@ -1094,6 +1107,32 @@ mod tests {
             }
         }
         out
+    }
+
+    #[test]
+    fn a_harness_with_a_table_line_counts_as_named() {
+        // 머리의 `# 하네스 표:` 줄은 하루 한 번의 생성물이 README 표에 옮긴다 — 룰 PR 이 README 를 고치지 않아도 지난다.
+        let readme = "| `linux/nginx-verify.sh` | 무엇 |\n";
+        assert!(harness_named(
+            readme,
+            "linux/nginx-verify.sh",
+            "#!/bin/bash\n"
+        ));
+        assert!(!harness_named(
+            readme,
+            "linux/new-verify.sh",
+            "#!/bin/bash\n# 룰: x — 시험\n"
+        ));
+        assert!(harness_named(
+            readme,
+            "linux/new-verify.sh",
+            "#!/bin/bash\n# 하네스 표: WSL | 역할\n"
+        ));
+        assert!(harness_named(
+            readme,
+            "host/New.ps1",
+            "\u{feff}#Requires -Version 5.1\r\n# 하네스 표: 랩 | 역할\r\n"
+        ));
     }
 
     #[test]

@@ -16,6 +16,7 @@ mod examapply;
 mod fixture;
 mod fragments;
 mod fuzz;
+mod g1;
 mod gitbase;
 mod guide;
 mod leaks;
@@ -25,6 +26,7 @@ mod package;
 mod pluginlock;
 mod procdocs;
 mod ps1vars;
+mod rulerecords;
 mod schema;
 mod screens;
 mod sign;
@@ -113,6 +115,11 @@ fn main() -> ExitCode {
         // 절차 문서(긴급 대응 · 개발 안내 · 이슈 처리 · 전체 그림 · 하네스 README · AGENTS · README)의 경로 · 링크 · 명령 인자 ·
         // 지금 값이 저장소와 맞는가 — 도구를 바꾼 커밋이 그 문서를 함께 고치지 않으면 여기서 걸린다(2026-11-22).
         Some("procdocs") => procdocs::run(&root),
+        // 저장소의 룰 전부를 청정 코퍼스에 — 판정 0 · 파괴 동작 0(G1 · 2026-11-22 · 승인자의 아홉 가지 7). 손으로 적는 목록 밖의
+        // 룰도 돈다. **`all` 에 넣지 않는다** — 디버그 빌드로 룰 20 × 스냅샷 29 가 수 분이라 CI 의 리눅스 잡 걸음 하나로 둔다.
+        Some("g1") => g1::run(&root),
+        // 룰 출시 기록 맨 앞의 두 표 — 점검 룰의 0 을 내는 갈래(근거 · 하네스 칸) · 린트 경고의 까닭(2026-11-22).
+        Some("rule-records") => rulerecords::run(&root),
         // 공개 전 누출 검사. **`all` 에 넣지 않는다** — 옛 사본은 로컬 전용 파일을
         // 추적하고 있어 실패가 맞는 상태다. 공개 저장소에서는 CI 의 따로 선 잡이다.
         Some("leaks") => {
@@ -144,7 +151,9 @@ fn main() -> ExitCode {
             // 하네스의 판정 문구가 빈 값으로 펴지는 자리 — 2026-11-16 메뉴 하네스에서 한 칸을 실패시키고 한 칸을 공허하게 만든 것.
             .and_then(|()| ps1vars::run(&root))
             // 절차 문서가 도구와 맞는가 — 처음 보는 사람이 그 문서대로 친다.
-            .and_then(|()| procdocs::run(&root)),
+            .and_then(|()| procdocs::run(&root))
+            // 출시 기록의 두 표 — 승인자의 아홉 가지 가운데 8(린트 경고의 까닭)과 점검 룰의 0 갈래(빈틈은 늘지 못한다).
+            .and_then(|()| rulerecords::run(&root)),
         // VM 검증용 격리 컨테이너. 격리물을 **만드는** 것은 P6 의 몫이라
         // 제품 CLI 에 넣지 않고 개발 도구 쪽에 둔다.
         Some("fixture") => {
