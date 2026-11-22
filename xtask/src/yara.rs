@@ -272,3 +272,84 @@ pub fn run(args: &[String]) -> Result<(), String> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 시험마다 따로 쓰는 임시 폴더 — `rules/t.yar`(표지 낱말 하나를 찾는 규칙) · `scan/` 에 주어진 파일들.
+    fn fixture(name: &str, files: &[(&str, &[u8])]) -> PathBuf {
+        let d =
+            std::env::temp_dir().join(format!("remedy-xtask-yara-{}-{name}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(d.join("rules")).unwrap();
+        std::fs::create_dir_all(d.join("scan")).unwrap();
+        std::fs::write(
+            d.join("rules/t.yar"),
+            "rule t { strings: $a = \"REMEDY-G9-MARK\" condition: $a }\n",
+        )
+        .unwrap();
+        for (f, bytes) in files {
+            std::fs::write(d.join("scan").join(f), bytes).unwrap();
+        }
+        d
+    }
+
+    fn clean(d: &Path, extra: &[&str]) -> Result<(), String> {
+        let mut args: Vec<String> = [
+            "--rules", "rules", "--scan", "scan", "--rule", "t", "--expect", "clean",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+        args[1] = d.join("rules").display().to_string();
+        args[3] = d.join("scan").display().to_string();
+        args.extend(extra.iter().map(|s| s.to_string()));
+        run(&args)
+    }
+
+    #[test]
+    fn a_matching_file_is_a_false_positive() {
+        let d = fixture(
+            "match",
+            &[("a.txt", b"plain"), ("b.txt", b"xx REMEDY-G9-MARK xx")],
+        );
+        let got = clean(&d, &[]);
+        let _ = std::fs::remove_dir_all(&d);
+        assert!(
+            got.as_ref().is_err_and(|e| e.contains("오탐 1건")),
+            "{got:?}"
+        );
+    }
+
+    #[test]
+    fn an_unread_file_is_not_counted_as_clean() {
+        // 상한(8 바이트)을 넘는 파일은 훑지 못한 것이다 — 안 맞음이 아니다.
+        let d = fixture(
+            "unread",
+            &[("a.txt", b"plain"), ("big.bin", b"0123456789abcdef")],
+        );
+        let got = clean(&d, &["--max-bytes", "8"]);
+        let _ = std::fs::remove_dir_all(&d);
+        assert!(
+            got.as_ref().is_err_and(|e| e.contains("훑지 못했다")),
+            "{got:?}"
+        );
+    }
+
+    #[test]
+    fn zero_files_is_not_a_clean_result() {
+        let d = fixture("empty", &[]);
+        let got = clean(&d, &[]);
+        let _ = std::fs::remove_dir_all(&d);
+        assert!(got.as_ref().is_err_and(|e| e.contains("0개")), "{got:?}");
+    }
+
+    #[test]
+    fn every_file_read_and_none_matched_passes() {
+        let d = fixture("pass", &[("a.txt", b"plain"), ("b.txt", b"also plain")]);
+        let got = clean(&d, &[]);
+        let _ = std::fs::remove_dir_all(&d);
+        assert_eq!(got, Ok(()));
+    }
+}

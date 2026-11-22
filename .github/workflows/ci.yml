@@ -157,6 +157,11 @@ jobs:
             echo "바탕: 지금 Latest $REMEDY_BASE"
           fi
           cargo xtask all
+      # 저장소의 룰 전부를 청정 코퍼스에(G1 · 2026-11-22) — 판정 · 파괴 동작 0(승인자의 아홉 가지 7 · 관측 모자람은 알림).
+      # `xtask all` 에 넣지 않는다 — 디버그 빌드로 수십 초라 두 OS 가 같은 것을 두 번 돌지 않게 이 잡에서만 돈다. 룰 PR 이 그
+      # 가벼운 길이라 조건을 걸지 않는다.
+      - name: g1 all rules
+        run: cargo xtask g1
       # 릴리스 본문 스크립트(ci/release-notes.sh)는 배포의 초안 잡에서만 돈다 — 태그 때에야 멈추지 않게, 지금 README 의 위협
       # 표 · 룰로 새 꼴 칸의 본문과 멈춤 장치를 PR 에서 본다(2026-11-20).
       - name: release notes script
