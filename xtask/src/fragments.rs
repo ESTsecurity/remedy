@@ -322,6 +322,15 @@ pub fn changes(root: &Path, args: &[String]) -> Result<(), String> {
 }
 
 /// `cargo xtask fragments [--base <ref>]` — 첫머리의 셋.
+/// 2026-11-21 에 지운 파일 — 룰 버전 파일 · 잠금 · 룰 폴더의 개발 키 서명. 다시 들어오면 막고(아래 3), 절차 문서가 '전에는
+/// 이 파일로 했다' 고 적는 것은 절차 문서 검사(`procdocs`)가 어긋남으로 세지 않는다.
+pub(crate) const REMOVED: &[&str] = &[
+    "plugins/RULES-VERSION",
+    "plugins/versions.lock.json",
+    "plugins/*/MANIFEST",
+    "plugins/*/MANIFEST.minisig",
+];
+
 pub fn check(root: &Path, args: &[String]) -> Result<(), String> {
     let base = gitbase::resolve(root, args)?;
     let mut errors = Vec::new();
@@ -413,15 +422,7 @@ pub fn check(root: &Path, args: &[String]) -> Result<(), String> {
     }
 
     // 3 지운 파일이 되살아나지 않았는가.
-    let back = gitbase::tracked(
-        root,
-        &[
-            "plugins/RULES-VERSION",
-            "plugins/versions.lock.json",
-            "plugins/*/MANIFEST",
-            "plugins/*/MANIFEST.minisig",
-        ],
-    )?;
+    let back = gitbase::tracked(root, REMOVED)?;
     if !back.is_empty() {
         errors.push(format!(
             "지운 파일이 다시 들어왔다: {} — 룰 버전은 출시 때 정하고(ci/batch.sh), 잠금은 git 바탕과 견주며(plugin-lock), \

@@ -48,6 +48,7 @@
 | **저널 (`.jsonl`)** | 한 회차에 무엇을 했는지 **줄 단위로 남긴 기록**. 계획과 대조하면 *"계획에 없던 동작이 0 인가"* 가 나온다 |
 
 ### 2026-10-26 의 상태 — 숫자로
+<!-- 기록: 2026-10-26 의 사진 — 절차 문서 검사(cargo xtask procdocs)가 이 절의 값을 견주지 않는다 -->
 
 > **그날 잰 사진이다.** 그 뒤 버전 · 룰 · 시험 수는 늘었다 — 지금 버전과 룰은 [`업데이트-내역.md`](업데이트-내역.md),
 > 저장소 검사는 §10, 하네스는 `testbed/harness/README.md` 가 적는다. 아래 숫자를 지키는 게이트는 없다.
@@ -580,7 +581,7 @@ flowchart TB
 
 ```mermaid
 flowchart TB
-    START([룰을 써야 한다]) --> AI["machine/AI-CONTEXT.md<br/>8 KB · 생성물 · 이것 하나로 쓸 수 있다"]
+    START([룰을 써야 한다]) --> AI["machine/AI-CONTEXT.md<br/>10 KB 안 · 생성물 · 이것 하나로 쓸 수 있다"]
     AI --> NEED{무엇이 더 필요한가}
     NEED -->|"무엇을 볼 수 있나"| S["machine/subjects.json (전수)<br/>machine/REFERENCE.md (요약)"]
     NEED -->|"비슷한 예제"| EX["examples/ex01 예약작업·Win<br/>examples/ex02 레지스트리·Win<br/>examples/ex03 설정파일·Linux<br/>examples/ex04 점검 전용·Linux"]
@@ -620,7 +621,7 @@ docs/plugin-guide/
 │   └── ex04-check-only/      점검 전용 · Linux — 계획이 빈다
 │       └── (각각 plugin.yaml · artifacts.json · expected-plan.json · README.md)
 └── machine/                  프로그램이 읽는 것 (생성물)
-    ├── AI-CONTEXT.md         압축 문맥 8 KB ← 하나만 고르면 이것
+    ├── AI-CONTEXT.md         압축 문맥 10 KB 안 ← 하나만 고르면 이것
     ├── REFERENCE.md          사람이 읽는 요약
     ├── plugin.schema.json    매니페스트 스키마 (권위 있는 정의)
     ├── artifact.schema.json  아티팩트 스키마
@@ -733,7 +734,7 @@ cargo deny check
 | `가이드` | 문서 18개의 크기 예산과 헤더 |
 | `console-doc` | `콘솔은-이렇게-보인다.md` 가 인용한 화면이 **기준선에 실제로 있는가** |
 | `screens` | 고객이 읽는 화면에 쓰지 않기로 한 말이 돌아왔는가 |
-| `snapshots` | 스냅샷 48개가 카탈로그와 맞는가 |
+| `snapshots` | 스냅샷 49개가 카탈로그와 맞는가 |
 | `실기기` | 위협 20개의 치료 결과가 **지금 자료로** 재어졌는가 |
 | `plugin-lock` | 룰을 고친 플러그인이 버전을 올렸는가 |
 | `threats` | README 의 *다루는 위협* 표가 룰 매니페스트와 같은가 |

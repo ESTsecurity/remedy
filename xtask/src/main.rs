@@ -23,6 +23,7 @@ mod metrics;
 mod netcriteria;
 mod package;
 mod pluginlock;
+mod procdocs;
 mod ps1vars;
 mod schema;
 mod screens;
@@ -109,6 +110,9 @@ fn main() -> ExitCode {
         Some("net-criteria") => netcriteria::run(&root),
         // 하네스 `.ps1` 의 `"$n개"` — PowerShell 이 한글까지 변수 이름으로 읽어 빈 값으로 편다.
         Some("ps1-vars") => ps1vars::run(&root),
+        // 절차 문서(긴급 대응 · 개발 안내 · 이슈 처리 · 전체 그림 · 하네스 README · AGENTS · README)의 경로 · 링크 · 명령 인자 ·
+        // 지금 값이 저장소와 맞는가 — 도구를 바꾼 커밋이 그 문서를 함께 고치지 않으면 여기서 걸린다(2026-11-22).
+        Some("procdocs") => procdocs::run(&root),
         // 공개 전 누출 검사. **`all` 에 넣지 않는다** — 옛 사본은 로컬 전용 파일을
         // 추적하고 있어 실패가 맞는 상태다. 공개 저장소에서는 CI 의 따로 선 잡이다.
         Some("leaks") => {
@@ -138,7 +142,9 @@ fn main() -> ExitCode {
             // 동반 프로그램의 기준과 본체의 점검 룰이 같은 공지의 같은 값인가 — 한쪽만 고치면 여기서 걸린다.
             .and_then(|()| netcriteria::run(&root))
             // 하네스의 판정 문구가 빈 값으로 펴지는 자리 — 2026-11-16 메뉴 하네스에서 한 칸을 실패시키고 한 칸을 공허하게 만든 것.
-            .and_then(|()| ps1vars::run(&root)),
+            .and_then(|()| ps1vars::run(&root))
+            // 절차 문서가 도구와 맞는가 — 처음 보는 사람이 그 문서대로 친다.
+            .and_then(|()| procdocs::run(&root)),
         // VM 검증용 격리 컨테이너. 격리물을 **만드는** 것은 P6 의 몫이라
         // 제품 CLI 에 넣지 않고 개발 도구 쪽에 둔다.
         Some("fixture") => {

@@ -46,7 +46,9 @@ struct Finding {
     what: String,
 }
 
-pub fn run(root: &Path) -> Result<(), String> {
+/// 이 검사가 보는 스냅샷 — 청정 코퍼스 · 감염 코퍼스 · AI 시험 위협의 감염 스냅샷. 절차 문서 검사(`procdocs`)가
+/// 문서에 적힌 스냅샷 수와 이 수를 견준다.
+pub(crate) fn files(root: &Path) -> Vec<PathBuf> {
     let mut files = Vec::new();
     collect_files(&root.join("corpus/clean"), &mut files);
     collect_files(&root.join("corpus/infected"), &mut files);
@@ -54,6 +56,11 @@ pub fn run(root: &Path) -> Result<(), String> {
         collect_files(&t.join("infected"), &mut files);
     }
     files.sort();
+    files
+}
+
+pub fn run(root: &Path) -> Result<(), String> {
+    let files = files(root);
 
     if files.is_empty() {
         return Err("검사할 스냅샷이 하나도 없다. 경로가 바뀌었는지 볼 것".into());
