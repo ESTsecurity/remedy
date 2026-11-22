@@ -230,3 +230,4 @@ pass=$(awk -F'\t' '$2 == 1' "$OUT/checks.tsv" | wc -l)
 total=$(wc -l <"$OUT/checks.tsv")
 echo "── 합: $pass / $total ──"
 [ "$pass" = "$total" ]
+# PR CI 시험 — 병합 전에 지운다

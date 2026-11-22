@@ -256,3 +256,4 @@ finally {
 Note ("끝 {0}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'))
 Note ("판정 {0}/{1} · 실패 {2}" -f $pass, $total, $fail)
 if ($fail -eq 0) { exit 0 } else { exit 1 }
+# PR CI 시험 — 병합 전에 지운다
