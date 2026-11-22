@@ -1259,7 +1259,7 @@ _tmp_console-capture_orgsrc_g2.evil
 
 [exit=6]
 
-ESTsecurity Dedicated Cleaner 1.25.3 · rules 2026.11.21
+ESTsecurity Dedicated Cleaner 1.25.3 · rules 2026.11.22.2
 Running with root rights.
 Notice: no code-signing check on Linux. Check the downloaded file's checksum.
 
@@ -1391,7 +1391,7 @@ Next
   To look at whole disks too — 2. Full scan (12 items · whole disks too · can take a long time)
 
 Press Enter to go back to the menu. 
-ESTsecurity Dedicated Cleaner 1.25.3 · rules 2026.11.21
+ESTsecurity Dedicated Cleaner 1.25.3 · rules 2026.11.22.2
 Running with root rights.
 
 What would you like to check? (13 items)
@@ -1472,7 +1472,7 @@ Error: remedy-net is not signed, so it was not started — check that it came fr
 
 [exit=1]
 
-ESTsecurity Dedicated Cleaner 1.25.3 · rules 2026.11.21
+ESTsecurity Dedicated Cleaner 1.25.3 · rules 2026.11.22.2
 Running with root rights.
 Notice: no code-signing check on Linux. Check the downloaded file's checksum.
 
@@ -1614,7 +1614,7 @@ Next
   To look at whole disks too — 2. Full scan (12 items · whole disks too · can take a long time)
 
 Press Enter to go back to the menu. 
-ESTsecurity Dedicated Cleaner 1.25.3 · rules 2026.11.21
+ESTsecurity Dedicated Cleaner 1.25.3 · rules 2026.11.22.2
 Running with root rights.
 
 What would you like to check? (13 items)
@@ -1703,7 +1703,7 @@ Next
     /tmp/console-capture/scan-all/pkg/plugins/cwpdoor-2-clean/RELEASE.md
 
 Press Enter to go back to the menu. 
-ESTsecurity Dedicated Cleaner 1.25.3 · rules 2026.11.21
+ESTsecurity Dedicated Cleaner 1.25.3 · rules 2026.11.22.2
 Running with root rights.
 
 What would you like to check? (13 items)

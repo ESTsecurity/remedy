@@ -14,6 +14,10 @@
 # 컨테이너의 rustup 은 사내망에서 받지 못할 수 있다). 두 벌은 차례로 돈다(같은 볼륨을 쓴다).
 #
 # 종료 코드: 0 = 두 벌 모두 끝까지 받았고 자기 점검이 기대한 그대로 · 1 = 하나라도 아니다 · 2 = 인자 · 준비가 모자라다.
+#
+# 룰 버전 줄 — 저장소에는 `plugins/RULES-VERSION` 이 없다(2026-11-21 부터 배포 잡이 꾸러미에 써 넣는다). 지은 꾸러미가 그 파일을
+# 실어야 화면 머리말이 공개본처럼 룰 버전을 적으므로, 부르기 전에 저장소 뿌리의 그 자리(커밋하지 않는다 · `.gitignore`)에 공개한
+# (또는 낼) 룰 버전 한 줄을 쓰고 끝나면 지운다. 없으면 그 줄이 빠진 캡처가 되어 기준선과 어긋난다 — 멈춘다(종료 2).
 # 끝나면 무거운 일 뒤의 규칙대로 WSL 캐시를 비운다(root): `wsl -u root -e sh -c 'echo 3 > /proc/sys/vm/drop_caches'`.
 set -u
 STAMP=""
@@ -38,6 +42,11 @@ IMAGE="rust:${CHANNEL%.*}-bookworm"
 [ -d "$HOME/.rustup/toolchains/$TC" ] || { echo "WSL 툴체인이 없다: ~/.rustup/toolchains/$TC" >&2; exit 2; }
 docker info >/dev/null 2>&1 || { echo "docker 가 돌지 않는다" >&2; exit 2; }
 docker image inspect "$IMAGE" >/dev/null 2>&1 || { echo "$IMAGE 이미지가 없다 — docker pull $IMAGE" >&2; exit 2; }
+[ -f "$REPO/plugins/RULES-VERSION" ] || {
+    echo "plugins/RULES-VERSION 이 없다 — 공개한(또는 낼) 룰 버전 한 줄을 써 두고 다시 부른다(커밋하지 않는 자리 · 끝나면 지운다)" >&2
+    exit 2
+}
+echo "룰 버전: $(tr -d '\r\n' <"$REPO/plugins/RULES-VERSION")"
 OUT="$REPO/testbed/harness/results"
 mkdir -p "$OUT"
 bad=0
