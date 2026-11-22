@@ -6,7 +6,8 @@
 #   bash ci/rule-scope.sh selftest        임시 저장소로 경우를 돈다(CI)
 #
 # 룰 PR 은 `plugins/` 를 고친 PR 이다. 그 PR 이 고칠 수 있는 자리(docs/개발-안내.md '새 룰을 더할 때'):
-#   - `plugins/` · `docs/changes/` · `docs/위협별-안내.md`
+#   - `plugins/` · `docs/changes/` · `docs/위협별-안내.md` · 같은 제품의 찾는 조건 원본 `products/`(2026-11-23 — 원본을 고치면
+#     그 제품의 룰을 함께 채운다 · `cargo xtask products`)
 #   - 룰 하네스 — `testbed/harness/{linux,host}/` 바로 아래의 파일 가운데 머리 10줄에 `# 룰:` 줄이 있는 것(지운 것은 바탕에서
 #     본다) · 하네스 픽스처(`testbed/harness/**/fixtures/`) · AI 시험 위협(`testbed/ai-exam/threats/`)
 #   - 조건에 따라 더하는 자리 — 판정 기준 대조(`xtask/src/netcriteria.rs` — 룰 id 가 박혀 있다) · AI 시험의 정답 목록
@@ -31,7 +32,7 @@ rule_harness_at() {
 allowed() {
     local base=$1 head=$2 f=$3 e
     case "$f" in
-        plugins/* | docs/changes/* | docs/위협별-안내.md | testbed/ai-exam/threats/*) return 0 ;;
+        plugins/* | products/* | docs/changes/* | docs/위협별-안내.md | testbed/ai-exam/threats/*) return 0 ;;
         testbed/harness/*/fixtures/* | testbed/harness/*/*/fixtures/*) return 0 ;;
     esac
     for e in "${EXTRA[@]}"; do [ "$f" = "$e" ] && return 0; done
@@ -90,7 +91,8 @@ selftest() {
             for f in "$@"; do mkdir -p "$(dirname "$f")" && printf '%s\n' "$name" >>"$f"; done
             git add -A && git -c user.email=t@t -c user.name=t commit -qm "$name"
         }
-        case_commit rule-only plugins/a/plugin.yaml docs/changes/a-0.2.md testbed/harness/linux/a-verify.sh docs/위협별-안내.md
+        case_commit rule-only plugins/a/plugin.yaml docs/changes/a-0.2.md testbed/harness/linux/a-verify.sh docs/위협별-안내.md \
+            products/a.yaml
         case_commit rule-and-ci plugins/a/plugin.yaml ci/batch.sh
         case_commit rule-and-gate plugins/a/plugin.yaml testbed/harness/linux/emergency-checks.sh
         case_commit tool-only ci/batch.sh testbed/harness/linux/emergency-checks.sh
@@ -108,7 +110,7 @@ selftest() {
         git add -A && git -c user.email=t@t -c user.name=t commit -qm plain
     ) >/dev/null 2>&1
     r() { (cd "$d" && check base "$1") >/dev/null 2>&1; echo $?; }
-    t "룰 · 조각 · 룰 하네스 · 위협별 안내만 — 지난다" "$(r rule-only)" 0
+    t "룰 · 조각 · 룰 하네스 · 위협별 안내 · 제품 원본만 — 지난다" "$(r rule-only)" 0
     t "룰 + 출시 스크립트 — 멈춘다" "$(r rule-and-ci)" 1
     t "룰 + 필수 점검(# 룰: 줄 없는 하네스) — 멈춘다" "$(r rule-and-gate)" 1
     t "도구만(룰 PR 이 아니다) — 지난다" "$(r tool-only)" 0
