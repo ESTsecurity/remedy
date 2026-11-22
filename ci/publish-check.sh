@@ -5,7 +5,7 @@
 #   bash ci/publish-check.sh --exposure <태그> <공개 시각 RFC3339> <지난 Latest 의 태그>
 #   bash ci/publish-check.sh --checks-run <태그> '<이름:sha256> …'   그 자산 셋으로 성공한 러너 점검의 실행 번호(없으면 종료 1)
 #
-# 잡 안에서 돈다(GH_TOKEN · GH_REPO). 최종 확인의 칸 a ~ i 는 그 워크플로 첫머리에 있다 — 하나라도 어긋나면 종료 1 이고 공개하지
+# 잡 안에서 돈다(GH_TOKEN · GH_REPO). 최종 확인의 칸 a ~ j 는 그 워크플로 첫머리에 있다 — 하나라도 어긋나면 종료 1 이고 공개하지
 # 않는다. 받을 폴더에는 초안의 자산 셋을 받아 둔다(공개 뒤 익명 확인이 그 바이트와 견준다). `--checks-run` 은 i 와 같은 잣대로
 # 실행을 찾는다 — `ci/batch.sh approve` 가 점검 기록이 없는 PC 에서 부른다(gh 로그인 · 저장소 루트).
 #
@@ -188,4 +188,12 @@ if [[ "$TAG" == rules-* ]]; then
 else
     echo "i 엔진 출시 — 필수 점검 대신 '출시 검증'(rc 묶음 · 최종 확인)"
 fi
+
+# j 모아 내기 멈춤 — 열린 '모아 내기 멈춤' 이슈가 있으면 공개하지 않는다(2026-11-22). 묶음
+# 명령은 시작할 때 그 이슈를 본다 — 앞 출시의 노출 시간 걸음(공개 + 180초)보다 먼저 시작한 묶음은 그 이슈가 열린 뒤에도 여기까지
+# 온다. 실패한 미룬 검증 · 60분을 넘긴 점검 룰의 까닭을 적고 닫은 뒤 다시 공개한다.
+hold=$(gh issue list --repo "$GH_REPO" --state open --search '"모아 내기 멈춤" in:title' --json number,title \
+    --jq '.[] | "#\(.number) \(.title)"')
+[ -z "$hold" ] || fail "j 모아 내기가 멈춰 있다: $hold — 까닭을 적고 그 이슈를 닫은 뒤 다시(AGENTS.md · 60분 상한)"
+echo "j 열린 '모아 내기 멈춤' 이슈 없음"
 echo "최종 확인 통과 — $TAG"

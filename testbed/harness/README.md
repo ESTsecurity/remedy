@@ -2552,6 +2552,35 @@ churn 은 작다. 남겨 두는 이유는 THREAT.md 가 *"`C:\ProgramData` 는 �
 
 ---
 
+## 출시 길의 게이트 — 일부러 깨뜨린 입력 (2026-11-22)
+
+게이트가 실제로 막는지는 이름이 아니라 **일부러 깨뜨린 입력**으로 본다. 아래 표는 기계가 보는 게이트마다 막는 자리 · 그 음성
+시험 · CI 가 스스로 도는지다. 각 음성 시험은 지을 때 막는 줄을 뺀 사본에 돌려 그 시험이 실패하는 것까지 쟀다. 게이트를 고치면
+그 음성 시험을 함께 고친다 — 시험이 없는 칸(*없음* · *손*)은 바꾼 사람이 깨뜨린 입력을 손으로 주고 그 결과를 PR 에 적는다.
+
+| 게이트 | 막는 자리 | 일부러 깨뜨린 입력 | CI |
+|---|---|---|---|
+| ① 새 룰 하네스 | `ci/batch.sh` 의 하네스 셈 · `testbed/harness/linux/emergency-checks.sh` · `testbed/harness/host/Invoke-RuleHarness.ps1` | 리눅스 — 종료 1 하네스(`bash ci/emergency-checks-test.sh` 회차 A) · 하네스 없는 바뀐 룰 → 멈춤(`bash ci/batch.sh selftest`). Windows 의 입력 가드 · 하네스 throw 는 손(2026-11-22) | 리눅스 예 · Windows 아니다 |
+| ② 정식 파일 | `emergency-checks.sh` · `testbed/harness/host/Invoke-EmergencyChecks.ps1` | 리눅스 — 데이터 룰 한 파일을 바꾼 꾸러미 → 룰 서명 하나 모자람(회차 B). Windows 는 손(2026-11-14) | 리눅스 예 · Windows 아니다 |
+| ③ 기존 동작 | `emergency-checks.sh` · `Invoke-EmergencyChecks.ps1` | 없음 — 회차 A · B 는 종료 코드가 같은 쪽만 본다. 화면 차이는 사람이 판정한다 | 아니다 |
+| ④ G9 | `ci/batch.sh` 의 G9 대조 · `cargo xtask yara` | 대조 — 기록 없음 · 기록의 sha256 다름 · 초안에 그 `.yar` 없음 → 멈춤, 맞는 기록 · YARA 그대로 → 지남(`bash ci/batch.sh selftest`). 측정(`xtask/src/yara.rs`)은 없음 | 대조만 예 |
+| ⑤ 넘길 파일 = 시험한 파일 | `ci/publish-check.sh` 의 d · i · `testbed/harness/linux/release-anon-check.sh` | 공개 전 — 자산 해시 · 받은 바이트 · 올린 이(d) · 점검 실행의 열쇠 · 커밋 · 잡(i)(`bash ci/publish-check-test.sh`). 공개 뒤 익명 확인은 없음 | 공개 전만 예 |
+| ⑥ 치료 룰 | 그 룰의 하네스 칸뿐 | 없음 | 아니다 |
+| G1 청정 코퍼스 | `crates/remedy-core/tests/corpus.rs` | 반드시 맞는 룰을 지어 게이트가 무는지 — 손으로 적는 목록의 룰만 | 목록의 룰만 예 |
+| 룰 서명 확인 | `ci/release.sh` · `ci/sign-check.sh` | 고친 사본 · 다른 키 · 동반 프로그램 셋 → 종료 5 | 예 |
+| 공개 확인 a ~ j | `ci/publish-check.sh` · `.github/workflows/publish.yml` | 칸마다 하나 이상 — 태그 꼴 · 초안 · 배포 실행 · 자산 · 본문 · 버전 검사와 싣는 엔진 · 엔진 출시 진행 · main CI · 러너 점검 · 멈춤 이슈(`bash ci/publish-check-test.sh`) | 예 |
+| 60분 상한 · 멈춤 이슈 | `ci/publish-check.sh --exposure` · 공개 확인 j · `ci/batch.sh` 의 멈춤 이슈 확인 | 61분 · 59분 · PR 을 못 찾음(노출 셋) · 열린 멈춤 이슈(j · 묶음 시작) | 예 |
+| 도구 최신 | `ci/batch.sh` 의 도구 확인(`fresh_tools`) | origin/main 이 앞선 낡은 사본 → 멈춤 · 같은 사본 → 지남 | 예 |
+| PR CI 의 룰 하네스 | `bash ci/batch.sh pr-harnesses` · `.github/workflows/ci.yml` | 찾기 · 하네스 없는 바뀐 룰 → 멈춤(selftest). 하네스 실패 → 잡 실패는 손(2026-11-22) | 찾기만 예 |
+| 룰 PR 의 경로 제한 | `ci/rule-scope.sh`(CI 의 `rule scope` 걸음) | 룰 + 출시 스크립트 · 룰 + 필수 점검 · 룰 + 새 하네스 바탕 → 멈춤(`bash ci/rule-scope.sh selftest`) | 예 |
+| 미룬 검증 | `testbed/harness/linux/rc-bundle.sh` · `testbed/harness/host/Invoke-RcBundle.ps1` | 없음 | 아니다 |
+| 버전 검사 | `ci/version-check.sh` | `bash ci/version-check-test.sh` | 예 |
+| 절차 문서 검사 | `xtask/src/procdocs.rs` | 이름 바꾼 도구 · 없는 자리 · 링크 · 명령 인자(`cargo test`) | 예 |
+
+`bash ci/publish-check-test.sh` 는 jq 가 드는 곳에서, `bash ci/emergency-checks-test.sh <지금 Latest 의 remedy-linux-x64.tar.gz>` 는
+docker 가 드는 곳에서 저장소 루트로 돈다(CI 는 리눅스 잡 — 앞의 것은 `ci/` 를 고친 PR, 뒤의 것은 그 점검 스크립트 · 그 시험 ·
+CI 워크플로를 고친 PR 과 main 에서).
+
 ## CI 에서 무엇이 돌고 무엇이 못 도는가 (2026-09-05)
 <!-- 기록: 2026-09-05 의 사진(GitLab 시절) — 지금 CI 는 .github/workflows/ci.yml · 절차 문서 검사가 이 절의 경로를 견주지 않는다 -->
 
