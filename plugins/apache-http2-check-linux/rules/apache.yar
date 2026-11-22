@@ -35,3 +35,15 @@ rule apache_version_affected
     condition:
         $v
 }
+
+// 판을 읽을 수 있는가 — 어느 판이든 `Apache/<판>` 문자열. 직접 빌드에 이것이 없으면 영향 판인지 모르니 확인 필요로 낸다
+// (0.1.3 · nginx 룰의 `nginx_version_string` 과 같은 꼴). 뒤 글자가 숫자가 아니어야 한다 — 판의 앞부분만으로 맞지 않게.
+rule apache_version_string
+{
+    meta:
+        description = "an Apache/<version> server version string in an httpd binary"
+    strings:
+        $v = /Apache\/[0-9]{1,2}\.[0-9]{1,3}\.[0-9]{1,3}[^0-9]/
+    condition:
+        $v
+}

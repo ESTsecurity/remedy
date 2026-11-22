@@ -16,23 +16,23 @@
 #
 # # 무해한가
 #
-# **실검체는 없다.** 이미지는 배포판 저장소의 Apache 를 그대로 깐 것이다(2026-11-13 에 지은 Rocky 9 · Amazon Linux 2023 ·
-# AlmaLinux 9 · Oracle Linux 9 의 저장소 판은 아직 취약 판이었다 — 아래 A 가 그것을 잰다). 그 밖의 취약 기계는
-# **자리 채우기**다 — dpkg · apk 는 패키지 기록의 판 줄만 바꾸고, RHEL 공급사의 줄은 파일 없는 빈 rpm(이름 · 판 ·
-# 공급사만)을 지어 넣는다. 직접 빌드는 서버 판 문자열만 담은 작은 파일이다. Apache 는 재시작 경우(T) 하나에서만
-# 띄운다. 경우마다 네트워크 없는 일회용 컨테이너에서 remedy 가 읽기만 한다.
+# **실검체는 없다.** 이미지는 배포판 저장소의 Apache 를 그대로 깐 것이다(2026-11-22 부터 Rocky 9 · Amazon Linux 2023 의
+# 저장소도 고친 판을 깐다 — 아래 A 가 그것을 잰다. AlmaLinux 9 · Oracle Linux 9 는 이 룰이 고친 판을 모르는 공급사다).
+# 그 밖의 취약 기계는 **자리 채우기**다 — dpkg · apk 는 패키지 기록의 판 줄만 바꾸고, RHEL · Rocky · Amazon Linux 의 줄은
+# 파일 없는 빈 rpm(이름 · 판 · 공급사 · epoch 만)을 지어 넣는다. 직접 빌드는 서버 판 문자열만 담은 작은 파일이다. Apache 는
+# 재시작 경우(T) 하나에서만 띄운다. 경우마다 네트워크 없는 일회용 컨테이너에서 remedy 가 읽기만 한다.
 #
 # # 무엇을 재나
 #
-#   A  이미지 7 — 깐 판이 고친 판(Debian 12 · Ubuntu 24.04 · 22.04 · Alpine 3.22 · Amazon Linux 2)이거나 취약 판(Rocky 9 ·
-#      Amazon Linux 2023)이다 — 배포판 자신의 비교(dpkg · rpm · apk)로
+#   A  이미지 7 — 깐 판이 고친 판이다(Debian 12 · Ubuntu 24.04 · 22.04 · Rocky 9 · Amazon Linux 2023 · Alpine 3.22 · Amazon
+#      Linux 2) — 배포판 자신의 비교(dpkg · rpm · apk)로
 #   B  dpkg 13 — 고친 판 0 · 취약 판 + HTTP/2 2 · 모듈을 안 켬 6 · 모듈만 켬 6 · 사이트 설정의 Protocols 2 · Ubuntu 24.04 ·
 #      22.04(상류 2.4.55 아래의 백포트) · testing 꼴 · 지원 끝난 꼴 6 · 영향 없는 옛 판 0
-#   C  rpm 10 — Rocky 9 기본(모듈만) 6 · Protocols h2 2 · 주석 줄 6 · Rocky 8 0 · Alma 9 · Oracle 9 6 · AL2023 기본 6 ·
-#      Protocols h2 2 · AL2 고친 판(기본이 h2) 0 · SUSE 6
+#   C  rpm 12 — Rocky 9 고친 판(기본 · Protocols h2) 0 · Rocky 꼴 취약 판 + h2 2 · 주석 줄 6 · Rocky 8 0 · Alma 9 · Oracle 9 6 ·
+#      AL2023 고친 판(기본 · Protocols h2) 0 · AL2023 꼴 취약 판 + h2 2 · AL2 고친 판(기본이 h2) 0 · SUSE 6
 #   H  RHEL 공급사 7 — 9.8 취약 2 · 9.8 EUS 고친 판 0 · 9.9 고친 판 0 · 끝난 마이너 2 · 10.3 취약 2 · 10.0 고친 판 0 · RHEL 8 0
 #   P  Alpine 4 — 고친 판 0 · 취약 판 + h2 2 · Protocols 없음 6 · 지원 끝난 브랜치 6
-#   X  직접 빌드 4 — 2.4.62 + h2 2 · 모듈 줄 주석 6 · 2.4.71 0 · XAMPP 2.4.58 + h2 2
+#   X  직접 빌드 5 — 2.4.62 + h2 2 · 모듈 줄 주석 6 · 2.4.71 0 · XAMPP 2.4.58 + h2 2 · 판 문자열 없음 6(0.1.3)
 #   N  Apache 없음 2 — Debian · Alpine 0
 #   T  재시작 1 — 고친 판을 깐 뒤 다시 시작하지 않은 Apache(지워진 mod_http2) 6
 #   S  화면 5 — 찾은 줄 아래 CVE 문구 · 흔적 없음 · 모르는 빌드 · 재시작의 확인 필요 까닭 · 미해소 경고 0
@@ -99,8 +99,11 @@ rocky9 rockylinux:9 dnf
 rocky8 rockylinux:8 dnf
 alma9 almalinux:9 dnf
 ol9 oraclelinux:9 dnf
-al2023 amazonlinux:2023 dnf
 LIST
+# Amazon Linux 2023 의 저장소 판은 바탕 이미지의 릴리스(releasever)에 묶인다 — 예전에 받은 `amazonlinux:2023` 은 고치기 전 판을,
+# 러너가 새로 받은 것은 고친 판을 깔았다(2026-11-22 · 같은 날 로컬 1:2.4.69 · 러너 1:2.4.71). 최신 릴리스의 저장소로 깐다.
+prepare al2023 amazonlinux:2023 'dnf -y -q --releasever=latest install httpd mod_http2 >/dev/null && rpm -q httpd mod_http2' \
+    || { echo "al2023 이미지를 짓지 못했다" >&2; exit 9; }
 prepare al2 amazonlinux:2 'yum -y -q install httpd mod_http2 mod_ssl >/dev/null && rpm -q httpd mod_http2' \
     || { echo "al2 이미지를 짓지 못했다" >&2; exit 9; }
 prepare leap156 opensuse/leap:15.6 'zypper -n -q install apache2 >/dev/null && rpm -q apache2' \
@@ -109,6 +112,9 @@ prepare alpine322 alpine:3.22 'apk add --no-cache -q apache2 apache2-http2' || {
 # RHEL 공급사의 판을 자리 채우기로 넣을 rpmbuild — Rocky 9 이미지 위에.
 prepare rocky9-rpmbuild "$IMG:rocky9" 'dnf -y -q install rpm-build >/dev/null && rpm -q rpm-build' \
     || { echo "rpmbuild 이미지를 짓지 못했다" >&2; exit 9; }
+# Amazon Linux 2023 의 취약 판도 자리 채우기로(2026-11-22 — 저장소가 고친 판을 깐다).
+prepare al2023-rpmbuild "$IMG:al2023" 'dnf -y -q install rpm-build >/dev/null && rpm -q rpm-build' \
+    || { echo "al2023 rpmbuild 이미지를 짓지 못했다" >&2; exit 9; }
 
 # 깐 판을 배포판 자신의 비교로 잰다 — 아니면 '고친 판' · '취약 판' 경우가 그 기계가 아니다.
 in_image() { docker run --rm --network none "$IMG:$1" sh -c "$2" 2>/dev/null; }
@@ -139,10 +145,10 @@ deb_ge ubuntu2404 2.4.58-1ubuntu8.19 && a=1 || a=0
 check "A2 Ubuntu 24.04 의 apache2-bin 이 고친 판 이상" "$a" "$(cat "$OUT/installed-ubuntu2404.txt") ≥ 2.4.58-1ubuntu8.19"
 deb_ge ubuntu2204 2.4.52-1ubuntu4.27 && a=1 || a=0
 check "A3 Ubuntu 22.04 의 apache2-bin 이 고친 판 이상" "$a" "$(cat "$OUT/installed-ubuntu2204.txt") ≥ 2.4.52-1ubuntu4.27"
-rpm_cmp rocky9 2.0.26-7.el9_9.1 lt && a=1 || a=0
-check "A4 Rocky 9 의 mod_http2 가 고친 판 미만(실제 취약 판)" "$a" "$(cat "$OUT/installed-rocky9.txt") < 2.0.26-7.el9_9.1"
-rpm_cmp al2023 2.4.71-1.amzn2023.0.1 lt && a=1 || a=0
-check "A5 Amazon Linux 2023 의 mod_http2 가 고친 판 미만(실제 취약 판)" "$a" "$(cat "$OUT/installed-al2023.txt") < 1:2.4.71-1.amzn2023.0.1"
+rpm_cmp rocky9 2.0.26-7.el9_9.1 ge && a=1 || a=0
+check "A4 Rocky 9 의 mod_http2 가 고친 판 이상" "$a" "$(cat "$OUT/installed-rocky9.txt") ≥ 2.0.26-7.el9_9.1"
+rpm_cmp al2023 2.4.71-1.amzn2023.0.1 ge && a=1 || a=0
+check "A5 Amazon Linux 2023 의 mod_http2 가 고친 판 이상" "$a" "$(cat "$OUT/installed-al2023.txt") ≥ 1:2.4.71-1.amzn2023.0.1"
 apk_ge alpine322 apache2-http2 2.4.71-r0 && a=1 || a=0
 check "A6 Alpine 3.22 의 apache2-http2 가 고친 판 이상" "$a" "$(cat "$OUT/installed-alpine322.txt") ≥ 2.4.71-r0"
 rpm_cmp al2 2.4.71-1.amzn2.0.1 ge && a=1 || a=0
@@ -158,19 +164,20 @@ trap cleanup EXIT
 mkdir -p "$W/b/plugins" "$W/res"
 cp "$BIN" "$W/b/remedy"
 cp -r "$PLUGINS/$RULE" "$W/b/plugins/"
-# RHEL 공급사의 빈 mod_http2 를 짓고 넣는다(파일 없음 · 이름 · 판 · 공급사만). 깔려 있던 mod_http2 를 빼면 그 패키지가 둔
-# 10-h2.conf 도 빠지므로 같은 줄로 다시 둔다.
+# 공급사의 빈 mod_http2 를 짓고 넣는다(파일 없음 · 이름 · 판 · 공급사만) — `sh /b/rh-rpm.sh <판> <릴리스> [공급사] [epoch]`
+# (공급사의 기본은 Red Hat). 깔려 있던 mod_http2 를 빼면 그 패키지가 둔 10-h2.conf 도 빠지므로 같은 줄로 다시 둔다.
 cat >"$W/b/rh-rpm.sh" <<'RPM'
 set -e
 rpm -e --nodeps mod_http2 >/dev/null 2>&1 || true
 mkdir -p /tmp/rb/SPECS
 {
   echo "Name: mod_http2"
+  [ -z "${4:-}" ] || echo "Epoch: $4"
   echo "Version: $1"
   echo "Release: $2"
   echo "Summary: placeholder"
   echo "License: ASL 2.0"
-  echo "Vendor: Red Hat, Inc."
+  echo "Vendor: ${3:-Red Hat, Inc.}"
   echo "BuildArch: noarch"
   echo "%description"
   echo "placeholder"
@@ -237,16 +244,22 @@ run_case b12-ubuntu25-like ubuntu2404 6 "$(deb_set apache2-bin 2.4.64-1ubuntu3.1
 run_case b13-old-unaffected ubuntu2404 0 "$(deb_set apache2-bin 2.4.29-1ubuntu4.27) && $DEB_H2" "2.4.29 — 영향 없는 옛 판"
 
 echo "── C. rpm ──"
-run_case r01-rocky9-default rocky9 6 ":" "깐 그대로(취약 판) · 모듈은 실리고 Protocols 없음"
-run_case r02-rocky9-h2 rocky9 2 "$RPM_H2 && $RPM_KEY" "Protocols h2 · 가짜 키"
-run_case r03-rocky9-commented rocky9 6 "$RPM_H2_COMMENT" "주석 줄은 켜지 않는다"
+# Rocky 9 · Amazon Linux 2023 의 저장소는 2026-11-22 에 고친 판을 깐다(러너가 매번 새로 지은 이미지에서 A4 · A5 · 이 칸들이
+# 뒤집혔다) — 깐 그대로는 고친 판 칸으로 두고, 취약 판은 그 공급사 꼴의 빈 rpm 으로 채운다(판이 날마다 바뀌지 않게).
+ROCKY_VULN="sh /b/rh-rpm.sh 2.0.26 7.el9_9 'Rocky Enterprise Software Foundation'"
+AL2023_VULN="sh /b/rh-rpm.sh 2.4.62 1.amzn2023.0.1 'Amazon Linux' 1"
+run_case r01-rocky9-default rocky9 0 ":" "깐 그대로(고친 판) · 모듈은 실리고 Protocols 없음"
+run_case r02-rocky9-h2 rocky9-rpmbuild 2 "$ROCKY_VULN && $RPM_H2 && $RPM_KEY" "Rocky 꼴의 취약 판 2.0.26-7.el9_9 · Protocols h2 · 가짜 키"
+run_case r03-rocky9-commented rocky9-rpmbuild 6 "$ROCKY_VULN && $RPM_H2_COMMENT" "Rocky 꼴의 취약 판 · 주석 줄은 켜지 않는다"
 run_case r04-rocky8 rocky8 0 "$RPM_H2" "mod_http2 1.15 — 영향 없음"
 run_case r05-alma9 alma9 6 "$RPM_H2" "AlmaLinux — 공지 없음"
 run_case r06-ol9 ol9 6 "$RPM_H2" "Oracle Linux — 공지 없음"
-run_case r07-al2023-default al2023 6 ":" "깐 그대로(취약 판) · Protocols 없음"
-run_case r08-al2023-h2 al2023 2 "$RPM_H2" "Protocols h2"
+run_case r07-al2023-default al2023 0 ":" "깐 그대로(고친 판) · Protocols 없음"
+run_case r08-al2023-h2 al2023-rpmbuild 2 "$AL2023_VULN && $RPM_H2" "Amazon Linux 2023 꼴의 취약 판 1:2.4.62 · Protocols h2"
 run_case r09-al2-fixed al2 0 ":" "깐 그대로(고친 판) · 기본 설정이 h2 h2c"
 run_case r10-suse leap156 6 ":" "SUSE — 고침 대기 · 기본 설정이 h2 h2c"
+run_case r11-rocky9-fixed-h2 rocky9 0 "$RPM_H2" "깐 그대로(고친 판) · Protocols h2"
+run_case r12-al2023-fixed-h2 al2023 0 "$RPM_H2" "깐 그대로(고친 판) · Protocols h2"
 
 echo "── H. RHEL 공급사 ──"
 run_case h01-rhel98-vulnerable rocky9-rpmbuild 2 "sh /b/rh-rpm.sh 2.0.26 6.el9_8.2 && $RPM_H2" "9.8 의 2.0.26-6.el9_8.2"
@@ -272,6 +285,9 @@ run_case x01-src-vulnerable debian:12 2 "$(SRC_BIN /usr/local/apache2/bin 2.4.62
 run_case x02-src-module-commented debian:12 6 "$(SRC_BIN /usr/local/apache2/bin 2.4.62) && $SRC_CONF_OFF" "모듈 줄이 주석"
 run_case x03-src-fixed debian:12 0 "$(SRC_BIN /usr/local/apache2/bin 2.4.71) && $SRC_CONF_H2" "2.4.71"
 run_case x04-xampp debian:12 2 "$(SRC_BIN /opt/lampp/bin 2.4.58) && $XAMPP_CONF" "XAMPP 2.4.58 · extra 의 Protocols"
+# 판 문자열(`Apache/<판>`)이 없는 직접 빌드 — 0.1.3 부터 확인 필요(0.1.2 는 0 이었다 · nginx 룰의 판 없음과 같은 꼴).
+SRC_NOVER() { printf 'mkdir -p %s && printf "MZ\\000no-version-here\\000" >%s/httpd && chmod +x %s/httpd' "$1" "$1" "$1"; }
+run_case x05-src-noversion debian:12 6 "$(SRC_NOVER /usr/local/apache2/bin) && $SRC_CONF_H2" "/usr/local/apache2 · 판 문자열 없음 · h2"
 
 echo "── N. Apache 없음 ──"
 run_case n01-debian-none debian:12 0 ":" "Apache 없는 Debian"
@@ -307,7 +323,7 @@ keyrec=$(grep -rl 'server\.key' "$OUT/cases" --include='*.json' 2>/dev/null | wc
 check "K2 키 파일을 기록하지 않는다 (b02 · r02)" "$([ "$keyrec" = 0 ] && echo 1 || echo 0)" "server.key 가 든 결과 파일 $keyrec"
 
 # 칸 수까지 본다 — 경우를 짓다 멈추면 남은 경우가 조용히 사라지고 "실패 0" 이 남는다.
-EXPECTED=55 # A 7 · B 13 · C 10 · H 7 · P 4 · X 4 · N 2 · T 1 · 화면 5 · 개인키 2
+EXPECTED=58 # A 7 · B 13 · C 12 · H 7 · P 4 · X 5 · N 2 · T 1 · 화면 5 · 개인키 2
 pass=$(awk -F"$TAB" '$2 == 1' "$OUT/checks.tsv" | wc -l)
 fail=$(awk -F"$TAB" '$2 != 1' "$OUT/checks.tsv" | wc -l)
 echo

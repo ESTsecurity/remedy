@@ -1,6 +1,6 @@
 # apache-http2-check-linux — 릴리스 기록
 
-**버전 0.1.2** · 대상: Apache HTTP Server 의 mod_http2 원격 코드 실행(CVE-2026-119618) — 리눅스 · **점검**(바꾸지 않는다)
+**버전 0.1.3** · 대상: Apache HTTP Server 의 mod_http2 원격 코드 실행(CVE-2026-119618) — 리눅스 · **점검**(바꾸지 않는다)
 
 ## 0 을 내는 갈래
 
@@ -9,8 +9,8 @@
 | Debian 12 · 13 · sid 의 `apache2-bin` 이 그 판의 고친 판 이상 | DLA-4902-1 · DSA-6620-1 — 고친 판 2.4.71-1~deb12u1 · 2.4.71-1~deb13u1 · 2.4.71-1 | `b01` |
 | Ubuntu 26.10 ~ 20.04 의 `apache2-bin` 이 그 판의 고친 판 이상(22.04 · 20.04 는 상류 2.4.55 아래의 백포트) | USN-9090-1 — 고친 판 2.4.68-1ubuntu6.2 · 2.4.66-2ubuntu2.8 · 2.4.58-1ubuntu8.19 · 2.4.52-1ubuntu4.27 · 2.4.41-4ubuntu3.23+esm11 | `b07` · `b09` |
 | RHEL 9 · 10 의 `mod_http2` 가 그 마이너 스트림의 고친 판 이상(EUS · E4S 포함) | RHSA-2026:98981 · 98982 · 98954 · 98968 · 98978 · 98979 · 98953 — 스트림마다 고친 판(9.9 · 9.8 EUS · 9.6 EUS · 9.4 E4S · 10.3 · 10.2 · 10.0) | `h02` · `h03` · `h06` |
-| Rocky Linux 9 · 10 의 `mod_http2` 가 고친 판 이상 | RLSA-2026:98981 · 98978 — 고친 판 2.0.26-7.el9_9.1 · 2.0.29-5.el10_3.1 | 없음 |
-| Amazon Linux 2023 · 2 의 `mod_http2` 가 고친 판 이상(epoch 1) | ALAS2023-2026-3458 · ALAS2-2026-4114 — 고친 판 1:2.4.71-1.amzn2023.0.1 · 1:2.4.71-1.amzn2.0.1 | `r09` |
+| Rocky Linux 9 · 10 의 `mod_http2` 가 고친 판 이상 | RLSA-2026:98981 · 98978 — 고친 판 2.0.26-7.el9_9.1 · 2.0.29-5.el10_3.1 | `r01` · `r11` |
+| Amazon Linux 2023 · 2 의 `mod_http2` 가 고친 판 이상(epoch 1) | ALAS2023-2026-3458 · ALAS2-2026-4114 — 고친 판 1:2.4.71-1.amzn2023.0.1 · 1:2.4.71-1.amzn2.0.1 | `r07` · `r09` · `r12` |
 | Alpine 3.21 ~ edge 의 `apache2-http2` 가 2.4.71-r0 이상 | Alpine 보안 추적기 — 고친 판 2.4.71-r0 | `p01` |
 | 직접 빌드 `httpd` 의 판 문자열이 2.4.71 이상 | Apache 공지 — 영향 2.4.55 ~ 2.4.70 · 고친 판 2.4.71 | `x03` |
 | RHEL 8 계열(Rocky 8 포함)의 `mod_http2` 1.15 | Red Hat CSAF VEX(`cve-2026-119618.json` 판 3) — RHEL 8 영향 없음 | `r04` · `h07` |
@@ -19,8 +19,30 @@
 | SUSE 의 SP3 이전 코드 줄기 | SUSE CVE 페이지 — SP3 이전 코드 줄기는 영향 없음 | 없음 |
 | Apache 는 있고 mod_http2 를 담은 패키지가 없다(RPM 의 `mod_http2` · Alpine 의 `apache2-http2`) | RHSB-2026-017 — 악용 조건 셋의 하나가 mod_http2 적재다 | 없음 |
 | 고친 판을 깔고 다시 시작한 Apache 가 돈다(실린 `mod_http2.so` 가 지워지지 않았다) | 판정표의 확인 필요는 다시 시작하지 않아 지워진 옛 `mod_http2.so` 를 실은 Apache 뿐 — 결과 읽기가 올린 뒤 다시 시작하라고 적는다 | 없음 |
-| 직접 빌드 `httpd` 에서 판 문자열(`Apache/2.4.x`)을 읽지 못했다 | 근거 없음 — 판을 읽지 못한 직접 빌드가 영향 밖이라는 줄이 없다(판정표에 이 갈래가 없다) | 없음 |
 | Apache 없음 | 공지의 영향 제품이 없다 | `n01` · `n02` |
+
+## 0.1.3 — 판을 읽지 못한 직접 빌드는 확인 필요 (2026-11-22)
+
+- **패키지가 깔지 않은 `httpd`(`/usr/local/apache2` · `/usr/local/httpd` · `/opt/apache2` · `/opt/httpd` · `/opt/lampp` 의
+  `bin/httpd`)에서 판 문자열 `Apache/<판>` 을 읽지 못하면 확인 필요(6)다.** 0.1.2 까지는 `vulnerable_src` 의 YARA 가 영향 판을
+  찾지 못하면 어느 줄에도 걸리지 않아 0 이었다 — 판을 모르는 것을 영향 밖으로 읽었다. 같은 경우 nginx · PHP 룰은 6 을 낸다.
+  이 기록의 *0 을 내는 갈래* 표를 채우며 근거 없는 0 갈래로 드러났다. 새 YARA 규칙 `apache_version_string`(어느 판이든
+  `Apache/<판>`)과 규칙 `src_httpd` · `src_version_known` 을 더했다(nginx 룰의 `nginx_src and not src_version_known` 과 같은 꼴).
+- **하네스를 상류에 고정했다** — Rocky 9 · Amazon Linux 2023 의 저장소가 고친 판을 깔아, 러너가 새로 지은 이미지에서 '깐
+  그대로 취약' 을 전제한 일곱 칸(A4 · A5 · r01 ~ r03 · r07 · r08)이 0 으로 뒤집혔다(2026-11-22 러너 48/55 · 룰은 맞게 0).
+  깐 그대로는 고친 판 칸(r01 · r07 · 새 r11 · r12 — 0)으로 두고, 취약 판은 그 공급사 꼴의 빈 rpm 으로 채운다(r02 · r03 ·
+  r08 — `rh-rpm.sh` 가 공급사 · epoch 를 받는다). 판 문자열 없는 직접 빌드 칸 x05 를 더했다(58칸).
+- Amazon Linux 2023 이미지는 최신 릴리스의 저장소(`dnf --releasever=latest`)로 깐다 — 저장소 판이 바탕 이미지의 릴리스에 묶여,
+  예전에 받은 `amazonlinux:2023` 은 고치기 전 판(1:2.4.69)을, 러너가 새로 받은 것은 고친 판(1:2.4.71)을 깔았다(같은 날).
+- 판정 줄 · 영향 판 · 고친 판은 0.1.2 와 같다.
+
+### 게이트 (0.1.3)
+
+| 게이트 | 무엇 | 결과 | 근거 |
+|---|---|---|---|
+| 하네스 | `testbed/harness/linux/apache-verify.sh` | **58/58** | 2026-11-22 · 코어 1.25.3 musl 정적 개발 빌드 · WSL 의 docker · Rocky 9 · Amazon Linux 2023 이미지를 그날의 저장소로 다시 지어(러너와 같은 꼴) — 0.1.2 로 같은 하네스를 돌리면 57/58(x05 가 0) |
+| G9 | 룰의 검체 오탐(YARA) | **통과**(점검 룰 기준) | 2026-11-22 · 정상 설치 열넷(Apache 하네스 이미지 열하나 — Rocky 9 · Amazon Linux 2023 은 그날의 저장소로 다시 지었다 · OpenSSH 하네스 이미지 셋)의 `/etc` · `/usr` · `/opt` 파일 78,543 · 링크 11,660 에 `cargo xtask yara`(64 MiB 상한) — 새 규칙 `apache_version_string` 맞음 50(모두 배포판이 깐 Apache 실행 파일 · 모듈: `/usr/sbin/httpd` · `apache2` · `httpd-prefork` · 모듈 폴더 — 룰은 이 YARA 를 패키지가 깔지 않은 직접 빌드의 `bin/httpd` 에만 건다) · `apache_version_affected` 24(같은 꼴 · 0.1.1 의 28 에서 다시 지은 AL2023 이 고친 판이라 줄었다) · `apache_h2_loadmodule` 10 · `apache_h2_protocols` 8(둘 다 0.1.1 과 같다). 못 훑은 것은 리눅스 링크뿐(11,660). 잰 `rules/apache.yar` 는 SHA-256 `49826377…` |
+| G1 | 청정 환경 무해성 | PR CI | `cargo xtask g1` — 리눅스 스냅샷 19개 |
 
 ## 0.1.2 — 같은 제품의 묶음 열쇠 (2026-11)
 
