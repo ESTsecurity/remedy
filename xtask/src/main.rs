@@ -25,6 +25,7 @@ mod netcriteria;
 mod package;
 mod pluginlock;
 mod procdocs;
+mod products;
 mod ps1vars;
 mod rulerecords;
 mod schema;
@@ -120,6 +121,11 @@ fn main() -> ExitCode {
         Some("g1") => g1::run(&root),
         // 룰 출시 기록 맨 앞의 두 표 — 점검 룰의 0 을 내는 갈래(근거 · 하네스 칸) · 린트 경고의 까닭(2026-11-22).
         Some("rule-records") => rulerecords::run(&root),
+        // 같은 제품 룰의 찾는 조건 — 룰의 울타리 사이가 제품 원본(`products/`)과 같은가 · `--write` 로 채운다(2026-11-23).
+        Some("products") => {
+            let args: Vec<String> = std::env::args().skip(2).collect();
+            products::run(&root, &args)
+        }
         // 공개 전 누출 검사. **`all` 에 넣지 않는다** — 옛 사본은 로컬 전용 파일을
         // 추적하고 있어 실패가 맞는 상태다. 공개 저장소에서는 CI 의 따로 선 잡이다.
         Some("leaks") => {
@@ -141,6 +147,9 @@ fn main() -> ExitCode {
             .and_then(|()| screens::run(&root))
             .and_then(|()| snapshots::run(&root))
             .and_then(|()| examapply::run(&root))
+            // 같은 제품 룰의 찾는 조건이 원본과 같은가 — 울타리 사이를 손으로 고치면 여기서 걸린다(plugin-lock 보다 먼저 —
+            // 원본을 고치고 채우지 않은 것을 버전 올림 요구보다 먼저 말한다).
+            .and_then(|()| products::run(&root, &[]))
             .and_then(|()| pluginlock::run(&root, &[]))
             // 룰 매니페스트로 *다루는 위협* 표를 지을 수 있는가 — README 의 표는 하루 한 번 views 가 갈아 끼운다.
             .and_then(|()| threats::run(&root, &[]))
