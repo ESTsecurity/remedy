@@ -11,7 +11,8 @@
 
     그 파일을 `-Inputs\<인자>\<파일 이름>` 에 받는다(TLS 1.2 · `.part` 에 받은 뒤 옮긴다 · 주소를 차례로 — 이미 있으면 다시
     받지 않는다 · PowerShell 로 받지 못한 주소는 Windows 의 curl.exe 로 한 번 더 — PowerShell 의 요청만 막는 곳이 있다).
-    SHA-256 칸이 `-` 가 아니면 대조하고, `-` 면 하네스가 스스로 대조한다(하네스 안에 기대값이 있다).
+    SHA-256 칸이 `-` 가 아니면 대조하고, `-` 면 하네스가 스스로 대조한다(하네스 안에 기대값이 있다). 받을 입력이 없는
+    하네스(합성 자리 채우기만 쓰는 것)는 `# 입력: 없음` 한 줄을 단다 — 입력 줄이 아예 없으면 빠뜨린 것으로 보고 2 로 멈춘다.
     인자 이름이 `Dir` 로 끝나면 그 인자에 받은 폴더를, 아니면 받은 파일을 준다. 하네스는 표준 인자 `-Package` · `-LogDir` 와
     그 인자로 따로 띄운 `powershell.exe -File` 에서 돈다(하네스의 `throw` 는 종료 1 이 된다).
 
@@ -45,7 +46,11 @@ function Stop-Input([string] $why) { Write-Host "입력 — $why — 하네스�
 
 $headLines = @(Get-Content -LiteralPath $Harness -Encoding UTF8 -TotalCount 20)
 $specs = @($headLines | Where-Object { $_ -match '^# 입력: ' })
-if ($specs.Count -eq 0) { Stop-Input "머리에 '# 입력:' 줄이 없다: $Harness" }
+if ($specs.Count -eq 0) { Stop-Input "머리에 '# 입력:' 줄이 없다(받을 입력이 없으면 '# 입력: 없음' 한 줄): $Harness" }
+if (@($specs | Where-Object { $_.Trim() -eq '# 입력: 없음' }).Count -gt 0) {
+    if ($specs.Count -gt 1) { Stop-Input "'# 입력: 없음' 은 다른 입력 줄과 함께 쓰지 않는다: $Harness" }
+    $specs = @()
+}
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 $ProgressPreference = 'SilentlyContinue'
 $given = [ordered]@{}
