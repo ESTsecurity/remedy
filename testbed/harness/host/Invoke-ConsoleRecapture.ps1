@@ -11,7 +11,12 @@
 
     캡처의 출력은 길다 — 기록 파일로 받는다(`*>` 는 5.1 에서 UTF-16LE 로 쓴다 — `Out-File -Encoding utf8` 로). 리눅스
     컨테이너 일과 나란히 돌리지 않는다(랩 되돌리기와 컨테이너 묶음이
-    겹치면 메모리가 모자랐다). 종료 코드: 0 = 넷(되돌리기 · 두 캡처 · 되돌리기) 모두 종료 0 · 1 = 하나라도 아니다.
+    겹치면 메모리가 모자랐다). 종료 코드: 0 = 넷(되돌리기 · 두 캡처 · 되돌리기) 모두 종료 0 · 1 = 하나라도 아니다 ·
+    2 = `plugins\RULES-VERSION` 이 없다(시작하지 않았다).
+
+    룰 버전 줄 — 저장소에는 `plugins\RULES-VERSION` 이 없다(2026-11-21 부터 배포 잡이 꾸러미에 써 넣는다). 지은 꾸러미가 그
+    파일을 실어야 화면 머리말이 공개본처럼 룰 버전을 적으므로, 부르기 전에 저장소 뿌리의 그 자리(커밋하지 않는다 · `.gitignore`)에
+    공개한(또는 낼) 룰 버전 한 줄을 쓰고 끝나면 지운다. 없으면 그 줄이 빠진 캡처가 되어 기준선과 어긋난다 — 멈춘다.
 
 .EXAMPLE
     .\testbed\harness\host\Invoke-ConsoleRecapture.ps1 2>&1 | Out-File -Encoding utf8 D:\dl\recapture.log
@@ -23,6 +28,12 @@ $h = $PSScriptRoot
 $repo = (Resolve-Path (Join-Path $h '..\..\..')).Path
 $res = Join-Path $repo 'testbed\harness\results'
 New-Item -ItemType Directory -Force $res | Out-Null
+$rulesFile = Join-Path $repo 'plugins\RULES-VERSION'
+if (-not (Test-Path -LiteralPath $rulesFile)) {
+    "plugins\RULES-VERSION 이 없다 — 공개한(또는 낼) 룰 버전 한 줄을 써 두고 다시 부른다(커밋하지 않는 자리 · 끝나면 지운다)"
+    exit 2
+}
+"룰 버전: $((Get-Content -LiteralPath $rulesFile -Raw).Trim())"
 $t0 = Get-Date
 $failed = @()
 function Step([string] $name, [scriptblock] $body) {
