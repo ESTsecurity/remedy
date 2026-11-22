@@ -1419,7 +1419,9 @@ powershell -ExecutionPolicy Bypass -File C:\remedy-lab\scripts\Capture-State.ps1
 `파일 루트 N개` 줄과 `파일 M` 이 0 이 아닌지 확인할 것. 0 이면 경로가 없는 것이다.
 
 **5) 여기서 스냅샷을 찍는다.** 이름은 **공백·괄호 없이** 지을 것 — 스크립트 인자로
-오가는 값이다. 현재 기준 지점은 `remedy-lab-base-v2` 이고 `Reset-Vm.ps1` 의 기본값이다.
+오가는 값이다. 기준 지점의 이름은 `.cargo/windows_lab.yml` 의 `windows_lab.snapshots.current` 에 적는다 — `Reset-Vm.ps1` 은
+기본값 없이 `-Snapshot` 이나 그 칸을 읽는다(없으면 멈춘다). 2026-09-11 부터 쓰는 지점은 `remedy-lab-base-v3`(v2 에 자동 갱신
+끄기를 더한 것 — `Reset-Vm.ps1` 머리)이다.
 
 호스트에서 만들 수도 있다. 실행 중인 VM 은 메모리까지 담느라 5분 남짓 걸린다.
 
