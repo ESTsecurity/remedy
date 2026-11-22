@@ -3,6 +3,26 @@
 **버전 0.1.1** · 대상: nginx 의 결함 다섯 'nginx2root'(CVE-2026-123007 · CVE-2026-123634 · CVE-2026-123633 ·
 CVE-2026-121810 · CVE-2026-113425) — Windows · **점검**(바꾸지 않는다)
 
+## 0 을 내는 갈래
+
+| 갈래 | 근거 | 하네스 칸 |
+|---|---|---|
+| mainline 이 고친 판 이상(1.31.9 이상) | nginx.org 공지 — 다섯 모두 Not vulnerable: 1.31.9+, 1.30.7+ · 공지는 플랫폼을 가르지 않는다 · Windows zip `nginx-1.31.9.zip` | `R1` · `V2` |
+| stable 갈래가 고친 판 이상(1.30.7 ~ 1.30.x) | nginx.org 공지 — 다섯 모두 Not vulnerable: 1.31.9+, 1.30.7+ · Windows zip `nginx-1.30.7.zip` | `R2` · `V4` |
+| 영향 범위 아래(0.5.33 아래) | 판정 표 — 영향 판은 0.5.33 부터 · 영향 판의 출처는 nginx.org 공지(결함마다의 범위는 리눅스 룰의 RELEASE.md 로 미룬다) | `V7` |
+| nginx 없음 | 공지의 영향 제품이 없다 | `N1` |
+| 보는 자리 안의 `nginx.exe` 를 띄우는 서비스 + 그 설치본이 고친 판 | nginx.org 공지 — Not vulnerable: 1.31.9+, 1.30.7+ · 서비스의 실행 파일이 보는 자리 안이라 판정 표의 '자리 밖' 줄에 들지 않는다 | `O3` |
+| 보는 자리 안에서 도는 `nginx.exe` + 그 설치본이 고친 판 | nginx.org 공지 — Not vulnerable: 1.31.9+, 1.30.7+ · 실행 파일이 보는 자리 안이라 판정 표의 '자리 밖' 줄에 들지 않는다 | 없음 |
+| Scoop 의 shim(`scoop\shims\nginx.exe`) 프로세스로 띄운 고친 판 | ScoopInstaller/Shim — shim 은 진짜 nginx 를 자식으로 띄우고 그동안 살아 있다(The shim waits for the child) · 진짜 nginx 는 자리 안의 자식이라 빼도 놓치지 않는다 · 고친 판은 nginx.org 공지의 1.31.9+ | `L8` |
+| NSSM 서비스(`Parameters` 의 `Application`)가 보는 자리 안의 고친 판을 띄운다(Chocolatey 꼴) | 판정 절의 NSSM — `Application` 값이 자리 밖의 nginx 를 가리키면 확인 필요다(자리 안이면 그 줄에 들지 않는다) · 고친 판은 nginx.org 공지의 1.31.9+, 1.30.7+ | `O5` |
+
+## 린트 경고
+
+| 자리 | 까닭 |
+|---|---|
+| `scan_roots[0]` | `C:\nginx`(손으로 푼 zip) — 읽는 것은 `nginx.exe` 하나다 · 이름이 `nginx.exe` 인 파일만 기록 · 해시하고 설정 · 웹 문서 · 로그는 읽지 않는다(plugin.yaml 의 `scan_roots` 위 주석 '린트의 경고 둘(`C:\nginx` · `C:\tools` 깊이 2)이 이 줄이다') |
+| `scan_roots[4]` | `C:\tools`(Chocolatey 의 도구 자리 기본 `C:\tools\nginx-<판>`) — `scan_roots[0]` 과 같은 주석이다 · 읽는 것은 `nginx.exe` 하나다 |
+
 ## 0.1.1 — 더한 날을 적는다 (2026-11-19)
 
 리눅스 룰 0.1.2 와 같은 출시로 낸다(엔진 1.25.0 과 함께).

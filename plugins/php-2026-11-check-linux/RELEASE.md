@@ -3,6 +3,19 @@
 **버전 0.1.2** · 대상: PHP 2026년 11월 보안 업데이트(8.5.13 · 8.4.28 · 8.3.37 · 8.2.36)가 고친 결함 18건(CVE-2026-129474 등) —
 리눅스 · **점검**(바꾸지 않는다)
 
+## 0 을 내는 갈래
+
+| 갈래 | 근거 | 하네스 칸 |
+|---|---|---|
+| dpkg 의 PHP 런타임 패키지(`php8.x-cli` · `-cgi` · `-fpm` · `libapache2-mod-php8.x`)가 그 계열의 고친 판 이상 — 상류 번호를 따르는 저장소(Debian 12 의 8.2 · deb.sury.org 등) | php.net ChangeLog-8 · php-src 보안 권고 — 고친 판 8.5.13 · 8.4.28 · 8.3.37 · 8.2.36 | `b05` |
+| apk 의 PHP 런타임 패키지(`phpN` · `phpNN` · `-cgi` · `-fpm` · `-apache2`)가 그 계열의 고친 판 이상 | php.net ChangeLog-8 · php-src 보안 권고 — 고친 판 8.5.13 · 8.4.28 · 8.3.37 · 8.2.36 | `b07` |
+| rpm 의 PHP 런타임 패키지(`php` · `php-cli` · `-cgi` · `-fpm` · SCL · `apache2-mod_php`)가 그 계열의 고친 판 이상 — 상류 번호를 따르는 저장소(Remi 등) | php.net ChangeLog-8 · php-src 보안 권고 — 고친 판 8.5.13 · 8.4.28 · 8.3.37 · 8.2.36 | 없음 |
+| 패키지 밖 PHP(공식 이미지의 `/usr/local` · 직접 빌드 `/usr/local/php` · `/opt/php`)의 판 문자열이 그 계열의 고친 판 이상 | php.net ChangeLog-8 · php-src 보안 권고 — 고친 판 8.5.13 · 8.4.28 · 8.3.37 · 8.2.36 | `x02` · `x05` |
+| 8.6 의 정식 판(패키지 밖의 시험판 · 개발 빌드는 0.1.1 부터 확인 필요) | php-src 보안 권고 · ChangeLog-8 — 18건의 영향 계열이 모두 8.2 ~ 8.5 다 | 없음 |
+| RPM 계열 합친 bin(`/usr/sbin` → `bin` · Fedora 42 이후)의 고친 PHP — 패키지가 깐 `/usr/bin/php-fpm` 의 메아리 `/usr/sbin/php-fpm` 을 세지 않는다(0.1.2) | 0.1.2 — 합친 bin 에서는 패키지가 깐 `/usr/bin/php-fpm` 이 소유 없는 `/usr/sbin/php-fpm` 으로 한 번 더 온다(실제 Fedora 42 컨테이너) · 그 패키지가 고친 판(php.net ChangeLog-8) | 없음 |
+| 보는 자리 안에서 도는 PHP(지워진 파일이 아니다) — 디스크의 그 파일 · 패키지가 고친 판 | 판정표의 확인 필요는 자리 밖에서 돌거나 지워진 PHP 파일로 도는 프로세스 — 디스크의 판이 고친 판(php.net ChangeLog-8) | 없음 |
+| PHP 없음 | 공지의 영향 제품이 없다 | `n01` · `n02` |
+
 ## 0.1.2 — RPM 자리의 패키지 밖 PHP (2026-11-20)
 
 RPM 계열의 PHP 자리(`/usr/bin/php` · `php-cgi` · `/usr/sbin/php-fpm` · httpd 의 `libphp*.so`)에 **어느 패키지도 깔지 않은

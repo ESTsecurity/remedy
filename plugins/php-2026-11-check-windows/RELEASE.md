@@ -3,6 +3,31 @@
 **버전 0.1.0** · 대상: PHP 2026년 11월 보안 업데이트(8.5.13 · 8.4.28 · 8.3.37 · 8.2.36)가 고친 결함 18건(CVE-2026-129474 등) —
 Windows · **점검**(바꾸지 않는다)
 
+## 0 을 내는 갈래
+
+| 갈래 | 근거 | 하네스 칸 |
+|---|---|---|
+| 8.5 갈래가 고친 판 이상(8.5.13 이상) | downloads.php.net/~windows/releases — 고친 Windows 빌드(TS · NTS)가 2026-11-19 에 상류와 같은 판 8.5.13 으로 나왔다 | `R2` |
+| 8.4 갈래가 고친 판 이상(8.4.28 이상) | downloads.php.net/~windows/releases — 고친 Windows 빌드가 같은 날 상류와 같은 판 8.4.28 로 나왔다 | 없음 |
+| 8.3 갈래가 고친 판 이상(8.3.37 이상) | downloads.php.net/~windows/releases — 고친 Windows 빌드가 같은 날 상류와 같은 판 8.3.37 로 나왔다 | `R1` |
+| 8.2 갈래가 고친 판 이상(8.2.36 이상) | downloads.php.net/~windows/releases — 고친 Windows 빌드가 같은 날 상류와 같은 판 8.2.36 으로 나왔다 | 없음 |
+| 정식 8.6 이상 | 근거 없음 — 정식 8.6 이 영향 밖인 출처가 이 파일에 없다(판정 표에 '정식 8.6 이상' 만 적었다) | 없음 |
+| PHP 없음 | 공지의 영향 제품이 없다 | `N1` |
+| 보는 자리 안의 PHP 를 띄우는 서비스 + 그 설치본이 고친 판 | downloads.php.net/~windows/releases — 고친 Windows 빌드가 상류와 같은 판으로 나왔다 · 자리 안의 PHP 라 판정 표의 '위 자리 밖' 줄에 들지 않는다 | `O4` |
+| 보는 자리 안의 PHP 가 실행 중 + 그 설치본이 고친 판 | downloads.php.net/~windows/releases — 고친 Windows 빌드가 상류와 같은 판으로 나왔다 · 자리 안의 PHP 라 판정 표의 '위 자리 밖' 줄에 들지 않는다 | 없음 |
+| NSSM 서비스(`Parameters` 의 `Application`)가 보는 자리 안의 PHP 를 띄운다 + 고친 판 | downloads.php.net/~windows/releases — 고친 Windows 빌드가 상류와 같은 판으로 나왔다 · 자리 안의 PHP 라 판정 표의 '위 자리 밖' 줄에 들지 않는다 | 없음 |
+| IIS 설정(FastCGI · 처리기)이 보는 자리 안의 PHP 를 쓴다 + 고친 판 | downloads.php.net/~windows/releases — 고친 Windows 빌드가 상류와 같은 판으로 나왔다 · 자리 안의 PHP 라 판정 표의 '위 자리 밖' 줄에 들지 않는다 | 없음 |
+| Apache 설정의 `LoadModule php_module` 이 보는 자리 안의 PHP 를 싣는다 + 고친 판 | downloads.php.net/~windows/releases — 고친 Windows 빌드가 상류와 같은 판으로 나왔다 · 자리 안의 PHP 라 판정 표의 '위 자리 밖' 줄에 들지 않는다 | 없음 |
+| 다른 프로그램에 보는 자리 안의 코어 DLL 이 모듈로 실렸다 + 고친 판 | downloads.php.net/~windows/releases — 고친 Windows 빌드가 상류와 같은 판으로 나왔다 · 자리 안의 PHP 라 판정 표의 '위 자리 밖' 줄에 들지 않는다 | 없음 |
+| WampServer 가 Apache bin 에 둔 코어 DLL 링크 — 설치본으로 세지 않고 PHP 판 폴더의 고친 판으로 본다 | 판정 절 — 파일은 PHP 자리만 걷는다(`subject_roots.file`) · 그 링크(판 없음)를 설치본으로 세면 고친 판으로 올린 WampServer 기계도 6 이었다 · 고친 판은 downloads.php.net/~windows/releases | `W1` · `W3` |
+
+## 린트 경고
+
+| 자리 | 까닭 |
+|---|---|
+| `scan_roots[0]` | `C:\php` — 수동 설치본은 그 폴더 바로 아래에 코어 DLL 을 둔다 · PHP2Shell 룰과 같은 자리 · 같은 까닭(plugin.yaml 의 `scan_roots` 위 주석 '린트의 `C:\php` 경고(깊이 2)도 같은 까닭으로 남긴다') |
+| `verdict.require` | `core_vuln` 하나에 걸린 판정 — 그 경고는 룰 하나의 오탐이 곧바로 삭제로 이어지는 치료 룰을 위한 것이고 이 룰은 아무것도 바꾸지 않는다 · PHP2Shell 룰과 같은 까닭(plugin.yaml 의 `verdict` 위 주석) |
+
 ## 0.1.0 — 2차 (2026-11-20)
 
 긴급 경로의 2차다 — 1차(`php-2026-11-check-linux` 0.1.0 · `rules-2026.11.20`)가 리눅스를 냈고 이 룰이 Windows 를 더한다(코어
