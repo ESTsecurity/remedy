@@ -73,12 +73,17 @@ jobs:
       # `light=true` 다. 그 가운데 **이미 있던 룰 폴더를 건드리지 않은** PR(새 룰만 더했거나 문서 · 하네스만 고친 것)은
       # `rescore=false` — 재채점 시험 둘을 건너뛴다. 그 둘은 `testbed/ai-exam`(허용 목록 밖)과 이미 있는 룰 폴더 둘만
       # 읽고(`xtask/src/exam.rs` 의 `REFERENCES`) 리눅스 시험 시간의 3분의 2 를 쓴다. 어느 명령이든 실패하면 값이 서지
-      # 않아 전부 돈다.
+      # 않아 전부 돈다. `gates=false` 는 필수 점검의 음성 회차(아래)가 보는 세 파일을 고치지 않은 PR 이다.
       - name: scope
         id: scope
         run: |
           light=false
           rescore=true
+          gates=true
+          if [ "$GITHUB_EVENT_NAME" = pull_request ] &&
+             git diff --quiet HEAD^1 HEAD -- testbed/harness/linux/emergency-checks.sh ci/emergency-checks-test.sh .github/workflows/ci.yml; then
+            gates=false
+          fi
           if [ "$GITHUB_EVENT_NAME" = pull_request ] &&
              git diff --quiet HEAD^1 HEAD -- . ':!plugins' ':!docs' ':!README.md' ':!testbed/harness'; then
             light=true
@@ -95,7 +100,13 @@ jobs:
               done <<<"$names"
             fi
           fi
-          { echo "light=$light"; echo "rescore=$rescore"; } | tee -a "$GITHUB_OUTPUT"
+          { echo "light=$light"; echo "rescore=$rescore"; echo "gates=$gates"; } | tee -a "$GITHUB_OUTPUT"
+      # 룰 PR 의 경로 제한(2026-11-22) — 룰(`plugins/`)을 고친 PR 은 룰의 자리(룰 폴더 · 룰 하네스 · 조각 · 위협별 안내 · 조건부
+      # 자리) 밖을 고치지 않는다. 필수 점검은 태그의 트리로 돌아, 룰 PR 이 함께 고친 도구가 다음 묶음의 게이트가 되기 때문이다 —
+      # 도구 · 엔진은 따로 PR 로 낸다(`ci/rule-scope.sh` 머리 · `docs/개발-안내.md` '새 룰을 더할 때'). 가벼운 길에서도 돈다.
+      - name: rule scope
+        if: github.event_name == 'pull_request'
+        run: bash ci/rule-scope.sh HEAD^1 HEAD
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
@@ -178,10 +189,25 @@ jobs:
       - name: version check script
         if: steps.scope.outputs.light != 'true'
         run: bash ci/version-check-test.sh
-      # 묶어 내는 명령(ci/batch.sh)의 판단 — 다음 룰 버전 · 시험판 번호 · 자산 목록의 갈래를 망 없이 합성 값으로 본다.
+      # 묶어 내는 명령(ci/batch.sh)의 판단 — 다음 룰 버전 · 시험판 번호 · 자산 목록의 갈래와 멈추는 자리(G9 대조 · 도구 최신 ·
+      # 멈춤 이슈)를 망 없이 합성 값으로 본다.
       - name: batch script
         if: steps.scope.outputs.light != 'true'
         run: bash ci/batch.sh selftest
+      # 공개 확인(ci/publish-check.sh — 공개 워크플로의 최종 확인 a ~ j · 노출 시간)의 음성 시험 — 경로 앞에 둔 가짜 gh 와 임시
+      # 저장소로 칸마다 깨뜨린 입력을 주고 그 칸에서 멈추는지 본다(망 · 토큰 없음). 룰 PR 경로 제한의 경우들도 같은 꼴로 본다.
+      - name: publish check script
+        if: steps.scope.outputs.light != 'true'
+        run: bash ci/publish-check-test.sh
+      - name: rule scope script
+        if: steps.scope.outputs.light != 'true'
+        run: bash ci/rule-scope.sh selftest
+      # 필수 점검 리눅스 몫(emergency-checks.sh)의 음성 회차 — 위 걸음이 받은 지금 Latest 꾸러미로 ① 종료 1 하네스 · ② 데이터 룰
+      # 한 파일을 바꾼 꾸러미를 주고 그 칸만 실패해 멈추는지 본다(이미지 둘 · 2026-11-22 WSL 에서 74초). 그 스크립트 · 이 시험 ·
+      # 이 워크플로를 고친 PR 과 PR 이 아닌 실행에서 돈다(`scope` 의 gates).
+      - name: mandatory checks negative round
+        if: steps.scope.outputs.gates != 'false'
+        run: bash ci/emergency-checks-test.sh "$RUNNER_TEMP/latest/remedy-linux-x64.tar.gz"
       # 출시 전 필수 점검(checks.yml)은 남의 입력(공식 이미지 · 배포판 저장소 · zip)을 돌린다 — 서명 비밀과 배포 환경이 닿지
       # 않아야 한다(2026-11-22 · 차례 3 R3). 주석 밖에서 낱말 `secrets` · `environment` 가 어떤 꼴로든 나오면 막는다
       # (`secrets.X` · `secrets['X']` · `toJSON(secrets)` · `secrets: inherit` · `environment:` · 따옴표 친 키).

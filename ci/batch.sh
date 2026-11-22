@@ -12,7 +12,8 @@
 #                                        바뀐 룰의 하네스(필수 점검 ①) — 점검 잡(checks.yml)이 스스로 셈한다
 #   bash ci/batch.sh pr-harnesses <바탕> <머리> <linux | windows>
 #                                        PR 의 하네스(바뀐 룰 · 고친 하네스) — PR CI(ci.yml)가 러너에서 돈다
-#   bash ci/batch.sh selftest            다음 룰 버전 · 시험판 번호 · 자산 목록 · 하네스 찾기 · 요약 덩이를 망 없이 시험한다(CI)
+#   bash ci/batch.sh selftest            다음 룰 버전 · 시험판 번호 · 자산 목록 · 하네스 찾기 · 요약 덩이와 멈추는 자리(G9 대조 ·
+#                                        도구 최신 · 멈춤 이슈)를 망 없이 시험한다(CI)
 #
 # 누가 · 어디서 — 조직 Owner 가 저장소 루트에서. git · gh(로그인) · bash · cargo 가 있으면 어느 PC 든 묶음 · 태그 · 필수 점검 ·
 # 공개까지 간다(차례 3 · 2026-11-22). 필수 점검 ①②③ 은 GitHub 호스팅 러너가 돈다 — `.github/workflows/checks.yml` 을 그 태그와
@@ -154,19 +155,21 @@ selftest() {
         "$d/linux/ab-verify.sh $d/linux/g-verify.sh "
     rm -rf "$d"
     # PR 의 하네스 — 바뀐 룰의 하네스(r2) · 고친 하네스(r3) · 둘 다 바뀌면 한 번(r1) · 고친 도구(tool)와 그대로인 하네스(r4)는
-    # 빠진다 · 그 OS 의 하네스가 없는 바뀐 룰(r2 의 Windows)은 알림만.
+    # 빠진다 · 그 OS 의 하네스가 없는 바뀐 룰(r2 의 Windows)이 있으면 멈춘다 · 데이터 룰(r5 · kind: data)은 하네스 없이 지난다.
     d=$(mktemp -d)
     (
         cd "$d"
         git -c init.defaultBranch=main init -q .
-        mkdir -p plugins/r1 plugins/r2 plugins/r3 plugins/r4 testbed/harness/linux testbed/harness/host
+        mkdir -p plugins/r1 plugins/r2 plugins/r3 plugins/r4 plugins/r5 testbed/harness/linux testbed/harness/host
         for r in r1 r3 r4; do printf 'platforms: [linux]\n' >"plugins/$r/plugin.yaml"; done
         printf 'platforms: [linux, windows]\n' >plugins/r2/plugin.yaml
+        printf 'platforms: [windows, linux]\nkind: data\n' >plugins/r5/plugin.yaml
         for r in r1 r2 r3 r4; do printf '#!/bin/bash\n# 룰: %s — 시험\n' "$r" >"testbed/harness/linux/$r-verify.sh"; done
         printf '#!/bin/bash\n# 도구\n' >testbed/harness/linux/tool.sh
         git add -A && git -c user.email=t@t -c user.name=t commit -qm base
         printf 'platforms: [linux]\nx: 1\n' >plugins/r1/plugin.yaml
         printf 'platforms: [linux, windows]\nx: 1\n' >plugins/r2/plugin.yaml
+        printf 'platforms: [windows, linux]\nkind: data\nx: 1\n' >plugins/r5/plugin.yaml
         printf '#!/bin/bash\n# 룰: r1 — 시험 2\n' >testbed/harness/linux/r1-verify.sh
         printf '#!/bin/bash\n# 룰: r3 — 시험 2\n' >testbed/harness/linux/r3-verify.sh
         printf '#!/bin/bash\n# 도구 2\n' >testbed/harness/linux/tool.sh
@@ -174,10 +177,63 @@ selftest() {
     ) >/dev/null 2>&1
     t "PR 의 하네스 — 바뀐 룰 · 고친 하네스 · 둘 다면 한 번" "$(cd "$d" && cmd_pr_harnesses HEAD^ HEAD linux 2>/dev/null | sort | tr '\n' ' ')" \
         "testbed/harness/linux/r1-verify.sh testbed/harness/linux/r2-verify.sh testbed/harness/linux/r3-verify.sh "
-    t "PR 의 하네스 — 그 OS 의 하네스가 없는 바뀐 룰은 알림만" \
-        "$(cd "$d" && cmd_pr_harnesses HEAD^ HEAD windows 2>&1 >/dev/null | grep -c '하네스가 없다')" 1
-    t "PR 의 하네스 — 알림만이면 목록은 빈다" "$(cd "$d" && cmd_pr_harnesses HEAD^ HEAD windows 2>/dev/null | wc -l)" 0
+    t "PR 의 하네스 — 그 OS 의 하네스가 없는 바뀐 룰이 있으면 멈춘다" \
+        "$( (cd "$d" && cmd_pr_harnesses HEAD^ HEAD windows) >/dev/null 2>&1; echo $?)" 1
+    t "PR 의 하네스 — 멈출 때 그 룰과 OS 를 적는다" \
+        "$( (cd "$d" && cmd_pr_harnesses HEAD^ HEAD windows) 2>&1 >/dev/null | grep -c '하네스가 없다: r2(windows)')" 1
+    t "PR 의 하네스 — 데이터 룰은 하네스 없이 지난다(알림)" \
+        "$( (cd "$d" && cmd_pr_harnesses HEAD^ HEAD linux) 2>&1 >/dev/null | grep -c 'r5 는 데이터 룰이다')" 1
+    t "출시 ① 도 같다 — 하네스 없는 바뀐 룰에서 멈춘다" "$( (cd "$d" && cmd_harnesses HEAD^ HEAD windows) >/dev/null 2>&1; echo $?)" 1
     rm -rf "$d"
+    # ④ G9 대조 — 기록 없음 · 기록의 sha256 이 다름 · 초안에 .yar 없음은 멈추고, 맞는 sha256 · YARA 가 그대로인 바뀐 룰은 지난다
+    # (2026-11-22 f2e6d14 의 손 시험 네 경우 + 맞는 기록 · 임시 저장소와 가짜 초안 폴더). y2 는 plugin.yaml 만, y1 은 .yar 를 고친다.
+    d=$(mktemp -d)
+    (
+        cd "$d"
+        git -c init.defaultBranch=main init -q .
+        mkdir -p plugins/y1/rules plugins/y2/rules
+        printf 'platforms: [linux]\n' | tee plugins/y1/plugin.yaml >plugins/y2/plugin.yaml
+        printf 'rule a { condition: true }\n' >plugins/y1/rules/a.yar
+        printf 'rule b { condition: true }\n' >plugins/y2/rules/b.yar
+        git add -A && git -c user.email=t@t -c user.name=t commit -qm base && git tag base
+        printf 'platforms: [linux]\nx: 1\n' >plugins/y2/plugin.yaml
+        git add -A && git -c user.email=t@t -c user.name=t commit -qm meta && git tag meta
+        printf 'rule a { condition: false }\n' >plugins/y1/rules/a.yar
+        git add -A && git -c user.email=t@t -c user.name=t commit -qm yar && git tag yar
+        mkdir -p draft/linux/remedy-linux-x64/plugins/y1/rules
+        cp plugins/y1/rules/a.yar draft/linux/remedy-linux-x64/plugins/y1/rules/a.yar
+        sha256sum <plugins/y1/rules/a.yar | cut -d' ' -f1 >g9-right.txt
+        printf '%064d\n' 0 >g9-wrong.txt
+    ) >/dev/null 2>&1
+    g9() { (cd "$d" && LATEST=base G9_DONE=${2:-} g9_check "$1" "${3:-draft}" resume) >/dev/null 2>&1; echo $?; }
+    t "G9 — YARA 가 그대로인 바뀐 룰은 기록 없이 지난다" "$(g9 meta)" 0
+    t "G9 — YARA 가 바뀌었는데 기록이 없으면 멈춘다" "$(g9 yar)" 1
+    t "G9 — 기록에 초안 .yar 의 sha256 이 있으면 지난다" "$(g9 yar g9-right.txt)" 0
+    t "G9 — 기록의 sha256 이 초안의 .yar 와 다르면 멈춘다" "$(g9 yar g9-wrong.txt)" 1
+    t "G9 — 초안 꾸러미에 바뀐 .yar 가 없으면 멈춘다" "$(g9 yar g9-right.txt no-draft)" 1
+    rm -rf "$d"
+    # 도구 최신(fresh_tools · 기준 5 (나)) — origin/main 과 같은 사본은 지나고, origin/main 이 앞서 나간 낡은 사본은 멈춘다(맨 저장소).
+    d=$(mktemp -d)
+    (
+        git -c init.defaultBranch=main init -q --bare "$d/origin.git"
+        git clone -q "$d/origin.git" "$d/a"
+        cd "$d/a"
+        mkdir -p ci && printf 'x\n' >ci/tool.sh
+        git add -A && git -c user.email=t@t -c user.name=t commit -qm one && git push -q origin HEAD:main
+        git clone -q "$d/origin.git" "$d/b"
+    ) >/dev/null 2>&1
+    t "도구 — origin/main 과 같은 사본은 지난다" "$( (cd "$d/b" && fresh_tools) >/dev/null 2>&1; echo $?)" 0
+    (
+        cd "$d/a"
+        printf 'y\n' >>ci/tool.sh
+        git -c user.email=t@t -c user.name=t commit -qam two && git push -q origin HEAD:main
+    ) >/dev/null 2>&1
+    t "도구 — origin/main 이 앞선 낡은 사본은 멈춘다" "$( (cd "$d/b" && fresh_tools) >/dev/null 2>&1; echo $?)" 1
+    rm -rf "$d"
+    # 멈춤 이슈 — 열린 '모아 내기 멈춤' 이슈가 있으면 묶음을 시작하지 않는다(gh 를 그 셸 안에서만 함수로 덮는다 · 망 없음).
+    t "멈춤 이슈가 열려 있으면 묶음을 시작하지 않는다" \
+        "$( (gh() { echo '#9 모아 내기 멈춤 — rules-2026.11.22'; }; stop_if_held) >/dev/null 2>&1; echo $?)" 1
+    t "멈춤 이슈가 없으면 지난다" "$( (gh() { :; }; stop_if_held) >/dev/null 2>&1; echo $?)" 0
     # 요약 덩이 — 표지 사이만 · 걸음 머리의 스크립트 줄(색 부호)은 표지가 아니다 · CR 을 뗀다.
     d=$(mktemp)
     printf '%s\t%s\t%s\n' \
@@ -221,6 +277,13 @@ fresh_tools() {
 
 hold_issue() {
     gh issue list --state open --search '"모아 내기 멈춤" in:title' --json number,title --jq '.[] | "#\(.number) \(.title)"'
+}
+
+# 열린 '모아 내기 멈춤' 이슈가 있으면 묶음을 시작하지 않는다 — 공개 확인 j 가 공개 앞에서 다시 본다(selftest 가 gh 를 덮어 시험한다).
+stop_if_held() {
+    local hold
+    hold=$(hold_issue)
+    [ -z "$hold" ] || die "모아 내기가 멈춰 있다: $hold — 까닭을 적고 닫은 뒤 다시(AGENTS.md · 60분 상한)"
 }
 
 drafts() { gh release list --limit 30 --json tagName,isDraft --jq '.[] | select(.isDraft) | .tagName'; }
@@ -269,9 +332,11 @@ records_only() {
 }
 
 # 바뀐 룰의 하네스 — 점검 잡(checks.yml)이 스스로 셈한다(R2 — 입력으로 받지 않아 뺄 수 없다). stdout 에 하네스 경로를 한
-# 줄씩, 하네스가 없는 룰은 stderr 에 알림 한 줄씩. 첫 인자가 all 이면 그 OS 의 `# 룰:` 줄을 단 하네스 전부다(견주기).
+# 줄씩 낸다. 판정 파일을 고친 룰에 그 OS 의 하네스(머리의 `# 룰:` 줄)가 없으면 멈춘다 — 2026-11-22 까지는 알림만 하고 지나가
+# 그 룰은 어떤 하네스도 돌지 않았다. 데이터 룰(`kind: data` — 판정 기준)은 하네스가 아니라
+# `cargo xtask net-criteria` 가 본다. 첫 인자가 all 이면 그 OS 의 `# 룰:` 줄을 단 하네스 전부다(견주기).
 cmd_harnesses() {
-    local base=${1:?지난 공개본 태그 | all} commit=${2:?커밋} os=${3:?linux | windows} id plat h list=" "
+    local base=${1:?지난 공개본 태그 | all} commit=${2:?커밋} os=${3:?linux | windows} id plat h list=" " missing=()
     case "$os" in linux | windows) ;; *) die "harnesses 의 OS 는 linux | windows 다: $os" ;; esac
     if [ "$base" = all ]; then
         for h in $(harness_files "$os"); do
@@ -292,10 +357,13 @@ cmd_harnesses() {
         [[ "$plat" == *"$os"* ]] || continue
         if h=$(harness_of "$id" "$os"); then
             case "$list" in *" $h "*) ;; *) list+="$h "; echo "$h" ;; esac
+        elif git show "$commit:plugins/$id/plugin.yaml" | grep -q '^kind: data'; then
+            echo "① $id 는 데이터 룰이다 — 하네스 대신 cargo xtask net-criteria 가 본다" >&2
         else
-            echo "① $id($os) 의 하네스가 없다(머리의 '# 룰:' 줄) — ③ 기존 동작과 24시간 안의 rc 묶음이 본다" >&2
+            missing+=("$id($os)")
         fi
     done < <(changed_rules "$commit")
+    [ ${#missing[@]} = 0 ] || die "판정 파일을 고친 룰에 그 OS 의 하네스가 없다: ${missing[*]} — 하네스(머리 10줄 안에 '# 룰: <룰 id>')를 같은 PR 에 더한다(docs/개발-안내.md '새 룰을 더할 때' 3)"
     return 0
 }
 
@@ -512,9 +580,7 @@ cmd_batch() {
     [ -f Cargo.toml ] && [ -f ci/version-check.sh ] || die "저장소 루트에서 부를 것"
     fresh_tools
     load_latest
-    local hold
-    hold=$(hold_issue)
-    [ -z "$hold" ] || die "모아 내기가 멈춰 있다: $hold — 까닭을 적고 닫은 뒤 다시(AGENTS.md · 60분 상한)"
+    stop_if_held
     local pending
     pending=$(drafts)
     if [ -n "$pending" ]; then
