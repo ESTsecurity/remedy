@@ -260,7 +260,7 @@ jobs:
             rc=0
             bash "$h" --bin "$PWD/target/x86_64-unknown-linux-musl/debug/remedy" --plugins "$PWD/plugins" --out "$o/$name" \
               </dev/null >"$o/$name.log" 2>&1 || rc=$?
-            echo "$name · 종료 $rc · $(tail -n 1 "$o/$name/verdict.txt" 2>/dev/null) · $(( $(date +%s) - t0 ))초"
+            echo "$name · 종료 $rc · $(tail -n 1 "$o/$name.log") · $(( $(date +%s) - t0 ))초"
             if [ "$rc" != 0 ]; then
               fail=1
               awk -F'\t' '$2 != 1 { print "  실패 칸 " $1 " · " $3 }' "$o/$name/checks.tsv" 2>/dev/null || true
