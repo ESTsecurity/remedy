@@ -129,7 +129,7 @@ gh release download "$TAG" --dir "$DIR" >/dev/null
 for pair in $ASSETS; do
     name=${pair%%:*}
     want=${pair#*:}
-    got=$(sha256sum "$DIR/$name" | cut -d' ' -f1)
+    got=$(sha256sum <"$DIR/$name" | cut -d' ' -f1)
     [ "$got" = "$want" ] || fail "d $name 의 해시가 점검한 파일과 다르다($got · 점검 $want)"
     api=$(jq -r ".assets[] | select(.name == \"$name\") | .digest // \"\"" <<<"$rel")
     [ -z "$api" ] || [ "$api" = "sha256:$got" ] || fail "d $name 의 해시가 GitHub 의 digest 와 다르다($api)"

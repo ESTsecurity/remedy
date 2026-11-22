@@ -73,7 +73,8 @@ assets_arg() {
     local d=$1 out="" a
     for a in remedy-linux-x64.tar.gz remedy-windows-x64.zip SHA256SUMS; do
         [ -f "$d/$a" ] || return 1
-        out+="$a:$(sha256sum "$d/$a" | cut -d' ' -f1) "
+        # 표준 입력으로 센다 — 이름으로 주면 GNU sha256sum 은 역슬래시가 든 경로(Git Bash 의 D:\a\…)에서 줄 앞에 '\' 를 붙인다.
+        out+="$a:$(sha256sum <"$d/$a" | cut -d' ' -f1) "
     done
     echo "${out% }"
 }
@@ -259,6 +260,8 @@ cmd_harnesses() {
         # 묶음의 커밋에 있는 룰만 — 지운 룰은 그 커밋에 없다(없는 자리를 git show 하면 set -e 아래에서 그대로 멈춘다).
         [ -n "$id" ] && git cat-file -e "$commit:plugins/$id/plugin.yaml" 2>/dev/null || continue
         plat=$(git show "$commit:plugins/$id/plugin.yaml" | sed -n 's/^platforms: *\[\(.*\)\].*/\1/p')
+        # 한 줄 흐름꼴('platforms: [linux, windows]')만 읽는다 — 읽지 못하면 조용히 빠지지 않고 멈춘다(① 이 빠진다).
+        [ -n "$plat" ] || die "① $id 의 platforms 를 읽지 못했다 — 'platforms: [linux, windows]' 처럼 한 줄로 적는다"
         [[ "$plat" == *"$os"* ]] || continue
         if h=$(harness_of "$id" "$os"); then
             case "$list" in *" $h "*) ;; *) list+="$h "; echo "$h" ;; esac
@@ -269,14 +272,17 @@ cmd_harnesses() {
     return 0
 }
 
-checks() {
-    local tag=$1 commit=$2 d=$3 notes=()
-    # ④ G9 재료 — 바뀐 룰의 .yar 바이트(지금 Latest 와 견준다)
-    local id y yar_changed=()
+# ④ G9 — YARA 가 바뀐 룰(지금 Latest 와 견준다)이 있으면 코퍼스를 잰 기록(G9_DONE)이 있어야 하고, 그 기록에 초안 꾸러미의
+# 그 .yar 의 sha256 이 적혀 있어야 한다 — 잰 .yar 와 공개할 .yar 가 같은 바이트인지 견준다(docs/긴급-대응.md ④). 묶음의 점검과
+# 점검 기록이 없는 PC 의 승인(approve)이 이 함수를 함께 쓴다 — 승인이 러너 점검만 찾고 G9 를 건너뛰지 않게(2026-11-22 · 공개
+# 확인에는 G9 가 없다). 이 명령은 잰 결과를 대신 만들지 않는다. 지나면 한 줄을 내고, 못 지나면 멈춘다 — 셋째 인자는 기록을
+# 갖춘 뒤 다시 부를 명령이다.
+g9_check() {
+    local commit=$1 d=$2 resume=$3 id y a b p base hy yar_changed=()
     while IFS= read -r id; do
         [ -n "$id" ] && git cat-file -e "$commit:plugins/$id/plugin.yaml" 2>/dev/null || continue
         for y in $(git -c core.quotePath=false ls-tree -r --name-only "$commit" -- "plugins/$id/rules" | grep '\.yar$' || true); do
-            local a b=""
+            b=""
             a=$(git show "$commit:$y" | sha256sum | cut -d' ' -f1)
             # Latest 에 없는 .yar(새 룰 · 더한 규칙)는 b 가 비어 바뀐 것으로 센다 — 없는 자리를 git show 하면 128 이라 먼저
             # 묻는다(전에는 set -e 아래 그 대입에서 메시지 없이 멈춰 YARA 가 든 새 룰의 묶음을 낼 수 없었다 · 반박 검토).
@@ -284,32 +290,32 @@ checks() {
             [ "$a" = "$b" ] || yar_changed+=("$y")
         done
     done < <(changed_rules "$commit")
-    local rec
-    rec=$(records_only "$commit" | tr '\n' ' ')
-    [ -z "$rec" ] || notes+=("① 출시 기록(RELEASE.md)만 바뀐 룰 — 판정이 그대로라 하네스를 돌리지 않았다: $rec")
-    # ④ G9 — YARA 가 바뀐 룰이 있으면 코퍼스를 잰 기록(G9_DONE)이 있어야 하고, 그 기록에 초안 꾸러미의 그 .yar 의 sha256 이
-    # 적혀 있어야 한다 — 잰 .yar 와 공개할 .yar 가 같은 바이트인지 여기서 견준다(docs/긴급-대응.md ④). 이 명령은 잰 결과를
-    # 대신 만들지 않는다.
-    if [ ${#yar_changed[@]} -gt 0 ]; then
-        [ -n "${G9_DONE:-}" ] && [ -f "$G9_DONE" ] ||
-            die "④ G9 — YARA 가 바뀐 룰이 있다: ${yar_changed[*]} — cargo xtask yara 로 정상 파일 코퍼스를 재고, 잰 .yar 의 sha256(sha256sum plugins/<룰>/rules/*.yar)을 그 기록에 적은 뒤 G9_DONE=<기록 파일> bash ci/batch.sh publish $tag"
-        local p base hy
-        for y in "${yar_changed[@]}"; do
-            p=""
-            for base in "$d/linux/remedy-linux-x64" "$d/win/remedy-windows-x64"; do
-                if [ -f "$base/$y" ]; then p="$base/$y"; break; fi
-            done
-            [ -n "$p" ] || die "④ G9 — 초안 꾸러미에 $y 가 없다"
-            hy=$(sha256sum "$p" | cut -d' ' -f1)
-            grep -qi -- "$hy" "$G9_DONE" || die "④ G9 — 기록 $G9_DONE 에 초안의 $y(sha256 $hy)가 없다 — G9 를 잰 .yar 와 다를 수 있다"
-        done
-        notes+=("④ G9 — YARA 가 바뀐 룰 ${#yar_changed[@]}개 · 초안의 .yar 가 기록 $G9_DONE 의 sha256 과 같다")
-    else
-        notes+=("④ G9 — 바뀐 룰의 YARA 가 지금 Latest 와 같은 바이트다(또는 YARA 가 없다)")
+    if [ ${#yar_changed[@]} -eq 0 ]; then
+        echo "④ G9 — 바뀐 룰의 YARA 가 지금 Latest 와 같은 바이트다(또는 YARA 가 없다)"
+        return 0
     fi
+    [ -n "${G9_DONE:-}" ] && [ -f "$G9_DONE" ] ||
+        die "④ G9 — YARA 가 바뀐 룰이 있다: ${yar_changed[*]} — cargo xtask yara 로 정상 파일 코퍼스를 재고, 잰 .yar 의 sha256(sha256sum plugins/<룰>/rules/*.yar)을 그 기록에 적은 뒤 G9_DONE=<기록 파일> $resume"
+    for y in "${yar_changed[@]}"; do
+        p=""
+        for base in "$d/linux/remedy-linux-x64" "$d/win/remedy-windows-x64"; do
+            if [ -f "$base/$y" ]; then p="$base/$y"; break; fi
+        done
+        [ -n "$p" ] || die "④ G9 — 초안 꾸러미에 $y 가 없다"
+        hy=$(sha256sum <"$p" | cut -d' ' -f1)
+        grep -qi -- "$hy" "$G9_DONE" || die "④ G9 — 기록 $G9_DONE 에 초안의 $y(sha256 $hy)가 없다 — G9 를 잰 .yar 와 다를 수 있다"
+    done
+    echo "④ G9 — YARA 가 바뀐 룰 ${#yar_changed[@]}개 · 초안의 .yar 가 기록 $G9_DONE 의 sha256 과 같다"
+}
 
+checks() {
+    local tag=$1 commit=$2 d=$3 rec g9
+    # G9 는 점검을 부르기 전에 본다 — 못 지나면 러너를 부르지 않고 멈춘다(바깥 셸이 멈추게 `|| exit 1`).
+    g9=$(g9_check "$commit" "$d" "bash ci/batch.sh publish $tag") || exit 1
+    rec=$(records_only "$commit" | tr '\n' ' ')
     if [ "$MODE" = local ]; then checks_local "$tag" "$commit" "$d"; else checks_runner "$tag" "$d"; fi
-    printf '%s\n' "${notes[@]}"
+    [ -z "$rec" ] || echo "① 출시 기록(RELEASE.md)만 바뀐 룰 — 판정이 그대로라 하네스를 돌리지 않았다: $rec"
+    echo "$g9"
 }
 
 # 러너 점검 — checks.yml 을 그 태그 · 자산 셋 · 열쇠로 부르고 끝까지 본다. 잡이 바뀐 룰의 하네스를 스스로 셈하고(R2) 지난
@@ -535,7 +541,7 @@ cmd_publish() {
 # 그 폴더에 있는지 본다. 없으면(다른 PC · R6) 초안을 다시 받아 같은 자산 셋으로 돈 러너 점검의 성공 실행을 찾는다 — PC 점검
 # (--local)은 그 PC 에서만 잇는다. 공개 워크플로가 초안의 자산이 그 해시와 같은지(d) · 그 러너 점검이 성공했는지(i) 다시 본다.
 cmd_approve() {
-    local tag=${1:?태그} d dry=false mode run
+    local tag=${1:?태그} d dry=false mode run g9
     d="testbed/harness/results/batch/$tag"
     fresh_tools
     load_latest
@@ -547,8 +553,11 @@ cmd_approve() {
         mode=$(sed -n 3p "$d/checked.txt" | cut -d' ' -f1)
         case "$mode" in runner | local) ;; *) die "점검 기록의 셋째 줄(점검 자리)이 없다 — bash ci/batch.sh publish $tag 로 다시 잰다" ;; esac
     elif [[ "$tag" == rules-* ]]; then
-        say "이 PC 에 점검 기록이 없다 — 초안을 다시 받아 같은 자산 셋으로 돈 러너 점검을 찾는다"
+        say "이 PC 에 점검 기록이 없다 — 초안을 다시 받아 G9 를 보고, 같은 자산 셋으로 돈 러너 점검을 찾는다"
         fetch_draft "$tag" "$d"
+        # ④ G9 — 묶음의 점검과 같은 함수(러너 점검은 G9 를 보지 않는다 · 손으로 부른 점검 실행만 있어도 G9 를 건너뛰지 않게).
+        g9=$(g9_check "$(git rev-parse "$tag^{commit}")" "$d" "bash ci/batch.sh approve $tag") || exit 1
+        echo "$g9"
         run=$(bash ci/publish-check.sh --checks-run "$tag" "$(assets_arg "$d")") ||
             die "$tag 의 이 자산 셋으로 성공한 러너 점검이 없다 — bash ci/batch.sh publish $tag"
         say "러너 점검 실행 $run — 그 태그 커밋 · 이 자산 셋 · 잡 둘 성공"

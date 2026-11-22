@@ -49,6 +49,9 @@ $ErrorActionPreference = "Stop"
 $VmAddress = Resolve-LabValue $VmAddress 'windows_lab' 'windows_lab.network.ip' 'VmAddress'
 $Vmx       = Resolve-LabValue $Vmx 'windows_lab' 'windows_lab.identity.vmx' 'Vmx'
 $Snapshot  = Resolve-LabValue $Snapshot 'windows_lab' 'windows_lab.snapshots.current' 'Snapshot'
+# 되돌리기는 랩 VM 에만 — 이 기계 자신(GitHub 러너의 랩 · 잘못 적은 주소)에는 스냅숏이 없고, 아래 세션이 붙은 기계의 정책을
+# 바꾼다(이 스크립트는 `Connect-LabVm` 을 거치지 않고 붙는다 · 2026-11-22).
+if (Test-SelfAddress $VmAddress) { throw "되돌리기는 랩 VM 에만 한다 — 주소 $VmAddress 는 이 기계 자신이다" }
 
 function Write-Step { param($t) Write-Host "`n[*] $t" -ForegroundColor Cyan }
 function Write-Ok   { param($t) Write-Host "    OK   $t" -ForegroundColor Green }
@@ -171,6 +174,8 @@ while ((Get-Date) -lt $deadline) {
 }
 
 $sw.Stop()
+# 위에서 게스트 주소를 따라갔으면 다시 본다(그 주소도 이 기계 자신이면 멈춘다).
+if (Test-SelfAddress $VmAddress) { throw "되돌리기는 랩 VM 에만 한다 — 주소 $VmAddress 는 이 기계 자신이다" }
 if (-not $ready) {
     throw @"
 ${TimeoutSec}초 안에 WinRM(5985) 이 응답하지 않았다 (ping=$lastPing).

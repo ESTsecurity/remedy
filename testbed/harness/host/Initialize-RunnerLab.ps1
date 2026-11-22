@@ -47,9 +47,14 @@ Write-Ok ("GitHub 호스팅 러너 · {0} · 랩 설정 없음" -f $env:ImageOS)
 
 # 2 게스트 준비 — 랩 VM 을 세울 때와 같은 스크립트. 러너에서 다 서지 않는 걸음이 있어도(기준 상태 등) 이어 간다.
 Write-Step '게스트 준비(Setup-Guest.ps1 -HostAddress 127.0.0.1)'
+# 이 호출만 Continue 로 — Windows PowerShell 5.1 은 리디렉션한 자식의 stderr 줄을 NativeCommandError 로 바꾸고, 위의 Stop
+# 아래에서는 그 첫 줄에서 이 스크립트가 멈춘다(2026-11-22 재현). 준비는 실패해도 이어 간다(3 이 원격 설정을 맞춘다).
+$ErrorActionPreference = 'Continue'
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repo 'testbed\harness\guest\Setup-Guest.ps1') `
     -HostAddress 127.0.0.1 *> (Join-Path $env:RUNNER_TEMP 'setup-guest.log')
-Write-Ok ("Setup-Guest 종료 {0}(기록 RUNNER_TEMP\setup-guest.log)" -f $LASTEXITCODE)
+$setupCode = $LASTEXITCODE
+$ErrorActionPreference = 'Stop'
+Write-Ok ("Setup-Guest 종료 {0}(기록 RUNNER_TEMP\setup-guest.log)" -f $setupCode)
 
 # 3 원격 접속 — 준비가 세우지 못한 것만 여기서.
 Write-Step '원격 접속'

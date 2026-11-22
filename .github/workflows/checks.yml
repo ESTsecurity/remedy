@@ -92,7 +92,8 @@ jobs:
           gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir "$d" --pattern remedy-linux-x64.tar.gz --pattern SHA256SUMS
           for a in remedy-linux-x64.tar.gz SHA256SUMS; do
             want=$(printf '%s\n' $ASSETS | awk -F: -v n="$a" '$1 == n { print $2 }')
-            [ "$(sha256sum "$d/$a" | cut -d' ' -f1)" = "$want" ] || { echo "::error::$a 가 자산 목록의 해시와 다르다"; exit 1; }
+            # 표준 입력으로 센다(Windows 잡과 같은 꼴 — 이름으로 주면 역슬래시 경로에서 해시 앞에 '\' 가 붙는다).
+            [ "$(sha256sum <"$d/$a" | cut -d' ' -f1)" = "$want" ] || { echo "::error::$a 가 자산 목록의 해시와 다르다"; exit 1; }
           done
           (cd "$d" && grep ' remedy-linux-x64.tar.gz$' SHA256SUMS | sha256sum -c -)
           prev=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)
@@ -195,7 +196,8 @@ jobs:
           gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir "$d" --pattern remedy-windows-x64.zip --pattern SHA256SUMS
           for a in remedy-windows-x64.zip SHA256SUMS; do
             want=$(printf '%s\n' $ASSETS | awk -F: -v n="$a" '$1 == n { print $2 }')
-            [ "$(sha256sum "$d/$a" | cut -d' ' -f1)" = "$want" ] || { echo "::error::$a 가 자산 목록의 해시와 다르다"; exit 1; }
+            # 표준 입력으로 센다 — Git Bash 의 RUNNER_TEMP 는 D:\a\_temp 라, 이름으로 주면 GNU sha256sum 이 줄 앞에 '\' 를 붙인다.
+            [ "$(sha256sum <"$d/$a" | cut -d' ' -f1)" = "$want" ] || { echo "::error::$a 가 자산 목록의 해시와 다르다"; exit 1; }
           done
           (cd "$d" && grep ' remedy-windows-x64.zip$' SHA256SUMS | sha256sum -c -)
           prev=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)
@@ -236,6 +238,7 @@ jobs:
           }
       # The runner becomes the lab (guarded: GitHub-hosted Windows runner only).
       - name: runner lab
+        id: lab
         run: |
           & powershell.exe -NoProfile -ExecutionPolicy Bypass -File testbed\harness\host\Initialize-RunnerLab.ps1
           exit $LASTEXITCODE
@@ -246,8 +249,9 @@ jobs:
             -Package $env:PKG -Prev $env:PREVPKG -LogDir (Join-Path $env:RUNNER_TEMP 'wchecks')
           exit $LASTEXITCODE
       # 1 - the Windows rule harnesses of the changed rules, inputs from each harness header.
+      # Runs even when step 2 3 failed, but only on a runner lab that came up.
       - name: rule harnesses
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.lab.outcome == 'success' }}
         run: |
           $results = Join-Path $env:RUNNER_TEMP 'rule-results.txt'
           [IO.File]::WriteAllText($results, '')

@@ -177,10 +177,11 @@ jobs:
         if: steps.scope.outputs.light != 'true'
         run: bash ci/batch.sh selftest
       # 출시 전 필수 점검(checks.yml)은 남의 입력(공식 이미지 · 배포판 저장소 · zip)을 돌린다 — 서명 비밀과 배포 환경이 닿지
-      # 않아야 한다(2026-11-22 · 차례 3 R3). 주석 밖의 `environment:` · `secrets.` · `secrets:` 를 막는다.
+      # 않아야 한다(2026-11-22 · 차례 3 R3). 주석 밖에서 낱말 `secrets` · `environment` 가 어떤 꼴로든 나오면 막는다
+      # (`secrets.X` · `secrets['X']` · `toJSON(secrets)` · `secrets: inherit` · `environment:` · 따옴표 친 키).
       - name: checks workflow holds no secrets
         run: |
-          if grep -nE '^[^#]*(environment:|secrets[.:])' .github/workflows/checks.yml; then
+          if grep -nE '^[^#]*\b(secrets|environment)\b' .github/workflows/checks.yml; then
             echo "::error::checks.yml 에 environment · secrets 가 있다 — 점검 잡은 비밀 없이 돈다"
             exit 1
           fi

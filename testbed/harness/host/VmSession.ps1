@@ -33,13 +33,16 @@ function Assert-HostedRunner {
     }
 }
 
-# 주소가 이 기계 자신인가 — 루프백 · 컴퓨터 이름 · 이 기계의 IP.
+# 주소가 이 기계 자신인가 — 루프백 · 컴퓨터 이름(그 이름으로 시작하는 FQDN 도) · 이 기계의 IP.
 function Test-SelfAddress {
     param([string] $Address)
     $a = "$Address".Trim().ToLowerInvariant()
     if (-not $a) { return $false }
     if ($a -eq 'localhost' -or $a -eq '::1' -or $a -like '127.*') { return $true }
-    if ($env:COMPUTERNAME -and $a -eq $env:COMPUTERNAME.ToLowerInvariant()) { return $true }
+    if ($env:COMPUTERNAME) {
+        $cn = $env:COMPUTERNAME.ToLowerInvariant()
+        if ($a -eq $cn -or $a -like "$cn.*") { return $true }
+    }
     try {
         $mine = @(Get-NetIPAddress -ErrorAction Stop | ForEach-Object { "$($_.IPAddress)".ToLowerInvariant() })
         if ($mine -contains $a) { return $true }
@@ -327,7 +330,8 @@ function Connect-LabVm {
         [switch] $SaveCredential
     )
 
-    # 자기 자신에 붙는 것은 호스팅 러너에서만(위 `Assert-HostedRunner`) — 모든 랩 하네스가 이 함수를 지난다.
+    # 자기 자신에 붙는 것은 호스팅 러너에서만(위 `Assert-HostedRunner`) — 랩 하네스는 이 함수로 붙는다. `Reset-Vm.ps1` 은
+    # 세션을 따로 열지만 자기 주소면 멈춘다(되돌릴 스냅숏은 랩 VM 에만 있다).
     if (Test-SelfAddress $VmAddress) { Assert-HostedRunner }
 
     $credStore = Join-Path $env:LOCALAPPDATA "remedy-lab\vm-cred.xml"
