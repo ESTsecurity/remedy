@@ -153,7 +153,7 @@ run_case b02-u2404-default ubuntu2404 2 ":" "깐 그대로 — 배포판 고친 
 run_case b03-rocky9-default rocky9 2 ":" "깐 그대로 — 배포판 고친 판 없음"
 run_case b04-alpine-default alpine322 2 ":" "깐 그대로 — 배포판 고친 판 없음"
 run_case b05-nginxorg-1318 debian12 2 "$(deb_set 1.31.8-1~bookworm)" "nginx.org 꼴 1.31.8-1~bookworm"
-run_case b06-nginxorg-1319 debian12 2 "$(deb_set 1.31.9-1~bookworm)" "nginx.org 꼴 1.31.9-1~bookworm"
+run_case b06-nginxorg-1319 debian12 0 "$(deb_set 1.31.9-1~bookworm)" "nginx.org 꼴 1.31.9-1~bookworm"
 run_case b07-debian-1319 debian12 0 "$(deb_set 1.31.9-1)" "Debian 꼴 1.31.9-1"
 run_case b08-alpine-1319 alpine322 0 "$(apk_set 1.31.9-r0)" "Alpine 꼴 1.31.9-r0"
 run_case b09-deb-old debian12 2 "$(deb_set 0.7.67-3)" "옛 0.7.67 — 메일 프록시 결함은 0.5.33 부터"
@@ -230,4 +230,3 @@ pass=$(awk -F'\t' '$2 == 1' "$OUT/checks.tsv" | wc -l)
 total=$(wc -l <"$OUT/checks.tsv")
 echo "── 합: $pass / $total ──"
 [ "$pass" = "$total" ]
-# PR CI 시험 — 병합 전에 지운다
