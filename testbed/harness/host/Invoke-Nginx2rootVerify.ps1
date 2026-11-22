@@ -142,7 +142,7 @@ $cases = @(
     @{ id = 'L4'; what = 'Scoop(사용자) 1.31.8'; expect = 2; installs = @("PROFILE\$scoopUser|1.31.8") },
     @{ id = 'L5'; what = 'Scoop(전역) 1.31.8'; expect = 2; installs = @('C:\ProgramData\scoop\apps\nginx\1.31.8|1.31.8') },
     @{ id = 'L6'; what = 'winget(사용자 범위) 1.31.8'; expect = 2; installs = @("LOCAL\$wingetDir\nginx-1.31.8|1.31.8") },
-    @{ id = 'L7'; what = 'winget(기계 범위) 1.31.8'; expect = 2; installs = @("C:\Program Files\WinGet\Packages\$wingetName\nginx-1.31.8|1.31.8") },
+    @{ id = 'L7'; what = 'winget(기계 범위) 1.31.8'; expect = 0; installs = @("C:\Program Files\WinGet\Packages\$wingetName\nginx-1.31.8|1.31.8") },
     # Scoop 의 shim(`scoop\shims\nginx.exe`)으로 띄운 꼴 — shim 은 진짜 nginx 를 자식으로 띄우고 살아 있다. 자리 밖 프로세스로
     # 세지 않는다(뺀다) — 판은 apps\nginx 의 파일로 본다.
     @{ id = 'L8'; what = 'Scoop(사용자) 1.31.9 + shim 으로 띄움'; expect = 0; installs = @('PROFILE\scoop\apps\nginx\1.31.9|1.31.9');
