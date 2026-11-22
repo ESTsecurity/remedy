@@ -47,6 +47,8 @@ remedy 의 감사 로그는 **무엇을 하려 했는가**를 말한다. `Captur
 | `host/Invoke-P10FVerify.ps1` | 호스트 | **수동** — **재부팅 후 검증 예약이 실제로 발화하는가** (P10-F · 설계-03 §8) — 그 재평가가 `clean` · 종료 0 으로 남았는가까지(2026-10-26 부터 — 기록이 있기만 해서는 통과가 아니다) |
 | `host/Invoke-PartialVerify.ps1` | 호스트 | **부분 실패(종료 코드 3)가 Windows 에서 계약대로인가** (아래) · rc 묶음 `exit3-partial`(`-Package`) |
 | `host/Invoke-DemoVerify.ps1` | 호스트 | **시연 대본이 아직 사실인가** — 1~9단계를 적힌 명령 그대로 (아래) |
+| `host/Invoke-MenuVerify.ps1` | 호스트 · 랩 VM | **작업 메뉴를 진짜 콘솔에서 번호를 눌러 끝까지 돌린다**(목표 remedy_cli 기준 6) — 필수 점검 ③ 과 Windows rc 묶음의 `menu` 단계가 부른다(`-Package` · `-Prepare` · `-ReinfectOnly`) |
+| `guest/Verify-DoubleClick.ps1` | 게스트 | **더블클릭한 사람이 화면을 읽을 수 있는가** — 진짜 콘솔(`AllocConsole` + `WriteConsoleInput`)에서 창이 곧바로 닫히지 않는지 본다(Phase 4-1) |
 | `host/Invoke-GuardVerify.ps1` · `guest/lab-plugin-guard.yaml` | 호스트 | **보호 경로 가드(5)가 계획 전에 서는가** (아래) · rc 묶음 `exit5-guard`(`-Package`) |
 | `host/Invoke-SignVerify.ps1` | 호스트 (**VM 불필요**) | **서명된 꾸러미를 손대면 서는가**(5) (아래) · rc 묶음 `exit5-sign`(`-Package`) |
 | `host/Invoke-SlowStopVerify.ps1` | 호스트 | **수동** — **오래 도는 도구를 끊지 않는가** — 결정 2026-09-07 의 실증 (아래) |
@@ -2551,6 +2553,7 @@ churn 은 작다. 남겨 두는 이유는 THREAT.md 가 *"`C:\ProgramData` 는 �
 ---
 
 ## CI 에서 무엇이 돌고 무엇이 못 도는가 (2026-09-05)
+<!-- 기록: 2026-09-05 의 사진(GitLab 시절) — 지금 CI 는 .github/workflows/ci.yml · 절차 문서 검사가 이 절의 경로를 견주지 않는다 -->
 
 하네스를 `.gitlab-ci.yml` 에 걸었다. **셋 다 성격이 다르다.**
 
@@ -2816,8 +2819,8 @@ grep -o '\[exit=[0-9]\]' <새 캡처> | sort -u   # Windows 는 0·1·2·4·5, L
 | 같은 회차 (`run_id :` → `실행 번호 :`) | `Verify-P5.ps1` 의 평문 머리 단정 | 09-10 — 같은 이유 |
 | 화면을 바꾼 회차 다섯 | `콘솔은-이렇게-보인다.md` 의 인용 화면 | 09-09 — `console-doc` 을 만들고서야 |
 | 09-09 권한 안내에 우클릭을 더함 | **어느 기준선에도 그 화면이 없었다** | 09-10 |
-| 09-09 첫 화면에서 종료 코드 표를 뺌 | `시연-대본.md` §1 | 09-10 |
-| 08-31 이후 화면 전반 | `시연-대본.md` 여덟 자리 | 09-10 |
+| 09-09 첫 화면에서 종료 코드 표를 뺌 | 시연 대본(내부 문서 · 공개 트리 밖) §1 | 09-10 |
+| 08-31 이후 화면 전반 | 시연 대본(내부 문서) 여덟 자리 | 09-10 |
 
 그래서 **화면 문구를 한 글자라도 바꾼 회차는 끝나기 전에 아래를 전부 돌린다.**
 
