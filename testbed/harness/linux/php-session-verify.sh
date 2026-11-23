@@ -20,9 +20,10 @@
 # 않는다** — verdict.require 가 늘 거짓이다(위험의 셋째 조건이 앱 코드라 이 도구가 보지 못한다). 기대값은 룰을 돌려 얻지 않고
 # plugin.yaml 의 줄과 RELEASE.md 의 '0 을 내는 갈래' 에서 정했다 — 경우마다 재는 갈래는 파일 끝의 표에 있다.
 #
-# 판정식(verdict.unconfirmed 여섯 줄)을 펴면 — PHP 가 있다는 문(php_pkg · php_bin · rpm_php)이 서고, 켠 설정이 하나라도 있거나
-# 고친 판으로 세지 않은 PHP(판 사실 덩이 — deb_vuln_* · deb_eol · apk_vuln · rpm_vuln · bin_vuln · bin_version_unknown · RPM 자리의
-# 소유 없는 파일 · pkg_bin_changed · stale_php · 판을 볼 규칙이 하나도 서지 않은 php_bin)가 있으면 6, 자리 밖에서 돌거나
+# 판정식(verdict.unconfirmed 여섯 줄)을 펴면 — PHP 가 있다는 문(php_pkg · php_bin · rpm_php · bin_named_unowned · bin_fpm_unowned ·
+# stale_php — 뒤의 셋은 0.6.3)이 서고, 켠 설정이 하나라도 있거나 고친 판으로 세지 않은 PHP(판 사실 덩이 — deb_vuln_* · deb_eol ·
+# pkg_epoch · apk_vuln · rpm_vuln · bin_vuln · bin_version_unknown · RPM 자리의 소유 없는 파일 · 패키지 기록에 없는 판 붙은 이름
+# (bin_named_unowned) · pkg_bin_changed · stale_php · 판을 볼 규칙이 하나도 서지 않은 php_bin)가 있으면 6, 자리 밖에서 돌거나
 # (running_php) 서비스 · Apache 설정이 자리 밖 PHP 를 가리키면(service_php · apache_php · apache_php_rpm) PHP 와 무관하게 6, 그
 # 밖은 0 이다. **끔은 0 을 막지 않고 까닭만 가른다** — 그래서 끔을 읽는지는 종료 코드가 아니라 화면의 까닭(S 칸)으로 잰다.
 #
@@ -49,7 +50,7 @@
 #
 # **실검체는 없다.** 이미지는 배포판 저장소의 PHP 와 공식 Docker 이미지를 그대로 쓰고, PHP 는 실행하지 않는다(판 문자열을 읽거나
 # 직접 빌드 자리로 옮기기만 한다). 그 밖의 경우는 **자리 채우기**다 — dpkg · apk 는 패키지 기록의 판 줄을 바꾸거나 파일 없는 칸
-# 하나를 더하고, RPM 은 rpmbuild 로 지은 rpm(이름 · 판 · 공급사 — 파일을 담는 경우도 글자 한 줄)을 넣는다. 직접 빌드는 판
+# 하나를 더하거나 기록 파일(`.md5sums`)을 지우고, RPM 은 rpmbuild 로 지은 rpm(이름 · 판 · 공급사 — 파일을 담는 경우도 글자 한 줄)을 넣는다. 직접 빌드는 판
 # 문자열(`X-Powered-By: PHP/<판>`)이나 글자 한 줄만 담은 작은 파일이고, 설정 · 시작 스크립트 · 유닛 · Apache 설정은 그 줄만 담은
 # 파일이다(아무것도 띄우지 않는다). 도는 프로세스가 필요한 경우는 `sleep` 을 PHP 이름으로 복사해 띄운다 — 실린 모듈 칸(p04)은
 # 이미지의 glibc `libm.so.6` 을 `libphp8.2.so` 이름으로 복사해 `sleep` 사본에 미리 싣고(LD_PRELOAD) 지운다. 경우마다 네트워크 없는
@@ -60,31 +61,35 @@
 #   A  이미지 8 — Debian 12 스냅숏의 php8.2 가 8.2.35(고친 판 전) · 메타 php-cli · fpm/php.ini 의 그 줄은 주석 · Ubuntu 24.04 의
 #      php8.3 이 상류 8.3.6 계열 · Alpine 의 php83 · rpmbuild 이미지에 PHP 없음 · 공식 이미지 넷의 PHP 파일이 그 판 문자열 — 모두
 #      설정 자리에 주석 밖 그 설정 줄이 없다
-#   B  Debian 12 실제 설치 13 — 깐 그대로 b01 6 · 고친 판 줄 b02 0 · 고친 판 + 켬 b03 6 · + 끔 b04 0 · 고치기 전 + 끔 b05 6 · + 켬
+#   B  Debian 12 실제 설치 15 — 깐 그대로 b01 6 · 고친 판 줄 b02 0 · 고친 판 + 켬 b03 6 · + 끔 b04 0 · 고치기 전 + 끔 b05 6 · + 켬
 #      b06 6 · php.ini 의 주석을 풀어 켬 b07 6 · 풀에서 켬 b08 6 · 끔 b09 0 · php8.2 를 바꿈 b10 6 · php-fpm8.2 를 바꿈 b11 6 · 상관없는
-#      파일을 바꿈 b12 0 · CLI 켬 + 풀 끔 b13 6
+#      파일을 바꿈 b12 0 · CLI 켬 + 풀 끔 b13 6 · epoch 붙은 판 줄 b14 6 · 고친 판 + php8.2-cli 의 .md5sums 를 지움 b15 6
 #   K  설정 꼴 8 — 고친 Debian 위 값 꼴 넷(1 · "On" · On ; 주석 · =TRUE) k01~k04 6 · 풀의 php_value[…] = 1 k05 6 · 고친 모듈 +
 #      Apache 줄 켬 k06 6 · 끔 k07 0 · 끄는 꼴 다섯과 이웃 키 k08 0
 #   U  Ubuntu 24.04 1 — 깐 그대로 u01 6(백포트)
 #   L  Alpine 4 — 판 줄 8.3.36-r0 l01 6 · 8.3.37-r0 l02 0 · + 켬 l03 6 · 이름 php8 8.0.30-r0 l04 6
 #   D  dpkg 판 줄 8 — 갈래 넷(8.5 · 8.4 · 8.3 · Apache 모듈 8.2)의 고친 판 바로 아래 d01~d04 6 · 넷의 고친 판과 다른 저장소 꼴 d05 0 ·
 #      Ubuntu 24.04 의 백포트 d06 6 · 다음 계열의 시험판 d07 0 · 지원 끝 7.4 d08 6
-#   R  RPM 15 — 갈래 넷(8.5 Fedora · 8.4 SUSE Apache 모듈 · 8.3 · 8.2)의 바로 아래 r01~r04 6 · 넷의 고친 판과 Remi SCL r05 0 · RHEL 9
+#   R  RPM 16 — 갈래 넷(8.5 Fedora · 8.4 SUSE Apache 모듈 · 8.3 · 8.2)의 바로 아래 r01~r04 6 · 넷의 고친 판과 Remi SCL r05 0 · RHEL 9
 #      의 8.0.30 r06 6 · SCL 지원 끝 r07 6 · 다음 계열 시험판 r08 0 · RHEL 꼴 설정 넷(끔 · 풀 · FPM 전역 · httpd 의 php.conf) r09 0 ·
 #      이름 php 만 + /etc/php.ini 켬 r10 6 · /etc/php.d r11 6 · 풀 r12 6 · /etc/php-fpm.conf r13 6 · httpd 의 php.conf r14 6 · SUSE
-#      /etc/php8 r15 6
-#   F  RPM 자리의 파일 10 — 고친 php-cli 가 깐 /usr/bin/php f01 0 · 그 파일을 바꿈 f02 6 · 소유 없는 /usr/bin/php-cgi f03 6 · 소유
+#      /etc/php8 r15 6 · epoch 가 붙은 판 1:8.2.35 r16 6(0.6.3)
+#   F  RPM 자리의 파일 12 — 고친 php-cli 가 깐 /usr/bin/php f01 0 · 그 파일을 바꿈 f02 6 · 소유 없는 /usr/bin/php-cgi f03 6 · 소유
 #      없는 /usr/sbin/php-fpm f04 6 · 합친 bin 의 메아리 f05 0 · 그 /usr/bin/php-fpm 을 바꿈 f06 6 · PHP 가 아닌 이름의 패키지가 깐
-#      /usr/bin/php f07 6 · /usr/local/bin/php f08 6 · 고친 php 가 깐 httpd 모듈 f09 0 · 소유 없는 모듈 f10 6
+#      /usr/bin/php f07 6 · /usr/local/bin/php f08 6 · 고친 php 가 깐 httpd 모듈 f09 0 · 소유 없는 모듈 f10 6 · 소유 없는
+#      /usr/bin/php-fpm(갈린 sbin) f11 6 · 패키지의 /usr/sbin/php-fpm 이 /usr/bin 으로도 보임(f05 의 거꾸로) f12 0
 #   O  공식 빌드 11 — 8.3.37 그대로 o01 0 · conf.d 켬 o02 6 · php.ini-production + 끔 o03 0 · FPM 풀 자리 켬 o04 6 · FPM 전역 설정
 #      켬 o05 6 · 8.3.36 그대로 o06 6 · 8.3.36 FPM 풀에서 끔 o07 6 · 8.2.35 Apache 줄로 끔 o08 6 · 8.3.37 을 /opt/php 로 o09 0 · 그
 #      php.ini 켬 o10 6 · /opt/php/8.3 하위 폴더 o11 6
-#   X  직접 빌드 16 — 판 문자열 자리 채우기: 8.4.28 x01 0 · 8.4.27 x02 6 · 판 없음 x03 6 · 8.6.0RC7 x04 6 · 8.6.0 x05 0 · /opt/php 의
+#   X  직접 빌드 20 — 판 문자열 자리 채우기: 8.4.28 x01 0 · 8.4.27 x02 6 · 판 없음 x03 6 · 8.6.0RC7 x04 6 · 8.6.0 x05 0 · /opt/php 의
 #      7.4.33 x06 6 · 모듈 8.3.36 x07 6 · 8.3.37 x08 0 · Apache 모듈 자리 8.2.36 x09 0 · /usr/bin/php 링크만 x10 6 · 직접 빌드의 설정
-#      자리 셋(/usr/local/php/lib · /usr/local/lib · /opt/php/etc/php-fpm.d) 켬 x11~x13 6 · 섞임 x14 6 · 판 없음 + 켬 x15 6 · + 끔 x16 6
+#      자리 셋(/usr/local/php/lib · /usr/local/lib · /opt/php/etc/php-fpm.d) 켬 x11~x13 6 · 섞임 x14 6 · 판 없음 + 켬 x15 6 · + 끔
+#      x16 6 · 판 붙은 이름의 8.3.37 — /usr/local/bin/php8.3 x17 6 · 소유 없는 /usr/bin/php8.3 x18 6 · 점 없는 판 이름
+#      /usr/local/bin/php83 x19 6 · 소유 없는 Apache 모듈 /usr/lib/apache2/modules/libphp7.so x20 6
 #   M  섞임 3 — 고친 Debian + 고치기 전 /usr/local/bin/php m01 6 · + 고친 것 m02 0 · 고친 RPM + 판 없음 m03 6
-#   P  프로세스 · 서비스 10 — 자리 밖 php-fpm8.3 p01 6 · lsphp p02 6 · 고친 공식 빌드 + 지워진 실행 파일 p03 6 · 고친 Debian + 지워진
-#      모듈 p04 6 · systemd 유닛 자리 밖 p05 6 · 배포판 자리 p06 0 · /opt/php p07 0 · SysV p08 6 · Upstart p09 6 · OpenRC p10 6
+#   P  프로세스 · 서비스 11 — 자리 밖 php-fpm8.3 p01 6 · lsphp p02 6 · 고친 공식 빌드 + 지워진 실행 파일 p03 6 · 고친 Debian + 지워진
+#      모듈 p04 6 · systemd 유닛 자리 밖 p05 6 · 배포판 자리 p06 0 · /opt/php p07 0 · SysV p08 6 · Upstart p09 6 · OpenRC p10 6 ·
+#      PHP 파일 없이 지워진 실행 파일로만 도는 php-fpm8.3 p11 6
 #   C  Apache LoadModule 8 — Debian mods-available 의 /opt/php83 c01 6 · 배포판 모듈 c02 0 · /usr/local/apache2 c03 6 · XAMPP c04 6 ·
 #      RPM 자리의 php_zts_module c05 6 · RHEL 8 의 modules/ 상대 경로 c06 0 · SUSE 모듈 자리 c07 0 · /opt/php c08 0
 #   N  PHP 없음 5 — Debian · Alpine · Rocky 0 · PHP 를 지우고 남은 켠 설정(Debian · RPM) 0
@@ -250,7 +255,8 @@ set -e
 [ "$(dpkg-query -W -f='${Version}' "$1")" = "$3" ]
 DEB
 # 자리 채우기 rpm 을 지어 넣는다 — `sh /b/rpm-put.sh <이름> <판> <릴리스> <공급사> [담을 파일 …]`. 담을 파일은 글자 한 줄이고,
-# 파일이 없으면 이름 · 판 · 공급사만 있는 빈 rpm 이다. 넣은 뒤 공급사 · 판과 파일의 소유가 읽히는지 본다.
+# 파일이 없으면 이름 · 판 · 공급사만 있는 빈 rpm 이다. <판> 은 `<epoch>:<판>` 꼴도 받는다(0.6.3). 넣은 뒤 공급사 · 판 · epoch 와
+# 파일의 소유가 읽히는지 본다.
 cat >"$W/b/rpm-put.sh" <<'RPM'
 set -e
 name=$1
@@ -258,11 +264,14 @@ ver=$2
 rel=$3
 vendor=$4
 shift 4
+epoch=""
+case "$ver" in *:*) epoch=${ver%%:*}; ver=${ver#*:} ;; esac
 top=/tmp/rb-$name
 rm -rf "$top"
 mkdir -p "$top/SPECS"
 {
     echo "Name: $name"
+    [ -z "$epoch" ] || echo "Epoch: $epoch"
     echo "Version: $ver"
     echo "Release: $rel"
     echo "Summary: placeholder"
@@ -284,6 +293,7 @@ mkdir -p "$top/SPECS"
 rpmbuild -bb --define "_topdir $top" "$top/SPECS/p.spec" >"$top/build.log" 2>&1 || { cat "$top/build.log"; exit 1; }
 rpm -i --nodeps "$top"/RPMS/noarch/"$name"-"$ver"-*.noarch.rpm
 [ "$(rpm -q --qf '%{VENDOR}|%{VERSION}-%{RELEASE}' "$name")" = "$vendor|$ver-$rel" ]
+[ -z "$epoch" ] || [ "$(rpm -q --qf '%{EPOCH}' "$name")" = "$epoch" ]
 for f in "$@"; do
     [ "$(rpm -qf --qf '%{NAME}' "$f")" = "$name" ]
 done
@@ -437,6 +447,11 @@ run_case b12-deb12-fixed-other-changed "$DEB12" 0 "$FIX82 && $(changed /usr/bin/
 run_case b13-deb12-fixed-on-and-off "$DEB12" 6 \
     "$FIX82 && $(put ini-on.ini /etc/php/8.2/cli/conf.d/99-upload.ini) && $(append pool-off.conf "$POOL")" \
     "고친 판 + CLI 에서 켬 · 풀에서 끔 — 켬이 하나라도 있으면"
+run_case b14-deb12-epoch "$DEB12" 6 "$(deb_set 8.2 1:8.2.35-1~deb12u1)" \
+    "판 줄 1:8.2.35-1~deb12u1 — epoch 가 붙어 고친 판과 견주지 못한다 · 설정 없음(0.6.3)"
+run_case b15-deb12-fixed-no-md5sums "$DEB12" 6 \
+    "$FIX82 && rm -f /var/lib/dpkg/info/php8.2-cli.md5sums /var/lib/dpkg/info/php8.2-cli:*.md5sums && ! ls /var/lib/dpkg/info/php8.2-cli*.md5sums >/dev/null 2>&1" \
+    "고친 판 · php8.2-cli 의 .md5sums 를 지움 — /usr/bin/php8.2 가 패키지 기록에 없다 · 설정 없음(0.6.3)"
 
 echo "── K. 설정 꼴 — 고친 판 위에서 켬만 6 ──"
 run_case k01-ini-1 "$DEB12" 6 "$FIX82 && $(put ini-1.ini "$CONFD")" "php.ini 꼴 = 1"
@@ -501,6 +516,7 @@ rpm_case r14-rpm-httpd-on 6 \
     "php 8.3.37 1.el10_1 $RH /usr/lib64/httpd/modules/libphp.so && $(put httpd-php-on.conf /etc/httpd/conf.d/php.conf)" \
     "고친 php(httpd 모듈) + /etc/httpd/conf.d/php.conf 의 php_value … 1"
 rpm_case r15-rpm-suse-on 6 "php8 8.4.28 160000.1.1 $SUSE && $(put ini-on.ini /etc/php8/cli/php.ini)" "고친 SUSE php8 + /etc/php8/cli/php.ini 켬"
+rpm_case r16-rpm-epoch 6 "php-cli 1:8.2.35 1.el9 $RH" "빈 rpm php-cli 1:8.2.35-1.el9 — epoch 가 붙어 고친 판과 견주지 못한다 · 설정 없음(0.6.3)"
 
 echo "── F. RPM 자리의 파일 ──"
 rpm_case f01-rpm-file-same 0 "php-cli 8.3.37 1.el10_1 $RH /usr/bin/php" "고친 php-cli 가 깐 /usr/bin/php — 기록과 같다"
@@ -521,6 +537,10 @@ rpm_case f08-rpm-other-pkg-local 6 "ea-php-cli 8.3.37 1.el9 placeholder /usr/loc
 rpm_case f09-rpm-module-same 0 "php 8.3.37 1.el10_1 $RH /usr/lib64/httpd/modules/libphp.so" "고친 php 가 깐 httpd 모듈 — 기록과 같다"
 rpm_case f10-rpm-module-unowned 6 "php 8.3.37 1.el10_1 $RH && $(bin_put /usr/lib64/httpd/modules/libphp.so)" \
     "고친 php 옆 · 어느 패키지도 깔지 않은 httpd 모듈"
+rpm_case f11-rpm-unowned-bin-fpm 6 "php-cli 8.3.37 1.el10_1 $RH && $(bin_put /usr/bin/php-fpm)" \
+    "고친 php-cli + 어느 패키지도 깔지 않은 /usr/bin/php-fpm(갈린 sbin · 0.6.3)"
+rpm_case f12-rpm-sbin-record-echo 0 "php-fpm 8.3.37 1.el10_1 $RH /usr/sbin/php-fpm && cp /usr/sbin/php-fpm /usr/bin/php-fpm" \
+    "패키지가 /usr/sbin/php-fpm 으로 적은 파일이 /usr/bin/php-fpm 으로도 보임(합친 sbin 의 옛 꼴 기록 · f05 의 거꾸로) — 세지 않는다"
 
 echo "── O. 공식 빌드 ──"
 run_case o01-official-8337 php:8.3.37-cli 0 ":" "php:8.3.37-cli 그대로 — 고친 판 문자열(A5) · 설정 없음"
@@ -572,6 +592,14 @@ run_case x15-noversion-on debian:12 6 "$(bin_put /usr/local/php/bin/php) && $(pu
     "판 문자열 없음 + 켬 — 판 모름은 고치지 않음으로 센다"
 run_case x16-noversion-off debian:12 6 "$(bin_put /usr/local/php/bin/php) && $(put ini-off.ini /usr/local/php/lib/php.ini)" \
     "판 문자열 없음 + 끔"
+run_case x17-local-named debian:12 6 "$(ver_put /usr/local/bin/php8.3 'X-Powered-By: PHP/8.3.37')" \
+    "/usr/local/bin/php8.3 8.3.37 — 판 붙은 이름(패키지 밖 · 이 점검이 버전을 읽지 않는 이름) · 설정 없음(0.6.3)"
+run_case x18-usrbin-named-unowned debian:12 6 "$(ver_put /usr/bin/php8.3 'X-Powered-By: PHP/8.3.37')" \
+    "어느 패키지도 깔지 않은 /usr/bin/php8.3 · 설정 없음(0.6.3)"
+run_case x19-local-named-nodot debian:12 6 "$(ver_put /usr/local/bin/php83 'X-Powered-By: PHP/8.3.36')" \
+    "/usr/local/bin/php83 8.3.36 — 점 없는 판 이름(패키지 밖) · 설정 없음(0.6.3)"
+run_case x20-apache-module-named debian:12 6 "$(ver_put /usr/lib/apache2/modules/libphp7.so 'X-Powered-By: PHP/7.4.33')" \
+    "어느 패키지도 깔지 않은 /usr/lib/apache2/modules/libphp7.so 7.4.33 — apxs 로 지은 PHP 7 의 모듈 자리 · 설정 없음(0.6.3)"
 
 echo "── M. 섞임 ──"
 run_case m01-deb-fixed-local-vuln "$DEB12" 6 "$FIX82 && $(ver_put /usr/local/bin/php 'X-Powered-By: PHP/8.3.36')" \
@@ -608,6 +636,9 @@ run_case p09-upstart-outside debian:12 6 "mkdir -p /etc/init && cp /b/fx/worker.
 run_case p10-openrc-outside debian:12 6 \
     "mkdir -p /etc/init.d && cp /b/fx/php-app.openrc /etc/init.d/php-app && chmod 755 /etc/init.d/php-app" \
     "OpenRC command=/srv/php/sbin/php-fpm"
+run_case p11-stale-only debian:12 6 \
+    "cp /bin/sleep /usr/sbin/php-fpm8.3 && (/usr/sbin/php-fpm8.3 600 &) && sleep 1 && rm -f /usr/sbin/php-fpm8.3 && ls -l /proc/[0-9]*/exe 2>/dev/null | grep -q 'php-fpm8.3 (deleted)'" \
+    "PHP 파일 없음 · 지워진 실행 파일로만 도는 php-fpm8.3(다시 시작 안 함) — 0.6.2 까지는 문이 열리지 않아 0(0.6.3)"
 
 echo "── C. Apache 설정 — LoadModule 줄 ──"
 run_case c01-deb-load-outside debian:12 6 \
@@ -679,7 +710,7 @@ n=$(cat "$OUT"/cases/*/screen.txt 2>/dev/null | grep -c -e '영향 판' -e '고�
 check "S8 화면에 내부 낱말(판 · 갈래) 0" "$a" "모든 경우의 화면에서 $n 줄"
 
 # 칸 수까지 본다 — 경우를 짓다 멈추면 남은 경우가 조용히 사라지고 "실패 0" 이 남는다.
-EXPECTED=128 # A 8 · B 13 · K 8 · U 1 · L 4 · D 8 · R 15 · F 10 · O 11 · X 16 · M 3 · P 10 · C 8 · N 5 · 화면 8
+EXPECTED=138 # A 8 · B 15 · K 8 · U 1 · L 4 · D 8 · R 16 · F 12 · O 11 · X 20 · M 3 · P 11 · C 8 · N 5 · 화면 8
 pass=$(awk -F"$TAB" '$2 == 1' "$OUT/checks.tsv" | wc -l)
 total=$(wc -l <"$OUT/checks.tsv")
 [ "$total" = "$EXPECTED" ] || echo "칸 수 $total — 기대 $EXPECTED 와 다르다(경우를 짓다 멈췄거나, 칸을 더하고 EXPECTED 를 고치지 않았다)"
@@ -690,7 +721,8 @@ echo "── 합: $pass / $EXPECTED ──"
 #
 # U1~U6 은 verdict.unconfirmed 의 줄 차례다 — U1 켬 · 고치지 않음 · U2 켬 · 고친 판 · U3 끔(켬 없음) · 고치지 않음 · U4 설정 없음 ·
 # 고치지 않음 · U5 running_php · U6 service_php · apache_php · apache_php_rpm. '고치지 않음' 은 판 사실 덩이(deb_vuln_85 … stale_php ·
-# 판을 볼 규칙이 서지 않은 php_bin)가 하나라도 선 것이다. U1~U4 는 PHP 문(php_pkg · php_bin · rpm_php)이 설 때만 본다.
+# 판을 볼 규칙이 서지 않은 php_bin)가 하나라도 선 것이다. U1~U4 는 PHP 문(php_pkg · php_bin · rpm_php · bin_named_unowned ·
+# bin_fpm_unowned · stale_php — 뒤의 셋은 0.6.3)이 설 때만 본다.
 #
 #   b01 6  U4 — deb_vuln_82(8.2.35)                 b02 0  0 갈래 '고친 배포판 패키지' — deb_vuln_82 의 그 판 · 설정 없음
 #   b03 6  U2 — upload_on(php.ini 꼴 · conf.d)       b04 0  같은 갈래 — upload_off 는 0 을 막지 않는다
@@ -699,6 +731,7 @@ echo "── 합: $pass / $EXPECTED ──"
 #   b09 0  0 갈래 '고친 배포판 패키지' — 풀의 끔     b10 6  U4 — pkg_bin_changed(/usr/bin/php8.2)
 #   b11 6  U4 — pkg_bin_changed(sbin/php-fpm8.2)    b12 0  0 갈래 '고친 배포판 패키지' — pkg_bin_changed 는 PHP 자리만
 #   b13 6  U2 — 켬이 하나라도 있으면(끔이 함께여도)
+#   b14 6  U4 — pkg_epoch(1:8.2.35 · 0.6.3)          b15 6  U4 — bin_named_unowned(.md5sums 를 지운 /usr/bin/php8.2 · 0.6.3)
 #   k01~k04 6  U2 — upload_on 의 값 꼴(1 · "On" · On ; 주석 · =TRUE)
 #   k05 6  U2 — 풀 꼴 php_value[…] = 1               k06 6  U2 — Apache 꼴(line) · apache_php 는 exclude(배포판 모듈 자리)
 #   k07 0  0 갈래 '고친 패키지 밖 PHP' — Apache 꼴의 끔 · 모듈 자리 /usr/lib/apache2/modules/libphp.so
@@ -718,7 +751,7 @@ echo "── 합: $pass / $EXPECTED ──"
 #   r10 6  U2 — 문을 rpm_php 만 연다 · 글롭 뿌리 /etc/php*.ini
 #   r11 6  U2 — /etc/php.d                          r12 6  U2 — /etc/php-fpm.d
 #   r13 6  U2 — 글롭 뿌리 /etc/php-fpm*.conf        r14 6  U2 — /etc/httpd 의 Apache 꼴(line)
-#   r15 6  U2 — /etc/php8(SUSE)
+#   r15 6  U2 — /etc/php8(SUSE)                     r16 6  U4 — pkg_epoch(RPM 1:8.2.35 · 0.6.3)
 #   f01 0  0 갈래 '고친 배포판 패키지'(RPM) — 패키지가 깐 실행 파일이 기록과 같다
 #   f02 6  U4 — pkg_bin_changed(RPM 다이제스트)      f03 6  U4 — bin_rpm_unowned(0.6.1)
 #   f04 6  U4 — sbin_fpm_unowned and not bin_fpm_owned(0.6.1)
@@ -726,6 +759,8 @@ echo "── 합: $pass / $EXPECTED ──"
 #   f06 6  U4 — pkg_bin_changed(/usr/bin/php-fpm · 0.6.1)  f07 6  U4 — bin_rpm and not rpm_php
 #   f08 6  U4 — php_bin and not (php_pkg or rpm_php or bin_php or bin_rpm) — 판 줄 밖 이름의 패키지가 깐 PHP
 #   f09 0  0 갈래 '고친 배포판 패키지'(RPM) — httpd 모듈    f10 6  U4 — bin_rpm_unowned(httpd 모듈 자리)
+#   f11 6  U4 — bin_fpm_unowned and not sbin_fpm_owned(갈린 sbin · 0.6.3)
+#   f12 0  0 갈래 '고친 배포판 패키지'(RPM) — sbin_fpm_owned 가 /usr/bin/php-fpm 의 메아리를 뺀다(f05 의 거꾸로 · 0.6.3)
 #   o01 0  0 갈래 '고친 패키지 밖 PHP' — 공식 8.3.37     o02 6  U2 — /usr/local/etc/php
 #   o03 0  같은 갈래 — 주석의 켬 줄 · conf.d 의 끔       o04 6  U2 — /usr/local/etc/php-fpm.d
 #   o05 6  U2 — 글롭 뿌리 /usr/local/etc/php-fpm*.conf   o06 6  U4 — bin_vuln(8.3.36)
@@ -739,12 +774,15 @@ echo "── 합: $pass / $EXPECTED ──"
 #   x09 0  같은 갈래 — /usr/lib/apache2/modules/libphp.so   x10 6  U4 — php_bin and not (…) — 링크만(0.6.0)
 #   x11~x13 6  U2 — 직접 빌드의 설정 자리(/usr/local/php · /usr/local/lib · /opt/php 의 풀)
 #   x14 6  U4 — bin_version_unknown 은 파일마다 가린다   x15 6  U1 — 판 모름 + 켬   x16 6  U3 — 판 모름 + 끔
+#   x17 6  U4 — bin_named_unowned 가 문도 연다(0.6.3)   x18 6  U4 — bin_named_unowned(/usr/bin · 0.6.3)
+#   x19 6  U4 — bin_named_unowned(점 없는 /usr/local 이름 · 0.6.3)   x20 6  U4 — bin_named_unowned(Apache 모듈 자리 · 0.6.3)
 #   m01 6  U4 — 고친 패키지가 고치지 않은 다른 PHP 를 가리지 않는다    m02 0  0 갈래 '고친 배포판 패키지' · '고친 패키지 밖 PHP' 함께
 #   m03 6  U4 — bin_version_unknown(RPM 옆의 /usr/local)
 #   p01 6  U5 — running_php                          p02 6  U5 — running_php(lsphp)
 #   p03 6  U4 — stale_php(실행 파일) · 고친 판 위     p04 6  U4 — stale_php(실린 모듈) · 고친 판 위
 #   p05 6  U6 — service_php(systemd)                 p06 0  0 갈래 'PHP 가 없다' — service_php 의 exclude(배포판 자리)
 #   p07 0  같은 갈래 — service_php 의 exclude(/opt/php)  p08~p10 6  U6 — service_php(SysV · Upstart · OpenRC)
+#   p11 6  U4 — stale_php 가 문도 연다(PHP 파일 없음 · 0.6.3)
 #   c01 6  U6 — apache_php(Debian mods-available)    c02 0  0 갈래 'PHP 가 없다' — apache_php 의 exclude(/usr/lib/apache2/)
 #   c03 6  U6 — apache_php(/usr/local/apache2/conf)  c04 6  U6 — apache_php(XAMPP)
 #   c05 6  U6 — apache_php_rpm                       c06 0  같은 갈래 — apache_php_rpm 의 exclude(modules/)

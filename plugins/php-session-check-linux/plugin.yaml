@@ -26,7 +26,7 @@
 # 1.10.0)과 Apache 설정의 `LoadModule php_module` 줄(PHP2Shell 리눅스 룰 0.6.0 과 같은 규칙).
 schema_version: 1
 id: php-session-check-linux
-version: 0.6.2
+version: 0.6.3
 min_core: "1.21.0"  # product 는 1.21.0 · 시작 스크립트의 서비스는 1.10.0 · package_match 는 1.7.0 · verdict.unconfirmed 는 1.3.0
 platforms: [linux]
 
@@ -209,6 +209,27 @@ detect:
         - { field: manager, op: equals, value: dpkg }
         - { field: name, op: matches, value: '^(php[0-9.]+-(cli|cgi|fpm)|libapache2-mod-php[0-9.]+|php5|libapache2-mod-php5)$' }
         - { field: version, op: matches, value: '^([0-9]+:)?([5-7]\.|8\.[01]\.)' }
+  # >>> 제품 php-linux pkg-epoch
+  # PHP 런타임 패키지의 판에 epoch 가 붙었다 — dpkg 는 `1:` 같은 앞자리(적어 둔 `0:` 도), RPM 은 1 이상(`0:` 은 RPM 줄의 계열 꼴
+  # `^(?:0:)?` 이 이미 받는다). dpkg · RPM 모두 epoch 를 먼저 견주므로 `1:8.2.35` 가 epoch 없는 고친 판보다 높게 나오고, 상류 판의
+  # 계열 꼴(`^8\.2\.`)에도 맞지 않는다. 상류 판으로 견주는 룰은 이 꼴을 고친 판과 견주지 못한다 — 확인 필요다(dpkg 의 지원이 끝난
+  # 계열은 epoch 가 붙어도 지원 끝 줄의 2 가 앞선다 · RPM 의 지원 끝 줄은 epoch 0 만 받아 6). Debian · Ubuntu · RHEL 계열 · SUSE 의
+  # PHP 런타임 패키지는 epoch 를 쓰지 않는다(읽고 판단) — epoch 를 쓰는 배포판은 그 기계마다 확인 필요가 되고, 그 배포판의 고친 판
+  # 줄을 더하면 판정한다. 메타 패키지(`php-defaults` 의
+  # `php-cli` 등 · 판 `2:8.2+93` 꼴)는 이름이 판 없이 `php-` 로 시작해 아래 dpkg 이름 꼴에 맞지 않는다.
+  - id: pkg_epoch
+    subject: package
+    where:
+      any:
+        - all:
+            - { field: manager, op: equals, value: dpkg }
+            - { field: name, op: matches, value: '^(php[0-9.]+-(cli|cgi|fpm)|libapache2-mod-php[0-9.]+|php5|libapache2-mod-php5)$' }
+            - { field: version, op: matches, value: '^[0-9]+:' }
+        - all:
+            - { field: manager, op: equals, value: rpm }
+            - { field: name, op: matches, value: '^((rh-)?php[0-9]+-)?php[0-9.]*(-cli|-cgi|-fpm|-fastcgi)?$|^apache2-mod_php[0-9]*$' }
+            - { field: version, op: matches, value: '^[1-9][0-9]*:' }
+  # <<< 제품 php-linux pkg-epoch
   - id: apk_vuln
     subject: package
     where:
@@ -321,6 +342,41 @@ detect:
         - { field: path, op: equals, value: "/usr/bin/php-fpm" }
         - { field: sha256, op: exists }
         - { field: package, op: matches, value: '.' }
+  # 갈린 sbin(RHEL 9 계열)의 `/usr/bin/php-fpm` 을 어느 패키지도 깔지 않았다 — 패키지의 PHP-FPM 은 `/usr/sbin` 에 있다. 위 짝의
+  # 거꾸로다 — `/usr/sbin` 이 `bin` 으로 가는 링크인 기계에서 패키지가 `/usr/sbin/php-fpm` 으로 적은 파일은 소유 없는
+  # `/usr/bin/php-fpm` 으로도 오므로, 패키지의 `/usr/sbin/php-fpm` 이 있으면 세지 않는다.
+  - id: bin_fpm_unowned
+    subject: file
+    where:
+      all:
+        - { field: path, op: equals, value: "/usr/bin/php-fpm" }
+        - { field: sha256, op: exists }
+    exclude:
+      - { field: package, op: matches, value: '.' }
+  - id: sbin_fpm_owned
+    subject: file
+    where:
+      all:
+        - { field: path, op: equals, value: "/usr/sbin/php-fpm" }
+        - { field: sha256, op: exists }
+        - { field: package, op: matches, value: '.' }
+  # 판 붙은 이름의 PHP 실행 파일 · 모듈이 패키지 기록에 없다 — 룰은 패키지 밖 실행 파일 · 모듈의 판을 판 없는 이름(`php` ·
+  # `php-cgi` · `php-fpm` · `libphp.so`)의 자리에서만 읽는다. 세 꼴이다.
+  # - 점으로 판을 붙인 이름(`php8.3` · `php-cgi8.3` · `php-fpm8.3`) — `/usr` · `/usr/local` 의 `bin` · `sbin`. Debian · Ubuntu 의 패키지가
+  #   이 이름으로 깔지만 기록(dpkg `.md5sums`)에 있으면 패키지 갈래가 판정한다 — 기록이 지워진 파일은 여기 온다(수집기는 dpkg 의
+  #   소유를 `.md5sums` 로만 안다).
+  # - 점 없이 판을 붙인 이름(`php83` · `php-fpm83`) — `/usr/local` 에서만. `/usr/bin` · `/usr/sbin` 의 그 이름은 Alpine 의 패키지
+  #   이름이고 apk 의 소유는 수집하지 않아 세지 않는다.
+  # - Debian Apache 모듈 자리의 판 붙은 모듈(`libphp7.so` · `libphp8.2.so`) — apxs 로 지은 PHP 가 그 자리에 둔다. 배포판 패키지의
+  #   모듈은 기록에 있어 세지 않는다.
+  - id: bin_named_unowned
+    subject: file
+    where:
+      all:
+        - { field: path, op: matches, value: '^/usr/((local/)?s?bin/php(-cgi|-fpm)?[0-9]+(\.[0-9]+)+|local/s?bin/php(-cgi|-fpm)?[0-9]+|lib/apache2/modules/libphp[0-9][0-9.]*\.so)$' }
+        - { field: sha256, op: exists }
+    exclude:
+      - { field: package, op: matches, value: '.' }
   # <<< 제품 php-linux places
   # >>> 제품 php-linux changed
   # 디스크의 판으로 가릴 수 없는 PHP.
@@ -367,20 +423,22 @@ collect_extra:
 verdict:
   require: "not (count(php_pkg) >= 0) and not (count(php_bin) >= 0)"
   unconfirmed:
-    # PHP 가 있을 때만 본다 — 지운 PHP 의 설정 파일이 남은 기계는 해당 없음이다.
-    - when: "upload_on and (php_pkg or php_bin or rpm_php) and (deb_vuln_85 or deb_vuln_84 or deb_vuln_83 or deb_vuln_82 or deb_eol or apk_vuln or rpm_vuln or bin_vuln or bin_version_unknown or (bin_rpm and not rpm_php) or bin_rpm_unowned or (sbin_fpm_unowned and not bin_fpm_owned) or pkg_bin_changed or stale_php or (php_bin and not (php_pkg or rpm_php or bin_php or bin_rpm)))"
+    # PHP 가 있을 때만 본다 — 지운 PHP 의 설정 파일이 남은 기계는 해당 없음이다. 문은 패키지 기록에 없는 판 붙은 이름의 실행
+    # 파일 · 어느 패키지도 깔지 않은 /usr/bin/php-fpm · 지워진 실행 파일로 도는 PHP 도 연다(0.6.3 — 그 PHP 는 디스크의 버전으로
+    # 판정하지 못해 고친 버전으로 세지 않는다. 0.6.2 까지는 다른 PHP 파일이 없으면 문이 열리지 않아 0 이었다).
+    - when: "upload_on and (php_pkg or php_bin or rpm_php or bin_named_unowned or bin_fpm_unowned or stale_php) and (deb_vuln_85 or deb_vuln_84 or deb_vuln_83 or deb_vuln_82 or deb_eol or pkg_epoch or apk_vuln or rpm_vuln or bin_vuln or bin_version_unknown or (bin_rpm and not rpm_php) or bin_rpm_unowned or (sbin_fpm_unowned and not bin_fpm_owned) or (bin_fpm_unowned and not sbin_fpm_owned) or bin_named_unowned or pkg_bin_changed or stale_php or (php_bin and not (php_pkg or rpm_php or bin_php or bin_rpm)))"
       why:
         ko: "session.upload_progress.enabled 가 켜져 있습니다 — 앱이 실행 중에 session.serialize_handler 를 php 로 바꾼다면(ini_set) 0 으로 두고 PHP 를 다시 시작하십시오. 고친 버전으로 세지 않은 PHP 가 있습니다 — 고치기 전 버전이면 그 계열의 고친 버전(8.5.13 · 8.4.28 · 8.3.37 · 8.2.36) 이상으로 올리십시오(8.1 이하는 고친 버전이 없어 8.2 이상으로 옮기고, 배포판 패키지는 그 배포판의 고친 패키지 · 공지를 따릅니다). 정식 출시 전 버전 · 패키지 기록과 다른 파일 · 고친 뒤 다시 시작하지 않은 PHP 는 PHP 11월 보안 업데이트 점검 항목의 안내를 따르십시오(php.net 공지)"
         en: "session.upload_progress.enabled is on - if the application switches session.serialize_handler to php at run time (ini_set), set it to 0 and restart PHP. A PHP not counted as fixed is present - if it predates the fix, upgrade to the fixed release of its line (8.5.13, 8.4.28, 8.3.37, 8.2.36) or later (8.1 and older have no fixed release - move to 8.2 or later; for a distribution package follow that distribution's fixed package and advisory); for a pre-release build, a file that differs from its package record or a PHP not restarted after the upgrade, follow the PHP November security update check (php.net advisory)"
-    - when: "upload_on and (php_pkg or php_bin or rpm_php) and not (deb_vuln_85 or deb_vuln_84 or deb_vuln_83 or deb_vuln_82 or deb_eol or apk_vuln or rpm_vuln or bin_vuln or bin_version_unknown or (bin_rpm and not rpm_php) or bin_rpm_unowned or (sbin_fpm_unowned and not bin_fpm_owned) or pkg_bin_changed or stale_php or (php_bin and not (php_pkg or rpm_php or bin_php or bin_rpm)))"
+    - when: "upload_on and (php_pkg or php_bin or rpm_php or bin_named_unowned or bin_fpm_unowned or stale_php) and not (deb_vuln_85 or deb_vuln_84 or deb_vuln_83 or deb_vuln_82 or deb_eol or pkg_epoch or apk_vuln or rpm_vuln or bin_vuln or bin_version_unknown or (bin_rpm and not rpm_php) or bin_rpm_unowned or (sbin_fpm_unowned and not bin_fpm_owned) or (bin_fpm_unowned and not sbin_fpm_owned) or bin_named_unowned or pkg_bin_changed or stale_php or (php_bin and not (php_pkg or rpm_php or bin_php or bin_rpm)))"
       why:
         ko: "고친 버전이지만 session.upload_progress.enabled 를 설정에서 직접 켰습니다 — 고친 버전도 설정끼리 다른 직렬화기는 막지 않습니다. 같은 세션을 쓰는 앱 · 풀 · 가상 호스트 · CLI 의 session.serialize_handler 를 같게 맞추거나, 쓰지 않으면 0 으로 두고 PHP 를 다시 시작하십시오(php.net 공지)"
         en: "a fixed release, but a setting turns session.upload_progress.enabled on - the fix does not stop different serializers between settings; make session.serialize_handler the same for every application, pool, virtual host and CLI sharing the sessions, or set it to 0 if unused and restart PHP (php.net advisory)"
-    - when: "upload_off and not upload_on and (php_pkg or php_bin or rpm_php) and (deb_vuln_85 or deb_vuln_84 or deb_vuln_83 or deb_vuln_82 or deb_eol or apk_vuln or rpm_vuln or bin_vuln or bin_version_unknown or (bin_rpm and not rpm_php) or bin_rpm_unowned or (sbin_fpm_unowned and not bin_fpm_owned) or pkg_bin_changed or stale_php or (php_bin and not (php_pkg or rpm_php or bin_php or bin_rpm)))"
+    - when: "upload_off and not upload_on and (php_pkg or php_bin or rpm_php or bin_named_unowned or bin_fpm_unowned or stale_php) and (deb_vuln_85 or deb_vuln_84 or deb_vuln_83 or deb_vuln_82 or deb_eol or pkg_epoch or apk_vuln or rpm_vuln or bin_vuln or bin_version_unknown or (bin_rpm and not rpm_php) or bin_rpm_unowned or (sbin_fpm_unowned and not bin_fpm_owned) or (bin_fpm_unowned and not sbin_fpm_owned) or bin_named_unowned or pkg_bin_changed or stale_php or (php_bin and not (php_pkg or rpm_php or bin_php or bin_rpm)))"
       why:
         ko: "session.upload_progress.enabled 를 끈 설정이 있습니다 — 실행 중인 PHP 에 반영됐는지(다시 시작했는지)는 이 도구가 보지 못합니다. 바꾼 뒤 다시 시작하지 않았다면 PHP(웹 서버 · PHP-FPM)를 다시 시작하십시오. 고친 버전으로 세지 않은 PHP 가 있습니다 — 고치기 전 버전이면 그 계열의 고친 버전(8.5.13 · 8.4.28 · 8.3.37 · 8.2.36) 이상으로 올리십시오(8.1 이하는 고친 버전이 없어 8.2 이상으로 옮기고, 배포판 패키지는 그 배포판의 고친 패키지 · 공지를 따릅니다). 정식 출시 전 버전 · 패키지 기록과 다른 파일 · 고친 뒤 다시 시작하지 않은 PHP 는 PHP 11월 보안 업데이트 점검 항목의 안내를 따르십시오"
         en: "a setting turns session.upload_progress.enabled off - whether the running PHP has picked it up (restarted) cannot be seen by this tool; if it was not restarted after the change, restart PHP (web server, PHP-FPM). A PHP not counted as fixed is present - if it predates the fix, upgrade to the fixed release of its line (8.5.13, 8.4.28, 8.3.37, 8.2.36) or later (8.1 and older have no fixed release - move to 8.2 or later; for a distribution package follow that distribution's fixed package and advisory); for a pre-release build, a file that differs from its package record or a PHP not restarted after the upgrade, follow the PHP November security update check"
-    - when: "(php_pkg or php_bin or rpm_php) and not upload_on and not upload_off and (deb_vuln_85 or deb_vuln_84 or deb_vuln_83 or deb_vuln_82 or deb_eol or apk_vuln or rpm_vuln or bin_vuln or bin_version_unknown or (bin_rpm and not rpm_php) or bin_rpm_unowned or (sbin_fpm_unowned and not bin_fpm_owned) or pkg_bin_changed or stale_php or (php_bin and not (php_pkg or rpm_php or bin_php or bin_rpm)))"
+    - when: "(php_pkg or php_bin or rpm_php or bin_named_unowned or bin_fpm_unowned or stale_php) and not upload_on and not upload_off and (deb_vuln_85 or deb_vuln_84 or deb_vuln_83 or deb_vuln_82 or deb_eol or pkg_epoch or apk_vuln or rpm_vuln or bin_vuln or bin_version_unknown or (bin_rpm and not rpm_php) or bin_rpm_unowned or (sbin_fpm_unowned and not bin_fpm_owned) or (bin_fpm_unowned and not sbin_fpm_owned) or bin_named_unowned or pkg_bin_changed or stale_php or (php_bin and not (php_pkg or rpm_php or bin_php or bin_rpm)))"
       why:
         ko: "session.upload_progress.enabled 설정을 찾지 못했습니다(고친 버전 전의 기본값은 켜짐) — 앱이 실행 중에 session.serialize_handler 를 php 로 바꾼다면(ini_set) 0 으로 두고 PHP 를 다시 시작하십시오. 고친 버전으로 세지 않은 PHP 가 있습니다 — 고치기 전 버전이면 그 계열의 고친 버전(8.5.13 · 8.4.28 · 8.3.37 · 8.2.36) 이상으로 올리십시오(8.1 이하는 고친 버전이 없어 8.2 이상으로 옮기고, 배포판 패키지는 그 배포판의 고친 패키지 · 공지를 따릅니다). 정식 출시 전 버전 · 패키지 기록과 다른 파일 · 고친 뒤 다시 시작하지 않은 PHP 는 PHP 11월 보안 업데이트 점검 항목의 안내를 따르십시오(php.net 공지)"
         en: "no session.upload_progress.enabled setting was found (on by default before the fixed release) - if the application switches session.serialize_handler to php at run time (ini_set), set it to 0 and restart PHP. A PHP not counted as fixed is present - if it predates the fix, upgrade to the fixed release of its line (8.5.13, 8.4.28, 8.3.37, 8.2.36) or later (8.1 and older have no fixed release - move to 8.2 or later; for a distribution package follow that distribution's fixed package and advisory); for a pre-release build, a file that differs from its package record or a PHP not restarted after the upgrade, follow the PHP November security update check (php.net advisory)"

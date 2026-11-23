@@ -1,20 +1,50 @@
 # php-2026-11-check-linux — 릴리스 기록
 
-**버전 0.1.3** · 대상: PHP 2026년 11월 보안 업데이트(8.5.13 · 8.4.28 · 8.3.37 · 8.2.36)가 고친 결함 18건(CVE-2026-129474 등) —
+**버전 0.1.4** · 대상: PHP 2026년 11월 보안 업데이트(8.5.13 · 8.4.28 · 8.3.37 · 8.2.36)가 고친 결함 18건(CVE-2026-129474 등) —
 리눅스 · **점검**(바꾸지 않는다)
 
 ## 0 을 내는 갈래
 
 | 갈래 | 근거 | 하네스 칸 |
 |---|---|---|
-| dpkg 의 PHP 런타임 패키지(`php8.x-cli` · `-cgi` · `-fpm` · `libapache2-mod-php8.x`)가 그 계열의 고친 판 이상 — 상류 번호를 따르는 저장소(Debian 12 의 8.2 · deb.sury.org 등) | php.net ChangeLog-8 · php-src 보안 권고 — 고친 판 8.5.13 · 8.4.28 · 8.3.37 · 8.2.36 | `b05` |
+| dpkg 의 PHP 런타임 패키지(`php8.x-cli` · `-cgi` · `-fpm` · `libapache2-mod-php8.x`)가 그 계열의 고친 판 이상 — 상류 번호를 따르는 저장소(Debian 12 의 8.2 · deb.sury.org 등) · 판 줄에 epoch 가 붙지 않았고 패키지가 깐 실행 파일이 그 기록(`.md5sums`)에 있다(0.1.4 — 하나라도 어긋나면 확인 필요) | php.net ChangeLog-8 · php-src 보안 권고 — 고친 판 8.5.13 · 8.4.28 · 8.3.37 · 8.2.36 | `b05` |
 | apk 의 PHP 런타임 패키지(`phpN` · `phpNN` · `-cgi` · `-fpm` · `-apache2`)가 그 계열의 고친 판 이상 | php.net ChangeLog-8 · php-src 보안 권고 — 고친 판 8.5.13 · 8.4.28 · 8.3.37 · 8.2.36 | `b07` |
-| rpm 의 PHP 런타임 패키지(`php` · `php-cli` · `-cgi` · `-fpm` · SCL · `apache2-mod_php`)가 그 계열의 고친 판 이상 — 상류 번호를 따르는 저장소(Remi 등) | php.net ChangeLog-8 · php-src 보안 권고 — 고친 판 8.5.13 · 8.4.28 · 8.3.37 · 8.2.36 | 없음 |
+| rpm 의 PHP 런타임 패키지(`php` · `php-cli` · `-cgi` · `-fpm` · SCL · `apache2-mod_php`)가 그 계열의 고친 판 이상 — 상류 번호를 따르는 저장소(Remi 등) · 판 줄에 epoch(1 이상)가 붙지 않았다(0.1.4 — 붙으면 확인 필요) | php.net ChangeLog-8 · php-src 보안 권고 — 고친 판 8.5.13 · 8.4.28 · 8.3.37 · 8.2.36 | `b14` |
 | 패키지 밖 PHP(공식 이미지의 `/usr/local` · 직접 빌드 `/usr/local/php` · `/opt/php`)의 판 문자열이 그 계열의 고친 판 이상 | php.net ChangeLog-8 · php-src 보안 권고 — 고친 판 8.5.13 · 8.4.28 · 8.3.37 · 8.2.36 | `x02` · `x05` |
 | 8.6 의 정식 판(패키지 밖의 시험판 · 개발 빌드는 0.1.1 부터 확인 필요) | php-src 보안 권고 · ChangeLog-8 — 18건의 영향 계열이 모두 8.2 ~ 8.5 다 | 없음 |
-| RPM 계열 합친 bin(`/usr/sbin` → `bin` · Fedora 42 이후)의 고친 PHP — 패키지가 깐 `/usr/bin/php-fpm` 의 메아리 `/usr/sbin/php-fpm` 을 세지 않는다(0.1.2) | 0.1.2 — 합친 bin 에서는 패키지가 깐 `/usr/bin/php-fpm` 이 소유 없는 `/usr/sbin/php-fpm` 으로 한 번 더 온다(실제 Fedora 42 컨테이너) · 그 패키지가 고친 판(php.net ChangeLog-8) | 없음 |
+| RPM 계열 합친 bin(`/usr/sbin` → `bin` · Fedora 42 이후)의 고친 PHP — 패키지가 깐 `/usr/bin/php-fpm` 의 메아리 `/usr/sbin/php-fpm` 을 세지 않는다(0.1.2) · 거꾸로 패키지가 `/usr/sbin/php-fpm` 으로 적은 파일의 메아리 `/usr/bin/php-fpm` 도 세지 않는다(0.1.4) | 0.1.2 — 합친 bin 에서는 패키지가 깐 `/usr/bin/php-fpm` 이 소유 없는 `/usr/sbin/php-fpm` 으로 한 번 더 온다(실제 Fedora 42 컨테이너) · 0.1.4 — 옛 꼴로 `/usr/sbin` 을 적은 패키지는 같은 파일이 소유 없는 `/usr/bin/php-fpm` 으로 온다(*읽고 판단* — 같은 짝의 거꾸로) · 그 패키지가 고친 판(php.net ChangeLog-8) | `b16` · `b17` |
 | 보는 자리 안에서 도는 PHP(지워진 파일이 아니다) — 디스크의 그 파일 · 패키지가 고친 판 | 판정표의 확인 필요는 자리 밖에서 돌거나 지워진 PHP 파일로 도는 프로세스 — 디스크의 판이 고친 판(php.net ChangeLog-8) | 없음 |
 | PHP 없음 | 공지의 영향 제품이 없다 | `n01` · `n02` |
+
+## 0.1.4 — 패키지 기록에 없는 PHP 실행 파일 · 모듈과 epoch 가 붙은 판은 확인 필요 (2026-11-23)
+
+판정이 바뀐다 — 0 이던 세 꼴이 확인 필요(6)다. 셋 다 제품 원본(`products/php-linux.yaml`)의 칸이라 같은 칸을 받는
+`php2shell-check-linux` 0.6.5 · `php-session-check-linux` 0.6.3 이 함께 바뀐다.
+
+- **판 붙은 이름의 PHP 실행 파일 · 모듈이 패키지 기록에 없다**(`bin_named_unowned` · 원본 `places` 칸) — `/usr/local/bin/php8.3` ·
+  `/usr/local/bin/php83` · 어느 패키지도 깔지 않은 `/usr/bin/php8.3` · 패키지가 깔았지만 dpkg 기록(`.md5sums`)이 지워진 `/usr/bin/php8.2`
+  (수집기는 dpkg 의 소유를 `.md5sums` 로만 안다) · 어느 패키지도 깔지 않은 Debian Apache 모듈 자리의 `libphp7.so`(apxs 로 지은 PHP 7 —
+  7.4 는 지원 끝이라 이 꼴은 **취약한데 0** 이었다). 0.1.3 까지는 패키지 밖 실행 파일 · 모듈의 판을 판 없는 이름(`php` · `php-cgi` ·
+  `php-fpm` · `libphp.so`)의 자리에서만 읽어 이 이름들은 어느 줄에도 걸리지 않았다. `/usr/bin` · `/usr/sbin` 의 점 없는 이름(`php83`)은
+  Alpine 의 패키지 이름이고 apk 의 소유는 수집하지 않아 세지 않는다.
+- **갈린 sbin 의 소유 없는 `/usr/bin/php-fpm`**(`bin_fpm_unowned` · 원본 `places` 칸) — RHEL 9 계열처럼 `/usr/sbin` 이 따로인 기계.
+  패키지의 `/usr/sbin/php-fpm` 이 있으면 세지 않는다(`sbin_fpm_owned` — 0.1.2 의 `sbin_fpm_unowned` · `bin_fpm_owned` 짝의 거꾸로).
+- **epoch 가 붙은 판**(`pkg_epoch` · 원본 `pkg-epoch` 칸 · 까닭은 이 룰의 줄) — dpkg `1:8.2.35-1~deb12u1` · RPM `1:8.2.35-1.el9` 꼴은 계열
+  꼴(`^8\.2\.` · `^(?:0:)?8\.2\.`)에 맞지 않고, 견줘도 epoch 가 앞서 고친 판보다 높다. 0.1.3 까지는 **취약한데 0** 이었다(공개본 0.1.2 로
+  잼 — dpkg · RPM 모두 2 → 0). 고친 판과 견주지 못하므로 확인 필요다 — dpkg 의 지원이 끝난 계열은 epoch 가 붙어도 `deb_eol` 의 2 가
+  앞선다(RPM 의 지원 끝 줄은 epoch 0 만 받아 6). Debian · Ubuntu · RHEL 계열 · SUSE 의 PHP 런타임 패키지는 epoch 를 쓰지
+  않는다(*읽고 판단*) — epoch 를 쓰는 배포판은 그 기계마다 확인 필요가 되고, 그 배포판의 고친 판 줄을 더하면 판정한다.
+
+`require` 는 그대로다 — 새 갈래는 확인 필요의 까닭에만 든다(판 붙은 소유 없는 파일이 취약한 패키지와 함께 있으면 그 패키지의 2 가
+앞선다). 하네스는 빈 rpm 을 짓는 이미지(`rocky9-rpmbuild`)를 더했다. 새 칸 열다섯(`A5` · `b10` ~ `b17` · `x13` ~ `x17` · 화면 `S5` —
+`b11` 은 dpkg 지원 끝의 2 를 지키는 칸, `b13` · `b14` 는 RPM 줄의 대조, `b16` · `b17` 은 합친 bin 의 메아리 둘(사본으로 흉내)이고 `b14` ·
+`b16` · `b17` 이 0 갈래 줄 둘의 빈틈을 메운다): 공개본 0.1.2(0.1.3 과 판정이 같다)로 43/52 — 새 칸 아홉(`b10` · `b12` · `b15` · `x13` ~
+`x17` · `S5`)만 어긋남 · 0.1.4(코어 1.25.3 의 musl 정적 개발 빌드)로 52/52.
+
+남은 꼴(재고 기록만 · 이 판에서 고치지 않음): 해시 상한(32 MiB)을 넘는 소유 없는 실행 파일은 정규 파일로 서지 않아 세지 않는다 ·
+갈린 sbin 에서 패키지의 `/usr/sbin/php-fpm` 옆에 놓인 다른 `/usr/bin/php-fpm` 은 메아리와 가리지 못해 세지 않는다 · `/usr/sbin` 이
+`bin` 으로 가는 링크인 dpkg 기계는 패키지 파일의 메아리가 소유 없는 판 붙은 이름으로 올 수 있다(2026-11-23 에 잰 Debian 13 · testing ·
+Ubuntu 25.10 · 26.04 는 모두 `/usr/sbin` 이 실제 폴더다).
 
 ## 0.1.3 — 찾는 조건을 제품 원본에서 받는다 (2026-11-23)
 

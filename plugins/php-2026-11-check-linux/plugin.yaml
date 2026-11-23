@@ -28,7 +28,7 @@
 # - 컨테이너 안 · Windows(`php-2026-11-check-windows` — 다음 차수)
 schema_version: 1
 id: php-2026-11-check-linux
-version: 0.1.3
+version: 0.1.4
 min_core: "1.25.0"  # added 는 1.25.0 · product 는 1.21.0 · 시작 스크립트의 서비스는 1.10.0 · package_match 는 1.7.0
 platforms: [linux]
 
@@ -143,6 +143,27 @@ detect:
     label:
       ko: "지원이 끝난 PHP 계열(8.1 이하) — 고친 버전이 나오지 않습니다. 지원되는 계열(8.2 이상)의 고친 버전으로 옮기거나, 배포판 패키지면 그 배포판의 고친 패키지 · 공지를 따르십시오"
       en: "an end-of-life PHP line (8.1 or older) - there is no upstream fix; move to a fixed release of a supported line (8.2 or later), or for a distribution package follow that distribution's fixed package and advisory"
+  # >>> 제품 php-linux pkg-epoch
+  # PHP 런타임 패키지의 판에 epoch 가 붙었다 — dpkg 는 `1:` 같은 앞자리(적어 둔 `0:` 도), RPM 은 1 이상(`0:` 은 RPM 줄의 계열 꼴
+  # `^(?:0:)?` 이 이미 받는다). dpkg · RPM 모두 epoch 를 먼저 견주므로 `1:8.2.35` 가 epoch 없는 고친 판보다 높게 나오고, 상류 판의
+  # 계열 꼴(`^8\.2\.`)에도 맞지 않는다. 상류 판으로 견주는 룰은 이 꼴을 고친 판과 견주지 못한다 — 확인 필요다(dpkg 의 지원이 끝난
+  # 계열은 epoch 가 붙어도 지원 끝 줄의 2 가 앞선다 · RPM 의 지원 끝 줄은 epoch 0 만 받아 6). Debian · Ubuntu · RHEL 계열 · SUSE 의
+  # PHP 런타임 패키지는 epoch 를 쓰지 않는다(읽고 판단) — epoch 를 쓰는 배포판은 그 기계마다 확인 필요가 되고, 그 배포판의 고친 판
+  # 줄을 더하면 판정한다. 메타 패키지(`php-defaults` 의
+  # `php-cli` 등 · 판 `2:8.2+93` 꼴)는 이름이 판 없이 `php-` 로 시작해 아래 dpkg 이름 꼴에 맞지 않는다.
+  - id: pkg_epoch
+    subject: package
+    where:
+      any:
+        - all:
+            - { field: manager, op: equals, value: dpkg }
+            - { field: name, op: matches, value: '^(php[0-9.]+-(cli|cgi|fpm)|libapache2-mod-php[0-9.]+|php5|libapache2-mod-php5)$' }
+            - { field: version, op: matches, value: '^[0-9]+:' }
+        - all:
+            - { field: manager, op: equals, value: rpm }
+            - { field: name, op: matches, value: '^((rh-)?php[0-9]+-)?php[0-9.]*(-cli|-cgi|-fpm|-fastcgi)?$|^apache2-mod_php[0-9]*$' }
+            - { field: version, op: matches, value: '^[1-9][0-9]*:' }
+  # <<< 제품 php-linux pkg-epoch
   - id: apk_vuln
     subject: package
     where:
@@ -275,6 +296,41 @@ detect:
         - { field: path, op: equals, value: "/usr/bin/php-fpm" }
         - { field: sha256, op: exists }
         - { field: package, op: matches, value: '.' }
+  # 갈린 sbin(RHEL 9 계열)의 `/usr/bin/php-fpm` 을 어느 패키지도 깔지 않았다 — 패키지의 PHP-FPM 은 `/usr/sbin` 에 있다. 위 짝의
+  # 거꾸로다 — `/usr/sbin` 이 `bin` 으로 가는 링크인 기계에서 패키지가 `/usr/sbin/php-fpm` 으로 적은 파일은 소유 없는
+  # `/usr/bin/php-fpm` 으로도 오므로, 패키지의 `/usr/sbin/php-fpm` 이 있으면 세지 않는다.
+  - id: bin_fpm_unowned
+    subject: file
+    where:
+      all:
+        - { field: path, op: equals, value: "/usr/bin/php-fpm" }
+        - { field: sha256, op: exists }
+    exclude:
+      - { field: package, op: matches, value: '.' }
+  - id: sbin_fpm_owned
+    subject: file
+    where:
+      all:
+        - { field: path, op: equals, value: "/usr/sbin/php-fpm" }
+        - { field: sha256, op: exists }
+        - { field: package, op: matches, value: '.' }
+  # 판 붙은 이름의 PHP 실행 파일 · 모듈이 패키지 기록에 없다 — 룰은 패키지 밖 실행 파일 · 모듈의 판을 판 없는 이름(`php` ·
+  # `php-cgi` · `php-fpm` · `libphp.so`)의 자리에서만 읽는다. 세 꼴이다.
+  # - 점으로 판을 붙인 이름(`php8.3` · `php-cgi8.3` · `php-fpm8.3`) — `/usr` · `/usr/local` 의 `bin` · `sbin`. Debian · Ubuntu 의 패키지가
+  #   이 이름으로 깔지만 기록(dpkg `.md5sums`)에 있으면 패키지 갈래가 판정한다 — 기록이 지워진 파일은 여기 온다(수집기는 dpkg 의
+  #   소유를 `.md5sums` 로만 안다).
+  # - 점 없이 판을 붙인 이름(`php83` · `php-fpm83`) — `/usr/local` 에서만. `/usr/bin` · `/usr/sbin` 의 그 이름은 Alpine 의 패키지
+  #   이름이고 apk 의 소유는 수집하지 않아 세지 않는다.
+  # - Debian Apache 모듈 자리의 판 붙은 모듈(`libphp7.so` · `libphp8.2.so`) — apxs 로 지은 PHP 가 그 자리에 둔다. 배포판 패키지의
+  #   모듈은 기록에 있어 세지 않는다.
+  - id: bin_named_unowned
+    subject: file
+    where:
+      all:
+        - { field: path, op: matches, value: '^/usr/((local/)?s?bin/php(-cgi|-fpm)?[0-9]+(\.[0-9]+)+|local/s?bin/php(-cgi|-fpm)?[0-9]+|lib/apache2/modules/libphp[0-9][0-9.]*\.so)$' }
+        - { field: sha256, op: exists }
+    exclude:
+      - { field: package, op: matches, value: '.' }
   # <<< 제품 php-linux places
 
   # ── 선언한 자리 밖에서 실행 중 · 서비스 · Apache 설정의 PHP — PHP2Shell 룰 0.6.1 과 같은 줄 ──────────────
@@ -369,6 +425,12 @@ verdict:
       why:
         ko: "RPM 계열의 자리에 이 점검이 PHP 패키지로 알아보지 못한 패키지가 깐 PHP 실행 파일이 있습니다(위 경로 · RPM 의 PHP 패키지가 없습니다) — 그 패키지의 버전과 받은 곳을 확인하십시오"
         en: "a PHP executable in an RPM system location was installed by a package this check does not recognise as a PHP package (path above; no RPM PHP package is present) - check that package's version and origin"
+    # epoch 가 붙은 dpkg · RPM 판(0.1.4) — 고친 판과 견주지 못한다. dpkg 의 지원이 끝난 계열이면 위 require 의 deb_eol 이 2 로
+    # 앞선다(RPM 의 지원 끝 줄은 epoch 0 만 받아 6).
+    - when: "pkg_epoch"
+      why:
+        ko: "PHP 패키지의 버전 앞에 이 점검이 견주지 못하는 번호(epoch — 버전의 '숫자:' 부분)가 붙어 있어 고친 버전인지 가리지 못했습니다 — 그 패키지의 PHP 버전이 고친 버전(8.5.13 · 8.4.28 · 8.3.37 · 8.2.36) 이상인지와 그 배포판 · 저장소의 공지를 확인하십시오"
+        en: "the PHP package version starts with a number this check cannot compare (an epoch - the 'N:' part of the version), so whether it is fixed could not be told; check that the package's PHP version is at or above the fixed release (8.5.13, 8.4.28, 8.3.37, 8.2.36) and that distribution's or repository's advisory"
     # >>> 제품 php-linux unconfirmed
     # 위 칸들이 확인 필요로 내는 까닭(verdict.unconfirmed 의 항목). 서비스와 Apache 설정은 멈춰 있어도 남는 자리라 같은 PHP 가
     # 함께 설 수 있어 한 칸으로 둔다.
@@ -380,6 +442,14 @@ verdict:
       why:
         ko: "어느 패키지도 깔지 않은 /usr/sbin/php-fpm 이 있습니다 — 패키지로 깐 PHP-FPM 이 아니라 그 버전을 가리지 못했습니다. 그 파일의 버전과 받은 곳을 확인하십시오"
         en: "a /usr/sbin/php-fpm that no package installed is present - it is not a packaged PHP-FPM, so its version could not be told; check its version and origin"
+    - when: "bin_fpm_unowned and not sbin_fpm_owned"
+      why:
+        ko: "어느 패키지도 깔지 않은 /usr/bin/php-fpm 이 있습니다 — 패키지로 깐 PHP-FPM 이 아니라 그 버전을 가리지 못했습니다. 그 파일의 버전과 받은 곳을 확인하십시오"
+        en: "a /usr/bin/php-fpm that no package installed is present - it is not a packaged PHP-FPM, so its version could not be told; check its version and origin"
+    - when: "bin_named_unowned"
+      why:
+        ko: "패키지 기록에 없는 PHP 실행 파일 · 모듈이 있습니다(위 경로) — 이 점검이 버전을 읽는 이름이 아니라 그 버전을 가리지 못했습니다. 그 파일의 버전과 받은 곳을 확인하고, 패키지가 깐 파일이면 패키지를 다시 설치한 뒤 다시 검사하십시오"
+        en: "a PHP executable or module that no package record lists is present (path above) - this check does not read the version under that name, so its version could not be told; check its version and origin, and if a package installed it, reinstall the package and scan again"
     - when: "running_php"
       why:
         ko: "이 점검이 보는 자리 밖에서 PHP 가 실행 중입니다(위 경로) — 그 PHP 는 판정하지 않았습니다. 그 PHP 의 버전과 받은 곳(패키지 · 공급사 · 직접 빌드)을 확인하십시오"

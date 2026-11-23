@@ -2,7 +2,7 @@
   "schema_version": 1,
   "checked": "2026-11-09",
   "cves": ["CVE-2026-109618", "CVE-2026-109619"],
-  "same_as": "php2shell-check-linux 0.6.4",
+  "same_as": "php2shell-check-linux 0.6.5",
   "sources": [
     "https://www.php.net/archive/2026.php",
     "https://ubuntu.com/security/notices/USN-8948-1",
