@@ -51,7 +51,7 @@
 # 줄. 선언한 자리 밖이면 *확인 필요* 로 그 경로를 적는다 — 그 파일은 열지 않는다.
 schema_version: 1
 id: php2shell-check-linux
-version: 0.6.4
+version: 0.6.5
 min_core: "1.21.0"  # product 는 1.21.0 · 시작 스크립트의 서비스는 1.10.0 · 패키지 파일 대조(file.package · package_match)는 1.7.0
 platforms: [linux]
 
@@ -507,6 +507,41 @@ detect:
         - { field: path, op: equals, value: "/usr/bin/php-fpm" }
         - { field: sha256, op: exists }
         - { field: package, op: matches, value: '.' }
+  # 갈린 sbin(RHEL 9 계열)의 `/usr/bin/php-fpm` 을 어느 패키지도 깔지 않았다 — 패키지의 PHP-FPM 은 `/usr/sbin` 에 있다. 위 짝의
+  # 거꾸로다 — `/usr/sbin` 이 `bin` 으로 가는 링크인 기계에서 패키지가 `/usr/sbin/php-fpm` 으로 적은 파일은 소유 없는
+  # `/usr/bin/php-fpm` 으로도 오므로, 패키지의 `/usr/sbin/php-fpm` 이 있으면 세지 않는다.
+  - id: bin_fpm_unowned
+    subject: file
+    where:
+      all:
+        - { field: path, op: equals, value: "/usr/bin/php-fpm" }
+        - { field: sha256, op: exists }
+    exclude:
+      - { field: package, op: matches, value: '.' }
+  - id: sbin_fpm_owned
+    subject: file
+    where:
+      all:
+        - { field: path, op: equals, value: "/usr/sbin/php-fpm" }
+        - { field: sha256, op: exists }
+        - { field: package, op: matches, value: '.' }
+  # 판 붙은 이름의 PHP 실행 파일 · 모듈이 패키지 기록에 없다 — 룰은 패키지 밖 실행 파일 · 모듈의 판을 판 없는 이름(`php` ·
+  # `php-cgi` · `php-fpm` · `libphp.so`)의 자리에서만 읽는다. 세 꼴이다.
+  # - 점으로 판을 붙인 이름(`php8.3` · `php-cgi8.3` · `php-fpm8.3`) — `/usr` · `/usr/local` 의 `bin` · `sbin`. Debian · Ubuntu 의 패키지가
+  #   이 이름으로 깔지만 기록(dpkg `.md5sums`)에 있으면 패키지 갈래가 판정한다 — 기록이 지워진 파일은 여기 온다(수집기는 dpkg 의
+  #   소유를 `.md5sums` 로만 안다).
+  # - 점 없이 판을 붙인 이름(`php83` · `php-fpm83`) — `/usr/local` 에서만. `/usr/bin` · `/usr/sbin` 의 그 이름은 Alpine 의 패키지
+  #   이름이고 apk 의 소유는 수집하지 않아 세지 않는다.
+  # - Debian Apache 모듈 자리의 판 붙은 모듈(`libphp7.so` · `libphp8.2.so`) — apxs 로 지은 PHP 가 그 자리에 둔다. 배포판 패키지의
+  #   모듈은 기록에 있어 세지 않는다.
+  - id: bin_named_unowned
+    subject: file
+    where:
+      all:
+        - { field: path, op: matches, value: '^/usr/((local/)?s?bin/php(-cgi|-fpm)?[0-9]+(\.[0-9]+)+|local/s?bin/php(-cgi|-fpm)?[0-9]+|lib/apache2/modules/libphp[0-9][0-9.]*\.so)$' }
+        - { field: sha256, op: exists }
+    exclude:
+      - { field: package, op: matches, value: '.' }
   # <<< 제품 php-linux places
 
   # ── 선언한 자리 밖에서 실행 중인 PHP (0.2.0) ──────────────────────────────────
@@ -613,6 +648,14 @@ verdict:
       why:
         ko: "어느 패키지도 깔지 않은 /usr/sbin/php-fpm 이 있습니다 — 패키지로 깐 PHP-FPM 이 아니라 그 버전을 가리지 못했습니다. 그 파일의 버전과 받은 곳을 확인하십시오"
         en: "a /usr/sbin/php-fpm that no package installed is present - it is not a packaged PHP-FPM, so its version could not be told; check its version and origin"
+    - when: "bin_fpm_unowned and not sbin_fpm_owned"
+      why:
+        ko: "어느 패키지도 깔지 않은 /usr/bin/php-fpm 이 있습니다 — 패키지로 깐 PHP-FPM 이 아니라 그 버전을 가리지 못했습니다. 그 파일의 버전과 받은 곳을 확인하십시오"
+        en: "a /usr/bin/php-fpm that no package installed is present - it is not a packaged PHP-FPM, so its version could not be told; check its version and origin"
+    - when: "bin_named_unowned"
+      why:
+        ko: "패키지 기록에 없는 PHP 실행 파일 · 모듈이 있습니다(위 경로) — 이 점검이 버전을 읽는 이름이 아니라 그 버전을 가리지 못했습니다. 그 파일의 버전과 받은 곳을 확인하고, 패키지가 깐 파일이면 패키지를 다시 설치한 뒤 다시 검사하십시오"
+        en: "a PHP executable or module that no package record lists is present (path above) - this check does not read the version under that name, so its version could not be told; check its version and origin, and if a package installed it, reinstall the package and scan again"
     - when: "running_php"
       why:
         ko: "이 점검이 보는 자리 밖에서 PHP 가 실행 중입니다(위 경로) — 그 PHP 는 판정하지 않았습니다. 그 PHP 의 버전과 받은 곳(패키지 · 공급사 · 직접 빌드)을 확인하십시오"

@@ -39,7 +39,7 @@
 #
 # **실검체는 없다.** 이미지는 배포판 저장소의 PHP 와 공식 Docker 이미지를 그대로 쓰고, 공식 이미지의 PHP 는 실행하지 않는다
 # (해시를 재거나 직접 빌드 자리로 옮기기만 한다). 그 밖의 경우는 **자리 채우기**다 — dpkg 는 패키지 기록의 판 줄을 바꾸거나 파일
-# 없는 칸 하나를 더하고, RPM 은 rpmbuild 로 지은 rpm(이름 · 판 · 공급사 — 파일을 담는 경우도 글자 한 줄)을 넣는다. 직접 빌드는
+# 없는 칸 하나를 더하거나 기록 파일(`.md5sums`)을 지우고, RPM 은 rpmbuild 로 지은 rpm(이름 · 판 · 공급사 — 파일을 담는 경우도 글자 한 줄)을 넣는다. 직접 빌드는
 # 글자 한 줄만 담은 파일이고, 시작 스크립트 · 유닛 · Apache 설정은 그 줄만 담은 파일이다(아무것도 띄우지 않는다). 도는 프로세스가
 # 필요한 경우는 `sleep` 을 PHP 이름으로 복사해 띄운다 — 실린 모듈 칸(p04)은 이미지의 glibc `libm.so.6` 을 `libphp8.2.so` 이름으로
 # 복사해 `sleep` 사본에 미리 싣고(LD_PRELOAD) 지운다. 경우마다 네트워크 없는 일회용 컨테이너에서 remedy 가 읽기만 한다.
@@ -49,21 +49,23 @@
 #   A  이미지 10 — Debian 12 스냅숏의 php8.2 가 이 룰의 고친 판 그대로(8.2.35-1~deb12u1) · 메타 php-cli · Ubuntu 24.04 의 php8.3
 #      이 그 계열의 고친 판 이상 · Alpine 의 php83 · rpmbuild 이미지에 PHP 패키지 없음 · 공식 이미지 다섯의 PHP 파일이 룰 목록의
 #      그 판 해시 · php:8.2.35-apache 의 PHP 파일은 목록에 없다
-#   B  실제 설치 10 — Debian 12 고친 판 그대로 b01 0 · 바로 아래 b02 2 · php8.2 를 바꿈 b03 6 · 아래 판 + 바꿈 b04 6 · 상관없는
+#   B  실제 설치 12 — Debian 12 고친 판 그대로 b01 0 · 바로 아래 b02 2 · php8.2 를 바꿈 b03 6 · 아래 판 + 바꿈 b04 6 · 상관없는
 #      파일을 바꿈 b05 0 · php-fpm8.2 를 바꿈 b06 6 · Ubuntu 24.04 깐 그대로 b07 0 · 그 판 b08 0 · 바로 아래 b09 2 · Alpine php83
-#      b10 6
+#      b10 6 · php8.2-cli 의 .md5sums 를 지움 b11 6 · epoch 가 붙은 판(1:) b12 6
 #   D  dpkg 줄 19 — 줄 여덟(Debian 13 · Ubuntu 14.04 · 16.04 · 18.04 · 20.04 ESM · 22.04 · 26.04 · 26.10)마다 고친 판 바로 아래 2 ·
 #      그 판 0(d01~d16) · 지원 끝난 Debian 11 꼴 d17 6 · 다른 저장소(Sury 꼴) d18 6 · 메타 패키지만 d19 0
 #   R  RPM 줄 21 — 공급사 줄 일곱(RHEL 8.10 php:7.4 · php:8.2 · RHEL 9.8 · RHEL 7.9 · Oracle Linux 8.10 php:7.4 · 9.8 · SLES 15
 #      SP7)마다 바로 아래 2 · 그 판 0(RHEL 7.9 의 그 판은 6 — r01~r14) · 같은 판 문자열의 Rocky r15 6 · Remi r16 6 · RHEL 의
 #      이전 마이너 r17 · 다른 모듈 스트림 r18 · SCL r19 6 · Oracle Linux 의 php:8.2 r20 6 · SUSE SP6 r21 6
-#   F  RPM 자리의 파일 7 — 고친 RHEL 9 php-cli 가 깐 /usr/bin/php f01 0 · 그 파일을 바꿈 f02 6 · 소유 없는 /usr/bin/php-cgi f03 6
+#   F  RPM 자리의 파일 9 — 고친 RHEL 9 php-cli 가 깐 /usr/bin/php f01 0 · 그 파일을 바꿈 f02 6 · 소유 없는 /usr/bin/php-cgi f03 6
 #      · 소유 없는 /usr/sbin/php-fpm f04 6 · 합친 bin 의 메아리 꼴 f05 0 · PHP 가 아닌 이름의 패키지가 깐 /usr/bin/php f06 6 ·
-#      /usr/bin/php-fpm f07 6
+#      /usr/bin/php-fpm f07 6 · 소유 없는 /usr/bin/php-fpm(갈린 sbin) f08 6 · 옛 꼴 기록의 메아리(f05 의 거꾸로) f09 0
 #   O  공식 빌드 8 — 8.3.35 o01 2 · 8.3.36 cli o02 0 · fpm o03 0 · 8.3.37 o04 0 · 7.4.33(지원 끝) o05 2 · 8.2.35-apache(목록 밖)
 #      o06 6 · 8.3.36 을 /opt/php/8.3 으로 옮김 o07 0 · 8.3.35 를 /usr/local/php 로 옮김 o08 2
-#   X  직접 빌드 5 — 공식 해시에 없는 /usr/local/bin/php x01 · /usr/local/php/bin/php x02 · /opt/php/8.3/sbin/php-fpm x03 ·
-#      /usr/local/lib/libphp.so x04 · /usr/lib/apache2/modules/libphp.so x05 모두 6
+#   X  직접 빌드 9 — 공식 해시에 없는 /usr/local/bin/php x01 · /usr/local/php/bin/php x02 · /opt/php/8.3/sbin/php-fpm x03 ·
+#      /usr/local/lib/libphp.so x04 · /usr/lib/apache2/modules/libphp.so x05 · 판 붙은 이름 /usr/local/bin/php8.3 x06 · 어느
+#      패키지도 깔지 않은 /usr/bin/php8.3 x07 · 점 없는 판 이름 /usr/local/bin/php83 x08 · 어느 패키지도 깔지 않은 Apache 모듈
+#      /usr/lib/apache2/modules/libphp7.so x09 모두 6
 #   M  섞임 3 — 취약 패키지 + 모르는 빌드 m01 2(취약이 앞선다) · 고친 패키지 + 모르는 빌드 m02 6 · 고친 공식 빌드 + 모르는 빌드
 #      m03 6
 #   P  프로세스 · 서비스 10 — 자리 밖에서 도는 php-fpm8.3 p01 6 · lsphp p02 6 · 지워진 실행 파일 p03 6 · 지워진 libphp8.2.so 를
@@ -344,6 +346,11 @@ run_case b07-u2404-fixed ubuntu2404 0 ":" "Ubuntu 24.04 php-cli 깐 그대로(�
 run_case b08-u2404-at ubuntu2404 0 "$(deb_set 8.3 8.3.6-0ubuntu0.24.04.13)" "판 줄 8.3.6-0ubuntu0.24.04.13 — 고친 판 그대로"
 run_case b09-u2404-below ubuntu2404 2 "$(deb_set 8.3 8.3.6-0ubuntu0.24.04.12)" "판 줄 8.3.6-0ubuntu0.24.04.12 — 고친 판 바로 아래"
 run_case b10-alpine-php83 alpine322 6 ":" "Alpine 3.22 php83 — apk 는 공급사 줄 밖"
+run_case b11-deb12-no-md5sums "$DEB12" 6 \
+    "rm -f /var/lib/dpkg/info/php8.2-cli.md5sums /var/lib/dpkg/info/php8.2-cli:*.md5sums && ! ls /var/lib/dpkg/info/php8.2-cli*.md5sums >/dev/null 2>&1" \
+    "고친 판(8.2.35-1~deb12u1) · php8.2-cli 의 .md5sums 를 지움 — /usr/bin/php8.2 가 패키지 기록에 없다(0.6.5)"
+run_case b12-deb12-epoch "$DEB12" 6 "$(deb_set 8.2 1:8.2.35-1~deb12u1)" \
+    "판 줄 1:8.2.35-1~deb12u1 — epoch 가 붙은 판은 공급사 기준 밖(PHP 11월 · 세션 점검과 맞춘 지키는 칸)"
 
 echo "── D. dpkg 줄 — 파일 없는 기록 칸 ──"
 deb_case d01-deb13-below 2 "php8.4-fpm php8.4 8.4.26-1~deb13u1" "Debian 13 php8.4-fpm — 고친 판(8.4.27-1~deb13u1) 바로 아래"
@@ -403,6 +410,10 @@ rpm_case f06-other-pkg-php 6 "ea-php-cli 8.3.37 1.el9 placeholder /usr/bin/php" 
     "PHP 가 아닌 이름의 패키지(ea-php-cli)가 깐 /usr/bin/php · RPM 의 PHP 패키지 없음"
 rpm_case f07-other-pkg-fpm 6 "ea-php-fpm 8.3.37 1.el9 placeholder /usr/bin/php-fpm" \
     "그 꼴의 /usr/bin/php-fpm(합친 bin 의 패키지 자리 · 0.6.3)"
+rpm_case f08-rhel9-unowned-bin-fpm 6 "php-cli 8.0.30 8.el9_8.1 $RH && $(bin_put /usr/bin/php-fpm)" \
+    "고친 RHEL 9 php-cli + 어느 패키지도 깔지 않은 /usr/bin/php-fpm(갈린 sbin · 0.6.5)"
+rpm_case f09-sbin-record-echo 0 "php-fpm 8.0.30 8.el9_8.1 $RH /usr/sbin/php-fpm && cp /usr/sbin/php-fpm /usr/bin/php-fpm" \
+    "패키지가 /usr/sbin/php-fpm 으로 적은 파일이 /usr/bin/php-fpm 으로도 보임(합친 sbin 의 옛 꼴 기록 · f05 의 거꾸로) — 세지 않는다"
 
 echo "── O. 공식 빌드 ──"
 run_case o01-official-8335-cli php:8.3.35-cli 2 ":" "php:8.3.35-cli — 취약 해시(A5)"
@@ -421,6 +432,12 @@ run_case x03-opt-php-subdir-fpm debian:12 6 "$(bin_put /opt/php/8.3/sbin/php-fpm
 run_case x04-local-lib-libphp debian:12 6 "$(bin_put /usr/local/lib/libphp.so)" "/usr/local/lib/libphp.so"
 run_case x05-apache-modules-libphp debian:12 6 "$(bin_put /usr/lib/apache2/modules/libphp.so)" \
     "/usr/lib/apache2/modules/libphp.so(공식 Apache 이미지의 자리)"
+run_case x06-local-named debian:12 6 "$(bin_put /usr/local/bin/php8.3)" \
+    "/usr/local/bin/php8.3 — 판 붙은 이름(패키지 밖 · 이 점검이 판정하지 않는 이름 · 0.6.5)"
+run_case x07-usrbin-named-unowned debian:12 6 "$(bin_put /usr/bin/php8.3)" "어느 패키지도 깔지 않은 /usr/bin/php8.3(0.6.5)"
+run_case x08-local-named-nodot debian:12 6 "$(bin_put /usr/local/bin/php83)" "/usr/local/bin/php83 — 점 없는 판 이름(패키지 밖 · 0.6.5)"
+run_case x09-apache-module-named debian:12 6 "$(bin_put /usr/lib/apache2/modules/libphp7.so)" \
+    "어느 패키지도 깔지 않은 /usr/lib/apache2/modules/libphp7.so — apxs 로 지은 PHP 7 의 모듈 자리(0.6.5)"
 
 echo "── M. 섞임 ──"
 run_case m01-vuln-and-unknown "$DEB12" 2 "$(deb_set 8.2 8.2.34-1~deb12u1) && $(bin_put /usr/local/bin/php)" \
@@ -507,7 +524,7 @@ n=$(cat "$OUT"/cases/*/screen.txt 2>/dev/null | grep -c -e '영향 판' -e '고�
 check "S6 화면에 내부 낱말(판 · 갈래) 0" "$a" "모든 경우의 화면에서 $n 줄"
 
 # 칸 수까지 본다 — 경우를 짓다 멈추면 남은 경우가 조용히 사라지고 "실패 0" 이 남는다.
-EXPECTED=110 # A 10 · B 10 · D 19 · R 21 · F 7 · O 8 · X 5 · M 3 · P 10 · C 8 · N 3 · 화면 6
+EXPECTED=118 # A 10 · B 12 · D 19 · R 21 · F 9 · O 8 · X 9 · M 3 · P 10 · C 8 · N 3 · 화면 6
 pass=$(awk -F"$TAB" '$2 == 1' "$OUT/checks.tsv" | wc -l)
 total=$(wc -l <"$OUT/checks.tsv")
 [ "$total" = "$EXPECTED" ] || echo "칸 수 $total — 기대 $EXPECTED 와 다르다(경우를 짓다 멈췄거나, 칸을 더하고 EXPECTED 를 고치지 않았다)"
@@ -526,6 +543,8 @@ echo "── 합: $pass / $EXPECTED ──"
 #   b08 0  0 갈래 '고친 Debian · Ubuntu 패키지' — u2404_vuln 의 그 판
 #   b09 2  u2404_vuln — 바로 아래
 #   b10 6  pkg_unknown — apk(Alpine)는 늘 줄 밖
+#   b11 6  bin_named_unowned — 기록(.md5sums)을 지운 /usr/bin/php8.2 는 패키지 밖의 판 붙은 이름이다(0.6.5)
+#   b12 6  pkg_unknown — epoch 가 붙은 판(1:)은 deb12 줄의 계열 꼴 밖(지키는 칸)
 #   d01 2  deb13_vuln              d02 0  0 갈래 '고친 Debian · Ubuntu 패키지' — deb13 의 그 판
 #   d03 2  u1404_vuln              d04 0  같은 갈래 — u1404 의 그 판
 #   d05 2  u1604_vuln              d06 0  같은 갈래 — u1604 의 그 판
@@ -558,6 +577,8 @@ echo "── 합: $pass / $EXPECTED ──"
 #   f05 0  0 갈래 '고친 RPM 패키지' — bin_fpm_owned 가 /usr/sbin/php-fpm 의 메아리를 뺀다(0.6.3)
 #   f06 6  bin_rpm_owned and not rpm_php — /usr/bin/php
 #   f07 6  같은 줄 — /usr/bin/php-fpm(0.6.3 에 더한 자리)
+#   f08 6  bin_fpm_unowned and not sbin_fpm_owned — 갈린 sbin 의 소유 없는 /usr/bin/php-fpm(0.6.5)
+#   f09 0  0 갈래 '고친 RPM 패키지' — sbin_fpm_owned 가 /usr/bin/php-fpm 의 메아리를 뺀다(0.6.5 · f05 의 거꾸로)
 #   o01 2  official_vuln — 8.3.35
 #   o02 0  0 갈래 '고친 공식 빌드 8.3.36' — cli
 #   o03 0  0 갈래 '고친 공식 빌드 8.3.36' — fpm
@@ -567,6 +588,8 @@ echo "── 합: $pass / $EXPECTED ──"
 #   o07 0  0 갈래 '고친 공식 빌드 8.3.36' — 직접 빌드 자리 /opt/php 의 판마다 하위 폴더(0.4.0)
 #   o08 2  official_vuln — 직접 빌드 자리 /usr/local/php(0.4.0)
 #   x01~x05 6  bin_unmanaged — /usr/local/bin · /usr/local/php · /opt/php 하위 폴더 · /usr/local/lib · Apache 모듈 자리
+#   x06~x07 6  bin_named_unowned — 판 붙은 이름의 /usr/local/bin/php8.3 · 어느 패키지도 깔지 않은 /usr/bin/php8.3(0.6.5)
+#   x08~x09 6  bin_named_unowned — 점 없는 판 이름 /usr/local/bin/php83 · Apache 모듈 자리의 libphp7.so(0.6.5)
 #   m01 2  require 가 unconfirmed 보다 앞선다(판정 묶음 하나 · RELEASE.md 0.2.0)
 #   m02 6  bin_unmanaged — 고친 패키지가 모르는 빌드를 가리지 않는다
 #   m03 6  bin_unmanaged — 고친 공식 빌드가 모르는 빌드를 가리지 않는다

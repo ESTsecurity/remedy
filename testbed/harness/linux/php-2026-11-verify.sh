@@ -25,24 +25,33 @@
 # # 무해한가
 #
 # **실검체는 없다.** 이미지는 배포판 저장소의 PHP 와 공식 Docker 이미지를 그대로 쓴다. 그 밖의 경우는 **자리 채우기**다 —
-# dpkg · apk 는 패키지 기록의 판 줄만 바꾸고, 직접 빌드는 판 문자열(`X-Powered-By: PHP/<판>`)만 담은 작은 파일이다. 도는
-# 프로세스가 필요한 경우는 `sleep` 을 PHP 이름으로 복사해 띄운다. 경우마다 네트워크 없는 일회용 컨테이너에서 remedy 가
-# 읽기만 한다.
+# dpkg · apk 는 패키지 기록의 판 줄만 바꾸거나 기록 파일(`.md5sums`)을 지우고, RPM 은 rpmbuild 로 지은 빈 rpm(이름 · 판 ·
+# 공급사 — 0.1.4)을 넣고, 직접 빌드는 판 문자열(`X-Powered-By: PHP/<판>`)만 담은 작은 파일이다. 도는 프로세스가 필요한 경우는
+# `sleep` 을 PHP 이름으로 복사해 띄운다. 경우마다 네트워크 없는 일회용 컨테이너에서 remedy 가 읽기만 한다.
 #
 # # 무엇을 재나
 #
-#   A  이미지 4 — 깐 PHP 의 판이 그 갈래의 고친 판 아래다(Debian 12 의 8.2(2026-11-18 스냅숏) · Ubuntu 24.04 의 8.3 · Rocky 9
-#      의 8.0(지원 끝)) · Alpine 3.22 는 php83 칸이 있다(b04 가 그 판 줄을 채울 자리 — 깐 판은 기록만 한다)
-#   B  패키지 9 — 배포판 셋 깐 그대로 2 · Alpine 판 줄 8.3.36-r0 2 · Debian 의 8.2.36 꼴 0 · 8.1 꼴(지원 끝) 2 · Alpine 8.3.37-r0
-#      0 · 8.3.36-r1 2 · 한 자리 이름 `php8` 8.0.30-r0(지원 끝 · Alpine 3.16 의 이름 꼴 · 0.1.1) 2
+#   A  이미지 5 — 깐 PHP 의 판이 그 갈래의 고친 판 아래다(Debian 12 의 8.2(2026-11-18 스냅숏) · Ubuntu 24.04 의 8.3 · Rocky 9
+#      의 8.0(지원 끝)) · Alpine 3.22 는 php83 칸이 있다(b04 가 그 판 줄을 채울 자리 — 깐 판은 기록만 한다) · rocky9-rpmbuild
+#      에 rpmbuild 가 있고 PHP 패키지는 없다(0.1.4 — 빈 rpm 을 짓는 자리)
+#   B  패키지 17 — 배포판 셋 깐 그대로 2 · Alpine 판 줄 8.3.36-r0 2 · Debian 의 8.2.36 꼴 0 · 8.1 꼴(지원 끝) 2 · Alpine 8.3.37-r0
+#      0 · 8.3.36-r1 2 · 한 자리 이름 `php8` 8.0.30-r0(지원 끝 · Alpine 3.16 의 이름 꼴 · 0.1.1) 2 · epoch 붙은 판 줄(0.1.4 —
+#      고친 판과 견주지 못한다) 1:8.2.35 6 · 1:8.1.31(지원 끝이 앞선다) 2 · 8.2.36 꼴 + php8.2-cli 의 .md5sums 지움(0.1.4 —
+#      /usr/bin/php8.2 가 패키지 기록에 없다) 6 · 빈 rpm php-cli(0.1.4) 8.2.35-1.el9 2 · 8.2.36-1.el9 0 · epoch 붙은
+#      1:8.2.35-1.el9 6 · 합친 bin 의 메아리(0.1.4 — 고친 php-fpm 8.2.36 이 깐 /usr/bin/php-fpm 의 /usr/sbin 사본 · 거꾸로
+#      /usr/sbin/php-fpm 의 /usr/bin 사본) 둘 다 0
 #   O  공식 이미지 3 — php:8.3.36-cli · php:8.3.36-fpm · php:8.2.35-apache 모두 2
-#   X  직접 빌드 12 — /usr/local/php 의 8.4.27 2 · 8.4.28 0 · 판 없음 6 · /opt/php 의 7.4.33(지원 끝) 2 · /usr/local/bin 의 8.5.13
+#   X  직접 빌드 17 — /usr/local/php 의 8.4.27 2 · 8.4.28 0 · 판 없음 6 · /opt/php 의 7.4.33(지원 끝) 2 · /usr/local/bin 의 8.5.13
 #      0 · 8.5.12 2 · 판마다 하위 폴더(/opt/php/8.3/bin — 룰이 내용을 담지 않는 자리) 6 · 정식 출시 전 버전(0.1.1) — 시험판
 #      8.6.0RC7 6 · 개발 빌드 8.6.0-dev 6 · 영향 판의 시험판 8.5.12RC1 2 · 실행 파일 둘의 섞임(0.1.1 — 파일마다 가린다) —
-#      8.4.28 + /opt/php 의 8.6.0RC7 6 · 8.4.28 + 판 없음 6
+#      8.4.28 + /opt/php 의 8.6.0RC7 6 · 8.4.28 + 판 없음 6 · 판 붙은 이름(0.1.4 — 이 점검이 버전을 읽지 않는 이름) —
+#      /usr/local/bin/php8.3 8.3.37 6 · 어느 패키지도 깔지 않은 /usr/bin/php8.3 6 · 갈린 sbin(Rocky 9)의 어느 패키지도 깔지
+#      않은 /usr/bin/php-fpm(0.1.4) 6 · 점 없는 판 이름 /usr/local/bin/php83 8.3.36 6 · 어느 패키지도 깔지 않은 Apache 모듈
+#      /usr/lib/apache2/modules/libphp7.so 7.4.33(apxs 로 지은 PHP 7 · 0.1.4) 6
 #   P  프로세스 · 서비스 3 — 자리 밖에서 도는 PHP 6 · 자리 밖을 띄우는 서비스 6 · 지워진 실행 파일로 도는 PHP 6
 #   N  PHP 없음 2 — Debian · Alpine 0
-#   S  화면 4 — 취약 줄의 올릴 버전 문구 · 버전 못 읽음 까닭 · 미해소 경고 0 · 내부 낱말(판 · 갈래) 0
+#   S  화면 5 — 취약 줄의 올릴 버전 문구 · 버전 못 읽음 까닭 · 미해소 경고 0 · 내부 낱말(판 · 갈래) 0 · 판 붙은 이름 · epoch ·
+#      /usr/bin/php-fpm 의 확인 필요 까닭
 #
 # 준비 셸이 실패하면(판 줄을 바꾸지 못함 등) 그 경우의 종료 코드를 97 로 적는다 — 기대와 달라 실패로 센다. 판 줄을 바꾸는
 # 셸은 바꾼 뒤 그 판이 실제로 읽히는지 확인한다(sed 는 맞는 줄이 없어도 0 이다).
@@ -110,6 +119,8 @@ prepare rocky9 rockylinux:9 'dnf -y -q install php-cli >/dev/null && rpm -q php-
     || { echo "rocky9 이미지를 짓지 못했다" >&2; exit 9; }
 prepare alpine322 alpine:3.22 'apk add --no-cache -q php83 && apk info -v php83' \
     || { echo "alpine322 이미지를 짓지 못했다" >&2; exit 9; }
+prepare rocky9-rpmbuild rockylinux:9 'dnf -y -q install rpm-build >/dev/null && rpm -q rpm-build' \
+    || { echo "rocky9-rpmbuild 이미지를 짓지 못했다" >&2; exit 9; }
 
 # 깐 판을 잰다 — 그 갈래의 고친 판 아래인지(배포판 자신의 비교로).
 in_image() { docker run --rm --network none "$IMG:$1" sh -c "$2" 2>/dev/null; }
@@ -125,6 +136,9 @@ check "A3 Rocky 9 의 php 가 지원이 끝난 갈래(8.1 이하)" "$a" "$v"
 v=$(in_image alpine322 "sed -n '/^P:php83\$/,/^\$/ s/^V://p' /lib/apk/db/installed"); printf '%s' "$v" >"$OUT/installed-alpine322.txt"
 [ -n "$v" ] && a=1 || a=0
 check "A4 Alpine 3.22 에 php83 칸이 있다(b04 가 판 줄을 채운다)" "$a" "깐 판 ${v:-없음}"
+v=$(in_image rocky9-rpmbuild "command -v rpmbuild >/dev/null && rpm -qa --qf '%{NAME}\n' | grep -c '^php'")
+[ "$v" = 0 ] && a=1 || a=0
+check "A5 rocky9-rpmbuild 에 rpmbuild 가 있고 PHP 패키지는 없다" "$a" "PHP 이름의 rpm ${v:-?}개"
 
 # ── 경우 — 네트워크 없는 일회용 컨테이너 · 판 줄과 파일만 바꾼다 ─────────────────────────────────────
 W=$(mktemp -d /tmp/remedy-php2611-verify.XXXXXX)
@@ -136,6 +150,49 @@ trap cleanup EXIT
 mkdir -p "$W/b/plugins" "$W/res"
 cp "$BIN" "$W/b/remedy"
 cp -r "$PLUGINS/$RULE" "$W/b/plugins/"
+# 자리 채우기 rpm 을 지어 넣는다(0.1.4) — `sh /b/rpm-put.sh <이름> <[epoch:]판> <릴리스> <공급사> [담을 파일 …]`. 담을 파일은 글자
+# 한 줄이고, 파일이 없으면 이름 · 판 · 공급사만 있는 빈 rpm 이다. 넣은 뒤 공급사 · 판 · epoch 와 파일의 소유가 읽히는지 본다.
+cat >"$W/b/rpm-put.sh" <<'RPM'
+set -e
+name=$1
+ver=$2
+rel=$3
+vendor=$4
+shift 4
+epoch=""
+case "$ver" in *:*) epoch=${ver%%:*}; ver=${ver#*:} ;; esac
+top=/tmp/rb-$name
+rm -rf "$top"
+mkdir -p "$top/SPECS"
+{
+    echo "Name: $name"
+    [ -z "$epoch" ] || echo "Epoch: $epoch"
+    echo "Version: $ver"
+    echo "Release: $rel"
+    echo "Summary: placeholder"
+    echo "License: MIT"
+    echo "Vendor: $vendor"
+    echo "BuildArch: noarch"
+    echo "%description"
+    echo "placeholder"
+    echo "%install"
+    for f in "$@"; do
+        echo "mkdir -p %{buildroot}$(dirname "$f")"
+        echo "echo remedy-harness placeholder >%{buildroot}$f"
+    done
+    echo "%files"
+    for f in "$@"; do
+        echo "$f"
+    done
+} >"$top/SPECS/p.spec"
+rpmbuild -bb --define "_topdir $top" "$top/SPECS/p.spec" >"$top/build.log" 2>&1 || { cat "$top/build.log"; exit 1; }
+rpm -i --nodeps "$top"/RPMS/noarch/"$name"-"$ver"-*.noarch.rpm
+[ "$(rpm -q --qf '%{VENDOR}|%{VERSION}-%{RELEASE}' "$name")" = "$vendor|$ver-$rel" ]
+[ -z "$epoch" ] || [ "$(rpm -q --qf '%{EPOCH}' "$name")" = "$epoch" ]
+for f in "$@"; do
+    [ "$(rpm -qf --qf '%{NAME}' "$f")" = "$name" ]
+done
+RPM
 
 : >"$OUT/cases.tsv"
 run_case() { # 이름 · 이미지 꼬리표 또는 바탕 이미지 · 기대 종료 코드 · 준비 셸 · 메모
@@ -180,6 +237,24 @@ run_case b06-deb-eol81 "$DEB12" 2 "$(deb_set 8.2 8.1.31-1)" "8.1 꼴 — 지원 
 run_case b07-alpine-8337 alpine322 0 "$(apk_set 8.3.37-r0)" "Alpine 꼴 8.3.37-r0 — 고친 판"
 run_case b08-alpine-8336 alpine322 2 "$(apk_set 8.3.36-r1)" "Alpine 꼴 8.3.36-r1"
 run_case b09-alpine-php8-eol alpine322 2 "$(apk_rename php8 8.0.30-r0)" "Alpine 한 자리 이름 php8 8.0.30-r0 — 지원 끝"
+run_case b10-deb-epoch "$DEB12" 6 "$(deb_set 8.2 1:8.2.35-1~deb12u1)" "판 줄 1:8.2.35-1~deb12u1 — epoch 가 붙어 고친 판과 견주지 못한다(0.1.4)"
+run_case b11-deb-epoch-eol "$DEB12" 2 "$(deb_set 8.2 1:8.1.31-1)" "판 줄 1:8.1.31-1 — epoch 가 붙어도 지원 끝(8.1)의 2 가 앞선다(0.1.4)"
+run_case b12-deb-fixed-no-md5sums "$DEB12" 6 \
+    "$(deb_set 8.2 8.2.36-1~deb12u1) && rm -f /var/lib/dpkg/info/php8.2-cli.md5sums /var/lib/dpkg/info/php8.2-cli:*.md5sums && ! ls /var/lib/dpkg/info/php8.2-cli*.md5sums >/dev/null 2>&1" \
+    "고친 판 8.2.36 · php8.2-cli 의 .md5sums 를 지움 — /usr/bin/php8.2 가 패키지 기록에 없다(0.1.4)"
+# 빈 rpm — RPM 줄의 대조 둘과 epoch(0.1.4 · 공급사는 판정에 쓰지 않는다 — 상류 판으로 센다).
+RH="'Red Hat, Inc.'"
+run_case b13-rpm-8235 rocky9-rpmbuild 2 "sh /b/rpm-put.sh php-cli 8.2.35 1.el9 $RH" "빈 rpm php-cli 8.2.35-1.el9 — 고친 판 아래(RPM 줄의 대조 · 0.1.4)"
+run_case b14-rpm-8236 rocky9-rpmbuild 0 "sh /b/rpm-put.sh php-cli 8.2.36 1.el9 $RH" "빈 rpm php-cli 8.2.36-1.el9 — 고친 판(상류 번호를 따르는 RPM · 0.1.4)"
+run_case b15-rpm-epoch rocky9-rpmbuild 6 "sh /b/rpm-put.sh php-cli 1:8.2.35 1.el9 $RH" \
+    "빈 rpm php-cli 1:8.2.35-1.el9 — epoch 가 붙어 고친 판과 견주지 못한다(0.1.4)"
+# 합친 bin 의 메아리 — 패키지가 적은 파일이 다른 bin 자리에 한 번 더 온다(사본으로 흉내 · 0 갈래 'RPM 계열 합친 bin' 의 칸).
+run_case b16-rpm-merged-bin-echo rocky9-rpmbuild 0 \
+    "sh /b/rpm-put.sh php-fpm 8.2.36 1.el9 $RH /usr/bin/php-fpm && cp /usr/bin/php-fpm /usr/sbin/php-fpm" \
+    "고친 php-fpm 이 깐 /usr/bin/php-fpm 의 메아리 /usr/sbin/php-fpm(합친 bin · 0.1.2) — 세지 않는다"
+run_case b17-rpm-sbin-record-echo rocky9-rpmbuild 0 \
+    "sh /b/rpm-put.sh php-fpm 8.2.36 1.el9 $RH /usr/sbin/php-fpm && cp /usr/sbin/php-fpm /usr/bin/php-fpm" \
+    "고친 php-fpm 이 /usr/sbin/php-fpm 으로 적은 파일의 메아리 /usr/bin/php-fpm(옛 꼴 기록 · 0.1.4) — 세지 않는다"
 
 echo "── O. 공식 이미지 ──"
 run_case o01-official-cli php:8.3.36-cli 2 ":" "php:8.3.36-cli — /usr/local/bin/php"
@@ -206,6 +281,15 @@ run_case x11-mixed-rc debian:12 6 \
 run_case x12-mixed-noversion debian:12 6 \
     "$(bin_put /usr/local/php/bin php 'X-Powered-By: PHP/8.4.28') && $(bin_put /opt/php/bin php no-version-here)" \
     "8.4.28 + /opt/php/bin/php 판 없음"
+run_case x13-local-named debian:12 6 "$(bin_put /usr/local/bin php8.3 'X-Powered-By: PHP/8.3.37')" \
+    "/usr/local/bin/php8.3 8.3.37 — 판 붙은 이름(패키지 밖 · 이 점검이 버전을 읽지 않는 이름 · 0.1.4)"
+run_case x14-usrbin-named-unowned debian:12 6 "$(bin_put /usr/bin php8.3 'X-Powered-By: PHP/8.3.37')" "어느 패키지도 깔지 않은 /usr/bin/php8.3(0.1.4)"
+run_case x15-rocky-bin-fpm-unowned rockylinux:9 6 "$(bin_put /usr/bin php-fpm 'X-Powered-By: PHP/8.3.37')" \
+    "갈린 sbin(Rocky 9)의 어느 패키지도 깔지 않은 /usr/bin/php-fpm(0.1.4)"
+run_case x16-local-named-nodot debian:12 6 "$(bin_put /usr/local/bin php83 'X-Powered-By: PHP/8.3.36')" \
+    "/usr/local/bin/php83 8.3.36 — 점 없는 판 이름(패키지 밖 · 0.1.4)"
+run_case x17-apache-module-named debian:12 6 "$(bin_put /usr/lib/apache2/modules libphp7.so 'X-Powered-By: PHP/7.4.33')" \
+    "어느 패키지도 깔지 않은 /usr/lib/apache2/modules/libphp7.so 7.4.33 — apxs 로 지은 PHP 7 의 모듈 자리(0.1.4)"
 
 echo "── P. 프로세스 · 서비스 ──"
 run_case p01-outside-running debian:12 6 \
@@ -236,6 +320,11 @@ check "S3 미해소 경고 0" "$a" "모든 경우의 화면에서 $n 줄"
 n=$(cat "$OUT"/cases/*/screen.txt 2>/dev/null | grep -c -e '영향 판' -e '고친 판' -e '판을 ' -e '갈래' || true)
 [ "$n" = 0 ] && a=1 || a=0
 check "S4 화면에 내부 낱말(판 · 갈래) 0" "$a" "모든 경우의 화면에서 $n 줄"
+grep -q '패키지 기록에 없는 PHP 실행 파일 · 모듈이 있습니다' "$OUT/cases/x13-local-named/screen.txt" 2>/dev/null \
+    && grep -q '견주지 못하는 번호(epoch' "$OUT/cases/b10-deb-epoch/screen.txt" 2>/dev/null \
+    && grep -q '어느 패키지도 깔지 않은 /usr/bin/php-fpm 이 있습니다' "$OUT/cases/x15-rocky-bin-fpm-unowned/screen.txt" \
+        2>/dev/null && a=1 || a=0
+check "S5 확인 필요 까닭 — 판 붙은 이름 · epoch · /usr/bin/php-fpm" "$a" "x13 · b10 · x15 화면"
 
 pass=$(awk -F'\t' '$2 == 1' "$OUT/checks.tsv" | wc -l)
 total=$(wc -l <"$OUT/checks.tsv")
