@@ -1,6 +1,6 @@
 #!/bin/bash
 # 룰: java4shell-check-linux — 묶어 낸 출시(ci/batch.sh)가 바뀐 룰의 필수 점검 ① 로 이 하네스를 찾는다(--bin · --plugins · --out)
-# 이미지: debian:12 ubuntu:24.04 ubuntu:22.04 rockylinux:9 alpine:3.22 amazonlinux:2023 eclipse-temurin:17-jre eclipse-temurin:21-jre eclipse-temurin:25-jre amazoncorretto:21 amazoncorretto:17 tomcat:9.0-jdk11
+# 이미지: debian:12 ubuntu:24.04 ubuntu:22.04 rockylinux:9 alpine:3.22 amazonlinux:2023 eclipse-temurin:17.0.21_9-jre eclipse-temurin:17.0.21.1_2-jre eclipse-temurin:21.0.13_9-jre eclipse-temurin:21.0.13.1_2-jre eclipse-temurin:25.0.5_8-jre eclipse-temurin:25.0.5.1_2-jre amazoncorretto@sha256:3f2da8fd79b0a7275506eb5a828a62dae7eaa984a6a1b0542a897a85cf74baa7 amazoncorretto:17 tomcat:9.0-jdk11
 # Java4Shell 점검 룰(java4shell-check-linux)을 배포판 · 배포사 이미지에서 잰다.
 #
 # 호스트(WSL)에서, 저장소 루트:
@@ -13,7 +13,10 @@
 # 사본은 배포 키로 서명돼 있어 **공개한 실행 파일**로 잰다.
 #
 # 처음 한 번은 배포판 저장소에 닿아야 한다 — Java 를 깐 이미지를 지어 두고(`remedy-harness/java:*`), 다음부터는 그
-# 이미지를 쓴다. 배포사 이미지(`eclipse-temurin:*` · `amazoncorretto:*` · `tomcat:*`)는 미리 받아 둔다.
+# 이미지를 쓴다. 배포사 이미지(`eclipse-temurin:*` · `amazoncorretto:*` · `tomcat:*`)는 미리 받아 둔다 — 판 꼬리표(Corretto 21 은
+# 다이제스트)로 고정해 어디서 받아도 같은 빌드다(2026-11-23). 배포판 이미지는 짓는 날 그 저장소의 판을 깔므로, 고친 빌드가
+# 나오기 전에 지은 이미지는 전제 칸 A1 ~ A5 가 실패한다 — `docker rmi remedy-harness/java:<꼬리표>` 뒤 다시 돌려 짓는다
+# (Rocky 9 · Amazon Linux 2023 은 컨테이너가 배포판의 HTTPS 저장소에 닿아야 한다).
 #
 # # 무해한가
 #
@@ -24,11 +27,13 @@
 #
 # # 무엇을 재나
 #
-#   A  배포판 · 배포사 이미지 13 — 오늘 저장소에서 깐 판이 고친 판 미만이라 **2**(Debian 12 · Ubuntu 24.04 · 22.04 ·
-#      Rocky 9 · Alpine 3.22 · Amazon Linux 2023 의 Corretto · Temurin 17 · 21 · 25 · Corretto 21) · **실제 고친 빌드**
-#      (Corretto 17.0.21.1.2 — `JAVA_VERSION="17.0.21.1"`)는 **0** · Java 11 은 **0** · Java 없는 기계 **0**.
-#      이 칸의 기대값은 2026-11-18 에 잰 이미지에 맞춘 것이다 — 배포사가 고친 빌드를 내면 그 칸이 실패하고, 그것이
-#      룰을 다시 낼 신호다(`RELEASE.md` 의 백포트 줄).
+#   A  배포판 · 배포사 이미지 21 · 전제 5 — 배포판(Debian 12 · Ubuntu 24.04 · 22.04 · Rocky 9 · Amazon Linux 2023 의
+#      Corretto)은 깐 그대로가 고친 빌드라 **0**(2026-11-23 러너 실측 — 상류 판을 올려 17.0.21.1 · 21.0.13.1 을 싣는다 ·
+#      전제 A1 ~ A5 가 그 판을 잰다)이고, 같은 홈의 판 줄만 고치기 전 판(2026-11-18 에 그 저장소가 깐 판 — Ubuntu 는
+#      17.0.21.0.3 · 21.0.13.0.3, 그 밖은 17.0.21 · 21.0.13)으로 바꾸면 **2**. Alpine 3.22 는 아직 고치기 전 판이라 깐 그대로 **2** — 고친 빌드가 나오면 이 칸이 실패하고, 그것이
+#      `RELEASE.md` 의 백포트 줄을 다시 잴 신호다. 배포사 이미지는 판 꼬리표로 고정 — Temurin 17 · 21 · 25 의 고치기 전
+#      빌드(17.0.21+9 · 21.0.13+9 · 25.0.5+8)와 Corretto 21(21.0.13) **2** · Temurin 의 고친 빌드(17.0.21.1+2 · 21.0.13.1+2 ·
+#      25.0.5.1+2)와 Corretto 17.0.21.1.2 **0** · Java 11 은 **0** · Java 없는 기계 **0**.
 #   S  판 줄만 바꾼 자리 채우기 29 — 고친 판 0(17.0.21.1 · 17.0.21.1.2 · 21.0.13.1 · 27.0.1.1 · 17.0.22) · 고친 판 미만 2 ·
 #      ARM64 · ppc64le 0 · 지원이 끝난 줄 2 · 17.0.6 아래 0 · 개발 중인 줄 6 · 판 줄 없음 6 · release 없음 6 ·
 #      **아키텍처 줄이 없는 jlink 꼴과 모르는 아키텍처 값은 판으로 판정해 2** · Java 8 · 11 은 0 ·
@@ -59,8 +64,18 @@ done
 [ -n "$BIN" ] && [ -f "$BIN" ] || { echo "--bin <remedy> 가 필요하다" >&2; exit 2; }
 [ -n "$PLUGINS" ] && [ -d "$PLUGINS/$RULE" ] || { echo "--plugins <$RULE 가 든 폴더> 가 필요하다" >&2; exit 2; }
 command -v docker >/dev/null || { echo "docker 가 없다" >&2; exit 2; }
-for base in debian:12 ubuntu:24.04 ubuntu:22.04 rockylinux:9 alpine:3.22 amazonlinux:2023 \
-    eclipse-temurin:17-jre eclipse-temurin:21-jre eclipse-temurin:25-jre amazoncorretto:21 amazoncorretto:17 tomcat:9.0-jdk11; do
+# 배포사 이미지는 판 꼬리표로 고정한다(2026-11-23) — 떠다니는 꼬리표(`17-jre` · `21`)는 배포사가 고친 빌드를 내면 그 빌드로
+# 옮겨 가, 러너가 새로 받은 이미지와 PC 가 예전에 받은 이미지가 다른 칸이 됐다. Corretto 21 은 판 꼬리표(`21.0.13`)도
+# 2026-11-18 에 고친 빌드로 옮겨 가, 고치기 전 빌드를 다이제스트로 둔다.
+TEM17=eclipse-temurin:17.0.21_9-jre
+TEM17_FIXED=eclipse-temurin:17.0.21.1_2-jre
+TEM21=eclipse-temurin:21.0.13_9-jre
+TEM21_FIXED=eclipse-temurin:21.0.13.1_2-jre
+TEM25=eclipse-temurin:25.0.5_8-jre
+TEM25_FIXED=eclipse-temurin:25.0.5.1_2-jre
+COR21=amazoncorretto@sha256:3f2da8fd79b0a7275506eb5a828a62dae7eaa984a6a1b0542a897a85cf74baa7
+# 받아 둘 이미지는 머리의 `# 이미지:` 줄 그대로다(rc 묶음 · PR CI 가 그 줄로 받는다).
+for base in $(sed -n '1,10{s/^# 이미지: //p}' "$0"); do
     docker image inspect "$base" >/dev/null 2>&1 || { echo "$base 이미지가 없다 — docker pull $base" >&2; exit 2; }
 done
 [ -n "$OUT" ] || OUT="$(pwd)/testbed/harness/results/java4shell-$(date +%Y%m%d-%H%M%S)"
@@ -103,19 +118,49 @@ prepare rocky9-jdk rockylinux:9 'dnf -y -q install java-17-openjdk-headless java
     || { echo "rocky9-jdk 이미지를 짓지 못했다" >&2; exit 2; }
 prepare alpine322-jdk21 alpine:3.22 'apk add --no-cache -q openjdk21-jre-headless openjdk17-jre-headless && apk info -v | grep openjdk' \
     || { echo "alpine322-jdk21 이미지를 짓지 못했다" >&2; exit 2; }
-prepare al2023-corretto amazonlinux:2023 'dnf -y -q install java-21-amazon-corretto-headless java-17-amazon-corretto-headless >/dev/null && rpm -q java-21-amazon-corretto-headless java-17-amazon-corretto-headless' \
+# Amazon Linux 2023 의 저장소 판은 바탕 이미지의 릴리스(releasever)에 묶인다 — 최신 릴리스의 저장소로 깐다(Apache 하네스와 같다).
+prepare al2023-corretto amazonlinux:2023 'dnf -y -q --releasever=latest install java-21-amazon-corretto-headless java-17-amazon-corretto-headless >/dev/null && rpm -q java-21-amazon-corretto-headless java-17-amazon-corretto-headless' \
     || { echo "al2023-corretto 이미지를 짓지 못했다" >&2; exit 2; }
 
-# 깐 판을 그 기계에서 읽어 둔다 — 이미지의 판이 영향 판이라는 전제가 깨지면 A 칸의 뜻이 사라진다.
+# 깐 판을 그 기계에서 읽어 둔다 — 이미지의 판이 그 칸이 뜻하는 판이라는 전제가 깨지면 A 칸의 뜻이 사라진다.
 in_image() { docker run --rm --network none --entrypoint sh "$1" -c "$2" 2>/dev/null; }
 jv() { in_image "$1" 'for f in /usr/lib/jvm/*/release /opt/java/*/release /usr/local/*/release; do [ -f "$f" ] && sed -n "s/^JAVA_VERSION=//p" "$f"; done | sort -u | tr "\n" " "'; }
-for t in debian12-jdk17 ubuntu2404-jdk21 ubuntu2204-jdk17 rocky9-jdk alpine322-jdk21 al2023-corretto; do
+for t in debian12-jdk17 ubuntu2404-jdk21 ubuntu2204-jdk17 rocky9-jdk alpine322-jdk21 al2023-corretto corretto17-fixed; do
     printf '%s' "$(jv "$IMG:$t")" >"$OUT/installed-$t.txt"
 done
-printf '%s' "$(jv "$IMG:corretto17-fixed")" >"$OUT/installed-corretto17-fixed.txt"
-for v in eclipse-temurin:17-jre eclipse-temurin:21-jre eclipse-temurin:25-jre amazoncorretto:21 tomcat:9.0-jdk11; do
-    printf '%s' "$(jv "$v")" >"$OUT/installed-$(echo "$v" | tr ':/' '__').txt"
-done
+while read -r key ref; do
+    printf '%s' "$(jv "$ref")" >"$OUT/installed-$key.txt"
+done <<LIST
+temurin17 $TEM17
+temurin17-fixed $TEM17_FIXED
+temurin21 $TEM21
+temurin21-fixed $TEM21_FIXED
+temurin25 $TEM25
+temurin25-fixed $TEM25_FIXED
+corretto21 $COR21
+jdk11 tomcat:9.0-jdk11
+LIST
+
+# 전제 — 배포판 이미지에 깐 판이 고친 판 이상인가. 줄(17 · 21)마다 그 줄의 고친 판과 판 순서(sort -V)로 견준다. 고친
+# 빌드가 나오기 전에 지은 이미지면 실패한다 — 그때 깐 그대로 칸(0)은 뜻이 없다(머리말의 다시 짓기).
+fixed_of() { case $1 in 17.*) echo 17.0.21.1 ;; 21.*) echo 21.0.13.1 ;; 25.*) echo 25.0.5.1 ;; esac; }
+all_fixed() { # 꼬리표 — 그 이미지의 판이 하나 이상이고 모두 그 줄의 고친 판 이상이면 1
+    local v f n=0
+    for v in $(tr -d '"' <"$OUT/installed-$1.txt"); do
+        f=$(fixed_of "$v")
+        { [ -n "$f" ] && [ "$(printf '%s\n%s\n' "$f" "$v" | sort -V | head -n 1)" = "$f" ]; } || { echo 0; return; }
+        n=$((n + 1))
+    done
+    [ "$n" -gt 0 ] && echo 1 || echo 0
+}
+pre() { # 이름 · 꼬리표 · 무엇
+    check "$1 $3 이 고친 판 이상" "$(all_fixed "$2")" "$(cat "$OUT/installed-$2.txt")— 낡았으면 docker rmi $IMG:$2"
+}
+pre A1 debian12-jdk17 "Debian 12 의 openjdk-17"
+pre A2 ubuntu2404-jdk21 "Ubuntu 24.04 의 openjdk-17 · 21"
+pre A3 ubuntu2204-jdk17 "Ubuntu 22.04 의 openjdk-17"
+pre A4 rocky9-jdk "Rocky 9 의 java-17 · 21"
+pre A5 al2023-corretto "Amazon Linux 2023 의 Corretto 17 · 21"
 
 # ── 경우 — 네트워크 없는 일회용 컨테이너 ────────────────────────────────────────────────────────────
 W=$(mktemp -d /tmp/remedy-java4shell.XXXXXX)
@@ -148,6 +193,22 @@ done
 echo "placed $dir"
 HOME
 
+# 배포판의 JDK 홈에서 `release` 의 판 줄만 고치기 전 판으로 바꾸는 스크립트 — `sh /b/downgrade.sh <17 줄의 판> <21 줄의 판>`.
+# 홈의 자리 · 파일 · 나머지 줄은 배포판이 깐 그대로다(룰이 읽는 것은 판 줄이다). 고친 빌드를 깐 이미지에서 취약 판 경우를
+# 세우는 자리 채우기다 — 0 만 기대하면 룰이 그 자리를 아예 읽지 않아도 통과한다.
+cat >"$W/b/downgrade.sh" <<'DOWN'
+set -e
+n=0
+for f in /usr/lib/jvm/*/release; do
+    [ -f "$f" ] || continue
+    sed -i --follow-symlinks -e "s/^JAVA_VERSION=\"17\.[^\"]*\"/JAVA_VERSION=\"$1\"/" \
+        -e "s/^JAVA_VERSION=\"21\.[^\"]*\"/JAVA_VERSION=\"$2\"/" "$f"
+    n=$((n + 1))
+done
+[ "$n" -gt 0 ]
+echo "downgraded $n"
+DOWN
+
 : >"$OUT/cases.tsv"
 run_case() { # 이름 · 이미지 · 기대 종료 코드 · 준비 셸 · 메모
     local name=$1 image=$2 want=$3 setup=$4 note=$5 d="$W/cases/$1"
@@ -169,17 +230,27 @@ run_case() { # 이름 · 이미지 · 기대 종료 코드 · 준비 셸 · 메�
 }
 
 echo "── A. 배포판 · 배포사 이미지 ──"
-run_case a01-debian12 debian12-jdk17 2 ":" "Debian 12 openjdk-17 $(cat "$OUT/installed-debian12-jdk17.txt")"
-run_case a02-ubuntu2404 ubuntu2404-jdk21 2 ":" "Ubuntu 24.04 openjdk-17 · 21 $(cat "$OUT/installed-ubuntu2404-jdk21.txt")"
-run_case a03-ubuntu2204 ubuntu2204-jdk17 2 ":" "Ubuntu 22.04 openjdk-17 $(cat "$OUT/installed-ubuntu2204-jdk17.txt")"
-run_case a04-rocky9 rocky9-jdk 2 ":" "Rocky 9 java-17 · 21 $(cat "$OUT/installed-rocky9-jdk.txt")"
-run_case a05-alpine322 alpine322-jdk21 2 ":" "Alpine 3.22 openjdk17 · 21 $(cat "$OUT/installed-alpine322-jdk21.txt")"
-run_case a06-al2023-corretto al2023-corretto 2 ":" "Amazon Linux 2023 Corretto 17 · 21 $(cat "$OUT/installed-al2023-corretto.txt")"
-run_case a07-temurin17 eclipse-temurin:17-jre 2 ":" "Temurin 17 $(cat "$OUT/installed-eclipse-temurin_17-jre.txt")"
-run_case a08-temurin21 eclipse-temurin:21-jre 2 ":" "Temurin 21 $(cat "$OUT/installed-eclipse-temurin_21-jre.txt")"
-run_case a09-temurin25 eclipse-temurin:25-jre 2 ":" "Temurin 25 $(cat "$OUT/installed-eclipse-temurin_25-jre.txt")"
-run_case a10-corretto21 amazoncorretto:21 2 ":" "Corretto 21 이미지 $(cat "$OUT/installed-amazoncorretto_21.txt")"
-run_case a11-jdk11 tomcat:9.0-jdk11 0 ":" "Java 11 — 이 CVE 가 걸린 줄이 아니다 $(cat "$OUT/installed-tomcat_9.0-jdk11.txt")"
+# 배포판 — 깐 그대로는 고친 빌드라 0(전제 A1 ~ A5) · 같은 홈의 판 줄만 고치기 전 판으로 바꾸면 2(v 칸).
+run_case a01-debian12 debian12-jdk17 0 ":" "Debian 12 openjdk-17 깐 그대로 $(cat "$OUT/installed-debian12-jdk17.txt")"
+run_case a02-ubuntu2404 ubuntu2404-jdk21 0 ":" "Ubuntu 24.04 openjdk-17 · 21 깐 그대로 $(cat "$OUT/installed-ubuntu2404-jdk21.txt")"
+run_case a03-ubuntu2204 ubuntu2204-jdk17 0 ":" "Ubuntu 22.04 openjdk-17 깐 그대로 $(cat "$OUT/installed-ubuntu2204-jdk17.txt")"
+run_case a04-rocky9 rocky9-jdk 0 ":" "Rocky 9 java-17 · 21 깐 그대로 $(cat "$OUT/installed-rocky9-jdk.txt")"
+run_case a05-alpine322 alpine322-jdk21 2 ":" "Alpine 3.22 openjdk17 · 21 깐 그대로 — 아직 고친 빌드가 없다 $(cat "$OUT/installed-alpine322-jdk21.txt")"
+run_case a06-al2023-corretto al2023-corretto 0 ":" "Amazon Linux 2023 Corretto 17 · 21 깐 그대로 $(cat "$OUT/installed-al2023-corretto.txt")"
+run_case v01-debian12 debian12-jdk17 2 "sh /b/downgrade.sh 17.0.21 21.0.13" "Debian 12 openjdk-17 — 판 줄을 고치기 전 판 17.0.21 로"
+run_case v02-ubuntu2404 ubuntu2404-jdk21 2 "sh /b/downgrade.sh 17.0.21.0.3 21.0.13.0.3" "Ubuntu 24.04 openjdk-17 · 21 — 판 줄을 고치기 전 판 17.0.21.0.3 · 21.0.13.0.3 으로"
+run_case v03-ubuntu2204 ubuntu2204-jdk17 2 "sh /b/downgrade.sh 17.0.21.0.3 21.0.13.0.3" "Ubuntu 22.04 openjdk-17 — 판 줄을 고치기 전 판 17.0.21.0.3 으로"
+run_case v04-rocky9 rocky9-jdk 2 "sh /b/downgrade.sh 17.0.21 21.0.13" "Rocky 9 java-17 · 21 — 판 줄을 고치기 전 판 17.0.21 · 21.0.13 으로"
+run_case v06-al2023-corretto al2023-corretto 2 "sh /b/downgrade.sh 17.0.21 21.0.13" "Amazon Linux 2023 Corretto 17 · 21 — 판 줄을 고치기 전 판 17.0.21 · 21.0.13 으로"
+# 배포사 — 판 꼬리표로 고정한 고치기 전 빌드는 2 · 고친 빌드는 0.
+run_case a07-temurin17 "$TEM17" 2 ":" "Temurin 17.0.21+9 $(cat "$OUT/installed-temurin17.txt")"
+run_case f07-temurin17-fixed "$TEM17_FIXED" 0 ":" "Temurin 17.0.21.1+2 고친 빌드 $(cat "$OUT/installed-temurin17-fixed.txt")"
+run_case a08-temurin21 "$TEM21" 2 ":" "Temurin 21.0.13+9 $(cat "$OUT/installed-temurin21.txt")"
+run_case f08-temurin21-fixed "$TEM21_FIXED" 0 ":" "Temurin 21.0.13.1+2 고친 빌드 $(cat "$OUT/installed-temurin21-fixed.txt")"
+run_case a09-temurin25 "$TEM25" 2 ":" "Temurin 25.0.5+8 $(cat "$OUT/installed-temurin25.txt")"
+run_case f09-temurin25-fixed "$TEM25_FIXED" 0 ":" "Temurin 25.0.5.1+2 고친 빌드 $(cat "$OUT/installed-temurin25-fixed.txt")"
+run_case a10-corretto21 "$COR21" 2 ":" "Corretto 21.0.13(다이제스트로 고정) $(cat "$OUT/installed-corretto21.txt")"
+run_case a11-jdk11 tomcat:9.0-jdk11 0 ":" "Java 11 — 이 CVE 가 걸린 줄이 아니다 $(cat "$OUT/installed-jdk11.txt")"
 run_case a12-corretto17-fixed corretto17-fixed 0 ":" "Corretto 17 고친 빌드 $(cat "$OUT/installed-corretto17-fixed.txt")"
 run_case a13-no-java debian:12 0 ":" "Java 없는 Debian 12"
 
@@ -286,8 +357,8 @@ screen_under() { # 경우 · 찾은 줄에 든 글 · 바로 아래 줄에 든 �
     awk -v a="$2" -v b="$3" 'hit && index($0, b) { ok = 1 } { hit = index($0, a) > 0 } END { exit !ok }' \
         "$OUT/cases/$1/screen.txt" && echo 1 || echo 0
 }
-check "S1 영향 판 줄 아래에 CVE 문구 (a01)" \
-    "$(screen_under a01-debian12 'release' 'CVE-2026-114938 의 영향 판입니다')" "찾은 줄 · 문구"
+check "S1 영향 판 줄 아래에 CVE 문구 (v01)" \
+    "$(screen_under v01-debian12 'release' 'CVE-2026-114938 의 영향 판입니다')" "찾은 줄 · 문구"
 check "S2 개발 중인 줄의 까닭 (s12)" "$(screen_has s12-future-line '빌드 번호가 아직 공개되지 않아')" "주의 줄"
 check "S3 자리 밖의 까닭 (p01)" "$(screen_has p01-outside '밖의 Java')" "주의 줄"
 check "S4 Java 없는 기계에 미해소 경고가 없다 (a13)" \
@@ -301,7 +372,7 @@ check "S8 GraalVM EE 에 바탕 Java 의 고칠 판을 적지 않는다 (s24)" \
     "$([ "$(screen_has s24-graalvm-ee '고친 판(17.0.21.1')" = 0 ] && echo 1 || echo 0)" "문구 하나"
 
 # 칸 수까지 본다 — 경우를 짓다 멈추면 남은 경우가 조용히 사라지고 "실패 0" 이 남는다.
-EXPECTED=61 # A 13 · S 29 · H 7 · P 4 · 화면 8 (0.3.0 — 0.2.0 은 52 · 0.1.0 은 38)
+EXPECTED=74 # A 21 · 전제 5 · S 29 · H 7 · P 4 · 화면 8 (2026-11-23 — 0.3.0 은 61 · 0.2.0 은 52 · 0.1.0 은 38)
 pass=$(awk -F"$TAB" '$2 == 1' "$OUT/checks.tsv" | wc -l)
 fail=$(awk -F"$TAB" '$2 != 1' "$OUT/checks.tsv" | wc -l)
 echo
