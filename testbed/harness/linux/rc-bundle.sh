@@ -89,6 +89,14 @@ for i in $(rc_harnesses | while read -r h; do [ -f "$h" ] && sed -n '1,10{s/^# �
     case " $(echo $NEED) $missing " in *" $i "*) continue ;; esac
     docker image inspect "$i" >/dev/null 2>&1 || missing="$missing $i"
 done
+# `RC_PULL=1` 이면 없는 이미지를 받고 잇는다 — 빈 자리에서 도는 러너(`.github/workflows/deferred-linux.yml`)의 길이다.
+if [ -n "$missing" ] && [ "${RC_PULL:-}" = 1 ]; then
+    for i in $missing; do
+        docker pull -q "$i" >/dev/null || { echo "$i 를 받지 못했다" >&2; exit 2; }
+        echo "받음 $i"
+    done
+    missing=""
+fi
 if [ -n "$missing" ]; then
     echo "이미지가 없다 — 받고 다시 돌린다:" >&2
     for i in $missing; do echo "  docker pull $i" >&2; done
