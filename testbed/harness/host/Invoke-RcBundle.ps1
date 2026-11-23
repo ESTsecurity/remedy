@@ -191,8 +191,8 @@ foreach ($p in @($war, $boot)) { if (-not (Test-Path -LiteralPath $p)) { Stop-Se
 
 $images = Join-Path $Inputs 'images'
 $apacheImages = Join-Path $Inputs 'apache-images'
-if (@(Get-ChildItem -LiteralPath $apacheImages -Filter '*.tar' -ErrorAction SilentlyContinue).Count -lt 18) {
-    Stop-Setup "Apache 이미지 tar 열여덟이 없다 — 리눅스 묶음의 net-apache 단계가 $apacheImages 에 만든다"
+if (@(Get-ChildItem -LiteralPath $apacheImages -Filter '*.tar' -ErrorAction SilentlyContinue).Count -lt 20) {
+    Stop-Setup "Apache 이미지 tar 스물이 없다 — 리눅스 묶음의 net-apache 단계가 $apacheImages 에 만든다(2026-11-23 부터 스물)"
 }
 if (@(Get-ChildItem -LiteralPath $images -Filter '*.tar' -ErrorAction SilentlyContinue).Count -lt 8) {
     Stop-Setup "이미지 tar 여덟이 없다 — 리눅스 묶음이 $images 에 만든다"
