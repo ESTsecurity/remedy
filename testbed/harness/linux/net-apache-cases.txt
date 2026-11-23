@@ -6,18 +6,23 @@
 # 쓰는 /var/lib/rpm 을 읽어야 결과에 실린다(1.18.0 은 빈 DB 를 읽어 패키지를 하나도 보지 못했다).
 # ubuntu2204-ppa · ubuntu2404-systemd(코어 1.19.1): Ubuntu 위의 Debian 관리자 주소는 믿지 않는다(1.19.0 은 바깥 저장소의
 # 영향 판을 0 으로 냈다) · 이름에 역슬래시가 든 항목을 받는다(1.19.0 은 그 레이어를 거절해 6).
-rocky9             apache-rocky9.tar              6   RLSA-2026:98981
+# 2026-11-23(입력의 고정 — `net-apache-verify.sh` 머리말): rocky9 · al2023 은 짓는 날 저장소의 고친 판이라 0 이고, 고치기 전
+# 판은 *-vuln(같은 모듈 파일을 담은 가짜 판 패키지 · 6 — 근거는 '올리십시오' 줄). php82apache 는 고정한 고치기 전 빌드 ·
+# ol9 의 근거는 판이 아니라 RPM DB 를 읽은 줄.
+rocky9             apache-rocky9.tar              0   RLSA-2026:98981
+rocky9-vuln        net-apache-rocky9-vuln.tar     6   0:2.0.26-7.el9_9.1 이상으로 올리십시오
 debian12           apache-debian12.tar            0   2.4.71-1~deb12u1
 debian12-tampered  net-apache-debian12-tampered.tar  6   일치하지 않습니다
 ubuntu2404         apache-ubuntu2404.tar          0   2.4.58-1ubuntu8.19
 alpine322          apache-alpine322.tar           0   SHA-1(apk Z:Q1)
-al2023             apache-al2023.tar              6   1:2.4.71-1.amzn2023.0.1
+al2023             apache-al2023.tar              0   1:2.4.71-1.amzn2023.0.1
+al2023-vuln        net-apache-al2023-vuln.tar     6   1:2.4.71-1.amzn2023.0.1 이상으로 올리십시오
 rocky8             apache-rocky8.tar              0   영향 범위 밖
 alma9              apache-alma9.tar               6   고친 판을 기준이 모릅니다
 leap156            apache-leap156.tar             6   고침 대기
-ol9                apache-ol9.tar                 6   2.0.26-6.el9_8.2
+ol9                apache-ol9.tar                 6   설치 정보: ol 9.
 php82apache        php-8.2-apache.tar             6   2.4.71-1~deb13u1
-php82apache-h2     net-apache-php-8.2-apache-h2.tar  2   mods-enabled/http2.load
+php82apache-h2     net-apache-php82apache-h2.tar  2   mods-enabled/http2.load
 httpd2465          httpd-2.4.65.tar               6   HTTPD_VERSION=2.4.65
 httpd2465-h2       net-apache-httpd-2.4.65-h2.tar    2   Protocols 줄
 httpd2471          httpd-2.4.71.tar               0   HTTPD_VERSION=2.4.71
