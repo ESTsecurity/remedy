@@ -1,0 +1,6 @@
+---
+section: rules
+rules: [php-session-check-linux]
+---
+* **룰 파일 정리 — 검사 결과 그대로** (Linux)\
+  PHP 를 찾는 조건을 같은 제품의 다른 점검과 한 곳에서 관리하도록 룰 파일을 정리했습니다. 검사 결과는 바뀌지 않습니다.

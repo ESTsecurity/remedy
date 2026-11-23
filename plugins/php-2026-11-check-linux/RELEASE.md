@@ -1,6 +1,6 @@
 # php-2026-11-check-linux — 릴리스 기록
 
-**버전 0.1.2** · 대상: PHP 2026년 11월 보안 업데이트(8.5.13 · 8.4.28 · 8.3.37 · 8.2.36)가 고친 결함 18건(CVE-2026-129474 등) —
+**버전 0.1.3** · 대상: PHP 2026년 11월 보안 업데이트(8.5.13 · 8.4.28 · 8.3.37 · 8.2.36)가 고친 결함 18건(CVE-2026-129474 등) —
 리눅스 · **점검**(바꾸지 않는다)
 
 ## 0 을 내는 갈래
@@ -15,6 +15,13 @@
 | RPM 계열 합친 bin(`/usr/sbin` → `bin` · Fedora 42 이후)의 고친 PHP — 패키지가 깐 `/usr/bin/php-fpm` 의 메아리 `/usr/sbin/php-fpm` 을 세지 않는다(0.1.2) | 0.1.2 — 합친 bin 에서는 패키지가 깐 `/usr/bin/php-fpm` 이 소유 없는 `/usr/sbin/php-fpm` 으로 한 번 더 온다(실제 Fedora 42 컨테이너) · 그 패키지가 고친 판(php.net ChangeLog-8) | 없음 |
 | 보는 자리 안에서 도는 PHP(지워진 파일이 아니다) — 디스크의 그 파일 · 패키지가 고친 판 | 판정표의 확인 필요는 자리 밖에서 돌거나 지워진 PHP 파일로 도는 프로세스 — 디스크의 판이 고친 판(php.net ChangeLog-8) | 없음 |
 | PHP 없음 | 공지의 영향 제품이 없다 | `n01` · `n02` |
+
+## 0.1.3 — 찾는 조건을 제품 원본에서 받는다 (2026-11-23)
+
+판정은 그대로다 — `plugin.yaml` 의 찾는 갈래 열(`rpm_php` · `bin_rpm_unowned` · `sbin_fpm_unowned` · `bin_fpm_owned` · `running_php` ·
+`service_php` · `apache_php` · `apache_php_rpm` · `stale_php` · `pkg_bin_changed`)과 그 확인 필요 까닭 여섯을 제품 원본
+`products/php-linux.yaml` 의 칸에서 받도록 울타리(`# >>> 제품 php-linux <칸>` ~ `# <<< …`)로 묶었다. 같은 칸을 `php2shell-check-linux`
+가 함께 받는다. 주석 · 빈 줄을 빼면 0.1.2 와 글자까지 같다(289줄). 바뀐 것은 울타리 줄과 그 안의 주석뿐이다.
 
 ## 0.1.2 — RPM 자리의 패키지 밖 PHP (2026-11-20)
 

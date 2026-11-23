@@ -51,7 +51,7 @@
 # 줄. 선언한 자리 밖이면 *확인 필요* 로 그 경로를 적는다 — 그 파일은 열지 않는다.
 schema_version: 1
 id: php2shell-check-linux
-version: 0.6.3
+version: 0.6.4
 min_core: "1.21.0"  # product 는 1.21.0 · 시작 스크립트의 서비스는 1.10.0 · 패키지 파일 대조(file.package · package_match)는 1.7.0
 platforms: [linux]
 
@@ -348,12 +348,15 @@ detect:
       - { field: vendor, op: in, value: ["Red Hat, Inc.", "Oracle America", "SUSE LLC <https://www.suse.com/>"] }
   # RPM 의 PHP 런타임 패키지가 있는가 — verdict 의 첫 RPM 자리 줄(PHP 가 아닌 이름의 패키지가 깐 파일)이 쓴다. 어느
   # 패키지도 깔지 않았는지는 파일의 `package` 칸(`bin_rpm_unowned` · `sbin_fpm_unowned`)이 가른다.
+  # >>> 제품 php-linux rpm-package
+  # RPM 계열의 PHP 패키지(배포판 · Remi · SCL 의 이름 꼴 · SUSE 의 Apache 모듈) — 그 PHP 는 패키지의 판으로 가린다.
   - id: rpm_php
     subject: package
     where:
       all:
         - { field: manager, op: equals, value: rpm }
         - { field: name, op: matches, value: '^((rh-)?php[0-9]+-)?php[0-9.]*(-cli|-cgi|-fpm|-fastcgi)?$|^apache2-mod_php[0-9]*$' }
+  # <<< 제품 php-linux rpm-package
 
   # ── 2. 패키지 밖의 PHP — 공식 빌드의 해시 ─────────────────────────────────
   #
@@ -478,6 +481,9 @@ detect:
   # `/usr/sbin/php-fpm` 은 따로 센다 — `/usr/sbin` 이 `bin` 으로 가는 링크인 기계(Fedora 42 이후의 합친 bin)는 수집기가 그
   # 뿌리를 따라 걸어 패키지가 깐 `/usr/bin/php-fpm` 이 소유 없는 `/usr/sbin/php-fpm` 으로 한 번 더 온다(패키지 기록은
   # `/usr/bin/php-fpm` 이라 글자로 맞지 않는다). 그래서 같은 이름의 `/usr/bin/php-fpm` 을 패키지가 깔았으면 세지 않는다.
+  # >>> 제품 php-linux places
+  # RPM 계열 자리(`/usr/bin` · `/usr/sbin` · `/usr/lib64/httpd/modules`)에 패키지가 깔지 않은 PHP · PHP-FPM — 패키지의
+  # 판으로 가리지 못한다(`/usr/bin/php-fpm` 이 패키지 것이면 `/usr/sbin/php-fpm` 은 그 별칭일 수 있어 따로 둔다).
   - id: bin_rpm_unowned
     subject: file
     where:
@@ -501,34 +507,35 @@ detect:
         - { field: path, op: equals, value: "/usr/bin/php-fpm" }
         - { field: sha256, op: exists }
         - { field: package, op: matches, value: '.' }
+  # <<< 제품 php-linux places
 
   # ── 선언한 자리 밖에서 실행 중인 PHP (0.2.0) ──────────────────────────────────
   #
   # `exclude` 의 정규식이 위 `scan_roots` 의 실행 파일 자리다(`/usr/local/php` · `/opt/php` 아래는 0.4.0). 바뀐 뒤
   # 다시 시작하지 않은 프로세스의 실행 파일에는 ` (deleted)` 가 붙어 이 이름 꼴에 맞지 않는다 — 그것은 아래
   # `stale_php` 가 본다.
+  # >>> 제품 php-linux elsewhere
+  # 룰이 보는 자리 밖의 PHP — 실행 중인 프로세스 · 서비스가 띄우는 실행 파일 · Apache 설정이 싣는 모듈.
+  # - 프로세스: `exclude` 의 정규식이 룰의 실행 파일 자리다. 고친 뒤 다시 시작하지 않은 프로세스의 실행 파일에는 ` (deleted)` 가
+  #   붙어 이 꼴에 맞지 않는다 — 그것은 `changed` 칸의 `stale_php` 가 본다.
+  # - 서비스: systemd 유닛의 `ExecStart` 첫 낱말(돌고 있지 않아도 유닛 파일이 남는다)과 SysV · OpenRC · Upstart 의 시작
+  #   스크립트가 띄우는 실행 파일. 셸로 감싼 `ExecStart=/bin/sh -c …` 는 그 셸이 첫 낱말이라 보지 못한다.
+  # - Apache 설정: 멈춰 있어도 `LoadModule` 줄이 남는다. 선언한 자리는 룰의 파일 자리와 배포판 패키지가 모듈을 두는 자리
+  #   (`/usr/lib(64)/apache2*` · `httpd*` — SUSE 는 `/usr/lib64/apache2/mod_php8.so`)다 — 그 PHP 는 패키지 갈래가 판정한다.
+  #   직접 빌드 · XAMPP 의 `modules/` 는 그 Apache 아래라 선언한 자리가 아니다. RPM 계열은 `ServerRoot`(`/etc/httpd`) 기준의
+  #   `modules/` 로 적는다 — `/etc/httpd/modules` 는 배포판 모듈 자리로 가는 링크다.
   - id: running_php
     subject: process
     where:
       - { field: image_path, op: matches, value: '/(php|php-cgi|php-fpm|lsphp)[0-9.]*$' }
     exclude:
       - { field: image_path, op: matches, value: '^(/usr/(local/)?s?bin/[^/]+|/(usr/local|opt)/php/.+)$' }
-
-  # 서비스로 등록된 선언 밖의 PHP (0.5.0) — systemd 유닛의 `ExecStart` 첫 낱말이다. 돌고 있지 않아도
-  # 유닛 파일이 남는다(목표 결정 28). 셸로 감싼 `ExecStart=/bin/sh -c …` 는 그 셸이 첫 낱말이라 보지 못한다.
-  # 0.6.0 부터 SysV · OpenRC · Upstart 의 시작 스크립트가 띄우는 실행 파일도 같은 레코드로 온다(코어 1.10.0).
   - id: service_php
     subject: service
     where:
       - { field: image_path, op: matches, value: '/(php|php-cgi|php-fpm|lsphp)[0-9.]*$' }
     exclude:
       - { field: image_path, op: matches, value: '^(/usr/(local/)?s?bin/[^/]+|/(usr/local|opt)/php/.+)$' }
-
-  # Apache 설정이 싣는 선언 밖의 PHP 모듈 (0.6.0) — Apache 가 멈춰 있어도 설정의 `LoadModule` 줄이 남는다(Windows
-  # 룰 0.3.0 의 같은 이름 규칙과 같은 식). 선언한 자리는 위 파일 자리와 **배포판 패키지가 모듈을 두는 자리**
-  # (`/usr/lib(64)/apache2*` · `httpd*` — SUSE 는 `/usr/lib64/apache2/mod_php8.so`)다 — 그 PHP 는 패키지 규칙이
-  # 판정한다. 직접 빌드 · XAMPP 의 `modules/` 는 그 Apache 아래(`/usr/local/apache2/modules` · `/opt/lampp/modules`)라
-  # 선언한 자리가 아니다.
   - id: apache_php
     subject: text_config
     where:
@@ -536,8 +543,6 @@ detect:
       - { field: line, op: matches, value: '(?i)^\s*LoadModule\s+\S*php\S*\s' }
     exclude:
       - { field: line, op: matches, value: '(?i)^\s*LoadModule\s+\S*php\S*\s+"?(/usr/lib(64)?/(apache2|httpd)[^/]*/|/usr/local/lib/|/(usr/local|opt)/php/)' }
-  # RPM 계열은 `ServerRoot`(`/etc/httpd`) 기준의 `modules/` 로 적는다 — `/etc/httpd/modules` 는 배포판 모듈 자리로 가는
-  # 링크다.
   - id: apache_php_rpm
     subject: text_config
     where:
@@ -545,6 +550,7 @@ detect:
       - { field: line, op: matches, value: '(?i)^\s*LoadModule\s+\S*php\S*\s' }
     exclude:
       - { field: line, op: matches, value: '(?i)^\s*LoadModule\s+\S*php\S*\s+"?(/usr/lib(64)?/(apache2|httpd)[^/]*/|/usr/local/lib/|/(usr/local|opt)/php/|modules/)' }
+  # <<< 제품 php-linux elsewhere
 
   # ── 고친 뒤 다시 시작하지 않은 PHP (0.4.0) ────────────────────────────────────
   #
@@ -553,32 +559,26 @@ detect:
   # 디스크의 파일로 서는 판정(패키지 버전 · 해시)이 그 프로세스를 말하지 않는다(사내 runtime-scanner 의 *삭제된
   # 실행 파일이 계속 실행 중입니다*). 자리는 가리지 않는다. 실린 모듈은 목록을 JSON 글자로 견주므로 꼬리 뒤의
   # `"` 가 그 항목의 끝이다(아파치에 실린 `libphp*.so`). Windows 는 실행 중인 파일을 지울 수 없어 이 신호가 없다.
+  # >>> 제품 php-linux changed
+  # 디스크의 판으로 가릴 수 없는 PHP.
+  # - `stale_php`: 고친 뒤 다시 시작하지 않아 지워진 옛 파일(실행 파일 · 모듈)을 실은 프로세스.
+  # - `pkg_bin_changed`: 패키지 판으로 판정하는 줄은 그 패키지가 깐 실행 파일이 패키지 기록(dpkg `.md5sums` · RPM 파일
+  #   다이제스트)과 같을 때만 믿는다 — 다르거나 · 기록이 없거나 · 끝까지 못 읽었으면 확인 필요다(바꾼 파일은 패키지 DB 의
+  #   판이 말하지 않는다). PHP 실행 파일 자리만 본다 — 같은 자리의 다른 패키지 파일(해시 상한을 넘어 늘 `unreadable` 인
+  #   것 등)로 PHP 판정을 막지 않는다.
   - id: stale_php
     subject: process
     where:
       any:
         - { field: image_path, op: matches, value: '/(php|php-cgi|php-fpm|lsphp)[0-9.]* \(deleted\)$' }
         - { field: modules, op: matches, value: '/libphp[0-9.]*\.so \(deleted\)"' }
-
-  # ── 패키지가 깐 실행 파일이 그 기록과 다르다 (0.3.0) ──────────────────────────
-  #
-  # 패키지 버전으로 판정하는 줄은 그 패키지가 깐 실행 파일이 **패키지 기록(dpkg `.md5sums` · RPM 파일 다이제스트)과
-  # 같을 때만** 믿는다 — 바꾼 파일은 패키지 DB 의 버전이 말하지 않는다(실측: Oracle Linux 8 에서 패키지가 깐
-  # `/usr/bin/php` 를 바꿔도 0.2.0 은 0). 다르거나 · 기록이 없거나 · 끝까지 못 읽었으면 패키지 버전으로 판정하지
-  # 않고 확인 필요로 낸다 — 사내 runtime-scanner 의 `packageFileProblem` 과 같은 규칙(목표 결정 24). 공식 빌드
-  # 해시로 서는 판정(`official_vuln`)은 패키지 밖의 파일이라 그대로다.
-  #
-  # **PHP 실행 파일 자리만 본다** — 선언한 자리(`/usr/bin` · `/usr/sbin` …)에는 다른 패키지의 파일도 있고, 그 가운데
-  # 해시 상한을 넘는 것(`dockerd` 등)은 늘 `unreadable` 이다. 그것으로 PHP 판정을 막으면 PHP 와 상관없는 파일
-  # 하나가 모든 기계를 확인 필요로 만든다. 자리: Debian 계열 `php8.2` · `php-cgi8.2` · `php-fpm8.2` · Apache 모듈
-  # `libphp8.2.so`, RPM 계열 `php` · `php-cgi` · `php-fpm` · httpd 모듈 `libphp*.so`. 하나라도 기록과 다르면 이 기계의
-  # 패키지 판정을 모두 세우지 않는다 — 판정 묶음이 하나다.
   - id: pkg_bin_changed
     subject: file
     where:
       - { field: path, op: matches, value: '^/usr/(bin/php(-cgi|-fpm)?[0-9.]*|sbin/php-fpm[0-9.]*|lib/apache2/modules/libphp[0-9.]*\.so|lib64/httpd/modules/libphp[0-9]?\.so)$' }
       - { field: package, op: matches, value: '.' }
       - { field: package_match, op: in, value: [different, unrecorded, unreadable] }
+  # <<< 제품 php-linux changed
 
 verdict:
   require: "((deb12_vuln or deb13_vuln or u1404_vuln or u1604_vuln or u1804_vuln or u2004_vuln or u2204_vuln or u2404_vuln or u2604_vuln or u2610_vuln or rhel8_74_vuln or rhel8_82_vuln or rhel9_vuln or rhel7_vuln or ol8_74_vuln or ol9_vuln or sles157_vuln) and not pkg_bin_changed) or official_vuln"
@@ -602,6 +602,9 @@ verdict:
       why:
         ko: "RPM 계열의 자리에 이 점검이 PHP 패키지로 알아보지 못한 패키지가 깐 PHP 실행 파일이 있습니다(위 경로 · RPM 의 PHP 패키지가 없습니다) — 그 패키지의 버전과 받은 곳을 확인하십시오"
         en: "a PHP executable in an RPM system location was installed by a package this check does not recognise as a PHP package (path above; no RPM PHP package is present) - check that package's version and origin"
+    # >>> 제품 php-linux unconfirmed
+    # 위 칸들이 확인 필요로 내는 까닭(verdict.unconfirmed 의 항목). 서비스와 Apache 설정은 멈춰 있어도 남는 자리라 같은 PHP 가
+    # 함께 설 수 있어 한 칸으로 둔다.
     - when: "bin_rpm_unowned"
       why:
         ko: "RPM 계열의 자리에 어느 패키지도 깔지 않은 PHP 실행 파일이 있습니다(위 경로) — 패키지로 깐 PHP 가 아니라 그 버전을 가리지 못했습니다. 그 파일의 버전과 받은 곳을 확인하십시오"
@@ -614,7 +617,6 @@ verdict:
       why:
         ko: "이 점검이 보는 자리 밖에서 PHP 가 실행 중입니다(위 경로) — 그 PHP 는 판정하지 않았습니다. 그 PHP 의 버전과 받은 곳(패키지 · 공급사 · 직접 빌드)을 확인하십시오"
         en: "a PHP is running outside the places this check reads (path above) - that PHP was not judged; check its version and origin (package, vendor or own build)"
-    # 서비스와 Apache 설정은 멈춰 있어도 남는 자리라 같은 PHP 가 함께 설 수 있다 — 한 칸으로 둔다(Windows 룰과 같은 꼴).
     - when: "service_php or apache_php or apache_php_rpm"
       why:
         ko: "이 점검이 보는 자리 밖의 PHP 를 서비스가 띄우거나 Apache 설정이 싣습니다(위 서비스 · 설정 줄의 경로) — 그 PHP 는 판정하지 않았습니다. 그 PHP 의 버전과 받은 곳(패키지 · 공급사 · 직접 빌드)을 확인하십시오"
@@ -627,3 +629,4 @@ verdict:
       why:
         ko: "고친 뒤 다시 시작하지 않은 PHP 가 실행 중입니다(위 경로) — 그 프로세스가 지워진 옛 PHP 파일(실행 파일 · 모듈)을 실은 채 돌고 있어 디스크의 버전으로 판정하지 않았습니다. 그 PHP 를 쓰는 서비스(PHP-FPM · 웹 서버)를 다시 시작한 뒤 다시 검사하십시오"
         en: "a PHP that was not restarted after an update is running (path above) - the process still runs a deleted old PHP file (executable or module), so it was not judged by the version on disk; restart the service using that PHP (PHP-FPM, web server) and scan again"
+    # <<< 제품 php-linux unconfirmed
