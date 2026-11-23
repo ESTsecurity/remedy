@@ -14,7 +14,8 @@
 # 묶음(`host/Invoke-RcBundle.ps1`)도 같은 폴더를 읽으므로 **리눅스를 먼저** 돌린다.
 #
 # 망이 든다 — 설치 경우의 apt · dnf · yum · apk 와 처음 받는 jar · 이미지. 하네스 이미지(OpenSSH · Apache)는 처음 한 번
-# 짓는다. 그 밖의 이미지는 미리 받아 둔다(없으면 멈추고 `docker pull` 할 것을 적는다). **Windows 랩 묶음과 겹쳐 돌리지
+# 짓는다. 그 밖의 이미지(이 파일 · rc/ 단계와 도는 하네스 머리 줄의 `# 이미지:`)는 미리 받아 둔다(없으면 단계를 돌기 전에
+# 멈추고 `docker pull` 할 것을 적는다). **Windows 랩 묶음과 겹쳐 돌리지
 # 않는다**(메모리가 모자라 링커 · WSL 이 죽은 일이 있다). 끝나면 root 로 WSL 페이지 캐시를 비운다:
 # `wsl -u root -e sh -c 'echo 3 > /proc/sys/vm/drop_caches'`.
 #
@@ -63,7 +64,7 @@ NEW=$(cd "$(dirname "$NEW")" && pwd)/$(basename "$NEW")
 PREV=$(cd "$(dirname "$PREV")" && pwd)/$(basename "$PREV")
 
 command -v docker >/dev/null || { echo "docker 가 없다" >&2; exit 2; }
-# rc/ 단계와 이 파일이 --pull=never 로 쓰는 이미지. 하네스는 제 이미지를 스스로 확인한다.
+# rc/ 단계와 이 파일이 --pull=never 로 쓰는 이미지.
 NEED="debian:12 ubuntu:24.04 alpine:3.22 centos:7 almalinux:8 rockylinux:8 rockylinux:9 oraclelinux:8 oraclelinux:9
 amazonlinux:2 amazonlinux:2023 opensuse/leap:15.6 registry.access.redhat.com/ubi9/ubi:latest php:8.3.35-cli php:8.3.36-cli
 php:8.3.36-fpm php:8.2-apache node:22.18.0-bookworm-slim node:22.23.4-bookworm-slim tomcat:9.0-jdk11 docker:dind
@@ -71,6 +72,23 @@ httpd:2.4.65 httpd:2.4.71 eclipse-temurin:17-jre eclipse-temurin:21-jre eclipse-
 amazoncorretto:17"
 missing=""
 for i in $NEED; do docker image inspect "$i" >/dev/null 2>&1 || missing="$missing $i"; done
+# 이 묶음이 도는 하네스가 머리 10줄의 `# 이미지:` 에 적은 이미지도 시작할 때 본다(2026-11-23) — 하네스는 제 이미지를 그 단계에서야
+# 확인해, 없으면 앞 단계가 다 돈 뒤 0초에 종료 2(준비 실패)로 멈췄다(php2611 · `php:8.2.35-apache`). 아래 단계의 손으로 적은
+# 하네스(단계를 더하면 이 목록에도)와 머리 40줄에 `# rc 묶음:` 줄을 단 하네스만 센다.
+rc_harnesses() {
+    local h
+    for h in invoke-linux cwpdoor ebury log4j openssh apache java4shell nginx php-2026-11 net-apache; do
+        echo "$HERE/$h-verify.sh"
+    done
+    for h in "$HERE"/*.sh; do
+        if sed -n '1,40p' "$h" | grep -q '^# rc 묶음: '; then echo "$h"; fi
+    done
+}
+for i in $(rc_harnesses | while read -r h; do [ -f "$h" ] && sed -n '1,10{s/^# 이미지: //p}' "$h"; done |
+    tr ' ' '\n' | sed '/^$/d' | sort -u); do
+    case " $(echo $NEED) $missing " in *" $i "*) continue ;; esac
+    docker image inspect "$i" >/dev/null 2>&1 || missing="$missing $i"
+done
 if [ -n "$missing" ]; then
     echo "이미지가 없다 — 받고 다시 돌린다:" >&2
     for i in $missing; do echo "  docker pull $i" >&2; done
