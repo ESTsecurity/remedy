@@ -1,6 +1,6 @@
 #!/bin/bash
 # 룰: php2shell-check-linux — 묶어 낸 출시(ci/batch.sh)가 바뀐 룰의 필수 점검 ① 로 이 하네스를 찾는다(--bin · --plugins · --out)
-# 이미지: debian:12 ubuntu:24.04 rockylinux:9 alpine:3.22 php:8.3.35-cli php:8.3.36-cli php:8.3.36-fpm php:8.3.37-cli php:7.4.33-cli php:8.2.35-apache
+# 이미지: debian:12 ubuntu:24.04 rockylinux:9 alpine:3.22 php:8.3.35-cli php:8.3.36-cli php:8.3.36-fpm php@sha256:9e2a4e9b1704c05cc469fddbf9b0f0f205e2bb13efd249bbad177289ebdc5c7c php:7.4.33-cli php:8.2.35-apache
 # rc 묶음: php2shell
 # 하네스 표: WSL · docker(경우마다 네트워크 없는 컨테이너) | php2shell 리눅스 점검의 판정 — 배포판 · RPM 공급사 줄의 경계 · 공식 빌드 해시 · 패키지 밖과 자리 밖의 PHP
 # PHP2Shell 점검 룰(php2shell-check-linux)을 배포판 · 공식 이미지 컨테이너에서 잰다(2026-11-23 · 0.6.3 — 이 룰의 첫 하네스).
@@ -31,7 +31,9 @@
 # - 공식 이미지는 판 꼬리표다. 8.3.35 · 8.3.36 · 7.4.33 · 8.2.35 는 다음 판이 나와 더는 다시 지어지지 않는다. **8.3.37 은 지금
 #   8.3 의 마지막 판이라 기반 이미지가 바뀔 때마다 다시 지어진다** — 그날 실행 파일 해시가 룰의 목록에서 빠져 A8 · o04 가 함께
 #   실패한다(RELEASE.md '공식 이미지의 현재 태그는 다시 지어진다' — 룰의 목록을 더할 신호다). A 칸이 해시를 먼저 재어 이미지
-#   탓과 룰 탓을 가른다. 고정하려면 `php:8.3.37-cli@sha256:<잰 digest>` 로 바꾼다(머리의 `# 이미지:` 줄도 함께).
+#   탓과 룰 탓을 가른다. 그래서 A8 · o04 는 룰의 목록이 아는 빌드의 digest 로 고정했다(2026-11-24 — 미룬 검증이 다시 지은
+#   이미지에서 두 칸을 실패로 냈다. 고정한 것은 2026-11-19 에 지은 `php:8.3.37-cli` 이고, 그 `/usr/local/bin/php` 가 룰 목록의
+#   '8.3.37 linux/amd64 cli' 값과 같다). 다시 지은 이미지의 해시를 룰의 목록에 더할 때 이 digest 를 그 빌드로 옮긴다.
 # - Ubuntu 24.04 · Alpine 3.22 는 지금 저장소로 짓는다 — Ubuntu 의 고친 판은 그 계열(8.3.6-0ubuntu0.24.04.*) 안에서만 올라가
 #   0 이 뒤집히지 않고(A2 가 계열 꼴과 고친 판 이상을 잰다), Alpine 의 apk 는 늘 줄 밖(6)이다.
 #
@@ -102,8 +104,8 @@ RULE=php2shell-check-linux
 [ -n "$BIN" ] && [ -x "$BIN" ] || { echo "--bin <remedy 실행 파일 · musl 정적> 이 필요하다" >&2; exit 2; }
 [ -f "$PLUGINS/$RULE/plugin.yaml" ] || { echo "--plugins 에 $RULE 이 없다: $PLUGINS" >&2; exit 2; }
 command -v docker >/dev/null || { echo "docker 가 없다" >&2; exit 2; }
-for base in debian:12 ubuntu:24.04 rockylinux:9 alpine:3.22 php:8.3.35-cli php:8.3.36-cli php:8.3.36-fpm php:8.3.37-cli \
-    php:7.4.33-cli php:8.2.35-apache; do
+for base in debian:12 ubuntu:24.04 rockylinux:9 alpine:3.22 php:8.3.35-cli php:8.3.36-cli php:8.3.36-fpm \
+    php@sha256:9e2a4e9b1704c05cc469fddbf9b0f0f205e2bb13efd249bbad177289ebdc5c7c php:7.4.33-cli php:8.2.35-apache; do
     docker image inspect "$base" >/dev/null 2>&1 || { echo "$base 이미지가 없다 — docker pull $base" >&2; exit 2; }
 done
 [ -n "$OUT" ] || OUT="$(pwd)/testbed/harness/results/php2shell-$(date +%Y%m%d-%H%M%S)"
@@ -197,7 +199,7 @@ a_official() { # 칸 이름 · 이미지 · 룰 목록의 꼬리표('8.3.36 linu
 a_official "A5 php:8.3.35-cli 의 PHP 가 룰 목록의 8.3.35 해시" php:8.3.35-cli '8.3.35 linux/amd64 cli'
 a_official "A6 php:8.3.36-cli 의 PHP 가 룰 목록의 8.3.36 해시" php:8.3.36-cli '8.3.36 linux/amd64 cli'
 a_official "A7 php:8.3.36-fpm 의 PHP 가 룰 목록의 8.3.36 해시" php:8.3.36-fpm '8.3.36 linux/amd64 fpm'
-a_official "A8 php:8.3.37-cli 의 PHP 가 룰 목록의 8.3.37 해시" php:8.3.37-cli '8.3.37 linux/amd64 cli'
+a_official "A8 php:8.3.37-cli 의 PHP 가 룰 목록의 8.3.37 해시" php@sha256:9e2a4e9b1704c05cc469fddbf9b0f0f205e2bb13efd249bbad177289ebdc5c7c '8.3.37 linux/amd64 cli'
 a_official "A9 php:7.4.33-cli 의 PHP 가 룰 목록의 7.4.33 해시" php:7.4.33-cli '7.4.33 linux/amd64 cli'
 a_official "A10 php:8.2.35-apache 의 PHP 가 룰 목록에 없다" php:8.2.35-apache -
 
@@ -419,7 +421,7 @@ echo "── O. 공식 빌드 ──"
 run_case o01-official-8335-cli php:8.3.35-cli 2 ":" "php:8.3.35-cli — 취약 해시(A5)"
 run_case o02-official-8336-cli php:8.3.36-cli 0 ":" "php:8.3.36-cli — 고친 해시(A6)"
 run_case o03-official-8336-fpm php:8.3.36-fpm 0 ":" "php:8.3.36-fpm — 고친 해시(A7)"
-run_case o04-official-8337-cli php:8.3.37-cli 0 ":" "php:8.3.37-cli — 11월 보안 업데이트의 해시(0.6.2 · A8)"
+run_case o04-official-8337-cli php@sha256:9e2a4e9b1704c05cc469fddbf9b0f0f205e2bb13efd249bbad177289ebdc5c7c 0 ":" "php:8.3.37-cli — 11월 보안 업데이트의 해시(0.6.2 · A8)"
 run_case o05-official-eol-7433 php:7.4.33-cli 2 ":" "php:7.4.33-cli — 지원 끝(고친 판 없음)의 공식 해시(A9)"
 run_case o06-official-8235-apache php:8.2.35-apache 6 ":" "php:8.2.35-apache — 목록에 없는 공식 빌드(8.2 계열 · libphp.so · A10)"
 run_case o07-moved-8336-opt php:8.3.36-cli 0 "$(php_move /opt/php/8.3)" "8.3.36 을 /opt/php/8.3 으로 옮김 — 직접 빌드 자리 · 판마다 하위 폴더"
