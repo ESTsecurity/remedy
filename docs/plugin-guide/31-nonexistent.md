@@ -91,6 +91,7 @@ require: "task and count(payload) >= 2"      # 한 건으로는 서지 않게
 | 살아 있는 네트워크 연결 (`network_conn`) | subject 에 없다. 연결은 관측 대상이 아니다 |
 | `file.content` 를 조건으로 직접 비교 | 없다. 내용 판정은 `yara:` 로 한다 |
 | `autorun` 의 '셸 프로필' 에 `~/.bashrc` · `~/.profile` 이 든다 | Linux 는 `/etc/profile.d` 의 파일 단위뿐이다. 그 두 파일의 줄은 `autorun` 에도, 확장자로 고르는 `text_config` 에도 오지 않는다 — 셸 프로필처럼 확장자가 없는 파일은 `text_config_dirs` 에 적은 폴더(직접 자식 · 확장자 무관 — `10-manifest.md`)의 파일일 때만 `text_config` 에 든다 |
+| `service` · `persistence` 가 모든 계정의 `~/.config/systemd/user` 를 본다 | 홈은 `/etc/passwd` 가 아니라 `/home` 바로 아래 폴더(링크 제외)와 `/root` 로 친다(`autorun` 의 `.config/autostart` 도 같은 홈). `/var/www` 같은 `/home` 밖의 홈 · `/tmp/.config/…` · `~/.local/share/systemd/user` · `/usr/local/lib/systemd/` 의 유닛은 오지 않고, 자리가 정해진 subject 라 `scan_roots` 에 적어도 넓어지지 않는다(`10-manifest.md`). `/home` 바로 아래의 파일(쿼터의 `aquota.group` · `aquota.user` 등)이 이름 차례로 맨 앞이 아니면 그 뒤의 홈은 말없이 빠진다 — 홈 목록을 `/home` 걷기 상한 1 로 뽑는다(`crates/remedy-collect/src/lib.rs` 의 `homes_for` · 엔진 몫). `scan_roots` 의 `%ALLUSERPROFILES%` 는 같은 홈을 따로 읽어 이 빠짐이 없고 이름순 64개까지다(넘으면 *주의* 줄만 선다 — `10-manifest.md` 의 *사용자 수만큼* 은 리눅스에서 이 홈 수다) |
 | `process.image_path` 가 프로세스가 내세운 이름 | Linux 는 `/proc/<pid>/exe` 가 가리키는 파일이다 — `exec -a` 로 바꾼 이름은 `cmdline` 에만 오고, 실행 중에 지운 파일이면 끝에 ` (deleted)` 가 붙어 `$` 로 끝을 고정한 정규식이 빗나간다 |
 
 ---

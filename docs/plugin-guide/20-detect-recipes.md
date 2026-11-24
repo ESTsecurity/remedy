@@ -359,7 +359,7 @@ Windows 는 예약 작업이고 Linux 는 cron 과 systemd 다. **필드 이름�
 
 | | Windows | Linux (cron) | Linux (systemd) |
 |---|---|---|---|
-| `id` | 등록 경로 `\Microsoft\Windows\X` | `<crontab 파일>:<줄번호>` | 유닛 이름 `x.service` |
+| `id` | 등록 경로 `\Microsoft\Windows\X` | `<crontab 파일>:<줄번호>` | 유닛 파일 경로(`service` 의 `id` 도) |
 | `source` | 정의 XML 경로 | crontab 파일 | 유닛 파일 경로 |
 | `principal` | 실행 계정 | 사용자 칸 또는 파일 이름 | `User=` · 없으면 root |
 | `enabled` | 작업의 설정 | 주석이 아니면 참 | `<target>.wants/` 링크가 있는가 |
