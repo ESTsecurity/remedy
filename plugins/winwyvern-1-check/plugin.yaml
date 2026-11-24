@@ -1,4 +1,5 @@
-# WinWyvern — 보안 제품을 무력화하려고 취약 드라이버 NeacSafe64(CVE-2025-45737)를 심는 악성코드의 흔적을 **찾기만** 한다.
+# WinWyvern — 보안 제품을 무력화하는 악성 드라이버 WinWyvern 을 올리려고 악성코드가 심는 취약 드라이버 NeacSafe64
+# (CVE-2025-45737)의 흔적을 **찾기만** 한다.
 #
 # 1차 출처는 ASEC 의 보고 하나다(references 두 줄 — 한국어판 · 영문판). 정상 AI 도구(Ollama) 배포 페이지로 위장한 사이트의
 # 설치 파일이, 가상 환경이 아닐 때 정상 서명된 안티치트 드라이버 NeacSafe64.sys 를 `C:\Windows\System32\neacsafe64.sys` 에
@@ -45,7 +46,7 @@ detect:
   #
   # ImagePath 는 레지스트리의 글자 그대로 온다(`crates/remedy-collect/src/registry.rs` 의 `services` — REG_SZ ·
   # REG_EXPAND_SZ 모두 글자로 담고 환경 변수를 펴지 않는다). 드라이버를 등록하는 길(CreateService · 레지스트리에 바로)마다
-  # 꼴이 달라 모두 받는다:
+  # 꼴이 달라 아래 꼴을 받는다(ASEC 의 흐름은 서비스 관리자를 거쳐 `\??\` 꼴로 남는다 — 하네스 A1):
   #   \SystemRoot\System32\neacsafe64.sys       커널의 꼴
   #   System32\neacsafe64.sys                   %SystemRoot% 를 기준으로 한 상대 경로
   #   %SystemRoot%\System32\… · %windir%\…      펴지 않은 환경 변수(REG_EXPAND_SZ)
