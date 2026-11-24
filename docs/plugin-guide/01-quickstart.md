@@ -76,6 +76,8 @@ verdict:
 remedy plugin lint plugin.yaml
 ```
 
+`remedy` 는 엔진 실행 파일이고, 기준은 공개된 최신 버전(`https://github.com/ESTsecurity/remedy/releases/latest` 의 꾸러미)의 것이다 — 룰 PR 의 CI 가 그 엔진으로 모든 룰을 lint 한다. 저장소에서 바로 돌리는 `cargo run -p remedy-cli -- plugin lint plugin.yaml` 은 개발 빌드라 엔진이 그보다 앞설 수 있어, 거기서 통과한 룰(높은 `min_core` · 새 술어 · 모르는 칸)도 CI 에서 막힐 수 있다(`docs/개발-안내.md` *새 엔진이 필요한 룰* · 2026-11-24).
+
 오류가 없으면 스냅샷에 대고 돌린다. **감염 VM 이 필요 없다** — 수집과 평가가 나뉘어 있어 스냅샷 파일만으로 초 단위 반복이 된다.
 
 ```
