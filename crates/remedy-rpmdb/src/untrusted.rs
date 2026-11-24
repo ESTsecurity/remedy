@@ -14,8 +14,8 @@
 //! | 복사한 블롭의 합 | 64 MiB | 형식마다의 판독기 — 복사하기 전에 | 그 앞의 패키지 + [`Untrusted::limit`] |
 //! | 헤더에서 꺼낸 문자열 · 경로 · 다이제스트 | 16 MiB · 100,000 항목 | 헤더 판독 — 만들기 전에 | 그 앞의 패키지 + [`Untrusted::limit`] |
 //!
-//! 형식이 틀린 DB(틀 · 경로의 모양 · 같은 꼬리표가 두 번 …)도 전체가 오류다. 다이제스트만 틀린 패키지는 그 패키지의
-//! [`Package::digests`] 에만 오류가 붙는다.
+//! 형식이 틀린 DB(틀 · 경로의 모양 · 같은 꼬리표가 두 번 — 값이 같은 문자열 꼬리표 둘은 빼고 …)도 전체가 오류다.
+//! 다이제스트만 틀린 패키지는 그 패키지의 [`Package::digests`] 에만 오류가 붙는다.
 //!
 //! # 복사한 합의 상한이 막는 것
 //!
@@ -430,7 +430,7 @@ mod tests {
             read(vec![0; 16 * MIB + 1]),
             Err(RpmDbError::Limit("NDB 블롭 하나가 상한을 넘었다"))
         );
-        // 같은 꼬리표가 두 번(이름) — 믿는 쪽은 뒤의 것을 쓴다.
+        // 값이 다른 이름 둘 — 믿는 쪽은 뒤의 것을 쓴다.
         let twice = build(&[
             (1000, 6, s("a")),
             (1000, 6, s("b")),
@@ -470,6 +470,65 @@ mod tests {
             Err(RpmDbError::Format(
                 "파일 다이제스트가 그 알고리즘의 16진 꼴이 아니다"
             ))
+        );
+    }
+
+    /// EL10 의 rpm 은 원본 패키지(SOURCERPM)를 같은 값으로 두 번 적는다(2026-11-24). 두 입구 모두 그 DB 를 겹침이 없는
+    /// DB 와 같게 읽고, 믿는 쪽([`crate::headers`])과 같은 헤더를 낸다. 값이 다르거나 셋이면 지금처럼 DB 전체가 오류다.
+    #[test]
+    fn a_twin_source_rpm_does_not_fail_the_database() {
+        let src = "php-8.3.37-1.el10_3.src.rpm";
+        let source = |v: &str| (1044, 6, 1, s(v));
+        let db = |extra: &[(u32, u32, u32, Vec<u8>)]| {
+            let mut tags = files_in("/usr/bin/", &["php"]);
+            tags.extend(digests(&[SHA256_HEX], Some(8)));
+            tags.extend_from_slice(extra);
+            sqlite_db(&[Rec::Own(php()), Rec::Own(pkg(&tags))])
+        };
+        let (once, twice) = (db(&[source(src)]), db(&[source(src), source(src)]));
+        let got = read_untrusted(&twice).unwrap();
+        assert_eq!(got, read_untrusted(&once).unwrap());
+        assert_eq!(
+            (got.packages.len(), got.skipped, got.limit.clone()),
+            (2, 0, None)
+        );
+        assert_eq!(got.packages[1].header.sourcerpm, src);
+        assert_eq!(read_host(&twice, |_| true), read_host(&once, |_| true));
+        let trusted: Vec<RpmHeader> = got.packages.iter().map(|p| p.header.clone()).collect();
+        assert_eq!(crate::headers(&twice).unwrap(), (trusted, 0));
+        let twice_err = Err(RpmDbError::Format("같은 꼬리표가 두 번 나온다"));
+        for bad in [
+            db(&[source(src), source("php-8.3.36-1.el10_2.src.rpm")]),
+            db(&[source(src), source(src), source(src)]),
+        ] {
+            assert_eq!(read_untrusted(&bad), twice_err);
+            assert_eq!(read_host(&bad, |_| true), twice_err);
+        }
+    }
+
+    /// 실제 EL10 헤더(`ALMA10_LIBGCC` — AlmaLinux 10.3 의 `libgcc`)를 담은 DB — 두 입구 모두 그 패키지를 다 읽고,
+    /// 믿는 쪽과 같은 헤더를 낸다. 1.25.3 은 둘 다 `Err` 였다(이슈 #166 ①).
+    #[test]
+    fn a_real_el10_header_does_not_fail_the_database() {
+        use crate::header::tests::ALMA10_LIBGCC;
+        let db = sqlite_db(&[Rec::Own(ALMA10_LIBGCC.to_vec())]);
+        let lib = "/lib64/libgcc_s-14-20260724.so.1";
+        let untrusted = read_untrusted(&db).unwrap();
+        let host = read_host(&db, |f| f == lib).unwrap();
+        for (got, files) in [(&untrusted, 11), (&host, 1)] {
+            assert_eq!(
+                (got.packages.len(), got.skipped, got.limit.clone()),
+                (1, 0, None)
+            );
+            let p = &got.packages[0];
+            assert_eq!(p.header.sourcerpm, "gcc-14.4.1-5.el10_3.alma.3.src.rpm");
+            assert_eq!(p.files.len(), files, "{:?}", p.files);
+            assert_eq!(p.digests.as_ref().map(|d| d.digests.len()), Ok(files));
+        }
+        assert_eq!(host.packages[0].files, [lib]);
+        assert_eq!(
+            crate::headers(&db).unwrap(),
+            (vec![untrusted.packages[0].header.clone()], 0)
         );
     }
 

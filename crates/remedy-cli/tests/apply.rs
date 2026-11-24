@@ -146,6 +146,49 @@ fn with_yes_it_quarantines_and_reports_how_to_undo() {
 }
 
 #[test]
+fn a_treatment_that_quarantined_nothing_does_not_offer_undo() {
+    // 프로세스 종료만 한 회차에는 격리소가 없다 — 그 회차의 `restore --run` 은 격리소를 찾다 종료 4 로
+    // 끝났다(이슈 #166 ④ · 1.25.3). 술어가 아무것도 지목하지 않아 기계를 건드리지 않는다(빈 결과는 Ok).
+    let lab = Lab::new("killonly");
+    let plan = serde_json::json!({
+        "schema_version": 1,
+        "kind": "remedy.plan",
+        "run_id": "run-cli-kill",
+        "created": "2026-08-21T00:00:00Z",
+        "host": { "hostname": "h", "os": "windows", "version": "10", "arch": "amd64" },
+        "core": { "version": "0", "build": "d" },
+        "plugins": [],
+        "actions": [{
+            "seq": 1, "op": "process.kill",
+            "match": { "image_path": lab.s("absent/ghost.exe") },
+            "because": ["g0"], "reversible": false, "risk": "medium"
+        }],
+        "verdicts": ["g0"]
+    });
+    let path = lab.s("plan.json");
+    std::fs::write(&path, serde_json::to_vec_pretty(&plan).unwrap()).unwrap();
+
+    let (code, out) = run(&[
+        "apply",
+        "--plan",
+        &path,
+        "--state-dir",
+        &lab.s("state"),
+        "--yes",
+    ]);
+    assert_eq!(code, 1, "치료 완료는 1 이다\n{out}");
+    assert!(!out.contains("remedy restore --run"), "{out}");
+    assert!(
+        out.contains("remedy support-bundle --run run-cli-kill"),
+        "{out}"
+    );
+    assert!(
+        !Path::new(&lab.s("state/quarantine/run-cli-kill.rq")).exists(),
+        "격리할 것이 없는데 격리소를 만들었다"
+    );
+}
+
+#[test]
 fn a_second_instance_is_blocked_by_the_mutex() {
     // 두 인스턴스가 같은 상태 디렉터리에서 돌면 저널과 격리소가 깨진다.
     let lab = Lab::new("mutex");

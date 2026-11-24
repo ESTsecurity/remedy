@@ -873,7 +873,7 @@ impl Subject {
                 linux: true,
                 // 경로만 다르다. ex03 이 이 경로를 이미 쓴다
                 linux_from: Some(Phase::P12),
-                summary: "ini · conf · 셸 프로필 등 줄 단위 설정",
+                summary: "ini · conf 등 확장자로 고르는 줄 단위 설정",
             },
             Subject::StructuredConfig => SubjectInfo {
                 id: "structured_config",

@@ -24,7 +24,7 @@
 | `indicator` | P4 | P12 | 다른 관찰에서 파생된 지표 (url · domain · ip · hash) |
 | `registry_value` | P4 | — | 레지스트리 값. 키 경로에 와일드카드 열거 허용 |
 | `registry_key` | P4 | — | 레지스트리 키 단위 관찰 |
-| `text_config` | P4 | P12 | ini · conf · 셸 프로필 등 줄 단위 설정 |
+| `text_config` | P4 | P12 | ini · conf 등 확장자로 고르는 줄 단위 설정 |
 | `structured_config` | P4 | P12 | JSON · XML 등 구조적 설정 |
 | `shortcut` | P4 | P12 | .lnk 바로가기 · .desktop 항목 |
 | `boot_config` | P4 | 개념만 | 부팅 구성 · GRUB 항목 |

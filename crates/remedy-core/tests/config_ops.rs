@@ -4,7 +4,8 @@
 //! **손대지 않기로 한 것을 손대지 않았는가**다.
 
 use remedy_apply::{Executor, Silent};
-use remedy_platform::write::PlatformWrite;
+use remedy_platform::write::{FileMeta, PlatformWrite, RestoreReport};
+use remedy_platform::PlatformError;
 use remedy_sdk::artifact::{Action, CoreInfo, Envelope, HostInfo, PlanBody, PlanEnvelope};
 use remedy_sdk::catalog::{Op, Risk};
 use std::path::PathBuf;
@@ -226,6 +227,290 @@ fn a_removed_line_comes_back_in_place() {
         INI,
         "되돌렸는데 원본과 다르다"
     );
+}
+
+#[test]
+fn a_line_and_then_its_whole_file_come_back_as_the_original() {
+    // 한 파일을 줄 룰과 파일 룰이 함께 짚으면 계획은 [줄 빼기, 그 파일의 격리]다(같은 단계 · 들어온
+    // 차례). 담기는 파괴 전에 다 끝나므로 엔트리는 그 줄과 원본 파일이다. 복원은 목록 차례로 돌아야
+    // 원본이 된다 — 줄을 먼저 넣고 원본으로 덮는다. 목록을 통째로 뒤집으면 원본 위에 그 줄이 한 번
+    // 더 들어간다(cron 줄의 차례만 바꾸는 까닭 · `restore::apply`).
+    let lab = Lab::new("line-then-file");
+    let p = lab.file("settings.ini", INI);
+    let mut file = act(Op::FileQuarantineOnly, &p, serde_json::json!({}));
+    file.seq = 2;
+    file.r#match = None;
+    let (done, failed, errs, c) = run(
+        &lab,
+        "line-then-file",
+        vec![
+            act(
+                Op::TextConfigRemoveLine,
+                &p,
+                serde_json::json!({ "line_no": 3, "line": "evil=payload.exe" }),
+            ),
+            file,
+        ],
+    );
+    assert_eq!((done, failed), (2, 0), "{errs:?}");
+    assert!(!std::path::Path::new(&p).exists(), "격리한 파일이 남았다");
+    restore(&lab, "line-then-file", &c.expect("컨테이너"));
+    assert_eq!(
+        std::fs::read_to_string(&p).expect("읽기"),
+        INI,
+        "되돌렸는데 원본과 다르다"
+    );
+}
+
+/// 한 파일에서 줄을 둘 이상 빼는 계획을 증거에서 짓고(가드까지 도는 `remedy_plan::plan`), 이 플랫폼의 백엔드로
+/// 치료한 뒤 복원한다. 1.25.3 은 위 줄부터 빼 둘째 줄이 *"그 자리의 줄이 계획과 다릅니다"* 로 거부됐다(일부 실패 ·
+/// 나쁜 줄이 남는다). cron 줄과 같은 번호 밀림이다(이슈 #166 ③).
+///
+/// 증거는 평가기가 내는 차례로 담는다 — 텍스트 설정은 수집기가 (파일, 번호) 오름차순으로 세운다. hosts 는 레코드의
+/// 문자열 차례라 번호와 상관이 없으므로 가장 나쁜 차례(번호 오름차순)로 담고, 둘째 줄을 파일의 마지막 줄로 둔다.
+#[test]
+fn lines_in_one_file_go_and_come_back_byte_for_byte() {
+    use remedy_sdk::artifact::{ArtifactKind, Evidence, EvidenceGroup, ScanBody};
+    use remedy_sdk::catalog::Subject::{HostsEntry, TextConfig};
+    let lab = Lab::new("lines");
+    let conf_body = "[boot]\r\nevil=a.exe\r\nshell=explorer.exe\r\nevil=b.exe\r\nlast=1\r\n";
+    let hosts_body = "127.0.0.1 localhost\n10.20.30.40 a.example\n10.20.30.40 b.example\n";
+    let conf = lab.file("app.ini", conf_body);
+    let hosts = lab.file("hosts", hosts_body);
+    let ev = |id: &str, subject, target: serde_json::Value| Evidence {
+        id: id.into(),
+        rule: id.split('#').next().unwrap_or_default().into(),
+        subject,
+        score: None,
+        target,
+        captures: Default::default(),
+        matched: Vec::new(),
+        label: None,
+    };
+    let text = |n: u32, line: &str| serde_json::json!({ "path": conf, "line_no": n, "line": line, "key": "evil", "value": "x" });
+    let entry = |n: u32, name: &str| {
+        serde_json::json!({
+            "ip": "10.20.30.40", "hostnames": [name], "line_no": n, "source": hosts,
+            "line": format!("10.20.30.40 {name}")
+        })
+    };
+    let evidence = vec![
+        ev("conf#0", TextConfig, text(2, "evil=a.exe")),
+        ev("conf#1", TextConfig, text(4, "evil=b.exe")),
+        ev("hosts#0", HostsEntry, entry(2, "a.example")),
+        ev("hosts#1", HostsEntry, entry(3, "b.example")),
+    ];
+    let ids: Vec<String> = evidence.iter().map(|e| e.id.clone()).collect();
+    let root = lab.dir.to_string_lossy().to_string();
+    let scan = Envelope {
+        schema_version: 1,
+        kind: ArtifactKind::Scan,
+        run_id: "lines".into(),
+        created: "2026-11-24T00:00:00Z".into(),
+        host: HostInfo {
+            hostname: "T".into(),
+            os: if cfg!(windows) { "windows" } else { "linux" }.into(),
+            version: "10".into(),
+            arch: "amd64".into(),
+        },
+        core: CoreInfo {
+            version: "0".into(),
+            build: "dev".into(),
+        },
+        plugins: Vec::new(),
+        body: ScanBody {
+            evidence,
+            groups: vec![EvidenceGroup {
+                id: "g0".into(),
+                evidence: ids,
+                captures: Default::default(),
+                verdict: true,
+                excluded_reason: None,
+            }],
+            verdicts: vec!["g0".into()],
+            verdict_rules: Vec::new(),
+            issues: Vec::new(),
+            observation: Default::default(),
+            scan_roots: vec![root.clone()],
+            removable_roots: Vec::new(),
+        },
+    };
+    let manifest: remedy_sdk::manifest::PluginManifest =
+        serde_json::from_value(serde_json::json!({
+            "schema_version": 1, "id": "lines", "version": "0.1.0", "min_core": "1.0.0",
+            "platforms": ["windows", "linux"], "name": {"en": "lines"},
+            "scan_roots": [root], "subjects": ["text_config", "hosts_entry"],
+            "detect": [
+                {"id": "conf", "subject": "text_config",
+                 "where": [{"field": "line", "op": "contains", "value": "evil="}]},
+                {"id": "hosts", "subject": "hosts_entry",
+                 "where": [{"field": "ip", "op": "contains", "value": "10.20.30.40"}]}
+            ],
+            "verdict": {"require": "conf"},
+            "remediate": {"remove": [{"ref": "conf"}], "restore": ["hosts"]}
+        }))
+        .expect("매니페스트");
+    let plan = remedy_plan::plan(&scan, Some(&manifest)).expect("계획");
+
+    let b = backend();
+    let rep = Executor::new(&b, lab.state())
+        .with_progress(&Silent)
+        .with_clock("2026-11-24T00:00:00Z")
+        .apply(&plan)
+        .expect("수행");
+    let errs: Vec<String> = rep
+        .body
+        .results
+        .iter()
+        .filter_map(|r| r.error.clone())
+        .collect();
+    assert_eq!((rep.done(), rep.failed()), (4, 0), "{errs:?}");
+    assert_eq!(
+        std::fs::read_to_string(&conf).expect("읽기"),
+        "[boot]\r\nshell=explorer.exe\r\nlast=1\r\n"
+    );
+    assert_eq!(
+        std::fs::read_to_string(&hosts).expect("읽기"),
+        "127.0.0.1 localhost\n"
+    );
+
+    restore(&lab, "lines", &rep.container.clone().expect("컨테이너"));
+    assert_eq!(std::fs::read_to_string(&conf).expect("읽기"), conf_body);
+    assert_eq!(std::fs::read_to_string(&hosts).expect("읽기"), hosts_body);
+}
+
+/// 같은 격리물을 두 번 복원해도 원래 바이트다 — 그 번호의 줄이 이미 담아 둔 줄이면 넣지 않는다. 1.25.3 은 보지 않고
+/// 넣어 두 번째 복원이 줄마다 하나씩 더 넣었다. 계획은 계획기가 짓는 차례(한 파일의 줄은 아래 줄부터)로 손으로 둔다.
+#[test]
+fn restoring_the_same_lines_twice_gives_back_the_original_bytes() {
+    let lab = Lab::new("twice");
+    let conf_body = "[boot]\r\nevil=a.exe\r\nshell=explorer.exe\r\nevil=b.exe\r\nlast=1\r\n";
+    let hosts_body = "127.0.0.1 localhost\n10.20.30.40 a.example\n10.20.30.40 b.example\n";
+    let conf = lab.file("app.ini", conf_body);
+    let hosts = lab.file("hosts", hosts_body);
+    let line = |op: Op, path: &str, n: u32, text: &str, seq: u32| {
+        let mut a = act(op, path, serde_json::json!({ "line_no": n, "line": text }));
+        a.seq = seq;
+        a
+    };
+    let (done, failed, errs, c) = run(
+        &lab,
+        "twice",
+        vec![
+            line(Op::TextConfigRemoveLine, &conf, 4, "evil=b.exe", 1),
+            line(Op::TextConfigRemoveLine, &conf, 2, "evil=a.exe", 2),
+            line(Op::HostsRestoreLine, &hosts, 3, "10.20.30.40 b.example", 3),
+            line(Op::HostsRestoreLine, &hosts, 2, "10.20.30.40 a.example", 4),
+        ],
+    );
+    assert_eq!((done, failed), (4, 0), "{errs:?}");
+    assert_eq!(
+        std::fs::read_to_string(&conf).expect("읽기"),
+        "[boot]\r\nshell=explorer.exe\r\nlast=1\r\n"
+    );
+    assert_eq!(
+        std::fs::read_to_string(&hosts).expect("읽기"),
+        "127.0.0.1 localhost\n"
+    );
+    let c = c.expect("컨테이너");
+    for round in 1..=2 {
+        restore(&lab, "twice", &c);
+        assert_eq!(
+            std::fs::read_to_string(&conf).expect("읽기"),
+            conf_body,
+            "{round}번째 복원 뒤"
+        );
+        assert_eq!(
+            std::fs::read_to_string(&hosts).expect("읽기"),
+            hosts_body,
+            "{round}번째 복원 뒤"
+        );
+    }
+}
+
+/// 담기를 마치고(컨테이너는 디스크에 내려갔다) 줄을 지우기 전에 멈춘 회차를 복원해도 줄이 늘지 않는다 — 파일은
+/// 그대로라 줄마다 그 번호에 담아 둔 줄이 있다. 1.25.3 은 줄마다 하나씩 더 넣었다.
+///
+/// 멈춤은 실행기 한가운데서 패닉을 던져 만든다(`persistence_ops.rs` 의 `Crashy` 와 같은 수) — 그때까지 fsync 된
+/// 저널과 컨테이너만 남고, 그것이 전원이 나간 뒤의 상태와 같다. 컨테이너는 그 회차의 자리에서 바로 연다.
+#[test]
+fn restoring_a_run_that_stopped_before_removing_adds_no_line() {
+    let lab = Lab::new("stopped");
+    let body = "[boot]\r\nevil=a.exe\r\nshell=explorer.exe\r\nevil=b.exe\r\nlast=1\r\n";
+    let conf = lab.file("app.ini", body);
+    let lower = act(
+        Op::TextConfigRemoveLine,
+        &conf,
+        serde_json::json!({ "line_no": 4, "line": "evil=b.exe" }),
+    );
+    let mut upper = act(
+        Op::TextConfigRemoveLine,
+        &conf,
+        serde_json::json!({ "line_no": 2, "line": "evil=a.exe" }),
+    );
+    upper.seq = 2;
+    let live = backend();
+    let dying = DiesBeforeRemoving(&live);
+    let stopped = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        Executor::new(&dying, lab.state())
+            .with_progress(&Silent)
+            .with_clock("2026-08-22T00:00:00Z")
+            .apply(&plan_of("stopped", vec![lower, upper]))
+    }));
+    assert!(stopped.is_err(), "지우기 전에 멈추지 않았다");
+    assert_eq!(
+        std::fs::read_to_string(&conf).expect("읽기"),
+        body,
+        "멈추기 전에 파일을 바꿨다"
+    );
+
+    let container = remedy_core::restore::container_path(&lab.state(), "stopped");
+    restore(&lab, "stopped", &container);
+    assert_eq!(
+        std::fs::read_to_string(&conf).expect("읽기"),
+        body,
+        "줄이 늘었다"
+    );
+}
+
+/// 이 플랫폼의 라이브 백엔드를 그대로 부르다가 줄을 지우기 직전에 멈춘다(패닉).
+struct DiesBeforeRemoving<'a>(&'a dyn PlatformWrite);
+
+impl PlatformWrite for DiesBeforeRemoving<'_> {
+    fn backend_name(&self) -> &'static str {
+        "dies-before-removing"
+    }
+    fn plan_restore(&self, dest: &str, meta: &FileMeta) -> RestoreReport {
+        self.0.plan_restore(dest, meta)
+    }
+    fn restore_file(
+        &self,
+        dest: &str,
+        content: &[u8],
+        meta: &FileMeta,
+    ) -> Result<RestoreReport, PlatformError> {
+        self.0.restore_file(dest, content, meta)
+    }
+    fn quarantine_read(&self, path: &str) -> Result<(Vec<u8>, FileMeta), PlatformError> {
+        self.0.quarantine_read(path)
+    }
+    fn destroy_file(&self, path: &str) -> Result<(), PlatformError> {
+        self.0.destroy_file(path)
+    }
+    fn exists(&self, path: &str) -> bool {
+        self.0.exists(path)
+    }
+    fn text_line_read(&self, path: &str, line_no: u32) -> Result<String, PlatformError> {
+        self.0.text_line_read(path, line_no)
+    }
+    fn text_line_remove(
+        &self,
+        _path: &str,
+        _line_no: u32,
+        _expect: &str,
+    ) -> Result<(), PlatformError> {
+        panic!("[시험] 줄을 지우기 직전에 전원이 나갔다고 친다")
+    }
 }
 
 #[test]

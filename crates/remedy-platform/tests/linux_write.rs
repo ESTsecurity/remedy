@@ -20,7 +20,7 @@
 #![cfg(target_os = "linux")]
 
 use remedy_platform::linux::{Live, NOT_IMPLEMENTED_YET};
-use remedy_platform::write::{FileMeta, KillPredicate, LineAt, PlatformWrite};
+use remedy_platform::write::{FileMeta, KillPredicate, LineAt, PersistenceIndex, PlatformWrite};
 use remedy_platform::PlatformError;
 use remedy_sdk::catalog::Op;
 use std::path::PathBuf;
@@ -472,7 +472,10 @@ fn a_cron_line_is_commented_out_and_comes_back() {
     };
 
     let l = Live::new();
-    assert!(l.persistence_exists(&id), "있는 줄을 없다고 한다");
+    assert!(
+        l.persistence_exists(&id, Some(&at)),
+        "있는 줄을 없다고 한다"
+    );
     let (backup, index) = l.persistence_read(&id).expect("담기");
     assert!(index.links.is_empty(), "cron 에는 곁가지가 없다: {index:?}");
 
@@ -488,7 +491,7 @@ fn a_cron_line_is_commented_out_and_comes_back() {
     // 정하므로, 꺼진 것을 없다고 하면 차례의 뒷단계가 통째로 사라진다.
     // 악성 줄이 `#` 하나 붙은 채 남고 실행기는 "지웠다" 고 보고한다.
     assert!(
-        l.persistence_exists(&id),
+        l.persistence_exists(&id, Some(&at)),
         "끈 것을 없다고 한다 — delete 가 건너뛰어진다"
     );
 
@@ -510,7 +513,13 @@ fn a_cron_line_is_commented_out_and_comes_back() {
     // `a_cron_line_that_changed_is_not_touched` 가 같은 것을 다른 입력으로 잰다.
     //
     // **멱등성은 이 함수가 아니라 `persistence_exists` 가 지킨다** —
-    // `remedy-apply` 가 부르기 전에 그것으로 묻고 없으면 건너뛴다.
+    // `remedy-apply` 가 부르기 전에 그것으로 묻고 없으면 건너뛴다. 그 번호에 다음 줄이 올라와 있어도 지운 그 줄은
+    // 어디에도 없으므로 없다고 해야 한다 — 번호만 보던 1.25.3 은 *"있다"* 고 해, 지운 직후 멈춘 실행기가 이어서 돌면
+    // 아래 거절로 거짓 실패했다(이슈 #166 ③).
+    assert!(
+        !l.persistence_exists(&id, Some(&at)),
+        "지운 줄을 있다고 한다 — 재기동이 거짓 실패한다"
+    );
     let e = l
         .persistence_delete(&id, Some(&at))
         .expect_err("두 번째 삭제는 거절해야 한다");
@@ -528,6 +537,49 @@ fn a_cron_line_is_commented_out_and_comes_back() {
     l.persistence_restore(&id, &backup, &index)
         .expect("되돌리기");
     assert_eq!(std::fs::read_to_string(&f).expect("읽기"), body);
+
+    // **같은 줄의 둘째 엔트리.** 제거가 끄기 → 지우기 두 동작이라 그 줄을 엔트리 둘이 담고, 복원은
+    // 둘 다 돈다. 그 번호에 담아 둔 줄이 이미 있으면 그대로 둔다 — 1.25.3 은 한 번 더 넣었다(이슈 #166 ②).
+    l.persistence_restore(&id, &backup, &index)
+        .expect("둘째 엔트리 되돌리기");
+    assert_eq!(std::fs::read_to_string(&f).expect("읽기"), body);
+
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+#[test]
+fn a_one_line_crontab_is_emptied_and_comes_back_once() {
+    // 줄 하나짜리 crontab 의 그 줄을 지우면 빈 파일이 된다. 줄바꿈 하나만 남기면 되돌린 줄 뒤에 빈 줄이
+    // 붙고, 엔트리 둘(끄기 · 지우기)이 그 줄을 두 번 넣어 38 B 가 77 B 가 됐다(이슈 #166 ② · 1.25.3).
+    let d = lab("cron-one-line");
+    let body = "* * * * * root /home/a/.cache/upd.sh\n";
+    let f = crontab(&d, body);
+    let id = format!("{f}:1");
+    let at = LineAt {
+        line_no: 1,
+        line: "* * * * * root /home/a/.cache/upd.sh".into(),
+    };
+
+    let l = Live::new();
+    let (backup, index) = l.persistence_read(&id).expect("담기");
+    l.persistence_disable(&id, Some(&at)).expect("끄기");
+    l.persistence_delete(&id, Some(&at)).expect("지우기");
+    assert_eq!(
+        std::fs::read(&f).expect("읽기").len(),
+        0,
+        "줄을 다 지운 crontab 이 비지 않았다"
+    );
+
+    // 엔트리 둘 · 그리고 한 번 더 돌린 복원.
+    for n in 1..=3 {
+        l.persistence_restore(&id, &backup, &index)
+            .unwrap_or_else(|e| panic!("{n}번째 되돌리기: {e}"));
+        assert_eq!(
+            std::fs::read(&f).expect("읽기"),
+            body.as_bytes(),
+            "{n}번째 되돌리기 뒤"
+        );
+    }
 
     let _ = std::fs::remove_dir_all(&d);
 }
@@ -551,6 +603,47 @@ fn a_cron_line_that_changed_is_not_touched() {
         )
         .expect_err("막아야 한다");
     assert_eq!(std::fs::read_to_string(&f).expect("읽기"), body, "{e}");
+
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+#[test]
+fn a_cron_line_that_moved_up_is_still_there_and_is_not_touched() {
+    // 계획 뒤에 맨 윗줄이 빠져 나쁜 줄(마지막 3번)이 2번으로 올라왔다. 그 번호는 이제 파일 끝을 넘지만 줄은 남아
+    // 있으므로 **있다**고 해야 한다 — 번호만 보던 1.25.3 은 없다고 해 실행기가 끄기 · 지우기를 둘 다 건너뛰고
+    // '수행' 으로 적었다(이슈 #166 ③). 고치는 쪽은 그 번호에서 계획의 줄을 찾지 못해 거부하고, 파일은 그대로다.
+    let d = lab("cron-moved");
+    let bad = "*/5 * * * * root /tmp/.gs/gs-netcat -d";
+    let f = crontab(
+        &d,
+        &format!("SHELL=/bin/sh\n17 * * * * root /usr/bin/ok\n{bad}\n"),
+    );
+    let id = format!("{f}:3");
+    let at = LineAt {
+        line_no: 3,
+        line: bad.into(),
+    };
+    let moved = format!("17 * * * * root /usr/bin/ok\n{bad}\n");
+    std::fs::write(&f, &moved).expect("쓰기");
+
+    let l = Live::new();
+    assert!(
+        l.persistence_exists(&id, Some(&at)),
+        "올라온 줄을 없다고 한다"
+    );
+    // 계획이 줄을 말하지 않으면 전처럼 번호로만 답한다 — 고치는 쪽이 `require_line` 으로 거부한다.
+    assert!(!l.persistence_exists(&id, None));
+    l.persistence_disable(&id, Some(&at))
+        .expect_err("끄기를 막아야 한다");
+    l.persistence_delete(&id, Some(&at))
+        .expect_err("지우기를 막아야 한다");
+    assert_eq!(std::fs::read_to_string(&f).expect("읽기"), moved);
+
+    // 그 줄이 어디에도 없거나 파일이 없으면 없다.
+    std::fs::write(&f, "17 * * * * root /usr/bin/ok\n").expect("쓰기");
+    assert!(!l.persistence_exists(&id, Some(&at)));
+    std::fs::remove_file(&f).expect("지우기");
+    assert!(!l.persistence_exists(&id, Some(&at)));
 
     let _ = std::fs::remove_dir_all(&d);
 }
@@ -589,7 +682,7 @@ fn a_systemd_unit_loses_its_links_and_gets_them_back() {
     std::os::unix::fs::symlink(&unit, &link).expect("링크");
 
     let l = Live::new();
-    assert!(l.persistence_exists(&unit));
+    assert!(l.persistence_exists(&unit, None));
     let (backup, index) = l.persistence_read(&unit).expect("담기");
     assert_eq!(index.links.len(), 1, "링크를 못 봤다: {index:?}");
 
@@ -630,6 +723,80 @@ fn deleting_a_unit_takes_its_links_with_it() {
         std::fs::symlink_metadata(&link).is_err(),
         "유닛은 지웠는데 링크가 남았다"
     );
+
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+#[test]
+fn a_unit_link_comes_back_with_the_target_string_it_had() {
+    // 활성화 링크는 담을 때 가리키던 문자열 그대로 돌아온다. 유닛 경로로 달면 merged /usr 인 Debian 12
+    // 에서 `/usr/lib/…` 를 가리키던 링크가 `/lib/…` 로 돌아왔다(이슈 #166 ⑤ · 1.25.3). 여기서는 상대
+    // 대상으로 같은 꼴(같은 파일 · 다른 문자열)을 만든다.
+    let d = lab("unit-target");
+    let unit = p(&d, "upd.service");
+    let body = "[Service]\nExecStart=/x\n";
+    std::fs::write(&unit, body).expect("쓰기");
+    let wants = d.join("multi-user.target.wants");
+    std::fs::create_dir_all(&wants).expect("디렉터리");
+    let link = wants.join("upd.service");
+    std::os::unix::fs::symlink("../upd.service", &link).expect("링크");
+
+    let l = Live::new();
+    let (backup, index) = l.persistence_read(&unit).expect("담기");
+    l.persistence_delete(&unit, None).expect("지우기");
+    l.persistence_restore(&unit, &backup, &index)
+        .expect("되돌리기");
+    assert_eq!(
+        std::fs::read_link(&link).expect("링크"),
+        PathBuf::from("../upd.service")
+    );
+    assert_eq!(
+        std::fs::read_to_string(&link).expect("링크를 따라 읽기"),
+        body
+    );
+
+    // 그 칸이 없는 격리물(1.25.3 이 담은 꼴)은 전처럼 유닛 경로로 단다.
+    l.persistence_delete(&unit, None).expect("다시 지우기");
+    let old = PersistenceIndex {
+        links: index.links.clone(),
+        ..Default::default()
+    };
+    l.persistence_restore(&unit, &backup, &old)
+        .expect("옛 꼴로 되돌리기");
+    assert_eq!(
+        std::fs::read_link(&link).expect("링크"),
+        PathBuf::from(&unit)
+    );
+
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+#[test]
+fn a_dangling_unit_link_comes_back_once_from_two_entries() {
+    // 끊긴 링크도 담은 대상 그대로 돌아온다. 끄기 · 지우기가 같은 유닛을 하나씩 담아 복원이 두 번 도는데,
+    // 둘째가 대상을 따라가 '없다' 고 읽으면 다시 달다가 EEXIST 로 실패한다 — 링크 자체를 본다.
+    let d = lab("unit-dangling");
+    let unit = p(&d, "upd.service");
+    std::fs::write(&unit, "[Service]\nExecStart=/x\n").expect("쓰기");
+    let wants = d.join("multi-user.target.wants");
+    std::fs::create_dir_all(&wants).expect("디렉터리");
+    let link = wants.join("upd.service");
+    std::os::unix::fs::symlink("../gone/upd.service", &link).expect("링크");
+
+    let l = Live::new();
+    let (backup, index) = l.persistence_read(&unit).expect("담기");
+    assert_eq!(index.links.len(), 1, "{index:?}");
+    assert_eq!(index.link_targets.len(), 1, "{index:?}");
+    l.persistence_delete(&unit, None).expect("지우기");
+    for n in 1..=2 {
+        l.persistence_restore(&unit, &backup, &index)
+            .unwrap_or_else(|e| panic!("{n}번째 되돌리기: {e}"));
+        assert_eq!(
+            std::fs::read_link(&link).expect("링크"),
+            PathBuf::from("../gone/upd.service"),
+            "{n}번째 되돌리기 뒤"
+        );
+    }
 
     let _ = std::fs::remove_dir_all(&d);
 }

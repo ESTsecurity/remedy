@@ -123,7 +123,9 @@ fn c_string(data: &[u8], at: usize) -> Option<String> {
 pub(crate) mod tests {
     use super::*;
     // 일곱 밖의 꼬리표를 짓는 시험 도구 — 믿지 못할 입력의 시험(`untrusted`)도 쓴다.
-    pub(crate) use super::files::tests::{digests, files_in, label, pkg, MD5_HEX, SHA256_HEX};
+    pub(crate) use super::files::tests::{
+        digests, files_in, label, pkg, ALMA10_LIBGCC, MD5_HEX, SHA256_HEX,
+    };
 
     /// 시험용 헤더 영역을 짓는다 — 꼬리표마다 (tag, type, 값).
     pub(crate) fn build(entries: &[(u32, u32, Vec<u8>)]) -> Vec<u8> {

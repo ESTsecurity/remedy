@@ -1306,12 +1306,96 @@ pub fn derive(
     gate_needs_a_human(&mut out, scan, mode);
 
     // 순서는 코어가 정한다. 같은 단계 안에서는 들어온 순서를 지켜 **같은 입력이
-    // 같은 계획을 내게** 한다.
+    // 같은 계획을 내게** 한다. 예외는 하나 — 한 파일의 줄(cron · 텍스트 설정 ·
+    // hosts)은 한 번씩, 아래 줄부터 고친다([`lines_once_bottom_up`]).
     out.actions.sort_by_key(|a| (stage(a.op), a.seq));
+    lines_once_bottom_up(&mut out.actions);
     for (i, a) in out.actions.iter_mut().enumerate() {
         a.seq = i as u32 + 1;
     }
     out
+}
+
+/// 파일 **안의 줄 하나**를 고치는 Action 이면 `(파일, 줄 번호)` — 술어의 `line_no` 가 그 번호다([`locator`]).
+///
+/// | Op | 대상 |
+/// |---|---|
+/// | `persistence.disable` · `persistence.delete` | `<파일>:<번호>` — cron 줄. Windows 예약 작업과 systemd 유닛은 술어가 없어 `None` 이다 |
+/// | `text_config.remove_line` · `hosts.restore_line` | 그 파일 |
+fn line_place(a: &Action) -> Option<(&str, u64)> {
+    let n = a.r#match.as_ref()?.get("line_no")?.as_u64()?;
+    let target = a.target.as_deref()?;
+    let file = match a.op {
+        Op::PersistenceDisable | Op::PersistenceDelete => target.strip_suffix(&format!(":{n}"))?,
+        Op::TextConfigRemoveLine | Op::HostsRestoreLine => target,
+        _ => return None,
+    };
+    Some((file, n))
+}
+
+/// **한 파일의 줄은 한 번씩, 아래 줄부터 고친다** — 같은 줄을 짚은 칸을 하나로 합치고, 같은 Op · 같은 파일의
+/// 칸끼리 줄 번호가 큰 것부터 다시 앉힌다.
+///
+/// 지우기는 줄을 빼므로 그 아래 줄의 번호가 하나씩 당겨진다. 계획은 수집 때의 번호와 내용을 박아 두고
+/// ([`locator`]) 실행기가 그 둘을 대조하므로, 위 줄을 먼저 지우면 아래 줄이 *"내용이 계획과
+/// 다릅니다"* 로 거부되거나(일부 실패) 그 번호가 파일 끝을 넘어 *"이미 없다"* 로 건너뛰어 `#` 붙은
+/// 줄이 남은 채 완료로 보고됐다(이슈 #166 ③ · 1.25.3). 아래 줄부터 지우면 남은 줄의 번호가 밀리지
+/// 않는다. 끄기는 제자리 고침이라 차례와 상관없지만 같은 꼴로 둔다. `text_config.remove_line` ·
+/// `hosts.restore_line` 도 같은 번호 밀림을 겪었다 — 수집기가 텍스트 설정을 (파일, 번호) 오름차순으로 세워 한
+/// 파일의 둘째 줄이 늘 거부됐고, hosts 는 레코드의 문자열 차례라 그 차례가 번호를 따를 때만 그랬다.
+///
+/// **같은 줄은 한 번만 고친다.** 두 룰이 같은 줄을 짚으면(판정 `a or b` 에 `remove` 둘) 같은 줄의 Action 이 둘
+/// 계획됐고, 첫째가 줄을 빼면 둘째가 그 번호에 올라온 다음 줄을 보고 거부되어 일부 실패(3)로 끝났다. 같은
+/// Op · 대상 · 술어의 칸은 앞의 칸 하나로 합치고 근거(`because`)를 잇는다. 다시 앉히기보다 먼저 한다 — 같은
+/// 번호 둘은 내림차순에서도 붙어 남는다.
+///
+/// 들어온 차례는 줄 번호의 수 차례가 아니다. 수집기가 cron 레코드를 `id`(`<파일>:<번호>`)의 문자열 순으로
+/// 정렬하고, 평가기가 그 차례로 증거 번호(`<룰>#<n>`)를 매긴 뒤 그 문자열 순으로 한 번 더
+/// 정렬한다 — `…:12` 가 `…:3` 앞에 오고, 한 룰의 증거가 열 개를 넘으면 `#10` 이 `#2` 앞에 온다.
+/// 룰이 여럿이면 `remove` 의 ref 차례로도 섞인다. 그래서 번호를 수로 견주고, 정렬을 마친 목록에서 그
+/// 묶음의 칸만 다시 앉힌다 — 다른 Action 의 칸과, 한 파일에 줄이 하나뿐인 계획은 그대로다.
+///
+/// **단계가 다른 Op 끼리는 다시 앉히지 않는다.** 한 hosts 파일을 `remove`(`text_config.remove_line` · 6단계)와
+/// `restore: [hosts]`(`hosts.restore_line` · 7단계)가 함께 고치면 뒤 단계의 줄 번호는 앞 단계가 뺀 만큼 밀린다 —
+/// 단계를 섞으면 설계-03 §2 의 차례가 무너지므로 그대로 두고, 실행기의 대조가 그 줄을 거부한다(일부 실패).
+/// `/etc/cron.d` 의 한 파일을 `text_config_dirs` 로 읽어 환경 줄은 `text_config.remove_line`(6단계), 작업 줄은
+/// `persistence.delete`(5단계)로 지울 때도 같다 — 작업 줄이 위에 있으면 환경 줄이 거부된다. 줄을 고치는 Op 은 넷이
+/// 모두 단계가 달라, 한 단계 안에서 다른 Op 이 한 파일을 함께 고치는 꼴은 없다. 묶음의 열쇠는 대상 문자열 그대로라
+/// 같은 파일을 대소문자만 다른 경로로 짚은 칸(Windows — 대소문자만 다른 `scan_roots` · `text_config_dirs` 의 겹침)도
+/// 다른 파일로 묶여 함께 다시 앉히지 않는다.
+fn lines_once_bottom_up(actions: &mut Vec<Action>) {
+    let mut kept: Vec<Action> = Vec::with_capacity(actions.len());
+    for a in actions.drain(..) {
+        let twin = line_place(&a).and_then(|_| {
+            kept.iter()
+                .position(|k| k.op == a.op && k.target == a.target && k.r#match == a.r#match)
+        });
+        match twin {
+            Some(i) => {
+                for id in a.because {
+                    if !kept[i].because.contains(&id) {
+                        kept[i].because.push(id);
+                    }
+                }
+            }
+            None => kept.push(a),
+        }
+    }
+    *actions = kept;
+
+    let mut groups: std::collections::BTreeMap<(Op, String), Vec<usize>> = Default::default();
+    for (i, a) in actions.iter().enumerate() {
+        if let Some((file, _)) = line_place(a) {
+            groups.entry((a.op, file.to_string())).or_default().push(i);
+        }
+    }
+    for slots in groups.values().filter(|s| s.len() > 1) {
+        let mut lines: Vec<Action> = slots.iter().map(|&i| actions[i].clone()).collect();
+        lines.sort_by_key(|a| std::cmp::Reverse(line_place(a).map(|(_, n)| n)));
+        for (&i, a) in slots.iter().zip(lines) {
+            actions[i] = a;
+        }
+    }
 }
 
 fn restore_op(name: &str) -> Op {

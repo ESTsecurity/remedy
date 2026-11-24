@@ -1524,6 +1524,12 @@ impl<'a> Executor<'a> {
             // 사이에 파일이 바뀌었을 때 엉뚱한 줄을 지우고, 내용만 보면 같은
             // 줄이 여럿일 때 어느 것인지 정해지지 않는다. 어긋나면 아무것도
             // 하지 않고 실패한다 — 설정 파일에서 그것이 옳은 실패다.
+            //
+            // 남는 한계 — 아래 `persistence` 가지와 달리 *"내가 이미 지웠나"* 를 묻지 않는다. 줄을 뺀 직후 저널에
+            // 적기 전에 멈춘 회차를 이어 돌면 그 번호에 올라온 아래 줄과 견주거나(마지막 줄이었으면 그 번호가 없다)
+            // 거부된다 — 파일은 치료된 채 일부 실패다.
+            // *"그 줄이 어디에도 없으면 끝났다"* 로 물으면 검사 뒤 제자리에서 고쳐진 줄도 끝난 것이 된다 — cron 은
+            // 앞의 끄기가 그 줄과 견주어 거부하지만 텍스트 줄에는 그런 앞 단계가 없다.
             Op::TextConfigRemoveLine | Op::HostsRestoreLine => {
                 let target = a.target.as_deref().unwrap_or_default();
                 let (Some(line_no), Some(line)) = (match_u32(a, "line_no"), match_str(a, "line"))
@@ -1591,10 +1597,6 @@ impl<'a> Executor<'a> {
             // 차이일 뿐이며, **어느 쪽을 할지는 계획이 이미 정했다.**
             Op::PersistenceDisable | Op::PersistenceDelete => {
                 let target = a.target.as_deref().unwrap_or_default();
-                // 재기동한 실행기가 "내가 이미 지웠나" 를 묻는 자리.
-                if !self.backend.persistence_exists(target) {
-                    return Ok(());
-                }
                 // 항목이 **파일 안의 줄**이면(cron) 계획이 그 자리를 말한다.
                 // 번호만으로 고치면 그 사이에 파일이 바뀌었을 때 정상 작업을
                 // 멈춘다 — `text_config.remove_line` 과 같은 규약이다.
@@ -1605,6 +1607,25 @@ impl<'a> Executor<'a> {
                     }),
                     _ => None,
                 };
+                // 재기동한 실행기가 "내가 이미 지웠나" 를 묻는 자리. 줄이면 **그 줄이** 파일 어딘가에 아직 있는가를
+                // 묻는다 — 번호만 물으면 그 사이에 파일이 짧아졌을 때 남은 줄을 없다고 읽어 '수행' 으로 적었다(이슈
+                // #166 ③). '어디에도 없으면 끝났다' 는 지우기의 답이다 — 줄을 지운 직후 멈춘 회차를 이어 돌 때 그
+                // 줄은 어디에도 없고, 그때 끄기는 이미 결과가 있어 다시 돌지 않는다.
+                //
+                // 끄기는 그 번호에 줄이 있어도 있다고 본다(`at` 없이 물으면 번호로 답한다). 검사 뒤 그 줄이
+                // 제자리에서 고쳐졌으면(인자만 바뀐 같은 악성 줄) 계획의 줄은 어디에도 없다 — 끄기까지 그 답으로
+                // 건너뛰면 끄기 · 지우기가 둘 다 '수행' 이 되어, 고쳐진 줄이 남은 채 치료 완료로 끝난다. 끄기가 그
+                // 번호의 줄과 견주어 거부하게 둔다(일부 실패).
+                //
+                // 남는 한계 — 끄기를 마친 뒤 지우기 전에 멈추고, 이어 돌기 전에 그 꺼진 줄이 제자리에서 다시
+                // 고쳐지면(`#` 을 떼고 인자를 바꾼 줄) 지우기는 계획의 줄을 어디에서도 찾지 못해 끝난 것으로 적는다.
+                let exists = self.backend.persistence_exists(target, at.as_ref())
+                    || (a.op == Op::PersistenceDisable
+                        && at.is_some()
+                        && self.backend.persistence_exists(target, None));
+                if !exists {
+                    return Ok(());
+                }
                 if a.op == Op::PersistenceDisable {
                     self.backend.persistence_disable(target, at.as_ref())?;
                 } else {

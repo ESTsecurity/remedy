@@ -452,7 +452,7 @@ pub fn apply(
     remedy_platform::disk::require(&needs)?;
 
     let mut out = Vec::new();
-    for item in plan.allowed() {
+    for item in restore_order(plan, opened) {
         let entry = match opened.read(&item.id, key) {
             Ok(e) => e,
             Err(e) => {
@@ -595,7 +595,62 @@ pub fn apply(
             result,
         });
     }
+    // 결과는 목록 차례로 낸다 — 화면이 그 차례로 적는다([`restore_order`] 가 바꾼 것은 수행 차례뿐이다).
+    out.sort_by_key(|o| plan.items.iter().position(|i| i.id == o.id));
     Ok(out)
+}
+
+/// 되돌릴 차례 — 목록 차례 그대로이되, 줄 엔트리(cron · 텍스트 줄)의 칸만 종류마다 (파일, 줄 번호)
+/// 오름차순으로 다시 앉힌다.
+///
+/// 한 파일의 줄은 아래 줄부터 지웠다(`remedy-plan` 의 계획 차례). 담아 둔 번호는 그 위의 줄이
+/// 돌아와 있어야 제자리를 가리키므로 위 줄부터 넣는다. cron 은 끄기와 지우기가 한 줄을 하나씩 담아 같은 줄의
+/// 엔트리가 둘인데, 둘째는 백엔드가 이미 돌아온 줄로 보고 건너뛴다(`persistence_restore`).
+///
+/// 다른 엔트리는 칸을 옮기지 않는다. 같은 파일을 줄 엔트리와 통째 엔트리가 함께 담은 복원(줄 빼기 뒤
+/// 그 파일의 격리)은 줄을 먼저 넣고 통째로 덮어야 원래 바이트가 된다 — 목록을 통째로 뒤집으면 원본 위에
+/// 그 줄이 한 번 더 들어간다. 꺼내기는 제자리에 넣지 않으므로 목록 차례 그대로다.
+///
+/// 남는 한계 — 종류마다 따로 세우고 파일은 자리 문자열 그대로 견준다. 한 파일의 줄을 cron 엔트리와 텍스트 줄
+/// 엔트리가 함께 담았거나(`/etc/cron.d` 의 한 파일을 `persistence` 와 `text_config` 가 함께 고친 치료), 같은
+/// 파일을 대소문자만 다른 경로로 담았으면(Windows) 그 파일의 줄이 번호 차례로 들어가지 않는다 — 자리가 어긋나거나,
+/// 지우기가 거부돼 남은 줄을 한 번 더 넣을 수 있다.
+fn restore_order<'p>(plan: &'p Plan, opened: &Opened<'_>) -> Vec<&'p Item> {
+    let mut items: Vec<&Item> = plan.allowed().collect();
+    if plan.extract_to.is_some() {
+        return items;
+    }
+    for kind in [EntryKind::Cron, EntryKind::TextLine] {
+        let slots: Vec<usize> = (0..items.len())
+            .filter(|&i| items[i].kind == kind)
+            .collect();
+        let mut lines: Vec<(Option<(&str, u64)>, &Item)> = slots
+            .iter()
+            .map(|&i| (line_place(items[i], opened), items[i]))
+            .collect();
+        lines.sort_by(|a, b| a.0.cmp(&b.0));
+        for (&i, (_, item)) in slots.iter().zip(lines) {
+            items[i] = item;
+        }
+    }
+    items
+}
+
+/// 줄 엔트리의 자리 `(파일, 줄 번호)` — cron 은 자리 `<파일>:<줄 번호>` 에서, 텍스트 줄은 담을 때 적은
+/// `line_no`([`restore_text_line`] 이 읽는 그것)에서 읽는다. 그 꼴이 아니면 `None` 이고, 그런 엔트리끼리는 목록
+/// 차례다.
+fn line_place<'p>(item: &'p Item, opened: &Opened<'_>) -> Option<(&'p str, u64)> {
+    match item.kind {
+        EntryKind::Cron => {
+            let (file, n) = item.dest.rsplit_once(':')?;
+            Some((file, n.parse().ok()?))
+        }
+        EntryKind::TextLine => {
+            let me = opened.manifest.entries.iter().find(|m| m.id == item.id)?;
+            Some((item.dest.as_str(), me.meta.get("line_no")?.as_u64()?))
+        }
+        _ => None,
+    }
 }
 
 /// 레지스트리 값 하나를 되돌린다.
@@ -1275,6 +1330,198 @@ mod tests {
         assert!(out[0].result.is_ok(), "{:?}", out[0].result);
         assert_eq!(std::fs::read(&dest).unwrap(), b"\x00\x01\x02original");
         std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// 백엔드가 받은 자리를 차례대로 적는다. 되돌리기는 늘 성공한다.
+    #[derive(Default)]
+    struct Order(std::cell::RefCell<Vec<String>>);
+
+    impl PlatformWrite for Order {
+        fn backend_name(&self) -> &'static str {
+            "order"
+        }
+        fn plan_restore(&self, _dest: &str, _meta: &FileMeta) -> RestoreReport {
+            RestoreReport::default()
+        }
+        fn restore_file(
+            &self,
+            dest: &str,
+            _content: &[u8],
+            _meta: &FileMeta,
+        ) -> Result<RestoreReport, remedy_platform::PlatformError> {
+            self.0.borrow_mut().push(dest.to_string());
+            Ok(RestoreReport::default())
+        }
+        fn quarantine_read(
+            &self,
+            _path: &str,
+        ) -> Result<(Vec<u8>, FileMeta), remedy_platform::PlatformError> {
+            Err(remedy_platform::PlatformError::Unsupported("읽지 않는다"))
+        }
+        fn destroy_file(&self, _path: &str) -> Result<(), remedy_platform::PlatformError> {
+            Err(remedy_platform::PlatformError::Unsupported("지우지 않는다"))
+        }
+        fn exists(&self, _path: &str) -> bool {
+            false
+        }
+        fn persistence_restore(
+            &self,
+            id: &str,
+            _content: &[u8],
+            _index: &remedy_platform::write::PersistenceIndex,
+        ) -> Result<(), remedy_platform::PlatformError> {
+            self.0.borrow_mut().push(id.to_string());
+            Ok(())
+        }
+        fn text_line_restore(
+            &self,
+            path: &str,
+            line_no: u32,
+            _line: &str,
+        ) -> Result<(), remedy_platform::PlatformError> {
+            self.0.borrow_mut().push(format!("{path}#{line_no}"));
+            Ok(())
+        }
+    }
+
+    /// 한 파일의 cron 줄은 아래 줄부터 지웠으므로 위 줄부터 넣는다 — 담아 둔 번호는 위 줄이 돌아와
+    /// 있어야 제자리를 가리킨다(이슈 #166 ③). 끄기 · 지우기가 한 줄을 하나씩 담아 같은 줄이 둘이다.
+    /// cron 이 아닌 엔트리는 제 칸에서 돌고, 결과는 목록 차례로 나온다.
+    #[test]
+    fn cron_lines_are_restored_top_down_and_reported_in_list_order() {
+        let cron = |origin: &str| Entry {
+            kind: EntryKind::Cron,
+            origin: origin.into(),
+            meta: serde_json::json!({}),
+            content: b"* * * * * /tmp/bad".to_vec(),
+        };
+        let (bytes, ck) = build(vec![
+            cron("/srv/cron/root:5"),
+            entry("/srv/x.bin"),
+            cron("/srv/cron/root:3"),
+            cron("/srv/cron/root:5"),
+            cron("/srv/cron/root:3"),
+        ]);
+        let sealed = peek(&bytes).unwrap();
+        let opened = sealed.unlock(&ck).unwrap();
+        let backend = Order::default();
+        let p = plan(
+            &opened,
+            "r1",
+            &backend,
+            &Guards {
+                protected: &protected(),
+                vouched: &nothing_vouched(),
+            },
+            &[],
+            None,
+        )
+        .unwrap();
+        let out = apply(&p, &opened, &ck, &backend).unwrap();
+
+        assert_eq!(
+            *backend.0.borrow(),
+            [
+                "/srv/cron/root:3",
+                "/srv/x.bin",
+                "/srv/cron/root:3",
+                "/srv/cron/root:5",
+                "/srv/cron/root:5",
+            ]
+        );
+        let ids: Vec<&str> = out.iter().map(|o| o.id.as_str()).collect();
+        assert_eq!(ids, ["e0", "e1", "e2", "e3", "e4"]);
+        assert!(out.iter().all(|o| o.result.is_ok()), "{out:?}");
+    }
+
+    /// cron 줄 번호는 수로 견준다 — 자리 `<파일>:<번호>` 를 문자열로 견주면 `…:12` 가 `…:3` 앞에 서고, 아래 줄이
+    /// 먼저 들어가 담아 둔 번호가 제자리를 가리키지 않는다. 목록에는 `:12` 를 앞에 둔다 — 치료가 아래 줄부터 담으므로
+    /// 실제 격리물도 그 차례다. 위 시험의 `:3` · `:5` 는 두 견줌이 같은 차례를 내 이 변이를 잡지 못한다.
+    #[test]
+    fn cron_line_numbers_are_ordered_as_numbers_not_as_text() {
+        let cron = |origin: &str| Entry {
+            kind: EntryKind::Cron,
+            origin: origin.into(),
+            meta: serde_json::json!({}),
+            content: b"* * * * * /tmp/bad".to_vec(),
+        };
+        let (bytes, ck) = build(vec![cron("/srv/cron/root:12"), cron("/srv/cron/root:3")]);
+        let sealed = peek(&bytes).unwrap();
+        let opened = sealed.unlock(&ck).unwrap();
+        let backend = Order::default();
+        let guards = Guards {
+            protected: &protected(),
+            vouched: &nothing_vouched(),
+        };
+        let p = plan(&opened, "r1", &backend, &guards, &[], None).unwrap();
+        let out = apply(&p, &opened, &ck, &backend).unwrap();
+
+        assert_eq!(
+            *backend.0.borrow(),
+            ["/srv/cron/root:3", "/srv/cron/root:12"]
+        );
+        let ids: Vec<&str> = out.iter().map(|o| o.id.as_str()).collect();
+        assert_eq!(ids, ["e0", "e1"]);
+    }
+
+    /// 텍스트 줄(`text_config.remove_line` · `hosts.restore_line` 이 담은 줄)도 같다 — 한 파일의 줄은 아래 줄부터
+    /// 지웠으므로 담을 때 적은 번호(`meta.line_no`)의 오름차순으로 넣는다. 파일마다 따로 세우고, 다른 엔트리는
+    /// 제 칸에서 돌며, 결과는 목록 차례로 나온다. 꺼내기는 제자리에 넣지 않으므로 목록 차례 그대로다.
+    #[test]
+    fn text_lines_are_restored_top_down_per_file() {
+        let line = |origin: &str, n: u32| Entry {
+            kind: EntryKind::TextLine,
+            origin: origin.into(),
+            meta: serde_json::json!({ "line_no": n }),
+            content: format!("evil{n}=1").into_bytes(),
+        };
+        let (bytes, ck) = build(vec![
+            line("/srv/app/a.conf", 12),
+            line("/srv/app/b.conf", 2),
+            entry("/srv/x.bin"),
+            line("/srv/app/a.conf", 3),
+            line("/srv/app/b.conf", 1),
+        ]);
+        let sealed = peek(&bytes).unwrap();
+        let opened = sealed.unlock(&ck).unwrap();
+        let guards = Guards {
+            protected: &protected(),
+            vouched: &nothing_vouched(),
+        };
+        let backend = Order::default();
+        let p = plan(&opened, "r1", &backend, &guards, &[], None).unwrap();
+        let out = apply(&p, &opened, &ck, &backend).unwrap();
+
+        assert_eq!(
+            *backend.0.borrow(),
+            [
+                "/srv/app/a.conf#3",
+                "/srv/app/a.conf#12",
+                "/srv/x.bin",
+                "/srv/app/b.conf#1",
+                "/srv/app/b.conf#2",
+            ]
+        );
+        let ids: Vec<&str> = out.iter().map(|o| o.id.as_str()).collect();
+        assert_eq!(ids, ["e0", "e1", "e2", "e3", "e4"]);
+        assert!(out.iter().all(|o| o.result.is_ok()), "{out:?}");
+
+        // 꺼내기 — 백엔드는 받은 자리만 적고 쓰지 않는다.
+        let backend = Order::default();
+        let p = plan(&opened, "r1", &backend, &guards, &[], Some("/srv/out")).unwrap();
+        let out = apply(&p, &opened, &ck, &backend).unwrap();
+        let ids: Vec<&str> = out.iter().map(|o| o.id.as_str()).collect();
+        assert_eq!(ids, ["e0", "e1", "e2", "e3", "e4"]);
+        let wrote = backend.0.borrow();
+        let tails: Vec<&str> = wrote
+            .iter()
+            .map(|w| w.rsplit('_').next().unwrap_or_default())
+            .collect();
+        assert_eq!(
+            tails,
+            ["a.conf", "b.conf", "x.bin", "a.conf", "b.conf"],
+            "꺼내기가 차례를 바꿨다: {wrote:?}"
+        );
     }
 
     #[test]
