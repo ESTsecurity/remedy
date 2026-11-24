@@ -231,7 +231,7 @@
       "linux": true,
       "linux_from": "P12",
       "scoping": "path",
-      "summary": "ini · conf · 셸 프로필 등 줄 단위 설정",
+      "summary": "ini · conf 등 확장자로 고르는 줄 단위 설정",
       "windows": true
     },
     {

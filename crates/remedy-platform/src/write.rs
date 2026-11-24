@@ -622,7 +622,7 @@ pub trait PlatformWrite {
         )))
     }
 
-    /// 지웠던 줄을 되돌린다.
+    /// 지웠던 줄을 되돌린다. 그 번호의 줄이 이미 그 줄이면 넣지 않는다 — 복원은 멱등해야 한다.
     fn text_line_restore(
         &self,
         _path: &str,
@@ -719,7 +719,11 @@ pub trait PlatformWrite {
     }
 
     /// 그 작업이 아직 등록돼 있는가. 재기동한 실행기가 묻는 자리다.
-    fn persistence_exists(&self, _id: &str) -> bool {
+    ///
+    /// `at` 은 [`Self::persistence_disable`] 과 같다. 항목이 **파일 안의 줄**이면(cron) 번호가 아니라 계획이 본 그
+    /// 줄이 파일 어딘가에 아직 있는가를 답한다 — 번호만 보면 그 사이에 파일이 짧아졌을 때 줄이 남았는데 없다고 한다.
+    /// `at` 이 없으면 그 번호에 줄이 있는가를 답한다 — 실행기의 끄기는 둘을 함께 묻는다(`remedy-apply`).
+    fn persistence_exists(&self, _id: &str, _at: Option<&LineAt>) -> bool {
         false
     }
 
@@ -1098,6 +1102,13 @@ pub struct PersistenceIndex {
     /// 이 항목을 가리키던 활성화 링크. 절대 경로다.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub links: Vec<String>,
+    /// 링크 경로 → 담을 때 그 링크가 가리키던 문자열(`readlink`). 되돌릴 때 이 문자열 그대로 단다 — 유닛
+    /// 경로로 달면 merged /usr 인 Debian 12 에서 `/usr/lib/…` 를 가리키던 링크가 `/lib/…` 로 돌아왔다
+    /// (이슈 #166 ⑤ · 1.25.3 · 같은 파일이지만 다른 문자열). 칸이 없으면(그 전의 격리물 · 읽지 못한
+    /// 링크) 유닛 경로로 단다 — 1.25.3 과 같다. 비면 쓰지 않으므로 cron · Windows 의 `meta` 는 전과 같은
+    /// 바이트다.
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub link_targets: std::collections::BTreeMap<String, String>,
 }
 
 /// 지속성 항목이 **파일 안의 줄**일 때 그 자리 (cron).
@@ -1280,7 +1291,7 @@ pub fn remove_text_line(text: &str, line_no: u32, expect: &str) -> Option<String
     let lines = split_keeping_endings(text);
     let idx = (line_no as usize).checked_sub(1)?;
     let got = lines.get(idx)?;
-    if got.trim_end_matches(['\r', '\n']).trim() != expect.trim() {
+    if !same_text_line(got, expect) {
         return None;
     }
     let mut out = String::with_capacity(text.len() - got.len());
@@ -1290,6 +1301,13 @@ pub fn remove_text_line(text: &str, line_no: u32, expect: &str) -> Option<String
         }
     }
     Some(out)
+}
+
+/// 그 줄이 그 내용인가 — 줄 끝과 양끝 공백을 떼고 견준다. 지우기([`remove_text_line`])와 복원의 *"이미 돌아와
+/// 있는가"*(`FsRestore` 의 `text_line_restore`)가 같은 대조를 쓴다 — 둘이 갈라지면 지운 줄을 복원이 못 알아보거나
+/// 그 반대가 된다.
+fn same_text_line(got: &str, want: &str) -> bool {
+    got.trim_end_matches(['\r', '\n']).trim() == want.trim()
 }
 
 /// 뺐던 줄을 그 자리에 되돌린다.
@@ -1914,6 +1932,23 @@ impl PlatformWrite for FsRestore {
 
     fn text_line_restore(&self, path: &str, line_no: u32, line: &str) -> Result<(), PlatformError> {
         let text = read_text(path).unwrap_or_default();
+        // 그 번호의 줄이 담아 둔 줄이면 이미 돌아와 있다 — 넣지 않는다. cron 줄의 복원(`linux.rs` 의
+        // `persistence_restore`)과 같은 규약이고, 견주는 꼴은 지우기와 같다([`same_text_line`]). 1.25.3 은 그
+        // 번호를 보지 않고 넣어, 같은 격리물을 두 번 복원하거나 담기만 하고 지우기 전에 멈춘 회차를 복원하면 그
+        // 줄이 두 번이 됐다. 복원이 한 파일의 줄을 위 줄부터 넣으므로(`remedy-core` 의 복원 차례) 그 번호에 있는
+        // 같은 줄이 곧 돌아온 줄이다.
+        //
+        // 남는 한계 둘.
+        // - 복원할 때 그 번호에 오는 줄, 곧 원본에서 그 줄 아래로 처음 나오는 지우지 않은 줄이 같은 내용이면 그
+        //   줄을 돌아온 줄로 읽어 넣지 않는다 — 같은 줄은 보통 둘 다 증거라 함께 지운다.
+        // - 담은 뒤 복원하기 전에 그 파일에 줄이 더해지거나 빠졌으면 — 멈춘 회차를 이어 도는 사이든(그 줄이
+        //   다른 번호로 옮겨 가 지우기가 거부된 엔트리), 이어 돌지 않았든, 치료 뒤든 — 그 번호에 다른 줄이 와
+        //   있어 한 번 더 넣는다. 파일이 그 번호보다 짧으면 끝에 붙이고([`insert_text_line`]), 다시 복원하면 또
+        //   붙인다. 검사와 치료 사이에 옮겨 간 줄은 여기 들지 않는다 — 담기는 계획의 줄과 견주지 않고 그 번호에
+        //   그때 있던 줄을 담으므로, 지우기가 거부되면 담은 줄이 그 번호에 그대로 있다.
+        if nth_line(&text, line_no).is_some_and(|cur| same_text_line(&cur, line)) {
+            return Ok(());
+        }
         let after = insert_text_line(&text, line_no, line);
         std::fs::write(path, after).map_err(|e| PlatformError::io(path, e))
     }

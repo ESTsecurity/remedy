@@ -359,7 +359,7 @@ impl PlatformWrite for Bench {
             })
             .ok_or(PlatformError::Unsupported("그런 작업이 없다"))
     }
-    fn persistence_exists(&self, id: &str) -> bool {
+    fn persistence_exists(&self, id: &str, _at: Option<&remedy_platform::write::LineAt>) -> bool {
         self.tasks.borrow().contains_key(id)
     }
     fn persistence_disable(

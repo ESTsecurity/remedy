@@ -90,7 +90,7 @@ require: "task and count(payload) >= 2"      # 한 건으로는 서지 않게
 | `persistence.cmdline` | 없다. `command` 와 `args` 로 나뉜다 |
 | 살아 있는 네트워크 연결 (`network_conn`) | subject 에 없다. 연결은 관측 대상이 아니다 |
 | `file.content` 를 조건으로 직접 비교 | 없다. 내용 판정은 `yara:` 로 한다 |
-| `autorun` 의 '셸 프로필' 에 `~/.bashrc` · `~/.profile` 이 든다 | Linux 는 `/etc/profile.d` 의 파일 단위뿐이다. 그 두 파일의 줄은 `autorun` 에도, 확장자로 고르는 `text_config` 에도 오지 않는다 — `machine/REFERENCE.md` 가 `text_config` 에 적은 '셸 프로필' 은 `text_config_dirs` 에 적은 폴더(직접 자식 · 확장자 무관 — `10-manifest.md`)의 파일로만 든다 |
+| `autorun` 의 '셸 프로필' 에 `~/.bashrc` · `~/.profile` 이 든다 | Linux 는 `/etc/profile.d` 의 파일 단위뿐이다. 그 두 파일의 줄은 `autorun` 에도, 확장자로 고르는 `text_config` 에도 오지 않는다 — 셸 프로필처럼 확장자가 없는 파일은 `text_config_dirs` 에 적은 폴더(직접 자식 · 확장자 무관 — `10-manifest.md`)의 파일일 때만 `text_config` 에 든다 |
 | `process.image_path` 가 프로세스가 내세운 이름 | Linux 는 `/proc/<pid>/exe` 가 가리키는 파일이다 — `exec -a` 로 바꾼 이름은 `cmdline` 에만 오고, 실행 중에 지운 파일이면 끝에 ` (deleted)` 가 붙어 `$` 로 끝을 고정한 정규식이 빗나간다 |
 
 ---

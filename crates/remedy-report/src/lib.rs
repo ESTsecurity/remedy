@@ -861,7 +861,7 @@ pub fn no_target(lang: Lang) -> &'static str {
     lang.t("(실행 중인 것을 찾아서)", "(matched at run time)")
 }
 
-/// 마무리 화면 — 결과 한 줄, 소요 시간, 되돌리는 법, 저작권.
+/// 마무리 화면 — 결과 한 줄, 소요 시간, 되돌리는 법(격리소가 생긴 회차 — 격리가 실패했어도), 저작권.
 pub struct Closing<'a> {
     pub code: remedy_sdk::artifact::ExitCode,
     pub done: usize,
@@ -911,10 +911,14 @@ pub fn render_closing(c: &Closing<'_>, lang: Lang) -> String {
             .state_dir
             .map(|d| format!(" --state-dir {d}"))
             .unwrap_or_default();
-        out.push_str(&format!(
-            " {} : remedy restore --run {run}{at}\n",
-            pad(lang.t("되돌리려면", "To undo"), w)
-        ));
+        // 되돌릴 것은 격리소에만 있다 — 프로세스 종료 · 서비스 중지만 한 회차의 `restore --run` 은
+        // 격리소를 찾다 종료 4 로 끝났다(이슈 #166 ④ · 1.25.3). 메뉴의 마무리와 같은 조건이다.
+        if c.quarantine.is_some() {
+            out.push_str(&format!(
+                " {} : remedy restore --run {run}{at}\n",
+                pad(lang.t("되돌리려면", "To undo"), w)
+            ));
+        }
         out.push_str(&format!(
             " {} : remedy support-bundle --run {run}{at}\n",
             pad(lang.t("오탐 신고", "Report FP"), w)

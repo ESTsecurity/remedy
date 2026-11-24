@@ -829,10 +829,36 @@ impl PlatformWrite for Live {
     ///
     /// Windows 쪽(`task_file` 이 있는가)도 처음부터 **존재**였다. Linux 만
     /// 달랐다.
-    fn persistence_exists(&self, id: &str) -> bool {
-        match cron_at(id) {
-            Some((file, line_no)) => nth_line(&file, line_no).is_ok(),
-            None => std::path::Path::new(id).exists(),
+    ///
+    /// # cron 줄은 번호가 아니라 그 줄이 있는가다
+    ///
+    /// 계획이 줄을 말하면(`at`) 그 줄이 파일 **어느 줄에도** 없을 때만 없다고 한다([`line_in_file`]). 한동안 *"그
+    /// 번호의 줄이 있는가"* 였고, 그 뜻으로는 두 가지가 틀렸다(이슈 #166 ③ · 1.25.3).
+    ///
+    /// - 담기를 마친 뒤 번호가 파일 끝을 넘으면 — 위 줄을 먼저 지웠거나, 멈춘 회차를 이어 도는 사이에 crontab 이
+    ///   짧아졌으면 — 끄기 · 지우기가 둘 다 여기서 건너뛰어져 *"수행"* 으로 적혔다. 악성 줄은 주석도 없이 한 줄 위에
+    ///   남았다. 새로 도는 회차는 담기가 그 번호를 읽지 못해 바꾸기 전에 멈춘다.
+    /// - 줄을 지운 직후 멈춘 실행기가 이어서 돌면 그 번호에 아래 줄이 올라와 있어 *"있다"* 가 되고, 지우기가 그 줄과
+    ///   견주어 *"내용이 계획과 다릅니다"* 로 거짓 실패했다.
+    ///
+    /// 그 줄이 다른 번호에 있으면 있다고 한다 — 고치는 쪽의 [`expect_line`] 이 그 번호의 줄과 견주어 거부한다. 그 사이에
+    /// 파일이 바뀐 것이고, 번호를 다시 짓는 것은 다시 검사하는 일이다.
+    ///
+    /// *"어디에도 없으면 없다"* 는 지우기가 기대는 답이다. 그 줄이 제자리에서 고쳐졌어도(검사 뒤 인자만 바뀐 같은 줄)
+    /// 계획의 줄은 어디에도 없으므로, 실행기의 끄기는 `at` 없이 한 번 더 물어 그 번호에 줄이 있으면 있다고 본다 —
+    /// 그래야 끄기가 그 줄과 견주어 거부한다(`remedy-apply` 의 `persistence.disable` 가지).
+    ///
+    /// 남는 한계 — 같은 내용의 다른 줄도 *"있다"* 의 근거가 된다. 한 crontab 에 같은 줄이 둘이거나 미리 `#` 로 끈 같은
+    /// 줄이 있으면, 그 줄을 지운 직후 멈춘 회차를 이어 돌 때 지운 줄을 있다고 읽고 지우기가 그 번호에서 거부된다
+    /// (파일은 치료된 채 일부 실패). 지운 줄이 그 파일의 마지막 줄이었으면 번호만 보던 1.25.3 은 이 경우를 *"수행"* 으로
+    /// 맞게 적었다 — 이 꼴에서만은 그보다 나쁘다.
+    fn persistence_exists(&self, id: &str, at: Option<&LineAt>) -> bool {
+        match (cron_at(id), at) {
+            (Some((file, _)), Some(at)) => line_in_file(&file, at),
+            // 계획이 줄을 말하지 않았거나, 실행기의 끄기가 번호로 묻는다 — 그 번호에 줄이 있는가. 줄 없이 고치는 것은
+            // 고치는 쪽이 [`require_line`] 으로 거부한다.
+            (Some((file, line_no)), None) => nth_line(&file, line_no).is_ok(),
+            (None, _) => std::path::Path::new(id).exists(),
         }
     }
 
@@ -848,10 +874,21 @@ impl PlatformWrite for Live {
             }
             None => {
                 let bytes = std::fs::read(id).map_err(|e| PlatformError::io(id, e))?;
+                let links = wants_links(id);
+                // 링크가 가리키던 문자열도 담는다([`PersistenceIndex::link_targets`]). 읽지 못했거나
+                // UTF-8 이 아닌 대상은 담지 않는다 — 바뀐 문자열로 달지 않고 전처럼 유닛 경로로 단다.
+                let link_targets = links
+                    .iter()
+                    .filter_map(|l| {
+                        let to = std::fs::read_link(l).ok()?;
+                        Some((l.clone(), to.to_str()?.to_string()))
+                    })
+                    .collect();
                 Ok((
                     bytes,
                     PersistenceIndex {
-                        links: wants_links(id),
+                        links,
+                        link_targets,
                     },
                 ))
             }
@@ -916,8 +953,22 @@ impl PlatformWrite for Live {
     ) -> Result<(), PlatformError> {
         match cron_at(id) {
             Some((file, line_no)) => {
-                let line = String::from_utf8_lossy(content).to_string();
-                insert_line(&file, line_no, line.trim_end_matches(['\r', '\n']))
+                // 그 번호의 줄이 담아 둔 줄이면 이미 돌아와 있다 — 그대로 둔다. 아래 systemd 갈래의 '이미
+                // 있으면 그대로 둔다' 와 같은 규약이다. 제거가 끄기 → 지우기 두 동작이라 한 줄을 엔트리 둘이
+                // 담고, 1.25.3 은 그 줄을 두 번 넣었다(이슈 #166 ② · 38 B → 77 B). 복원이 한 파일의 cron
+                // 줄을 위 줄부터 넣으므로(`remedy-core` 의 복원 차례) 그 번호에 있는 같은 줄이 곧 방금 되돌린
+                // 줄이다. 남는 한계 둘 — `FsRestore` 의 `text_line_restore` 와 같다.
+                // - 복원할 때 그 번호에 오는 줄, 곧 원본에서 그 줄 아래로 처음 나오는 지우지 않은 줄이 같은
+                //   내용이면 그 줄을 돌아온 줄로 읽는다(같은 줄은 보통 둘 다 증거라 함께 지운다).
+                // - 담은 뒤 복원하기 전에 그 파일에 줄이 더해지거나 빠졌으면 — 멈춘 회차를 이어 도는 사이든, 이어
+                //   돌지 않았든, 치료 뒤든 — 그 번호에 다른 줄이 와 있어 한 번 더 넣는다. 파일이 그 번호보다
+                //   짧으면 끝에 붙이고, 다시 복원하면 또 붙인다.
+                let text = String::from_utf8_lossy(content);
+                let line = text.trim_end_matches(['\r', '\n']);
+                if nth_line(&file, line_no).is_ok_and(|cur| cur == line) {
+                    return Ok(());
+                }
+                insert_line(&file, line_no, line)
             }
             None => {
                 std::fs::write(id, content).map_err(|e| PlatformError::io(id, e))?;
@@ -926,11 +977,15 @@ impl PlatformWrite for Live {
                         std::fs::create_dir_all(dir)
                             .map_err(|e| PlatformError::io(dir.to_string_lossy(), e))?;
                     }
-                    // 이미 있으면 그대로 둔다 — 복원은 멱등해야 한다.
-                    if std::path::Path::new(l).exists() {
+                    // 이미 있으면 그대로 둔다 — 복원은 멱등해야 한다. 대상을 따라가지 않고 링크 자체를 본다
+                    // ([`wants_links`] 와 같다). 끊긴 링크를 담아 둔 대상 그대로 되돌리면 `exists` 는 없다고
+                    // 답하고, 같은 유닛의 둘째 엔트리(끄기 · 지우기가 하나씩 담는다)가 EEXIST 로 실패한다.
+                    if std::fs::symlink_metadata(l).is_ok() {
                         continue;
                     }
-                    std::os::unix::fs::symlink(id, l).map_err(|e| PlatformError::io(l, e))?;
+                    // 담을 때 가리키던 문자열 그대로 단다. 그 칸이 없으면(1.25.3 까지의 격리물) 유닛 경로로 단다.
+                    let to = index.link_targets.get(l).map_or(id, String::as_str);
+                    std::os::unix::fs::symlink(to, l).map_err(|e| PlatformError::io(l, e))?;
                 }
                 Ok(())
             }
@@ -1225,8 +1280,7 @@ fn nth_line(file: &str, line_no: u32) -> Result<String, PlatformError> {
 /// 돌고 재기동한 실행기가 다시 돌 수 있고, 그때 대조가 어긋나면 멱등하지 않다.
 fn expect_line(file: &str, line_no: u32, at: &LineAt) -> Result<String, PlatformError> {
     let cur = nth_line(file, line_no)?;
-    let bare = cur.trim_start().strip_prefix('#').unwrap_or(&cur).trim();
-    if bare != at.line.trim() {
+    if !same_line(&cur, at) {
         return Err(PlatformError::refused(
             format!("{file}:{line_no} 의 내용이 계획과 다릅니다. 그 사이에 파일이 바뀌었습니다"),
             format!("{file}:{line_no} does not match the plan; the file changed in between"),
@@ -1235,10 +1289,38 @@ fn expect_line(file: &str, line_no: u32, at: &LineAt) -> Result<String, Platform
     Ok(cur)
 }
 
+/// 그 줄이 계획이 본 줄인가 — 앞에 붙은 `#`(끄기가 붙인 것)와 양끝 공백을 떼고 견준다. [`expect_line`] 과
+/// [`line_in_file`] 이 같은 대조를 쓴다 — 둘이 갈라지면 *"있다"* 고 한 줄을 고치는 쪽이 거부하거나 그 반대가 된다.
+///
+/// 양쪽을 수집기처럼 NFC 로 맞춘다 — 수집기가 계획에 싣는 줄은 `normalize::nfc(line.trim())` 이다(`remedy-collect`
+/// 의 `cron.rs`). 맞추지 않으면 조합형 한글이나 결합 문자(NFD)가 든 줄은 파일이 그대로여도 계획의 줄과 달라, 끄지도
+/// 지우지도 못하고 [`line_in_file`] 은 그 줄이 어디에도 없다고 답한다. 바꾸는 것은 대조뿐이다 — 끄기 · 지우기 ·
+/// 담기는 파일의 원래 바이트를 쓴다.
+fn same_line(cur: &str, at: &LineAt) -> bool {
+    let bare = cur.trim_start().strip_prefix('#').unwrap_or(cur).trim();
+    normalize::nfc(bare) == normalize::nfc(at.line.trim())
+}
+
+/// 계획이 본 그 줄이 파일 **어딘가에** 아직 있는가 — 번호는 보지 않는다(`persistence_exists`).
+///
+/// 파일이 없으면 줄도 없다. 그 밖의 까닭으로 읽지 못하면 없다고 하지 않는다 — 없다고 하면 실행기가 그 Action 을
+/// 끝난 것으로 적고, 있다고 하면 고치는 쪽이 같은 파일을 읽다가 그 오류를 낸다.
+fn line_in_file(file: &str, at: &LineAt) -> bool {
+    match std::fs::read(file) {
+        Ok(bytes) => String::from_utf8_lossy(&bytes)
+            .lines()
+            .any(|l| same_line(l, at)),
+        Err(e) => e.kind() != std::io::ErrorKind::NotFound,
+    }
+}
+
 fn write_lines(file: &str, lines: &[String]) -> Result<(), PlatformError> {
     let mut out = lines.join("\n");
-    // 끝의 줄바꿈을 지키지 않으면 cron 이 마지막 줄을 무시한다.
-    out.push('\n');
+    // 끝의 줄바꿈을 지키지 않으면 cron 이 마지막 줄을 무시한다. 줄을 다 지웠으면 빈 파일로 둔다 —
+    // 줄바꿈 하나만 남기면 그 빈 줄 위에 되돌린 줄이 들어가 원래보다 1 바이트 길어졌다(이슈 #166 ②).
+    if !lines.is_empty() {
+        out.push('\n');
+    }
     std::fs::write(file, out).map_err(|e| PlatformError::io(file, e))
 }
 

@@ -1128,7 +1128,8 @@ impl PlatformWrite for Live {
         Ok((bytes, crate::write::PersistenceIndex::default()))
     }
 
-    fn persistence_exists(&self, id: &str) -> bool {
+    /// `at` 은 오지 않는다 — 아래 `persistence_disable` 과 같다.
+    fn persistence_exists(&self, id: &str, _at: Option<&crate::write::LineAt>) -> bool {
         self.task_file(id)
             .is_ok_and(|p| std::fs::symlink_metadata(p).is_ok())
     }

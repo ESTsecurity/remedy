@@ -1607,6 +1607,228 @@ fn removing_a_scheduled_task_plans_disable_then_delete() {
 }
 
 #[test]
+fn cron_lines_in_one_file_are_planned_bottom_up() {
+    // 한 crontab 에서 줄을 둘 이상 지우는 계획이 위 줄부터 지워, 아래 줄의 번호가 밀린 채 일부 실패하거나
+    // `#` 붙은 줄이 남은 채 완료로 끝났다(이슈 #166 ③ · 1.25.3). 증거는 줄 번호의 수 차례가 아닌 채로
+    // 담는다 — 다른 룰(`cron2`)이 같은 파일의 다른 줄을 짚고, 줄이 아닌 지속성(systemd 타이머)이 사이에
+    // 끼어 있다. 그 둘과 다른 파일(G)의 줄은 제 칸에 남아야 한다.
+    const F: &str = "/var/spool/cron/crontabs/root";
+    const G: &str = "/etc/cron.d/x";
+    const UNIT: &str = "/etc/systemd/system/upd.timer";
+    let line = |id: &str, file: &str, n: u64| {
+        let mut e = ev_raw(
+            Subject::Persistence,
+            serde_json::json!({
+                "id": format!("{file}:{n}"),
+                "source": file,
+                "linux": { "cron": { "line_no": n, "line": format!("@reboot /tmp/bad-{n}") } }
+            }),
+        );
+        e.id = id.into();
+        e.rule = id.split('#').next().unwrap_or_default().into();
+        e
+    };
+    let mut unit = ev_raw(
+        Subject::Persistence,
+        serde_json::json!({ "id": UNIT, "source": UNIT }),
+    );
+    unit.id = "cron#1".into();
+    unit.rule = "cron".into();
+    let evidence = vec![
+        line("cron#0", F, 3),
+        unit,
+        line("cron#2", G, 7),
+        line("cron#3", F, 12),
+        line("cron#4", F, 5),
+        line("cron2#0", F, 8),
+    ];
+    let ids: Vec<String> = evidence.iter().map(|e| e.id.clone()).collect();
+    let ids: Vec<&str> = ids.iter().map(String::as_str).collect();
+    let mut s = scan(evidence, vec![group("g0", &ids, true)]);
+    s.host.os = "linux".into();
+    let m = manifest(serde_json::json!({ "remove": [{ "ref": "cron" }, { "ref": "cron2" }] }));
+    let d = derive(&s, &m, Mode::default(), &Allowed::new());
+
+    assert!(d.deferred.is_empty(), "{:?}", d.deferred);
+    let order = [
+        format!("{F}:12"),
+        UNIT.to_string(),
+        format!("{G}:7"),
+        format!("{F}:8"),
+        format!("{F}:5"),
+        format!("{F}:3"),
+    ];
+    let want: Vec<(Op, &str)> = [Op::PersistenceDisable, Op::PersistenceDelete]
+        .into_iter()
+        .flat_map(|op| order.iter().map(move |t| (op, t.as_str())))
+        .collect();
+    let got: Vec<(Op, &str)> = d
+        .actions
+        .iter()
+        .map(|a| (a.op, a.target.as_deref().unwrap_or_default()))
+        .collect();
+    assert_eq!(got, want);
+    let seqs: Vec<u32> = d.actions.iter().map(|a| a.seq).collect();
+    assert_eq!(seqs, (1..=12).collect::<Vec<u32>>());
+    // Action 이 통째로 옮겨졌다 — 술어의 번호가 대상의 꼬리와 같고, 줄이 아닌 타이머에는 술어가 없다.
+    for a in &d.actions {
+        let target = a.target.as_deref().unwrap_or_default();
+        match a.r#match.as_ref().and_then(|m| m.get("line_no")) {
+            Some(n) => assert!(target.ends_with(&format!(":{n}")), "{target} · {n}"),
+            None => assert_eq!(target, UNIT),
+        }
+    }
+}
+
+#[test]
+fn text_and_hosts_lines_in_one_file_are_planned_bottom_up() {
+    // cron 과 같은 번호 밀림이 `text_config.remove_line` · `hosts.restore_line` 에도 있었다. 수집기가 텍스트 설정을
+    // (파일, 번호) 오름차순으로 세우므로 한 파일의 둘째 줄부터 *"그 자리의 줄이 계획과 다릅니다"* 로 거부됐다
+    // (일부 실패). 증거는 그 차례로 담는다 — 다른 파일(G)의 줄과 파일 격리는 제 칸에 남아야 한다.
+    const F: &str = "C:\\a\\app.conf";
+    const G: &str = "C:\\a\\other.ini";
+    const HOSTS: &str = "C:\\Windows\\System32\\drivers\\etc\\hosts";
+    let conf = |k: usize, file: &str, n: u64| {
+        let mut e = ev_raw(
+            Subject::TextConfig,
+            serde_json::json!({ "path": file, "line_no": n, "line": format!("evil{n}=1") }),
+        );
+        e.id = format!("conf#{k}");
+        e.rule = "conf".into();
+        e
+    };
+    let hosts = |k: usize, n: u64| {
+        let mut e = ev_raw(
+            Subject::HostsEntry,
+            serde_json::json!({
+                "ip": "10.20.30.40", "hostnames": [format!("h{n}.example")], "line_no": n,
+                "source": HOSTS, "line": format!("10.20.30.40\th{n}.example")
+            }),
+        );
+        e.id = format!("hosts#{k}");
+        e.rule = "hosts".into();
+        e
+    };
+    let evidence = vec![
+        conf(0, F, 3),
+        conf(1, F, 5),
+        conf(2, F, 12),
+        conf(3, G, 2),
+        hosts(0, 23),
+        hosts(1, 24),
+        ev("payload#0", "payload", Subject::File, "C:\\a\\evil.exe"),
+    ];
+    let ids: Vec<String> = evidence.iter().map(|e| e.id.clone()).collect();
+    let ids: Vec<&str> = ids.iter().map(String::as_str).collect();
+    let s = scan(evidence, vec![group("g0", &ids, true)]);
+    let m = manifest(serde_json::json!({
+        "remove": [{ "ref": "conf" }, { "ref": "payload" }],
+        "restore": ["hosts"]
+    }));
+    let d = derive(&s, &m, Mode::default(), &Allowed::new());
+
+    assert!(d.deferred.is_empty(), "{:?}", d.deferred);
+    let got: Vec<(Op, String)> = d
+        .actions
+        .iter()
+        .map(|a| {
+            let n = a.r#match.as_ref().and_then(|m| m.get("line_no"));
+            let at = n.map(|n| format!(":{n}")).unwrap_or_default();
+            (
+                a.op,
+                format!("{}{at}", a.target.as_deref().unwrap_or_default()),
+            )
+        })
+        .collect();
+    let want = vec![
+        (Op::TextConfigRemoveLine, format!("{F}:12")),
+        (Op::TextConfigRemoveLine, format!("{F}:5")),
+        (Op::TextConfigRemoveLine, format!("{F}:3")),
+        (Op::TextConfigRemoveLine, format!("{G}:2")),
+        (Op::FileQuarantineOnly, "C:\\a\\evil.exe".to_string()),
+        (Op::HostsRestoreLine, format!("{HOSTS}:24")),
+        (Op::HostsRestoreLine, format!("{HOSTS}:23")),
+    ];
+    assert_eq!(got, want);
+    // 술어는 Action 과 함께 옮겨졌다 — 번호와 내용이 같은 줄을 가리킨다.
+    for a in &d.actions {
+        let Some(m) = &a.r#match else { continue };
+        let n = m["line_no"].as_u64().unwrap();
+        let line = m["line"].as_str().unwrap();
+        assert!(line.starts_with(&format!("evil{n}=")) || line.ends_with(&format!("h{n}.example")));
+    }
+}
+
+#[test]
+fn one_line_two_rules_is_planned_once() {
+    // 두 룰이 같은 줄을 짚으면(판정 `gs or tmp` 에 `remove` 둘) 같은 줄의 끄기 · 지우기가 둘씩 계획됐다. 첫 지우기가
+    // 줄을 빼면 둘째는 그 번호에 올라온 정상 줄을 보고 거부되어 일부 실패(3)로 끝났다. 같은 Op · 대상 · 술어는
+    // 한 칸으로 합치고 근거를 잇는다. 텍스트 설정의 같은 줄도 같다.
+    const F: &str = "/var/spool/cron/crontabs/root";
+    const CONF: &str = "/etc/app/app.conf";
+    let cron = |id: &str, n: u64| {
+        let mut e = ev_raw(
+            Subject::Persistence,
+            serde_json::json!({
+                "id": format!("{F}:{n}"),
+                "source": F,
+                "linux": { "cron": { "line_no": n, "line": format!("*/5 * * * * /tmp/.gs/gs-netcat-{n} -d") } }
+            }),
+        );
+        e.id = id.into();
+        e.rule = id.split('#').next().unwrap_or_default().into();
+        e
+    };
+    let conf = |id: &str| {
+        let mut e = ev_raw(
+            Subject::TextConfig,
+            serde_json::json!({ "path": CONF, "line_no": 3, "line": "evil=1" }),
+        );
+        e.id = id.into();
+        e.rule = id.split('#').next().unwrap_or_default().into();
+        e
+    };
+    let evidence = vec![
+        cron("gs#0", 2),
+        cron("gs#1", 5),
+        cron("tmp#0", 2),
+        conf("conf_a#0"),
+        conf("conf_b#0"),
+    ];
+    let ids: Vec<String> = evidence.iter().map(|e| e.id.clone()).collect();
+    let ids: Vec<&str> = ids.iter().map(String::as_str).collect();
+    let mut s = scan(evidence, vec![group("g0", &ids, true)]);
+    s.host.os = "linux".into();
+    let m = manifest(serde_json::json!({
+        "remove": [{ "ref": "gs" }, { "ref": "tmp" }, { "ref": "conf_a" }, { "ref": "conf_b" }]
+    }));
+    let d = derive(&s, &m, Mode::default(), &Allowed::new());
+
+    assert!(d.deferred.is_empty(), "{:?}", d.deferred);
+    let got: Vec<(Op, &str, Vec<&str>)> = d
+        .actions
+        .iter()
+        .map(|a| {
+            let because = a.because.iter().map(String::as_str).collect();
+            (a.op, a.target.as_deref().unwrap_or_default(), because)
+        })
+        .collect();
+    let (f5, f2) = (format!("{F}:5"), format!("{F}:2"));
+    assert_eq!(
+        got,
+        [
+            (Op::PersistenceDisable, f5.as_str(), vec!["gs#1"]),
+            (Op::PersistenceDisable, f2.as_str(), vec!["gs#0", "tmp#0"]),
+            (Op::PersistenceDelete, f5.as_str(), vec!["gs#1"]),
+            (Op::PersistenceDelete, f2.as_str(), vec!["gs#0", "tmp#0"]),
+            (Op::TextConfigRemoveLine, CONF, vec!["conf_a#0", "conf_b#0"]),
+        ]
+    );
+    let seqs: Vec<u32> = d.actions.iter().map(|a| a.seq).collect();
+    assert_eq!(seqs, (1..=5).collect::<Vec<u32>>());
+}
+
+#[test]
 fn removing_a_file_plans_one_op_not_the_whole_list() {
     // 위 시험이 "언제나 목록을 전부 낸다" 로 통과하면 안 된다. 파일은
     // **격리하거나 지우거나** 하나이지 둘 다가 아니다.

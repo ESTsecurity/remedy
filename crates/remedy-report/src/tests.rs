@@ -1177,7 +1177,7 @@ fn closing_names_a_non_default_state_dir_on_both_hints() {
         done: 1,
         elapsed_secs: 1,
         run_id: Some("run-1"),
-        quarantine: None,
+        quarantine: Some("q.rq"),
         journal: None,
         kind: None,
         state_dir: Some("\"C:\\remedy x\\state\""),
@@ -1192,6 +1192,39 @@ fn closing_names_a_non_default_state_dir_on_both_hints() {
         ko.contains("remedy support-bundle --run run-1 --state-dir \"C:\\remedy x\\state\""),
         "{ko}"
     );
+}
+
+/// 되돌릴 것은 격리소에만 있다 — 프로세스 종료 · 서비스 중지만 한 회차에 `remedy restore --run` 을
+/// 적으면 그 줄을 그대로 친 사람이 종료 4 로 끝난다(이슈 #166 ④ · 1.25.3). 신고 안내는 그대로 낸다.
+#[test]
+fn closing_offers_undo_only_when_something_was_quarantined() {
+    let mut c = Closing {
+        code: remedy_sdk::artifact::ExitCode::Remediated,
+        done: 1,
+        elapsed_secs: 1,
+        run_id: Some("run-1"),
+        quarantine: None,
+        journal: Some("j.jsonl"),
+        kind: None,
+        state_dir: None,
+        review: false,
+    };
+    for lang in [Lang::Ko, Lang::En] {
+        let text = render_closing(&c, lang);
+        assert!(!text.contains("remedy restore"), "{lang:?}\n{text}");
+        assert!(
+            text.contains("remedy support-bundle --run run-1"),
+            "{lang:?}\n{text}"
+        );
+    }
+    c.quarantine = Some("q.rq");
+    for lang in [Lang::Ko, Lang::En] {
+        let text = render_closing(&c, lang);
+        assert!(
+            text.contains("remedy restore --run run-1"),
+            "{lang:?}\n{text}"
+        );
+    }
 }
 
 #[test]

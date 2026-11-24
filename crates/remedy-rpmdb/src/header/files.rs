@@ -172,7 +172,8 @@ pub(crate) fn package(blob: &[u8], budget: &mut Derived) -> Result<Option<Packag
 }
 
 /// 읽는 꼬리표는 한 번씩만 나와야 한다 — 두 번이면 어느 쪽을 믿을지 알 수 없다. 믿는 쪽 [`super::parse`] 는 뒤의
-/// 것을 쓰고, 믿지 못할 입력에서는 DB 가 틀린 것으로 본다.
+/// 것을 쓰고, 믿지 못할 입력에서는 DB 가 틀린 것으로 본다. 값이 같은 문자열 꼬리표 둘만은
+/// 하나로 읽는다([`Region::entry`]).
 fn unique(r: &Region<'_>) -> Result<(), RpmDbError> {
     for tag in [
         TAG_NAME,
@@ -197,7 +198,7 @@ fn unique(r: &Region<'_>) -> Result<(), RpmDbError> {
 
 /// [`super::parse`] 가 만들 문자열의 크기에 그릇 몫을 더한 것 — 만들기 전에 예산에서 덜려고 센다. 문자열이 NUL 없이
 /// 자료 끝에 닿으면 `parse` 도 `None` 이므로 `None` 이다. [`unique`] 를 지난 블롭에만 맞는 값이다 — 같은 꼬리표가 두
-/// 번이면 `parse` 는 둘 다 만든다.
+/// 번이면 `parse` 는 둘 다 만들므로, 하나로 읽은 값이 같은 문자열 둘([`Region::entry`])은 두 번 센다.
 fn header_bytes(r: &Region<'_>) -> Result<Option<u64>, RpmDbError> {
     let mut n = 0u64;
     for tag in [
@@ -217,7 +218,7 @@ fn header_bytes(r: &Region<'_>) -> Result<Option<u64>, RpmDbError> {
         let Some(s) = nul_terminated(r.data, e.off) else {
             return Ok(None);
         };
-        n += lossy_len(s) + STRING_COST;
+        n += (lossy_len(s) + STRING_COST) * e.seen;
     }
     Ok(Some(n))
 }
@@ -330,6 +331,8 @@ struct Entry {
     ty: u32,
     off: usize,
     count: usize,
+    /// 색인에 나온 횟수 — 1, 또는 값이 같은 문자열 꼬리표 둘을 하나로 읽었으면 2([`Region::entry`]).
+    seen: u64,
 }
 
 impl<'a> Region<'a> {
@@ -353,24 +356,52 @@ impl<'a> Region<'a> {
         }
     }
 
-    /// 꼬리표 하나의 항목. 같은 꼬리표가 두 번 나오면 어느 쪽을 믿을지 알 수 없다 — rpm 은 그런 헤더를 쓰지 않는다.
+    /// 꼬리표 하나의 항목. 같은 꼬리표가 두 번 나오면 어느 쪽을 믿을지 알 수 없다 — 다만 **값이 같은 문자열 꼬리표
+    /// 둘**은 앞의 것 하나로 읽는다(`twins`). 2025년 여름~가을(배포판마다 다르다)부터 지은 EL10 패키지는 원본
+    /// 패키지(SOURCERPM)를 서명된 영역 안에 그렇게 두 번 적는다(2026-11-24 · 다섯 배포판 바탕 헤더 133~176개 가운데
+    /// 99~111개 · 모두 둘 · 같은 값). 셋 이상이거나, 형 · 개수 · 값이 다르거나, 문자열 꼬리표가 아닌 겹침은 오류다.
     fn entry(&self, tag: u32) -> Result<Option<Entry>, RpmDbError> {
-        let mut found = None;
+        let mut found: Option<Entry> = None;
         for e in self.index.chunks_exact(16) {
             let word = |at: usize| u32::from_be_bytes([e[at], e[at + 1], e[at + 2], e[at + 3]]);
             if word(0) != tag {
                 continue;
             }
-            if found.is_some() {
-                return Err(RpmDbError::Format("같은 꼬리표가 두 번 나온다"));
-            }
-            found = Some(Entry {
+            let next = Entry {
                 ty: word(4),
                 off: word(8) as usize,
                 count: word(12) as usize,
+                seen: 1,
+            };
+            found = Some(match found {
+                None => next,
+                Some(first) if first.seen == 1 && self.twins(tag, first, next) => {
+                    Entry { seen: 2, ..first }
+                }
+                Some(_) => return Err(RpmDbError::Format("같은 꼬리표가 두 번 나온다")),
             });
         }
         Ok(found)
+    }
+
+    /// 하나로 읽어도 되는 겹침인가 — 문자열 꼬리표(이름 · 판 · 개정 · 공급사 · 아키텍처 · 원본 패키지 · 모듈 꼬리표)가
+    /// 둘 다 개수 1 의 STRING 이고 NUL 앞까지 같은 바이트다. NUL 없이 자료 끝에 닿는 값은 같다고 하지 않는다.
+    fn twins(&self, tag: u32, a: Entry, b: Entry) -> bool {
+        let string_tag = matches!(
+            tag,
+            TAG_NAME
+                | TAG_VERSION
+                | TAG_RELEASE
+                | TAG_VENDOR
+                | TAG_ARCH
+                | TAG_SOURCERPM
+                | TAG_MODULARITYLABEL
+        );
+        let value = |e: Entry| match (e.ty, e.count) {
+            (TYPE_STRING, 1) => nul_terminated(self.data, e.off),
+            _ => None,
+        };
+        string_tag && matches!((value(a), value(b)), (Some(x), Some(y)) if x == y)
     }
 
     /// 문자열 배열 — NUL 로 끝나는 문자열 `count` 개가 `off` 부터 잇달아 선다. 자료를 빌려 보기만 한다.
@@ -692,6 +723,9 @@ pub(crate) mod tests {
     const BAD_DIGEST: RpmDbError =
         RpmDbError::Format("파일 다이제스트가 그 알고리즘의 16진 꼴이 아니다");
     const BAD_PAIRING: RpmDbError = RpmDbError::Format("파일 이름 꼬리표의 짝이 맞지 않는다");
+    const TWICE: RpmDbError = RpmDbError::Format("같은 꼬리표가 두 번 나온다");
+    /// AlmaLinux 10.3 `libgcc` 의 원본 패키지 — 그 헤더의 색인 [29] · [30] 이 이 값이다(2026-11-24).
+    const EL10_SRC: &str = "gcc-14.4.1-5.el10_3.alma.3.src.rpm";
 
     #[test]
     fn paths_are_rebuilt_from_directories_names_and_indexes() {
@@ -1146,26 +1180,187 @@ pub(crate) mod tests {
         ));
         entries.push(nums(TAG_FILEDIGESTALGO, &[ALGO_SHA256]));
         entries.push((TAG_MODULARITYLABEL, TYPE_STRING, 1, s("php:8.2")));
-        let blob = pkg(&entries);
-        assert_eq!(file_paths(&blob).unwrap().len(), 4);
-        assert_eq!(file_digests(&blob).unwrap().digests.len(), 4);
-        assert_eq!(modularity_label(&blob), Ok(Some("php:8.2".to_string())));
-        // 잘린 블롭은 틀이 맞지 않는다 — 짧아진 목록을 조용히 내지 않고 셋 다 오류다.
-        for cut in 0..blob.len() {
-            let b = &blob[..cut];
-            assert!(file_paths(b).is_err(), "{cut}");
-            assert!(file_digests(b).is_err(), "{cut}");
-            assert!(modularity_label(b).is_err(), "{cut}");
-        }
-        // 바이트를 바꾼 것은 패닉만 없으면 된다.
-        let mut b = blob.clone();
-        for i in 0..b.len() {
-            let keep = b[i];
-            for v in [0x00, 0xFF, keep ^ 0x80] {
-                b[i] = v;
-                let _ = (file_paths(&b), file_digests(&b), modularity_label(&b));
+        // 원본 패키지가 같은 값으로 두 번 든 EL10 꼴도 — 겹침을 하나로 읽는 갈래(`Region::twins`)가 믿지 못할 형 ·
+        // 개수 · 자리 칸을 읽는다. 그 갈래는 패키지로 읽을 때(`package` 의 `unique`) 지난다.
+        let mut twins = entries.clone();
+        twins.extend(vec![(TAG_SOURCERPM, TYPE_STRING, 1, s(EL10_SRC)); 2]);
+        for blob in [pkg(&entries), pkg(&twins)] {
+            let read = |b: &[u8]| package(b, &mut Derived::new());
+            assert_eq!(file_paths(&blob).unwrap().len(), 4);
+            assert_eq!(file_digests(&blob).unwrap().digests.len(), 4);
+            assert_eq!(modularity_label(&blob), Ok(Some("php:8.2".to_string())));
+            assert!(matches!(read(&blob), Ok(Some(_))));
+            // 잘린 블롭은 틀이 맞지 않는다 — 짧아진 목록을 조용히 내지 않고 셋 다 오류다. 패키지로도 읽지 않는다.
+            for cut in 0..blob.len() {
+                let b = &blob[..cut];
+                assert!(file_paths(b).is_err(), "{cut}");
+                assert!(file_digests(b).is_err(), "{cut}");
+                assert!(modularity_label(b).is_err(), "{cut}");
+                assert!(!matches!(read(b), Ok(Some(_))), "{cut}");
             }
-            b[i] = keep;
+            // 바이트를 바꾼 것은 패닉만 없으면 된다.
+            let mut b = blob.clone();
+            for i in 0..b.len() {
+                let keep = b[i];
+                for v in [0x00, 0xFF, keep ^ 0x80] {
+                    b[i] = v;
+                    let _ = (
+                        file_paths(&b),
+                        file_digests(&b),
+                        modularity_label(&b),
+                        read(&b),
+                    );
+                }
+                b[i] = keep;
+            }
         }
+    }
+
+    /// EL10 이 적는 꼴 — 원본 패키지가 형 STRING · 개수 1 · 같은 값으로 두 번, 색인에서 붙어 있고 값은 자료의 다른 두
+    /// 자리에 따로 있다. 겹침이 없는 헤더와 같은 패키지로 읽고, 예산에는 `parse` 가 만드는 둘을 다 센다.
+    #[test]
+    fn an_el10_twin_source_rpm_reads_like_a_single_one() {
+        let source = (TAG_SOURCERPM, TYPE_STRING, 1, s(EL10_SRC));
+        let with = |sources: usize| {
+            let mut tags = split_files();
+            tags.extend(std::iter::repeat_n(source.clone(), sources));
+            tags.push(arr(
+                TAG_FILEDIGESTS,
+                &[SHA256_HEX, SHA256_HEX, SHA256_HEX, ""],
+            ));
+            tags.push(nums(TAG_FILEDIGESTALGO, &[ALGO_SHA256]));
+            pkg(&tags)
+        };
+        let (once, twice) = (with(1), with(2));
+        let read = |blob: &[u8]| package(blob, &mut Derived::new());
+        let got = read(&twice).unwrap().expect("패키지");
+        assert_eq!(Ok(Some(got.clone())), read(&once));
+        assert_eq!(got.header.sourcerpm, EL10_SRC);
+        assert_eq!(parse(&twice).as_ref(), Some(&got.header));
+        assert_eq!(got.files.len(), 4);
+        let made = |sources: usize| {
+            let mut v = vec!["php-cli", "8.0.30", "8.el9_8.1"];
+            v.extend(std::iter::repeat_n(EL10_SRC, sources));
+            v.iter().map(|x| x.len() as u64 + STRING_COST).sum::<u64>()
+        };
+        assert_eq!(
+            header_bytes(&Region::of(&twice).unwrap()),
+            Ok(Some(made(2)))
+        );
+        assert_eq!(header_bytes(&Region::of(&once).unwrap()), Ok(Some(made(1))));
+    }
+
+    #[test]
+    fn twins_that_differ_or_repeat_are_still_errors() {
+        let one = s(EL10_SRC);
+        let src = |ty: u32, count: u32, v: &[u8]| (TAG_SOURCERPM, ty, count, v.to_vec());
+        for tags in [
+            // 값이 다르다 — 어느 쪽을 믿을지 알 수 없다.
+            vec![
+                src(TYPE_STRING, 1, &one),
+                src(TYPE_STRING, 1, &s("gcc-14.4.1-5.el10_3.src.rpm")),
+            ],
+            // 셋이다.
+            vec![src(TYPE_STRING, 1, &one); 3],
+            // 형이 다르다 — 바이트가 같아도 다국어 문자열이 섞였거나 다국어 문자열 · 개수 1 의 문자열 배열 둘.
+            vec![src(TYPE_STRING, 1, &one), src(TYPE_I18NSTRING, 1, &one)],
+            vec![src(TYPE_I18NSTRING, 1, &one); 2],
+            vec![src(TYPE_STRING_ARRAY, 1, &one); 2],
+            // 개수가 1 이 아니다 — rpm 의 문자열은 개수 1 이다.
+            vec![src(TYPE_STRING, 2, &one); 2],
+            // 뒤의 것이 NUL 없이 자료 끝에 닿는다 — 같은지 알 수 없다.
+            vec![
+                src(TYPE_STRING, 1, &one),
+                src(TYPE_STRING, 1, EL10_SRC.as_bytes()),
+            ],
+        ] {
+            let blob = pkg(&tags);
+            assert_eq!(unique(&Region::of(&blob).unwrap()), Err(TWICE));
+            assert_eq!(package(&blob, &mut Derived::new()), Err(TWICE));
+        }
+        // 뒤의 것의 자리 칸이 자료 밖이다 — 읽지 않고, 같다고 하지 않는다. 항목은 이름 · 판 · 개정 · 원본 패키지 다음
+        // 다섯째(색인은 블롭 8바이트부터 16바이트씩 · 자리 칸은 그 안의 8바이트부터)다.
+        let mut far = pkg(&vec![src(TYPE_STRING, 1, &one); 2]);
+        let second = 8 + 4 * 16;
+        assert_eq!(far[second..second + 4], TAG_SOURCERPM.to_be_bytes());
+        far[second + 8..second + 12].copy_from_slice(&0x7FFF_FFFFu32.to_be_bytes());
+        assert_eq!(unique(&Region::of(&far).unwrap()), Err(TWICE));
+        assert_eq!(package(&far, &mut Derived::new()), Err(TWICE));
+    }
+
+    #[test]
+    fn only_string_tags_read_their_twins_as_one() {
+        // 이름 · 모듈 꼬리표도 값이 같은 문자열 둘이면 하나로 읽는다. 이름은 `parse` 가 둘 다 만들어 두 번 세고, 모듈
+        // 꼬리표는 앞의 것 하나만 만들어 한 번 센다.
+        let label = (TAG_MODULARITYLABEL, TYPE_STRING, 1, s("php:8.2"));
+        let blob = pkg(&[
+            (TAG_NAME, TYPE_STRING, 1, s("php-cli")),
+            label.clone(),
+            label,
+        ]);
+        let mut budget = Derived::new();
+        let got = package(&blob, &mut budget).unwrap().expect("패키지");
+        assert_eq!(
+            (got.header.name.as_str(), got.modularity_label.as_deref()),
+            ("php-cli", Some("php:8.2"))
+        );
+        let strings = ["php-cli", "php-cli", "8.0.30", "8.el9_8.1", "php:8.2"]
+            .iter()
+            .map(|v| v.len() as u64 + STRING_COST)
+            .sum::<u64>();
+        assert_eq!(budget.bytes, MAX_DERIVED_BYTES - PACKAGE_COST - strings);
+        // 정수 · 배열 꼬리표는 값이 같아도 오류다(파일 이름 둘은 `shapes_rpm_does_not_write_are_errors`) — 형 칸을
+        // STRING 으로 적어도 그렇다. 하나로 읽으면 다이제스트 둘은 그 패키지의 오류로 내려간다.
+        for twin in [
+            nums(TAG_EPOCH, &[0]),
+            nums(TAG_FILEDIGESTALGO, &[ALGO_SHA256]),
+            arr(TAG_DIRNAMES, &["/usr/bin/"]),
+            (TAG_EPOCH, TYPE_STRING, 1, s("0")),
+            (TAG_FILEDIGESTS, TYPE_STRING, 1, s(SHA256_HEX)),
+            (TAG_BASENAMES, TYPE_STRING, 1, s("php")),
+        ] {
+            let blob = pkg(&[twin.clone(), twin]);
+            assert_eq!(unique(&Region::of(&blob).unwrap()), Err(TWICE));
+        }
+    }
+
+    /// 실제 EL10 헤더 하나 — AlmaLinux 10.3 바탕 이미지(`almalinux:10` · 2026-11-16 판)의 `rpmdb.sqlite` 에서 hnum 2
+    /// `libgcc` 의 블롭을 바이트 그대로 꺼냈다(27,780 B · sha256 `b97a8d96…`). 원본 패키지(SOURCERPM)가 서명된 영역
+    /// 안의 색인 [29] · [30] 에 같은 값으로 두 번 든다. 위 시험들은 손으로 지은 헤더라 그 꼴을 몰랐고, 1.25.3 은 이
+    /// 블롭에서 *"같은 꼬리표가 두 번 나온다"* 로 DB 전체를 버렸다(이슈 #166 ①).
+    pub(crate) const ALMA10_LIBGCC: &[u8] = include_bytes!("../testdata/alma10-libgcc.bin");
+
+    #[test]
+    fn a_real_el10_header_reads_whole() {
+        let got = package(ALMA10_LIBGCC, &mut Derived::new())
+            .unwrap()
+            .expect("패키지");
+        let h = &got.header;
+        assert_eq!(
+            (
+                h.name.as_str(),
+                h.version.as_str(),
+                h.release.as_str(),
+                h.arch.as_str()
+            ),
+            ("libgcc", "14.4.1", "5.el10_3.alma.3", "x86_64")
+        );
+        assert_eq!(h.sourcerpm, EL10_SRC);
+        // 믿는 쪽(`parse` — 패키지 수집)과 같은 헤더다.
+        assert_eq!(parse(ALMA10_LIBGCC).as_ref(), Some(h));
+        assert_eq!(got.modularity_label, None);
+        assert_eq!(got.files.len(), 11, "{:?}", got.files);
+        assert!(
+            got.files
+                .iter()
+                .any(|f| f == "/lib64/libgcc_s-14-20260724.so.1"),
+            "{:?}",
+            got.files
+        );
+        let d = got.digests.expect("다이제스트");
+        assert_eq!(
+            (d.algorithm, d.digests.len()),
+            (DigestAlgorithm::Sha256, 11)
+        );
     }
 }

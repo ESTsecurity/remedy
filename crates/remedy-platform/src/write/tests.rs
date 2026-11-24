@@ -218,6 +218,22 @@ fn the_plan_warns_before_overwriting() {
     std::fs::remove_dir_all(&dir).ok();
 }
 
+/// 1.25.3 까지의 격리물은 `links` 만 든다 — 새 칸(`link_targets`)이 비어 그대로 읽히고(유닛 경로로
+/// 단다), 빈 칸은 쓰지 않아 cron · Windows 의 `meta` 가 전과 같은 바이트다(이슈 #166 ⑤).
+#[test]
+fn a_persistence_index_from_before_link_targets_still_reads() {
+    let old: PersistenceIndex = serde_json::from_value(serde_json::json!({
+        "links": ["/etc/systemd/system/multi-user.target.wants/a.service"]
+    }))
+    .unwrap();
+    assert_eq!(old.links.len(), 1);
+    assert!(old.link_targets.is_empty());
+    assert_eq!(
+        serde_json::to_value(PersistenceIndex::default()).unwrap(),
+        serde_json::json!({})
+    );
+}
+
 // ─────────────────────────── P7 파일 계열 (설계-09 P7)
 mod p7_tests {
     use super::super::*;
