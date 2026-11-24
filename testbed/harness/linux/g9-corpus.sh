@@ -9,7 +9,9 @@
 # 이미지(`remedy-harness/apache:*` · `remedy-harness/openssh:*`)가 그 꼴이다. 실행하지 않는다 — `docker create` 한 컨테이너를
 # `docker export` 해 그 셋만 푼다. 그 다음은 Windows 에서:
 #
-#   cargo xtask yara --rules plugins/<룰>/rules --rule <YARA 규칙 이름> --scan <꺼낸 폴더> --expect clean
+#   cargo xtask yara --rules plugins/<룰>/rules --rule <YARA 규칙 이름> --scan <꺼낸 폴더> --expect clean --max-bytes 67108864
+#
+# `--max-bytes` 를 빼면 상한이 16 MiB 라 그보다 큰 정상 파일도 `못 훑음` 에 든다(docs/긴급-대응.md ④ G9 · 2026-11-24).
 #
 # **리눅스 링크는 Windows 가 열지 못해 `못 훑음` 으로 세어진다** — 이미지마다 링크 수를 적으니 `못 훑음` 과 대조한다
 # (docs/긴급-대응.md ④). 대상 파일 시스템이 담지 못하는 특수 파일은 tar 가 건너뛰고 그 수를 적는다.
