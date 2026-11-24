@@ -1,6 +1,6 @@
 #!/bin/bash
 # 룰: php2shell-check-linux — 묶어 낸 출시(ci/batch.sh)가 바뀐 룰의 필수 점검 ① 로 이 하네스를 찾는다(--bin · --plugins · --out)
-# 이미지: debian:12 ubuntu:24.04 rockylinux:9 alpine:3.22 php:8.3.35-cli php:8.3.36-cli php:8.3.36-fpm php@sha256:9e2a4e9b1704c05cc469fddbf9b0f0f205e2bb13efd249bbad177289ebdc5c7c php:7.4.33-cli php:8.2.35-apache
+# 이미지: debian:12 ubuntu:24.04 rockylinux:9 alpine:3.22 php:8.3.35-cli php:8.3.36-cli php:8.3.36-fpm php@sha256:9e2a4e9b1704c05cc469fddbf9b0f0f205e2bb13efd249bbad177289ebdc5c7c php@sha256:f1ff1ba29b90550ca0b69aa6d97ed2bcf40fb109fbf2ecad9817dad524a816e8 php:7.4.33-cli php:8.2.35-apache
 # rc 묶음: php2shell
 # 하네스 표: WSL · docker(경우마다 네트워크 없는 컨테이너) | php2shell 리눅스 점검의 판정 — 배포판 · RPM 공급사 줄의 경계 · 공식 빌드 해시 · 패키지 밖과 자리 밖의 PHP
 # PHP2Shell 점검 룰(php2shell-check-linux)을 배포판 · 공식 이미지 컨테이너에서 잰다(2026-11-23 · 0.6.3 — 이 룰의 첫 하네스).
@@ -14,7 +14,7 @@
 # `php2shell-check-linux/` 를 담은 폴더다(저장소의 `plugins/` 나 내려받아 푼 꾸러미의 `plugins/`). 처음 한 번은 배포판
 # 저장소에 닿아야 한다 — PHP 를 깐 이미지 셋과 rpmbuild 를 깐 Rocky 9 를 지어 두고(`remedy-harness/php2shell:*`), 다음부터는
 # 그 이미지를 쓴다. 바탕 이미지와 공식 이미지는 머리의 `# 이미지:` 줄대로 미리 받아 둔다(출시 전 필수 점검의 러너가 그 줄대로
-# 받는다). 공식 해시 칸(A5~A10 · O)은 amd64 이미지로 잰다 — 룰의 해시 목록이 플랫폼 꼬리표(linux/amd64)로 적혀 있다.
+# 받는다). 공식 해시 칸(A5~A11 · O)은 amd64 이미지로 잰다 — 룰의 해시 목록이 플랫폼 꼬리표(linux/amd64)로 적혀 있다.
 #
 # 기대는 remedy 의 종료 코드다 — 0 취약한 곳을 찾지 못함 · 2 취약 · 6 확인 필요(RELEASE.md '결과 읽기'). 기대값은 룰을 돌려
 # 얻지 않고 plugin.yaml 의 줄과 RELEASE.md 의 '0 을 내는 갈래' 에서 정했다 — 경우마다 재는 갈래는 파일 끝의 표에 있다.
@@ -33,7 +33,9 @@
 #   실패한다(RELEASE.md '공식 이미지의 현재 태그는 다시 지어진다' — 룰의 목록을 더할 신호다). A 칸이 해시를 먼저 재어 이미지
 #   탓과 룰 탓을 가른다. 그래서 A8 · o04 는 룰의 목록이 아는 빌드의 digest 로 고정했다(2026-11-24 — 미룬 검증이 다시 지은
 #   이미지에서 두 칸을 실패로 냈다. 고정한 것은 2026-11-19 에 지은 `php:8.3.37-cli` 이고, 그 `/usr/local/bin/php` 가 룰 목록의
-#   '8.3.37 linux/amd64 cli' 값과 같다). 다시 지은 이미지의 해시를 룰의 목록에 더할 때 이 digest 를 그 빌드로 옮긴다.
+#   '8.3.37 linux/amd64 cli' 값과 같다). 다시 지은 이미지의 해시를 룰의 목록에 더하면 옛 빌드의 칸은 남기고(그 빌드를 깐
+#   기계가 계속 0 인지 잰다) 다시 지은 빌드의 digest 로 같은 꼴의 칸을 더한다 — 2026-11-24 에 다시 지은 `php:8.3.37-cli`
+#   (색인 digest f1ff1ba2… · 룰 0.6.6)가 A11 · o09 다.
 # - Ubuntu 24.04 · Alpine 3.22 는 지금 저장소로 짓는다 — Ubuntu 의 고친 판은 그 계열(8.3.6-0ubuntu0.24.04.*) 안에서만 올라가
 #   0 이 뒤집히지 않고(A2 가 계열 꼴과 고친 판 이상을 잰다), Alpine 의 apk 는 늘 줄 밖(6)이다.
 #
@@ -48,9 +50,9 @@
 #
 # # 무엇을 재나
 #
-#   A  이미지 10 — Debian 12 스냅숏의 php8.2 가 이 룰의 고친 판 그대로(8.2.35-1~deb12u1) · 메타 php-cli · Ubuntu 24.04 의 php8.3
-#      이 그 계열의 고친 판 이상 · Alpine 의 php83 · rpmbuild 이미지에 PHP 패키지 없음 · 공식 이미지 다섯의 PHP 파일이 룰 목록의
-#      그 판 해시 · php:8.2.35-apache 의 PHP 파일은 목록에 없다
+#   A  이미지 11 — Debian 12 스냅숏의 php8.2 가 이 룰의 고친 판 그대로(8.2.35-1~deb12u1) · 메타 php-cli · Ubuntu 24.04 의 php8.3
+#      이 그 계열의 고친 판 이상 · Alpine 의 php83 · rpmbuild 이미지에 PHP 패키지 없음 · 공식 이미지 여섯(8.3.37-cli 는 2026-11-19
+#      빌드와 2026-11-24 에 다시 지은 빌드 둘)의 PHP 파일이 룰 목록의 그 판 해시 · php:8.2.35-apache 의 PHP 파일은 목록에 없다
 #   B  실제 설치 12 — Debian 12 고친 판 그대로 b01 0 · 바로 아래 b02 2 · php8.2 를 바꿈 b03 6 · 아래 판 + 바꿈 b04 6 · 상관없는
 #      파일을 바꿈 b05 0 · php-fpm8.2 를 바꿈 b06 6 · Ubuntu 24.04 깐 그대로 b07 0 · 그 판 b08 0 · 바로 아래 b09 2 · Alpine php83
 #      b10 6 · php8.2-cli 의 .md5sums 를 지움 b11 6 · epoch 가 붙은 판(1:) b12 6
@@ -62,8 +64,8 @@
 #   F  RPM 자리의 파일 9 — 고친 RHEL 9 php-cli 가 깐 /usr/bin/php f01 0 · 그 파일을 바꿈 f02 6 · 소유 없는 /usr/bin/php-cgi f03 6
 #      · 소유 없는 /usr/sbin/php-fpm f04 6 · 합친 bin 의 메아리 꼴 f05 0 · PHP 가 아닌 이름의 패키지가 깐 /usr/bin/php f06 6 ·
 #      /usr/bin/php-fpm f07 6 · 소유 없는 /usr/bin/php-fpm(갈린 sbin) f08 6 · 옛 꼴 기록의 메아리(f05 의 거꾸로) f09 0
-#   O  공식 빌드 8 — 8.3.35 o01 2 · 8.3.36 cli o02 0 · fpm o03 0 · 8.3.37 o04 0 · 7.4.33(지원 끝) o05 2 · 8.2.35-apache(목록 밖)
-#      o06 6 · 8.3.36 을 /opt/php/8.3 으로 옮김 o07 0 · 8.3.35 를 /usr/local/php 로 옮김 o08 2
+#   O  공식 빌드 9 — 8.3.35 o01 2 · 8.3.36 cli o02 0 · fpm o03 0 · 8.3.37 o04 0 · 7.4.33(지원 끝) o05 2 · 8.2.35-apache(목록 밖)
+#      o06 6 · 8.3.36 을 /opt/php/8.3 으로 옮김 o07 0 · 8.3.35 를 /usr/local/php 로 옮김 o08 2 · 다시 지은 8.3.37 o09 0
 #   X  직접 빌드 9 — 공식 해시에 없는 /usr/local/bin/php x01 · /usr/local/php/bin/php x02 · /opt/php/8.3/sbin/php-fpm x03 ·
 #      /usr/local/lib/libphp.so x04 · /usr/lib/apache2/modules/libphp.so x05 · 판 붙은 이름 /usr/local/bin/php8.3 x06 · 어느
 #      패키지도 깔지 않은 /usr/bin/php8.3 x07 · 점 없는 판 이름 /usr/local/bin/php83 x08 · 어느 패키지도 깔지 않은 Apache 모듈
@@ -105,7 +107,8 @@ RULE=php2shell-check-linux
 [ -f "$PLUGINS/$RULE/plugin.yaml" ] || { echo "--plugins 에 $RULE 이 없다: $PLUGINS" >&2; exit 2; }
 command -v docker >/dev/null || { echo "docker 가 없다" >&2; exit 2; }
 for base in debian:12 ubuntu:24.04 rockylinux:9 alpine:3.22 php:8.3.35-cli php:8.3.36-cli php:8.3.36-fpm \
-    php@sha256:9e2a4e9b1704c05cc469fddbf9b0f0f205e2bb13efd249bbad177289ebdc5c7c php:7.4.33-cli php:8.2.35-apache; do
+    php@sha256:9e2a4e9b1704c05cc469fddbf9b0f0f205e2bb13efd249bbad177289ebdc5c7c \
+    php@sha256:f1ff1ba29b90550ca0b69aa6d97ed2bcf40fb109fbf2ecad9817dad524a816e8 php:7.4.33-cli php:8.2.35-apache; do
     docker image inspect "$base" >/dev/null 2>&1 || { echo "$base 이미지가 없다 — docker pull $base" >&2; exit 2; }
 done
 [ -n "$OUT" ] || OUT="$(pwd)/testbed/harness/results/php2shell-$(date +%Y%m%d-%H%M%S)"
@@ -202,6 +205,7 @@ a_official "A7 php:8.3.36-fpm 의 PHP 가 룰 목록의 8.3.36 해시" php:8.3.3
 a_official "A8 php:8.3.37-cli 의 PHP 가 룰 목록의 8.3.37 해시" php@sha256:9e2a4e9b1704c05cc469fddbf9b0f0f205e2bb13efd249bbad177289ebdc5c7c '8.3.37 linux/amd64 cli'
 a_official "A9 php:7.4.33-cli 의 PHP 가 룰 목록의 7.4.33 해시" php:7.4.33-cli '7.4.33 linux/amd64 cli'
 a_official "A10 php:8.2.35-apache 의 PHP 가 룰 목록에 없다" php:8.2.35-apache -
+a_official "A11 다시 지은 php:8.3.37-cli 의 PHP 가 룰 목록의 8.3.37 해시" php@sha256:f1ff1ba29b90550ca0b69aa6d97ed2bcf40fb109fbf2ecad9817dad524a816e8 '8.3.37 linux/amd64 cli'
 
 # ── 경우 — 네트워크 없는 일회용 컨테이너 · 판 줄 · 기록 칸 · 파일만 바꾼다 ─────────────────────────────────
 W=$(mktemp -d /tmp/remedy-php2shell-verify.XXXXXX)
@@ -426,6 +430,8 @@ run_case o05-official-eol-7433 php:7.4.33-cli 2 ":" "php:7.4.33-cli — 지원 �
 run_case o06-official-8235-apache php:8.2.35-apache 6 ":" "php:8.2.35-apache — 목록에 없는 공식 빌드(8.2 계열 · libphp.so · A10)"
 run_case o07-moved-8336-opt php:8.3.36-cli 0 "$(php_move /opt/php/8.3)" "8.3.36 을 /opt/php/8.3 으로 옮김 — 직접 빌드 자리 · 판마다 하위 폴더"
 run_case o08-moved-8335-usrlocal php:8.3.35-cli 2 "$(php_move /usr/local/php)" "8.3.35 를 /usr/local/php 로 옮김"
+run_case o09-official-8337-cli-rebuilt php@sha256:f1ff1ba29b90550ca0b69aa6d97ed2bcf40fb109fbf2ecad9817dad524a816e8 0 ":" \
+    "php:8.3.37-cli 를 2026-11-24 에 다시 지은 빌드 — 그 해시(0.6.6 · A11)"
 
 echo "── X. 직접 빌드 — 공식 해시에 없는 자리 채우기 ──"
 run_case x01-local-bin-php debian:12 6 "$(bin_put /usr/local/bin/php)" "/usr/local/bin/php"
@@ -526,7 +532,7 @@ n=$(cat "$OUT"/cases/*/screen.txt 2>/dev/null | grep -c -e '영향 판' -e '고�
 check "S6 화면에 내부 낱말(판 · 갈래) 0" "$a" "모든 경우의 화면에서 $n 줄"
 
 # 칸 수까지 본다 — 경우를 짓다 멈추면 남은 경우가 조용히 사라지고 "실패 0" 이 남는다.
-EXPECTED=118 # A 10 · B 12 · D 19 · R 21 · F 9 · O 8 · X 9 · M 3 · P 10 · C 8 · N 3 · 화면 6
+EXPECTED=120 # A 11 · B 12 · D 19 · R 21 · F 9 · O 9 · X 9 · M 3 · P 10 · C 8 · N 3 · 화면 6
 pass=$(awk -F"$TAB" '$2 == 1' "$OUT/checks.tsv" | wc -l)
 total=$(wc -l <"$OUT/checks.tsv")
 [ "$total" = "$EXPECTED" ] || echo "칸 수 $total — 기대 $EXPECTED 와 다르다(경우를 짓다 멈췄거나, 칸을 더하고 EXPECTED 를 고치지 않았다)"
@@ -589,6 +595,7 @@ echo "── 합: $pass / $EXPECTED ──"
 #   o06 6  bin_unmanaged — 목록에 없는 공식 빌드(8.2 계열 · Apache 모듈 자리)
 #   o07 0  0 갈래 '고친 공식 빌드 8.3.36' — 직접 빌드 자리 /opt/php 의 판마다 하위 폴더(0.4.0)
 #   o08 2  official_vuln — 직접 빌드 자리 /usr/local/php(0.4.0)
+#   o09 0  0 갈래 '고친 공식 빌드 8.3.37' — 2026-11-24 에 다시 지은 빌드(0.6.6)
 #   x01~x05 6  bin_unmanaged — /usr/local/bin · /usr/local/php · /opt/php 하위 폴더 · /usr/local/lib · Apache 모듈 자리
 #   x06~x07 6  bin_named_unowned — 판 붙은 이름의 /usr/local/bin/php8.3 · 어느 패키지도 깔지 않은 /usr/bin/php8.3(0.6.5)
 #   x08~x09 6  bin_named_unowned — 점 없는 판 이름 /usr/local/bin/php83 · Apache 모듈 자리의 libphp7.so(0.6.5)
