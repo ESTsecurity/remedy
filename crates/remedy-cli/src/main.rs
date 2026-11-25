@@ -2749,9 +2749,14 @@ fn still_there(
                 "Windows 가 지우기를 미뤘습니다. PC 를 다시 시작하면 지워집니다",
                 "Windows postponed removing it; it is removed when the PC restarts",
             ),
-            Restart::DeleteUnverified => lang.t(
+            // 재시작을 권할 수 없는 갈래에서는 지시하지 않는다 — 바로 뒤 경고가 '권하지 않는다' 고 말한다.
+            Restart::DeleteUnverified if may_suggest => lang.t(
                 "지워졌는지 확인하지 못했습니다. PC 를 다시 시작한 뒤 다시 검사하십시오",
                 "could not confirm it was removed; restart the PC and scan again",
+            ),
+            Restart::DeleteUnverified => lang.t(
+                "지워졌는지 확인하지 못했습니다. 다시 시작하기 전까지 남아 있을 수 있습니다",
+                "could not confirm it was removed; it may remain until the PC restarts",
             ),
             Restart::StopAtRestart => lang.t(
                 "드라이버가 정지를 받지 않았습니다. 비활성화해 두었으므로 PC 를 다시 시작하면 올라오지 않습니다",

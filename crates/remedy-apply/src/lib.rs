@@ -740,6 +740,25 @@ impl<'a> Executor<'a> {
                 outcome,
                 error,
             });
+            // **사용 안 함이 끝나지 않았으면 받아 둔 정지를 곧바로 되돌린다.** 끝 확인까지 미루면 그 사이에 멈춘
+            // 회차를 이어 할 때 되돌림이 사라진다 — 이어받은 회차는 받아 둔 정지를 저널로 알 수 없다(2026-11-25 검토).
+            if a.op == Op::ServiceDisable && outcome != ActionOutcome::Done {
+                let mut i = 0;
+                while i < accepted_stops.len() {
+                    let (seq, _) = &accepted_stops[i];
+                    let same = plan
+                        .body
+                        .actions
+                        .iter()
+                        .any(|s| s.seq == *seq && s.seq < a.seq && s.target == a.target);
+                    if same {
+                        let (seq, why) = accepted_stops.remove(i);
+                        self.revert_stop(seq, &why, &mut results, &mut journal)?;
+                    } else {
+                        i += 1;
+                    }
+                }
+            }
             // **롤백하지 않는다.** 나머지 계획을 계속 수행한다 (설계-03 §5).
         }
 
@@ -808,9 +827,9 @@ impl<'a> Executor<'a> {
     ///
     /// - **지운 서비스** — 끝난(done) `service.delete` 마다 살아 있는 상태를 다시 묻는다. 이어받은 결과도 묻는다 —
     ///   저널에는 '대기' 를 적지 않으므로, 재부팅 뒤 이어 하면 키가 없어 맞게 '아님' 이 나온다.
-    /// - **받아 둔 정지** — 같은 대상의 사용 안 함이 끝났으면 다시 시작해야 끝나는 것이고, 끝나지 않았으면 그
-    ///   정지를 실패로 되돌린다. 정말로 멈추지 않을 서비스를 '치료 완료' 로 보고하지 않는다(결정 2026-09-13).
-    ///   되돌린 결과는 저널에 같은 seq 로 한 줄 더 적는다 — 나중 기록이 이긴다.
+    /// - **받아 둔 정지** — 같은 대상의 사용 안 함이 끝났으면 다시 시작해야 끝나는 것이다. 끝나지 않은 것은 파괴
+    ///   고리가 그 결과를 적은 바로 뒤에 이미 되돌렸다([`Self::revert_stop`]). 여기 남은 것이 그래도 사용 안 함이
+    ///   끝나지 않았으면(그럴 길은 없어야 한다) 같은 까닭으로 되돌린다.
     fn restart_pending(
         &self,
         plan: &PlanEnvelope,
@@ -838,26 +857,8 @@ impl<'a> Executor<'a> {
             });
             if disabled {
                 at_restart.insert(*seq, Restart::StopAtRestart);
-                continue;
-            }
-            let text = format!(
-                "seq {seq}: 같은 대상의 사용 안 함이 끝나지 않아, 정지를 받지 않은 드라이버를 실패로 되돌립니다"
-            );
-            journal
-                .append(&Record::Note { text: text.clone() })
-                .map_err(ApplyError::Journal)?;
-            journal
-                .append(&Record::Outcome {
-                    seq: *seq,
-                    outcome: JOutcome::Failed {
-                        reason: why.clone(),
-                    },
-                })
-                .map_err(ApplyError::Journal)?;
-            self.progress.emit(&Event::Note { text: &text });
-            if let Some(r) = results.iter_mut().find(|r| r.seq == *seq) {
-                r.outcome = ActionOutcome::Failed;
-                r.error = Some(why.clone());
+            } else {
+                self.revert_stop(*seq, why, results, journal)?;
             }
         }
 
@@ -889,6 +890,39 @@ impl<'a> Executor<'a> {
                 .map_err(ApplyError::Journal)?;
         }
         Ok(at_restart)
+    }
+
+    /// 받아 둔 정지를 **실패로 되돌린다** — 같은 대상의 사용 안 함이 끝나지 않아, 다시 시작해도 그 드라이버가 올라온다.
+    ///
+    /// 저널에 같은 seq 의 결과를 한 줄 더 적는다 — 나중 기록이 이긴다. `note` 이벤트로 알리고 끝 판정(`finished`)이
+    /// 그것을 센다.
+    fn revert_stop(
+        &self,
+        seq: u32,
+        why: &str,
+        results: &mut [ActionResult],
+        journal: &mut Journal,
+    ) -> Result<(), ApplyError> {
+        let text = format!(
+            "seq {seq}: 같은 대상의 사용 안 함이 끝나지 않아, 정지를 받지 않은 드라이버를 실패로 되돌립니다"
+        );
+        journal
+            .append(&Record::Note { text: text.clone() })
+            .map_err(ApplyError::Journal)?;
+        journal
+            .append(&Record::Outcome {
+                seq,
+                outcome: JOutcome::Failed {
+                    reason: why.to_string(),
+                },
+            })
+            .map_err(ApplyError::Journal)?;
+        self.progress.emit(&Event::Note { text: &text });
+        if let Some(r) = results.iter_mut().find(|r| r.seq == seq) {
+            r.outcome = ActionOutcome::Failed;
+            r.error = Some(why.to_string());
+        }
+        Ok(())
     }
 
     /// 지운 서비스의 지울 표시가 **아직 남았는가.** 풀리기를 [`DELETE_SETTLE`] 까지 기다린다.

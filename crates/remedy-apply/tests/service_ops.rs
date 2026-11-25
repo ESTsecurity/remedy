@@ -37,6 +37,8 @@ struct Scm {
     pending_polls: Cell<u32>,
     /// 지울 표시를 묻는 것이 실패한다.
     query_fails: Cell<bool>,
+    /// 다음 한 번의 물음에서 죽는다 — 결과는 다 적었고 `End` 는 아직인 자리(이어 하기의 `Tail`).
+    die_on_query: Cell<bool>,
     deleted: Cell<bool>,
     polls: Cell<u32>,
     calls: RefCell<Vec<String>>,
@@ -53,6 +55,7 @@ impl Scm {
             disable_fails: Cell::new(false),
             pending_polls: Cell::new(0),
             query_fails: Cell::new(false),
+            die_on_query: Cell::new(false),
             deleted: Cell::new(false),
             polls: Cell::new(0),
             calls: RefCell::new(Vec::new()),
@@ -136,6 +139,10 @@ impl PlatformWrite for Scm {
     }
     fn service_delete_pending(&self, _path: &str) -> Result<bool, PlatformError> {
         self.call("pending?");
+        assert!(
+            !self.die_on_query.replace(false),
+            "[시험] 끝 확인 중에 전원이 나갔다고 친다"
+        );
         if self.query_fails.get() {
             return Err(PlatformError::Unsupported("access denied"));
         }
@@ -349,6 +356,41 @@ fn a_delete_that_cannot_be_checked_says_so() {
     );
 }
 
+#[test]
+fn a_resumed_run_asks_again_about_a_delete_it_carried_over() {
+    // 결과를 다 적고 `End` 앞(끝 확인의 물음)에서 죽은 회차를 이어 한다 — `Tail`. 삭제는 저널의 done 그대로 넘겨받고,
+    // 저널에는 '대기' 가 없으므로 **살아 있는 상태를 다시 물어** 다시 시작해야 끝남을 알린다.
+    let scm = Scm::new("resume-tail");
+    scm.pending_polls.set(u32::MAX);
+    scm.die_on_query.set(true);
+    let p = plan_of("resume-tail", cure());
+    let died = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        Executor::new(&scm, scm.state())
+            .with_clock("2026-11-25T00:00:00Z")
+            .apply(&p)
+    }));
+    assert!(died.is_err(), "죽지 않았다 — 크래시 지점이 틀렸다");
+
+    let ev = Events::default();
+    let rep = Executor::new(&scm, scm.state())
+        .with_progress(&ev)
+        .with_clock("2026-11-25T00:00:00Z")
+        .apply(&p)
+        .expect("이어 하기");
+    assert_eq!(rep.resumed, Some(remedy_apply::Resume::Tail), "{rep:?}");
+    assert_eq!(rep.carried, 4, "네 동작 모두 넘겨받아야 한다");
+    assert_eq!((rep.done(), rep.failed()), (4, 0));
+    assert_eq!(rep.at_restart.get(&4), Some(&Restart::DeletePending));
+    assert!(rep.body.reboot_required);
+    assert_eq!(ev.finished()["reboot_required"], true);
+    assert_eq!(
+        scm.calls.borrow().iter().filter(|c| *c == "delete").count(),
+        1,
+        "넘겨받은 삭제를 다시 수행했다: {:?}",
+        scm.calls.borrow()
+    );
+}
+
 // ───────────────────────────────────────────── 정지를 받지 않는 드라이버
 
 #[test]
@@ -417,6 +459,25 @@ fn a_driver_stop_is_turned_back_into_a_failure_when_the_disable_fails() {
         "되돌린 사실이 이벤트에 없다: {:?}",
         ev.notes()
     );
+
+    // **사용 안 함의 결과 바로 뒤에 되돌린다** — 끝 확인까지 미루면 그 사이에 멈춘 회차를 이어 할 때 되돌림이
+    // 사라진다(이어받은 회차는 받아 둔 정지를 모른다). 되돌림 note 가 삭제(seq 4)의 action 줄보다 앞이어야 한다.
+    let lines = ev.0.borrow();
+    let at = |pred: &dyn Fn(&serde_json::Value) -> bool| {
+        lines
+            .iter()
+            .position(|l| pred(&serde_json::from_str(l).unwrap()))
+            .expect("그 이벤트가 없다")
+    };
+    let note =
+        at(&|v| v["event"] == "note" && v["text"].as_str().unwrap_or("").starts_with("seq 2:"));
+    let disable = at(&|v| v["event"] == "action" && v["seq"] == 3);
+    let delete = at(&|v| v["event"] == "action" && v["seq"] == 4);
+    assert!(
+        disable < note && note < delete,
+        "되돌림이 사용 안 함 바로 뒤가 아니다: {lines:?}"
+    );
+    drop(lines);
 
     // 저널은 나중 기록이 이긴다 — seq 2 의 결과가 둘이고, 뒤의 것이 실패다.
     let j = journal(&rep);

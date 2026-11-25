@@ -44,16 +44,17 @@
       …c 위 21 칸마다 같은 꼴을 제거 룰로 검사 21 — 종료 · 흔적 · 위협이 탐지 룰과 같고, 치료 계획(결과 폴더의 plan.json)은
          위협 칸에서만 넷(복구 설정 해제 → 정지 → 사용 안 함 → 삭제 · 그 차례)이며 0 칸(깨끗한 기계 · 서비스만 · 파일만 ·
          다른 시작 유형 · 다른 자리)에서는 없다
-      T  제거 룰의 치료 7 — 감염 꼴(A1)에 미니필터 등록의 일반 꼴(의존 값 하나 · Instances 하위 키 둘 — Altitude 만 자리 채우기다.
+      T  제거 룰의 치료 8 — 감염 꼴(A1)에 미니필터 등록의 일반 꼴(의존 값 하나 · Instances 하위 키 둘 — Altitude 만 자리 채우기다.
          나머지 셋은 ASEC [표 3] 과 같은 값이다)을 더해: T1 검사 2 · 치료 계획 넷 → T2 치료(run --yes) 1 · 네 동작이 그 차례로 모두
          끝남 → T3 서비스 키 없음 · SCM 이 모름 · 드라이버 자리 파일 그대로(해시) · 재부팅 뒤 확인 예약(그 회차) → T4 다시
          검사 0(두 룰 · 흔적 1 — 남긴 파일) → T5 복원(restore --yes) 0 · 3건 → T6 서비스 키 하위 트리의 값 목록(키 · 이름 ·
          종류 · 데이터)이 치료 전과 같음 → T7 다시 검사 2(두 룰). T2 는 '다시 시작해야 끝남' 을 말하지 않아야 한다 — 화면의
          목록 줄도 --events finished 의 reboot_required 도 없다(T2r · 곧바로 지워진 치료)
-      H  서비스 핸들을 붙든 채 치료 7(엔진 1.26.0 부터 — 그 앞의 꾸러미면 건너뛰고 그 줄만 적는다) — 같은 꼴(T 와 같다)을 세우고
+      H  서비스 핸들을 붙든 채 치료 8(엔진 1.26.0 부터 — 그 앞의 꾸러미면 건너뛰고 그 줄만 적는다) — 같은 꼴(T 와 같다)을 세우고
          무해한 프로세스 하나가 서비스 핸들을 연 채 붙든다: H1 치료(run --yes) 1 · 네 동작 끝남 · 실패 0 · finished 의
          reboot_required · 화면의 '[4] 서비스 삭제 … 미뤘습니다' 줄과 되돌리는 차례 줄 → H2 서비스 키 있음 · Start 4 · 지울 표시
-         (DeleteFlag 1) → H3 복원(--yes 없음) 5 · 막은 사유 · '다시 시작한 뒤 다시 복원' 끝 줄 · 값 목록 그대로 → H4 복원(--yes)
+         (DeleteFlag 1) → H2b 그 서비스를 다시 지우는 계획(sc.exe delete 가 1072) 1 · 실패 0 · reboot_required → H3 복원(--yes
+         없음) 5 · 막은 사유 · '다시 시작한 뒤 다시 복원' 끝 줄 · 값 목록 그대로 → H4 복원(--yes)
          5 · 아무것도 쓰지 않음 → H5 놓음 → 10초 안에 키가 사라지고 SCM 이 모름(1060) → H6 복원(--yes) 0 · 3건 · 값 목록이 치료
          전과 같음 → H7 다시 검사 2(두 룰). 다시 시작은 하지 않는다 — 핸들을 놓는 것이 같은 일을 한다(2026-11-25 랩: 놓자
          첫 물음에서 키가 없었다)
@@ -147,7 +148,11 @@ $guestTools = {
         $sig = '[DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)] public static extern IntPtr OpenSCManager(string machine, string db, uint access); ' +
             '[DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)] public static extern IntPtr OpenService(IntPtr scm, string name, uint access); ' +
             '[DllImport("advapi32.dll", SetLastError = true)] public static extern bool CloseServiceHandle(IntPtr handle);'
-        Add-Type -Namespace RemedyLab -Name Scm -MemberDefinition $sig
+        # 붙들기 전에 죽으면 까닭을 상태 파일에 남긴다 — WMI 로 띄운 프로세스의 표준 오류는 어디에도 남지 않는다.
+        try { Add-Type -Namespace RemedyLab -Name Scm -MemberDefinition $sig } catch {
+            [IO.File]::WriteAllText($statusPath, ('error Add-Type: {0}' -f $_.Exception.Message))
+            exit 1
+        }
         # $null 은 string 인자로 넘기면 빈 글자가 된다(빈 데이터베이스 이름 → 123) — 진짜 NULL 은 [NullString]::Value 다.
         $scm = [RemedyLab.Scm]::OpenSCManager([NullString]::Value, [NullString]::Value, 1)
         $svc = [IntPtr]::Zero
@@ -195,6 +200,8 @@ $guestTools = {
         $h = Get-HolderLine $probe
         foreach ($p in @($h.status, $h.release)) { if (Test-Path -LiteralPath $p) { Remove-Item -LiteralPath $p -Force -ErrorAction Stop } }
         $r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = $h.line; CurrentDirectory = $env:SystemRoot }
+        # 띄우지 못했으면 기다리지 않고 그 코드를 돌려준다(다른 하네스와 같은 관례 — InfectedState.ps1).
+        if ([int]$r.ReturnValue -ne 0) { return [pscustomobject]@{ held = $false; status = ('Win32_Process.Create 실패(코드 {0})' -f $r.ReturnValue) } }
         $procId = [int]$r.ProcessId
         $text = ''
         $until = (Get-Date).AddSeconds(90)
@@ -206,7 +213,9 @@ $guestTools = {
             if ($procId -gt 0 -and -not (Get-Process -Id $procId -ErrorAction SilentlyContinue)) { break }
             Start-Sleep -Milliseconds 250
         }
-        [pscustomobject]@{ held = ([string]$text).StartsWith('held'); status = ([string]$text).Trim() }
+        $said = ([string]$text).Trim()
+        if (-not $said) { $said = '붙드는 프로세스가 상태 줄 없이 끝났거나 90초 안에 답하지 않았다' }
+        [pscustomobject]@{ held = ([string]$text).StartsWith('held'); status = $said }
     }
 
     # 놓는다 — 표지 파일을 두고 그 프로세스가 끝나기를 20초까지 기다린다(끝나지 않으면 끝낸다).
@@ -657,6 +666,37 @@ try {
         $ok = $h2.key -and ($h2.start -eq 4) -and ($h2.flag -eq 1)
         Check 'H2' '치료 뒤 — 서비스 키가 남고 Start 4 · 지울 표시(DeleteFlag 1)' $ok `
             ('키 {0} · Start {1} · DeleteFlag {2} · sc.exe query 종료 {3}' -f $(if ($h2.key) { '있음' } else { '없음' }), $h2.start, $h2.flag, $h2.query)
+
+        # H2b — 지우는 중인 서비스를 한 번 더 지운다(손으로 쓴 계획 하나 · 이어 하기가 같은 삭제를 다시 만나는 꼴). sc.exe delete 가
+        # 1072 를 내도 지우기가 이미 요청된 것으로 세어 1 · 실패 0 · 다시 시작해야 끝남이다(1.25.4 는 실패 · 3).
+        $planText = Invoke-Command -Session $session -ArgumentList $g -ScriptBlock {
+            param($probe)
+            $plan = [ordered]@{
+                schema_version = 1; kind = 'remedy.plan'; run_id = 'h2b-' + [guid]::NewGuid().ToString('N').Substring(0, 8)
+                created        = '2026-11-25T00:00:00Z'
+                host           = @{ hostname = $env:COMPUTERNAME; os = 'windows'; version = '10'; arch = 'amd64' }
+                core           = @{ version = '0'; build = 'd' }; plugins = @()
+                actions        = @(@{ seq = 1; op = 'service.delete'; target = 'HKLM\SYSTEM\CurrentControlSet\Services\NeacSafe64'
+                        because = @('e#0'); reversible = $true; risk = 'medium'
+                    })
+                verdicts       = @('g0')
+            }
+            [IO.File]::WriteAllText("$probe\h2b-plan.json", ($plan | ConvertTo-Json -Depth 8), (New-Object System.Text.UTF8Encoding($false)))
+            "$probe\h2b-plan.json"
+        }
+        $r = Invoke-GuestExe -Session $session -Path "$g\remedy.exe" -WorkingDirectory $g -Arguments @('apply', '--plan', $planText,
+            '--yes', '--state-dir', "$g\state-h2b", '--events', "$g\out\H2b.ndjson")
+        $h2bScreen = [string]$r.out + [string]$r.err
+        [IO.File]::WriteAllText((Join-Path $logRoot 'H2b.txt'), ("exit={0}`n{1}" -f $r.exit, $h2bScreen), $utf8)
+        $h2bText = Read-GuestText "$g\out\H2b.ndjson"
+        $h2bFin = @(@([string]$h2bText -split "`n") | Where-Object { $_.Trim() } | ForEach-Object { $_ | ConvertFrom-Json } | Where-Object { $_.event -eq 'finished' })
+        $h2bFlag = $h2bFin.Count -and ($h2bFin[0].reboot_required -eq $true)
+        $h2bCounts = if ($h2bFin.Count) { '{0} · {1}' -f $h2bFin[0].done, $h2bFin[0].failed } else { '없음' }
+        $h2bLine = $h2bScreen -match '\[1\] 서비스 삭제 .*Windows 가 지우기를 미뤘습니다'
+        $ok = ($r.exit -eq 1) -and $h2bFin.Count -and ([int]$h2bFin[0].done -eq 1) -and ([int]$h2bFin[0].failed -eq 0) -and $h2bFlag -and $h2bLine
+        Check 'H2b' '지우는 중인 서비스를 다시 지움(1072) 1 · 실패 0 · reboot_required · 미룬 삭제 줄' $ok `
+            ('종료 {0} · 끝남 · 실패 {1} · reboot_required {2} · 미룬 삭제 줄 {3}' -f $r.exit, $h2bCounts, $(if ($h2bFlag) { '참' } else { '없음' }),
+                $(if ($h2bLine) { '있음' } else { '없음' }))
 
         # H3 · H4 — 지우는 중인 서비스로는 복원하지 않는다(5 · 아무것도 쓰지 않음). --yes 없이도 · 있어도 같다.
         foreach ($step in @(@{ id = 'H3'; yes = $false }, @{ id = 'H4'; yes = $true })) {
