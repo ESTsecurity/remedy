@@ -457,7 +457,9 @@ detect:
           - "9b00a9dc4b4ed27632989d0acf7dbcc025fb3114ddfe9103caaac0fd7063107b"   # 8.3.37 linux/amd64 cli /usr/local/lib/libphp.so
           - "381e5b353db3c8e350971eefb766cbad6ab0466849ea1359c3ffb9c3f4533676"   # 8.3.37 linux/amd64 fpm /usr/local/bin/php
           - "8d15b869c51153c7fdba009f7c6c6fc97f4df248f1b271237409f5c023f1cacf"   # 8.3.37 linux/amd64 fpm /usr/local/sbin/php-fpm
-          # 다시 지은 8.3.37(0.6.6) — 2026-11-24 에 지은 이미지 · 2026-11-25 에 받은 `php:8.3.37-*`(cli php@sha256:f1ff1ba… · fpm 1702be9… · apache fb5e449…).
+          # 다시 지은 8.3.37(0.6.6) — 2026-11-24 에 지은 이미지 · 2026-11-25 에 받은
+          # `php:8.3.37-*`(색인 cli php@sha256:f1ff1ba… · fpm 1702be9… · apache fb5e449… — 해시를 잰 플랫폼 매니페스트는
+          # amd64 cli ce7b2962… · fpm 9c4fd0c3… · apache 0d91a3b2… · 386 cli 248293da… · fpm 977741de… · apache 892bec73…).
           - "f7fab70b42ed880f844220f48dd8c8cfecf18349007a909e5b501f4d77f9e9ea"   # 8.3.37 linux/386 apache /usr/lib/apache2/modules/libphp.so (php@sha256:fb5e449…)
           - "e716d8d93da9f61726460c383330b4ed016c209494bc3ede4921f91959473352"   # 8.3.37 linux/386 apache /usr/local/bin/php (php@sha256:fb5e449…)
           - "0ddf5f39c73fc6a908f2b1d727228694661a584edda5d23a5f92c660c2bc6cd0"   # 8.3.37 linux/386 cli /usr/local/bin/php (php@sha256:f1ff1ba…)
