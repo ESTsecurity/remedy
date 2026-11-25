@@ -44,8 +44,8 @@
       …c 위 21 칸마다 같은 꼴을 제거 룰로 검사 21 — 종료 · 흔적 · 위협이 탐지 룰과 같고, 치료 계획(결과 폴더의 plan.json)은
          위협 칸에서만 넷(복구 설정 해제 → 정지 → 사용 안 함 → 삭제 · 그 차례)이며 0 칸(깨끗한 기계 · 서비스만 · 파일만 ·
          다른 시작 유형 · 다른 자리)에서는 없다
-      T  제거 룰의 치료 7 — 감염 꼴(A1)에 미니필터 등록의 일반 꼴(의존 값 하나 · Instances 하위 키 둘 — 값은 자리 채우기다.
-         ASEC [표 3] 의 값을 옮기지 않았다)을 더해: T1 검사 2 · 치료 계획 넷 → T2 치료(run --yes) 1 · 네 동작이 그 차례로 모두
+      T  제거 룰의 치료 7 — 감염 꼴(A1)에 미니필터 등록의 일반 꼴(의존 값 하나 · Instances 하위 키 둘 — Altitude 만 자리 채우기다.
+         나머지 셋은 ASEC [표 3] 과 같은 값이다)을 더해: T1 검사 2 · 치료 계획 넷 → T2 치료(run --yes) 1 · 네 동작이 그 차례로 모두
          끝남 → T3 서비스 키 없음 · SCM 이 모름 · 드라이버 자리 파일 그대로(해시) · 재부팅 뒤 확인 예약(그 회차) → T4 다시
          검사 0(두 룰 · 흔적 1 — 남긴 파일) → T5 복원(restore --yes) 0 · 3건 → T6 서비스 키 하위 트리의 값 목록(키 · 이름 ·
          종류 · 데이터)이 치료 전과 같음 → T7 다시 검사 2(두 룰)
@@ -187,8 +187,9 @@ $guestTools = {
         [pscustomobject]@{ service = $stored; files = ($names -join ',') }
     }
 
-    # 미니필터 드라이버 등록의 일반 꼴 — 서비스 키에 의존 값 하나와 `Instances` 하위 키 둘. 치료 → 복원이 하위 트리째(값 ·
-    # 하위 키) 지워지고 돌아오는지 보려는 것이라 값은 자리 채우기다(ASEC [표 3] 의 값을 옮기지 않았다).
+    # 미니필터 드라이버 등록의 꼴 — 서비스 키에 의존 값 하나와 `Instances` 하위 키 둘. 치료 → 복원이 하위 트리째(값 ·
+    # 하위 키) 지워지고 돌아오는지 보려는 것이다. Altitude 만 자리 채우기고, 의존 값(FltMgr) · DefaultInstance · Flags 는
+    # ASEC [표 3] 과 같은 값이다(표 3 의 Description · Group · SupportedFeatures · Tag 는 넣지 않았다).
     function Add-MinifilterForm {
         New-ItemProperty -LiteralPath $svcKey -Name 'DependOnService' -Value @('FltMgr') -PropertyType MultiString -Force -ErrorAction Stop | Out-Null
         $inst = Join-Path $svcKey 'Instances'
