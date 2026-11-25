@@ -10,7 +10,8 @@
 #
 # **룰 · 문서 · 하네스만 바뀐 PR 은 가벼운 길로 간다**(`scope` 걸음 · 2026-11-21) — 바뀐 것이 `plugins/` · `docs/` ·
 # `README.md` · `testbed/harness/` 안뿐이면 입력이 그대로인 걸음(서식 · 린트 · Windows 의 시험 · 버전 검사 시험)을
-# 건너뛴다. 그 걸음들의 입력은 `crates/` · `xtask/` · `ci/` 와 의존 목록이라 결과가 바탕과 같다. 의존 검사(deny)는
+# 건너뛴다. 그 걸음들의 입력은 `crates/` · `xtask/` · `ci/` 와 의존 목록이라 결과가 바탕과 같다 — 입력이 허용 목록 안에도
+# 있는 걸음은 그 파일을 고친 PR 에서 돈다(공개 확인 시험 — 익명 확인 스크립트 · `scope` 의 `anon`). 의존 검사(deny)는
 # 입력에 시간에 따라 바뀌는 권고 DB 가 있어 돌되 막지 않는다(그 걸음). 룰을 읽는 검사(`leaks` · `xtask all` · 릴리스
 # 본문 시험)와 리눅스의 `cargo test` 는 남는다 — 판정 코드에 OS 갈래가 없어 자료를 읽는 시험은 리눅스 한 곳에서 돈다.
 # 잰 값(2026-11-21 · 엔진 0줄 PR 10개): 지금 길은 중앙 20.4분이고 그 대부분이 `cargo test`(리눅스 9분 · Windows
@@ -73,16 +74,23 @@ jobs:
       # `light=true` 다. 그 가운데 **이미 있던 룰 폴더를 건드리지 않은** PR(새 룰만 더했거나 문서 · 하네스만 고친 것)은
       # `rescore=false` — 재채점 시험 둘을 건너뛴다. 그 둘은 `testbed/ai-exam`(허용 목록 밖)과 이미 있는 룰 폴더 둘만
       # 읽고(`xtask/src/exam.rs` 의 `REFERENCES`) 리눅스 시험 시간의 3분의 2 를 쓴다. 어느 명령이든 실패하면 값이 서지
-      # 않아 전부 돈다. `gates=false` 는 필수 점검의 음성 회차(아래)가 보는 세 파일을 고치지 않은 PR 이다.
+      # 않아 전부 돈다. `gates=false` 는 필수 점검의 음성 회차(아래)가 보는 세 파일을 고치지 않은 PR 이다. `anon=false` 는
+      # 공개 확인 시험(아래)의 익명 칸이 보는 익명 확인 스크립트를 고치지 않은 PR 이다 — 허용 목록 안(`testbed/harness/`)의
+      # 파일이라 `light` 만으로는 그 스크립트를 고친 PR 을 가르지 못한다.
       - name: scope
         id: scope
         run: |
           light=false
           rescore=true
           gates=true
+          anon=true
           if [ "$GITHUB_EVENT_NAME" = pull_request ] &&
              git diff --quiet HEAD^1 HEAD -- testbed/harness/linux/emergency-checks.sh ci/emergency-checks-test.sh .github/workflows/ci.yml; then
             gates=false
+          fi
+          if [ "$GITHUB_EVENT_NAME" = pull_request ] &&
+             git diff --quiet HEAD^1 HEAD -- testbed/harness/linux/release-anon-check.sh; then
+            anon=false
           fi
           if [ "$GITHUB_EVENT_NAME" = pull_request ] &&
              git diff --quiet HEAD^1 HEAD -- . ':!plugins' ':!docs' ':!README.md' ':!testbed/harness'; then
@@ -100,7 +108,7 @@ jobs:
               done <<<"$names"
             fi
           fi
-          { echo "light=$light"; echo "rescore=$rescore"; echo "gates=$gates"; } | tee -a "$GITHUB_OUTPUT"
+          { echo "light=$light"; echo "rescore=$rescore"; echo "gates=$gates"; echo "anon=$anon"; } | tee -a "$GITHUB_OUTPUT"
       # 룰 PR 의 경로 제한(2026-11-22) — 룰(`plugins/`)을 고친 PR 은 룰의 자리(룰 폴더 · 룰 하네스 · 조각 · 위협별 안내 · 조건부
       # 자리) 밖을 고치지 않는다. 필수 점검은 태그의 트리로 돌아, 룰 PR 이 함께 고친 도구가 다음 묶음의 게이트가 되기 때문이다 —
       # 도구 · 엔진은 따로 PR 로 낸다(`ci/rule-scope.sh` 머리 · `docs/개발-안내.md` '새 룰을 더할 때'). 가벼운 길에서도 돈다.
@@ -200,9 +208,12 @@ jobs:
         if: steps.scope.outputs.light != 'true'
         run: bash ci/batch.sh selftest
       # 공개 확인(ci/publish-check.sh — 공개 워크플로의 최종 확인 a ~ j · 노출 시간)의 음성 시험 — 경로 앞에 둔 가짜 gh 와 임시
-      # 저장소로 칸마다 깨뜨린 입력을 주고 그 칸에서 멈추는지 본다(망 · 토큰 없음). 룰 PR 경로 제한의 경우들도 같은 꼴로 본다.
+      # 저장소로 칸마다 깨뜨린 입력을 주고 그 칸에서 멈추는지 본다(망 · 토큰 없음). 공개 뒤 익명 확인(testbed/harness/linux/
+      # release-anon-check.sh)도 가짜 curl · sleep 으로 본다 — 그 스크립트를 고친 PR 은 가벼운 길이어도 돈다(`scope` 의 anon).
+      # 공개 워크플로는 부를 때의 main 머리에서 그 스크립트를 꺼내 돌고 확인 h 는 태그 커밋의 끝난 CI 실패만 막아, 병합 전의 이
+      # 걸음이 그 스크립트의 관문이다. 룰 PR 경로 제한의 경우들도 같은 꼴로 본다.
       - name: publish check script
-        if: steps.scope.outputs.light != 'true'
+        if: steps.scope.outputs.light != 'true' || steps.scope.outputs.anon != 'false'
         run: bash ci/publish-check-test.sh
       - name: rule scope script
         if: steps.scope.outputs.light != 'true'

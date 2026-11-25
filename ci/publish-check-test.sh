@@ -2,8 +2,8 @@
 # 공개 확인(ci/publish-check.sh)의 음성 시험 — 칸 a ~ j 마다 깨뜨린 입력을 주고 그 칸에서 멈추는지, 노출 시간이 60분을 넘으면
 # '모아 내기 멈춤' 이슈를 여는지 본다(2026-11-22 · 목표 remedy_하루30건 기준 7 (가) — 게이트마다 일부러 깨뜨린 입력).
 # 공개 뒤 익명 확인(testbed/harness/linux/release-anon-check.sh)도 본다(2026-11-25) — latest 를 묻는 줄이 익명 한도에 걸리면
-# 알려 준 만큼 기다렸다 다시 묻는가 · 끝까지 막히면 그 칸들만 토큰으로 묻는가(받기는 익명) · 토큰 없이 막히거나 토큰 길의 latest
-# 가 다른 태그이거나 받은 바이트가 다르면 실패하는가.
+# 알려 준 만큼 기다렸다 다시 묻는가 · 끝까지 막히면 그 칸들만 토큰으로 묻는가(받기는 익명) · 토큰 없이 막히거나, 받은 latest 가
+# 다른 태그 · 불변 아님 · 초안 · 시험판 · 자산 셋 아님이거나, 받은 바이트가 다르면 실패하는가.
 #
 #   bash ci/publish-check-test.sh      저장소 루트 · jq · git · GNU date 가 드는 곳(CI 의 리눅스 잡)
 #
@@ -286,6 +286,10 @@ t "한도(403 · remaining 0 · reset 90초 뒤) — reset 까지 기다렸다 �
     "종료 0 · 길 익명 · 익명 2 · 토큰 0 · 기다림 약90 · 받기 익명 6/6"
 t "그 기록 — 상태 · remaining · reset · retry-after 줄" \
     "$(grep -c '^  익명 1번째 — HTTP 403 · remaining 0 · reset [0-9]*([0-9]*초 뒤) · retry-after 없음$' "$W/anon-reset/out.txt" || true)" 1
+# remaining 0 은 상태와 상관없이 한도다 — reset 전에 다시 물으면 걸린다.
+t "remaining 0(HTTP 500 · reset 90초 뒤) — 403 · 429 가 아니어도 reset 까지 기다렸다 다시 물어 지난다" \
+    "$(anon zero '' "printf '500 0 90 -\n200 59 3600 -\n' >anon.txt" | sed -E 's/기다림 (8[5-9]|9[01]) /기다림 약90 /')" \
+    "종료 0 · 길 익명 · 익명 2 · 토큰 0 · 기다림 약90 · 받기 익명 6/6"
 t "한도(429 · retry-after 30) — 30초 기다렸다 다시 물어 지난다" "$(anon retry '' "printf '429 - - 30\n200 58 3600 -\n' >anon.txt")" \
     "종료 0 · 길 익명 · 익명 2 · 토큰 0 · 기다림 30 · 받기 익명 6/6"
 t "한 번에 120초까지 — retry-after 200 이면 120초 기다렸다 다시 묻는다" "$(anon once '' "printf '429 - - 200\n200 58 3600 -\n' >anon.txt")" \
@@ -313,6 +317,25 @@ t "토큰 길의 latest 가 다른 태그 — 실패" \
     "$(anon other tok "echo '403 0 3000 -' >anon.txt; release_json rules-2026.11.21.3 >token-latest.json")" \
     "종료 1 · 길 토큰 · 익명 1 · 토큰 1 · 기다림 0 · 받기 익명 6/6"
 t "그 까닭 — latest 가 그 태그가 아니다" "$(grep -c "^  latest 가 $TAG 가 아니다\$" "$W/anon-other/out.txt" || true)" 1
+# 받은 답의 나머지 판정 — 불변 · 초안 · 시험판은 익명 200 의 답을, 자산 수는 토큰 길의 한 줄 답(자산 둘)을 바꾼다. 받은 답이
+# 틀린 것은 토큰 길로 다시 묻지 않는다(토큰이 있어도 토큰 0).
+t "익명 latest 가 불변이 아니다 — 실패" \
+    "$(anon mutable tok "jq '.immutable = false' latest.json >j.json && mv j.json latest.json")" \
+    "종료 1 · 길 익명 · 익명 1 · 토큰 0 · 기다림 0 · 받기 익명 6/6"
+t "그 까닭 — 불변이 아니다" "$(grep -c '^  불변이 아니다$' "$W/anon-mutable/out.txt" || true)" 1
+t "익명 latest 가 초안이다 — 실패" \
+    "$(anon draft tok "jq '.draft = true' latest.json >j.json && mv j.json latest.json")" \
+    "종료 1 · 길 익명 · 익명 1 · 토큰 0 · 기다림 0 · 받기 익명 6/6"
+t "그 까닭 — 아직 초안이다" "$(grep -c '^  아직 초안이다$' "$W/anon-draft/out.txt" || true)" 1
+t "익명 latest 가 시험판이다 — 실패" \
+    "$(anon pre tok "jq '.prerelease = true' latest.json >j.json && mv j.json latest.json")" \
+    "종료 1 · 길 익명 · 익명 1 · 토큰 0 · 기다림 0 · 받기 익명 6/6"
+t "그 까닭 — 시험판이다" "$(grep -c '^  시험판이다$' "$W/anon-pre/out.txt" || true)" 1
+t "토큰 길의 한 줄 답에 자산이 둘 — 실패" \
+    "$(anon two tok "echo '403 0 3000 -' >anon.txt; jq -c 'del(.assets[2])' token-latest.json >j.json && mv j.json token-latest.json")" \
+    "종료 1 · 길 토큰 · 익명 1 · 토큰 1 · 기다림 0 · 받기 익명 6/6"
+t "그 까닭 — 자산 수 2 · 셋이 아니다" \
+    "$(grep -c -e '^자산 수: 2$' -e '^  자산이 셋이 아니다$' "$W/anon-two/out.txt" || true)" 2
 t "토큰 길도 막힘(401) — 실패" "$(anon tokfail tok "echo '403 0 3000 -' >anon.txt; echo '401 - - -' >token.txt")" \
     "종료 1 · 길 없음 · 익명 1 · 토큰 1 · 기다림 0 · 받기 익명 6/6"
 t "받은 바이트가 점검한 파일과 다르다 — 실패" "$(anon bytes tok "printf 'changed\n' >dl/remedy-windows-x64.zip")" \
