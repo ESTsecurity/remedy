@@ -31,7 +31,7 @@ pub mod quarantine {
 }
 pub mod apply {
     pub use remedy_apply::{
-        plan_path, Event, Executor, KeyPolicy, Progress, Report, Resume, ScheduledVerify,
+        plan_path, Event, Executor, KeyPolicy, Progress, Report, Restart, Resume, ScheduledVerify,
         VerifyRequest,
     };
 

@@ -157,7 +157,7 @@ remedy 의 감사 로그는 **무엇을 하려 했는가**를 말한다. `Captur
   | `Invoke-P9Verify` | 감염 VM 실증 G2 · G3 · G4 · 재부팅을 끼는 3(약 18분) | 치료 차례 · 재부팅 큐를 바꿀 때 · EvilAI 룰을 바꿀 때(`plugins/evilai-locust/RELEASE.md`) | 2026-11-08(12/12 · 결과 폴더는 `p9-<시각>`) |
   | `Invoke-P10FVerify` | 재부팅 뒤 재검사 예약 | RunOnce · 예약을 바꿀 때 | 2026-11-08 |
   | `Invoke-P10Verify` | 신뢰 체계 — 서명 · 폐기 · 허용 목록 | 신뢰 코드를 바꿀 때 | 2026-11-17(12/12) |
-  | `Invoke-SlowStopVerify` · `fixtures/labsvc` | 오래 도는 도구를 끊지 않는다 · 도구 상한 알림 | 도구 상한 · 기다림을 바꿀 때(`remedy-platform` tool.rs 가 가리킨다) | 2026-11-07 |
+  | `Invoke-SlowStopVerify` · `fixtures/labsvc` | 오래 도는 도구를 끊지 않는다 · 도구 상한 알림 · 정지를 받지 않는 서비스(N 칸 — Win32 는 3 · 드라이버 흉내는 '다시 시작해야 끝남' 1) | 도구 상한 · 기다림을 바꿀 때(`remedy-platform` tool.rs 가 가리킨다) · 서비스 정지 · 삭제의 판단을 바꿀 때 | 2026-11-25(25/25 · N 칸 포함) |
   | `linux/trunc-verify.sh` | 리눅스의 수집 잘림 6 | 수집 상한을 바꿀 때 | 2026-11-02(7/7 · Sweep) |
 
 - **보관** — 고치지 않는다. 되살릴 때는 지금 판으로 한 번 돌려 기대값부터 맞춘다. `Invoke-Sweep` 자체와

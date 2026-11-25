@@ -1201,4 +1201,14 @@ mod trait_default_tests {
             b.create_restore_point("x"),
         );
     }
+
+    /// 지울 표시를 모르는 백엔드는 **'남지 않았다'** 다 — 리눅스와 시험 가짜가 이 기본값으로 지금처럼 돈다.
+    /// `Unsupported` 를 내면 복원이 그것을 '확인하지 못함' 으로 읽고 모든 서비스 항목을 막는다.
+    #[test]
+    fn service_delete_pending_defaults_to_not_pending() {
+        assert!(matches!(
+            Bare.service_delete_pending(r"HKLM\SYSTEM\CurrentControlSet\Services\x"),
+            Ok(false)
+        ));
+    }
 }

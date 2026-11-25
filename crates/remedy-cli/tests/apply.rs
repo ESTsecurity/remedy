@@ -249,6 +249,18 @@ fn progress_events_are_ndjson_and_separate_from_human_output() {
         Some("finished"),
         "{kinds:?}"
     );
+
+    // **정상 회차의 끝 줄은 칸 셋 그대로다**(2026-11-25) — `reboot_required` 는 참일 때만 실린다. 이 줄이
+    // 바뀌면 무인 배포가 읽던 바이트가 바뀐 것이다.
+    let last: serde_json::Value = serde_json::from_str(lines.last().unwrap()).unwrap();
+    let mut keys: Vec<&str> = last
+        .as_object()
+        .unwrap()
+        .keys()
+        .map(String::as_str)
+        .collect();
+    keys.sort_unstable();
+    assert_eq!(keys, ["done", "event", "failed"], "{last}");
 }
 
 #[test]

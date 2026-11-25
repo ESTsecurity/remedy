@@ -33,7 +33,11 @@ pub enum RestartAdvice {
 
     /// 부팅 건전성을 읽지 못했다. **권하지 않는다** — "모른다" 를 "괜찮다" 로
     /// 접으면 그 접는 자리가 곧 사고다.
-    CannotTell,
+    CannotTell {
+        /// 다시 시작해야 끝나는 것이 남았는가. 권하지는 않되 **사실은 말한다**(2026-11-25) — 이 칸이 없을 때는
+        /// 이 갈래에서 '아직 그 자리에 있다' 가 화면에서 사라졌다.
+        pending_deletes: bool,
+    },
 
     /// 재시작해도 된다.
     Safe {
@@ -67,7 +71,7 @@ impl RestartAdvice {
     pub fn is_warning(&self) -> bool {
         matches!(
             self,
-            RestartAdvice::CannotTell | RestartAdvice::Unsafe { .. }
+            RestartAdvice::CannotTell { .. } | RestartAdvice::Unsafe { .. }
         )
     }
 }
@@ -83,7 +87,9 @@ pub fn advise(reboot_required: bool, failed: usize, health: Option<&BootHealth>)
         return RestartAdvice::Nothing;
     }
     let Some(h) = health else {
-        return RestartAdvice::CannotTell;
+        return RestartAdvice::CannotTell {
+            pending_deletes: reboot_required,
+        };
     };
     if h.may_suggest_restart() {
         RestartAdvice::Safe {
@@ -252,8 +258,24 @@ mod tests {
     #[test]
     fn 읽지_못한_것을_괜찮다로_접지_않는다() {
         let a = advise(true, 0, None);
-        assert_eq!(a, RestartAdvice::CannotTell);
+        assert_eq!(
+            a,
+            RestartAdvice::CannotTell {
+                pending_deletes: true
+            }
+        );
         assert!(a.is_warning());
+    }
+
+    /// 권하지 않아도 **남은 것은 말한다** — 실패만 있고 남은 삭제가 없으면 그 칸은 거짓이다.
+    #[test]
+    fn 읽지_못해도_남은_것이_있는지는_싣는다() {
+        assert_eq!(
+            advise(false, 1, None),
+            RestartAdvice::CannotTell {
+                pending_deletes: false
+            }
+        );
     }
 
     #[test]
