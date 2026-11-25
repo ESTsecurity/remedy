@@ -75,6 +75,11 @@ struct Args {
     /// 그래서 핸들러 안에서 자면 `sc.exe stop` 이 그만큼 붙들린다 — 그것이
     /// 악성 서비스나 망가진 드라이버가 실제로 만드는 모양이기도 하다.
     stop_delay: u64,
+    /// **정지를 받지 않는다** — 도는 동안 받는 제어를 비운다(2026-11-25). `sc.exe stop` 이 그 자리에서 물리친다.
+    ///
+    /// 메모리에 실린 드라이버가 정지를 받지 않는 꼴을 무해하게 흉내 내려고 둔다. 서비스는 마감 시각에 스스로 나간다 —
+    /// 그때 SCM 이 미뤄 둔 삭제를 끝낸다.
+    no_stop: bool,
 }
 
 /// 명령줄에서 인자를 읽는다.
@@ -97,6 +102,7 @@ fn parse() -> Option<Args> {
         stop_delay: get("--stop-delay-secs")
             .and_then(|v| v.parse().ok())
             .unwrap_or(0),
+        no_stop: a.iter().any(|x| x == "--no-stop"),
     })
 }
 
@@ -119,6 +125,7 @@ fn run() -> Result<(), windows_service::Error> {
     // **인자를 핸들러보다 먼저 읽는다.** 핸들러는 SCM 스레드에서 돌고, 거기서
     // 다시 명령줄을 파싱하면 그 비용이 정지 시간에 섞인다.
     let stop_delay = parse().map(|a| a.stop_delay).unwrap_or(0);
+    let no_stop = parse().is_some_and(|a| a.no_stop);
     let handle = service_control_handler::register(NAME, move |control| match control {
         ServiceControl::Interrogate => ServiceControlHandlerResult::NoError,
         ServiceControl::Stop => {
@@ -148,7 +155,12 @@ fn run() -> Result<(), windows_service::Error> {
         process_id: None,
     };
 
-    handle.set_service_status(status(ServiceState::Running, ServiceControlAccept::STOP))?;
+    let accept = if no_stop {
+        ServiceControlAccept::empty()
+    } else {
+        ServiceControlAccept::STOP
+    };
+    handle.set_service_status(status(ServiceState::Running, accept))?;
 
     // **시작을 한 줄 남긴다.** 하네스는 이 줄이 늘어나는 것으로 "SCM 이
     // 되살렸다" 를 판정한다 — 서비스 상태만 보면 재시작을 놓칠 수 있다.

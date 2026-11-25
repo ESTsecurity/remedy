@@ -2348,7 +2348,7 @@ fn execute(
         }
     }
 
-    advise_restart(&report);
+    advise_restart(&report, &targets);
     report_scheduled_verify(report.scheduled_verify.as_ref(), &plan.run_id, a);
 
     let code = if report.failed() > 0 {
@@ -2601,7 +2601,10 @@ fn clear_scheduled_verify() {
 /// **판정은 `remedy_core::restart` 가 한다.** 여기 남은 것은 그 결과를 사람의
 /// 말로 옮기는 일뿐이다 — 판정이 `println!` 안에 섞여 있으면 시험할 수 없고,
 /// P9 이 이 경로를 실증하지 못한 이유가 그것이었다.
-fn advise_restart(report: &remedy_core::apply::Report) {
+fn advise_restart(
+    report: &remedy_core::apply::Report,
+    targets: &std::collections::HashMap<u32, &str>,
+) {
     use remedy_core::restart::RestartAdvice;
     let lang = ui().lang;
 
@@ -2623,7 +2626,11 @@ fn advise_restart(report: &remedy_core::apply::Report) {
     match advice {
         RestartAdvice::Nothing => {}
 
-        RestartAdvice::CannotTell => {
+        RestartAdvice::CannotTell { pending_deletes } => {
+            // 권하지는 않되 **남은 것은 말한다**(2026-11-25) — 이 갈래에서 '아직 그 자리에 있다' 가 사라졌었다.
+            if pending_deletes {
+                still_there(report, targets, false);
+            }
             errln!(
                 "\n{} {}",
                 lang.t("주의:", "Note:"),
@@ -2639,13 +2646,7 @@ fn advise_restart(report: &remedy_core::apply::Report) {
             failed,
         } => {
             if pending_deletes {
-                outln!(
-                    "\n{}",
-                    lang.t(
-                        "일부 항목은 다음 부팅에 사라집니다. 아직 그 자리에 있습니다.",
-                        "Some items disappear at the next boot. They are still there now."
-                    )
-                );
+                still_there(report, targets, true);
             }
             // "안전 모드" 는 검증 스크립트가 읽는 문구다 — 정상이면 이 낱말이 있어야
             // 하고(C1), SafeBoot 가 손상됐으면 "안전 모드에서 다시 시도" 가 없어야
@@ -2676,13 +2677,7 @@ fn advise_restart(report: &remedy_core::apply::Report) {
             pending_deletes,
         } => {
             if pending_deletes {
-                outln!(
-                    "\n{}",
-                    lang.t(
-                        "일부 항목은 다음 부팅에 사라집니다. 아직 그 자리에 있습니다.",
-                        "Some items disappear at the next boot. They are still there now."
-                    )
-                );
+                still_there(report, targets, false);
             }
             errln!(
                 "\n{}",
@@ -2721,6 +2716,69 @@ fn advise_restart(report: &remedy_core::apply::Report) {
                 );
             }
         }
+    }
+}
+
+/// **아직 그 자리에 있는 것**을 말한다 — 재부팅 삭제 예약과, 다시 시작해야 끝나는 서비스(2026-11-25).
+///
+/// 머리 줄은 바이트 그대로다(파일 예약만 있는 회차의 화면이 그대로다). 서비스는 그 아래에 항목마다 한 줄을
+/// 더하고, 지우는 중인 서비스가 있으면 되돌리는 차례를 한 줄 더한다 — 다시 시작하기 전에는 복원이 멈춘다.
+/// `may_suggest` 는 재시작을 권해도 되는 갈래인가다. 아니면 지시 없이 사실만 말한다.
+fn still_there(
+    report: &remedy_core::apply::Report,
+    targets: &std::collections::HashMap<u32, &str>,
+    may_suggest: bool,
+) {
+    use remedy_core::apply::Restart;
+    let lang = ui().lang;
+    outln!(
+        "\n{}",
+        lang.t(
+            "일부 항목은 다음 부팅에 사라집니다. 아직 그 자리에 있습니다.",
+            "Some items disappear at the next boot. They are still there now."
+        )
+    );
+    for (seq, what) in &report.at_restart {
+        let Some(r) = report.body.results.iter().find(|r| r.seq == *seq) else {
+            continue;
+        };
+        let label = remedy_core::report::op_label(r.op, lang);
+        let target = targets.get(seq).copied().unwrap_or_default();
+        let why = match what {
+            Restart::DeletePending => lang.t(
+                "Windows 가 지우기를 미뤘습니다. PC 를 다시 시작하면 지워집니다",
+                "Windows postponed removing it; it is removed when the PC restarts",
+            ),
+            Restart::DeleteUnverified => lang.t(
+                "지워졌는지 확인하지 못했습니다. PC 를 다시 시작한 뒤 다시 검사하십시오",
+                "could not confirm it was removed; restart the PC and scan again",
+            ),
+            Restart::StopAtRestart => lang.t(
+                "드라이버가 정지를 받지 않았습니다. 비활성화해 두었으므로 PC 를 다시 시작하면 올라오지 않습니다",
+                "the driver did not accept the stop; it is disabled, so it will not load after a restart",
+            ),
+        };
+        outln!("  [{seq}] {label}  {target} — {why}");
+    }
+    let removing = report
+        .at_restart
+        .values()
+        .any(|w| matches!(w, Restart::DeletePending | Restart::DeleteUnverified));
+    if removing && report.container.is_some() {
+        outln!(
+            "{}",
+            if may_suggest {
+                lang.t(
+                    "오탐이라 되돌리려면 PC 를 먼저 다시 시작한 뒤 복원하십시오 — 그 전에는 복원이 멈춥니다.",
+                    "If it was a false positive, restart the PC first, then restore — until then the restore stops.",
+                )
+            } else {
+                lang.t(
+                    "다시 시작하기 전에는 이 서비스를 복원할 수 없습니다 — 복원이 멈춥니다.",
+                    "This service cannot be restored until the PC restarts — the restore stops.",
+                )
+            }
+        );
     }
 }
 

@@ -2,7 +2,7 @@
 # 룰: winwyvern-1-check, winwyvern-2-clean — 묶어 낸 출시의 필수 점검 ① 과 PR CI 가 이 하네스를 찾아 돌린다(Invoke-RuleHarness.ps1 · -Package · -LogDir)
 # 입력: 없음
 # rc 묶음: winwyvern
-# 하네스 표: Windows 랩(러너 · 랩 VM) | WinWyvern 탐지 · 제거 룰 — 취약 드라이버 NeacSafe64 의 서비스(자동 시작 · ImagePath 꼴)와 System32 의 그 파일 · 하나만 남은 흔적 · 다른 시작 유형 · 다른 자리에서 두 룰의 판정이 같은가 · 제거 룰의 치료(서비스의 네 동작) → 다시 검사 → 복원(서비스 키 하위 트리의 값 목록) → 다시 검사
+# 하네스 표: Windows 랩(러너 · 랩 VM) | WinWyvern 탐지 · 제거 룰 — 취약 드라이버 NeacSafe64 의 서비스(자동 시작 · ImagePath 꼴)와 System32 의 그 파일 · 하나만 남은 흔적 · 다른 시작 유형 · 다른 자리에서 두 룰의 판정이 같은가 · 제거 룰의 치료(서비스의 네 동작) → 다시 검사 → 복원(서비스 키 하위 트리의 값 목록) → 다시 검사 · 서비스 핸들을 붙든 채 치료하면 '다시 시작해야 끝남' 을 알리고 지우는 중의 복원은 멈추는가(엔진 1.26.0 부터)
 <#
 .SYNOPSIS
     WinWyvern 의 두 룰(winwyvern-1-check 탐지 · winwyvern-2-clean 제거)을 랩에서 잰다 — 서비스 · 파일의 꼴마다 종료 코드와
@@ -48,8 +48,17 @@
          나머지 셋은 ASEC [표 3] 과 같은 값이다)을 더해: T1 검사 2 · 치료 계획 넷 → T2 치료(run --yes) 1 · 네 동작이 그 차례로 모두
          끝남 → T3 서비스 키 없음 · SCM 이 모름 · 드라이버 자리 파일 그대로(해시) · 재부팅 뒤 확인 예약(그 회차) → T4 다시
          검사 0(두 룰 · 흔적 1 — 남긴 파일) → T5 복원(restore --yes) 0 · 3건 → T6 서비스 키 하위 트리의 값 목록(키 · 이름 ·
-         종류 · 데이터)이 치료 전과 같음 → T7 다시 검사 2(두 룰)
-      C  치운 뒤 남은 것 1 — 서비스 키 · SCM 의 서비스 · System32 의 그 파일 · 작업 폴더 · RunOnce 의 remedy-verify 가 모두 없다
+         종류 · 데이터)이 치료 전과 같음 → T7 다시 검사 2(두 룰). T2 는 '다시 시작해야 끝남' 을 말하지 않아야 한다 — 화면의
+         목록 줄도 --events finished 의 reboot_required 도 없다(T2r · 곧바로 지워진 치료)
+      H  서비스 핸들을 붙든 채 치료 7(엔진 1.26.0 부터 — 그 앞의 꾸러미면 건너뛰고 그 줄만 적는다) — 같은 꼴(T 와 같다)을 세우고
+         무해한 프로세스 하나가 서비스 핸들을 연 채 붙든다: H1 치료(run --yes) 1 · 네 동작 끝남 · 실패 0 · finished 의
+         reboot_required · 화면의 '[4] 서비스 삭제 … 미뤘습니다' 줄과 되돌리는 차례 줄 → H2 서비스 키 있음 · Start 4 · 지울 표시
+         (DeleteFlag 1) → H3 복원(--yes 없음) 5 · 막은 사유 · '다시 시작한 뒤 다시 복원' 끝 줄 · 값 목록 그대로 → H4 복원(--yes)
+         5 · 아무것도 쓰지 않음 → H5 놓음 → 10초 안에 키가 사라지고 SCM 이 모름(1060) → H6 복원(--yes) 0 · 3건 · 값 목록이 치료
+         전과 같음 → H7 다시 검사 2(두 룰). 다시 시작은 하지 않는다 — 핸들을 놓는 것이 같은 일을 한다(2026-11-25 랩: 놓자
+         첫 물음에서 키가 없었다)
+      C  치운 뒤 남은 것 1 — 서비스 키 · SCM 의 서비스 · System32 의 그 파일 · 작업 폴더 · RunOnce 의 remedy-verify · 핸들을 붙든
+         프로세스가 모두 없다
 
     0 칸은 감염 칸에서 한 가지만 다르다. 그 0 이 그 까닭으로 나왔는지를 화면의 흔적 수로 함께 본다 — 흔적 0 이면 룰이 아무
     것도 못 본 것이고, 흔적 1 이면 두 근거 가운데 하나만 선 것이다.
@@ -85,6 +94,14 @@ foreach ($p in @($exe, (Join-Path $pkgRoot "plugins\$detectRule\plugin.yaml"), (
 # 제거 룰의 치료 계획 — 서비스 ref 하나에서 계획기가 내는 동작과 그 차례(설계-03 §2 · 2026-11-25 랩 측정 4건).
 $treat = @('service.clear_recovery', 'service.stop', 'service.disable', 'service.delete')
 $treatOps = $treat -join ','
+# 다시 시작해야 끝나는 치료의 화면 문구(엔진 1.26.0 · remedy-cli `still_there` · restore_cmd). T2r 의 부정 단정과 H 칸의 긍정
+# 단정이 **같은 변수**를 쓴다 — 문구가 바뀌면 부정 단정이 조용히 통과하지 않고 H 칸이 먼저 실패한다.
+$sayPending = '\[4\] 서비스 삭제 .*Windows 가 지우기를 미뤘습니다'
+$sayRestoreOrder = 'PC 를 먼저 다시 시작한 뒤 복원하십시오|다시 시작하기 전에는 이 서비스를 복원할 수 없습니다'
+$sayRemoving = 'Windows 가 이 서비스를 지우는 중입니다'
+$sayRestartThenRestore = 'PC 를 다시 시작한 뒤 다시 복원하십시오'
+# H 칸이 서는 엔진 — 그 앞의 꾸러미(룰만 바뀐 출시의 미룬 검증이 지난 공개본으로 돌 때)는 건너뛴다.
+$holdSince = [version]'1.26.0'
 $logRoot = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($LogDir)
 New-Item -ItemType Directory -Force $logRoot | Out-Null
 $utf8 = New-Object System.Text.UTF8Encoding $false
@@ -121,6 +138,92 @@ $guestTools = {
         if ($item) { [string]$item.$verifyName }
     }
 
+    # 서비스 핸들을 붙드는 프로세스의 몸(H 칸) — 이것만 한다. OpenSCManager(SC_MANAGER_CONNECT) · OpenService
+    # (SERVICE_QUERY_STATUS)만 부르고 닫지 않은 채 잔다. 놓으라는 표지 파일이 생기거나 한 시간이 지나면 두 핸들을 닫고 끝난다.
+    # 열린 핸들이 하나라도 있으면 SCM 이 서비스 삭제를 미룬다(2026-11-25 랩).
+    $holderBlock = {
+        param([string] $statusPath, [string] $releasePath, [string] $name, [int] $limitSec)
+        $ErrorActionPreference = 'Stop'
+        $sig = '[DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)] public static extern IntPtr OpenSCManager(string machine, string db, uint access); ' +
+            '[DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)] public static extern IntPtr OpenService(IntPtr scm, string name, uint access); ' +
+            '[DllImport("advapi32.dll", SetLastError = true)] public static extern bool CloseServiceHandle(IntPtr handle);'
+        Add-Type -Namespace RemedyLab -Name Scm -MemberDefinition $sig
+        # $null 은 string 인자로 넘기면 빈 글자가 된다(빈 데이터베이스 이름 → 123) — 진짜 NULL 은 [NullString]::Value 다.
+        $scm = [RemedyLab.Scm]::OpenSCManager([NullString]::Value, [NullString]::Value, 1)
+        $svc = [IntPtr]::Zero
+        if ($scm -ne [IntPtr]::Zero) { $svc = [RemedyLab.Scm]::OpenService($scm, $name, 4) }
+        $errSvc = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+        $state = 'held'
+        if ($svc -eq [IntPtr]::Zero) { $state = 'failed' }
+        [IO.File]::WriteAllText($statusPath, ('{0} pid={1} err_svc={2}' -f $state, $PID, $errSvc))
+        if ($state -ne 'held') {
+            if ($scm -ne [IntPtr]::Zero) { [void][RemedyLab.Scm]::CloseServiceHandle($scm) }
+            exit 1
+        }
+        $until = (Get-Date).AddSeconds($limitSec)
+        while (-not (Test-Path -LiteralPath $releasePath) -and (Get-Date) -lt $until) { Start-Sleep -Milliseconds 100 }
+        [void][RemedyLab.Scm]::CloseServiceHandle($svc)
+        [void][RemedyLab.Scm]::CloseServiceHandle($scm)
+        [IO.File]::AppendAllText($statusPath, "`nreleased")
+    }
+
+    # 붙드는 프로세스의 명령줄 — 같은 작업 폴더면 늘 같은 줄이라, 그 줄로 그 프로세스를 다시 찾는다.
+    function Get-HolderLine([string] $probe) {
+        $statusPath = Join-Path $probe 'holder.status'
+        $releasePath = Join-Path $probe 'holder.release'
+        $text = "& {" + $holderBlock.ToString() + "} '" + $statusPath + "' '" + $releasePath + "' '" + $svcName + "' 3600"
+        $b64 = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($text))
+        $ps = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+        [pscustomobject]@{
+            line    = ('"{0}" -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand {1}' -f $ps, $b64)
+            b64     = $b64
+            status  = $statusPath
+            release = $releasePath
+        }
+    }
+
+    function Get-HolderProcs([string] $probe) {
+        if (-not $probe) { return @() }
+        $h = Get-HolderLine $probe
+        @(Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" |
+                Where-Object { $_.CommandLine -and $_.CommandLine.Contains($h.b64) } | ForEach-Object { [int]$_.ProcessId })
+    }
+
+    # 원격 세션 밖에서 띄운다(Win32_Process.Create) — 세션이 끊겨도 핸들을 놓지 않게. 현재 폴더는 작업 폴더가 아닌 곳(지울 때
+    # 잠기지 않게). 붙들었다는 상태 줄을 90초까지 기다린다.
+    function Start-Holder([string] $probe) {
+        $h = Get-HolderLine $probe
+        foreach ($p in @($h.status, $h.release)) { if (Test-Path -LiteralPath $p) { Remove-Item -LiteralPath $p -Force -ErrorAction Stop } }
+        $r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = $h.line; CurrentDirectory = $env:SystemRoot }
+        $procId = [int]$r.ProcessId
+        $text = ''
+        $until = (Get-Date).AddSeconds(90)
+        while ((Get-Date) -lt $until) {
+            if (Test-Path -LiteralPath $h.status) {
+                $text = [IO.File]::ReadAllText($h.status)
+                if ($text) { break }
+            }
+            if ($procId -gt 0 -and -not (Get-Process -Id $procId -ErrorAction SilentlyContinue)) { break }
+            Start-Sleep -Milliseconds 250
+        }
+        [pscustomobject]@{ held = ([string]$text).StartsWith('held'); status = ([string]$text).Trim() }
+    }
+
+    # 놓는다 — 표지 파일을 두고 그 프로세스가 끝나기를 20초까지 기다린다(끝나지 않으면 끝낸다).
+    function Stop-Holder([string] $probe) {
+        if (@(Get-HolderProcs $probe).Count -eq 0) { return 'none' }
+        $h = Get-HolderLine $probe
+        if (Test-Path -LiteralPath $probe) { [IO.File]::WriteAllText($h.release, 'release') }
+        $t0 = Get-Date
+        while (@(Get-HolderProcs $probe).Count -gt 0 -and ((Get-Date) - $t0).TotalSeconds -lt 20) { Start-Sleep -Milliseconds 100 }
+        $how = 'exited'
+        foreach ($id in @(Get-HolderProcs $probe)) {
+            Stop-Process -Id $id -Force -ErrorAction SilentlyContinue
+            $how = 'killed'
+        }
+        $how
+    }
+
     # 이 하네스가 놓는 것 가운데 지금 있는 것 — 시작 전에는 '랩에 원래 있던 것', 끝에는 '치우고 남은 것' 이다.
     function Get-Leftover([string] $probe) {
         if (Test-Path -LiteralPath $svcKey) { 'HKLM\SYSTEM\CurrentControlSet\Services\NeacSafe64' }
@@ -132,9 +235,12 @@ $guestTools = {
         if ($probe -and (Test-Path -LiteralPath $probe)) { $probe }
         $verify = Get-VerifyEntry
         if ($verify) { 'RunOnce 의 remedy-verify({0})' -f $verify }
+        foreach ($id in @(Get-HolderProcs $probe)) { '서비스 핸들을 붙든 프로세스 pid {0}' -f $id }
     }
 
     function Clear-Layout([string] $probe) {
+        # 핸들을 붙든 프로세스부터 끝낸다 — 남아 있으면 아래 삭제가 미뤄져 10초 뒤 멈춘다(H 칸).
+        if ($probe) { $null = Stop-Holder $probe }
         if (Test-Path -LiteralPath $svcKey) {
             $null = & sc.exe delete $svcName
             $deleted = $LASTEXITCODE
@@ -321,6 +427,15 @@ try {
     foreach ($rid in @($detectRule, $cleanRule)) {
         Copy-Item -LiteralPath (Join-Path $pkgRoot "plugins\$rid") -Destination "$g\plugins" -ToSession $session -Recurse -Force
     }
+    # 꾸러미의 엔진 버전 — H 칸을 돌릴지 정한다. 읽지 못하면 멈춘다(조용히 건너뛰지 않는다).
+    $ver = Invoke-GuestExe -Session $session -Path "$g\remedy.exe" -WorkingDirectory $g -Arguments @('--version')
+    $verText = [string]$ver.out + [string]$ver.err
+    $engine = $null
+    if ($verText -match '(\d+)\.(\d+)\.(\d+)(?:-[0-9A-Za-z.]+)? \(remedy\)') {
+        $engine = [version]('{0}.{1}.{2}' -f $Matches[1], $Matches[2], $Matches[3])
+    }
+    if (-not $engine) { throw ('꾸러미의 엔진 버전을 읽지 못했다: ' + $verText.Trim()) }
+    Note ('엔진 {0}' -f $engine)
 
     foreach ($c in $cases) {
         $placed = Invoke-Command -Session $session -ArgumentList $guestTools.ToString(), $g, $c.name, $c.start, $c.bin, $c.image, $c.imageType, $c.file -ScriptBlock {
@@ -393,6 +508,12 @@ try {
     $seen = '종료 {0} · 회차 {1} · 동작 [{2}] · 끝남 {3} · 실패 {4} · 백업 {5}건' -f $r.exit, $runId, $doneOps, $finDone, $finFailed, $entries
     if ($notDone.Count) { $seen += ' · 끝나지 않음 ' + ($notDone -join ' ') }
     Check 'T2' '제거 룰 — 치료(run --yes) 1 · 네 동작이 그 차례로 모두 끝남' $ok $seen
+    # T2r — 곧바로 지워진 치료는 '다시 시작해야 끝남' 을 말하지 않는다(화면의 목록 줄 · finished 의 reboot_required 모두 없다).
+    $t2Screen = [string]$r.out + [string]$r.err
+    $saysPending = $t2Screen -match $sayPending
+    $finFlag = $finished.Count -and ($finished[0].PSObject.Properties.Name -contains 'reboot_required')
+    Check 'T2r' "곧바로 지워진 치료 — '다시 시작해야 끝남' 을 말하지 않는다(화면 · --events)" ((-not $saysPending) -and (-not $finFlag)) `
+        ('화면의 미룬 삭제 줄 {0} · finished 의 reboot_required {1}' -f $(if ($saysPending) { '있음' } else { '없음' }), $(if ($finFlag) { '있음' } else { '없음' }))
     if (-not $runId) { throw '치료의 회차 번호(run_id)를 --events 에서 얻지 못했다 — 복원할 수 없다' }
 
     # T3 — 치료 뒤 게스트의 상태. 드라이버 파일은 remove 밖이라 그대로여야 한다.
@@ -462,6 +583,129 @@ try {
     Check 'T7' '복원 뒤 다시 검사 2 — 두 룰 모두 흔적 2 · 위협 1' $ok `
         ('제거 룰 종료 {0} · 흔적 {1} · 위협 {2} · 치료 계획 {3}건 · 탐지 룰 종료 {4} · 흔적 {5} · 위협 {6}' -f $t7.exit, $t7.traces,
             $t7.threats, @($t7.ops).Count, $t7b.exit, $t7b.traces, $t7b.threats)
+
+    # ── H — 서비스 핸들을 붙든 채 치료. SCM 이 삭제를 미룬다 — 엔진은 그것을 '다시 시작해야 끝남' 으로 알리고, 지우는 중인
+    #    서비스로는 복원하지 않는다(엔진 1.26.0 · 이슈 #172 ⑥). 그 앞의 엔진이면 건너뛴다 ──
+    if ($engine -lt $holdSince) {
+        Note ('H 칸 건너뜀 — 엔진 {0}(다시 시작해야 끝나는 치료는 {1} 부터 알린다)' -f $engine, $holdSince)
+    } else {
+        $h0 = Invoke-Command -Session $session -ArgumentList $guestTools.ToString(), $g, $asec, $f -ScriptBlock {
+            param($tools, $probe, $bin, $file)
+            . ([scriptblock]::Create($tools))
+            Clear-Layout $probe | Out-Null
+            $null = New-Layout 'NeacSafe64' 'auto' $bin '' '' $file
+            Add-MinifilterForm
+            $vals = @(Get-KeyValues)
+            $held = Start-Holder $probe
+            [pscustomobject]@{ values = $vals; held = $held.held; status = $held.status }
+        }
+        if (-not $h0.held) { throw ('서비스 핸들을 붙들지 못했다: ' + $h0.status) }
+        $wasText = @($h0.values) -join "`n"
+
+        # 서비스 키의 지금 상태 — 키 · Start · 지울 표시 · SCM · 값 목록.
+        $readSvc = {
+            Invoke-Command -Session $session -ArgumentList $guestTools.ToString() -ScriptBlock {
+                param($tools)
+                . ([scriptblock]::Create($tools))
+                $null = & sc.exe query $svcName
+                $queried = $LASTEXITCODE
+                $start = $null
+                $flag = $null
+                if (Test-Path -LiteralPath $svcKey) {
+                    $k = Get-Item -LiteralPath $svcKey
+                    $start = $k.GetValue('Start')
+                    $flag = $k.GetValue('DeleteFlag')
+                }
+                [pscustomobject]@{ key = (Test-Path -LiteralPath $svcKey); start = $start; flag = $flag; query = $queried; values = @(Get-KeyValues) }
+            }
+        }
+
+        # H1 — 치료. 네 동작은 끝나고(종료 1 · 실패 0) 화면과 --events 가 남은 삭제를 말한다.
+        $hEvents = "$g\out\H1.ndjson"
+        $r = Invoke-GuestExe -Session $session -Path "$g\remedy.exe" -WorkingDirectory $g -Arguments @('run', '--plugin',
+            "$g\plugins\$cleanRule\plugin.yaml", '--yes', '--out-dir', "$g\out\H1", '--state-dir', "$g\state", '--events', $hEvents)
+        $h1Screen = [string]$r.out + [string]$r.err
+        [IO.File]::WriteAllText((Join-Path $logRoot 'H1.txt'), ("exit={0}`n{1}" -f $r.exit, $h1Screen), $utf8)
+        $hText = Read-GuestText $hEvents
+        [IO.File]::WriteAllText((Join-Path $logRoot 'H1.ndjson'), [string]$hText, $utf8)
+        $hev = @()
+        if ($hText) { $hev = @($hText -split "`n" | Where-Object { $_.Trim() } | ForEach-Object { $_ | ConvertFrom-Json }) }
+        $hRun = ''
+        $hs = @($hev | Where-Object { $_.event -eq 'started' })
+        if ($hs.Count) { $hRun = [string]$hs[0].run_id }
+        $hActs = @($hev | Where-Object { $_.event -eq 'action' })
+        $hOps = @($hActs | ForEach-Object { [string]$_.op }) -join ','
+        $hNotDone = @($hActs | Where-Object { $_.outcome -ne 'done' }).Count
+        $hFin = @($hev | Where-Object { $_.event -eq 'finished' })
+        $hFlag = $hFin.Count -and ($hFin[0].reboot_required -eq $true)
+        $hDone = -1
+        $hFailed = -1
+        if ($hFin.Count) { $hDone = [int]$hFin[0].done; $hFailed = [int]$hFin[0].failed }
+        $saysPending = $h1Screen -match $sayPending
+        $saysOrder = $h1Screen -match $sayRestoreOrder
+        $ok = ($r.exit -eq 1) -and [bool]$hRun -and ($hOps -eq $treatOps) -and ($hNotDone -eq 0) -and ($hDone -eq $treat.Count) -and
+            ($hFailed -eq 0) -and $hFlag -and $saysPending -and $saysOrder
+        Check 'H1' "핸들을 붙든 채 치료 1 · 네 동작 끝남 · finished 의 reboot_required · 화면의 미룬 삭제 줄과 되돌리는 차례 줄" $ok `
+            ('종료 {0} · 회차 {1} · 동작 [{2}] · 끝남 {3} · 실패 {4} · reboot_required {5} · 미룬 삭제 줄 {6} · 차례 줄 {7}' -f $r.exit,
+                $hRun, $hOps, $hDone, $hFailed, $(if ($hFlag) { '참' } else { '없음' }), $(if ($saysPending) { '있음' } else { '없음' }),
+                $(if ($saysOrder) { '있음' } else { '없음' }))
+        if (-not $hRun) { throw '핸들을 붙든 치료의 회차 번호(run_id)를 --events 에서 얻지 못했다' }
+
+        # H2 — 삭제가 미뤄졌다: 키가 남고 Start 4 · 지울 표시 1.
+        $h2 = & $readSvc
+        $pendingText = @($h2.values) -join "`n"
+        $ok = $h2.key -and ($h2.start -eq 4) -and ($h2.flag -eq 1)
+        Check 'H2' '치료 뒤 — 서비스 키가 남고 Start 4 · 지울 표시(DeleteFlag 1)' $ok `
+            ('키 {0} · Start {1} · DeleteFlag {2} · sc.exe query 종료 {3}' -f $(if ($h2.key) { '있음' } else { '없음' }), $h2.start, $h2.flag, $h2.query)
+
+        # H3 · H4 — 지우는 중인 서비스로는 복원하지 않는다(5 · 아무것도 쓰지 않음). --yes 없이도 · 있어도 같다.
+        foreach ($step in @(@{ id = 'H3'; yes = $false }, @{ id = 'H4'; yes = $true })) {
+            $restoreArgs = @('restore', '--run', $hRun, '--state-dir', "$g\state")
+            if ($step.yes) { $restoreArgs += '--yes' }
+            $r = Invoke-GuestExe -Session $session -Path "$g\remedy.exe" -WorkingDirectory $g -Arguments $restoreArgs
+            $screen = [string]$r.out + [string]$r.err
+            [IO.File]::WriteAllText((Join-Path $logRoot ($step.id + '.txt')), ("exit={0}`n{1}" -f $r.exit, $screen), $utf8)
+            $now = & $readSvc
+            $untouched = (@($now.values) -join "`n") -eq $pendingText
+            $saysWhy = $screen -match $sayRemoving
+            $saysThen = $screen -match $sayRestartThenRestore
+            $ok = ($r.exit -eq 5) -and $saysWhy -and $saysThen -and $untouched -and ($now.flag -eq 1)
+            Check $step.id ('지우는 중의 복원' + $(if ($step.yes) { '(--yes)' } else { '(--yes 없음)' }) + ' 5 · 막은 사유 · 다시 시작한 뒤 다시 복원 · 값 목록 그대로') $ok `
+                ('종료 {0} · 사유 {1} · 끝 줄 {2} · 값 목록 {3} · DeleteFlag {4}' -f $r.exit, $(if ($saysWhy) { '있음' } else { '없음' }),
+                    $(if ($saysThen) { '있음' } else { '없음' }), $(if ($untouched) { '그대로' } else { '바뀜' }), $now.flag)
+        }
+
+        # H5 — 놓는다. SCM 이 미룬 삭제를 끝낸다 — 다시 시작이 하는 일을 핸들을 닫아 대신한다.
+        $h5 = Invoke-Command -Session $session -ArgumentList $guestTools.ToString(), $g -ScriptBlock {
+            param($tools, $probe)
+            . ([scriptblock]::Create($tools))
+            $how = Stop-Holder $probe
+            for ($i = 0; $i -lt 100 -and (Test-Path -LiteralPath $svcKey); $i++) { Start-Sleep -Milliseconds 100 }
+            $null = & sc.exe query $svcName
+            [pscustomobject]@{ how = $how; key = (Test-Path -LiteralPath $svcKey); query = $LASTEXITCODE }
+        }
+        Check 'H5' '놓은 뒤 10초 안에 서비스 키가 사라지고 SCM 이 모름(1060)' ((-not $h5.key) -and ($h5.query -eq 1060)) `
+            ('붙든 프로세스 {0} · 키 {1} · sc.exe query 종료 {2}' -f $h5.how, $(if ($h5.key) { '있음' } else { '없음' }), $h5.query)
+
+        # H6 — 이제 복원한다. 값 목록이 치료 전과 같다(T5 · T6 과 같은 잣대).
+        $r = Invoke-GuestExe -Session $session -Path "$g\remedy.exe" -WorkingDirectory $g -Arguments @('restore', '--run', $hRun,
+            '--state-dir', "$g\state", '--yes')
+        $screen = [string]$r.out + [string]$r.err
+        [IO.File]::WriteAllText((Join-Path $logRoot 'H6.txt'), ("exit={0}`n{1}" -f $r.exit, $screen), $utf8)
+        $restored = -1
+        if ($screen -match '(\d+)건 복원 완료') { $restored = [int]$Matches[1] }
+        $h6 = & $readSvc
+        $same = (@($h0.values).Count -gt 1) -and ((@($h6.values) -join "`n") -eq $wasText)
+        Check 'H6' '놓은 뒤 복원(restore --yes) 0 · 3건 · 값 목록이 치료 전과 같다' (($r.exit -eq 0) -and ($restored -eq 3) -and $same) `
+            ('종료 {0} · 복원 {1}건 · 값 목록 {2}줄 {3}' -f $r.exit, $restored, @($h6.values).Count, $(if ($same) { '치료 전과 같음' } else { '다름' }))
+
+        # H7 — 다시 검사 2(두 룰).
+        $h7 = Invoke-Scan 'H7' $cleanRule
+        $h7b = Invoke-Scan 'H7b' $detectRule
+        $ok = ($h7.exit -eq 2) -and ($h7.threats -eq 1) -and ($h7b.exit -eq 2) -and ($h7b.threats -eq 1)
+        Check 'H7' '그 복원 뒤 다시 검사 2 — 두 룰 모두 위협 1' $ok `
+            ('제거 룰 종료 {0} · 위협 {1} · 탐지 룰 종료 {2} · 위협 {3}' -f $h7.exit, $h7.threats, $h7b.exit, $h7b.threats)
+    }
 }
 catch {
     Check 'E1' '하네스가 끝까지 돌았다' $false $_.Exception.Message
@@ -476,7 +720,7 @@ finally {
             @(Get-Leftover $g)
         }
         $left = @($left | Where-Object { $_ })
-        Check 'C1' '치운 뒤 남은 것 0(서비스 키 · SCM 의 서비스 · System32 의 그 파일 · 작업 폴더 · RunOnce 의 remedy-verify)' ($left.Count -eq 0) $(if ($left.Count) { $left -join ' · ' } else { '없음' })
+        Check 'C1' '치운 뒤 남은 것 0(서비스 키 · SCM 의 서비스 · System32 의 그 파일 · 작업 폴더 · RunOnce 의 remedy-verify · 핸들을 붙든 프로세스)' ($left.Count -eq 0) $(if ($left.Count) { $left -join ' · ' } else { '없음' })
     } catch {
         Check 'C1' '치운 뒤 남은 것 0' $false ('치우지 못했다: ' + $_.Exception.Message)
     } finally { Remove-PSSession $session }

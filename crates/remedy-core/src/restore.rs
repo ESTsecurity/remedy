@@ -43,6 +43,9 @@ pub struct Item {
     pub report: RestoreReport,
     /// 막힌 이유. `Some` 이면 이 항목은 복원되지 않는다.
     pub blocked: Option<String>,
+    /// **다시 시작한 뒤에는 막히지 않는다** — Windows 가 이 서비스를 지우는 중이라 막았다(2026-11-25). 화면이
+    /// 끝 줄을 고른다('다시 시작한 뒤 다시 복원').
+    pub restart_first: bool,
 }
 
 impl Item {
@@ -321,7 +324,7 @@ pub fn plan(
 
         // 꺼내기 모드에서는 원본 경로에 쓰지 않으므로 보호 검사가 성립하지 않는다.
         // 대신 컨테이너가 지시하는 경로를 **쓰지 않는다는 사실 자체**가 방어다.
-        let (dest, blocked) = match extract_to {
+        let (dest, mut blocked) = match extract_to {
             Some(dir) => (extract_path(dir, &me.origin), None),
             None => {
                 let mut blocked = None;
@@ -362,6 +365,43 @@ pub fn plan(
             }
         };
 
+        // **Windows 가 지우는 중인 서비스에는 되돌려 쓰지 않는다**(2026-11-25 · 이슈 #172 ⑥).
+        //
+        // 삭제가 미뤄진 서비스의 정의 키는 남아 있고, 복원은 그 키를 열어 담은 값만 쓴다 — 지울 표시가 그대로
+        // 남는다. 그 서비스에 열린 핸들이 닫히거나 다시 시작하면 SCM 이 되돌려 쓴 키를 하위 키째 지운다(2026-11-25
+        // 랩: 복원 0 · '3건 복원 완료' 뒤 핸들이 닫히자 키가 사라졌다). 아래의 재부팅 삭제 예약 취소와 같은 원칙이다 —
+        // 되돌려 놓은 것이 다시 시작할 때 지워지면 복원이 아니다. 다시 시작하면 삭제가 끝나 키가 없고, 그 뒤의
+        // 복원은 지금처럼 된다. 확인하지 못해도 막는다 — 쓰고 나서 사라지는 것보다 멈추는 편이 낫다.
+        let mut restart_first = false;
+        if blocked.is_none()
+            && extract_to.is_none()
+            && matches!(
+                me.kind,
+                EntryKind::Service | EntryKind::RegistryKey | EntryKind::RegistryValue
+            )
+        {
+            match backend.service_delete_pending(&me.origin) {
+                Ok(false) => {}
+                Ok(true) => {
+                    restart_first = true;
+                    // 한 줄 리터럴이다 — 콘솔 문서(§15)의 화면 줄을 `console-doc` 이 이 리터럴과 견준다(줄잇기
+                    // `\` 를 넣으면 골격이 그 자리에서 끊긴다).
+                    blocked = Some(lang.pick(
+                        "Windows 가 이 서비스를 지우는 중입니다 — PC 를 다시 시작하면 끝납니다. 그 전에 되돌리면 Windows 가 되돌린 등록까지 지웁니다".to_string(),
+                        "Windows is removing this service — it finishes when the PC restarts; restoring before that lets Windows remove the restored registration too".to_string(),
+                    ));
+                }
+                Err(e) => {
+                    blocked = Some(lang.pick(
+                        format!("이 서비스가 지워지는 중인지 확인하지 못했습니다 — 쓰지 않습니다: {e}"),
+                        format!(
+                            "could not check whether this service is being removed — not writing: {e}"
+                        ),
+                    ));
+                }
+            }
+        }
+
         // 레지스트리 값과 예외 목록은 **타입과 바이트가 전부**라 잃을 것이 없다.
         // 파일용 `plan_restore` 를 그대로 부르면 없는 파일을 재는 셈이 되고,
         // 그 결과가 "되살리지 못한다" 로 사람에게 나간다.
@@ -390,6 +430,7 @@ pub fn plan(
             sha256: me.sha256.clone(),
             report,
             blocked,
+            restart_first,
         });
     }
 
@@ -1382,6 +1423,131 @@ mod tests {
             self.0.borrow_mut().push(format!("{path}#{line_no}"));
             Ok(())
         }
+    }
+
+    /// 지울 표시를 묻는 백엔드(2026-11-25). 물은 자리를 적고, 정해 둔 답을 낸다.
+    struct Removing {
+        /// `Some(b)` 면 `Ok(b)`, `None` 이면 읽지 못했다(`Err`).
+        answer: Option<bool>,
+        asked: std::cell::RefCell<Vec<String>>,
+    }
+
+    impl Removing {
+        fn new(answer: Option<bool>) -> Self {
+            Self {
+                answer,
+                asked: Default::default(),
+            }
+        }
+    }
+
+    impl PlatformWrite for Removing {
+        fn backend_name(&self) -> &'static str {
+            "removing"
+        }
+        fn plan_restore(&self, _dest: &str, _meta: &FileMeta) -> RestoreReport {
+            RestoreReport::default()
+        }
+        fn restore_file(
+            &self,
+            _dest: &str,
+            _content: &[u8],
+            _meta: &FileMeta,
+        ) -> Result<RestoreReport, remedy_platform::PlatformError> {
+            unreachable!("계획만 잰다")
+        }
+        fn quarantine_read(
+            &self,
+            _path: &str,
+        ) -> Result<(Vec<u8>, FileMeta), remedy_platform::PlatformError> {
+            unreachable!("계획만 잰다")
+        }
+        fn destroy_file(&self, _path: &str) -> Result<(), remedy_platform::PlatformError> {
+            unreachable!("계획만 잰다")
+        }
+        fn exists(&self, _path: &str) -> bool {
+            false
+        }
+        fn service_delete_pending(
+            &self,
+            path: &str,
+        ) -> Result<bool, remedy_platform::PlatformError> {
+            self.asked.borrow_mut().push(path.to_string());
+            self.answer
+                .ok_or(remedy_platform::PlatformError::Unsupported("access denied"))
+        }
+    }
+
+    const SVC: &str = r"HKLM\SYSTEM\CurrentControlSet\Services\NeacSafe64";
+
+    fn removing_entries() -> Vec<Entry> {
+        let reg = |kind: EntryKind, origin: &str| Entry {
+            kind,
+            origin: origin.into(),
+            meta: serde_json::json!({}),
+            content: b"k".to_vec(),
+        };
+        vec![
+            reg(EntryKind::Service, SVC),
+            reg(EntryKind::RegistryValue, &format!(r"{SVC}\Start")),
+            entry("/srv/x.bin"),
+        ]
+    }
+
+    fn removing_plan(backend: &Removing, extract_to: Option<&str>) -> Plan {
+        let (bytes, ck) = build(removing_entries());
+        let sealed = peek(&bytes).unwrap();
+        let opened = sealed.unlock(&ck).unwrap();
+        let guards = Guards {
+            protected: &protected(),
+            vouched: &nothing_vouched(),
+        };
+        plan(&opened, "r1", backend, &guards, &[], extract_to).unwrap()
+    }
+
+    /// **Windows 가 지우는 중인 서비스에는 되돌려 쓰지 않는다**(2026-11-25 · 이슈 #172 ⑥) — 랩에서 그 상태로
+    /// 복원하자 0 · '3건 복원 완료' 였고, 핸들이 닫히자 SCM 이 되돌려 쓴 키를 하위 키째 지웠다. 서비스 정의 키와 그
+    /// 아래 값 모두 막고, 다시 시작한 뒤에는 풀린다고 표시한다. 파일 항목에는 묻지 않는다.
+    #[test]
+    fn a_service_being_removed_is_held_back_until_a_restart() {
+        let b = Removing::new(Some(true));
+        let p = removing_plan(&b, None);
+
+        let blocked: Vec<&Item> = p.blocked().collect();
+        assert_eq!(blocked.len(), 2, "{:?}", p.items);
+        assert!(blocked.iter().all(|i| i.restart_first), "{blocked:?}");
+        assert!(p.allowed().all(|i| i.dest == "/srv/x.bin"), "{:?}", p.items);
+        assert_eq!(
+            *b.asked.borrow(),
+            [SVC.to_string(), format!(r"{SVC}\Start")]
+        );
+    }
+
+    /// 읽지 못한 것을 '지우는 중이 아니다' 로 접지 않는다 — 막되, 다시 시작하면 풀린다고는 말하지 않는다.
+    #[test]
+    fn a_service_whose_mark_cannot_be_read_is_held_back_too() {
+        let b = Removing::new(None);
+        let p = removing_plan(&b, None);
+        let blocked: Vec<&Item> = p.blocked().collect();
+        assert_eq!(blocked.len(), 2, "{:?}", p.items);
+        assert!(blocked.iter().all(|i| !i.restart_first), "{blocked:?}");
+    }
+
+    #[test]
+    fn a_service_that_is_not_being_removed_restores_as_before() {
+        let b = Removing::new(Some(false));
+        let p = removing_plan(&b, None);
+        assert_eq!(p.blocked().count(), 0, "{:?}", p.items);
+        assert_eq!(b.asked.borrow().len(), 2);
+    }
+
+    /// 꺼내기는 원래 자리에 쓰지 않으므로 묻지 않는다.
+    #[test]
+    fn extracting_does_not_ask_about_the_mark() {
+        let b = Removing::new(Some(true));
+        let p = removing_plan(&b, Some("/srv/out"));
+        assert_eq!(p.blocked().count(), 0, "{:?}", p.items);
+        assert!(b.asked.borrow().is_empty(), "{:?}", b.asked.borrow());
     }
 
     /// 한 파일의 cron 줄은 아래 줄부터 지웠으므로 위 줄부터 넣는다 — 담아 둔 번호는 위 줄이 돌아와

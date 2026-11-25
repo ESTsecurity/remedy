@@ -38,6 +38,14 @@
       1. **끊지 않는가** — 도구가 천장(60초)까지 도는 동안 remedy 가 기다리는가
       2. **상한을 넘긴 것을 말하는가** — `WARN_SC` 를 넘긴 칸이 화면에 나오는가
 
+    # 정지를 받지 않는 서비스 (N 칸 · 2026-11-25 · 엔진 1.26.0)
+
+    `labsvc --no-stop` 은 아무 제어도 받지 않는다. 손으로 쓴 계획(정지 → 사용 안 함 → 삭제)으로 둘을 잰다 — N1 Win32
+    서비스 그대로면 정지는 지금처럼 실패(3)이고, N2 정의 키의 Type 을 1 로 바꾼 흉내면 엔진이 정지를 '다시 시작해야 끝남'
+    으로 받아 1 로 끝내고 목록 · `finished` 의 `reboot_required` 로 알린다. 서비스가 도는 동안 삭제는 미뤄지고(지울 표시)
+    그 사이의 복원은 5 다. 마감(40초)에 서비스가 나가면 SCM 이 삭제를 끝내고 복원은 0 이다. **N2 는 흉내다** — SCM 이
+    메모리에 둔 유형은 Win32 그대로이고, 실물 드라이버가 내는 거부 코드는 재지 않는다.
+
 .EXAMPLE
     .\Invoke-SlowStopVerify.ps1 -Build
 #>
@@ -198,6 +206,139 @@ try {
         @{ name = "접두가 기다리다 끝났다"; pass = ($r.Text -match '기다리다 끝났습니다: sc\.exe stop'); detail = "TimedOut" }
         @{ name = "거부라고 부르지 않는다"; pass = ($r.Text -notmatch '거부됐(다|습니다): sc\.exe stop'); detail = "Refused 아님" }
     )
+
+    # ── N — 정지를 받지 않는 서비스(2026-11-25 · 엔진 1.26.0 · 이슈 #172 ⑥). `--no-stop` 으로 띄운 labsvc 는 아무 제어도
+    #    받지 않는다 — `sc.exe stop` 이 그 자리에서 물리친다. 손으로 쓴 계획: [1] 정지 → [2] 사용 안 함 → [3] 삭제.
+    #    N1 Win32 서비스 그대로 — 정지는 실패(3 · 결정 2026-09-13 그대로) · 삭제는 미뤄짐(서비스가 돈다) · 마감에 서비스가
+    #       나가면 SCM 이 키를 지운다
+    #    N2 정의 키의 Type 을 1(커널 드라이버)로 바꾼 **흉내** — 정지를 '다시 시작해야 끝남' 으로 받아 1 · 목록 [1] · [3] ·
+    #       finished 의 reboot_required · 그 사이의 복원은 5 · 마감 뒤 키가 사라지고 복원 0. SCM 이 메모리에 둔 유형은 Win32
+    #       그대로이고, 실물 드라이버가 내는 거부 코드는 재지 않는다 — 재는 것은 엔진의 판단과 진짜 SCM 의 미룬 삭제다
+    Write-Step "정지를 받지 않는 서비스(N1 · N2)"
+    foreach ($nc in @(@{ id = 'N1'; driver = $false }, @{ id = 'N2'; driver = $true })) {
+        $n = Invoke-Command -Session $session -ArgumentList $LabRoot, $nc.driver -ScriptBlock {
+            param($lab, $asDriver)
+            $ErrorActionPreference = "Continue"
+            $name = "remedy-lab-nostop"
+            $dir = "$lab\nostop-svc"
+            $stateDir = "$lab\nostop-state"
+            $key = "HKLM\SYSTEM\CurrentControlSet\Services\$name"
+            $psKey = "HKLM:\SYSTEM\CurrentControlSet\Services\$name"
+            Remove-Item $dir, $stateDir -Recurse -Force -ErrorAction SilentlyContinue
+            New-Item -ItemType Directory -Force $dir | Out-Null
+            & sc.exe delete $name 2>&1 | Out-Null
+
+            # **마감은 UTC 로 센다** — labsvc 는 UTC 초와 견준다. Windows PowerShell 5.1 의 `Get-Date -UFormat %s` 는 현지
+            # 시각으로 세어(2026-11-25 랩: 마감이 몇 시간 뒤가 되어 서비스가 나가지 않았다) 정지로 끝나는 위 칸에서만 쓸 수 있다.
+            $deadline = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() + 40
+            $bin = '"{0}\bin\lab-service.exe" --dir "{1}" --marker NOSTOP --deadline {2} --no-stop' -f $lab, $dir, $deadline
+            $created = (& sc.exe create $name binPath= $bin start= demand 2>&1) -join " "
+            $createCode = $LASTEXITCODE
+            & sc.exe start $name 2>&1 | Out-Null
+            Start-Sleep -Seconds 2
+            $before = [string](Get-Service $name -ErrorAction SilentlyContinue).Status
+            if ($asDriver) { Set-ItemProperty -LiteralPath $psKey -Name Type -Value 1 -Type DWord }
+
+            $runId = "nostop-" + [guid]::NewGuid().ToString("N").Substring(0, 8)
+            $acts = @()
+            $seq = 0
+            foreach ($op in @('service.stop', 'service.disable', 'service.delete')) {
+                $seq++
+                $acts += @{ seq = $seq; op = $op; target = $key; because = @("e#0"); reversible = ($op -ne 'service.stop'); risk = "medium" }
+            }
+            $plan = [ordered]@{
+                schema_version = 1; kind = "remedy.plan"; run_id = $runId
+                created        = "2026-11-25T00:00:00Z"
+                host           = @{ hostname = $env:COMPUTERNAME; os = "windows"; version = "10"; arch = "amd64" }
+                core           = @{ version = "0"; build = "d" }; plugins = @()
+                actions        = $acts
+                verdicts       = @("g0")
+            }
+            $planPath = "$lab\nostop-plan.json"
+            [System.IO.File]::WriteAllText($planPath, ($plan | ConvertTo-Json -Depth 8), (New-Object System.Text.UTF8Encoding($false)))
+
+            # remedy 한 번 — 종료 코드 · 화면 · 이벤트.
+            $run = {
+                param([string] $argLine)
+                $psi = New-Object System.Diagnostics.ProcessStartInfo
+                $psi.FileName = "$lab\bin\remedy.exe"
+                $psi.Arguments = $argLine
+                $psi.UseShellExecute = $false
+                $psi.RedirectStandardOutput = $true
+                $psi.RedirectStandardError = $true
+                $psi.RedirectStandardInput = $true
+                $psi.StandardOutputEncoding = [System.Text.Encoding]::UTF8
+                $psi.StandardErrorEncoding = [System.Text.Encoding]::UTF8
+                $psi.EnvironmentVariables["REMEDY_LANG"] = "ko"
+                $p = [System.Diagnostics.Process]::Start($psi)
+                $p.StandardInput.Close()
+                $o = $p.StandardOutput.ReadToEndAsync(); $e = $p.StandardError.ReadToEndAsync()
+                $p.WaitForExit(300000) | Out-Null
+                [pscustomobject]@{ code = $p.ExitCode; text = ($o.Result + $e.Result) }
+            }
+            $events = "$lab\nostop-events.ndjson"
+            Remove-Item $events -Force -ErrorAction SilentlyContinue
+            $ap = & $run ('apply --plan "{0}" --yes --state-dir "{1}" --events "{2}"' -f $planPath, $stateDir, $events)
+            $evText = ''
+            if (Test-Path -LiteralPath $events) { $evText = [IO.File]::ReadAllText($events) }
+            $flagAfter = (Get-ItemProperty -LiteralPath $psKey -Name DeleteFlag -ErrorAction SilentlyContinue).DeleteFlag
+            $running = [string](Get-Service $name -ErrorAction SilentlyContinue).Status
+
+            # 마감 전의 복원 — 지우는 중인 서비스로는 쓰지 않는다(5).
+            $early = & $run ('restore --run {0} --state-dir "{1}" --yes' -f $runId, $stateDir)
+
+            # 마감에 서비스가 나가면 SCM 이 미뤄 둔 삭제를 끝낸다 — 키가 사라질 때까지 70초까지.
+            $sw = [System.Diagnostics.Stopwatch]::StartNew()
+            while ((Test-Path -LiteralPath $psKey) -and $sw.Elapsed.TotalSeconds -lt 70) { Start-Sleep -Milliseconds 250 }
+            $gone = -not (Test-Path -LiteralPath $psKey)
+            $late = $null
+            if ($gone) { $late = & $run ('restore --run {0} --state-dir "{1}" --yes' -f $runId, $stateDir) }
+
+            # 치운다 — 복원한 키는 SCM 이 모른다(다시 시작 전) — 그때는 레지스트리에서 지운다.
+            & sc.exe delete $name 2>&1 | Out-Null
+            if ($LASTEXITCODE -eq 1060 -and (Test-Path -LiteralPath $psKey)) { Remove-Item -LiteralPath $psKey -Recurse -Force }
+            for ($i = 0; $i -lt 40 -and (Test-Path -LiteralPath $psKey); $i++) { Start-Sleep -Milliseconds 250 }
+            $left = Test-Path -LiteralPath $psKey
+            Remove-Item $dir, $stateDir, $planPath, $events -Recurse -Force -ErrorAction SilentlyContinue
+
+            [pscustomobject]@{
+                Created = $created; CreateCode = $createCode; Before = $before; Code = $ap.code; Text = $ap.text; Events = $evText
+                FlagAfter = $flagAfter; Running = $running; EarlyCode = $early.code; EarlyText = $early.text
+                Gone = $gone; GoneSecs = [math]::Round($sw.Elapsed.TotalSeconds, 1)
+                LateCode = $(if ($late) { $late.code } else { $null }); LateText = $(if ($late) { $late.text } else { '' }); Left = $left
+            }
+        }
+        $fin = @(($n.Events -split "`n") | Where-Object { $_.Trim() } | ForEach-Object { $_ | ConvertFrom-Json } | Where-Object { $_.event -eq 'finished' })
+        $flag = $fin.Count -and ($fin[0].reboot_required -eq $true)
+        $listDelete = $n.Text -match '\[3\] 서비스 삭제 .*Windows 가 지우기를 미뤘습니다'
+        $listStop = $n.Text -match '\[1\] 서비스 중지 .*드라이버가 정지를 받지 않았습니다'
+        $held = ($n.EarlyCode -eq 5) -and ($n.EarlyText -match 'Windows 가 이 서비스를 지우는 중입니다')
+        $id = $nc.id
+        if ($nc.driver) {
+            $checks += @(
+                @{ name = "$id 정지를 받지 않는 서비스가 섰다"; pass = ($n.CreateCode -eq 0) -and ($n.Before -eq "Running"); detail = "만듦 $($n.CreateCode) · $($n.Before)" }
+                @{ name = "$id 드라이버 흉내 — 정지를 받아 1"; pass = ($n.Code -eq 1) -and ($n.Text -match '수행 \[1/3\] 서비스 중지'); detail = "exit=$($n.Code)" }
+                @{ name = "$id 목록 [1] 정지 · [3] 미룬 삭제"; pass = $listStop -and $listDelete; detail = "정지 줄 $listStop · 삭제 줄 $listDelete" }
+                @{ name = "$id finished 의 reboot_required"; pass = [bool]$flag; detail = "$flag" }
+                @{ name = "$id 지울 표시가 남았다(서비스가 돈다)"; pass = ($n.FlagAfter -eq 1) -and ($n.Running -eq 'Running'); detail = "DeleteFlag $($n.FlagAfter) · $($n.Running)" }
+                @{ name = "$id 그 사이의 복원 5"; pass = $held; detail = "exit=$($n.EarlyCode)" }
+                @{ name = "$id 마감 뒤 키가 사라지고 복원 0"; pass = $n.Gone -and ($n.LateCode -eq 0); detail = "$($n.GoneSecs)초 · exit=$($n.LateCode)" }
+                @{ name = "$id 치운 뒤 남은 것 없음"; pass = (-not $n.Left); detail = "키 남음 $($n.Left)" }
+            )
+        } else {
+            $checks += @(
+                @{ name = "$id 정지를 받지 않는 서비스가 섰다"; pass = ($n.CreateCode -eq 0) -and ($n.Before -eq "Running"); detail = "만듦 $($n.CreateCode) · $($n.Before)" }
+                @{ name = "$id Win32 그대로 — 정지는 실패 3"; pass = ($n.Code -eq 3) -and ($n.Text -match '실패 \[1/3\] 서비스 중지'); detail = "exit=$($n.Code)" }
+                @{ name = "$id 정지를 받아 주지 않는다"; pass = (-not $listStop); detail = "정지 줄 $listStop" }
+                @{ name = "$id 목록 [3] 미룬 삭제 · reboot_required"; pass = $listDelete -and [bool]$flag; detail = "삭제 줄 $listDelete · $flag" }
+                @{ name = "$id 마감 뒤 키가 사라졌다"; pass = [bool]$n.Gone; detail = "$($n.GoneSecs)초" }
+                @{ name = "$id 치운 뒤 남은 것 없음"; pass = (-not $n.Left); detail = "키 남음 $($n.Left)" }
+            )
+        }
+        [System.IO.File]::WriteAllText((Join-Path $hostOut "$id-screen.txt"),
+            ("apply exit={0}`n{1}`n--- events`n{2}`n--- restore(마감 전) exit={3}`n{4}`n--- restore(마감 뒤) exit={5}`n{6}" -f
+                $n.Code, $n.Text, $n.Events, $n.EarlyCode, $n.EarlyText, $n.LateCode, $n.LateText), (New-Object System.Text.UTF8Encoding($false)))
+    }
 
     Write-Host ""
     foreach ($c in $checks) {

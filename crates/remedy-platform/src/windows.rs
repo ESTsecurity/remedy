@@ -686,6 +686,59 @@ fn stop_reason(code: i32) -> Option<PlatformError> {
     }
 }
 
+/// SCM 이 물리친 정지를 **드라이버면 [`PlatformError::NotStoppable`]** 로, 아니면 그대로 [`PlatformError::Refused`]
+/// 로 둔다(2026-11-25). 사유 바이트는 같다 — 접두만 갈린다.
+///
+/// **코드는 보지 않는다.** 실린 드라이버가 내는 거부 코드는 무해하게 재지 못했다 — 받아들일지는 실행기가
+/// 같은 대상의 사용 안 함이 끝났는지로 정한다. 유형을 읽지 못했으면(`None`) 드라이버로 보지 않는다 — 지금처럼
+/// 실패로 센다(안전한 쪽).
+fn refusal_kind(why: String, service_type: Option<u32>) -> PlatformError {
+    if service_type.is_some_and(is_driver_type) {
+        PlatformError::NotStoppable(why)
+    } else {
+        PlatformError::Refused(why)
+    }
+}
+
+/// 서비스 유형이 드라이버인가 — `SERVICE_KERNEL_DRIVER`(0x1) · `SERVICE_FILE_SYSTEM_DRIVER`(0x2) ·
+/// `SERVICE_RECOGNIZER_DRIVER`(0x8).
+fn is_driver_type(t: u32) -> bool {
+    t & 0x0B != 0
+}
+
+/// 정의 키의 `Type`. 읽지 못하면 `None`.
+fn service_type(key: &str) -> Option<u32> {
+    let (root, rest) = split_hive(key).ok()?;
+    root.open_subkey(rest)
+        .ok()?
+        .get_value::<u32, _>("Type")
+        .ok()
+}
+
+/// `sc.exe delete` 의 1072(`ERROR_SERVICE_MARKED_FOR_DELETE`) — **지우기가 이미 요청됐다.**
+fn delete_already_requested(code: Option<i32>) -> bool {
+    const ERROR_SERVICE_MARKED_FOR_DELETE: i32 = 1072;
+    code == Some(ERROR_SERVICE_MARKED_FOR_DELETE)
+}
+
+/// 이 자리를 담은 서비스의 정의 키. 서비스 정의 키 밖이거나 `Services` 자신이면 `None`.
+///
+/// `Services\X` · `Services\X\Parameters\Y` 모두 `Services\X` 다 — 복원 항목의 원래 자리는 정의 키 아래의 값이기도
+/// 하다. 이름은 접어 비교한 꼴이다(레지스트리는 대소문자를 가리지 않는다).
+fn service_key_of(path: &str) -> Option<String> {
+    let want = normalize::for_compare(SERVICES_KEY, Platform::Windows);
+    let got = normalize::for_compare(path, Platform::Windows);
+    let rest = got.strip_prefix(&format!("{want}\\"))?;
+    let name = rest.split('\\').next().filter(|n| !n.is_empty())?;
+    Some(format!("{SERVICES_KEY}\\{name}"))
+}
+
+/// 키가 없다 — 없거나(2) 지워지는 중이다(1018 `ERROR_KEY_DELETED`).
+fn key_gone(e: &std::io::Error) -> bool {
+    const ERROR_KEY_DELETED: i32 = 1018;
+    e.kind() == std::io::ErrorKind::NotFound || e.raw_os_error() == Some(ERROR_KEY_DELETED)
+}
+
 /// 이 도구가 몇 초를 넘기면 알리는가. **죽이지는 않는다**(결정 2026-09-07).
 ///
 /// | 도구 | 시점 | 왜 |
@@ -1428,7 +1481,8 @@ impl PlatformWrite for Live {
 
     fn service_running(&self, target: &str) -> bool {
         // SCM 에 묻지 않고 정의 키의 존재만 본다면 그것은 "돈다" 가 아니다.
-        // `sc.exe query` 의 종료 코드로 판단한다 — 정지 상태면 1062 다.
+        // `sc.exe query` 의 종료 코드로 판단한다 — **멈춘 서비스도 0 이다**(2026-11-25 랩: STOPPED 인 서비스에
+        // `sc query` 0). 멈춘 것은 뒤따르는 `sc.exe stop` 이 1062 로 받아 성공으로 센다([`stop_reason`]).
         let Ok(name) = self.service_name(target) else {
             return false;
         };
@@ -1449,11 +1503,18 @@ impl PlatformWrite for Live {
     /// **다른 코드는 그대로 실패다.** 1062 만 목표 상태를 뜻한다 — 다만 1053 은
     /// 실패라고 부르되 **무엇이 일어난 것인지 다르게 말한다**([`stop_reason`]):
     /// 거부가 아니라 [`PlatformError::TimedOut`] 이다.
+    ///
+    /// **물리친 것이 드라이버면 [`PlatformError::NotStoppable`] 이다**(2026-11-25). 정의 키의 `Type` 은 물리쳤을
+    /// 때만 읽는다 — 정상 경로(0 · 1062)는 지금과 같은 호출 하나다.
     fn service_stop(&self, target: &str) -> Result<(), PlatformError> {
         let name = self.service_name(target)?;
         let code = self.system_tool_code("sc.exe", &["stop", &name])?;
         match stop_reason(code) {
             None => Ok(()),
+            Some(PlatformError::Refused(why)) => Err(refusal_kind(
+                why,
+                service_type(&format!("{SERVICES_KEY}\\{name}")),
+            )),
             Some(e) => Err(e),
         }
     }
@@ -1465,9 +1526,39 @@ impl PlatformWrite for Live {
         self.system_tool("sc.exe", &["config", &name, "start=", "disabled"])
     }
 
+    /// **이미 지울 표시가 된 서비스는 지우기가 요청된 것이다**(2026-11-25). `sc.exe delete` 가 그때 1072
+    /// (`ERROR_SERVICE_MARKED_FOR_DELETE`)를 낸다 — 랩에서 잼(앞선 지우기가 미뤄진 서비스). 크래시한 실행을
+    /// 이어받아 같은 삭제를 다시 만나면 그 자리다. 남은 삭제가 언제 끝나는지는 실행기가 묻는다
+    /// ([`PlatformWrite::service_delete_pending`]).
+    ///
+    /// 그 밖의 실패는 지금과 같은 사유 바이트다(`system_tool` 과 같은 길).
     fn service_delete(&self, target: &str) -> Result<(), PlatformError> {
         let name = self.service_name(target)?;
-        self.system_tool("sc.exe", &["delete", &name])
+        let args = ["delete", name.as_str()];
+        let out = self.run_tool("sc.exe", &args)?;
+        if out.success() || delete_already_requested(out.code) {
+            return Ok(());
+        }
+        Err(PlatformError::Refused(
+            out.reason(&tool_label("sc.exe", &args)),
+        ))
+    }
+
+    fn service_delete_pending(&self, path: &str) -> Result<bool, PlatformError> {
+        let Some(key) = service_key_of(path) else {
+            return Ok(false);
+        };
+        let (root, rest) = split_hive(&key)?;
+        let k = match root.open_subkey(rest) {
+            Ok(k) => k,
+            Err(e) if key_gone(&e) => return Ok(false),
+            Err(e) => return Err(PlatformError::io(&key, e)),
+        };
+        match k.get_raw_value("DeleteFlag") {
+            Ok(v) => Ok(v.bytes.iter().any(|b| *b != 0)),
+            Err(e) if key_gone(&e) => Ok(false),
+            Err(e) => Err(PlatformError::io(format!("{key}\\DeleteFlag"), e)),
+        }
     }
 
     fn service_clear_recovery(&self, target: &str) -> Result<(), PlatformError> {
@@ -2176,6 +2267,69 @@ mod tests {
             head(&r),
             "두 부류가 같은 접두로 나간다: {t} / {r}"
         );
+    }
+
+    /// **드라이버가 물리친 정지만 [`PlatformError::NotStoppable`] 이다**(2026-11-25).
+    ///
+    /// 사유 바이트는 같고 접두만 갈린다. 유형을 읽지 못했거나 Win32 서비스면 지금처럼 거부다 — 결정
+    /// 2026-09-13 의 예외는 드라이버에만 선다.
+    #[test]
+    fn only_a_driver_refusal_is_not_stoppable() {
+        let why = || "sc.exe stop failed (exit code 1052)".to_string();
+        for t in [0x1, 0x2, 0x8] {
+            assert!(
+                matches!(refusal_kind(why(), Some(t)), PlatformError::NotStoppable(ref w) if *w == why()),
+                "유형 {t:#x}"
+            );
+        }
+        for t in [Some(0x10), Some(0x20), Some(0x110), None] {
+            assert!(
+                matches!(refusal_kind(why(), t), PlatformError::Refused(ref w) if *w == why()),
+                "유형 {t:?}"
+            );
+        }
+        let n = refusal_kind(why(), Some(1)).to_string();
+        let r = refusal_kind(why(), None).to_string();
+        let head = |s: &str| s.split(':').next().unwrap_or_default().to_string();
+        assert_ne!(
+            head(&n),
+            head(&r),
+            "두 부류가 같은 접두로 나간다: {n} / {r}"
+        );
+    }
+
+    /// `sc.exe delete` 의 1072 만 '이미 요청됨' 이다(2026-11-25 랩에서 잼). 성공(0)은 이 함수가 아니라
+    /// `success()` 가 본다.
+    #[test]
+    fn only_1072_means_the_delete_was_already_requested() {
+        assert!(delete_already_requested(Some(1072)));
+        for c in [None, Some(0), Some(5), Some(1060), Some(1062)] {
+            assert!(!delete_already_requested(c), "{c:?}");
+        }
+    }
+
+    #[test]
+    fn the_service_key_of_a_path_under_services() {
+        let base = r"HKLM\SYSTEM\CurrentControlSet\Services";
+        let want = |n: &str| Some(format!("{base}\\{n}"));
+        assert_eq!(
+            service_key_of(&format!(r"{base}\NeacSafe64")),
+            want("neacsafe64")
+        );
+        assert_eq!(
+            service_key_of(&format!(r"{base}\NeacSafe64\Instances\DefaultInstance")),
+            want("neacsafe64")
+        );
+        assert_eq!(service_key_of(&format!(r"{base}\X\Start")), want("x"));
+        assert_eq!(
+            service_key_of(r"hklm\system\currentcontrolset\services\a"),
+            want("a"),
+            "대소문자 무관"
+        );
+        assert_eq!(service_key_of(base), None, "Services 자신");
+        assert_eq!(service_key_of(&format!("{base}\\")), None);
+        assert_eq!(service_key_of(r"HKLM\SOFTWARE\X"), None);
+        assert_eq!(service_key_of(r"C:\Windows\System32\drivers\x.sys"), None);
     }
 
     #[test]

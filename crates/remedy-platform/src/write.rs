@@ -947,6 +947,20 @@ pub trait PlatformWrite {
         )))
     }
 
+    /// 이 자리를 담은 서비스에 **SCM 의 지울 표시가 남았는가**(2026-11-25).
+    ///
+    /// `path` 는 서비스 정의 키이거나 그 아래 자리다(복원 항목의 원래 자리도 받는다). 서비스 정의 키 밖이면
+    /// `Ok(false)` 다.
+    ///
+    /// 서비스를 지워도 그 서비스에 열린 핸들이 있거나 서비스가 아직 돌면 SCM 은 정의 키에 지울 표시
+    /// (`DeleteFlag`)만 남기고 삭제를 미룬다. 핸들이 닫히거나 다시 시작할 때 키를 하위 키째 지운다 — **그 사이에
+    /// 되돌려 쓴 값도 함께 사라진다**(2026-11-25 랩: 복원 0 · 3건 뒤 핸들이 닫히자 키가 사라졌다).
+    ///
+    /// **읽지 못한 것을 '없다' 로 접지 않는다** — 그것이 `Err` 다. 이 백엔드에는 그런 개념이 없어 늘 `false` 다.
+    fn service_delete_pending(&self, _path: &str) -> Result<bool, PlatformError> {
+        Ok(false)
+    }
+
     /// 등록을 지운다.
     fn service_delete(&self, _target: &str) -> Result<(), PlatformError> {
         Err(PlatformError::Unsupported(remedy_sdk::i18n::t(

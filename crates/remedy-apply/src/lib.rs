@@ -38,7 +38,7 @@ use remedy_quarantine::{Builder, ContentKey, Entry, Header, MachineKey, WrapSlot
 use remedy_sdk::artifact::{Action, ActionOutcome, ActionResult, PlanEnvelope, ResultBody};
 use remedy_sdk::catalog::Op;
 use remedy_sdk::EntryKind;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 pub const CRATE_NAME: &str = "remedy-apply";
@@ -176,6 +176,26 @@ pub struct Report {
     /// 재부팅 뒤 재검사 예약의 결과. 계획이 원하지 않았거나 부른 쪽이 요청을
     /// 넘기지 않았으면 `None` ([`Executor::with_verify_after_reboot`]).
     pub scheduled_verify: Option<ScheduledVerify>,
+    /// **끝났지만 다시 시작해야 마무리되는** Action — seq 와 무엇이 남았는가(2026-11-25).
+    ///
+    /// 결과 파일의 꼴이 아니라 화면이 쓰는 칸이다 — 결과에는 [`ResultBody::reboot_required`] 하나로 실린다.
+    /// 재부팅 삭제 예약(`file.delete_on_reboot`)은 여기 들지 않는다 — 그쪽은 그 Op 자체가 말한다.
+    pub at_restart: BTreeMap<u32, Restart>,
+}
+
+/// 다시 시작해야 끝나는 것 — 무엇이 남았는가(2026-11-25 · 이슈 #172 ⑥).
+///
+/// **셋째 결과가 아니다.** 그 Action 은 끝났다(done) — 남은 일은 Windows 가 다시 시작할 때 하고, 우리는 다시 하지
+/// 않는다. 재부팅 재시도 큐가 아니다(설계-03 §5).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Restart {
+    /// 서비스를 지웠으나 SCM 이 삭제를 미뤘다 — 정의 키에 지울 표시가 남았다. 그 서비스에 열린 핸들이 닫히거나
+    /// 다시 시작할 때 지워진다.
+    DeletePending,
+    /// 지운 뒤 지울 표시가 풀렸는지 **확인하지 못했다.** 다시 시작한 뒤 다시 검사하라고 말한다.
+    DeleteUnverified,
+    /// 드라이버가 정지를 받지 않았다. 같은 대상의 사용 안 함은 끝났다 — 다시 시작하면 올라오지 않는다.
+    StopAtRestart,
 }
 
 impl Report {
@@ -234,6 +254,10 @@ pub enum Event<'a> {
     Finished {
         done: usize,
         failed: usize,
+        /// **다시 시작해야 끝나는 것이 남았다** — 참일 때만 실린다(2026-11-25). 종료 코드는 1 그대로라, 무인 배포가
+        /// 기계로 읽을 자리가 여기다. 재부팅 삭제 예약 · 미뤄진 서비스 삭제 · 정지를 받지 않은 드라이버가 켠다.
+        #[serde(skip_serializing_if = "std::ops::Not::not")]
+        reboot_required: bool,
     },
     /// 파괴를 시작하기 전에 멈췄다. **이 실행은 아무것도 파괴하지 않았다.**
     ///
@@ -648,6 +672,8 @@ impl<'a> Executor<'a> {
         // 나머지가 조용히 빠졌다고 읽는다.
         let mut results: Vec<ActionResult> = Vec::new();
         let mut carried = 0usize;
+        // 정지를 받지 않은 드라이버를 '다시 시작해야 끝남' 으로 받아 둔 정지 — seq 와 그 사유.
+        let mut accepted_stops: Vec<(u32, String)> = Vec::new();
         for a in &plan.body.actions {
             if let Some(prev) = decided.get(&a.seq) {
                 results.push(carried_over(a, prev));
@@ -660,7 +686,23 @@ impl<'a> Executor<'a> {
             // 스트림이고 저장되지 않는다 — "왜 이 프로세스는 살아남았는가" 를
             // 나중에 물으면 답할 곳이 저널뿐이다.
             let mut notes: Vec<String> = Vec::new();
-            let r = self.perform(a, &mut notes);
+            let r = match self.perform(a, &mut notes) {
+                // **드라이버가 정지를 받지 않았다**(2026-11-25 · 결정 2026-09-13 의 예외). 같은 대상의 사용 안
+                // 함이 계획 뒤에 있으면 끝난 것으로 받는다 — 다시 시작하면 올라오지 않는다. 사용 안 함이 끝났는지는
+                // 아래 끝 확인이 보고, 끝나지 않았으면 이 정지를 실패로 되돌린다.
+                Err(ApplyError::Platform(e @ remedy_platform::PlatformError::NotStoppable(_)))
+                    if a.op == Op::ServiceStop && disable_follows(&plan.body.actions, a) =>
+                {
+                    let why = e.to_string();
+                    notes.push(format!(
+                        "seq {}: {why} — 같은 대상의 사용 안 함이 뒤따르므로 다시 시작해야 끝나는 것으로 받습니다",
+                        a.seq
+                    ));
+                    accepted_stops.push((a.seq, why));
+                    Ok(())
+                }
+                other => other,
+            };
             for text in notes {
                 journal
                     .append(&Record::Note { text })
@@ -701,6 +743,11 @@ impl<'a> Executor<'a> {
             // **롤백하지 않는다.** 나머지 계획을 계속 수행한다 (설계-03 §5).
         }
 
+        // ── 끝 확인. 다시 시작해야 끝나는 것 (2026-11-25 · 이슈 #172 ⑥) ─────
+        //
+        // **`End` 앞이다** — 되돌린 정지가 저널에 남아야 한다.
+        let at_restart = self.restart_pending(plan, &mut results, &accepted_stops, &mut journal)?;
+
         // ── 7단계. 재부팅 뒤 재검사 예약 (설계-03 §8) ─────────────────
         //
         // **`End` 앞이다** — `with_verify_after_reboot` 의 설명. 실패한 Action 이
@@ -724,14 +771,17 @@ impl<'a> Executor<'a> {
         // **예약은 파괴가 아니다.** 예약에 성공한 Action 이 하나라도 있으면 그
         // 파일은 아직 그 자리에 있고, 사라지는 것은 다음 부팅이다. 이것을
         // 말하지 않으면 사용자는 치료가 끝났다고 읽는다.
-        let reboot_required = results.iter().any(|r| {
-            r.outcome == ActionOutcome::Done
-                && plan
-                    .body
-                    .actions
-                    .iter()
-                    .any(|a| a.seq == r.seq && a.op == Op::FileDeleteOnReboot)
-        });
+        //
+        // 서비스도 같다(2026-11-25) — 삭제가 미뤄졌거나 정지를 받지 않은 드라이버는 다시 시작할 때 끝난다.
+        let reboot_required = !at_restart.is_empty()
+            || results.iter().any(|r| {
+                r.outcome == ActionOutcome::Done
+                    && plan
+                        .body
+                        .actions
+                        .iter()
+                        .any(|a| a.seq == r.seq && a.op == Op::FileDeleteOnReboot)
+            });
 
         let report = Report {
             body: ResultBody {
@@ -744,12 +794,115 @@ impl<'a> Executor<'a> {
             resumed: (resume != Resume::Fresh).then_some(resume),
             carried,
             scheduled_verify,
+            at_restart,
         };
         self.progress.emit(&Event::Finished {
             done: report.done(),
             failed: report.failed(),
+            reboot_required: report.body.reboot_required,
         });
         Ok(report)
+    }
+
+    /// 끝났지만 **다시 시작해야 마무리되는** 서비스 Action 을 가린다(2026-11-25 · 이슈 #172 ⑥).
+    ///
+    /// - **지운 서비스** — 끝난(done) `service.delete` 마다 살아 있는 상태를 다시 묻는다. 이어받은 결과도 묻는다 —
+    ///   저널에는 '대기' 를 적지 않으므로, 재부팅 뒤 이어 하면 키가 없어 맞게 '아님' 이 나온다.
+    /// - **받아 둔 정지** — 같은 대상의 사용 안 함이 끝났으면 다시 시작해야 끝나는 것이고, 끝나지 않았으면 그
+    ///   정지를 실패로 되돌린다. 정말로 멈추지 않을 서비스를 '치료 완료' 로 보고하지 않는다(결정 2026-09-13).
+    ///   되돌린 결과는 저널에 같은 seq 로 한 줄 더 적는다 — 나중 기록이 이긴다.
+    fn restart_pending(
+        &self,
+        plan: &PlanEnvelope,
+        results: &mut [ActionResult],
+        accepted_stops: &[(u32, String)],
+        journal: &mut Journal,
+    ) -> Result<BTreeMap<u32, Restart>, ApplyError> {
+        let target_of = |seq: u32| {
+            plan.body
+                .actions
+                .iter()
+                .find(|a| a.seq == seq)
+                .and_then(|a| a.target.as_deref())
+                .unwrap_or_default()
+        };
+        let mut at_restart = BTreeMap::new();
+
+        for (seq, why) in accepted_stops {
+            let target = target_of(*seq);
+            let disabled = results.iter().any(|r| {
+                r.seq > *seq
+                    && r.op == Op::ServiceDisable
+                    && r.outcome == ActionOutcome::Done
+                    && target_of(r.seq) == target
+            });
+            if disabled {
+                at_restart.insert(*seq, Restart::StopAtRestart);
+                continue;
+            }
+            let text = format!(
+                "seq {seq}: 같은 대상의 사용 안 함이 끝나지 않아, 정지를 받지 않은 드라이버를 실패로 되돌립니다"
+            );
+            journal
+                .append(&Record::Note { text: text.clone() })
+                .map_err(ApplyError::Journal)?;
+            journal
+                .append(&Record::Outcome {
+                    seq: *seq,
+                    outcome: JOutcome::Failed {
+                        reason: why.clone(),
+                    },
+                })
+                .map_err(ApplyError::Journal)?;
+            self.progress.emit(&Event::Note { text: &text });
+            if let Some(r) = results.iter_mut().find(|r| r.seq == *seq) {
+                r.outcome = ActionOutcome::Failed;
+                r.error = Some(why.clone());
+            }
+        }
+
+        for r in results.iter() {
+            if r.op != Op::ServiceDelete || r.outcome != ActionOutcome::Done {
+                continue;
+            }
+            let target = target_of(r.seq);
+            let text = match self.delete_settles(target) {
+                Ok(false) => continue,
+                Ok(true) => {
+                    at_restart.insert(r.seq, Restart::DeletePending);
+                    format!(
+                        "seq {}: Windows 가 서비스 지우기를 미뤘습니다 — 정의 키에 지울 표시가 남았습니다. 그 서비스에 \
+                         열린 핸들이 닫히거나 다시 시작할 때 지워집니다",
+                        r.seq
+                    )
+                }
+                Err(e) => {
+                    at_restart.insert(r.seq, Restart::DeleteUnverified);
+                    format!(
+                        "seq {}: 서비스를 지운 뒤 지울 표시가 풀렸는지 확인하지 못했습니다: {e}",
+                        r.seq
+                    )
+                }
+            };
+            journal
+                .append(&Record::Note { text })
+                .map_err(ApplyError::Journal)?;
+        }
+        Ok(at_restart)
+    }
+
+    /// 지운 서비스의 지울 표시가 **아직 남았는가.** 풀리기를 [`DELETE_SETTLE`] 까지 기다린다.
+    fn delete_settles(&self, target: &str) -> Result<bool, remedy_platform::PlatformError> {
+        let until = std::time::Instant::now() + DELETE_SETTLE;
+        loop {
+            if !self.backend.service_delete_pending(target)? {
+                return Ok(false);
+            }
+            if std::time::Instant::now() >= until {
+                return Ok(true);
+            }
+            std::thread::sleep(DELETE_POLL);
+        }
     }
 
     /// 백업 단계. 이어받은 실행에서는 **이미 끝난 백업을 다시 하지 않는다.**
@@ -1807,6 +1960,18 @@ fn match_str<'a>(a: &'a Action, key: &str) -> Option<&'a str> {
 /// 시간이고, 실측(설계-09 P8 하네스)에서 33ms 였다. 그 열 배를 기다린다.
 const SETTLE: std::time::Duration = std::time::Duration::from_millis(300);
 
+/// 서비스를 지운 뒤 **지울 표시가 풀리기를 기다리는** 상한(2026-11-25).
+///
+/// 평소 치료(그 서비스에 열린 핸들이 없다)에서는 `sc.exe delete` 가 끝나자마자 정의 키가 없었다 — 랩에서 네
+/// 꼴(등록만 한 커널 드라이버 · 미니필터 꼴 · 곧 멈추는 서비스 · 정지를 2초 붙드는 서비스) 95회 모두 첫 물음에서
+/// 이미 없었고, 첫 물음까지 0.07 ~ 7.67ms 였다. 그래서 정상 경로는 물음 한 번이고, 기다림은 **남은 갈래에서만**
+/// 든다. 상한은 잰 최댓값의 열 배를 넘겨 위 [`SETTLE`] 과 같게 둔다 — 짧으면 늦게 지우는 기계에서 '다시 시작해야
+/// 끝남' 을 지나치게 말한다(안전한 쪽).
+const DELETE_SETTLE: std::time::Duration = std::time::Duration::from_millis(300);
+
+/// [`DELETE_SETTLE`] 안에서 다시 묻는 간격.
+const DELETE_POLL: std::time::Duration = std::time::Duration::from_millis(10);
+
 /// 계획의 술어에서 종료 대상 술어를 꺼낸다.
 fn kill_predicate(a: &Action) -> remedy_platform::write::KillPredicate {
     remedy_platform::write::KillPredicate {
@@ -1992,6 +2157,16 @@ fn is_registry_target(target: &str) -> bool {
         head.as_str(),
         "HKLM" | "HKCU" | "HKU" | "HKEY_LOCAL_MACHINE" | "HKEY_CURRENT_USER" | "HKEY_USERS"
     )
+}
+
+/// 계획에서 **같은 대상의 사용 안 함이 이 정지 뒤에** 있는가 — 정지를 받지 않은 드라이버를 받을 조건이다.
+fn disable_follows(actions: &[Action], stop: &Action) -> bool {
+    actions.iter().any(|a| {
+        a.seq > stop.seq
+            && a.op == Op::ServiceDisable
+            && a.target.is_some()
+            && a.target == stop.target
+    })
 }
 
 /// 이전 시도가 이미 끝낸 Action 의 결과.

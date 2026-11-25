@@ -405,14 +405,27 @@ pub(super) fn cmd_restore(raw: &[String]) -> Result<Code, Failure> {
             errln!("        {}", i.blocked.as_deref().unwrap_or(""));
         }
         errln!();
-        errln!(
-            "  {} {}",
-            lang.t("주의:", "Note:"),
-            lang.t(
-                "복원도 쓰기입니다. 보호 대상에는 쓰지 않습니다.",
-                "restore is also a write; protected targets are left alone."
-            )
-        );
+        // 끝 줄은 막은 까닭을 따른다 — 지우는 중인 서비스는 다시 시작하면 풀리고, 보호 대상은 풀리지 않는다.
+        if blocked.iter().any(|i| !i.restart_first) {
+            errln!(
+                "  {} {}",
+                lang.t("주의:", "Note:"),
+                lang.t(
+                    "복원도 쓰기입니다. 보호 대상에는 쓰지 않습니다.",
+                    "restore is also a write; protected targets are left alone."
+                )
+            );
+        }
+        if blocked.iter().any(|i| i.restart_first) {
+            errln!(
+                "  {} {}",
+                lang.t("주의:", "Note:"),
+                lang.t(
+                    "PC 를 다시 시작한 뒤 다시 복원하십시오. 아무것도 쓰지 않았습니다.",
+                    "restart the PC, then restore again. Nothing was written."
+                )
+            );
+        }
         return Ok(Code::GuardStop);
     }
 
