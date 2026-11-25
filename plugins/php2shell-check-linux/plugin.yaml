@@ -51,7 +51,7 @@
 # 줄. 선언한 자리 밖이면 *확인 필요* 로 그 경로를 적는다 — 그 파일은 열지 않는다.
 schema_version: 1
 id: php2shell-check-linux
-version: 0.6.5
+version: 0.6.6
 min_core: "1.21.0"  # product 는 1.21.0 · 시작 스크립트의 서비스는 1.10.0 · 패키지 파일 대조(file.package · package_match)는 1.7.0
 platforms: [linux]
 
@@ -457,6 +457,23 @@ detect:
           - "9b00a9dc4b4ed27632989d0acf7dbcc025fb3114ddfe9103caaac0fd7063107b"   # 8.3.37 linux/amd64 cli /usr/local/lib/libphp.so
           - "381e5b353db3c8e350971eefb766cbad6ab0466849ea1359c3ffb9c3f4533676"   # 8.3.37 linux/amd64 fpm /usr/local/bin/php
           - "8d15b869c51153c7fdba009f7c6c6fc97f4df248f1b271237409f5c023f1cacf"   # 8.3.37 linux/amd64 fpm /usr/local/sbin/php-fpm
+          # 다시 지은 8.3.37(0.6.6) — 2026-11-24 에 지은 이미지 · 2026-11-25 에 받은
+          # `php:8.3.37-*`(색인 cli php@sha256:f1ff1ba… · fpm 1702be9… · apache fb5e449… — 해시를 잰 플랫폼 매니페스트는
+          # amd64 cli ce7b2962… · fpm 9c4fd0c3… · apache 0d91a3b2… · 386 cli 248293da… · fpm 977741de… · apache 892bec73…).
+          - "f7fab70b42ed880f844220f48dd8c8cfecf18349007a909e5b501f4d77f9e9ea"   # 8.3.37 linux/386 apache /usr/lib/apache2/modules/libphp.so (php@sha256:fb5e449…)
+          - "e716d8d93da9f61726460c383330b4ed016c209494bc3ede4921f91959473352"   # 8.3.37 linux/386 apache /usr/local/bin/php (php@sha256:fb5e449…)
+          - "0ddf5f39c73fc6a908f2b1d727228694661a584edda5d23a5f92c660c2bc6cd0"   # 8.3.37 linux/386 cli /usr/local/bin/php (php@sha256:f1ff1ba…)
+          - "34875bcfdac0b54d4fad826747be13a96cf3b57b03ee75f427a157a3e9eb6d9b"   # 8.3.37 linux/386 cli /usr/local/bin/php-cgi (php@sha256:f1ff1ba…)
+          - "90f56dc7f773e9994e5462d55bec41934dcf3d8d910045ebda1b9440721a6079"   # 8.3.37 linux/386 cli /usr/local/lib/libphp.so (php@sha256:f1ff1ba…)
+          - "ee828dd6c90d1e3679720909f4d12378d023f12c5ef48b741e5d648ad039e3de"   # 8.3.37 linux/386 fpm /usr/local/bin/php (php@sha256:1702be9…)
+          - "e598850da0b56cb07e545426a96a8a978ce68bcf8e49fe4015f0e641befeb1b4"   # 8.3.37 linux/386 fpm /usr/local/sbin/php-fpm (php@sha256:1702be9…)
+          - "8105a556c01fd22b5233d768b4bef3731028c3503ab70891e6621fdd54a27a7f"   # 8.3.37 linux/amd64 apache /usr/lib/apache2/modules/libphp.so (php@sha256:fb5e449…)
+          - "52b4be726f3d1c8508cf2884e629e9f278e72da87e5a5661ed3d414be2ae0118"   # 8.3.37 linux/amd64 apache /usr/local/bin/php (php@sha256:fb5e449…)
+          - "f927f7aed805485ea0b94d32c59eabd8885351d5dbf58553cb52a91e9e3c12d9"   # 8.3.37 linux/amd64 cli /usr/local/bin/php (php@sha256:f1ff1ba…)
+          - "b75cf4dd57ae45b79daf723f73bdd55524a46fb7f5ad32c32d89947182f9e5c1"   # 8.3.37 linux/amd64 cli /usr/local/bin/php-cgi (php@sha256:f1ff1ba…)
+          - "7e12a8781e20e6c732133df50f2fa5dd17eca812920d9ca63f8d816f83afd3a5"   # 8.3.37 linux/amd64 cli /usr/local/lib/libphp.so (php@sha256:f1ff1ba…)
+          - "50a11df552b90ecaf8bd4338b3430ae9c8ea62fd528f14f03b2a26a2ebaa9aba"   # 8.3.37 linux/amd64 fpm /usr/local/bin/php (php@sha256:1702be9…)
+          - "56bd7d2cf2f17433e55e3f250402a209bfcc60c3b78fe7bc0d5100d49d05bc20"   # 8.3.37 linux/amd64 fpm /usr/local/sbin/php-fpm (php@sha256:1702be9…)
 
   # ── 3. RPM 의 자리에 놓인 PHP — PHP 패키지가 깔지 않았다면 확인 필요 ───────
   #
