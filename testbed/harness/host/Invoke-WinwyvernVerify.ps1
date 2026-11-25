@@ -691,11 +691,11 @@ try {
         $h2bText = Read-GuestText "$g\out\H2b.ndjson"
         $h2bFin = @(@([string]$h2bText -split "`n") | Where-Object { $_.Trim() } | ForEach-Object { $_ | ConvertFrom-Json } | Where-Object { $_.event -eq 'finished' })
         $h2bFlag = $h2bFin.Count -and ($h2bFin[0].reboot_required -eq $true)
-        $h2bCounts = if ($h2bFin.Count) { '{0} · {1}' -f $h2bFin[0].done, $h2bFin[0].failed } else { '없음' }
+        $h2bCounts = if ($h2bFin.Count) { '{0} · 실패 {1}' -f $h2bFin[0].done, $h2bFin[0].failed } else { '없음 · 실패 없음' }
         $h2bLine = $h2bScreen -match '\[1\] 서비스 삭제 .*Windows 가 지우기를 미뤘습니다'
         $ok = ($r.exit -eq 1) -and $h2bFin.Count -and ([int]$h2bFin[0].done -eq 1) -and ([int]$h2bFin[0].failed -eq 0) -and $h2bFlag -and $h2bLine
         Check 'H2b' '지우는 중인 서비스를 다시 지움(1072) 1 · 실패 0 · reboot_required · 미룬 삭제 줄' $ok `
-            ('종료 {0} · 끝남 · 실패 {1} · reboot_required {2} · 미룬 삭제 줄 {3}' -f $r.exit, $h2bCounts, $(if ($h2bFlag) { '참' } else { '없음' }),
+            ('종료 {0} · 끝남 {1} · reboot_required {2} · 미룬 삭제 줄 {3}' -f $r.exit, $h2bCounts, $(if ($h2bFlag) { '참' } else { '없음' }),
                 $(if ($h2bLine) { '있음' } else { '없음' }))
 
         # H3 · H4 — 지우는 중인 서비스로는 복원하지 않는다(5 · 아무것도 쓰지 않음). --yes 없이도 · 있어도 같다.
