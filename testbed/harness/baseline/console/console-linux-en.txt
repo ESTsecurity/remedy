@@ -218,7 +218,7 @@ ESTsecurity Dedicated Cleaner 1.26.0 (remedy)
 만든 것: r1 100000개 · r2 100000개 · 없는 자리 하나
 [이 기계에서는 검사가 1초 안에 끝나 심장박동이 나오지 않았다 — 형태를 재지 못했다]
 (영어)
-Scanning · files · 2 folders · 154011 entries · 0 processed · root 2/2 · 1s elapsed · /tmp/console-capture/beat/r2
+Scanning · files · 2 folders · 165537 entries · 0 processed · root 2/2 · 1s elapsed · /tmp/console-capture/beat/r2
 Scanning · evaluating · 2 folders · 200000 entries · 200000 processed · 2s elapsed
 
 ########## B. 감염 픽스처
@@ -232,8 +232,8 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
  ESTsecurity Dedicated Cleaner 1.26.0
  Library path loader removal  (ldso-preload 1.0.0)
 --------------------------------------------------------
- Started    : 2026-11-26 06:03:14 UTC
- Machine    : fc929b1fa513 (linux)
+ Started    : 2026-11-26 13:06:28 UTC
+ Machine    : f10d1c2f6db6 (linux)
 
 Starting scan.
 Output    : /tmp/console-capture/o1  (artifacts.json | scan.json | plan.json)
@@ -258,8 +258,8 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
  ESTsecurity Dedicated Cleaner 1.26.0
  Library path loader removal  (ldso-preload 1.0.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-26 06:03:14 UTC
- Machine    : fc929b1fa513 (linux)
+ Started    : 2026-11-26 13:06:28 UTC
+ Machine    : f10d1c2f6db6 (linux)
 
 Starting scan.
 Output    : /tmp/console-capture/o2  (artifacts.json · scan.json · plan.json)
@@ -284,8 +284,8 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
  ESTsecurity Dedicated Cleaner 1.26.0
  Library path loader removal  (ldso-preload 1.0.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-26 06:03:14 UTC
- Machine    : fc929b1fa513 (linux)
+ Started    : 2026-11-26 13:06:28 UTC
+ Machine    : f10d1c2f6db6 (linux)
 
 Starting scan.
 Output    : /tmp/console-capture/o3  (artifacts.json · scan.json · plan.json)
@@ -311,8 +311,8 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
  ESTsecurity Dedicated Cleaner 1.26.0
  Library path loader removal  (ldso-preload 1.0.0)
 --------------------------------------------------------
- Started    : 2026-11-26 06:03:14 UTC
- Machine    : fc929b1fa513 (linux)
+ Started    : 2026-11-26 13:06:28 UTC
+ Machine    : f10d1c2f6db6 (linux)
 
 Starting scan.
 Output    : /tmp/console-capture/o-ascii  (artifacts.json | scan.json | plan.json)
@@ -336,8 +336,8 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
  ESTsecurity Dedicated Cleaner 1.26.0
  Library path loader removal  (ldso-preload 1.0.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-26 06:03:14 UTC
- Machine    : fc929b1fa513 (linux)
+ Started    : 2026-11-26 13:06:28 UTC
+ Machine    : f10d1c2f6db6 (linux)
 
 Starting scan.
 scan time 0.1s · walk 0.0s · read 0.0s (127 KB · 9 files) · hash 0.0s · signatures 0.0s (0 files) · 0 too big to hash · other 0.1s
@@ -369,8 +369,8 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
  ESTsecurity Dedicated Cleaner 1.26.0
  Library path loader removal  (ldso-preload 1.0.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-26 06:03:14 UTC
- Machine    : fc929b1fa513 (linux)
+ Started    : 2026-11-26 13:06:28 UTC
+ Machine    : f10d1c2f6db6 (linux)
 
 Starting scan.
 Scan done : 5 trace(s) · 1 threat(s)
@@ -396,8 +396,8 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
  ESTsecurity Dedicated Cleaner 1.26.0
  Library path loader removal  (ldso-preload 1.0.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-26 06:03:14 UTC
- Machine    : fc929b1fa513 (linux)
+ Started    : 2026-11-26 13:06:28 UTC
+ Machine    : f10d1c2f6db6 (linux)
 
 Starting scan.
 Scan done : 5 trace(s) · 1 threat(s)
@@ -423,8 +423,8 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
 ────────────────────────────────────────────────────────
  ESTsecurity Dedicated Cleaner 1.26.0
 ────────────────────────────────────────────────────────
- Started    : 2026-11-26 06:03:14 UTC
- Machine    : fc929b1fa513 (linux)
+ Started    : 2026-11-26 13:06:28 UTC
+ Machine    : f10d1c2f6db6 (linux)
 
 
 4 action(s) will run:
@@ -447,8 +447,8 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
  ESTsecurity Dedicated Cleaner 1.26.0
  Library path loader removal  (ldso-preload 1.0.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-26 06:03:19 UTC
- Machine    : fc929b1fa513 (linux)
+ Started    : 2026-11-26 13:06:33 UTC
+ Machine    : f10d1c2f6db6 (linux)
 
 Starting scan.
 Scan done : 5 trace(s) · 1 threat(s)
@@ -472,14 +472,14 @@ Starting treatment.
 ────────────────────────────────────────────────────────
  Result     : Threat found, treated (4 action(s) done)
  Elapsed    : under 1s
- Quarantine : /tmp/console-capture/s/quarantine/run-1795672999-01b6-37657eed.rq
- Journal    : /tmp/console-capture/s/journal/run-1795672999-01b6-37657eed.jsonl
- To undo    : remedy restore --run run-1795672999-01b6-37657eed --state-dir /tmp/console-capture/s
- Report FP  : remedy support-bundle --run run-1795672999-01b6-37657eed --state-dir /tmp/console-capture/s
+ Quarantine : /tmp/console-capture/s/quarantine/run-1795698393-01b6-3826f37c.rq
+ Journal    : /tmp/console-capture/s/journal/run-1795698393-01b6-3826f37c.jsonl
+ To undo    : remedy restore --run run-1795698393-01b6-3826f37c --state-dir /tmp/console-capture/s
+ Report FP  : remedy support-bundle --run run-1795698393-01b6-3826f37c --state-dir /tmp/console-capture/s
 ────────────────────────────────────────────────────────
  Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
 [exit=1]
-[run_id=run-1795672999-01b6-37657eed]
+[run_id=run-1795698393-01b6-3826f37c]
 
 ########## E1. verify — 한국어
 
@@ -487,12 +487,12 @@ Starting treatment.
 ────────────────────────────────────────────────────────
  ESTsecurity 전용백신 1.26.0
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-26 06:03:20 UTC
- 실행 기계  : fc929b1fa513 (linux)
+ 시작 시각  : 2026-11-26 13:06:34 UTC
+ 실행 기계  : f10d1c2f6db6 (linux)
 
 검사를 시작합니다.
 검사 완료 : 흔적 0건 · 위협 0건
-재평가 기록 -> /tmp/console-capture/s/verify/run-1795672999-01b6-37657eed.jsonl
+재평가 기록 -> /tmp/console-capture/s/verify/run-1795698393-01b6-3826f37c.jsonl
 
 치료 성공. 같은 검사에서 위협이 다시 나오지 않았습니다.
 [exit=0]
@@ -503,12 +503,12 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
 ────────────────────────────────────────────────────────
  ESTsecurity Dedicated Cleaner 1.26.0
 ────────────────────────────────────────────────────────
- Started    : 2026-11-26 06:03:20 UTC
- Machine    : fc929b1fa513 (linux)
+ Started    : 2026-11-26 13:06:34 UTC
+ Machine    : f10d1c2f6db6 (linux)
 
 Starting scan.
 Scan done : 0 trace(s) · 0 threat(s)
-Re-evaluation record -> /tmp/console-capture/s/verify/run-1795672999-01b6-37657eed.jsonl
+Re-evaluation record -> /tmp/console-capture/s/verify/run-1795698393-01b6-3826f37c.jsonl
 
 Treatment succeeded. The same check no longer finds the threat.
 [exit=0]
@@ -519,15 +519,15 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
 ────────────────────────────────────────────────────────
  ESTsecurity Dedicated Cleaner 1.26.0
 ────────────────────────────────────────────────────────
- Started    : 2026-11-26 06:03:20 UTC
- Machine    : fc929b1fa513 (linux)
+ Started    : 2026-11-26 13:06:34 UTC
+ Machine    : f10d1c2f6db6 (linux)
 
 Quarantine : /tmp/console-capture/s/quarantine
 
 1 run(s) can be undone
-  2026-11-26 06:03:19 UTC  run-1795672999-01b6-37657eed · 98226 bytes
+  2026-11-26 13:06:33 UTC  run-1795698393-01b6-3826f37c · 98226 bytes
 
-To undo : remedy restore --run run-1795672999-01b6-37657eed --state-dir /tmp/console-capture/s
+To undo : remedy restore --run run-1795698393-01b6-3826f37c --state-dir /tmp/console-capture/s
 [exit=0]
 
 ########## F1. restore — 계획만
@@ -536,13 +536,13 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
 ────────────────────────────────────────────────────────
  ESTsecurity Dedicated Cleaner 1.26.0
 ────────────────────────────────────────────────────────
- Started    : 2026-11-26 06:03:20 UTC
- Machine    : fc929b1fa513 (linux)
+ Started    : 2026-11-26 13:06:34 UTC
+ Machine    : f10d1c2f6db6 (linux)
 
-Quarantine : /tmp/console-capture/s/quarantine/run-1795672999-01b6-37657eed.rq
-Run id     : run-1795672999-01b6-37657eed
-Created    : 2026-11-26 06:03:19 UTC
-Keys       : local(4fafeaf8)
+Quarantine : /tmp/console-capture/s/quarantine/run-1795698393-01b6-3826f37c.rq
+Run id     : run-1795698393-01b6-3826f37c
+Created    : 2026-11-26 13:06:33 UTC
+Keys       : local(1bbfe29c)
   Note: this quarantine opens only with this machine's key. Reinstalling this machine makes it unopenable, so if it needs restoring, do it before that.
 
 4 item(s) to restore · 95829 bytes
@@ -557,7 +557,7 @@ Keys       : local(4fafeaf8)
   [e3] /usr/local/lib/.crypt-9d41/libnsl_compat.so.2
         not restorable  ctime: the operating system owns this value; it cannot be restored
         not restorable  btime: this operating system cannot set this value
-  Volume /  needs 95829 · free 915962331136 bytes
+  Volume /  needs 95829 · free 905746579456 bytes
 
 Nothing was done. Check the list above and run again with --yes.
 [exit=2]
@@ -568,13 +568,13 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
 ────────────────────────────────────────────────────────
  ESTsecurity Dedicated Cleaner 1.26.0
 ────────────────────────────────────────────────────────
- Started    : 2026-11-26 06:03:20 UTC
- Machine    : fc929b1fa513 (linux)
+ Started    : 2026-11-26 13:06:34 UTC
+ Machine    : f10d1c2f6db6 (linux)
 
-Quarantine : /tmp/console-capture/s/quarantine/run-1795672999-01b6-37657eed.rq
-Run id     : run-1795672999-01b6-37657eed
-Created    : 2026-11-26 06:03:19 UTC
-Keys       : local(4fafeaf8)
+Quarantine : /tmp/console-capture/s/quarantine/run-1795698393-01b6-3826f37c.rq
+Run id     : run-1795698393-01b6-3826f37c
+Created    : 2026-11-26 13:06:33 UTC
+Keys       : local(1bbfe29c)
   Note: this quarantine opens only with this machine's key. Reinstalling this machine makes it unopenable, so if it needs restoring, do it before that.
 
 4 item(s) to restore · 95829 bytes
@@ -589,7 +589,7 @@ Keys       : local(4fafeaf8)
   [e3] /usr/local/lib/.crypt-9d41/libnsl_compat.so.2
         not restorable  ctime: the operating system owns this value; it cannot be restored
         not restorable  btime: this operating system cannot set this value
-  Volume /  needs 95829 · free 915962327040 bytes
+  Volume /  needs 95829 · free 905746575360 bytes
 
   restored [e0] /etc/ld.so.conf.d/libc.conf  (/etc/ld.so.conf.d/libc.conf:3)
   restored [e1] /usr/share/applications/org.example.Editor.desktop  (content · mtime · readonly · mode)
@@ -608,8 +608,8 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
 ────────────────────────────────────────────────────────
  ESTsecurity Dedicated Cleaner 1.26.0
 ────────────────────────────────────────────────────────
- Started    : 2026-11-26 06:03:20 UTC
- Machine    : fc929b1fa513 (linux)
+ Started    : 2026-11-26 13:06:34 UTC
+ Machine    : f10d1c2f6db6 (linux)
 
 
 4 action(s) will run:
@@ -633,10 +633,10 @@ Treating · 2s elapsed
 ────────────────────────────────────────────────────────
  Result     : Threat found, treated (4 action(s) done)
  Elapsed    : 2s
- Quarantine : /tmp/console-capture/s-beat/quarantine/run-1795672994-01ad-33b2fceb.rq
- Journal    : /tmp/console-capture/s-beat/journal/run-1795672994-01ad-33b2fceb.jsonl
- To undo    : remedy restore --run run-1795672994-01ad-33b2fceb --state-dir /tmp/console-capture/s-beat
- Report FP  : remedy support-bundle --run run-1795672994-01ad-33b2fceb --state-dir /tmp/console-capture/s-beat
+ Quarantine : /tmp/console-capture/s-beat/quarantine/run-1795698388-01ad-347bec21.rq
+ Journal    : /tmp/console-capture/s-beat/journal/run-1795698388-01ad-347bec21.jsonl
+ To undo    : remedy restore --run run-1795698388-01ad-347bec21 --state-dir /tmp/console-capture/s-beat
+ Report FP  : remedy support-bundle --run run-1795698388-01ad-347bec21 --state-dir /tmp/console-capture/s-beat
 ────────────────────────────────────────────────────────
  Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
 [exit=1]
@@ -644,7 +644,7 @@ Treating · 2s elapsed
 ########## G. support-bundle
 
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
-Support bundle folder : /tmp/console-capture/bundle/remedy-support-run-1795672999-01b6-37657eed
+Support bundle folder : /tmp/console-capture/bundle/remedy-support-run-1795698393-01b6-3826f37c
 
 Included
   plan.json               1933 bytes  the approved treatment plan in full
@@ -654,7 +654,7 @@ Included
   environment.json         458 bytes  program version, OS, self-integrity, engine state
 
 Deliberately left out
-  /tmp/console-capture/s/quarantine/run-1795672999-01b6-37657eed.rq
+  /tmp/console-capture/s/quarantine/run-1795698393-01b6-3826f37c.rq
     quarantine container: holds the sample and user file contents. Do not send it; a false-positive is undone on this machine with `remedy restore --run <id>`
   /tmp/console-capture/s/machine.key
     the sealing key that opens the quarantine container. Sending it lets anyone open the container. Never attach it
@@ -678,8 +678,8 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
  ESTsecurity Dedicated Cleaner 1.26.0
  C2 beacon autostart removal  (c2-beacon 1.0.1)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-26 06:03:22 UTC
- Machine    : fc929b1fa513 (linux)
+ Started    : 2026-11-26 13:06:36 UTC
+ Machine    : f10d1c2f6db6 (linux)
 
 Starting scan.
 scan time 0.1s · walk 0.0s · read 0.0s (75 KB · 4 files) · hash 0.0s · signatures 0.0s (0 files) · 0 too big to hash · other 0.1s
@@ -704,8 +704,8 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
  ESTsecurity Dedicated Cleaner 1.26.0
  C2 beacon autostart removal  (c2-beacon 1.0.1)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-26 06:03:23 UTC
- Machine    : fc929b1fa513 (linux)
+ Started    : 2026-11-26 13:06:37 UTC
+ Machine    : f10d1c2f6db6 (linux)
 
 Starting scan.
 Scan done : 4 trace(s) · 1 threat(s)
@@ -726,10 +726,10 @@ Starting treatment.
 ────────────────────────────────────────────────────────
  Result     : Threat found, treated (3 action(s) done)
  Elapsed    : under 1s
- Quarantine : /tmp/console-capture/sq/quarantine/run-1795673003-01e0-ee3d16.rq
- Journal    : /tmp/console-capture/sq/journal/run-1795673003-01e0-ee3d16.jsonl
- To undo    : remedy restore --run run-1795673003-01e0-ee3d16 --state-dir /tmp/console-capture/sq
- Report FP  : remedy support-bundle --run run-1795673003-01e0-ee3d16 --state-dir /tmp/console-capture/sq
+ Quarantine : /tmp/console-capture/sq/quarantine/run-1795698397-01e0-1acb8a0.rq
+ Journal    : /tmp/console-capture/sq/journal/run-1795698397-01e0-1acb8a0.jsonl
+ To undo    : remedy restore --run run-1795698397-01e0-1acb8a0 --state-dir /tmp/console-capture/sq
+ Report FP  : remedy support-bundle --run run-1795698397-01e0-1acb8a0 --state-dir /tmp/console-capture/sq
 ────────────────────────────────────────────────────────
  Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
 [exit=1]
@@ -799,7 +799,7 @@ Starting treatment.
         "path": "/opt/.cache-9f2/agent.bin",
         "size": 51200,
         "mtime": "2026-09-01T03:12:40Z",
-        "ctime": "2026-11-26T06:03:22Z",
+        "ctime": "2026-11-26T13:06:36Z",
         "sha256": "fec8aa606ec99721bd2a5153d2973816484c18b755e23fd508b1146d954195c7"
       },
       "captures": {},
@@ -824,7 +824,7 @@ Starting treatment.
         "path": "/opt/.cache-9f2/helper.so",
         "size": 24576,
         "mtime": "2026-09-01T03:12:40Z",
-        "ctime": "2026-11-26T06:03:22Z",
+        "ctime": "2026-11-26T13:06:36Z",
         "sha256": "384670229c221ff5384c8b7691d711efe8763a41c48490f184727d334e95f5fe"
       },
       "captures": {},
@@ -849,8 +849,8 @@ Starting treatment.
 ────────────────────────────────────────────────────────
  ESTsecurity 전용백신 1.26.0
 ────────────────────────────────────────────────────────
- 시작 시각  : 2026-11-26 06:03:23 UTC
- 실행 기계  : fc929b1fa513 (linux)
+ 시작 시각  : 2026-11-26 13:06:37 UTC
+ 실행 기계  : f10d1c2f6db6 (linux)
 
 실패: --plan 옵션이 필요합니다
   (종료 코드 4: 사용법·입력 오류)
@@ -859,8 +859,8 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
 ────────────────────────────────────────────────────────
  ESTsecurity Dedicated Cleaner 1.26.0
 ────────────────────────────────────────────────────────
- Started    : 2026-11-26 06:03:23 UTC
- Machine    : fc929b1fa513 (linux)
+ Started    : 2026-11-26 13:06:37 UTC
+ Machine    : f10d1c2f6db6 (linux)
 
 Error: --plan is required
   (exit code 4: usage or input error)
@@ -915,40 +915,40 @@ selftest OK
 
 ########## K. 회차 로그 (심장박동 줄 제외)
 
-restore-run-1795672999-01b6-37657eed.log
-run-1795672994-01a0-1e3a5f05.log
-run-1795672994-01a2-21c527f0.log
-run-1795672994-01a4-255922bd.log
-run-1795672994-01a6-28f19bc1.log
-run-1795672994-01a8-2c817824.log
-run-1795672994-01ab-3023dc25.log
-run-1795672994-01ad-33b2fceb.log
-run-1795672999-01b6-37657eed.log
+restore-run-1795698393-01b6-3826f37c.log
+run-1795698388-01a0-1f72fafc.log
+run-1795698388-01a2-22f7915b.log
+run-1795698388-01a4-2672148c.log
+run-1795698388-01a6-29ef3cc7.log
+run-1795698388-01a8-2d69d0ec.log
+run-1795698388-01ab-3106d615.log
+run-1795698388-01ad-347bec21.log
+run-1795698393-01b6-3826f37c.log
 --- 치료 회차 로그의 머리부터 치료 시작까지 ---
-2026-11-26T06:03:19Z # remedy 1.26.0 pid 438 · run --plugin /repo/testbed/ai-exam/threats/ldso-preload/reference-plugin/plugin.yaml --out-dir /tmp/console-capture/run --yes --state-dir /tmp/console-capture/s
-2026-11-26T06:03:19Z | ────────────────────────────────────────────────────────
-2026-11-26T06:03:19Z |  ESTsecurity Dedicated Cleaner 1.26.0
-2026-11-26T06:03:19Z |  Library path loader removal  (ldso-preload 1.0.0)
-2026-11-26T06:03:19Z | ────────────────────────────────────────────────────────
-2026-11-26T06:03:19Z |  Started    : 2026-11-26 06:03:19 UTC
-2026-11-26T06:03:19Z |  Machine    : fc929b1fa513 (linux)
-2026-11-26T06:03:19Z | 
-2026-11-26T06:03:19Z # run_id run-1795672999-01b6-37657eed
-2026-11-26T06:03:19Z | Starting scan.
-2026-11-26T06:03:19Z # scan time 0.1s · walk 0.0s · read 0.0s (127 KB · 9 files) · hash 0.0s · signatures 0.0s (0 files) · 0 too big to hash · other 0.1s
-2026-11-26T06:03:19Z | Scan done : 5 trace(s) · 1 threat(s)
-2026-11-26T06:03:19Z | 
-2026-11-26T06:03:19Z | 4 action(s) will run:
-2026-11-26T06:03:19Z |    1. Remove line from file  /etc/ld.so.conf.d/libc.conf
-2026-11-26T06:03:19Z |       removes only the added line from that file; the file itself is kept
-2026-11-26T06:03:19Z |    2. Strip shortcut arguments  /usr/share/applications/org.example.Editor.desktop
-2026-11-26T06:03:19Z |       strips the added arguments; the shortcut still works
-2026-11-26T06:03:19Z |    3. Quarantine file  /usr/local/lib/.crypt-9d41/.seed
-2026-11-26T06:03:19Z |       moves the file into quarantine — not deleted, and reversible
-2026-11-26T06:03:19Z |    4. Quarantine file  /usr/local/lib/.crypt-9d41/libnsl_compat.so.2
-2026-11-26T06:03:19Z |       moves the file into quarantine — not deleted, and reversible
-2026-11-26T06:03:19Z | 
-2026-11-26T06:03:19Z | Starting treatment.
+2026-11-26T13:06:33Z # remedy 1.26.0 pid 438 · run --plugin /repo/testbed/ai-exam/threats/ldso-preload/reference-plugin/plugin.yaml --out-dir /tmp/console-capture/run --yes --state-dir /tmp/console-capture/s
+2026-11-26T13:06:33Z | ────────────────────────────────────────────────────────
+2026-11-26T13:06:33Z |  ESTsecurity Dedicated Cleaner 1.26.0
+2026-11-26T13:06:33Z |  Library path loader removal  (ldso-preload 1.0.0)
+2026-11-26T13:06:33Z | ────────────────────────────────────────────────────────
+2026-11-26T13:06:33Z |  Started    : 2026-11-26 13:06:33 UTC
+2026-11-26T13:06:33Z |  Machine    : f10d1c2f6db6 (linux)
+2026-11-26T13:06:33Z | 
+2026-11-26T13:06:33Z # run_id run-1795698393-01b6-3826f37c
+2026-11-26T13:06:33Z | Starting scan.
+2026-11-26T13:06:33Z # scan time 0.1s · walk 0.0s · read 0.0s (127 KB · 9 files) · hash 0.0s · signatures 0.0s (0 files) · 0 too big to hash · other 0.0s
+2026-11-26T13:06:33Z | Scan done : 5 trace(s) · 1 threat(s)
+2026-11-26T13:06:33Z | 
+2026-11-26T13:06:33Z | 4 action(s) will run:
+2026-11-26T13:06:33Z |    1. Remove line from file  /etc/ld.so.conf.d/libc.conf
+2026-11-26T13:06:33Z |       removes only the added line from that file; the file itself is kept
+2026-11-26T13:06:33Z |    2. Strip shortcut arguments  /usr/share/applications/org.example.Editor.desktop
+2026-11-26T13:06:33Z |       strips the added arguments; the shortcut still works
+2026-11-26T13:06:33Z |    3. Quarantine file  /usr/local/lib/.crypt-9d41/.seed
+2026-11-26T13:06:33Z |       moves the file into quarantine — not deleted, and reversible
+2026-11-26T13:06:33Z |    4. Quarantine file  /usr/local/lib/.crypt-9d41/libnsl_compat.so.2
+2026-11-26T13:06:33Z |       moves the file into quarantine — not deleted, and reversible
+2026-11-26T13:06:33Z | 
+2026-11-26T13:06:33Z | Starting treatment.
 
 ########## L. 관측 불완전 (6) — 선언한 자리가 하나도 없다
 
@@ -957,8 +957,8 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
  ESTsecurity Dedicated Cleaner 1.26.0
  missing roots  (force-incomplete 1.0.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-26 06:03:23 UTC
- Machine    : fc929b1fa513 (linux)
+ Started    : 2026-11-26 13:06:37 UTC
+ Machine    : f10d1c2f6db6 (linux)
 
 Starting scan.
 Output    : /tmp/console-capture/o6  (artifacts.json · scan.json · plan.json)
@@ -976,8 +976,8 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
  ESTsecurity Dedicated Cleaner 1.26.0
  check - missing roots  (force-check-absent 1.0.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-26 06:03:23 UTC
- Machine    : fc929b1fa513 (linux)
+ Started    : 2026-11-26 13:06:37 UTC
+ Machine    : f10d1c2f6db6 (linux)
 
 Starting scan.
 Output    : /tmp/console-capture/ochk  (artifacts.json · scan.json · plan.json)
@@ -995,8 +995,8 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
  ESTsecurity Dedicated Cleaner 1.26.0
  check - exposed setting  (force-check-found 1.0.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-26 06:03:23 UTC
- Machine    : fc929b1fa513 (linux)
+ Started    : 2026-11-26 13:06:37 UTC
+ Machine    : f10d1c2f6db6 (linux)
 
 Starting scan.
 Output    : /tmp/console-capture/ochk2  (artifacts.json · scan.json · plan.json)
@@ -1030,8 +1030,8 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
  ESTsecurity Dedicated Cleaner 1.26.0
  check - vulnerable version  (force-check-version 1.0.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-26 06:03:23 UTC
- Machine    : fc929b1fa513 (linux)
+ Started    : 2026-11-26 13:06:37 UTC
+ Machine    : f10d1c2f6db6 (linux)
 
 Starting scan.
 Output    : /tmp/console-capture/ochk3  (artifacts.json · scan.json · plan.json)
@@ -1050,8 +1050,8 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
  ESTsecurity Dedicated Cleaner 1.26.0
  unreadable root  (force-unreadable-root 1.0.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-26 06:03:23 UTC
- Machine    : fc929b1fa513 (linux)
+ Started    : 2026-11-26 13:06:37 UTC
+ Machine    : f10d1c2f6db6 (linux)
 
 Starting scan.
 Output    : /tmp/console-capture/o6b  (artifacts.json · scan.json · plan.json)
@@ -1069,8 +1069,8 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
  ESTsecurity Dedicated Cleaner 1.26.0
  read-only place  (force-partial 1.0.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-26 06:03:23 UTC
- Machine    : fc929b1fa513 (linux)
+ Started    : 2026-11-26 13:06:37 UTC
+ Machine    : f10d1c2f6db6 (linux)
 
 Starting scan.
 Scan done : 2 trace(s) · 1 threat(s)
@@ -1090,10 +1090,10 @@ Starting treatment.
 ────────────────────────────────────────────────────────
  Result     : Treatment failed (nothing was changed)
  Elapsed    : under 1s
- Quarantine : /tmp/console-capture/s7/quarantine/run-1795673003-020e-1d141041.rq
- Journal    : /tmp/console-capture/s7/journal/run-1795673003-020e-1d141041.jsonl
- To undo    : remedy restore --run run-1795673003-020e-1d141041 --state-dir /tmp/console-capture/s7
- Report FP  : remedy support-bundle --run run-1795673003-020e-1d141041 --state-dir /tmp/console-capture/s7
+ Quarantine : /tmp/console-capture/s7/quarantine/run-1795698397-020e-175a8705.rq
+ Journal    : /tmp/console-capture/s7/journal/run-1795698397-020e-175a8705.jsonl
+ To undo    : remedy restore --run run-1795698397-020e-175a8705 --state-dir /tmp/console-capture/s7
+ Report FP  : remedy support-bundle --run run-1795698397-020e-175a8705 --state-dir /tmp/console-capture/s7
 ────────────────────────────────────────────────────────
  Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
 [exit=3]
@@ -1105,8 +1105,8 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
  ESTsecurity Dedicated Cleaner 1.26.0
  read-only place  (force-guard 1.0.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-26 06:03:23 UTC
- Machine    : fc929b1fa513 (linux)
+ Started    : 2026-11-26 13:06:37 UTC
+ Machine    : f10d1c2f6db6 (linux)
 
 Starting scan.
 Error: planning failed: the safety guard rejected the plan (1):
@@ -1121,8 +1121,8 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
  ESTsecurity Dedicated Cleaner 1.26.0
  read-only place  (force-tamper 1.0.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-26 06:03:23 UTC
- Machine    : fc929b1fa513 (linux)
+ Started    : 2026-11-26 13:06:37 UTC
+ Machine    : f10d1c2f6db6 (linux)
 
 Starting scan.
 Scan done : 1 trace(s) · 1 threat(s)
@@ -1137,18 +1137,18 @@ Starting treatment.
 ────────────────────────────────────────────────────────
  Result     : Threat found, treated (1 action(s) done)
  Elapsed    : under 1s
- Quarantine : /tmp/console-capture/s9/quarantine/run-1795673003-0219-26d34475.rq
- Journal    : /tmp/console-capture/s9/journal/run-1795673003-0219-26d34475.jsonl
- To undo    : remedy restore --run run-1795673003-0219-26d34475 --state-dir /tmp/console-capture/s9
- Report FP  : remedy support-bundle --run run-1795673003-0219-26d34475 --state-dir /tmp/console-capture/s9
+ Quarantine : /tmp/console-capture/s9/quarantine/run-1795698397-0219-21106d62.rq
+ Journal    : /tmp/console-capture/s9/journal/run-1795698397-0219-21106d62.jsonl
+ To undo    : remedy restore --run run-1795698397-0219-21106d62 --state-dir /tmp/console-capture/s9
+ Report FP  : remedy support-bundle --run run-1795698397-0219-21106d62 --state-dir /tmp/console-capture/s9
 ────────────────────────────────────────────────────────
  Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 ────────────────────────────────────────────────────────
  ESTsecurity Dedicated Cleaner 1.26.0
 ────────────────────────────────────────────────────────
- Started    : 2026-11-26 06:03:23 UTC
- Machine    : fc929b1fa513 (linux)
+ Started    : 2026-11-26 13:06:37 UTC
+ Machine    : f10d1c2f6db6 (linux)
 
 
 1 action(s) will run:
@@ -1156,7 +1156,7 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
       moves the file into quarantine — not deleted, and reversible
 
 Starting treatment.
-Error: this plan differs from the one in the journal. Not resuming; plan again (run run-1795673003-0219-26d34475)
+Error: this plan differs from the one in the journal. Not resuming; plan again (run run-1795698397-0219-21106d62)
   (exit code 5: stopped by a safety guard (limit, protected path, signature))
 [exit=5]
 --- 무고한 파일은 그대로인가 ---
@@ -1168,25 +1168,25 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
 
 Error: internal error: the tool itself crashed. The machine is as the journal recorded up to this point
   crates/remedy-cli/src/tee.rs:249:9: REMEDY_PANIC_TEST: 개발 빌드 전용 패닉 시험
-  Record: /tmp/console-capture/sP/logs/crash-2026-11-26T06-03-23Z-544.txt
+  Record: /tmp/console-capture/sP/logs/crash-2026-11-26T13-06-37Z-544.txt
   (exit code 7: internal error: the tool itself crashed (attach logs/crash-*.txt to the report))
 [exit=7]
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
 
 Error: internal error: the tool itself crashed. The machine is as the journal recorded up to this point
   crates/remedy-cli/src/tee.rs:249:9: REMEDY_PANIC_TEST: 개발 빌드 전용 패닉 시험
-  Record: /tmp/console-capture/sP/logs/crash-2026-11-26T06-03-23Z-545.txt
+  Record: /tmp/console-capture/sP/logs/crash-2026-11-26T13-06-37Z-545.txt
   (exit code 7: internal error: the tool itself crashed (attach logs/crash-*.txt to the report))
 [exit=7]
 --- 크래시 기록의 머리 ---
-==> /tmp/console-capture/sP/logs/crash-2026-11-26T06-03-23Z-544.txt <==
+==> /tmp/console-capture/sP/logs/crash-2026-11-26T13-06-37Z-544.txt <==
 remedy 1.26.0 · internal error (panic)
-at    : 2026-11-26T06:03:23Z
+at    : 2026-11-26T13:06:37Z
 where : crates/remedy-cli/src/tee.rs:249:9
 
-==> /tmp/console-capture/sP/logs/crash-2026-11-26T06-03-23Z-545.txt <==
+==> /tmp/console-capture/sP/logs/crash-2026-11-26T13-06-37Z-545.txt <==
 remedy 1.26.0 · internal error (panic)
-at    : 2026-11-26T06:03:23Z
+at    : 2026-11-26T13:06:37Z
 
 ########## R. 조직 복구 키 — apply 가 싣고 restore 가 연다
 
@@ -1196,8 +1196,8 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
  ESTsecurity Dedicated Cleaner 1.26.0
  read-only place  (force-org 1.0.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-26 06:03:30 UTC
- Machine    : fc929b1fa513 (linux)
+ Started    : 2026-11-26 13:06:42 UTC
+ Machine    : f10d1c2f6db6 (linux)
 
 Starting scan.
 Scan done : 2 trace(s) · 1 threat(s)
@@ -1215,10 +1215,10 @@ Starting treatment.
 ────────────────────────────────────────────────────────
  Result     : Threat found, treated (2 action(s) done)
  Elapsed    : under 1s
- Quarantine : /tmp/console-capture/sR/quarantine/run-1795673010-0232-5a641ba.rq
- Journal    : /tmp/console-capture/sR/journal/run-1795673010-0232-5a641ba.jsonl
- To undo    : remedy restore --run run-1795673010-0232-5a641ba --state-dir /tmp/console-capture/sR
- Report FP  : remedy support-bundle --run run-1795673010-0232-5a641ba --state-dir /tmp/console-capture/sR
+ Quarantine : /tmp/console-capture/sR/quarantine/run-1795698402-0232-34095888.rq
+ Journal    : /tmp/console-capture/sR/journal/run-1795698402-0232-34095888.jsonl
+ To undo    : remedy restore --run run-1795698402-0232-34095888 --state-dir /tmp/console-capture/sR
+ Report FP  : remedy support-bundle --run run-1795698402-0232-34095888 --state-dir /tmp/console-capture/sR
 ────────────────────────────────────────────────────────
  Copyright © 2026 ESTsecurity Corp. All Rights Reserved.
 [exit=1]
@@ -1228,13 +1228,13 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
 ────────────────────────────────────────────────────────
  ESTsecurity Dedicated Cleaner 1.26.0
 ────────────────────────────────────────────────────────
- Started    : 2026-11-26 06:03:30 UTC
- Machine    : fc929b1fa513 (linux)
+ Started    : 2026-11-26 13:06:42 UTC
+ Machine    : f10d1c2f6db6 (linux)
 
-Quarantine : /tmp/console-capture/sR/quarantine/run-1795673010-0232-5a641ba.rq
-Run id     : run-1795673010-0232-5a641ba
-Created    : 2026-11-26 06:03:30 UTC
-Keys       : local(348cedbb) · org(b32794fe)
+Quarantine : /tmp/console-capture/sR/quarantine/run-1795698402-0232-34095888.rq
+Run id     : run-1795698402-0232-34095888
+Created    : 2026-11-26 13:06:42 UTC
+Keys       : local(ae492407) · org(63618a9d)
 Extract mode: items go to /tmp/console-capture/orgout, not to their original place.
   In-place restore is only guaranteed on the original machine.
 
@@ -1245,7 +1245,7 @@ Extract mode: items go to /tmp/console-capture/orgout, not to their original pla
   [e1] /tmp/console-capture/orgout/_tmp_console-capture_orgsrc_g2.evil
         not restorable  ctime: the operating system owns this value; it cannot be restored
         not restorable  btime: this operating system cannot set this value
-  Volume /  needs 20 · free 915961380864 bytes
+  Volume /  needs 20 · free 905745629184 bytes
 
   restored [e0] /tmp/console-capture/orgout/_tmp_console-capture_orgsrc_g1.evil  (content · mtime · readonly · mode)
   restored [e1] /tmp/console-capture/orgout/_tmp_console-capture_orgsrc_g2.evil  (content · mtime · readonly · mode)
@@ -1263,62 +1263,43 @@ _tmp_console-capture_orgsrc_g2.evil
 
 [exit=6]
 
-ESTsecurity Dedicated Cleaner 1.26.0 · rules 2026.11.26
+ESTsecurity Dedicated Cleaner 1.26.0 · rules 2026.11.26.2
 Running with root rights.
 Notice: no code-signing check on Linux. Check the downloaded file's checksum.
 
-What would you like to check? (13 items)
-  1. Quick scan (recommended · 11 items · changes nothing)
-  2. Full scan (12 items · whole disks too · can take a long time)
+What would you like to check? (14 items)
+  1. Quick scan (recommended · 12 items · changes nothing)
+  2. Full scan (13 items · whole disks too · can take a long time)
 
 Recently added
-  3. PHP November security update check (CVE-2026-129474 and 17 more) [added Nov 20]
-  4. nginx2root check (CVE-2026-123007, CVE-2026-123634, CVE-2026-123633, CVE-2026-121810, CVE-2026-113425) [added Nov 19]
-  5. Java4Shell check (CVE-2026-114938) [added Nov 18]
+  3. NFS2ROOT check (CVE-2026-99362) [added Nov 26]
 
 Other items
-  6. CWPdoor check (detect only)
-  7. CWPdoor Removal
-  8. Ebury check (detect only)
-  9. Apache HTTP/2 check (CVE-2026-119618)
-  10. Log4j check (CVE-2021-44228 and related)
+  4. CWPdoor check (detect only)
+  5. CWPdoor Removal
+  6. Ebury check (detect only)
+  7. Apache HTTP/2 check (CVE-2026-119618)
+  8. Java4Shell check (CVE-2026-114938)
+  9. Log4j check (CVE-2021-44228 and related)
+  10. nginx2root check (CVE-2026-123007, CVE-2026-123634, CVE-2026-123633, CVE-2026-121810, CVE-2026-113425)
   11. Node2Shell check (CVE-2026-111497)
   12. OpenSSH check (CVE-2026-123158, Alpine)
-  13. PHP session upload progress setting check (CVE-2026-115560)
-  14. PHP2Shell check (CVE-2026-109618, 109619)
-  15. PHP2Shell · Apache HTTP/2 remote check (web server headers) [uses the network]
+  13. PHP November security update check (CVE-2026-129474 and 17 more)
+  14. PHP session upload progress setting check (CVE-2026-115560)
+  15. PHP2Shell check (CVE-2026-109618, 109619)
+  16. PHP2Shell · Apache HTTP/2 remote check (web server headers) [uses the network]
   0. Quit
 
-Choose a number (0-15): Quick scan — 11 items. Nothing is changed.
+Choose a number (0-16): Quick scan — 12 items. Nothing is changed.
 
-[1/11] PHP November security update check (CVE-2026-129474 and 17 more)
-
-Starting scan.
-Scan done : 0 trace(s) · 0 vulnerable
-
-No vulnerability was found.
-
-[2/11] nginx2root check (CVE-2026-123007, CVE-2026-123634, CVE-2026-123633, CVE-2026-121810, CVE-2026-113425)
+[1/12] NFS2ROOT check (CVE-2026-99362)
 
 Starting scan.
 Scan done : 0 trace(s) · 0 vulnerable
 
 No vulnerability was found.
 
-[3/11] Java4Shell check (CVE-2026-114938)
-
-Starting scan.
-Scanning · files · 1923 folders · 14259 entries · 0 processed · root 2/2 · 5s elapsed · …b557f/cranelift-codegen-0.135.8/src/isa/pulley_shared/lower
-Scanning · files · 3674 folders · 24722 entries · 0 processed · root 2/2 · 10s elapsed · …index.crates.io-1949cf8c6b5b557f/libc-0.2.189/src/new/nuttx
-Scanning · files · 5512 folders · 36906 entries · 0 processed · root 2/2 · 15s elapsed · …949cf8c6b5b557f/rustix-0.38.44/src/maybe_polyfill/no_std/os
-Scanning · files · 7575 folders · 51553 entries · 0 processed · root 2/2 · 20s elapsed · …try/src/index.crates.io-1949cf8c6b5b557f/win32job-2.0.3/src
-Scanning · files · 9249 folders · 58703 entries · 0 processed · root 2/2 · 25s elapsed · …8c6b5b557f/windows-0.61.3/src/Windows/System/Threading/Core
-Scanning · files · 11143 folders · 62966 entries · 0 processed · root 2/2 · 30s elapsed · …f8c6b5b557f/windows-sys-0.59.0/src/Windows/Win32/System/Wmi
-Scan done : 0 trace(s) · 0 vulnerable
-
-No vulnerability was found.
-
-[4/11] CWPdoor check (detect only)
+[2/12] CWPdoor check (detect only)
 
 Starting scan.
 Scan done : 0 trace(s) · 0 threat(s)
@@ -1327,7 +1308,7 @@ Scan done : 0 trace(s) · 0 threat(s)
 
 Observation incomplete: cannot declare 'no threat'.
 
-[5/11] CWPdoor Removal
+[3/12] CWPdoor Removal
 
 Starting scan.
 Scan done : 0 trace(s) · 0 threat(s)
@@ -1336,14 +1317,14 @@ Scan done : 0 trace(s) · 0 threat(s)
 
 Observation incomplete: cannot declare 'no threat'.
 
-[6/11] Ebury check (detect only)
+[4/12] Ebury check (detect only)
 
 Starting scan.
 Scan done : 0 trace(s) · 0 threat(s)
 
 No threat was found.
 
-[7/11] Apache HTTP/2 check (CVE-2026-119618)
+[5/12] Apache HTTP/2 check (CVE-2026-119618)
 
 Starting scan.
 Scan done : 0 trace(s) · 0 vulnerable
@@ -1352,28 +1333,54 @@ Scan done : 0 trace(s) · 0 vulnerable
 
 No vulnerability was found.
 
-[8/11] Node2Shell check (CVE-2026-111497)
+[6/12] Java4Shell check (CVE-2026-114938)
+
+Starting scan.
+Scanning · files · 3019 folders · 21338 entries · 0 processed · root 2/2 · 5s elapsed · …ates.io-1949cf8c6b5b557f/equivalent-1.0.2/.github/workflows
+Scanning · files · 5319 folders · 35256 entries · 0 processed · root 2/2 · 10s elapsed · …x.crates.io-1949cf8c6b5b557f/protobuf-3.7.2/src/reflect/map
+Scanning · files · 7788 folders · 52880 entries · 0 processed · root 2/2 · 15s elapsed · …o-1949cf8c6b5b557f/wasmtime-43.0.2/src/compile/code_builder
+Scanning · files · 9703 folders · 61706 entries · 0 processed · root 2/2 · 20s elapsed · …557f/windows-0.61.3/src/Windows/Security/Authentication/Web
+Scanning · files · 11500 folders · 65784 entries · 0 processed · root 2/2 · 25s elapsed · …windows-sys-0.59.0/src/Windows/Win32/NetworkManagement/Ndis
+Scan done : 0 trace(s) · 0 vulnerable
+
+No vulnerability was found.
+
+[7/12] nginx2root check (CVE-2026-123007, CVE-2026-123634, CVE-2026-123633, CVE-2026-121810, CVE-2026-113425)
 
 Starting scan.
 Scan done : 0 trace(s) · 0 vulnerable
 
 No vulnerability was found.
 
-[9/11] OpenSSH check (CVE-2026-123158, Alpine)
+[8/12] Node2Shell check (CVE-2026-111497)
 
 Starting scan.
 Scan done : 0 trace(s) · 0 vulnerable
 
 No vulnerability was found.
 
-[10/11] PHP session upload progress setting check (CVE-2026-115560)
+[9/12] OpenSSH check (CVE-2026-123158, Alpine)
 
 Starting scan.
 Scan done : 0 trace(s) · 0 vulnerable
 
 No vulnerability was found.
 
-[11/11] PHP2Shell check (CVE-2026-109618, 109619)
+[10/12] PHP November security update check (CVE-2026-129474 and 17 more)
+
+Starting scan.
+Scan done : 0 trace(s) · 0 vulnerable
+
+No vulnerability was found.
+
+[11/12] PHP session upload progress setting check (CVE-2026-115560)
+
+Starting scan.
+Scan done : 0 trace(s) · 0 vulnerable
+
+No vulnerability was found.
+
+[12/12] PHP2Shell check (CVE-2026-109618, 109619)
 
 Starting scan.
 Scan done : 0 trace(s) · 0 vulnerable
@@ -1381,16 +1388,17 @@ Scan done : 0 trace(s) · 0 vulnerable
 No vulnerability was found.
 
 ────────────────────────────────────────────────────────
-Quick scan results — 11 items · nothing was changed
-  PHP November security update check (CVE-2026-129474 and 17 more) — No vulnerability was found.
-  nginx2root check (CVE-2026-123007, CVE-2026-123634, CVE-2026-123633, CVE-2026-121810, CVE-2026-113425) — No vulnerability was found.
-  Java4Shell check (CVE-2026-114938) — No vulnerability was found.
+Quick scan results — 12 items · nothing was changed
+  NFS2ROOT check (CVE-2026-99362) — No vulnerability was found.
   CWPdoor check (detect only) — not applicable (the paths to scan do not exist on this machine)
   CWPdoor Removal — not applicable (the paths to scan do not exist on this machine)
   Ebury check (detect only) — No threat was found.
   Apache HTTP/2 check (CVE-2026-119618) — No vulnerability was found.
+  Java4Shell check (CVE-2026-114938) — No vulnerability was found.
+  nginx2root check (CVE-2026-123007, CVE-2026-123634, CVE-2026-123633, CVE-2026-121810, CVE-2026-113425) — No vulnerability was found.
   Node2Shell check (CVE-2026-111497) — No vulnerability was found.
   OpenSSH check (CVE-2026-123158, Alpine) — No vulnerability was found.
+  PHP November security update check (CVE-2026-129474 and 17 more) — No vulnerability was found.
   PHP session upload progress setting check (CVE-2026-115560) — No vulnerability was found.
   PHP2Shell check (CVE-2026-109618, 109619) — No vulnerability was found.
   Log4j check (CVE-2021-44228 and related) — full scan only (it reads whole disks)
@@ -1398,35 +1406,36 @@ Quick scan results — 11 items · nothing was changed
 
 ────────────────────────────────────────────────────────
 Next
-  To look at whole disks too — 2. Full scan (12 items · whole disks too · can take a long time)
+  To look at whole disks too — 2. Full scan (13 items · whole disks too · can take a long time)
 
 Press Enter to go back to the menu. 
-ESTsecurity Dedicated Cleaner 1.26.0 · rules 2026.11.26
+ESTsecurity Dedicated Cleaner 1.26.0 · rules 2026.11.26.2
 Running with root rights.
 
-What would you like to check? (13 items)
-  1. Quick scan (recommended · 11 items · changes nothing)
-  2. Full scan (12 items · whole disks too · can take a long time)
+What would you like to check? (14 items)
+  1. Quick scan (recommended · 12 items · changes nothing)
+  2. Full scan (13 items · whole disks too · can take a long time)
 
 Recently added
-  3. PHP November security update check (CVE-2026-129474 and 17 more) [added Nov 20]
-  4. nginx2root check (CVE-2026-123007, CVE-2026-123634, CVE-2026-123633, CVE-2026-121810, CVE-2026-113425) [added Nov 19]
-  5. Java4Shell check (CVE-2026-114938) [added Nov 18]
+  3. NFS2ROOT check (CVE-2026-99362) [added Nov 26]
 
 Other items
-  6. CWPdoor check (detect only)
-  7. CWPdoor Removal
-  8. Ebury check (detect only)
-  9. Apache HTTP/2 check (CVE-2026-119618)
-  10. Log4j check (CVE-2021-44228 and related)
+  4. CWPdoor check (detect only)
+  5. CWPdoor Removal
+  6. Ebury check (detect only)
+  7. Apache HTTP/2 check (CVE-2026-119618)
+  8. Java4Shell check (CVE-2026-114938)
+  9. Log4j check (CVE-2021-44228 and related)
+  10. nginx2root check (CVE-2026-123007, CVE-2026-123634, CVE-2026-123633, CVE-2026-121810, CVE-2026-113425)
   11. Node2Shell check (CVE-2026-111497)
   12. OpenSSH check (CVE-2026-123158, Alpine)
-  13. PHP session upload progress setting check (CVE-2026-115560)
-  14. PHP2Shell check (CVE-2026-109618, 109619)
-  15. PHP2Shell · Apache HTTP/2 remote check (web server headers) [uses the network]
+  13. PHP November security update check (CVE-2026-129474 and 17 more)
+  14. PHP session upload progress setting check (CVE-2026-115560)
+  15. PHP2Shell check (CVE-2026-109618, 109619)
+  16. PHP2Shell · Apache HTTP/2 remote check (web server headers) [uses the network]
   0. Quit
 
-Choose a number (0-15): Exiting.
+Choose a number (0-16): Exiting.
 
 ########## A12. 원격 점검 — 서명을 확인한 remedy-net 을 띄운다 (닫힌 포트) · 서명이 없으면 띄우지 않는다
 
@@ -1435,8 +1444,8 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
  ESTsecurity Dedicated Cleaner 1.26.0
  PHP2Shell · Apache HTTP/2 remote check (web server headers)  (php2shell-url-check 0.2.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-26 06:08:50 UTC
- Machine    : fc929b1fa513 (linux)
+ Started    : 2026-11-26 13:11:32 UTC
+ Machine    : f10d1c2f6db6 (linux)
 
 
 This check uses the network — it sends requests to the addresses you give.
@@ -1461,7 +1470,7 @@ Checking 1 URL(s) — requests are 2 seconds apart, up to 10 seconds per URL.
 What the headers say may differ from what is installed.
 URL checks never say "clear" — confirm on that server with remedy's PHP2Shell, PHP session and Apache HTTP/2 checks.
 Review needed: there is no basis to call the items listed above not vulnerable.
-Report: /tmp/console-capture/scan-all/net-out/remedy-net-url-20261126T060850Z-a046c9797a926f3c.json
+Report: /tmp/console-capture/scan-all/net-out/remedy-net-url-20261126T131132Z-4f4d09cec483e29c.json
 [exit=6]
 --- 서명 파일(MANIFEST.minisig)을 지운 remedy-net ---
 Notice: no code-signing check on this OS: cannot verify this is the official release. Check the file's checksum
@@ -1469,8 +1478,8 @@ Notice: no code-signing check on this OS: cannot verify this is the official rel
  ESTsecurity Dedicated Cleaner 1.26.0
  PHP2Shell · Apache HTTP/2 remote check (web server headers)  (php2shell-url-check 0.2.0)
 ────────────────────────────────────────────────────────
- Started    : 2026-11-26 06:08:50 UTC
- Machine    : fc929b1fa513 (linux)
+ Started    : 2026-11-26 13:11:32 UTC
+ Machine    : f10d1c2f6db6 (linux)
 
 Error: remedy-net is not signed, so it was not started — check that it came from the vendor.
   (exit code 5: stopped by a safety guard (limit, protected path, signature))
@@ -1482,74 +1491,55 @@ Error: remedy-net is not signed, so it was not started — check that it came fr
 
 [exit=1]
 
-ESTsecurity Dedicated Cleaner 1.26.0 · rules 2026.11.26
+ESTsecurity Dedicated Cleaner 1.26.0 · rules 2026.11.26.2
 Running with root rights.
 Notice: no code-signing check on Linux. Check the downloaded file's checksum.
 
-What would you like to check? (13 items)
-  1. Quick scan (recommended · 11 items · changes nothing)
-  2. Full scan (12 items · whole disks too · can take a long time)
+What would you like to check? (14 items)
+  1. Quick scan (recommended · 12 items · changes nothing)
+  2. Full scan (13 items · whole disks too · can take a long time)
 
 Recently added
-  3. PHP November security update check (CVE-2026-129474 and 17 more) [added Nov 20]
-  4. nginx2root check (CVE-2026-123007, CVE-2026-123634, CVE-2026-123633, CVE-2026-121810, CVE-2026-113425) [added Nov 19]
-  5. Java4Shell check (CVE-2026-114938) [added Nov 18]
+  3. NFS2ROOT check (CVE-2026-99362) [added Nov 26]
 
 Other items
-  6. CWPdoor check (detect only)
-  7. CWPdoor Removal
-  8. Ebury check (detect only)
-  9. Apache HTTP/2 check (CVE-2026-119618)
-  10. Log4j check (CVE-2021-44228 and related)
+  4. CWPdoor check (detect only)
+  5. CWPdoor Removal
+  6. Ebury check (detect only)
+  7. Apache HTTP/2 check (CVE-2026-119618)
+  8. Java4Shell check (CVE-2026-114938)
+  9. Log4j check (CVE-2021-44228 and related)
+  10. nginx2root check (CVE-2026-123007, CVE-2026-123634, CVE-2026-123633, CVE-2026-121810, CVE-2026-113425)
   11. Node2Shell check (CVE-2026-111497)
   12. OpenSSH check (CVE-2026-123158, Alpine)
-  13. PHP session upload progress setting check (CVE-2026-115560)
-  14. PHP2Shell check (CVE-2026-109618, 109619)
-  15. PHP2Shell · Apache HTTP/2 remote check (web server headers) [uses the network]
+  13. PHP November security update check (CVE-2026-129474 and 17 more)
+  14. PHP session upload progress setting check (CVE-2026-115560)
+  15. PHP2Shell check (CVE-2026-109618, 109619)
+  16. PHP2Shell · Apache HTTP/2 remote check (web server headers) [uses the network]
   0. Quit
 
-Choose a number (0-15): Quick scan — 11 items. Nothing is changed.
+Choose a number (0-16): Quick scan — 12 items. Nothing is changed.
 
-[1/11] PHP November security update check (CVE-2026-129474 and 17 more)
-
-Starting scan.
-Scan done : 0 trace(s) · 0 vulnerable
-
-No vulnerability was found.
-
-[2/11] nginx2root check (CVE-2026-123007, CVE-2026-123634, CVE-2026-123633, CVE-2026-121810, CVE-2026-113425)
+[1/12] NFS2ROOT check (CVE-2026-99362)
 
 Starting scan.
 Scan done : 0 trace(s) · 0 vulnerable
 
 No vulnerability was found.
 
-[3/11] Java4Shell check (CVE-2026-114938)
+[2/12] CWPdoor check (detect only)
 
 Starting scan.
-Scanning · files · 1955 folders · 14497 entries · 0 processed · root 2/2 · 5s elapsed · …f8c6b5b557f/cranelift-codegen-0.135.9/src/isa/aarch64/lower
-Scanning · files · 3802 folders · 25212 entries · 0 processed · root 2/2 · 10s elapsed · …io-1949cf8c6b5b557f/libm-0.2.16/src/math/support/int_traits
-Scanning · files · 5737 folders · 38314 entries · 0 processed · root 2/2 · 15s elapsed · …/src/index.crates.io-1949cf8c6b5b557f/ryu-1.0.23/src/pretty
-Scanning · files · 7947 folders · 55643 entries · 0 processed · root 2/2 · 20s elapsed · …crates.io-1949cf8c6b5b557f/windows-0.52.0/src/Windows/Win32
-Scanning · files · 9679 folders · 59629 entries · 0 processed · root 2/2 · 25s elapsed · …62.2/src/Windows/ApplicationModel/Appointments/DataProvider
-Scanning · files · 11262 folders · 63228 entries · 0 processed · root 2/2 · 30s elapsed · …rc/Windows/Win32/NetworkManagement/WindowsConnectionManager
-Scan done : 0 trace(s) · 0 vulnerable
-
-No vulnerability was found.
-
-[4/11] CWPdoor check (detect only)
-
-Starting scan.
-Output    : /tmp/console-capture/scan-all/pkg/out/20261126T060923Z  (artifacts.json · scan.json · plan.json)
+Output    : /tmp/console-capture/scan-all/pkg/out/20261126T131132Z  (artifacts.json · scan.json · plan.json)
 Scan done : 2 trace(s) · 1 threat(s)
    1. /usr/local/cwpsrv/bin/cwpsrv
 
 Threat found, not treated.
 
-[5/11] CWPdoor Removal
+[3/12] CWPdoor Removal
 
 Starting scan.
-Output    : /tmp/console-capture/scan-all/pkg/out/20261126T060923Z-2  (artifacts.json · scan.json · plan.json)
+Output    : /tmp/console-capture/scan-all/pkg/out/20261126T131132Z-2  (artifacts.json · scan.json · plan.json)
 Scan done : 3 trace(s) · 1 threat(s)
 If treated, 4 action(s) will run (nothing is changed now):
    1. Stop service  /lib/systemd/system/cwpsrv.service
@@ -1563,14 +1553,14 @@ If treated, 4 action(s) will run (nothing is changed now):
 
 Threat found, not treated.
 
-[6/11] Ebury check (detect only)
+[4/12] Ebury check (detect only)
 
 Starting scan.
 Scan done : 0 trace(s) · 0 threat(s)
 
 No threat was found.
 
-[7/11] Apache HTTP/2 check (CVE-2026-119618)
+[5/12] Apache HTTP/2 check (CVE-2026-119618)
 
 Starting scan.
 Scan done : 0 trace(s) · 0 vulnerable
@@ -1579,28 +1569,54 @@ Scan done : 0 trace(s) · 0 vulnerable
 
 No vulnerability was found.
 
-[8/11] Node2Shell check (CVE-2026-111497)
+[6/12] Java4Shell check (CVE-2026-114938)
+
+Starting scan.
+Scanning · files · 3047 folders · 21472 entries · 0 processed · root 2/2 · 5s elapsed · …egistry/src/index.crates.io-1949cf8c6b5b557f/fastrand-2.4.1
+Scanning · files · 5463 folders · 36201 entries · 0 processed · root 2/2 · 10s elapsed · …rc/index.crates.io-1949cf8c6b5b557f/quick-xml-0.41.0/src/de
+Scanning · files · 7874 folders · 53425 entries · 0 processed · root 2/2 · 15s elapsed · …io-1949cf8c6b5b557f/wasmtime-48.0.8/src/runtime/vm/sys/miri
+Scanning · files · 9835 folders · 61973 entries · 0 processed · root 2/2 · 20s elapsed · …c6b5b557f/windows-0.61.3/src/Windows/Win32/Data/Xml/XmlLite
+Scanning · files · 11787 folders · 66363 entries · 0 processed · root 2/2 · 25s elapsed · …/windows-sys-0.60.2/src/Windows/Win32/Security/Cryptography
+Scan done : 0 trace(s) · 0 vulnerable
+
+No vulnerability was found.
+
+[7/12] nginx2root check (CVE-2026-123007, CVE-2026-123634, CVE-2026-123633, CVE-2026-121810, CVE-2026-113425)
 
 Starting scan.
 Scan done : 0 trace(s) · 0 vulnerable
 
 No vulnerability was found.
 
-[9/11] OpenSSH check (CVE-2026-123158, Alpine)
+[8/12] Node2Shell check (CVE-2026-111497)
 
 Starting scan.
 Scan done : 0 trace(s) · 0 vulnerable
 
 No vulnerability was found.
 
-[10/11] PHP session upload progress setting check (CVE-2026-115560)
+[9/12] OpenSSH check (CVE-2026-123158, Alpine)
 
 Starting scan.
 Scan done : 0 trace(s) · 0 vulnerable
 
 No vulnerability was found.
 
-[11/11] PHP2Shell check (CVE-2026-109618, 109619)
+[10/12] PHP November security update check (CVE-2026-129474 and 17 more)
+
+Starting scan.
+Scan done : 0 trace(s) · 0 vulnerable
+
+No vulnerability was found.
+
+[11/12] PHP session upload progress setting check (CVE-2026-115560)
+
+Starting scan.
+Scan done : 0 trace(s) · 0 vulnerable
+
+No vulnerability was found.
+
+[12/12] PHP2Shell check (CVE-2026-109618, 109619)
 
 Starting scan.
 Scan done : 0 trace(s) · 0 vulnerable
@@ -1608,16 +1624,17 @@ Scan done : 0 trace(s) · 0 vulnerable
 No vulnerability was found.
 
 ────────────────────────────────────────────────────────
-Quick scan results — 11 items · nothing was changed
-  PHP November security update check (CVE-2026-129474 and 17 more) — No vulnerability was found.
-  nginx2root check (CVE-2026-123007, CVE-2026-123634, CVE-2026-123633, CVE-2026-121810, CVE-2026-113425) — No vulnerability was found.
-  Java4Shell check (CVE-2026-114938) — No vulnerability was found.
+Quick scan results — 12 items · nothing was changed
+  NFS2ROOT check (CVE-2026-99362) — No vulnerability was found.
   CWPdoor check (detect only) — Threat found, not treated.
   CWPdoor Removal — Threat found, not treated.
   Ebury check (detect only) — No threat was found.
   Apache HTTP/2 check (CVE-2026-119618) — No vulnerability was found.
+  Java4Shell check (CVE-2026-114938) — No vulnerability was found.
+  nginx2root check (CVE-2026-123007, CVE-2026-123634, CVE-2026-123633, CVE-2026-121810, CVE-2026-113425) — No vulnerability was found.
   Node2Shell check (CVE-2026-111497) — No vulnerability was found.
   OpenSSH check (CVE-2026-123158, Alpine) — No vulnerability was found.
+  PHP November security update check (CVE-2026-129474 and 17 more) — No vulnerability was found.
   PHP session upload progress setting check (CVE-2026-115560) — No vulnerability was found.
   PHP2Shell check (CVE-2026-109618, 109619) — No vulnerability was found.
   Log4j check (CVE-2021-44228 and related) — full scan only (it reads whole disks)
@@ -1625,38 +1642,39 @@ Quick scan results — 11 items · nothing was changed
 
 ────────────────────────────────────────────────────────
 Next
-  To treat everything found — 16. Treat everything found (1 item(s) · shows the changes first)
+  To treat everything found — 17. Treat everything found (1 item(s) · shows the changes first)
   To treat one at a time, pick that rule, then — 1. Scan and treat
-  To look at whole disks too — 2. Full scan (12 items · whole disks too · can take a long time)
+  To look at whole disks too — 2. Full scan (13 items · whole disks too · can take a long time)
 
 Press Enter to go back to the menu. 
-ESTsecurity Dedicated Cleaner 1.26.0 · rules 2026.11.26
+ESTsecurity Dedicated Cleaner 1.26.0 · rules 2026.11.26.2
 Running with root rights.
 
-What would you like to check? (13 items)
-  1. Quick scan (recommended · 11 items · changes nothing)
-  2. Full scan (12 items · whole disks too · can take a long time)
+What would you like to check? (14 items)
+  1. Quick scan (recommended · 12 items · changes nothing)
+  2. Full scan (13 items · whole disks too · can take a long time)
 
 Recently added
-  3. PHP November security update check (CVE-2026-129474 and 17 more) [added Nov 20]
-  4. nginx2root check (CVE-2026-123007, CVE-2026-123634, CVE-2026-123633, CVE-2026-121810, CVE-2026-113425) [added Nov 19]
-  5. Java4Shell check (CVE-2026-114938) [added Nov 18]
+  3. NFS2ROOT check (CVE-2026-99362) [added Nov 26]
 
 Other items
-  6. CWPdoor check (detect only)
-  7. CWPdoor Removal
-  8. Ebury check (detect only)
-  9. Apache HTTP/2 check (CVE-2026-119618)
-  10. Log4j check (CVE-2021-44228 and related)
+  4. CWPdoor check (detect only)
+  5. CWPdoor Removal
+  6. Ebury check (detect only)
+  7. Apache HTTP/2 check (CVE-2026-119618)
+  8. Java4Shell check (CVE-2026-114938)
+  9. Log4j check (CVE-2021-44228 and related)
+  10. nginx2root check (CVE-2026-123007, CVE-2026-123634, CVE-2026-123633, CVE-2026-121810, CVE-2026-113425)
   11. Node2Shell check (CVE-2026-111497)
   12. OpenSSH check (CVE-2026-123158, Alpine)
-  13. PHP session upload progress setting check (CVE-2026-115560)
-  14. PHP2Shell check (CVE-2026-109618, 109619)
-  15. PHP2Shell · Apache HTTP/2 remote check (web server headers) [uses the network]
-  16. Treat everything found (1 item(s) · shows the changes first)
+  13. PHP November security update check (CVE-2026-129474 and 17 more)
+  14. PHP session upload progress setting check (CVE-2026-115560)
+  15. PHP2Shell check (CVE-2026-109618, 109619)
+  16. PHP2Shell · Apache HTTP/2 remote check (web server headers) [uses the network]
+  17. Treat everything found (1 item(s) · shows the changes first)
   0. Quit
 
-Choose a number (0-16): Treat everything found — 1 item(s) are scanned again and every change is shown; one 'yes' then treats them all.
+Choose a number (0-17): Treat everything found — 1 item(s) are scanned again and every change is shown; one 'yes' then treats them all.
 
 [1/1] CWPdoor Removal
 
@@ -1695,7 +1713,7 @@ Starting scan.
 
   Note: 1 declared item(s) could not be resolved:
      - '/usr/local/cwpsrv/bin/cwpsrv' does not exist
-Output    : /tmp/console-capture/scan-all/pkg/out/20261126T060925Z-2  (artifacts.json · scan.json · plan.json)
+Output    : /tmp/console-capture/scan-all/pkg/out/20261126T131201Z-2  (artifacts.json · scan.json · plan.json)
 Scan done : 0 trace(s) · 0 threat(s)
 
 No threat was found.
@@ -1709,7 +1727,7 @@ Results of treating everything found — 1 item(s)
 
 ────────────────────────────────────────────────────────
 Next
-  First pick 7. CWPdoor Removal, then:
+  First pick 5. CWPdoor Removal, then:
     To check that it held — 3. Re-check that the treatment held
     If it was a false positive — 4. Undo a treatment
     To report a false positive — 5. Collect what to attach to a report
@@ -1719,32 +1737,33 @@ Next
     /tmp/console-capture/scan-all/pkg/plugins/cwpdoor-2-clean/RELEASE.md
 
 Press Enter to go back to the menu. 
-ESTsecurity Dedicated Cleaner 1.26.0 · rules 2026.11.26
+ESTsecurity Dedicated Cleaner 1.26.0 · rules 2026.11.26.2
 Running with root rights.
 
-What would you like to check? (13 items)
-  1. Quick scan (recommended · 11 items · changes nothing)
-  2. Full scan (12 items · whole disks too · can take a long time)
+What would you like to check? (14 items)
+  1. Quick scan (recommended · 12 items · changes nothing)
+  2. Full scan (13 items · whole disks too · can take a long time)
 
 Recently added
-  3. PHP November security update check (CVE-2026-129474 and 17 more) [added Nov 20]
-  4. nginx2root check (CVE-2026-123007, CVE-2026-123634, CVE-2026-123633, CVE-2026-121810, CVE-2026-113425) [added Nov 19]
-  5. Java4Shell check (CVE-2026-114938) [added Nov 18]
+  3. NFS2ROOT check (CVE-2026-99362) [added Nov 26]
 
 Other items
-  6. CWPdoor check (detect only)
-  7. CWPdoor Removal
-  8. Ebury check (detect only)
-  9. Apache HTTP/2 check (CVE-2026-119618)
-  10. Log4j check (CVE-2021-44228 and related)
+  4. CWPdoor check (detect only)
+  5. CWPdoor Removal
+  6. Ebury check (detect only)
+  7. Apache HTTP/2 check (CVE-2026-119618)
+  8. Java4Shell check (CVE-2026-114938)
+  9. Log4j check (CVE-2021-44228 and related)
+  10. nginx2root check (CVE-2026-123007, CVE-2026-123634, CVE-2026-123633, CVE-2026-121810, CVE-2026-113425)
   11. Node2Shell check (CVE-2026-111497)
   12. OpenSSH check (CVE-2026-123158, Alpine)
-  13. PHP session upload progress setting check (CVE-2026-115560)
-  14. PHP2Shell check (CVE-2026-109618, 109619)
-  15. PHP2Shell · Apache HTTP/2 remote check (web server headers) [uses the network]
+  13. PHP November security update check (CVE-2026-129474 and 17 more)
+  14. PHP session upload progress setting check (CVE-2026-115560)
+  15. PHP2Shell check (CVE-2026-109618, 109619)
+  16. PHP2Shell · Apache HTTP/2 remote check (web server headers) [uses the network]
   0. Quit
 
-Choose a number (0-15): Exiting.
+Choose a number (0-16): Exiting.
 
 ########## 끝
 

@@ -1259,56 +1259,43 @@ _tmp_console-capture_orgsrc_g2.evil
 
 [exit=6]
 
-ESTsecurity Dedicated Cleaner 1.26.0 · rules 2026.11.26
+ESTsecurity Dedicated Cleaner 1.26.0 · rules 2026.11.26.2
 Running with root rights.
 Notice: no code-signing check on Linux. Check the downloaded file's checksum.
 
-What would you like to check? (13 items)
-  1. Quick scan (recommended · 11 items · changes nothing)
-  2. Full scan (12 items · whole disks too · can take a long time)
+What would you like to check? (14 items)
+  1. Quick scan (recommended · 12 items · changes nothing)
+  2. Full scan (13 items · whole disks too · can take a long time)
 
 Recently added
-  3. PHP November security update check (CVE-2026-129474 and 17 more) [added Nov 20]
-  4. nginx2root check (CVE-2026-123007, CVE-2026-123634, CVE-2026-123633, CVE-2026-121810, CVE-2026-113425) [added Nov 19]
-  5. Java4Shell check (CVE-2026-114938) [added Nov 18]
+  3. NFS2ROOT check (CVE-2026-99362) [added Nov 26]
 
 Other items
-  6. CWPdoor check (detect only)
-  7. CWPdoor Removal
-  8. Ebury check (detect only)
-  9. Apache HTTP/2 check (CVE-2026-119618)
-  10. Log4j check (CVE-2021-44228 and related)
+  4. CWPdoor check (detect only)
+  5. CWPdoor Removal
+  6. Ebury check (detect only)
+  7. Apache HTTP/2 check (CVE-2026-119618)
+  8. Java4Shell check (CVE-2026-114938)
+  9. Log4j check (CVE-2021-44228 and related)
+  10. nginx2root check (CVE-2026-123007, CVE-2026-123634, CVE-2026-123633, CVE-2026-121810, CVE-2026-113425)
   11. Node2Shell check (CVE-2026-111497)
   12. OpenSSH check (CVE-2026-123158, Alpine)
-  13. PHP session upload progress setting check (CVE-2026-115560)
-  14. PHP2Shell check (CVE-2026-109618, 109619)
-  15. PHP2Shell · Apache HTTP/2 remote check (web server headers) [uses the network]
+  13. PHP November security update check (CVE-2026-129474 and 17 more)
+  14. PHP session upload progress setting check (CVE-2026-115560)
+  15. PHP2Shell check (CVE-2026-109618, 109619)
+  16. PHP2Shell · Apache HTTP/2 remote check (web server headers) [uses the network]
   0. Quit
 
-Choose a number (0-15): Quick scan — 11 items. Nothing is changed.
+Choose a number (0-16): Quick scan — 12 items. Nothing is changed.
 
-[1/11] PHP November security update check (CVE-2026-129474 and 17 more)
-
-Starting scan.
-Scan done : 0 trace(s) · 0 vulnerable
-
-No vulnerability was found.
-
-[2/11] nginx2root check (CVE-2026-123007, CVE-2026-123634, CVE-2026-123633, CVE-2026-121810, CVE-2026-113425)
+[1/12] NFS2ROOT check (CVE-2026-99362)
 
 Starting scan.
 Scan done : 0 trace(s) · 0 vulnerable
 
 No vulnerability was found.
 
-[3/11] Java4Shell check (CVE-2026-114938)
-
-Starting scan.
-Scan done : 0 trace(s) · 0 vulnerable
-
-No vulnerability was found.
-
-[4/11] CWPdoor check (detect only)
+[2/12] CWPdoor check (detect only)
 
 Starting scan.
 Scan done : 0 trace(s) · 0 threat(s)
@@ -1317,7 +1304,7 @@ Scan done : 0 trace(s) · 0 threat(s)
 
 Observation incomplete: cannot declare 'no threat'.
 
-[5/11] CWPdoor Removal
+[3/12] CWPdoor Removal
 
 Starting scan.
 Scan done : 0 trace(s) · 0 threat(s)
@@ -1326,14 +1313,14 @@ Scan done : 0 trace(s) · 0 threat(s)
 
 Observation incomplete: cannot declare 'no threat'.
 
-[6/11] Ebury check (detect only)
+[4/12] Ebury check (detect only)
 
 Starting scan.
 Scan done : 0 trace(s) · 0 threat(s)
 
 No threat was found.
 
-[7/11] Apache HTTP/2 check (CVE-2026-119618)
+[5/12] Apache HTTP/2 check (CVE-2026-119618)
 
 Starting scan.
 Scan done : 0 trace(s) · 0 vulnerable
@@ -1342,28 +1329,49 @@ Scan done : 0 trace(s) · 0 vulnerable
 
 No vulnerability was found.
 
-[8/11] Node2Shell check (CVE-2026-111497)
+[6/12] Java4Shell check (CVE-2026-114938)
 
 Starting scan.
 Scan done : 0 trace(s) · 0 vulnerable
 
 No vulnerability was found.
 
-[9/11] OpenSSH check (CVE-2026-123158, Alpine)
+[7/12] nginx2root check (CVE-2026-123007, CVE-2026-123634, CVE-2026-123633, CVE-2026-121810, CVE-2026-113425)
 
 Starting scan.
 Scan done : 0 trace(s) · 0 vulnerable
 
 No vulnerability was found.
 
-[10/11] PHP session upload progress setting check (CVE-2026-115560)
+[8/12] Node2Shell check (CVE-2026-111497)
 
 Starting scan.
 Scan done : 0 trace(s) · 0 vulnerable
 
 No vulnerability was found.
 
-[11/11] PHP2Shell check (CVE-2026-109618, 109619)
+[9/12] OpenSSH check (CVE-2026-123158, Alpine)
+
+Starting scan.
+Scan done : 0 trace(s) · 0 vulnerable
+
+No vulnerability was found.
+
+[10/12] PHP November security update check (CVE-2026-129474 and 17 more)
+
+Starting scan.
+Scan done : 0 trace(s) · 0 vulnerable
+
+No vulnerability was found.
+
+[11/12] PHP session upload progress setting check (CVE-2026-115560)
+
+Starting scan.
+Scan done : 0 trace(s) · 0 vulnerable
+
+No vulnerability was found.
+
+[12/12] PHP2Shell check (CVE-2026-109618, 109619)
 
 Starting scan.
 Scan done : 0 trace(s) · 0 vulnerable
@@ -1371,16 +1379,17 @@ Scan done : 0 trace(s) · 0 vulnerable
 No vulnerability was found.
 
 ────────────────────────────────────────────────────────
-Quick scan results — 11 items · nothing was changed
-  PHP November security update check (CVE-2026-129474 and 17 more) — No vulnerability was found.
-  nginx2root check (CVE-2026-123007, CVE-2026-123634, CVE-2026-123633, CVE-2026-121810, CVE-2026-113425) — No vulnerability was found.
-  Java4Shell check (CVE-2026-114938) — No vulnerability was found.
+Quick scan results — 12 items · nothing was changed
+  NFS2ROOT check (CVE-2026-99362) — No vulnerability was found.
   CWPdoor check (detect only) — not applicable (the paths to scan do not exist on this machine)
   CWPdoor Removal — not applicable (the paths to scan do not exist on this machine)
   Ebury check (detect only) — No threat was found.
   Apache HTTP/2 check (CVE-2026-119618) — No vulnerability was found.
+  Java4Shell check (CVE-2026-114938) — No vulnerability was found.
+  nginx2root check (CVE-2026-123007, CVE-2026-123634, CVE-2026-123633, CVE-2026-121810, CVE-2026-113425) — No vulnerability was found.
   Node2Shell check (CVE-2026-111497) — No vulnerability was found.
   OpenSSH check (CVE-2026-123158, Alpine) — No vulnerability was found.
+  PHP November security update check (CVE-2026-129474 and 17 more) — No vulnerability was found.
   PHP session upload progress setting check (CVE-2026-115560) — No vulnerability was found.
   PHP2Shell check (CVE-2026-109618, 109619) — No vulnerability was found.
   Log4j check (CVE-2021-44228 and related) — full scan only (it reads whole disks)
@@ -1388,35 +1397,36 @@ Quick scan results — 11 items · nothing was changed
 
 ────────────────────────────────────────────────────────
 Next
-  To look at whole disks too — 2. Full scan (12 items · whole disks too · can take a long time)
+  To look at whole disks too — 2. Full scan (13 items · whole disks too · can take a long time)
 
 Press Enter to go back to the menu. 
-ESTsecurity Dedicated Cleaner 1.26.0 · rules 2026.11.26
+ESTsecurity Dedicated Cleaner 1.26.0 · rules 2026.11.26.2
 Running with root rights.
 
-What would you like to check? (13 items)
-  1. Quick scan (recommended · 11 items · changes nothing)
-  2. Full scan (12 items · whole disks too · can take a long time)
+What would you like to check? (14 items)
+  1. Quick scan (recommended · 12 items · changes nothing)
+  2. Full scan (13 items · whole disks too · can take a long time)
 
 Recently added
-  3. PHP November security update check (CVE-2026-129474 and 17 more) [added Nov 20]
-  4. nginx2root check (CVE-2026-123007, CVE-2026-123634, CVE-2026-123633, CVE-2026-121810, CVE-2026-113425) [added Nov 19]
-  5. Java4Shell check (CVE-2026-114938) [added Nov 18]
+  3. NFS2ROOT check (CVE-2026-99362) [added Nov 26]
 
 Other items
-  6. CWPdoor check (detect only)
-  7. CWPdoor Removal
-  8. Ebury check (detect only)
-  9. Apache HTTP/2 check (CVE-2026-119618)
-  10. Log4j check (CVE-2021-44228 and related)
+  4. CWPdoor check (detect only)
+  5. CWPdoor Removal
+  6. Ebury check (detect only)
+  7. Apache HTTP/2 check (CVE-2026-119618)
+  8. Java4Shell check (CVE-2026-114938)
+  9. Log4j check (CVE-2021-44228 and related)
+  10. nginx2root check (CVE-2026-123007, CVE-2026-123634, CVE-2026-123633, CVE-2026-121810, CVE-2026-113425)
   11. Node2Shell check (CVE-2026-111497)
   12. OpenSSH check (CVE-2026-123158, Alpine)
-  13. PHP session upload progress setting check (CVE-2026-115560)
-  14. PHP2Shell check (CVE-2026-109618, 109619)
-  15. PHP2Shell · Apache HTTP/2 remote check (web server headers) [uses the network]
+  13. PHP November security update check (CVE-2026-129474 and 17 more)
+  14. PHP session upload progress setting check (CVE-2026-115560)
+  15. PHP2Shell check (CVE-2026-109618, 109619)
+  16. PHP2Shell · Apache HTTP/2 remote check (web server headers) [uses the network]
   0. Quit
 
-Choose a number (0-15): Exiting.
+Choose a number (0-16): Exiting.
 
 ########## A12. 원격 점검 — 서명을 확인한 remedy-net 을 띄운다 (닫힌 포트) · 서명이 없으면 띄우지 않는다
 
@@ -1472,56 +1482,43 @@ Error: remedy-net is not signed, so it was not started — check that it came fr
 
 [exit=1]
 
-ESTsecurity Dedicated Cleaner 1.26.0 · rules 2026.11.26
+ESTsecurity Dedicated Cleaner 1.26.0 · rules 2026.11.26.2
 Running with root rights.
 Notice: no code-signing check on Linux. Check the downloaded file's checksum.
 
-What would you like to check? (13 items)
-  1. Quick scan (recommended · 11 items · changes nothing)
-  2. Full scan (12 items · whole disks too · can take a long time)
+What would you like to check? (14 items)
+  1. Quick scan (recommended · 12 items · changes nothing)
+  2. Full scan (13 items · whole disks too · can take a long time)
 
 Recently added
-  3. PHP November security update check (CVE-2026-129474 and 17 more) [added Nov 20]
-  4. nginx2root check (CVE-2026-123007, CVE-2026-123634, CVE-2026-123633, CVE-2026-121810, CVE-2026-113425) [added Nov 19]
-  5. Java4Shell check (CVE-2026-114938) [added Nov 18]
+  3. NFS2ROOT check (CVE-2026-99362) [added Nov 26]
 
 Other items
-  6. CWPdoor check (detect only)
-  7. CWPdoor Removal
-  8. Ebury check (detect only)
-  9. Apache HTTP/2 check (CVE-2026-119618)
-  10. Log4j check (CVE-2021-44228 and related)
+  4. CWPdoor check (detect only)
+  5. CWPdoor Removal
+  6. Ebury check (detect only)
+  7. Apache HTTP/2 check (CVE-2026-119618)
+  8. Java4Shell check (CVE-2026-114938)
+  9. Log4j check (CVE-2021-44228 and related)
+  10. nginx2root check (CVE-2026-123007, CVE-2026-123634, CVE-2026-123633, CVE-2026-121810, CVE-2026-113425)
   11. Node2Shell check (CVE-2026-111497)
   12. OpenSSH check (CVE-2026-123158, Alpine)
-  13. PHP session upload progress setting check (CVE-2026-115560)
-  14. PHP2Shell check (CVE-2026-109618, 109619)
-  15. PHP2Shell · Apache HTTP/2 remote check (web server headers) [uses the network]
+  13. PHP November security update check (CVE-2026-129474 and 17 more)
+  14. PHP session upload progress setting check (CVE-2026-115560)
+  15. PHP2Shell check (CVE-2026-109618, 109619)
+  16. PHP2Shell · Apache HTTP/2 remote check (web server headers) [uses the network]
   0. Quit
 
-Choose a number (0-15): Quick scan — 11 items. Nothing is changed.
+Choose a number (0-16): Quick scan — 12 items. Nothing is changed.
 
-[1/11] PHP November security update check (CVE-2026-129474 and 17 more)
-
-Starting scan.
-Scan done : 0 trace(s) · 0 vulnerable
-
-No vulnerability was found.
-
-[2/11] nginx2root check (CVE-2026-123007, CVE-2026-123634, CVE-2026-123633, CVE-2026-121810, CVE-2026-113425)
+[1/12] NFS2ROOT check (CVE-2026-99362)
 
 Starting scan.
 Scan done : 0 trace(s) · 0 vulnerable
 
 No vulnerability was found.
 
-[3/11] Java4Shell check (CVE-2026-114938)
-
-Starting scan.
-Scan done : 0 trace(s) · 0 vulnerable
-
-No vulnerability was found.
-
-[4/11] CWPdoor check (detect only)
+[2/12] CWPdoor check (detect only)
 
 Starting scan.
 Output    : /tmp/console-capture/scan-all/pkg/out/<T>  (artifacts.json · scan.json · plan.json)
@@ -1530,7 +1527,7 @@ Scan done : 2 trace(s) · 1 threat(s)
 
 Threat found, not treated.
 
-[5/11] CWPdoor Removal
+[3/12] CWPdoor Removal
 
 Starting scan.
 Output    : /tmp/console-capture/scan-all/pkg/out/<T>  (artifacts.json · scan.json · plan.json)
@@ -1547,14 +1544,14 @@ If treated, 4 action(s) will run (nothing is changed now):
 
 Threat found, not treated.
 
-[6/11] Ebury check (detect only)
+[4/12] Ebury check (detect only)
 
 Starting scan.
 Scan done : 0 trace(s) · 0 threat(s)
 
 No threat was found.
 
-[7/11] Apache HTTP/2 check (CVE-2026-119618)
+[5/12] Apache HTTP/2 check (CVE-2026-119618)
 
 Starting scan.
 Scan done : 0 trace(s) · 0 vulnerable
@@ -1563,28 +1560,49 @@ Scan done : 0 trace(s) · 0 vulnerable
 
 No vulnerability was found.
 
-[8/11] Node2Shell check (CVE-2026-111497)
+[6/12] Java4Shell check (CVE-2026-114938)
 
 Starting scan.
 Scan done : 0 trace(s) · 0 vulnerable
 
 No vulnerability was found.
 
-[9/11] OpenSSH check (CVE-2026-123158, Alpine)
+[7/12] nginx2root check (CVE-2026-123007, CVE-2026-123634, CVE-2026-123633, CVE-2026-121810, CVE-2026-113425)
 
 Starting scan.
 Scan done : 0 trace(s) · 0 vulnerable
 
 No vulnerability was found.
 
-[10/11] PHP session upload progress setting check (CVE-2026-115560)
+[8/12] Node2Shell check (CVE-2026-111497)
 
 Starting scan.
 Scan done : 0 trace(s) · 0 vulnerable
 
 No vulnerability was found.
 
-[11/11] PHP2Shell check (CVE-2026-109618, 109619)
+[9/12] OpenSSH check (CVE-2026-123158, Alpine)
+
+Starting scan.
+Scan done : 0 trace(s) · 0 vulnerable
+
+No vulnerability was found.
+
+[10/12] PHP November security update check (CVE-2026-129474 and 17 more)
+
+Starting scan.
+Scan done : 0 trace(s) · 0 vulnerable
+
+No vulnerability was found.
+
+[11/12] PHP session upload progress setting check (CVE-2026-115560)
+
+Starting scan.
+Scan done : 0 trace(s) · 0 vulnerable
+
+No vulnerability was found.
+
+[12/12] PHP2Shell check (CVE-2026-109618, 109619)
 
 Starting scan.
 Scan done : 0 trace(s) · 0 vulnerable
@@ -1592,16 +1610,17 @@ Scan done : 0 trace(s) · 0 vulnerable
 No vulnerability was found.
 
 ────────────────────────────────────────────────────────
-Quick scan results — 11 items · nothing was changed
-  PHP November security update check (CVE-2026-129474 and 17 more) — No vulnerability was found.
-  nginx2root check (CVE-2026-123007, CVE-2026-123634, CVE-2026-123633, CVE-2026-121810, CVE-2026-113425) — No vulnerability was found.
-  Java4Shell check (CVE-2026-114938) — No vulnerability was found.
+Quick scan results — 12 items · nothing was changed
+  NFS2ROOT check (CVE-2026-99362) — No vulnerability was found.
   CWPdoor check (detect only) — Threat found, not treated.
   CWPdoor Removal — Threat found, not treated.
   Ebury check (detect only) — No threat was found.
   Apache HTTP/2 check (CVE-2026-119618) — No vulnerability was found.
+  Java4Shell check (CVE-2026-114938) — No vulnerability was found.
+  nginx2root check (CVE-2026-123007, CVE-2026-123634, CVE-2026-123633, CVE-2026-121810, CVE-2026-113425) — No vulnerability was found.
   Node2Shell check (CVE-2026-111497) — No vulnerability was found.
   OpenSSH check (CVE-2026-123158, Alpine) — No vulnerability was found.
+  PHP November security update check (CVE-2026-129474 and 17 more) — No vulnerability was found.
   PHP session upload progress setting check (CVE-2026-115560) — No vulnerability was found.
   PHP2Shell check (CVE-2026-109618, 109619) — No vulnerability was found.
   Log4j check (CVE-2021-44228 and related) — full scan only (it reads whole disks)
@@ -1609,38 +1628,39 @@ Quick scan results — 11 items · nothing was changed
 
 ────────────────────────────────────────────────────────
 Next
-  To treat everything found — 16. Treat everything found (1 item(s) · shows the changes first)
+  To treat everything found — 17. Treat everything found (1 item(s) · shows the changes first)
   To treat one at a time, pick that rule, then — 1. Scan and treat
-  To look at whole disks too — 2. Full scan (12 items · whole disks too · can take a long time)
+  To look at whole disks too — 2. Full scan (13 items · whole disks too · can take a long time)
 
 Press Enter to go back to the menu. 
-ESTsecurity Dedicated Cleaner 1.26.0 · rules 2026.11.26
+ESTsecurity Dedicated Cleaner 1.26.0 · rules 2026.11.26.2
 Running with root rights.
 
-What would you like to check? (13 items)
-  1. Quick scan (recommended · 11 items · changes nothing)
-  2. Full scan (12 items · whole disks too · can take a long time)
+What would you like to check? (14 items)
+  1. Quick scan (recommended · 12 items · changes nothing)
+  2. Full scan (13 items · whole disks too · can take a long time)
 
 Recently added
-  3. PHP November security update check (CVE-2026-129474 and 17 more) [added Nov 20]
-  4. nginx2root check (CVE-2026-123007, CVE-2026-123634, CVE-2026-123633, CVE-2026-121810, CVE-2026-113425) [added Nov 19]
-  5. Java4Shell check (CVE-2026-114938) [added Nov 18]
+  3. NFS2ROOT check (CVE-2026-99362) [added Nov 26]
 
 Other items
-  6. CWPdoor check (detect only)
-  7. CWPdoor Removal
-  8. Ebury check (detect only)
-  9. Apache HTTP/2 check (CVE-2026-119618)
-  10. Log4j check (CVE-2021-44228 and related)
+  4. CWPdoor check (detect only)
+  5. CWPdoor Removal
+  6. Ebury check (detect only)
+  7. Apache HTTP/2 check (CVE-2026-119618)
+  8. Java4Shell check (CVE-2026-114938)
+  9. Log4j check (CVE-2021-44228 and related)
+  10. nginx2root check (CVE-2026-123007, CVE-2026-123634, CVE-2026-123633, CVE-2026-121810, CVE-2026-113425)
   11. Node2Shell check (CVE-2026-111497)
   12. OpenSSH check (CVE-2026-123158, Alpine)
-  13. PHP session upload progress setting check (CVE-2026-115560)
-  14. PHP2Shell check (CVE-2026-109618, 109619)
-  15. PHP2Shell · Apache HTTP/2 remote check (web server headers) [uses the network]
-  16. Treat everything found (1 item(s) · shows the changes first)
+  13. PHP November security update check (CVE-2026-129474 and 17 more)
+  14. PHP session upload progress setting check (CVE-2026-115560)
+  15. PHP2Shell check (CVE-2026-109618, 109619)
+  16. PHP2Shell · Apache HTTP/2 remote check (web server headers) [uses the network]
+  17. Treat everything found (1 item(s) · shows the changes first)
   0. Quit
 
-Choose a number (0-16): Treat everything found — 1 item(s) are scanned again and every change is shown; one 'yes' then treats them all.
+Choose a number (0-17): Treat everything found — 1 item(s) are scanned again and every change is shown; one 'yes' then treats them all.
 
 [1/1] CWPdoor Removal
 
@@ -1693,7 +1713,7 @@ Results of treating everything found — 1 item(s)
 
 ────────────────────────────────────────────────────────
 Next
-  First pick 7. CWPdoor Removal, then:
+  First pick 5. CWPdoor Removal, then:
     To check that it held — 3. Re-check that the treatment held
     If it was a false positive — 4. Undo a treatment
     To report a false positive — 5. Collect what to attach to a report
@@ -1703,32 +1723,33 @@ Next
     /tmp/console-capture/scan-all/pkg/plugins/cwpdoor-2-clean/RELEASE.md
 
 Press Enter to go back to the menu. 
-ESTsecurity Dedicated Cleaner 1.26.0 · rules 2026.11.26
+ESTsecurity Dedicated Cleaner 1.26.0 · rules 2026.11.26.2
 Running with root rights.
 
-What would you like to check? (13 items)
-  1. Quick scan (recommended · 11 items · changes nothing)
-  2. Full scan (12 items · whole disks too · can take a long time)
+What would you like to check? (14 items)
+  1. Quick scan (recommended · 12 items · changes nothing)
+  2. Full scan (13 items · whole disks too · can take a long time)
 
 Recently added
-  3. PHP November security update check (CVE-2026-129474 and 17 more) [added Nov 20]
-  4. nginx2root check (CVE-2026-123007, CVE-2026-123634, CVE-2026-123633, CVE-2026-121810, CVE-2026-113425) [added Nov 19]
-  5. Java4Shell check (CVE-2026-114938) [added Nov 18]
+  3. NFS2ROOT check (CVE-2026-99362) [added Nov 26]
 
 Other items
-  6. CWPdoor check (detect only)
-  7. CWPdoor Removal
-  8. Ebury check (detect only)
-  9. Apache HTTP/2 check (CVE-2026-119618)
-  10. Log4j check (CVE-2021-44228 and related)
+  4. CWPdoor check (detect only)
+  5. CWPdoor Removal
+  6. Ebury check (detect only)
+  7. Apache HTTP/2 check (CVE-2026-119618)
+  8. Java4Shell check (CVE-2026-114938)
+  9. Log4j check (CVE-2021-44228 and related)
+  10. nginx2root check (CVE-2026-123007, CVE-2026-123634, CVE-2026-123633, CVE-2026-121810, CVE-2026-113425)
   11. Node2Shell check (CVE-2026-111497)
   12. OpenSSH check (CVE-2026-123158, Alpine)
-  13. PHP session upload progress setting check (CVE-2026-115560)
-  14. PHP2Shell check (CVE-2026-109618, 109619)
-  15. PHP2Shell · Apache HTTP/2 remote check (web server headers) [uses the network]
+  13. PHP November security update check (CVE-2026-129474 and 17 more)
+  14. PHP session upload progress setting check (CVE-2026-115560)
+  15. PHP2Shell check (CVE-2026-109618, 109619)
+  16. PHP2Shell · Apache HTTP/2 remote check (web server headers) [uses the network]
   0. Quit
 
-Choose a number (0-15): Exiting.
+Choose a number (0-16): Exiting.
 
 ########## 끝
 
