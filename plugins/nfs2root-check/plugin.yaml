@@ -25,22 +25,26 @@
 #
 # - **Debian** — 커널을 상류 안정 판으로 올리되 개정만 올려 고친 적도 있다(백포트로 본다). 추적기의 고친 판: trixie
 #   6.12.117-1 · bookworm 의 linux-6.12 6.12.117-1~deb12u1 · sid 7.3.3-1. bookworm 의 기본 6.1 은 고친 판이 없다(6).
-#   bullseye 5.10 은 추적기가 '(unfixed) end-of-life' 로 적었다(2)
-# - **Fedora · Alpine** — 상류 안정 판 번호를 그대로 따른다 — 상류의 고친 판과 견준다
-# - **Ubuntu · RHEL · AlmaLinux · Rocky · Oracle · CentOS Stream · Amazon · SUSE** — 같은 상류 판에 개정만 올려 고친다. 고친
-#   패키지 공지가 아직 없다(6). 공지가 나오면 다음 차수에서 그 줄을 더한다
+#   지원이 끝난 bullseye 5.10 · buster 4.19 · stretch 4.9 는 Freexian ELTS 추적기가 '(unfixed) end-of-life' 로 적었다(2)
+# - **Fedora · Alpine** — 상류 안정 판 번호를 그대로 따른다 — 상류의 고친 판과 견준다. Fedora rawhide 의 병합 창 빌드
+#   (`7.4.0-0.rc0.*`)는 판이 7.4.0 이어도 고침(7.4-rc1)이 들었는지 모른다(6)
+# - **Ubuntu · RHEL · AlmaLinux · Rocky · Oracle · CentOS Stream** — 같은 상류 판에 개정만 올려 고친다 · **Amazon · SUSE** —
+#   지난 보안 갱신 이력을 재지 못해 백포트로 본다(모르면 6). 고친 패키지 공지가 아직 없다(6). 공지가 나오면 다음 차수에서
+#   그 줄을 더한다
 #
 # # 판 정규식
 #
 # 판은 `upstream_version`(epoch · 개정을 뗀 앞쪽 점숫자)을 정규식으로 가른다 — 갈래마다 고친 판이 달라 한 줄의 `version_lt`
 # 로는 가르지 못한다. 아래 두 식이 감지 여럿에 같은 글자로 되풀이된다(YAML 은 식을 묶어 쓰지 못한다).
 # - 상류의 고친 판: `5.10.275+` · `5.15.226+` · `6.1.193+` · `6.6.163+` · `6.12.117+` · `6.18.61+` · `7.3.2+` · `7.4` 이상
-# - Debian 의 영향 판: `6.12.0 ~ 6.12.116` · `5.10.x` · `7.0 ~ 7.3.2` / 고친 판: `6.12.117+` · `7.3.3+` · `7.4` 이상
+# - Debian 의 영향 판: `6.12.0 ~ 6.12.116` · `5.10.x` · `4.19.x` · `4.9.x` · `7.0 ~ 7.3.2` / 고친 판: `6.12.117+` · `7.3.3+` ·
+#   `7.4` 이상
 #
 # # 이 룰이 보지 않는 것
 #
 # - 지금 실행 중인 커널 · nfsd 적재 · 켠 NFS 판 · 듣는 포트(엔진 몫 — 다음 차수)
-# - 이름이 표준이 아닌 커널 패키지(Proxmox `proxmox-kernel-*` · 직접 지은 커널) — NFS 서버가 있으면 확인 필요로 알린다
+# - 이름을 모르는 커널 패키지(직접 지은 커널 등) — 아는 이름의 커널이 하나도 없을 때만 확인 필요로 알린다. 아는 이름의 고친
+#   커널이 함께 깔렸으면 0 이다. Proxmox 의 `proxmox-kernel-*` · `pve-kernel-*` 는 이름을 알아 확인 필요다
 # - dpkg · rpm · apk 밖의 배포판(Arch 등) · 컨테이너 안에서 호스트의 커널
 schema_version: 1
 id: nfs2root-check
@@ -99,7 +103,8 @@ detect:
     where:
       any:
         - all: [{ field: manager, op: equals, value: dpkg }, { field: name, op: matches, value: '^linux-image-[0-9]' }]
-        - all: [{ field: manager, op: equals, value: rpm }, { field: name, op: matches, value: '^kernel(-core|-default|-rt|-rt-core|-uek|-uek-core|-64k|-64k-core|[0-9]+\.[0-9]+)?$' }]
+        - all: [{ field: manager, op: equals, value: dpkg }, { field: name, op: matches, value: '^(proxmox-kernel|pve-kernel)-[0-9]' }]
+        - all: [{ field: manager, op: equals, value: rpm }, { field: name, op: matches, value: '^kernel(-core|-default|-default-base|-rt|-rt-core|-rt-debug|-rt-debug-core|-uek|-uek-core|-64k|-64k-core|-64k-debug|-64k-debug-core|-16k|-16k-core|-debug|-debug-core|-longterm|-longterm-core|-azure|-preempt|-kvmsmall|-vanilla|-zfcpdump|-zfcpdump-core|[0-9]+\.[0-9]+)?$' }]
         - all: [{ field: manager, op: equals, value: apk }, { field: name, op: matches, value: '^linux-(lts|virt|edge|stable|rpi[0-9]*)$' }]
     exclude:
       - { field: name, op: matches, value: '-dbg$' }
@@ -117,12 +122,12 @@ detect:
         - { field: manager, op: equals, value: dpkg }
         - { field: name, op: matches, value: '^linux-image-[0-9]' }
         - { field: revision, op: matches, value: '^[0-9]+([~+][^.]*)?$' }
-        - { field: upstream_version, op: matches, value: '^(6\.12\.([0-9]|[1-9][0-9]|10[0-9]|11[0-6])|5\.10(\.[0-9]+)?|7\.[0-2](\.[0-9]+)?|7\.3(\.[0-2])?)$' }
+        - { field: upstream_version, op: matches, value: '^(6\.12\.([0-9]|[1-9][0-9]|10[0-9]|11[0-6])|5\.10(\.[0-9]+)?|4\.19(\.[0-9]+)?|4\.9(\.[0-9]+)?|7\.[0-2](\.[0-9]+)?|7\.3(\.[0-2])?)$' }
     exclude:
       - { field: name, op: matches, value: '-dbg$' }
     label:
-      ko: "Debian 커널 — CVE-2026-99362 의 영향 판이고 Debian 의 고친 판(6.12.117-1 · 7.3.3-1)보다 낮거나 고치지 않는 갈래(지원이 끝난 5.10)입니다"
-      en: "a Debian kernel - affected by CVE-2026-99362 and below Debian's fixed build (6.12.117-1, 7.3.3-1) or on a branch Debian will not fix (end-of-life 5.10)"
+      ko: "Debian 커널 — CVE-2026-99362 의 영향 판이고 Debian 의 고친 판(6.12.117-1 · 7.3.3-1)보다 낮거나 고치지 않는 갈래(지원이 끝난 5.10 · 4.19 · 4.9)입니다"
+      en: "a Debian kernel - affected by CVE-2026-99362 and below Debian's fixed build (6.12.117-1, 7.3.3-1) or on a branch that will not be fixed (end-of-life 5.10, 4.19, 4.9)"
   - id: debian_fixed
     subject: package
     where:
@@ -146,7 +151,7 @@ detect:
         - { field: revision, op: matches, value: '^[0-9]+([~+][^.]*)?$' }
     exclude:
       - { field: name, op: matches, value: '-dbg$' }
-      - { field: upstream_version, op: matches, value: '^(6\.12\.([0-9]|[1-9][0-9]|10[0-9]|11[0-6])|5\.10(\.[0-9]+)?|7\.[0-2](\.[0-9]+)?|7\.3(\.[0-2])?)$' }
+      - { field: upstream_version, op: matches, value: '^(6\.12\.([0-9]|[1-9][0-9]|10[0-9]|11[0-6])|5\.10(\.[0-9]+)?|4\.19(\.[0-9]+)?|4\.9(\.[0-9]+)?|7\.[0-2](\.[0-9]+)?|7\.3(\.[0-2])?)$' }
       - { field: upstream_version, op: matches, value: '^(6\.12\.(11[7-9]|1[2-9][0-9]|[2-9][0-9]{2})|7\.3\.([3-9]|[1-9][0-9]+)|7\.([4-9]|[1-9][0-9])(\.[0-9]+)*|([89]|[1-9][0-9])\.[0-9]+(\.[0-9]+)*)$' }
     label:
       ko: "Debian 커널 — Debian 이 이 갈래의 CVE-2026-99362 고친 판을 아직 내지 않았습니다"
@@ -160,7 +165,7 @@ detect:
         - any:
             - all:
                 - { field: manager, op: equals, value: rpm }
-                - { field: name, op: matches, value: '^kernel(-core|-default|-rt|-rt-core|-uek|-uek-core|-64k|-64k-core|[0-9]+\.[0-9]+)?$' }
+                - { field: name, op: matches, value: '^kernel(-core|-default|-default-base|-rt|-rt-core|-rt-debug|-rt-debug-core|-uek|-uek-core|-64k|-64k-core|-64k-debug|-64k-debug-core|-16k|-16k-core|-debug|-debug-core|-longterm|-longterm-core|-azure|-preempt|-kvmsmall|-vanilla|-zfcpdump|-zfcpdump-core|[0-9]+\.[0-9]+)?$' }
                 - { field: revision, op: matches, value: '\.fc[0-9]+' }
             - all:
                 - { field: manager, op: equals, value: apk }
@@ -178,15 +183,40 @@ detect:
         - any:
             - all:
                 - { field: manager, op: equals, value: rpm }
-                - { field: name, op: matches, value: '^kernel(-core|-default|-rt|-rt-core|-uek|-uek-core|-64k|-64k-core|[0-9]+\.[0-9]+)?$' }
+                - { field: name, op: matches, value: '^kernel(-core|-default|-default-base|-rt|-rt-core|-rt-debug|-rt-debug-core|-uek|-uek-core|-64k|-64k-core|-64k-debug|-64k-debug-core|-16k|-16k-core|-debug|-debug-core|-longterm|-longterm-core|-azure|-preempt|-kvmsmall|-vanilla|-zfcpdump|-zfcpdump-core|[0-9]+\.[0-9]+)?$' }
                 - { field: revision, op: matches, value: '\.fc[0-9]+' }
             - all:
                 - { field: manager, op: equals, value: apk }
                 - { field: name, op: matches, value: '^linux-(lts|virt|edge|stable|rpi[0-9]*)$' }
         - { field: upstream_version, op: matches, value: '^(5\.10\.(27[5-9]|2[89][0-9]|[3-9][0-9]{2})|5\.15\.(22[6-9]|2[3-9][0-9]|[3-9][0-9]{2})|6\.1\.(19[3-9]|[2-9][0-9]{2})|6\.6\.(16[3-9]|1[7-9][0-9]|[2-9][0-9]{2})|6\.12\.(11[7-9]|1[2-9][0-9]|[2-9][0-9]{2})|6\.18\.(6[1-9]|[7-9][0-9]|[1-9][0-9]{2})|7\.3\.([2-9]|[1-9][0-9]+)|7\.([4-9]|[1-9][0-9])(\.[0-9]+)*|([89]|[1-9][0-9])\.[0-9]+(\.[0-9]+)*)$' }
+    exclude:
+      - { field: revision, op: matches, value: '^0\.rc0\.' }
     label:
       ko: "커널 — CVE-2026-99362 를 고친 상류 판입니다"
       en: "a kernel - an upstream release that fixes CVE-2026-99362"
+
+  # Fedora rawhide 의 병합 창 빌드(`7.4.0-0.rc0.<날짜>git<sha>.N.fc46`) — 판은 7.4.0 이지만 고침은 7.4-rc1 에 처음 든다.
+  # 그 빌드에 고침이 들었는지 이 룰은 모른다.
+  - id: fedora_rc0
+    subject: package
+    where:
+      all:
+        - { field: manager, op: equals, value: rpm }
+        - { field: name, op: matches, value: '^kernel(-core|-default|-default-base|-rt|-rt-core|-rt-debug|-rt-debug-core|-uek|-uek-core|-64k|-64k-core|-64k-debug|-64k-debug-core|-16k|-16k-core|-debug|-debug-core|-longterm|-longterm-core|-azure|-preempt|-kvmsmall|-vanilla|-zfcpdump|-zfcpdump-core|[0-9]+\.[0-9]+)?$' }
+        - { field: revision, op: matches, value: '^0\.rc0\..*\.fc[0-9]+' }
+    label:
+      ko: "커널 — Fedora 의 병합 창 빌드라 CVE-2026-99362 를 고쳤는지 이 룰이 모릅니다"
+      en: "a kernel - a Fedora merge-window build, this rule cannot tell whether it fixes CVE-2026-99362"
+  # Proxmox VE 의 커널(Ubuntu 커널에서 온다) — 고친 패키지 공지가 없다. 이름이 `linux-image-` 가 아니라 위 감지가 못 본다.
+  - id: proxmox_kernel
+    subject: package
+    where:
+      all:
+        - { field: manager, op: equals, value: dpkg }
+        - { field: name, op: matches, value: '^(proxmox-kernel|pve-kernel)-[0-9]' }
+    label:
+      ko: "Proxmox 커널 — 고친 패키지 공지가 아직 없습니다"
+      en: "a Proxmox kernel - no fixed package has been announced yet"
 
   # ── 백포트하는 배포판 — 고친 패키지 공지가 아직 없다 ────────────────────────────────
   #
@@ -211,7 +241,7 @@ detect:
     where:
       all:
         - { field: manager, op: equals, value: rpm }
-        - { field: name, op: matches, value: '^kernel(-core|-default|-rt|-rt-core|-uek|-uek-core|-64k|-64k-core|[0-9]+\.[0-9]+)?$' }
+        - { field: name, op: matches, value: '^kernel(-core|-default|-default-base|-rt|-rt-core|-rt-debug|-rt-debug-core|-uek|-uek-core|-64k|-64k-core|-64k-debug|-64k-debug-core|-16k|-16k-core|-debug|-debug-core|-longterm|-longterm-core|-azure|-preempt|-kvmsmall|-vanilla|-zfcpdump|-zfcpdump-core|[0-9]+\.[0-9]+)?$' }
     exclude:
       - { field: revision, op: matches, value: '\.fc[0-9]+' }
     label:
@@ -219,13 +249,13 @@ detect:
       en: "a kernel - this distribution has not yet released a package that fixes CVE-2026-99362"
 
 verdict:
-  require: "nfs_server and (debian_vulnerable or upstream_vulnerable) and not (debian_fixed or upstream_fixed) and not (debian_unknown or dpkg_backport or rpm_backport)"
+  require: "nfs_server and (debian_vulnerable or upstream_vulnerable) and not (debian_fixed or upstream_fixed) and not (debian_unknown or dpkg_backport or rpm_backport or fedora_rc0 or proxmox_kernel)"
   unconfirmed:
     - when: "nfs_server and (debian_vulnerable or upstream_vulnerable) and (debian_fixed or upstream_fixed)"
       why:
         ko: "CVE-2026-99362 를 고친 커널과 고치지 않은 커널이 함께 깔려 있습니다 — 이 룰은 지금 어느 커널로 도는지 모릅니다. uname -r 로 확인하고, 고친 커널이 아니면 다시 시작하십시오"
         en: "kernels that fix CVE-2026-99362 and kernels that do not are both installed - this rule cannot tell which one is running. Check with uname -r and restart if it is not the fixed kernel"
-    - when: "nfs_server and (debian_unknown or dpkg_backport or rpm_backport)"
+    - when: "nfs_server and (debian_unknown or dpkg_backport or rpm_backport or fedora_rc0 or proxmox_kernel)"
       why:
         ko: "이 배포판이 CVE-2026-99362 를 고친 커널을 아직 내지 않았습니다 — 배포판의 보안 공지를 보고 커널을 올린 뒤 다시 시작하십시오. 그 전에는 tcp/2049 를 믿는 기계에만 열어 두십시오"
         en: "this distribution has not yet released a kernel that fixes CVE-2026-99362 - watch its security advisories, upgrade the kernel and restart. Until then, open tcp/2049 only to trusted machines"
