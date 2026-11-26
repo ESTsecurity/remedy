@@ -3,7 +3,8 @@
 # 이미지: debian:13 debian:12 ubuntu:24.04 fedora:44 almalinux:9 alpine:3.22
 # rc 묶음: nfs2root
 # 하네스 표: WSL · docker(경우마다 네트워크 없는 컨테이너) | NFS2ROOT 점검의 판정 — 깔린 커널 패키지의 판 · NFS 서버 패키지 · 배포판 갈래
-# NFS2ROOT 점검 룰(nfs2root-check)을 배포판 컨테이너에서 잰다(2026-11-26 · 0.1.0 — 이 룰의 첫 하네스).
+# NFS2ROOT 점검 룰(nfs2root-check)을 배포판 컨테이너에서 잰다(2026-11-26 · 0.1.0 — 이 룰의 첫 하네스 · 0.2.0 에서 stretch ·
+# Ubuntu 24.04 HWE · RHEL 8.10 칸을 더했다).
 #
 # 호스트(WSL)에서, 저장소 루트:
 #
@@ -19,18 +20,23 @@
 # **실검체는 없다.** 커널 모듈 · nfsd 는 싣지도 띄우지도 않는다. 이미지는 배포판 저장소의 NFS 서버 패키지
 # (nfs-kernel-server · nfs-utils)를 그대로 깐 것이고, Debian 13 하나는 저장소의 커널(linux-image-amd64)도 실제로 깐다.
 # 그 밖의 커널은 패키지 기록의 **자리 채우기**다 — dpkg 는 `/var/lib/dpkg/status` 에 문단을 더하고, apk 는
-# `/lib/apk/db/installed` 에 P: · V: 칸을 더하며, rpm 은 rpmbuild 로 지은 파일 없는 빈 패키지(이름 · 판 · 개정만)를 넣는다.
+# `/lib/apk/db/installed` 에 P: · V: 칸을 더하며, rpm 은 rpmbuild 로 지은 파일 없는 빈 패키지(이름 · 판 · 개정 · 공급사만)를
+# 넣는다 — RHEL 칸은 AlmaLinux 9 이미지에 공급사를 'Red Hat, Inc.' 로 적은 빈 패키지다.
 # 룰은 그 기록만 읽는다. 경우마다 네트워크 없는 일회용 컨테이너에서 remedy 가 읽기만 한다.
 #
 # # 무엇을 재나 (판정 표는 룰 머리 주석)
 #
 #   P  전제 1 — Debian 13 에 실제로 깐 커널이 설치 상태이고 Debian 의 고친 판(6.12.117-1) 이상이다(dpkg 자신이 견준다)
-#   D  Debian 10 — 13 실물 0 · 13 취약 판 2 · 13 두 판 6 · 12 의 6.1 6 · 12 의 6.12 고친 판 0 · NFS 서버 없음 0 ·
-#      커널 패키지 없음 6 · bullseye 꼴 5.10 2 · 고친 판과 proxmox-kernel 함께 6 · buster 꼴 4.19 2
-#   U  Ubuntu 2 — 24.04 의 6.8.0-151.151 6 · 3.13(영향 밖) 0
+#   D  Debian 11 — 13 실물 0 · 13 취약 판 2 · 13 두 판 6 · 12 의 6.1 6 · 12 의 6.12 고친 판 0 · NFS 서버 없음 0 ·
+#      커널 패키지 없음 6 · bullseye 꼴 5.10 2 · 고친 판과 proxmox-kernel 함께 6 · buster 꼴 4.19 2 · stretch 꼴 4.9 2
+#   U  Ubuntu 7 — 24.04 의 6.8.0-151.151 6 · 3.13(영향 밖) 0 · 24.04 HWE 6.17 의 꼬리 없는 6.17.0-42.42+1 2 ·
+#      HWE 6.14 의 6.14.0-37.37~24.04.1 2 · 지원 중인 HWE 7.0 6 · 같은 상류 판인 25.10 꼴 6.17.0-41.41 6 ·
+#      HWE 6.17 과 HWE 7.0 함께 6
 #   F  Fedora 5 — 고친 판 7.3.4 0 · 지원 끝 7.2.15 2 · 7.3.1 과 7.3.4 함께 6 · rawhide 병합 창 7.4.0-0.rc0 6 ·
 #      kernel-16k-core 7.2.15 와 kernel-core 7.3.4 함께 6
-#   R  AlmaLinux 2 — 5.14.0-741.27.1.el9_9 6 · 같은 커널에 NFS 서버 없음 0
+#   R  RHEL 계열 8 — AlmaLinux 5.14.0-741.27.1.el9_9 6 · 같은 커널에 NFS 서버 없음 0 · RHEL 8.10 의 RHSA-2026:103817
+#      앞 판 553.189.1 2 · 고친 판 553.190.1 0 · 같은 판에 공급사 AlmaLinux 6 · RHEL 8.10 kernel-rt-core 6 · RHEL 9 6 ·
+#      RHEL 8.10 의 앞 판과 고친 판 함께 6
 #   A  Alpine 2 — linux-lts 6.12.119 0 · 6.12.116 2
 #   N  대상 없음 1 — 패키지 DB 자리가 하나도 없는 기계 0 · 화면에 '점검 대상이 이 기계에 없습니다'
 #   S  화면 · 결과 3 — 2 칸의 감지 줄 아래 CVE 문구 · 6 칸의 확인 필요 까닭 셋(결과 파일) ·
@@ -133,8 +139,8 @@ cat >"$W/b/apk-add.sh" <<'APK'
 printf '\nP:%s\nV:%s\nA:x86_64\nS:1\nI:1\nT:placeholder\nL:GPL-2.0-only\no:%s\n' "$1" "$2" "$1" >>/lib/apk/db/installed
 grep -qx "P:$1" /lib/apk/db/installed && echo "apk 기록: $1 $2"
 APK
-# rpm 의 빈 커널 패키지(파일 없음 · 이름 · 판 · 개정만) — `sh /b/rpm-add.sh <패키지> <판> <개정>`. `rpm -i` 라 같은 이름의
-# 다른 판과 함께 깔린다(커널처럼).
+# rpm 의 빈 커널 패키지(파일 없음 · 이름 · 판 · 개정 · 공급사만) — `sh /b/rpm-add.sh <패키지> <판> <개정> [공급사]`(공급사를
+# 주지 않으면 그 칸을 적지 않는다 — Fedora · AlmaLinux 칸). `rpm -i` 라 같은 이름의 다른 판과 함께 깔린다(커널처럼).
 cat >"$W/b/rpm-add.sh" <<'RPM'
 set -e
 mkdir -p /tmp/rb/SPECS
@@ -145,6 +151,7 @@ spec="/tmp/rb/SPECS/$1-$2-$3.spec"
   echo "Release: $3"
   echo "Summary: placeholder"
   echo "License: GPL-2.0-only"
+  [ -z "${4:-}" ] || echo "Vendor: $4"
   echo "BuildArch: noarch"
   echo "%description"
   echo "placeholder"
@@ -152,7 +159,7 @@ spec="/tmp/rb/SPECS/$1-$2-$3.spec"
 } >"$spec"
 rpmbuild -bb --define "_topdir /tmp/rb" "$spec" >/dev/null 2>&1
 rpm -i --nodeps --noscripts "/tmp/rb/RPMS/noarch/$1-$2-$3.noarch.rpm"
-rpm -q "$1-$2-$3"
+rpm -q --qf '%{NAME}-%{VERSION}-%{RELEASE} vendor=%{VENDOR}\n' "$1-$2-$3"
 RPM
 
 # 결과 파일에 든 낱말 — 감지 id 와 확인 필요 까닭은 결과 폴더의 scan.json 에서 찾는다(화면이 아니라). id 는 증거의
@@ -198,12 +205,27 @@ run_case D9 debian13-nfs 6 "sh /b/deb-add.sh linux-image-6.12.118+deb13-amd64 6.
     "nfs_server debian_fixed proxmox_kernel" "Debian 13 · 고친 판 6.12.118-1 과 proxmox-kernel-6.14.8-2-pve-signed 6.14.8-2(자리 채우기)"
 run_case D10 debian12-nfs 2 "sh /b/deb-add.sh linux-image-4.19.0-27-amd64 4.19.316-1" "nfs_server debian_vulnerable" \
     "buster 꼴 4.19.316-1 — Freexian ELTS 추적기 (unfixed) end-of-life"
+run_case D11 debian12-nfs 2 "sh /b/deb-add.sh linux-image-4.9.0-19-amd64 4.9.320-3" "nfs_server debian_vulnerable" \
+    "stretch 꼴 4.9.320-3 — Freexian ELTS 추적기 (unfixed) end-of-life"
 
 echo "── U. Ubuntu ──"
 run_case U1 ubuntu2404-nfs 6 "sh /b/deb-add.sh linux-image-6.8.0-151-generic 6.8.0-151.151 linux-signed" \
     "nfs_server dpkg_backport" "Ubuntu 24.04 · 6.8.0-151.151 — 백포트 · 고친 패키지 공지 없음"
 run_case U2 ubuntu2404-nfs 0 "sh /b/deb-add.sh linux-image-3.13.0-170-generic 3.13.0-170.220 linux-signed" \
     "nfs_server kernel" "Ubuntu 14.04 꼴 3.13.0-170.220 — 3.16 아래(영향 밖)"
+# 24.04 HWE — 6.14 · 6.17 은 Ubuntu 가 'Ignored (end of life)' 로 적었다(2) · 지원 중인 7.0 은 6.
+HWE617='sh /b/deb-add.sh linux-image-6.17.0-42-generic 6.17.0-42.42+1 linux-signed-hwe-6.17'
+HWE70='sh /b/deb-add.sh linux-image-7.0.0-44-generic 7.0.0-44.44~24.04.1 linux-signed-hwe-7.0'
+run_case U3 ubuntu2404-nfs 2 "$HWE617" "nfs_server ubuntu_hwe_eol" \
+    "Ubuntu 24.04 HWE 6.17 · 6.17.0-42.42+1 — 꼬리 없는 바이너리 판 · 지원 끝"
+run_case U4 ubuntu2404-nfs 2 "sh /b/deb-add.sh linux-image-6.14.0-37-generic 6.14.0-37.37~24.04.1 linux-signed-hwe-6.14" \
+    "nfs_server ubuntu_hwe_eol" "Ubuntu 24.04 HWE 6.14 · 6.14.0-37.37~24.04.1 — 지원 끝"
+run_case U5 ubuntu2404-nfs 6 "$HWE70" "nfs_server dpkg_backport" \
+    "Ubuntu 24.04 HWE 7.0 · 7.0.0-44.44~24.04.1 — 지원 중 · 고친 패키지 공지 없음"
+run_case U6 ubuntu2404-nfs 6 "sh /b/deb-add.sh linux-image-6.17.0-41-generic 6.17.0-41.41 linux-signed" \
+    "nfs_server dpkg_backport" "25.10 꼴 6.17.0-41.41 — 같은 상류 판 · 24.04 HWE 의 판 문자열이 아님"
+run_case U7 ubuntu2404-nfs 6 "$HWE617 && $HWE70" "ubuntu_hwe_eol dpkg_backport" \
+    "HWE 6.17 의 6.17.0-42.42+1 과 HWE 7.0 의 7.0.0-44.44~24.04.1 이 함께"
 
 echo "── F. Fedora ──"
 run_case F1 fedora44-nfs 0 "sh /b/rpm-add.sh kernel-core 7.3.4 300.fc45" "nfs_server upstream_fixed" "kernel-core 7.3.4-300.fc45 — 상류 고친 판 7.3.2 이상"
@@ -215,10 +237,25 @@ run_case F4 fedora44-nfs 6 "sh /b/rpm-add.sh kernel-core 7.4.0 0.rc0.20261020git
 run_case F5 fedora44-nfs 6 "sh /b/rpm-add.sh kernel-16k-core 7.2.15 200.fc43 && sh /b/rpm-add.sh kernel-core 7.3.4 300.fc45" \
     "upstream_vulnerable upstream_fixed" "kernel-16k-core 7.2.15-200.fc43 와 kernel-core 7.3.4-300.fc45 가 함께"
 
-echo "── R. AlmaLinux ──"
+echo "── R. RHEL 계열 ──"
 ALMA_K='sh /b/rpm-add.sh kernel-core 5.14.0 741.27.1.el9_9'
 run_case R1 alma9-nfs 6 "$ALMA_K" "nfs_server rpm_backport" "AlmaLinux 9 · kernel-core 5.14.0-741.27.1.el9_9 — 고친 패키지 공지 없음"
 run_case R2 alma9-nfs 0 "$ALMA_K && rpm -e --nodeps --noscripts nfs-utils" "rpm_backport" "같은 커널 · nfs-utils 없음"
+# Red Hat 칸 — AlmaLinux 9 이미지(nfs-utils)에 공급사를 'Red Hat, Inc.' 로 적은 빈 커널 패키지(룰은 패키지 기록만 읽는다).
+RH8_OLD="sh /b/rpm-add.sh kernel-core 4.18.0 553.189.1.el8_10 'Red Hat, Inc.'"
+RH8_FIX="sh /b/rpm-add.sh kernel-core 4.18.0 553.190.1.el8_10 'Red Hat, Inc.'"
+run_case R3 alma9-nfs 2 "$RH8_OLD" "nfs_server rhel8_vulnerable" \
+    "RHEL 8.10 · kernel-core 4.18.0-553.189.1.el8_10 · Red Hat — RHSA-2026:103817 의 고친 판보다 낮음"
+run_case R4 alma9-nfs 0 "$RH8_FIX" "nfs_server rhel8_fixed" \
+    "RHEL 8.10 · kernel-core 4.18.0-553.190.1.el8_10 · Red Hat — RHSA-2026:103817 의 고친 판"
+run_case R5 alma9-nfs 6 "sh /b/rpm-add.sh kernel-core 4.18.0 553.190.1.el8_10 AlmaLinux" "nfs_server rpm_backport" \
+    "R4 와 같은 판 · 공급사 AlmaLinux — 그 배포판의 고친 패키지 공지 전"
+run_case R6 alma9-nfs 6 "sh /b/rpm-add.sh kernel-rt-core 4.18.0 553.84.1.rt7.425.el8_10 'Red Hat, Inc.'" "nfs_server rhel_other" \
+    "RHEL 8.10 · kernel-rt-core 4.18.0-553.84.1.rt7.425.el8_10 · Red Hat — RHSA-2026:103817 에 들지 않음"
+run_case R7 alma9-nfs 6 "sh /b/rpm-add.sh kernel-core 5.14.0 741.27.1.el9_9 'Red Hat, Inc.'" "nfs_server rhel_other" \
+    "RHEL 9 · kernel-core 5.14.0-741.27.1.el9_9 · Red Hat — 고친 패키지 공지 없음"
+run_case R8 alma9-nfs 6 "$RH8_OLD && $RH8_FIX" "rhel8_vulnerable rhel8_fixed" \
+    "RHEL 8.10 · 553.189.1 과 553.190.1 이 함께 · Red Hat"
 
 echo "── A. Alpine ──"
 run_case A1 alpine322-nfs 0 "sh /b/apk-add.sh linux-lts 6.12.119-r0" "nfs_server upstream_fixed" "linux-lts 6.12.119-r0 — 상류 고친 판 6.12.117 이상"
@@ -254,7 +291,7 @@ done
 check "S3 대상이 있는 0 칸에 '대상 없음' 안내 없음" "$s3" "D1 · D5 · U2 · F1 · A1${s3n:+ — 어긋남:$s3n}"
 
 # 칸 수까지 본다 — 경우를 짓다 멈추면 남은 경우가 조용히 사라지고 "실패 0" 이 남는다.
-EXPECTED=26 # P 1 · D 10 · U 2 · F 5 · R 2 · A 2 · N 1 · S 3
+EXPECTED=38 # P 1 · D 11 · U 7 · F 5 · R 8 · A 2 · N 1 · S 3
 pass=$(awk -F"$TAB" '$2 == 1' "$OUT/checks.tsv" | wc -l)
 fail=$(awk -F"$TAB" '$2 != 1' "$OUT/checks.tsv" | wc -l)
 echo

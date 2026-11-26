@@ -6,14 +6,15 @@
 # 3.16 부터이고 고친 판은 안정 갈래마다 5.10.275 · 5.15.226 · 6.1.193 · 6.6.163 · 6.12.117 · 6.18.61 · 7.3.2 · mainline
 # 7.4-rc1(35ff1a7a7e38)이다 — 7.2 는 고친 판 없이 지원이 끝났다. **고치지 않는다** — 커널을 올리는 것은 공급사의 일이다.
 #
-# # 판정 (1차 — 깔린 커널 패키지의 판)
+# # 판정 (깔린 커널 패키지의 판 — 1차 2026-11-26 · 2차 2026-11-27)
 #
 # | 무엇 | 결과 |
 # |---|---|
 # | NFS 서버 패키지가 없다(nfs-kernel-server · nfs-utils) | 0 — nfsd 를 띄울 수 없다(1차 카드) |
-# | 깔린 커널 패키지가 모두 영향 판이고 고친 판이 없다 — Debian 의 고친 판이 있는 갈래 · 상류 판을 따르는 Fedora · Alpine | 취약(2) |
+# | 깔린 커널 패키지가 모두 영향 판이고 고친 판이 없다 — Debian 의 고친 판이 있는 갈래 · 상류 판을 따르는 Fedora · Alpine ·
+#   RHEL 8.10(RHSA-2026:103817 · 2차) · 지원이 끝난 Ubuntu 24.04 HWE 6.14 · 6.17(2차) | 취약(2) |
 # | 영향 판과 고친 판이 함께 깔렸다 | 확인 필요(6) — 지금 어느 커널로 도는지 이 룰은 모른다 |
-# | 배포판이 고친 판을 아직 내지 않은 백포트 커널(Ubuntu · RHEL 계열 · Amazon · SUSE · Debian 의 6.1 등) | 확인 필요(6) |
+# | 배포판이 고친 판을 아직 내지 않은 백포트 커널(Ubuntu · RHEL 8.10 밖의 RHEL 계열 · Amazon · SUSE · Debian 의 6.1 등) | 확인 필요(6) |
 # | NFS 서버 패키지는 있는데 커널 패키지를 찾지 못했다 | 확인 필요(6) |
 # | 깔린 커널이 모두 고친 판 · 3.16 아래(Ubuntu 14.04) | 0 |
 #
@@ -21,16 +22,22 @@
 # 기계는 커널이 둘 깔려 확인 필요로 나온다. nfsd 를 실었는지 · NFSv4.1 · 4.2 를 켰는지 · 2049 를 듣는지도 판정에 넣지 않는다 —
 # 끄는 법은 위협별 안내의 *꼭 할 일* 이다.
 #
-# # 배포판의 판 (2026-11-26 17:55 ~ 18:10 확인 — 공지 번호는 RELEASE.md)
+# # 배포판의 판 (1차 2026-11-26 17:55 ~ 18:10 · 2차 22:52 ~ 23:07 확인 — 공지 번호는 RELEASE.md)
 #
 # - **Debian** — 커널을 상류 안정 판으로 올리되 개정만 올려 고친 적도 있다(백포트로 본다). 추적기의 고친 판: trixie
 #   6.12.117-1 · bookworm 의 linux-6.12 6.12.117-1~deb12u1 · sid 7.3.3-1. bookworm 의 기본 6.1 은 고친 판이 없다(6).
 #   지원이 끝난 bullseye 5.10 · buster 4.19 · stretch 4.9 는 Freexian ELTS 추적기가 '(unfixed) end-of-life' 로 적었다(2)
 # - **Fedora · Alpine** — 상류 안정 판 번호를 그대로 따른다 — 상류의 고친 판과 견준다. Fedora rawhide 의 병합 창 빌드
 #   (`7.4.0-0.rc0.*`)는 판이 7.4.0 이어도 고침(7.4-rc1)이 들었는지 모른다(6)
-# - **Ubuntu · RHEL · AlmaLinux · Rocky · Oracle · CentOS Stream** — 같은 상류 판에 개정만 올려 고친다 · **Amazon · SUSE** —
-#   지난 보안 갱신 이력을 재지 못해 백포트로 본다(모르면 6). 고친 패키지 공지가 아직 없다(6). 공지가 나오면 다음 차수에서
-#   그 줄을 더한다
+# - **Ubuntu · RHEL · AlmaLinux · Rocky · Oracle · CentOS Stream · Amazon · SUSE** — 같은 상류 판에 개정만 올려 고친다(백포트 —
+#   SUSE 는 CVE-2026-31431 의 고친 판으로 · Amazon 은 상류 판을 따라 올리기도 하고 release 만 올려 고치기도 한다 — AL2023
+#   공지로 쟀다 — 판 번호로 가리지 못한다). 고친 패키지 공지가 없는
+#   배포판은 6 이고, 공지가 나오면 다음 차수에서 그 줄을 더한다. 2차에 RHEL 8.10 의 RHSA-2026:103817(kernel
+#   4.18.0-553.190.1.el8_10)을 더했다 — 같은 판 문자열을 쓰는 AlmaLinux · Rocky · Oracle 은 공급사(vendor)로 가려 공지 전까지 6.
+#   RHEL 8 의 kernel-rt · EUS 8.6 · 8.8 은 그 공지에 들지 않아 6
+# - **Ubuntu 24.04 HWE 6.14 · 6.17** — Ubuntu 가 'Ignored (end of life)' 로 적었다 — 고치지 않는다고 밝힌 판이라 2(2차).
+#   바이너리 판은 `6.14.0-37.37~24.04.1` 꼴과 꼬리 없는 `6.17.0-42.42+1` 꼴이라 판 문자열 전체로 가른다 — 같은 상류 판을
+#   쓰는 25.04 · 25.10 의 커널(`6.17.0-41.41` 등)과 지원 중인 HWE 7.0 은 6 그대로다
 #
 # # 판 정규식
 #
@@ -48,7 +55,7 @@
 # - dpkg · rpm · apk 밖의 배포판(Arch 등) · 컨테이너 안에서 호스트의 커널
 schema_version: 1
 id: nfs2root-check
-version: 0.1.0
+version: 0.2.0
 min_core: "1.25.0"  # added 는 1.25.0 · product 는 1.21.0 · label 은 1.13.0
 platforms: [linux]
 
@@ -218,6 +225,67 @@ detect:
       ko: "Proxmox 커널 — 고친 패키지 공지가 아직 없습니다"
       en: "a Proxmox kernel - no fixed package has been announced yet"
 
+  # ── Ubuntu 24.04 HWE 6.14 · 6.17 — 지원이 끝나 고치지 않는다(2차) ─────────────────────────
+  #
+  # Ubuntu CVE 페이지가 linux-hwe-6.14 · linux-hwe-6.17(24.04)을 'Ignored (end of life)' 로 적었다. 판 꼴은 `~24.04.N` 꼬리
+  # (6.14 · 클라우드 갈래 · 6.17 의 앞 판)와 꼬리 없는 `6.17.0-42.42+1` · `44.44`(24.04 에만 있는 ABI)다.
+  - id: ubuntu_hwe_eol
+    subject: package
+    where:
+      all:
+        - { field: manager, op: equals, value: dpkg }
+        - { field: name, op: matches, value: '^linux-image-[0-9]' }
+        - { field: version, op: matches, value: '^(6\.(14|17)\.0-[0-9]+\.[0-9]+(\.[0-9]+)?~24\.04\.[0-9]+.*|6\.17\.0-(42\.42|44\.44)(\+[0-9]+)?)$' }
+    label:
+      ko: "Ubuntu 24.04 HWE 커널(6.14 · 6.17) — 지원이 끝나 CVE-2026-99362 를 고치지 않습니다"
+      en: "an Ubuntu 24.04 HWE kernel (6.14, 6.17) - end of life, CVE-2026-99362 will not be fixed"
+
+  # ── RHEL 8.10 — RHSA-2026:103817(2차) ─────────────────────────────────────────────
+  #
+  # kernel 소스 패키지의 바이너리(kernel-core 등)만 고쳤다 — kernel-rt(개정에 `rt` 가 든다)와 EUS(`.el8_6` · `.el8_8`)는 들지
+  # 않았다. 같은 판 문자열을 쓰는 AlmaLinux · Rocky · Oracle 은 공급사(vendor)로 가린다. 판 정규식은 epoch 가 없는 기록만
+  # 받는다 — 고친 판의 epoch 는 1차 출처로 받지 못했고(CSAF 404), 영향 판의 epoch 는 지난 RHSA-2026:102218 이 0 이다.
+  # 수집기는 epoch 가 0 이면 판에 붙이지 않으므로(crates/remedy-collect/src/package.rs), epoch 가 붙은 Red Hat 커널은
+  # rhel_other(6)로 간다.
+  - id: rhel8_vulnerable
+    subject: package
+    where:
+      all:
+        - { field: manager, op: equals, value: rpm }
+        - { field: name, op: matches, value: '^kernel(-core|-default|-default-base|-rt|-rt-core|-rt-debug|-rt-debug-core|-uek|-uek-core|-64k|-64k-core|-64k-debug|-64k-debug-core|-16k|-16k-core|-debug|-debug-core|-longterm|-longterm-core|-azure|-preempt|-kvmsmall|-vanilla|-zfcpdump|-zfcpdump-core|[0-9]+\.[0-9]+)?$' }
+        - { field: vendor, op: equals, value: "Red Hat, Inc." }
+        - { field: version, op: matches, value: '^4\.18\.0-[0-9.]+\.el8_10$' }
+        - { field: version, op: rpm_version_lt, value: "0:4.18.0-553.190.1.el8_10" }
+    label:
+      ko: "RHEL 8.10 커널 — CVE-2026-99362 의 영향 판이고 RHSA-2026:103817 의 고친 판(4.18.0-553.190.1.el8_10)보다 낮습니다"
+      en: "a RHEL 8.10 kernel - affected by CVE-2026-99362 and below the fixed build of RHSA-2026:103817 (4.18.0-553.190.1.el8_10)"
+  - id: rhel8_fixed
+    subject: package
+    where:
+      all:
+        - { field: manager, op: equals, value: rpm }
+        - { field: name, op: matches, value: '^kernel(-core|-default|-default-base|-rt|-rt-core|-rt-debug|-rt-debug-core|-uek|-uek-core|-64k|-64k-core|-64k-debug|-64k-debug-core|-16k|-16k-core|-debug|-debug-core|-longterm|-longterm-core|-azure|-preempt|-kvmsmall|-vanilla|-zfcpdump|-zfcpdump-core|[0-9]+\.[0-9]+)?$' }
+        - { field: vendor, op: equals, value: "Red Hat, Inc." }
+        - { field: version, op: matches, value: '^4\.18\.0-[0-9.]+\.el8_10$' }
+    exclude:
+      - { field: version, op: rpm_version_lt, value: "0:4.18.0-553.190.1.el8_10" }
+    label:
+      ko: "RHEL 8.10 커널 — CVE-2026-99362 를 고친 판입니다(RHSA-2026:103817)"
+      en: "a RHEL 8.10 kernel - a build that fixes CVE-2026-99362 (RHSA-2026:103817)"
+  # 그 밖의 RHEL 커널(RHEL 9 · 10 · 6 · 7 · EUS · kernel-rt) — 고친 패키지 공지가 아직 없다.
+  - id: rhel_other
+    subject: package
+    where:
+      all:
+        - { field: manager, op: equals, value: rpm }
+        - { field: name, op: matches, value: '^kernel(-core|-default|-default-base|-rt|-rt-core|-rt-debug|-rt-debug-core|-uek|-uek-core|-64k|-64k-core|-64k-debug|-64k-debug-core|-16k|-16k-core|-debug|-debug-core|-longterm|-longterm-core|-azure|-preempt|-kvmsmall|-vanilla|-zfcpdump|-zfcpdump-core|[0-9]+\.[0-9]+)?$' }
+        - { field: vendor, op: equals, value: "Red Hat, Inc." }
+    exclude:
+      - { field: version, op: matches, value: '^4\.18\.0-[0-9.]+\.el8_10$' }
+    label:
+      ko: "커널 — 이 배포판이 CVE-2026-99362 를 고친 패키지를 아직 내지 않았습니다"
+      en: "a kernel - this distribution has not yet released a package that fixes CVE-2026-99362"
+
   # ── 백포트하는 배포판 — 고친 패키지 공지가 아직 없다 ────────────────────────────────
   #
   # dpkg 의 Debian 꼴이 아닌 커널(Ubuntu `6.8.0-151.151` 등 — 3.16 아래의 Ubuntu 14.04 는 영향 밖).
@@ -231,11 +299,12 @@ detect:
     exclude:
       - { field: name, op: matches, value: '-dbg$' }
       - { field: revision, op: matches, value: '^[0-9]+([~+][^.]*)?$' }
+      - { field: version, op: matches, value: '^(6\.(14|17)\.0-[0-9]+\.[0-9]+(\.[0-9]+)?~24\.04\.[0-9]+.*|6\.17\.0-(42\.42|44\.44)(\+[0-9]+)?)$' }
     label:
       ko: "커널 — 이 배포판이 CVE-2026-99362 를 고친 패키지를 아직 내지 않았습니다"
       en: "a kernel - this distribution has not yet released a package that fixes CVE-2026-99362"
-  # Fedora 가 아닌 rpm 커널(RHEL · AlmaLinux · Rocky · Oracle · CentOS Stream · Amazon · SUSE — Red Hat 은 3.16 아래 판의
-  # RHEL 6 · 7 도 영향으로 적었다).
+  # Fedora · Red Hat 이 아닌 rpm 커널(AlmaLinux · Rocky · Oracle · CentOS Stream · Amazon · SUSE). Red Hat 커널은 위
+  # rhel8_* · rhel_other 가 맡는다(Red Hat 은 3.16 아래 판의 RHEL 6 · 7 도 영향으로 적었다).
   - id: rpm_backport
     subject: package
     where:
@@ -244,18 +313,19 @@ detect:
         - { field: name, op: matches, value: '^kernel(-core|-default|-default-base|-rt|-rt-core|-rt-debug|-rt-debug-core|-uek|-uek-core|-64k|-64k-core|-64k-debug|-64k-debug-core|-16k|-16k-core|-debug|-debug-core|-longterm|-longterm-core|-azure|-preempt|-kvmsmall|-vanilla|-zfcpdump|-zfcpdump-core|[0-9]+\.[0-9]+)?$' }
     exclude:
       - { field: revision, op: matches, value: '\.fc[0-9]+' }
+      - { field: vendor, op: equals, value: "Red Hat, Inc." }
     label:
       ko: "커널 — 이 배포판이 CVE-2026-99362 를 고친 패키지를 아직 내지 않았습니다"
       en: "a kernel - this distribution has not yet released a package that fixes CVE-2026-99362"
 
 verdict:
-  require: "nfs_server and (debian_vulnerable or upstream_vulnerable) and not (debian_fixed or upstream_fixed) and not (debian_unknown or dpkg_backport or rpm_backport or fedora_rc0 or proxmox_kernel)"
+  require: "nfs_server and (debian_vulnerable or upstream_vulnerable or ubuntu_hwe_eol or rhel8_vulnerable) and not (debian_fixed or upstream_fixed or rhel8_fixed) and not (debian_unknown or dpkg_backport or rpm_backport or rhel_other or fedora_rc0 or proxmox_kernel)"
   unconfirmed:
-    - when: "nfs_server and (debian_vulnerable or upstream_vulnerable) and (debian_fixed or upstream_fixed)"
+    - when: "nfs_server and (debian_vulnerable or upstream_vulnerable or ubuntu_hwe_eol or rhel8_vulnerable) and (debian_fixed or upstream_fixed or rhel8_fixed)"
       why:
         ko: "CVE-2026-99362 를 고친 커널과 고치지 않은 커널이 함께 깔려 있습니다 — 이 룰은 지금 어느 커널로 도는지 모릅니다. uname -r 로 확인하고, 고친 커널이 아니면 다시 시작하십시오"
         en: "kernels that fix CVE-2026-99362 and kernels that do not are both installed - this rule cannot tell which one is running. Check with uname -r and restart if it is not the fixed kernel"
-    - when: "nfs_server and (debian_unknown or dpkg_backport or rpm_backport or fedora_rc0 or proxmox_kernel)"
+    - when: "nfs_server and (debian_unknown or dpkg_backport or rpm_backport or rhel_other or fedora_rc0 or proxmox_kernel)"
       why:
         ko: "이 배포판이 CVE-2026-99362 를 고친 커널을 아직 내지 않았습니다 — 배포판의 보안 공지를 보고 커널을 올린 뒤 다시 시작하십시오. 그 전에는 tcp/2049 를 믿는 기계에만 열어 두십시오"
         en: "this distribution has not yet released a kernel that fixes CVE-2026-99362 - watch its security advisories, upgrade the kernel and restart. Until then, open tcp/2049 only to trusted machines"
