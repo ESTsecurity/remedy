@@ -23,6 +23,8 @@ struct Fs {
     exec: Vec<String>,
     /// 열려고 하면 거부되는 디렉터리.
     denied: Vec<String>,
+    /// 있는지조차 물을 수 없는 자리(`look` 이 `Locked`).
+    locked: Vec<String>,
 }
 
 impl Fs {
@@ -32,6 +34,41 @@ impl Fs {
             dirs: Vec::new(),
             exec: Vec::new(),
             denied: Vec::new(),
+            locked: Vec::new(),
+        }
+    }
+    fn locked(mut self, path: &str) -> Self {
+        self.locked.push(path.to_string());
+        self
+    }
+    /// `dir` 바로 아래의 항목 — `(경로, 폴더인가)` 를 이름 차례로.
+    fn children(&self, dir: &str) -> Vec<(String, bool)> {
+        let prefix = format!("{dir}/");
+        let direct = |p: &&String| p.starts_with(&prefix) && !p[prefix.len()..].contains('/');
+        let mut out: Vec<(String, bool)> = self
+            .files
+            .keys()
+            .filter(direct)
+            .map(|p| (p.clone(), false))
+            .collect();
+        out.extend(self.dirs.iter().filter(direct).map(|p| (p.clone(), true)));
+        out.sort();
+        out.dedup();
+        out
+    }
+    fn entry(&self, path: &str, is_dir: bool) -> FsEntry {
+        FsEntry {
+            path: path.to_string(),
+            is_dir,
+            is_reparse: false,
+            size: if is_dir { 0 } else { 1 },
+            mtime: "2026-08-27T00:00:00Z".into(),
+            ctime: None,
+            mode: Some(if is_dir || self.exec.iter().any(|e| e == path) {
+                0o755
+            } else {
+                0o644
+            }),
         }
     }
     fn file(mut self, path: &str, body: &str) -> Self {
@@ -58,50 +95,41 @@ impl Fs {
 }
 
 impl FsRead for Fs {
-    fn walk(&self, root: &str, _limit: usize) -> Result<WalkResult, PlatformError> {
-        if self.denied.iter().any(|d| d == root) {
-            return Ok(WalkResult {
-                entries: Vec::new(),
-                truncated: false,
-                denied: 1,
-                denied_paths: Vec::new(),
-            });
+    /// `local::walk` 의 차례와 상한 규칙을 따른다 — 폴더마다 이름 차례로 읽어 깊이 먼저 내려가고, 폴더는
+    /// 세지 않고 담으며, 파일에서 담은 수가 `limit` 에 닿아 있으면 잘림을 세우고 걷기를 끝낸다. 이 규칙을
+    /// 따르지 않던 동안에는 상한 1 로 `/home` 을 걷던 홈 찾기의 결함이 이 시험에서 드러나지 않았다(#172).
+    fn walk(&self, root: &str, limit: usize) -> Result<WalkResult, PlatformError> {
+        let mut out = Vec::new();
+        let mut truncated = false;
+        let mut denied = 0;
+        let mut stack = vec![root.to_string()];
+        while let Some(dir) = stack.pop() {
+            if truncated {
+                break;
+            }
+            if self.denied.contains(&dir) {
+                denied += 1;
+                continue;
+            }
+            let mut subdirs = Vec::new();
+            for (path, is_dir) in self.children(&dir) {
+                if !is_dir && out.len() >= limit {
+                    truncated = true;
+                    break;
+                }
+                out.push(self.entry(&path, is_dir));
+                if is_dir {
+                    subdirs.push(path);
+                }
+            }
+            subdirs.reverse();
+            stack.extend(subdirs);
         }
-        let prefix = format!("{root}/");
-        let mut entries: Vec<FsEntry> = self
-            .files
-            .keys()
-            .filter(|p| p.starts_with(&prefix))
-            .map(|p| FsEntry {
-                path: p.clone(),
-                is_dir: false,
-                is_reparse: false,
-                size: 1,
-                mtime: "2026-08-27T00:00:00Z".into(),
-                ctime: None,
-                mode: Some(if self.exec.contains(p) { 0o755 } else { 0o644 }),
-            })
-            .collect();
-        entries.extend(
-            self.dirs
-                .iter()
-                .filter(|p| p.starts_with(&prefix) && !p[prefix.len()..].contains('/'))
-                .map(|p| FsEntry {
-                    path: p.clone(),
-                    is_dir: true,
-                    is_reparse: false,
-                    size: 0,
-                    mtime: "2026-08-27T00:00:00Z".into(),
-                    ctime: None,
-                    mode: Some(0o755),
-                }),
-        );
-        entries.sort_by(|a, b| a.path.cmp(&b.path));
-        entries.dedup();
+        out.sort_by(|a, b| a.path.cmp(&b.path));
         Ok(WalkResult {
-            entries,
-            truncated: false,
-            denied: 0,
+            entries: out,
+            truncated,
+            denied,
             denied_paths: Vec::new(),
         })
     }
@@ -114,7 +142,9 @@ impl FsRead for Fs {
     }
 
     fn look(&self, path: &str) -> Seen {
-        if self.files.contains_key(path) || self.dirs.iter().any(|d| d == path) {
+        if self.locked.iter().any(|d| d == path) {
+            Seen::Locked
+        } else if self.files.contains_key(path) || self.dirs.iter().any(|d| d == path) {
             Seen::Present
         } else {
             Seen::Absent
@@ -405,4 +435,136 @@ fn legacy_init_scripts_give_one_service_record_per_program() {
     assert!(svc
         .iter()
         .all(|r| r.state == "unknown" && r.start_type == "unknown"));
+}
+
+// ─────────────────────────────────── 홈 — `/home` 바로 아래의 폴더만 (#172)
+
+const DESKTOP: &str = "[Desktop Entry]\nType=Application\nName=lab\nExec=/usr/bin/true\n";
+
+/// 홈을 쓰는 수집 셋(persistence · service · autorun)을 같은 가짜로 돈다 — 셋이 같은 홈 찾기를 부른다.
+fn three(
+    fs: impl Fn() -> Fs,
+    max_files: usize,
+) -> (
+    remedy_artifacts::Harvest<remedy_artifacts::PersistenceRecord>,
+    remedy_artifacts::Harvest<remedy_artifacts::ServiceRecord>,
+    remedy_artifacts::Harvest<remedy_artifacts::AutorunRecord>,
+) {
+    let mut s = linux_scope();
+    s.max_files = max_files;
+    (
+        Collector::new(fs()).collect_persistence(&s).expect("수집"),
+        Collector::new(fs())
+            .collect_linux_services(&s)
+            .expect("수집"),
+        Collector::new(fs())
+            .collect_linux_autoruns(&s)
+            .expect("수집"),
+    )
+}
+
+/// **`/home` 의 파일 뒤에 있는 홈도 읽는다.** 쿼터를 켠 서버는 `/home` 바로 아래에 `aquota.group` ·
+/// `aquota.user` 를 두고, 이름 차례가 `alice` < `aquota.*` < `bob` 이다. 홈 목록을 `/home` 걷기(상한 1)로 뽑던
+/// 동안에는 첫 파일에서 걷기가 끝나 `bob` 의 유닛 · 자동실행이 말없이 빠졌다 — 잘림도 서지 않았다.
+///
+/// 파일 이름은 `b` 로 둔다 — 같은 자리(`alice` < `b` < `bob`)이고, `/home/` 뒤의 이름을 실사용자로 읽는 누출
+/// 검사가 시험의 가짜 이름으로 안다.
+#[test]
+fn homes_after_a_quota_file_in_home_are_still_read() {
+    let fs = || {
+        Fs::new()
+            .file("/home/alice/.config/systemd/user/a.timer", TIMER)
+            .file("/home/b", "")
+            .file("/home/bob/.config/systemd/user/b.timer", TIMER)
+            .file("/home/bob/.config/systemd/user/b.service", UNIT)
+            .file("/home/bob/.config/autostart/b.desktop", DESKTOP)
+    };
+    let (p, v, a) = three(fs, 10_000);
+    let timers: Vec<(&str, Option<&str>)> = p
+        .records
+        .iter()
+        .map(|r| (r.id.as_str(), r.principal.as_deref()))
+        .collect();
+    assert_eq!(
+        timers,
+        vec![
+            ("/home/alice/.config/systemd/user/a.timer", Some("alice")),
+            ("/home/bob/.config/systemd/user/b.timer", Some("bob")),
+        ]
+    );
+    assert!(
+        v.records
+            .iter()
+            .any(|r| r.id == "/home/bob/.config/systemd/user/b.service"),
+        "{:?}",
+        v.records
+    );
+    assert!(
+        a.records
+            .iter()
+            .any(|r| r.id == "/home/bob/.config/autostart/b.desktop"),
+        "{:?}",
+        a.records
+    );
+    for got in [
+        (p.truncated, p.denied_dirs),
+        (v.truncated, v.denied_dirs),
+        (a.truncated, a.denied_dirs),
+    ] {
+        assert_eq!(got, (false, 0));
+    }
+}
+
+/// **홈 안의 폴더는 홈이 아니다.** 첫 홈의 이름 차례 맨 앞이 폴더(`~/.aaa` · 흔히 `~/.aws`)이면 그 폴더가
+/// `.aaa` 라는 사용자의 홈으로 담겨, 그 아래의 유닛이 그 이름을 주체로 수집됐다.
+#[test]
+fn a_dot_folder_inside_the_first_home_is_not_a_home() {
+    let fs = || {
+        Fs::new()
+            .file("/home/alice/.aaa/.config/systemd/user/decoy.timer", TIMER)
+            .file("/home/alice/.bash_logout", "")
+            .file("/home/alice/.config/systemd/user/a.timer", TIMER)
+    };
+    let (p, _, _) = three(fs, 10_000);
+    let ids: Vec<&str> = p.records.iter().map(|r| r.id.as_str()).collect();
+    assert_eq!(ids, vec!["/home/alice/.config/systemd/user/a.timer"]);
+}
+
+/// 열지 못한 `/home` 은 거부로 센다 — 못 본 홈을 없는 홈으로 보지 않는다(지금도 그렇다 · 회귀 지킴).
+#[test]
+fn a_home_root_we_could_not_open_is_counted_as_denied() {
+    let (p, v, a) = three(|| Fs::new().denied_dir("/home"), 10_000);
+    assert_eq!([p.denied_dirs, v.denied_dirs, a.denied_dirs], [1, 1, 1]);
+}
+
+/// **있는지조차 물을 수 없는 `/home` 도 거부다.** `exists` 로 물으면 잠김이 '없음' 과 같은 거짓이 되어, 홈의
+/// 유닛 · 자동실행을 하나도 보지 못한 수집이 아무 말 없이 끝났다.
+#[test]
+fn a_locked_home_root_is_counted_as_denied() {
+    let (p, v, a) = three(|| Fs::new().locked("/home"), 10_000);
+    let home = vec!["/home".to_string()];
+    assert_eq!((p.denied_dirs, &p.denied_paths), (1, &home));
+    assert_eq!((v.denied_dirs, &v.denied_paths), (1, &home));
+    assert_eq!((a.denied_dirs, &a.denied_paths), (1, &home));
+}
+
+/// **홈이 `max_files` 보다 많으면 잘림이다.** 이름 차례로 앞의 홈만 읽고, 다 읽지 못했다고 말한다.
+#[test]
+fn more_homes_than_max_files_is_truncated() {
+    let fs = || {
+        Fs::new()
+            .file("/home/alice/.config/systemd/user/a.timer", TIMER)
+            .file("/home/bob/.config/systemd/user/b.timer", TIMER)
+            .file("/home/test/.config/systemd/user/c.timer", TIMER)
+    };
+    let (p, v, a) = three(fs, 2);
+    let ids: Vec<&str> = p.records.iter().map(|r| r.id.as_str()).collect();
+    assert_eq!(
+        ids,
+        vec![
+            "/home/alice/.config/systemd/user/a.timer",
+            "/home/bob/.config/systemd/user/b.timer",
+        ]
+    );
+    assert_eq!([p.truncated, v.truncated, a.truncated], [true, true, true]);
 }

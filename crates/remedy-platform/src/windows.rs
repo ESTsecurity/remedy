@@ -266,6 +266,10 @@ impl FsRead for Live {
         crate::local::walk_files(self, root, limit, names, one_device)
     }
 
+    fn subdirs(&self, dir: &str, limit: usize) -> Result<WalkResult, PlatformError> {
+        crate::local::subdirs(self, dir, limit)
+    }
+
     fn read_file(&self, path: &str, max: u64) -> Result<Option<Vec<u8>>, PlatformError> {
         crate::local::read_file(self, path, max)
     }

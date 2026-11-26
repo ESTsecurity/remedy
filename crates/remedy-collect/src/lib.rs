@@ -380,7 +380,7 @@ impl<P: FsRead + EnvRead> Collector<P> {
         }
         // 사용자마다 자기 유닛을 둔다. **여기를 빠뜨리면 사용자 권한만으로
         // 심어진 지속성이 통째로 안 보인다** — 그리고 그것이 가장 흔한 자리다.
-        for (owner, home) in self.homes_for(&mut h) {
+        for (owner, home) in self.homes_for(scope, &mut h) {
             let dir = format!("{home}/.config/systemd/user");
             for (path, u, enabled) in self.units_in(&dir, scope, ".timer", &mut h) {
                 h.records
@@ -444,7 +444,7 @@ impl<P: FsRead + EnvRead> Collector<P> {
             .iter()
             .map(|d| (d.to_string(), "system"))
             .collect();
-        for (_, home) in self.homes_for(&mut h) {
+        for (_, home) in self.homes_for(scope, &mut h) {
             dirs.push((format!("{home}/.config/autostart"), "user"));
         }
         for (dir, scope_name) in dirs {
@@ -600,7 +600,7 @@ impl<P: FsRead + EnvRead> Collector<P> {
             .chain(systemd::USER_DIRS.iter())
             .map(|d| d.to_string())
             .collect();
-        for (_, home) in self.homes_for(&mut h) {
+        for (_, home) in self.homes_for(scope, &mut h) {
             dirs.push(format!("{home}/.config/systemd/user"));
         }
         for d in dirs {
@@ -716,25 +716,33 @@ impl<P: FsRead + EnvRead> Collector<P> {
 
     /// 사용자 홈. `(사용자, 홈 경로)`.
     ///
+    /// **`/home` 바로 아래의 폴더만** 홈이다(코어 1.27.0) — 파일(쿼터의 `aquota.user` 등)과 링크는 담지 않고, 홈
+    /// 안의 폴더(`~/.aws`)를 홈으로 세지 않는다. `/home` 을 상한 1 로 걷던 동안에는 첫 파일에서 걷기가 끝나
+    /// 쿼터 파일 뒤의 홈을 말없이 빠뜨리고, 첫 홈의 이름 차례 맨 앞 폴더를 홈으로 담았다(#172).
+    ///
+    /// `/home` 을 **물을 수조차 없으면**(잠김 · 모름) 거부로 센다 — 못 본 홈을 없는 홈으로 보지 않는다. 홈이
+    /// `max_files` 보다 많으면 이름 차례로 앞의 것만 담고 잘림을 세운다.
+    ///
     /// `/etc/passwd` 를 파싱하지 않는 이유는 `remedy-platform` 의
     /// `%ALLUSERPROFILES%` 와 같다 — 거기엔 사람이 아닌 계정이 섞여 있고, 그것을
     /// 열면 범위가 `/nonexistent` · `/var/lib/*` 로 번진다.
-    fn homes_for<T>(&self, h: &mut Harvest<T>) -> Vec<(String, String)> {
+    fn homes_for<T>(&self, scope: &Scope, h: &mut Harvest<T>) -> Vec<(String, String)> {
         let mut out = Vec::new();
-        if self.platform.exists("/home") {
-            match self.platform.walk("/home", 1) {
+        match self.platform.look("/home") {
+            Seen::Absent => {}
+            Seen::Locked | Seen::CannotTell => h.deny("/home"),
+            Seen::Present => match self.platform.subdirs("/home", scope.max_files) {
                 Ok(w) => {
+                    h.truncated |= w.truncated;
                     h.absorb_denied(w.denied, w.denied_paths);
                     for e in w.entries {
-                        if e.is_dir && !e.is_reparse {
-                            if let Some(n) = e.path.rsplit('/').next() {
-                                out.push((n.to_string(), e.path.clone()));
-                            }
+                        if let Some(n) = e.path.rsplit('/').next() {
+                            out.push((n.to_string(), e.path.clone()));
                         }
                     }
                 }
                 Err(_) => h.deny("/home"),
-            }
+            },
         }
         if self.platform.exists("/root") {
             out.push(("root".to_string(), "/root".to_string()));

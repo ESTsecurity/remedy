@@ -313,6 +313,68 @@ pub(crate) fn walk_files(
     })
 }
 
+/// [`FsRead::subdirs`](crate::read::FsRead::subdirs) 의 실제 구현 — `dir` **바로 아래의 폴더만**(코어 1.27.0).
+///
+/// `read_dir` 한 번으로 바로 아래만 읽고 `file_type().is_dir()` 인 것만 담는다 — `file_type` 은 링크를 따라가지
+/// 않으므로 폴더를 가리키는 링크(Windows 의 접합점도)는 빠진다. 상한은 담은 폴더 수로 센다 — 파일은 세지 않는다.
+///
+/// 폴더가 **없으면** 빈 결과다(못 본 것이 아니다). 있는데 열리지 않으면 `denied` 로 센다 — [`walk_glob`] 과 같은
+/// 규칙이다.
+pub(crate) fn subdirs(
+    view: &impl PathView,
+    dir: &str,
+    limit: usize,
+) -> Result<WalkResult, PlatformError> {
+    let mut out = Vec::new();
+    let mut truncated = false;
+    let mut denied = 0usize;
+    let mut denied_paths: Vec<String> = Vec::new();
+    let access = view.for_access(dir);
+    match std::fs::read_dir(&access) {
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        Err(_) => {
+            denied = 1;
+            denied_paths.push(normalize::nfc(&view.for_record(&access)));
+        }
+        Ok(rd) => {
+            crate::progress::enter_dir(&access);
+            let mut entries: Vec<_> = rd.flatten().collect();
+            entries.sort_by_key(|e| e.file_name());
+            for e in entries {
+                crate::progress::tick_entry();
+                if !e.file_type().is_ok_and(|t| t.is_dir()) {
+                    continue;
+                }
+                if out.len() >= limit {
+                    truncated = true;
+                    break;
+                }
+                let md = match e.metadata() {
+                    Ok(m) => m,
+                    Err(_) => continue,
+                };
+                let accessed = e.path().to_string_lossy().to_string();
+                out.push(FsEntry {
+                    path: normalize::nfc(&view.for_record(&accessed)),
+                    is_dir: true,
+                    is_reparse: false,
+                    size: 0,
+                    mtime: rfc3339(md.modified()).unwrap_or_else(|| "1970-01-01T00:00:00Z".into()),
+                    ctime: rfc3339(md.created()),
+                    mode: unix_mode(&md),
+                });
+            }
+        }
+    }
+    out.sort_by(|a, b| a.path.cmp(&b.path));
+    Ok(WalkResult {
+        entries: out,
+        truncated,
+        denied,
+        denied_paths,
+    })
+}
+
 /// 이 경로가 놓인 장치 — 링크를 따라가지 않는다.
 #[cfg(unix)]
 fn device_of(path: &str) -> Option<u64> {
@@ -713,6 +775,77 @@ mod tests {
         // 상한에 닿으면 잘림이 선다.
         let w = walk_files(&Identity, root, 1, &names, false).expect("순회");
         assert!(w.truncated && w.entries.len() == 1);
+    }
+
+    fn leaf_names(w: &WalkResult) -> Vec<&str> {
+        w.entries
+            .iter()
+            .map(|e| e.path.rsplit(['\\', '/']).next().unwrap())
+            .collect()
+    }
+
+    /// L1 — **바로 아래의 폴더만** 담는다(코어 1.27.0 · 홈 찾기). 파일(`aquota.user`) · 홈 안의 폴더(`alice/.aaa`)
+    /// · 폴더를 가리키는 링크는 담지 않는다(링크는 유닉스에서만 만든다 — Windows 는 권한이 있어야 만든다).
+    #[test]
+    fn subdirs_lists_only_the_folders_directly_under() {
+        let d = lab("subdirs");
+        std::fs::create_dir_all(d.join("alice").join(".aaa")).expect("하위");
+        std::fs::create_dir(d.join("bob")).expect("하위");
+        std::fs::write(d.join("aquota.user"), b"x").expect("쓰기");
+        std::fs::write(d.join("alice").join(".bash_logout"), b"x").expect("쓰기");
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(d.join("bob"), d.join("link")).expect("링크");
+
+        let w = subdirs(&Identity, d.to_str().unwrap(), 100).expect("읽기");
+        assert_eq!(leaf_names(&w), vec!["alice", "bob"]);
+        assert!(w.entries.iter().all(|e| e.is_dir && !e.is_reparse));
+        assert_eq!((w.denied, w.truncated), (0, false));
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    /// L2 — 상한은 **폴더 수**로 센다. 파일이 많아도 잘리지 않고, 폴더가 넘치면 이름 차례로 앞의 것만 담고
+    /// 잘림을 세운다.
+    #[test]
+    fn subdirs_counts_only_folders_against_the_limit() {
+        let d = lab("subdirs-limit");
+        for i in 0..5 {
+            std::fs::write(d.join(format!("aquota.{i}")), b"x").expect("쓰기");
+        }
+        for n in ["test", "alice", "bob"] {
+            std::fs::create_dir(d.join(n)).expect("하위");
+        }
+        let root = d.to_str().unwrap();
+        let w = subdirs(&Identity, root, 3).expect("읽기");
+        assert_eq!(leaf_names(&w), vec!["alice", "bob", "test"]);
+        assert!(!w.truncated, "파일까지 세었다");
+
+        let w = subdirs(&Identity, root, 2).expect("읽기");
+        assert_eq!(leaf_names(&w), vec!["alice", "bob"]);
+        assert!(w.truncated, "상한에 걸렸는데 말하지 않았다");
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    /// L3 — 없는 폴더는 빈 결과다. `/home` 이 없는 기계는 정상이다 — 못 본 것으로 세면 그 신호가 죽는다.
+    #[test]
+    fn subdirs_of_a_missing_folder_is_empty_not_denied() {
+        let d = lab("subdirs-missing");
+        let w = subdirs(&Identity, d.join("nope").to_str().unwrap(), 10).expect("읽기");
+        assert!(w.entries.is_empty());
+        assert_eq!((w.denied, w.truncated), (0, false));
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    /// L4 — 있는데 열리지 않는 자리는 **거부로 센다**. 폴더가 아닌 자리(파일)로 잰다 — 권한을 빼서 막는 시험은
+    /// root 에게 열려 컨테이너(root)에서 공허해진다.
+    #[test]
+    fn subdirs_of_a_place_that_will_not_open_is_denied() {
+        let d = lab("subdirs-denied");
+        let f = d.join("aquota.user");
+        std::fs::write(&f, b"x").expect("쓰기");
+        let w = subdirs(&Identity, f.to_str().unwrap(), 10).expect("읽기");
+        assert!(w.entries.is_empty());
+        assert_eq!((w.denied, w.denied_paths.len()), (1, 1));
+        let _ = std::fs::remove_dir_all(&d);
     }
 
     /// 걷기 뒤에 짚어 읽기 — 끝을 넘은 자리는 있는 데까지, 길이는 늘 지금 길이다.
