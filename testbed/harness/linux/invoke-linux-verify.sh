@@ -52,6 +52,12 @@
 # 레지스트리를 읽기 전용으로 걸면 안 된다 — `yara-x` 의 빌드 스크립트가 그
 # 아래에 쓴다.
 #
+# **이슈 #172 의 칸(A4~A7 · D5~D7)은 엔진 1.27.0 부터 판정한다**(`verify-linux.sh`
+# 머리말). 그 앞의 공개본에서 결함을 재현할 때만 환경 `JUDGE_ALL=1` 을 주면 컨테이너로
+# 넘겨 판 게이트를 넘긴다:
+#
+#     JUDGE_ALL=1 testbed/harness/linux/invoke-linux-verify.sh --bin <공개본 remedy>
+#
 # 결과는 `testbed/harness/results/linux-<시각>/verify-linux.json` 에 남는다.
 
 set -u
@@ -103,6 +109,7 @@ docker run --rm \
     -v "$BIN:/usr/local/bin/remedy:ro" \
     -v "$OUT:/out" \
     -e HOME=/root \
+    -e JUDGE_ALL \
     -w /repo \
     "$IMAGE" \
     bash /repo/testbed/harness/linux/verify-linux.sh \
@@ -119,7 +126,7 @@ fi
 if [ "$KEEP" -eq 0 ]; then
     # 중간 산출물은 지운다. 판정과 상태 diff 만 남긴다 — 저장소에 커밋되는
     # 것은 결과이지 스캔 부산물이 아니다.
-    rm -rf "$OUT/scan" "$OUT/state" "$OUT/extracted" "$OUT/artifacts.json"
+    rm -rf "$OUT/scan" "$OUT/state" "$OUT/extracted" "$OUT/artifacts.json" "$OUT/artifacts-a5.json"
 fi
 
 exit "$rc"

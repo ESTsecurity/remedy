@@ -23,6 +23,11 @@
 #   lab-ca.crt          ↔  decoy-ca.crt (같은 디렉터리)
 #   cron.d/remedy-lab   ↔  cron.d/innocent-cron
 #   실험 확장           ↔  같은 자리의 정상 확장
+#   bob 의 사용자 유닛  ↔  점 폴더 안의 미끼 timer · 링크 홈의 timer (홈이 아니다)
+#
+# 사용자 홈(이슈 #172 — 12 절)은 사용자 alice · bob 을 만든다. **이 스크립트가 만든
+# 사용자만 지운다** — GECOS 칸의 표지(`USER_TAG`)로 가리고, 표지가 없는 같은 이름의
+# 사용자나 사용자 없는 홈 자리가 있으면 건드리지 않고 멈춘다.
 #
 # # 쓰는 법
 #
@@ -40,6 +45,10 @@ FORCE=0
 EXTROOT="${EXTROOT:-$HOME/.config/google-chrome/Default/Extensions}"
 EVIL_EXT=remedylabremedylabremedylabremed
 GOOD_EXT=innocentinnocentinnocentinnoce
+# 사용자 홈(12 절). 링크 홈이 가리키는 폴더와, 복원이 링크를 따라가는지 재는 root 소유의 빈 폴더.
+USER_TAG="remedy-lab fixture"
+LINKHOME=/opt/remedy-lab-linkhome
+D7_ROOT=/etc/remedy-lab-d7
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -86,6 +95,16 @@ if [ "$CLEAN" -eq 1 ]; then
     rm -f /etc/systemd/system/remedy-lab.service
     rm -f /etc/systemd/system/multi-user.target.wants/remedy-lab.service
     rm -rf "$EXTROOT/$EVIL_EXT" "$EXTROOT/$GOOD_EXT"
+    # 사용자 홈(12 절). **표지가 있는 사용자만** 홈째 지운다.
+    for u in alice bob; do
+        if [ "$(getent passwd "$u" | cut -d: -f5)" = "$USER_TAG" ]; then
+            userdel -r "$u" > /dev/null 2>&1
+            rm -rf "/home/$u"
+        fi
+    done
+    [ -f /home/b ] && grep -q 'REMEDY-LAB' /home/b && rm -f /home/b
+    [ -L /home/test ] && [ "$(readlink /home/test)" = "$LINKHOME" ] && rm -f /home/test
+    rm -rf "$LINKHOME" "$D7_ROOT"
     # 줄 단위로 넣은 것은 줄 단위로 뺀다.
     if [ -f /etc/hosts ]; then
         sed -i '/lab\.remedy\.invalid/d' /etc/hosts
@@ -157,8 +176,9 @@ DESKTOP
 
 # ── 7. cert_store — 하나만 없어져야 한다 ────────────────────────────
 mkdir -p /usr/local/share/ca-certificates
-cp "$HERE/fixtures/lab-ca.crt"   /usr/local/share/ca-certificates/lab-ca.crt
-cp "$HERE/fixtures/decoy-ca.crt" /usr/local/share/ca-certificates/decoy-ca.crt
+# mode 는 정해 둔다 — `cp` 는 원본의 mode 를 따르고, Windows 에서 붙인 저장소의 파일은 755 로 보인다.
+install -m 644 "$HERE/fixtures/lab-ca.crt"   /usr/local/share/ca-certificates/lab-ca.crt
+install -m 644 "$HERE/fixtures/decoy-ca.crt" /usr/local/share/ca-certificates/decoy-ca.crt
 
 # ── 8. persistence (cron) — 하나만 없어져야 한다 ────────────────────
 mkdir -p /etc/cron.d
@@ -228,6 +248,90 @@ if ! labproc_pid > /dev/null; then
         sleep 0.2
     done
 fi
+
+# ── 12. 사용자 홈 — 홈 찾기와 소유자 복원 (이슈 #172) ───────────────
+#
+# **홈 찾기.** 쿼터를 켠 서버는 `/home` 바로 아래에 파일(`aquota.group` · `aquota.user`)을 두고, 그 이름이 두
+# 홈 사이에 온다. 그 자리에 파일 `b` 를 둔다(alice < b < bob — 누출 검사가 `/home/` 뒤의 이름을 실사용자로
+# 읽어 시험 이름을 쓴다). `/home` 을 상한 1 로 걷던 엔진(1.26.0 까지)은 그 파일에서 걷기를 끝내 bob 의 유닛 ·
+# 자동실행을 말없이 빠뜨렸다. `/home` 에 파일이 없으면 첫 홈 안으로 내려가 이름 차례 맨 앞 폴더(`~/.aaa` —
+# 흔히 `~/.aws`)를 홈으로 담았다 — 그 안의 미끼 timer 가 그것을 드러낸다(`/home` 의 파일과 링크가 그 걷기를
+# 먼저 끊으므로 하네스가 둘을 잠시 치우고 따로 걷는다). `test` 는 홈 자리의 링크다 — 홈으로 담지 않아야 한다.
+#
+# **소유자 복원.** alice 의 setuid 도구(4755) · www-data 의 파일(640) · bob 의 사용자 유닛과 활성화 링크를
+# 치료하고 제자리로 되돌려 소유자(uid:gid) · mode · 링크 자체의 소유자가 같은가를 본다. 도구 자리는 무해한
+# 자리 채우기 바이트다 — ELF 가 아니고 아무도 실행하지 않는다.
+for spec in alice:4242 bob:4243; do
+    u="${spec%%:*}"; uid="${spec#*:}"
+    if getent passwd "$u" > /dev/null; then
+        [ "$(getent passwd "$u" | cut -d: -f5)" = "$USER_TAG" ] \
+            || { echo "이 스크립트가 만들지 않은 사용자 $u 가 있다 — 건드리지 않는다"; exit 1; }
+    else
+        [ -e "/home/$u" ] && { echo "사용자 없는 홈 자리가 있다($u) — 건드리지 않는다"; exit 1; }
+        useradd -m -U -u "$uid" -c "$USER_TAG" -s /bin/sh "$u" \
+            || { echo "사용자 $u 를 만들지 못했다(useradd)"; exit 1; }
+    fi
+done
+if [ -e /home/test ] && [ ! -L /home/test ]; then
+    echo "링크 홈 자리(test)에 링크가 아닌 것이 있다 — 건드리지 않는다"; exit 1
+fi
+
+printf 'REMEDY-LAB quota-file placeholder. 홈이 아니다.\n' > /home/b
+chmod 600 /home/b
+
+TIMER_UNIT='[Unit]
+Description=Remedy Lab timer fixture (아무 일도 하지 않는다)
+
+[Timer]
+OnCalendar=daily
+
+[Install]
+WantedBy=timers.target'
+mkdir -p /home/alice/.aaa/.config/systemd/user "$LINKHOME/.config/systemd/user"
+printf '%s\n' "$TIMER_UNIT" > /home/alice/.aaa/.config/systemd/user/remedy-lab-decoy.timer
+printf '%s\n' "$TIMER_UNIT" > "$LINKHOME/.config/systemd/user/remedy-lab-linkhome.timer"
+[ -e /home/alice/.bash_logout ] || : > /home/alice/.bash_logout
+ln -sfn "$LINKHOME" /home/test
+
+mkdir -p /home/alice/bin
+printf 'REMEDY-LAB setuid tool placeholder. ELF 가 아니다 — 실행되지 않는다.\n' \
+    > /home/alice/bin/remedy-lab-tool
+# chown 이 setuid 를 지우므로 소유자를 먼저 바꾸고 mode 를 뒤에 둔다.
+chown -R alice:alice /home/alice || { echo "alice 의 홈 소유자를 바꾸지 못했다"; exit 1; }
+chmod 755 /home/alice/bin
+chmod 4755 /home/alice/bin/remedy-lab-tool
+
+printf 'REMEDY-LAB www-data owned fixture.\n' > "$LAB/www.dat"
+chown www-data:www-data "$LAB/www.dat" || { echo "www-data 소유로 바꾸지 못했다"; exit 1; }
+chmod 640 "$LAB/www.dat"
+
+UNITS=/home/bob/.config/systemd/user
+mkdir -p "$UNITS/default.target.wants" /home/bob/.config/autostart
+cat > "$UNITS/remedy-lab-user.service" <<'UNIT'
+[Unit]
+Description=Remedy Lab user fixture (아무 일도 하지 않는다)
+
+[Service]
+Type=oneshot
+ExecStart=/bin/true
+
+[Install]
+WantedBy=default.target
+UNIT
+printf '%s\n' "$TIMER_UNIT" > "$UNITS/remedy-lab-user.timer"
+ln -sfn "$UNITS/remedy-lab-user.service" "$UNITS/default.target.wants/remedy-lab-user.service"
+cat > /home/bob/.config/autostart/remedy-lab-user.desktop <<'DESKTOP'
+[Desktop Entry]
+Type=Application
+Name=Remedy Lab User Autostart Fixture
+Exec=/bin/true
+Terminal=false
+DESKTOP
+chown -R bob:bob /home/bob/.config || { echo "bob 의 설정 폴더 소유자를 바꾸지 못했다"; exit 1; }
+chown -h bob:bob "$UNITS/default.target.wants/remedy-lab-user.service"
+
+mkdir -p "$D7_ROOT"
+chmod 755 "$D7_ROOT"
 
 echo "픽스처를 만들었다."
 pid="$(labproc_pid || true)"

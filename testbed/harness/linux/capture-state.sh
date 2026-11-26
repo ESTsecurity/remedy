@@ -13,8 +13,10 @@
 # 픽스처가 사는 자리 전부. **지워질 것과 남을 것을 같이 담는다** — 남을 것이
 # 빠지면 "계획에 없는 것을 건드렸다" 를 잴 수 없다.
 #
-# 파일은 존재·크기·해시·모드를 담는다. 해시가 있어야 격리·복원 왕복에서
-# **바이트가 같은 것이 돌아왔는가**를 볼 수 있다.
+# 파일은 존재·크기·해시·모드·소유자(uid:gid)를 담는다. 해시가 있어야 격리·복원
+# 왕복에서 **바이트가 같은 것이 돌아왔는가**를, 소유자가 있어야 **누구의 것으로
+# 돌아왔는가**를 볼 수 있다(이슈 #172 — root 로 되돌린 사용자의 setuid 파일은
+# root 의 setuid 가 된다). 링크는 가리키는 곳과 **링크 자체의** 소유자를 담는다.
 #
 # # 쓰는 법
 #
@@ -32,20 +34,23 @@ esc() {
 }
 
 # 파일 하나. 없으면 present:false 로 담는다 — 빠뜨리는 것과 없는 것은 다르다.
+#
+# `stat` 은 링크를 따라가지 않는다(`-L` 없이) — 링크의 `owner` 는 링크 자체의 것이다.
 emit_file() {
     local p="$1"
     if [ -L "$p" ]; then
-        printf '    { "path": "%s", "present": true, "kind": "symlink", "target": "%s" }' \
-            "$(esc "$p")" "$(esc "$(readlink "$p")")"
+        printf '    { "path": "%s", "present": true, "kind": "symlink", "target": "%s", "owner": "%s" }' \
+            "$(esc "$p")" "$(esc "$(readlink "$p")")" "$(stat -c %u:%g "$p")"
     elif [ -f "$p" ]; then
-        printf '    { "path": "%s", "present": true, "kind": "file", "size": %s, "mode": "%s", "sha256": "%s" }' \
+        printf '    { "path": "%s", "present": true, "kind": "file", "size": %s, "mode": "%s", "owner": "%s", "sha256": "%s" }' \
             "$(esc "$p")" \
             "$(stat -c %s "$p")" \
             "$(stat -c %a "$p")" \
+            "$(stat -c %u:%g "$p")" \
             "$(sha256sum "$p" | cut -d' ' -f1)"
     elif [ -d "$p" ]; then
-        printf '    { "path": "%s", "present": true, "kind": "dir", "mode": "%s" }' \
-            "$(esc "$p")" "$(stat -c %a "$p")"
+        printf '    { "path": "%s", "present": true, "kind": "dir", "mode": "%s", "owner": "%s" }' \
+            "$(esc "$p")" "$(stat -c %a "$p")" "$(stat -c %u:%g "$p")"
     else
         printf '    { "path": "%s", "present": false }' "$(esc "$p")"
     fi
@@ -78,6 +83,17 @@ PATHS=(
     /etc/hosts
     "$EXTROOT/remedylabremedylabremedylabremed"
     "$EXTROOT/innocentinnocentinnocentinnoce"
+    # 사용자 홈 (이슈 #172 — new-fixtures.sh 12 절)
+    /home/b
+    /home/test
+    /home/alice/bin
+    /home/alice/bin/remedy-lab-tool
+    /opt/remedy-lab/www.dat
+    /home/bob/.config/systemd/user/remedy-lab-user.service
+    /home/bob/.config/systemd/user/remedy-lab-user.timer
+    /home/bob/.config/systemd/user/default.target.wants/remedy-lab-user.service
+    /home/bob/.config/autostart/remedy-lab-user.desktop
+    /etc/remedy-lab-d7
 )
 
 printf '{\n  "captured": "%s",\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"

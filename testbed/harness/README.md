@@ -2308,11 +2308,11 @@ Windows 쪽은 VM 스냅샷으로 격리를 얻는다. Linux 는 **컨테이너*
 | 파일 | 실행 위치 | 역할 |
 |---|---|---|
 | `linux/lab-plugin.yaml` | — | 검증용 실험 플러그인 (**치료까지 간다**) |
-| `linux/new-fixtures.sh` | 컨테이너 | 무해한 픽스처 생성/정리. `--force` 없이 컨테이너 밖에서는 멈춘다 |
-| `linux/capture-state.sh` | 컨테이너 | 상태 캡처. **remedy 를 전혀 쓰지 않는다** |
-| `linux/verify-linux.sh` | 컨테이너 | 검증 본체 — 수집·판정·계획·치료·격리·복원·저널 |
+| `linux/new-fixtures.sh` | 컨테이너 | 무해한 픽스처 생성/정리. `--force` 없이 컨테이너 밖에서는 멈춘다. 사용자 alice · bob 과 그 홈(이슈 #172 — `/home` 의 파일 · 링크 홈 · 점 폴더의 미끼 · setuid 자리 채우기 · 사용자 유닛)도 세우고, 지울 때는 **이 스크립트가 만든 사용자만**(GECOS 표지) 지운다 |
+| `linux/capture-state.sh` | 컨테이너 | 상태 캡처. **remedy 를 전혀 쓰지 않는다**. 소유자(uid:gid)와 링크 자체의 소유자도 담는다 |
+| `linux/verify-linux.sh` | 컨테이너 | 검증 본체 — 수집·판정·계획·치료·격리·복원·저널. **엔진 1.27.0 부터 이슈 #172 칸 일곱** — 홈 찾기(A4 `/home` 의 파일 뒤의 홈 · A5 점 폴더를 홈으로 담지 않음 · A6 잘림 없음 · A7 링크 홈) · 제자리 복원(D5) · 소유자 · mode · 링크까지 같은가(D6) · 링크로 바뀐 부모 너머에 쓰지 않는가(D7 · 5). 그 앞의 엔진이면 그 칸을 건너뛰고(실패로 세지 않는다), 공개본에서 결함을 재현할 때만 `JUDGE_ALL=1` 로 판정한다(1.26.0 · 2026-11-27: A4 · A5 · D6 · D7 실패 — 23/27) |
 | `linux/trunc-verify.sh` | 컨테이너 | **수집 상한에 걸려 잘렸을 때 6 이 나오는가** (아래) |
-| `linux/invoke-linux-verify.sh` | 호스트 | 컨테이너를 띄워 위를 부른다 |
+| `linux/invoke-linux-verify.sh` | 호스트 | 컨테이너를 띄워 위를 부른다(환경 `JUDGE_ALL` 을 넘겨 준다) |
 | `linux/fixtures/*.crt` | — | 자기서명 시험용 인증서 둘. 2126년까지 유효하다 |
 | `linux/corpus-all-subjects.yaml` | — | 코퍼스용. **아무것도 맞히지 않는다** |
 | `linux/new-corpus-snapshot.sh` | 랩 기계 | 청정 스냅샷 |
@@ -2415,6 +2415,9 @@ docker run --rm -v "$PWD:/repo:ro" \
 
 # 2. 검증
 testbed/harness/linux/invoke-linux-verify.sh
+
+# 공개본(엔진 1.27.0 앞)에서 이슈 #172 의 칸을 판정해 결함을 재현할 때만
+JUDGE_ALL=1 testbed/harness/linux/invoke-linux-verify.sh --bin <공개본의 remedy>
 ```
 
 레지스트리를 읽기 전용으로 걸면 안 된다 — `yara-x` 의 빌드 스크립트가 그 아래에
