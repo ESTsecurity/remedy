@@ -492,16 +492,22 @@ fn attach(files: &mut Vec<FileRecord>, path: &str, key: &str, bytes: &[u8]) {
 /// **해시가 있는 것만** 고른다 — 주 수집은 링크와 해시 상한을 넘는 파일을 해시하지
 /// 않는다. 링크를 고르면 대상의 바이트가 링크의 경로에 적힌다(설계-02 §4 가 걷기에서
 /// 막은 것이다).
+///
+/// **뿌리는 끝 구분자를 떼고 견준다.** 정규화는 뿌리(`e:\` · `/`)에만 끝 구분자를 남기고, 레코드의 부모는 구분자
+/// 앞까지(`e:` · 빈 글자)다 — 그대로 견주면 `%REMOVABLE%\*.lnk` · `E:\*.lnk` 가 하나도 고르지 못하고 말없이
+/// 0건이었다.
 fn globbed(files: &[FileRecord], dir: &str, name: &str, platform: Platform) -> Vec<String> {
     let dir = normalize::for_compare(dir, platform);
+    let dir = dir.strip_suffix(['/', '\\']).unwrap_or(&dir);
     let name = normalize::for_compare(name, platform);
     files
         .iter()
         .filter(|f| f.sha256.is_some())
         .filter(|f| {
             let p = normalize::for_compare(&f.path, platform);
-            p.rfind(['/', '\\'])
-                .is_some_and(|cut| p[..cut] == dir && normalize::name_matches(&p[cut + 1..], &name))
+            p.rfind(['/', '\\']).is_some_and(|cut| {
+                &p[..cut] == dir && normalize::name_matches(&p[cut + 1..], &name)
+            })
         })
         .map(|f| f.path.clone())
         .collect()
@@ -1033,6 +1039,62 @@ collect_extra:
         assert!(un.is_empty(), "{un:?}");
         assert_eq!(taken(&obs), [a, b]);
         assert_eq!(*homes.asked.borrow(), ["%ALLUSERPROFILES%\\bin"]);
+    }
+
+    /// `token` 하나만 `root` 로 펴는 가짜 — 드라이브 · 마운트 뿌리로 펴지는 토큰(`%REMOVABLE%` · `%FIXED_DISKS%`).
+    fn to_root(token: &'static str, root: &'static str) -> impl Fn(&str) -> RootExpansion {
+        move |s| {
+            if s == token {
+                RootExpansion {
+                    roots: vec![root.to_string()],
+                    notes: Vec::new(),
+                }
+            } else {
+                one_to_one(s)
+            }
+        }
+    }
+
+    #[test]
+    fn a_glob_whose_folder_is_a_drive_root_takes_the_files_right_under_it() {
+        // 폴더 칸이 뿌리이면 끝 구분자가 남는다(`E:\`). 레코드의 부모는 구분자 앞까지(`E:`)라 그대로 견주면 하나도
+        // 고르지 못하고 미해소 줄도 남지 않았다 — 드라이브 뿌리의 LNK 꼴이 말없이 0건이었다.
+        let (x, deeper, other) = ("E:\\x.lnk", "E:\\sub\\y.lnk", "E:\\x.txt");
+        let f = fs(&[(x, b"lnk"), (deeper, b"deeper"), (other, b"txt")]);
+        let sc = homes_scope(&["E:\\"], Platform::Windows);
+        let removable = to_root("%REMOVABLE%", "E:\\");
+        for (glob, expand) in [
+            (
+                "%REMOVABLE%\\*.lnk",
+                &removable as &dyn Fn(&str) -> RootExpansion,
+            ),
+            // 리터럴 뿌리도 같은 자리다 — 폴더 칸 `E:` 가 `E:\` 로 맞춰진다.
+            ("E:\\*.lnk", &one_to_one),
+        ] {
+            let m = manifest(&format!("  - {{ glob: '{glob}' }}"));
+            let mut obs = walked(&[(x, true), (deeper, true), (other, true)]);
+            let un = collect_extra_expanding(&f, expand, &m, &sc, &mut obs, RefPolicy::ReportNow);
+            assert!(un.is_empty(), "{glob}: {un:?}");
+            assert_eq!(
+                taken(&obs),
+                [x],
+                "{glob}: 뿌리 바로 아래의 맞는 이름만 담아야 한다"
+            );
+        }
+    }
+
+    #[test]
+    fn a_glob_whose_folder_is_the_linux_root_takes_the_files_right_under_it() {
+        // 마운트 `/` 로 펴진 폴더 칸 — 레코드 `/x.sh` 의 부모는 빈 글자라 `/` 와 견주면 고르지 못했다.
+        let (x, deeper) = ("/x.sh", "/sub/y.sh");
+        let f = fs(&[(x, b"sh"), (deeper, b"deeper")]);
+        let m = manifest("  - { glob: '%FIXED_DISKS%/*.sh' }");
+        let mut obs = walked(&[(x, true), (deeper, true)]);
+        let sc = homes_scope(&["/"], Platform::Linux);
+        let expand = to_root("%FIXED_DISKS%", "/");
+        let un = collect_extra_expanding(&f, &expand, &m, &sc, &mut obs, RefPolicy::ReportNow);
+        assert!(un.is_empty(), "{un:?}");
+        assert_eq!(taken(&obs), [x]);
     }
 
     #[test]
