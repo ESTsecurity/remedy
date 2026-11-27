@@ -510,6 +510,10 @@ fn check_from_subject(m: &PluginManifest, out: &mut Vec<LintIssue>) {
 /// 오류 없이 **조용히 0건**이고, 그 본문에 걸린 YARA 는 "안 맞았다" 로 나간다 —
 /// 와일드카드가 폴더 쪽에 있다(한 폴더만 고른다) · 폴더가 `scan_roots` 밖이다(레코드가
 /// 없다) · `file` 이 `subjects` 에 없다(레코드가 없다).
+///
+/// 폴더가 `scan_roots` 안인지는 **전개 전 문자열로** 본다([`root_covers`]). 같은 토큰이면 같은 폴더라는 판단은
+/// 코어 1.27.0 부터 참이다 — 코어가 글롭의 폴더 칸을 `scan_roots` 와 같이 편다. 그 앞의 코어는 펴지 않고 원문을
+/// 펴진 상한과 견줘 *밖* 으로 보고했으므로, 폴더 칸에 토큰을 쓴 룰의 `min_core` 하한은 `validate` 가 본다.
 fn check_collect_extra_globs(m: &PluginManifest, out: &mut Vec<LintIssue>) {
     for (i, item) in m.collect_extra.iter().enumerate() {
         let CollectExtra::Glob(g) = item else {

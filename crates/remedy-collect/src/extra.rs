@@ -20,7 +20,7 @@
 //! 걸린 YARA 규칙이 영영 미평가인데 판정은 "안 맞았다" 로 나간다.
 
 use remedy_artifacts::{FileRecord, Observations, Scope};
-use remedy_platform::read::FsRead;
+use remedy_platform::read::{FsRead, RootExpansion};
 use remedy_sdk::artifact::{ArtifactsEnvelope, Evidence};
 use remedy_sdk::catalog::{Platform, Subject};
 use remedy_sdk::manifest::{CollectExtra, PluginManifest};
@@ -75,8 +75,12 @@ pub enum RefPolicy {
 /// 담은 본문은 `Observations::blobs` 에, 그 참조는 해당 `file` 레코드의
 /// `content_ref` 에 들어간다. 대상이 아직 `file` 로 수집되지 않았다면 레코드를
 /// 만들어 넣는다 — 본문만 있고 그것이 어느 파일인지 모르는 상태를 만들지 않는다.
+///
+/// `expand` 는 `scan_roots` 를 편 함수와 같은 것이다(`pipeline::collect_declared`). `glob` 형의 **폴더 칸만**
+/// 그것으로 편다(코어 1.27.0) — `%ALLUSERPROFILES%/bin/x*` 는 홈마다의 `bin` 이 된다.
 pub fn collect_extra<P: FsRead>(
     fs: &P,
+    expand: &dyn Fn(&str) -> RootExpansion,
     manifest: &PluginManifest,
     scope: &Scope,
     obs: &mut Observations,
@@ -157,7 +161,8 @@ pub fn collect_extra<P: FsRead>(
                 }
             }
             CollectExtra::Glob(g) => {
-                let pattern = normalize::for_record(&fs_expand(fs, &g.glob), scope.platform);
+                // **쪼갠 뒤 폴더 칸만 편다** — 이름 꼴의 `*` 를 펴는 쪽에 넘기면 그것이 경로가 된다.
+                let pattern = normalize::for_record(&g.glob, scope.platform);
                 let cap = parse_size(g.max_size.as_deref()).unwrap_or(DEFAULT_MAX_BYTES);
                 let Some((dir, name)) = normalize::split_glob(&pattern) else {
                     unresolved.push(Unresolved {
@@ -175,24 +180,30 @@ pub fn collect_extra<P: FsRead>(
                     });
                     continue;
                 };
-                // 폴더가 상한 밖이면 고를 레코드가 없어 **조용히 0건**이 된다 — 말한다.
-                if !scope.allows(dir) {
-                    unresolved.push(Unresolved {
-                        at,
-                        reason: lang.pick(
-                            format!("'{dir}' 가 scan_roots 밖입니다"),
-                            format!("'{dir}' is outside scan_roots"),
-                        ),
-                    });
-                    continue;
-                }
-                // 폴더가 없으면 고를 것이 없다 — 없는 것이지 못 본 것이 아니다.
-                for path in globbed(sink.files, dir, name, scope.platform) {
-                    if let Err(reason) = take_body(fs, &path, cap, scope, &mut sink) {
+                // 펴며 알게 된 사실(`notes`)은 싣지 않는다. 린트가 폴더를 덮는 `scan_roots` 를 요구하므로
+                // (`check_collect_extra_globs`) 같은 토큰을 그쪽이 이미 폈고, 그 사실은 같은 미해소 목록에 이미
+                // 들었다(`pipeline::collect_declared`) — 다시 실으면 한 사실이 두 줄이 된다.
+                for dir in expand(dir).roots {
+                    let dir = normalize::for_record(&dir, scope.platform);
+                    // 폴더가 상한 밖이면 고를 레코드가 없어 **조용히 0건**이 된다 — 펴진 폴더로 말한다.
+                    if !scope.allows(&dir) {
                         unresolved.push(Unresolved {
                             at: at.clone(),
-                            reason,
+                            reason: lang.pick(
+                                format!("'{dir}' 가 scan_roots 밖입니다"),
+                                format!("'{dir}' is outside scan_roots"),
+                            ),
                         });
+                        continue;
+                    }
+                    // 폴더가 없으면 고를 것이 없다 — 없는 것이지 못 본 것이 아니다.
+                    for path in globbed(sink.files, &dir, name, scope.platform) {
+                        if let Err(reason) = take_body(fs, &path, cap, scope, &mut sink) {
+                            unresolved.push(Unresolved {
+                                at: at.clone(),
+                                reason,
+                            });
+                        }
                     }
                 }
             }
@@ -497,8 +508,8 @@ fn globbed(files: &[FileRecord], dir: &str, name: &str, platform: Platform) -> V
 }
 
 fn fs_expand<P: FsRead>(_fs: &P, s: &str) -> String {
-    // `FsRead` 는 전개를 모른다. 토큰 전개는 `Scope` 를 만들 때 이미 끝났고,
-    // 여기 오는 경로는 매니페스트 원문이므로 남은 토큰만 그대로 둔다.
+    // `path` · `subject` 형은 **펴지 않는다** — 원문 그대로 상한과 견주므로 토큰이 남은 경로는 펴진
+    // `scan_roots` 밖으로 보고된다. 펴는 것은 `glob` 형의 폴더 칸뿐이다(코어 1.27.0 · `collect_extra`).
     s.to_string()
 }
 
@@ -553,7 +564,8 @@ mod tests {
     /// 본 것과 같은 모양).
     ///
     /// **이름을 그대로 둔 것**은 아래 시험 아홉을 고치지 않기 위해서다 —
-    /// `use super::*` 로 들어온 이름을 로컬 정의가 가린다.
+    /// `use super::*` 로 들어온 이름을 로컬 정의가 가린다. 토큰을 펴지 않는다(1:1) — 토큰을
+    /// 재는 시험은 [`collect_extra_expanding`] 으로 펴는 함수를 넘긴다.
     fn collect_extra<P: FsRead>(
         fs: &P,
         manifest: &PluginManifest,
@@ -561,7 +573,25 @@ mod tests {
         obs: &mut Observations,
         refs: RefPolicy,
     ) -> Vec<Unresolved> {
-        let v = super::collect_extra(fs, manifest, scope, obs, refs);
+        collect_extra_expanding(fs, &one_to_one, manifest, scope, obs, refs)
+    }
+
+    fn one_to_one(s: &str) -> RootExpansion {
+        RootExpansion {
+            roots: vec![s.to_string()],
+            notes: Vec::new(),
+        }
+    }
+
+    fn collect_extra_expanding<P: FsRead>(
+        fs: &P,
+        expand: &dyn Fn(&str) -> RootExpansion,
+        manifest: &PluginManifest,
+        scope: &Scope,
+        obs: &mut Observations,
+        refs: RefPolicy,
+    ) -> Vec<Unresolved> {
+        let v = super::collect_extra(fs, expand, manifest, scope, obs, refs);
         for u in &v {
             assert!(
                 !한글이_있는가(&u.reason),
@@ -809,6 +839,200 @@ collect_extra:
         let un = collect_extra(&f, &m, &scope(), &mut obs, RefPolicy::ReportNow);
         assert!(un.is_empty(), "{un:?}");
         assert_eq!(obs.blobs.len(), 1, "대소문자만 다른 이름을 놓쳤다");
+    }
+
+    // ─────────────────────────────────────────── 글롭 폴더 칸의 토큰 (코어 1.27.0 · 이슈 #172 ②)
+
+    /// `%ALLUSERPROFILES%` 를 주어진 홈들로 펴는 가짜. 받은 원문을 `asked` 에 적는다.
+    ///
+    /// 펴며 알게 된 사실(`notes`)도 하나 낸다 — 같은 토큰을 편 `scan_roots` 쪽이 이미 보고하므로 글롭이 다시
+    /// 실으면 한 사실이 두 줄이 된다.
+    struct Homes {
+        homes: Vec<&'static str>,
+        asked: std::cell::RefCell<Vec<String>>,
+    }
+
+    impl Homes {
+        fn new(homes: &[&'static str]) -> Self {
+            Self {
+                homes: homes.to_vec(),
+                asked: Default::default(),
+            }
+        }
+
+        fn expand(&self, s: &str) -> RootExpansion {
+            const TOKEN: &str = "%ALLUSERPROFILES%";
+            self.asked.borrow_mut().push(s.to_string());
+            match s.get(..TOKEN.len()) {
+                Some(t) if t.eq_ignore_ascii_case(TOKEN) => RootExpansion {
+                    roots: self
+                        .homes
+                        .iter()
+                        .map(|h| format!("{h}{}", &s[TOKEN.len()..]))
+                        .collect(),
+                    notes: vec![format!("{s}: /root could not be opened (permission)")],
+                },
+                _ => one_to_one(s),
+            }
+        }
+    }
+
+    /// `scope_from_manifest` 가 `%ALLUSERPROFILES%/bin` 을 편 범위.
+    fn homes_scope(roots: &[&str], platform: Platform) -> Scope {
+        let mut s = Scope::diagnostic(roots.iter().map(|r| r.to_string()).collect(), platform);
+        s.subjects = vec![Subject::File];
+        s
+    }
+
+    /// 본문이 이어진 레코드의 경로.
+    fn taken(obs: &Observations) -> Vec<String> {
+        obs.files()
+            .into_iter()
+            .filter(|r| r.content_ref.is_some())
+            .map(|r| r.path)
+            .collect()
+    }
+
+    const BIG: &str = "remedy-lab-big.bin";
+
+    #[test]
+    fn a_token_in_the_glob_folder_takes_the_files_of_every_home() {
+        // 1.26.0 은 폴더 칸을 원문 그대로 상한과 견줘 `'%ALLUSERPROFILES%/bin' 가 scan_roots 밖` 을 냈다 — 린트는
+        // 같은 토큰이라 통과시켰다. 홈마다 그 폴더의 맞는 이름만 담는다.
+        let (a, b) = (
+            format!("/home/alice/bin/{BIG}"),
+            format!("/home/bob/bin/{BIG}"),
+        );
+        let f = fs(&[
+            (a.as_str(), b"alice"),
+            (b.as_str(), b"bob"),
+            ("/home/bob/bin/other.bin", b"other"),
+        ]);
+        let m = manifest("  - { glob: '%ALLUSERPROFILES%/bin/remedy-lab-big*' }");
+        let mut obs = walked(&[
+            (a.as_str(), true),
+            (b.as_str(), true),
+            ("/home/bob/bin/other.bin", true),
+        ]);
+        let homes = Homes::new(&["/home/alice", "/home/bob"]);
+        let sc = homes_scope(&["/home/alice/bin", "/home/bob/bin"], Platform::Linux);
+        let un = collect_extra_expanding(
+            &f,
+            &|s| homes.expand(s),
+            &m,
+            &sc,
+            &mut obs,
+            RefPolicy::ReportNow,
+        );
+        assert!(un.is_empty(), "{un:?}");
+        assert_eq!(
+            taken(&obs),
+            [a, b],
+            "홈 하나를 빠뜨렸거나 다른 이름을 담았다"
+        );
+        assert_eq!(obs.blobs.len(), 2);
+    }
+
+    #[test]
+    fn the_max_size_of_a_token_glob_reaches_every_home() {
+        // 기본 상한(8 MiB)을 넘는 본문 — 펴진 홈마다 선언한 `max_size` 로 읽어야 담긴다.
+        let big = vec![7u8; DEFAULT_MAX_BYTES as usize + 1];
+        let (a, b) = (
+            format!("/home/alice/bin/{BIG}"),
+            format!("/home/bob/bin/{BIG}"),
+        );
+        let f = fs(&[(a.as_str(), big.as_slice()), (b.as_str(), b"bob")]);
+        let m = manifest("  - { glob: '%ALLUSERPROFILES%/bin/remedy-lab-big*', max_size: 32MB }");
+        let mut obs = walked(&[(a.as_str(), true), (b.as_str(), true)]);
+        let homes = Homes::new(&["/home/alice", "/home/bob"]);
+        let sc = homes_scope(&["/home/alice/bin", "/home/bob/bin"], Platform::Linux);
+        let un = collect_extra_expanding(
+            &f,
+            &|s| homes.expand(s),
+            &m,
+            &sc,
+            &mut obs,
+            RefPolicy::ReportNow,
+        );
+        assert!(un.is_empty(), "{un:?}");
+        assert_eq!(taken(&obs), [a, b]);
+        assert_eq!(
+            f.1.get(),
+            32 * 1024 * 1024,
+            "마지막 홈을 max_size 로 읽지 않았다"
+        );
+    }
+
+    #[test]
+    fn a_home_outside_scan_roots_is_told_by_its_expanded_path() {
+        // 받은 사람이 고칠 자리는 펴진 폴더다 — 토큰 원문으로 말하면 어느 홈인지 모른다.
+        let a = format!("/home/alice/bin/{BIG}");
+        let f = fs(&[(a.as_str(), b"alice")]);
+        let m = manifest("  - { glob: '%ALLUSERPROFILES%/bin/remedy-lab-big*' }");
+        let mut obs = walked(&[(a.as_str(), true)]);
+        let homes = Homes::new(&["/home/alice", "/home/bob"]);
+        let sc = homes_scope(&["/home/alice/bin"], Platform::Linux);
+        let un = collect_extra_expanding(
+            &f,
+            &|s| homes.expand(s),
+            &m,
+            &sc,
+            &mut obs,
+            RefPolicy::ReportNow,
+        );
+        assert_eq!(un.len(), 1, "{un:?}");
+        let why = &un[0].reason;
+        assert!(
+            why.contains("'/home/bob/bin'")
+                && why.contains(remedy_sdk::i18n::t("scan_roots 밖", "outside scan_roots")),
+            "{why}"
+        );
+        assert!(!why.contains('%'), "토큰 원문으로 말했다: {why}");
+        assert_eq!(taken(&obs), [a], "상한 안의 홈까지 버렸다");
+    }
+
+    #[test]
+    fn the_expander_is_asked_for_the_folder_part_only() {
+        // 이름 꼴(`remedy-lab-big*`)을 함께 넘기면 그 `*` 가 펴는 쪽의 경로가 된다.
+        let m = manifest("  - { glob: '%ALLUSERPROFILES%/bin/remedy-lab-big*' }");
+        let homes = Homes::new(&["/home/alice"]);
+        let sc = homes_scope(&["/home/alice/bin"], Platform::Linux);
+        let mut obs = walked(&[]);
+        collect_extra_expanding(
+            &fs(&[]),
+            &|s| homes.expand(s),
+            &m,
+            &sc,
+            &mut obs,
+            RefPolicy::ReportNow,
+        );
+        assert_eq!(*homes.asked.borrow(), ["%ALLUSERPROFILES%/bin"]);
+    }
+
+    #[test]
+    fn a_token_glob_on_windows_expands_to_every_profile() {
+        // Windows 의 토큰은 프로필 목록(`C:\Users\<이름>`)으로 펴진다. 구분자는 펴기 전에 `\` 로 맞추고,
+        // 레코드의 대소문자는 접어 견준다.
+        let (a, b) = ("c:\\users\\alice\\bin\\a.dll", "c:\\users\\bob\\bin\\b.dll");
+        let f = fs(&[(a, b"a"), (b, b"b")]);
+        let m = manifest("  - { glob: '%ALLUSERPROFILES%/bin/*.DLL' }");
+        let mut obs = walked(&[(a, true), (b, true)]);
+        let homes = Homes::new(&["C:\\Users\\alice", "C:\\Users\\bob"]);
+        let sc = homes_scope(
+            &["C:\\Users\\alice\\bin", "C:\\Users\\bob\\bin"],
+            Platform::Windows,
+        );
+        let un = collect_extra_expanding(
+            &f,
+            &|s| homes.expand(s),
+            &m,
+            &sc,
+            &mut obs,
+            RefPolicy::ReportNow,
+        );
+        assert!(un.is_empty(), "{un:?}");
+        assert_eq!(taken(&obs), [a, b]);
+        assert_eq!(*homes.asked.borrow(), ["%ALLUSERPROFILES%\\bin"]);
     }
 
     #[test]

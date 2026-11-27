@@ -699,6 +699,9 @@ pub struct CollectSubject {
 /// 고르는 것은 **주 수집이 걸어서 해시한 파일**이다 — 링크와 해시 상한을 넘는 파일은
 /// 고르지 않는다(링크의 경로에 대상의 내용을 적지 않는다). 폴더가 없으면 담을 것이 없는
 /// 것이지 미해소가 아니다.
+///
+/// 폴더 칸의 토큰(`%ALLUSERPROFILES%` 등)은 `scan_roots` 와 같이 편다(코어 1.27.0 — `min_core` 를 그 이상으로) —
+/// 홈마다의 폴더가 되고, 그 폴더마다 위 규칙으로 고른다.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct CollectGlob {

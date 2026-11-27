@@ -393,6 +393,33 @@ fn an_added_date_needs_core_1_25_0() {
     );
 }
 
+// ───────────────────────────── 글롭 폴더 칸의 토큰 (`collect_extra` · 2026-11-27 · 코어 1.27.0)
+
+/// `collect_extra` 글롭 하나를 더한 모양. 폴더는 BASE 의 `scan_roots` 안이다.
+fn with_glob(glob: &str, min_core: &str) -> String {
+    BASE.replace("min_core: '1.0.0'", &format!("min_core: '{min_core}'"))
+        + &format!("collect_extra:\n  - {{ glob: '{glob}' }}\n")
+}
+
+#[test]
+fn a_token_in_a_glob_folder_needs_core_1_27_0() {
+    // 낮은 코어는 폴더 칸을 펴지 않고 원문 그대로 상한과 견줘 'scan_roots 밖' 으로 보고한다 — 칸 자체는 읽으므로
+    // 로드에서 멈추지도 않는다. 룰만 바뀐 출시가 이 룰을 낮은 코어에 실으면 조용히 6 이 난다.
+    const TOKEN: &str = r"%SystemRoot%\System32\Tasks\*.xml";
+    let low = errors(&with_glob(TOKEN, "1.0.0"));
+    assert!(
+        low.iter()
+            .any(|x| x.starts_with("min_core ::") && x.contains("1.27.0")),
+        "{low:?}"
+    );
+    assert_eq!(low.len(), 1, "{low:?}");
+    let new = errors(&with_glob(TOKEN, "1.27.0"));
+    assert!(new.is_empty(), "{new:?}");
+    // 토큰이 없으면 하한도 없다.
+    let plain = errors(&with_glob(r"C:\remedy-lab\fixtures\*.js", "1.0.0"));
+    assert!(plain.is_empty(), "{plain:?}");
+}
+
 // ───────────────────────────── 네트워크 점검 (`network` · 2026-11-10 · 코어 1.4.0)
 
 /// 네트워크 점검 룰의 온전한 모양 — 이 기계를 읽는 칸이 전부 비어 있다. 각 시험이 한 곳만 비튼다.

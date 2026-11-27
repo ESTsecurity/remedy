@@ -402,11 +402,14 @@ fn collect_with<P: Backend>(
 /// **백엔드 타입을 여기 적지 않는다.** 적으면 `#[cfg(windows)]` 가 파이프라인
 /// 본문까지 번지고, 그러면 Linux 에서 컴파일되는지 아무도 모르게 된다 — P2 에서
 /// 실제로 그렇게 깨졌고 CI 가 한 번도 돌지 않아 드러나지 않았다 (설계-09 P12).
+///
+/// 토큰 펴기(`ExpandRoots`)도 든다 — `collect_extra` 글롭의 폴더 칸을 `scan_roots` 와 같이 편다(코어 1.27.0).
 trait Backend:
     remedy_platform::read::FsRead
     + remedy_platform::read::RegistryRead
     + remedy_platform::read::EnvRead
     + remedy_platform::read::ProcessRead
+    + remedy_platform::read::ExpandRoots
 {
 }
 
@@ -415,6 +418,7 @@ impl<T> Backend for T where
         + remedy_platform::read::RegistryRead
         + remedy_platform::read::EnvRead
         + remedy_platform::read::ProcessRead
+        + remedy_platform::read::ExpandRoots
 {
 }
 
@@ -435,7 +439,11 @@ fn collect_with_extra<P: Backend>(
     let unresolved = match manifest {
         Some(m) if !m.collect_extra.is_empty() => {
             remedy_platform::progress::set_stage("extra");
-            remedy_collect::extra::collect_extra(collector.platform(), m, scope, &mut obs, refs)
+            let fs = collector.platform();
+            // `scan_roots` 를 편 것과 같은 인자로 편다(`collect_declared`) — 다르면 같은 토큰이 두 자리에서
+            // 다른 폴더가 되어, 글롭의 폴더가 상한 밖으로 보인다.
+            let expand = |s: &str| fs.expand_roots(s, m.allow_removable);
+            remedy_collect::extra::collect_extra(fs, &expand, m, scope, &mut obs, refs)
         }
         _ => Vec::new(),
     };
