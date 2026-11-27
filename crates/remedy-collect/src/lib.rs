@@ -944,21 +944,33 @@ fn root_look<P: FsRead + RegistryRead>(p: &P, root: &str) -> Seen {
     } else {
         // 글롭 뿌리(`…\Temp\*.js`)는 **그 폴더**를 묻는다 — 꼴째 물으면 어떤 파일도
         // 그 이름으로 있지 않아 늘 '없는 뿌리' 가 된다. 위 레지스트리 갈래와 같은 일이다.
-        p.look(root_dir(root))
+        p.look(&root_dir(root))
     }
 }
 
 /// 있는지 물을 자리 — 글롭 뿌리면 그 폴더, 아니면 뿌리 그대로.
-fn root_dir(root: &str) -> &str {
-    remedy_sdk::normalize::glob_root(root)
-        .map(|(dir, _)| dir)
-        .unwrap_or(root)
+///
+/// 글롭 뿌리의 폴더는 걷는 쪽과 같은 [`normalize::glob_dir_to_open`] 으로 바꿔 묻는다. Windows 에서 폴더 칸이
+/// 드라이브 뿌리(`E:\*.lnk` 의 `E:`)이면 `E:\` 다 — `E:` 를 그대로 물으면 그 드라이브의 지금 폴더를 묻게 되어,
+/// 걷기는 뿌리를 여는데 묻기는 다른 자리를 보았다.
+fn root_dir(root: &str) -> std::borrow::Cow<'_, str> {
+    match normalize::glob_root(root) {
+        Some((dir, _)) => {
+            let host = if cfg!(windows) {
+                remedy_sdk::catalog::Platform::Windows
+            } else {
+                remedy_sdk::catalog::Platform::Linux
+            };
+            normalize::glob_dir_to_open(dir, host)
+        }
+        None => std::borrow::Cow::Borrowed(root),
+    }
 }
 
 /// 뿌리가 있는가. 수집기들이 걷기 전에 거르는 데 쓴다 — 글롭 뿌리는 그 폴더를 본다
 /// (위 `root_look` 과 같은 이유).
 pub(crate) fn root_exists<P: FsRead>(p: &P, root: &str) -> bool {
-    p.exists(root_dir(root))
+    p.exists(&root_dir(root))
 }
 
 /// 이 경로의 **파일 이름**이 `hash_large` 의 꼴 하나에 맞는가 — 글롭 뿌리와 같은 규칙이다

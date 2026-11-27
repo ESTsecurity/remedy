@@ -144,8 +144,9 @@ pub(crate) fn walk(
 /// 폴더가 **없으면** 빈 결과다(못 본 것이 아니다). 있는데 열리지 않으면 `denied` 로
 /// 센다 — 재귀 걷기와 같은 규칙이다.
 ///
-/// 폴더 칸이 드라이브 뿌리(`E:\*.lnk` 를 나눈 `E:`)이면 `E:\` 를 연다. Windows 에서 `E:` 는 그 드라이브의
-/// **지금 폴더**라, 그대로 열던 동안에는 뿌리가 아닌 곳을 걷고 `E:x.lnk` 처럼 구분자 없는 경로를 담았다.
+/// 폴더 칸이 드라이브 뿌리(`E:\*.lnk` 를 나눈 `E:`)이면 `E:\` 를 연다(`normalize::glob_dir_to_open` — 뿌리가
+/// 있는지 묻는 쪽도 그것을 지난다). Windows 에서 `E:` 는 그 드라이브의 **지금 폴더**라, 그대로 열던 동안에는
+/// 뿌리가 아닌 곳을 걷고 `E:x.lnk` 처럼 구분자 없는 경로를 담았다.
 fn walk_glob(
     view: &impl PathView,
     dir: &str,
@@ -162,11 +163,7 @@ fn walk_glob(
     let mut truncated = false;
     let mut denied = 0usize;
     let mut denied_paths: Vec<String> = Vec::new();
-    let access = if platform == remedy_sdk::catalog::Platform::Windows && dir.ends_with(':') {
-        view.for_access(&format!("{dir}\\"))
-    } else {
-        view.for_access(dir)
-    };
+    let access = view.for_access(&normalize::glob_dir_to_open(dir, platform));
     match std::fs::read_dir(&access) {
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
         Err(_) => {

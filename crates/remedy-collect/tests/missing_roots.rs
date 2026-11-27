@@ -346,6 +346,32 @@ fn a_present_but_empty_root_is_not_missing() {
     assert!(obs.files().is_empty());
 }
 
+/// **폴더 칸이 드라이브 뿌리인 글롭 뿌리는 그 드라이브의 뿌리가 있는지 묻는다.** `E:\*.lnk` 를 나누면 폴더 칸이
+/// `E:` 인데 Windows 에서 `E:` 는 그 드라이브의 **지금 폴더**다. 걷는 쪽은 `E:\` 를 열지만 묻는 쪽이 `E:` 를 물으면
+/// 둘이 다른 자리를 본다 — 지금 폴더가 없으면 멀쩡한 뿌리를 '없는 뿌리' 로 세어 걷지도 않고, 지금 폴더가 잠겼으면
+/// 읽지 못한 자리로 세어 6 을 낸다. 이 가짜는 `E:\` 만 있고 `E:` 는 없거나 잠긴 자리다.
+#[cfg(windows)]
+#[test]
+fn a_glob_root_on_a_drive_root_asks_about_the_root_of_that_drive() {
+    let present = || FakeFs::new(vec![("E:\\", vec![]), ("E:\\*.lnk", vec!["E:\\x.lnk"])]);
+    let obs = collect_all(&Collector::new(present()), &scope(&["E:\\*.lnk"])).expect("수집");
+    assert!(
+        obs.missing_roots.is_empty(),
+        "드라이브의 지금 폴더를 물었다: {:?}",
+        obs.missing_roots
+    );
+    assert_eq!(obs.files().len(), 1, "있는 뿌리를 걷지 않았다");
+
+    let locked = present().with_locked(&["E:"]);
+    let obs = collect_all(&Collector::new(locked), &scope(&["E:\\*.lnk"])).expect("수집");
+    assert!(
+        obs.unreadable_roots.is_empty() && obs.missing_roots.is_empty(),
+        "잠긴 지금 폴더로 뿌리를 읽지 못한 자리로 셌다: {:?} {:?}",
+        obs.unreadable_roots,
+        obs.missing_roots
+    );
+}
+
 #[test]
 fn security_products_are_still_collected_when_roots_are_missing() {
     // 진단 정보는 루트와 무관하게 나와야 한다 — 루트가 어긋난 실행일수록

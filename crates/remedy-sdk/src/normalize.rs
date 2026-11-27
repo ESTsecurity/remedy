@@ -8,6 +8,7 @@
 //! 규칙이 SDK 에 있어야 양쪽이 공유할 수 있다.
 
 use crate::catalog::Platform;
+use std::borrow::Cow;
 use unicode_normalization::UnicodeNormalization;
 
 /// 비교 전에 항상 거치는 유니코드 정규화.
@@ -135,6 +136,20 @@ pub fn glob_root(root: &str) -> Option<(&str, &str)> {
     }
     let (dir, name) = split_glob(root)?;
     name.contains(['*', '?']).then_some((dir, name))
+}
+
+/// 글롭 뿌리의 폴더 칸을 **열거나 있는지 물을 자리**로 바꾼다 — Windows 에서 폴더 칸이 드라이브 뿌리(`E:\*.lnk` 를
+/// 나눈 `E:`)이면 `E:\` 다. 다른 꼴과 리눅스는 그대로다.
+///
+/// Windows 에서 `E:` 는 그 드라이브의 **지금 폴더**다. 걷는 쪽(`remedy-platform` 의 글롭 걷기)과 있는지 묻는 쪽
+/// (`remedy-collect` 의 뿌리 묻기)이 이것 하나를 지나 같은 자리를 본다 — 걷기만 `E:\` 로 바꿨던 동안에는 묻는 쪽이
+/// 지금 폴더를 물어, 그 폴더가 없으면 멀쩡한 뿌리를 없는 뿌리로 세어 걷지 않고 잠겼으면 읽지 못한 자리로 셌다.
+pub fn glob_dir_to_open(dir: &str, platform: Platform) -> Cow<'_, str> {
+    if platform == Platform::Windows && dir.ends_with(':') {
+        Cow::Owned(format!("{dir}\\"))
+    } else {
+        Cow::Borrowed(dir)
+    }
 }
 
 /// 잎 이름이 꼴 가운데 하나에 맞는가 — **대소문자를 가리지 않는다**(코어 1.11.0 · `file_names` ·
@@ -370,6 +385,21 @@ mod tests {
         // 이름 칸이 별표뿐인 꼴도 **뿌리 자체는 밖이다** — 드라이브를 통째로 겨눈 삭제가 상한을 지나면 안 된다.
         for itself in [r"E:\", "E:"] {
             assert!(!is_within(itself, r"E:\*", w), "{itself}");
+        }
+    }
+
+    /// 걷기와 묻기가 함께 쓰는 열 자리 — Windows 의 드라이브 뿌리 폴더 칸(`E:`)만 `E:\` 가 되고, 다른 꼴과 리눅스는
+    /// 그대로다.
+    #[test]
+    fn a_drive_root_folder_part_opens_the_root_of_that_drive_on_windows_only() {
+        let (w, l) = (Platform::Windows, Platform::Linux);
+        assert_eq!(glob_dir_to_open("E:", w), r"E:\");
+        assert_eq!(glob_dir_to_open("e:", w), r"e:\");
+        for same in [r"E:\Temp", r"C:\Windows\Temp", "/tmp"] {
+            assert_eq!(glob_dir_to_open(same, w), same, "{same}");
+        }
+        for same in ["E:", "/tmp", "/", "/opt/a:"] {
+            assert_eq!(glob_dir_to_open(same, l), same, "{same}");
         }
     }
 }
