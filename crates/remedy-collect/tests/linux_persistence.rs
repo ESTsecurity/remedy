@@ -548,6 +548,29 @@ fn a_locked_home_root_is_counted_as_denied() {
     assert_eq!((a.denied_dirs, &a.denied_paths), (1, &home));
 }
 
+/// **홈 안의 자리를 물을 수조차 없으면 거부로 센다.** 홈 찾기는 `/home` 목록만 읽고 홈 안을 열지 않으므로(코어
+/// 1.27.0), root 가 0700 홈을 지나지 못하는 마운트(NFS root_squash 등)에서는 홈 안의 유닛 · 자동실행 폴더가 잠김으로
+/// 답한다. 그것을 '없음' 으로 읽으면 그 홈을 하나도 보지 못한 수집이 아무 말 없이 0건으로 끝난다 — 1.26.0 은 홈
+/// 걷기가 그 홈을 거부로 셌다. 다른 홈은 그대로 읽는다.
+#[test]
+fn a_locked_folder_inside_a_home_is_counted_as_denied() {
+    let fs = || {
+        Fs::new()
+            .file("/home/alice/.config/systemd/user/a.timer", TIMER)
+            .file("/home/bob/.profile", "")
+            .locked("/home/bob/.config/systemd/user")
+            .locked("/home/bob/.config/autostart")
+    };
+    let (p, v, a) = three(fs, 10_000);
+    let units = vec!["/home/bob/.config/systemd/user".to_string()];
+    let autostart = vec!["/home/bob/.config/autostart".to_string()];
+    assert_eq!((p.denied_dirs, &p.denied_paths), (1, &units));
+    assert_eq!((v.denied_dirs, &v.denied_paths), (1, &units));
+    assert_eq!((a.denied_dirs, &a.denied_paths), (1, &autostart));
+    let ids: Vec<&str> = p.records.iter().map(|r| r.id.as_str()).collect();
+    assert_eq!(ids, vec!["/home/alice/.config/systemd/user/a.timer"]);
+}
+
 /// **홈이 `max_files` 보다 많으면 잘림이다.** 이름 차례로 앞의 홈만 읽고, 다 읽지 못했다고 말한다.
 #[test]
 fn more_homes_than_max_files_is_truncated() {

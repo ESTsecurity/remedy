@@ -397,14 +397,23 @@ impl<P: FsRead + EnvRead> Collector<P> {
     }
 
     /// 폴더 하나의 **파일만** 돌려준다. 없으면 조용히 비고, 못 열면 센다.
+    ///
+    /// **있는지조차 물을 수 없는 폴더도 센다**(잠김 · 모름). 홈 찾기는 홈 안을 열지 않으므로(코어 1.27.0), root 가
+    /// 0700 홈을 지나지 못하는 마운트(NFS root_squash 등)에서는 홈 안의 유닛 · 자동실행 폴더가 여기서 처음
+    /// 잠김으로 답한다 — `exists` 로 물으면 그것이 '없음' 이 되어 그 홈을 못 본 수집이 말없이 0건으로 끝났다.
     fn list_files<T>(
         &self,
         dir: &str,
         scope: &Scope,
         h: &mut Harvest<T>,
     ) -> Vec<remedy_platform::read::FsEntry> {
-        if !self.platform.exists(dir) {
-            return Vec::new();
+        match self.platform.look(dir) {
+            Seen::Present => {}
+            Seen::Absent => return Vec::new(),
+            Seen::Locked | Seen::CannotTell => {
+                h.deny(dir);
+                return Vec::new();
+            }
         }
         match self.platform.walk(dir, scope.max_files.max(1)) {
             Ok(w) => {
