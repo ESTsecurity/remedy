@@ -30,7 +30,7 @@
 # 사용자만 지운다** — GECOS 칸의 표지(`USER_TAG`)로 가리고, 표지가 없는 같은 이름의
 # 사용자나 사용자 없는 홈 자리가 있으면 건드리지 않고 멈춘다. `/home/b` · `/home/test`
 # 도 이 스크립트가 만든 것(표지가 든 파일 · `LINKHOME` 을 가리키는 링크)이 아니면
-# 사용자를 만들기 전에 멈춘다.
+# 멈춘다. 이 확인은 모두 **아무것도 만들기 전에** 한다(0 절).
 #
 # # 쓰는 법
 #
@@ -120,6 +120,32 @@ if [ "$CLEAN" -eq 1 ]; then
     echo "정리했다."
     exit 0
 fi
+
+# ── 0. 남의 것이 있으면 아무것도 만들기 전에 멈춘다 ─────────────────
+#
+# 파일 자리(`b`)와 링크 홈 자리(`test`)는 이 스크립트가 만든 것만 다시 쓰고, 사용자 alice · bob 도 이 스크립트가 만든
+# 것(GECOS 표지)만 다시 쓴다 — 남의 홈 폴더를 600 으로 바꾸거나 남의 파일 · 링크를 갈아 끼우면 정리가 되돌리지
+# 못한다(`--force` 로 사용자 `b` 가 있는 기계에서 돈 경우). **1 절보다 먼저 본다** — 12 절에서 멈추면 1 ~ 11 절이 만든
+# 픽스처(`/etc/hosts` 의 줄 · cron · 유닛 · 도는 labproc 등)가 남고, 하네스는 픽스처를 만들지 못하면 정리하지 않고
+# 끝난다(2026-11-27 — `/home/b` 폴더를 둔 컨테이너에서 `/etc/cron.d/remedy-lab` 이 남는 것을 잼).
+if [ -e /home/b ] || [ -L /home/b ]; then
+    { [ -f /home/b ] && [ ! -L /home/b ] && grep -q 'REMEDY-LAB' /home/b; } \
+        || { echo "파일 자리(b)에 이 스크립트가 만들지 않은 것이 있다 — 건드리지 않는다"; exit 1; }
+fi
+if [ -L /home/test ]; then
+    [ "$(readlink /home/test)" = "$LINKHOME" ] \
+        || { echo "링크 홈 자리(test)에 이 스크립트가 만들지 않은 링크가 있다 — 건드리지 않는다"; exit 1; }
+elif [ -e /home/test ]; then
+    echo "링크 홈 자리(test)에 링크가 아닌 것이 있다 — 건드리지 않는다"; exit 1
+fi
+for u in alice bob; do
+    if getent passwd "$u" > /dev/null; then
+        [ "$(getent passwd "$u" | cut -d: -f5)" = "$USER_TAG" ] \
+            || { echo "이 스크립트가 만들지 않은 사용자 $u 가 있다 — 건드리지 않는다"; exit 1; }
+    elif [ -e "/home/$u" ]; then
+        echo "사용자 없는 홈 자리가 있다($u) — 건드리지 않는다"; exit 1
+    fi
+done
 
 mkdir -p "$LAB"
 
@@ -266,29 +292,13 @@ fi
 # 치료하고 제자리로 되돌려 소유자(uid:gid) · mode · 링크 자체의 소유자가 같은가를 본다. 도구 자리는 무해한
 # 자리 채우기 바이트다 — ELF 가 아니고 아무도 실행하지 않는다.
 #
-# 파일 자리(`b`)와 링크 홈 자리(`test`)는 이 스크립트가 만든 것만 다시 쓴다 — 남의 홈 폴더를 600 으로 바꾸거나 남의
-# 파일 · 링크를 갈아 끼우면 정리가 되돌리지 못한다(`--force` 로 사용자 `b` 가 있는 기계에서 돌린 경우). 사용자를
-# 만들기 전에 본다 — 멈출 때 사용자를 남기지 않는다.
-if [ -e /home/b ] || [ -L /home/b ]; then
-    { [ -f /home/b ] && [ ! -L /home/b ] && grep -q 'REMEDY-LAB' /home/b; } \
-        || { echo "파일 자리(b)에 이 스크립트가 만들지 않은 것이 있다 — 건드리지 않는다"; exit 1; }
-fi
-if [ -L /home/test ]; then
-    [ "$(readlink /home/test)" = "$LINKHOME" ] \
-        || { echo "링크 홈 자리(test)에 이 스크립트가 만들지 않은 링크가 있다 — 건드리지 않는다"; exit 1; }
-elif [ -e /home/test ]; then
-    echo "링크 홈 자리(test)에 링크가 아닌 것이 있다 — 건드리지 않는다"; exit 1
-fi
+# 파일 자리(`b`) · 링크 홈 자리(`test`) · 같은 이름의 남의 사용자는 0 절이 이미 보았다 — 여기 오면 모두 이 스크립트의
+# 것이거나 없다.
 for spec in alice:4242 bob:4243; do
     u="${spec%%:*}"; uid="${spec#*:}"
-    if getent passwd "$u" > /dev/null; then
-        [ "$(getent passwd "$u" | cut -d: -f5)" = "$USER_TAG" ] \
-            || { echo "이 스크립트가 만들지 않은 사용자 $u 가 있다 — 건드리지 않는다"; exit 1; }
-    else
-        [ -e "/home/$u" ] && { echo "사용자 없는 홈 자리가 있다($u) — 건드리지 않는다"; exit 1; }
-        useradd -m -U -u "$uid" -c "$USER_TAG" -s /bin/sh "$u" \
-            || { echo "사용자 $u 를 만들지 못했다(useradd)"; exit 1; }
-    fi
+    getent passwd "$u" > /dev/null && continue
+    useradd -m -U -u "$uid" -c "$USER_TAG" -s /bin/sh "$u" \
+        || { echo "사용자 $u 를 만들지 못했다(useradd)"; exit 1; }
 done
 
 printf 'REMEDY-LAB quota-file placeholder. 홈이 아니다.\n' > /home/b
