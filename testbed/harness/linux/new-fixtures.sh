@@ -24,10 +24,13 @@
 #   cron.d/remedy-lab   ↔  cron.d/innocent-cron
 #   실험 확장           ↔  같은 자리의 정상 확장
 #   bob 의 사용자 유닛  ↔  점 폴더 안의 미끼 timer · 링크 홈의 timer (홈이 아니다)
+#   xdg 자동실행        ↔  bob 의 자동실행 (수집되지만 어느 룰에도 걸리지 않는다)
 #
 # 사용자 홈(이슈 #172 — 12 절)은 사용자 alice · bob 을 만든다. **이 스크립트가 만든
 # 사용자만 지운다** — GECOS 칸의 표지(`USER_TAG`)로 가리고, 표지가 없는 같은 이름의
-# 사용자나 사용자 없는 홈 자리가 있으면 건드리지 않고 멈춘다.
+# 사용자나 사용자 없는 홈 자리가 있으면 건드리지 않고 멈춘다. `/home/b` · `/home/test`
+# 도 이 스크립트가 만든 것(표지가 든 파일 · `LINKHOME` 을 가리키는 링크)이 아니면
+# 사용자를 만들기 전에 멈춘다.
 #
 # # 쓰는 법
 #
@@ -261,6 +264,20 @@ fi
 # **소유자 복원.** alice 의 setuid 도구(4755) · www-data 의 파일(640) · bob 의 사용자 유닛과 활성화 링크를
 # 치료하고 제자리로 되돌려 소유자(uid:gid) · mode · 링크 자체의 소유자가 같은가를 본다. 도구 자리는 무해한
 # 자리 채우기 바이트다 — ELF 가 아니고 아무도 실행하지 않는다.
+#
+# 파일 자리(`b`)와 링크 홈 자리(`test`)는 이 스크립트가 만든 것만 다시 쓴다 — 남의 홈 폴더를 600 으로 바꾸거나 남의
+# 파일 · 링크를 갈아 끼우면 정리가 되돌리지 못한다(`--force` 로 사용자 `b` 가 있는 기계에서 돌린 경우). 사용자를
+# 만들기 전에 본다 — 멈출 때 사용자를 남기지 않는다.
+if [ -e /home/b ] || [ -L /home/b ]; then
+    { [ -f /home/b ] && [ ! -L /home/b ] && grep -q 'REMEDY-LAB' /home/b; } \
+        || { echo "파일 자리(b)에 이 스크립트가 만들지 않은 것이 있다 — 건드리지 않는다"; exit 1; }
+fi
+if [ -L /home/test ]; then
+    [ "$(readlink /home/test)" = "$LINKHOME" ] \
+        || { echo "링크 홈 자리(test)에 이 스크립트가 만들지 않은 링크가 있다 — 건드리지 않는다"; exit 1; }
+elif [ -e /home/test ]; then
+    echo "링크 홈 자리(test)에 링크가 아닌 것이 있다 — 건드리지 않는다"; exit 1
+fi
 for spec in alice:4242 bob:4243; do
     u="${spec%%:*}"; uid="${spec#*:}"
     if getent passwd "$u" > /dev/null; then
@@ -272,9 +289,6 @@ for spec in alice:4242 bob:4243; do
             || { echo "사용자 $u 를 만들지 못했다(useradd)"; exit 1; }
     fi
 done
-if [ -e /home/test ] && [ ! -L /home/test ]; then
-    echo "링크 홈 자리(test)에 링크가 아닌 것이 있다 — 건드리지 않는다"; exit 1
-fi
 
 printf 'REMEDY-LAB quota-file placeholder. 홈이 아니다.\n' > /home/b
 chmod 600 /home/b

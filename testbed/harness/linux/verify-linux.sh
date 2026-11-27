@@ -21,7 +21,7 @@
 # # 이슈 #172 의 칸 (엔진 1.27.0 부터)
 #
 # 홈 찾기(A4 · A5 · A6 · A7) · 글롭 폴더 칸의 토큰(A8 · A9 · A10)과 리눅스 복원의 소유자 · 링크(D5 · D6 ·
-# D7)다. 1.27.0 이 고친 결함을 재므로 그 앞의 엔진이면 칸마다 `건너뜀 — 엔진 <판> < 1.27.0` 을 적고 판정하지
+# D7) · 꺼낸 사본(D8)이다. 1.27.0 이 고친 결함을 재므로 그 앞의 엔진이면 칸마다 `건너뜀 — 엔진 <판> < 1.27.0` 을 적고 판정하지
 # 않는다 — 실패로 세지 않고 결과 JSON 에도 넣지 않는다(`host/Invoke-WinwyvernVerify.ps1` 의 H 칸과 같다). 엔진 판은 `--version` 의
 # `<제품> <판> (remedy)` 줄에서 읽고, 읽지 못하면 멈춘다(종료 2 — 조용히 건너뛰지 않는다).
 #
@@ -51,6 +51,12 @@
 #       링크는 치료됐어야 한다(아니면 '치료되지 않음' 으로 적고 실패다)
 #   D7  격리된 도구의 부모(/home/alice/bin)를 root 소유 빈 폴더(/etc/remedy-lab-d7)를 가리키는 alice 소유의
 #       링크로 바꾸고 그 항목만 제자리 복원 — 종료 5 · 링크가 가리킨 자리에 생긴 것 0개 · 링크 그대로
+#   D8  alice 의 4755 도구 항목을 컨테이너 안의 빈 폴더로 꺼낸 사본이 꺼낸 계정(root 회차는 0:0)의 것이고 setuid ·
+#       setgid 가 없다 — D3 의 사본은 호스트가 붙인 폴더에 있어 소유자 · mode 를 믿을 수 없다. 파일 권능
+#       (`security.capability`)은 이미지에 `setcap` 이 없어 코어 단위 시험만 잰다
+#
+# 칸 수는 엔진 1.27.0 부터 31 이다(CA 도구가 없는 이미지는 못 잼 C2b · D5b 를 더해 33). 그 앞의 엔진은 위 열하나를
+# 건너뛰어 20 이다(CA 도구가 없으면 C2b 를 더해 21).
 #
 # # 쓰는 법 (컨테이너 안)
 #
@@ -375,9 +381,13 @@ check "B2 기대 Op 이 전부 계획에 든다" \
 
 # 마커와 decoy 는 계획에 없어야 한다. **여기가 G3 의 앞쪽 절반**이다 —
 # 계획 단계에서 이미 없으면, 치료가 건드릴 길이 없다.
+#
+# bob 의 자동실행(`remedy-lab-user.desktop`)은 수집되지만(A4) 어느 룰에도 걸리지 않는다 — 홈 찾기가 넓힌 자리의
+# 남아야 할 것이다. 이것이 없으면 그 파일이 계획에 들어 격리되고 D5 가 같은 바이트로 되돌려도 모든 칸이 통과한다
+# (autostart 조건을 `remedy-lab` 으로 넓힌 변이로 2026-11-27 에 잼).
 bad=""
 for d in "REMEDY-LAB.marker" "keepme.conf" "decoy-ca.crt" "innocent-cron" \
-         "innocentinnocentinnocentinnoce"; do
+         "innocentinnocentinnocentinnoce" "remedy-lab-user.desktop"; do
     grep -q "$d" "$PLAN" && bad="$bad $d"
 done
 check "B3 남아야 할 것이 계획에 없다" \
@@ -470,13 +480,14 @@ for p in "/opt/remedy-lab/REMEDY-LAB.marker" \
          "/etc/cron.d/innocent-cron" \
          "/usr/share/applications/remedy-lab.desktop" \
          "/etc/hosts" \
-         "$HOME/.config/google-chrome/Default/Extensions/innocentinnocentinnocentinnoce"; do
+         "$HOME/.config/google-chrome/Default/Extensions/innocentinnocentinnocentinnoce" \
+         "/home/bob/.config/autostart/remedy-lab-user.desktop"; do
     [ "$(present "$OUT/after.json" "$(printf '%s' "$p" | sed 's/[.[\*^$]/\\&/g')")" = "true" ] \
         || stay_bad="$stay_bad $(basename "$p")"
 done
 check "C3 남아야 할 것이 전부 남았다 (G3)" \
     "$([ -z "$stay_bad" ] && echo 1 || echo 0)" \
-    "$([ -z "$stay_bad" ] && echo "사라짐 0건 / 9자리" || echo "사라짐:$stay_bad")"
+    "$([ -z "$stay_bad" ] && echo "사라짐 0건 / 10자리" || echo "사라짐:$stay_bad")"
 
 # ── 줄·키 단위 Op 은 줄·키만 뺐는가 ────────────────────────────────
 #
@@ -633,8 +644,32 @@ $BU/systemd/user/remedy-lab-user.timer $BU/systemd/user/default.target.wants/rem
             "$([ $rc -eq 5 ] && [ "$wrote" = 0 ] && [ "$link_ok" = 1 ] && echo 1 || echo 0)" \
             "exit=$rc (기대 5) · 항목 $eid · 링크가 가리킨 자리에 생긴 것 ${wrote}개${what:+ [${what% }]} · 링크 그대로 $([ "$link_ok" = 1 ] && echo 예 || echo 아니오)"
     fi
+
+    # 꺼낸 사본은 꺼낸 계정의 것이고 setuid · setgid 가 없는가. 담아 둔 소유자는 번호라 다른 기계에서는 같은 번호의
+    # 다른 계정이고, setuid 를 단 사본은 꺼낸 폴더에 그 소유자의 권한으로 도는 실행 파일이 된다. **D3 의 사본으로 재지
+    # 않는다** — 그 자리(`--out`)는 호스트가 붙인 폴더라, WSL 에서 Windows 드라이브(9p)를 붙이면 모든 파일이 1000:1000 ·
+    # 777 로 보인다(2026-11-27 잼). 도구 항목 하나만 컨테이너 안의 빈 폴더로 한 번 더 꺼내 거기서 잰다(D7 처럼 같은 회차를
+    # 다시 연다). 파일 권능(`security.capability`)은 이 이미지에 `setcap` 이 없어 여기서 재지 않는다 — 코어의 단위 시험
+    # `extracting_drops_the_setid_bits_the_file_capability_and_the_owner` 가 잰다.
+    me="$(id -u):$(id -g)"
+    tb="$(obj "$OUT/before.json" "$TOOL")"
+    t_sha="$(fld "$tb" sha256)"
+    ex=""; ex_own=""; ex_mode=""; rc8=-
+    if [ -n "$eid" ] && [ -n "$t_sha" ]; then
+        D8_DIR="$(mktemp -d /tmp/remedy-lab-d8.XXXXXX)"
+        "$BIN" restore --run "$RUN" --state-dir "$STATE" --yes --entry "$eid" --extract-to "$D8_DIR" \
+            > "$OUT/restore-extract-tool.log" 2>&1
+        rc8=$?
+        ex="$(find "$D8_DIR" -type f -exec sha256sum {} + 2>/dev/null | grep "^$t_sha " | head -1 | cut -c67-)"
+        [ -n "$ex" ] && ex_own="$(stat -c %u:%g "$ex")" && ex_mode="$(stat -c %a "$ex")"
+        rm -rf "$D8_DIR"
+    fi
+    check_new "D8 꺼낸 사본은 꺼낸 계정의 것이고 setuid · setgid 가 없다" \
+        "$([ "$rc8" = 0 ] && [ -n "$ex" ] && [ "$ex_own" = "$me" ] && [ $((0$ex_mode & 06000)) -eq 0 ] \
+           && echo 1 || echo 0)" \
+        "exit=$rc8 · 항목 ${eid:-없음} · $([ -z "$ex" ] && echo "도구 사본 없음" || echo "도구 사본 ${ex_own} · mode ${ex_mode}") — 기대 꺼낸 계정 $me · setuid · setgid 없음 (치료 전 $(fld "$tb" owner) · $(fld "$tb" mode))"
 else
-    skip_new "D5" "D6" "D7"
+    skip_new "D5" "D6" "D7" "D8"
 fi
 
 # ════════════════════════════════════════════════════════════════════
@@ -683,6 +718,11 @@ echo "통과 $PASS · 실패 $FAIL · 못잼 $UNMEASURED  (전체 $((PASS + FAIL
 # Windows 쪽과 같은 모양으로 남기되 `ok` 가 셋째 값을 갖는다 — 못 잰 것은
 # `null` 이다. `false` 로 적으면 두 플랫폼의 결과를 함께 세는 쪽에서 실패로
 # 읽히고, `true` 로 적으면 잰 적 없는 것이 통과가 된다.
+#
+# 이름과 detail 은 **쓰는 자리에서** JSON 문자열로 이스케이프한다(`capture-state.sh` 의 `esc` 와 같다). detail 에는
+# 레코드의 값이 따옴표째 실린다 — A5 의 `principal="bob"` 이 이 파일을 JSON 으로 읽히지 않게 했다(2026-11-27).
+# 칸마다 막지 않고 여기서 막아야 앞으로 더할 칸까지 덮는다.
+jesc() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'; }
 {
     printf '[\n'
     first=1
@@ -694,7 +734,7 @@ echo "통과 $PASS · 실패 $FAIL · 못잼 $UNMEASURED  (전체 $((PASS + FAIL
             -) ob=null ;;
             *) ob=false ;;
         esac
-        printf '  { "name": "%s", "ok": %s, "detail": "%s" }' "$n" "$ob" "$d"
+        printf '  { "name": "%s", "ok": %s, "detail": "%s" }' "$(jesc "$n")" "$ob" "$(jesc "$d")"
     done < "$OUT/.checks"
     printf '\n]\n'
 } > "$RESULT"
