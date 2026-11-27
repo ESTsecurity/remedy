@@ -2383,6 +2383,16 @@ mod tests {
         assert!(e.notes.is_empty());
     }
 
+    /// 토큰이 없는 비 ASCII 폴더도 그대로 펴진다 — `'알'` 이 15..18바이트라 토큰 길이 17 이 그 한가운데다. 글롭
+    /// 폴더 칸이 이 길을 지나므로(코어 1.27.0), 여기서 패닉하면 수집 단계가 종료 7 로 끝났다.
+    #[test]
+    fn a_non_ascii_path_expands_one_to_one() {
+        let live = Live::new();
+        let e = expand(&live, "C:\\ProgramData\\알약", false);
+        assert_eq!(e.roots, vec!["C:\\ProgramData\\알약".to_string()]);
+        assert!(e.notes.is_empty());
+    }
+
     #[test]
     fn non_wow64_leaves_paths_alone() {
         let live = Live {

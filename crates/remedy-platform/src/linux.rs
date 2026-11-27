@@ -2335,6 +2335,15 @@ mod tests {
         assert!(e.notes.is_empty(), "{e:?}");
     }
 
+    /// 토큰이 없는 비 ASCII 폴더도 그대로 펴진다 — 토큰 길이(17 · 13 · 11바이트)가 글자 한가운데에 떨어지는
+    /// 자리다. 글롭 폴더 칸이 이 길을 지나므로(코어 1.27.0), 여기서 패닉하면 수집 단계가 종료 7 로 끝났다.
+    #[test]
+    fn a_non_ascii_root_expands_one_to_one() {
+        let e = expand("/srv/www/사이트/uploads", false);
+        assert_eq!(e.roots, vec!["/srv/www/사이트/uploads".to_string()]);
+        assert!(e.notes.is_empty(), "{e:?}");
+    }
+
     #[test]
     fn the_two_path_views_are_the_same_here() {
         // Windows 는 WOW64 때문에 둘이 갈리지만 Linux 는 갈릴 이유가 없다.

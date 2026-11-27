@@ -583,13 +583,13 @@ pub(crate) fn expand_percent(s: &str) -> String {
 }
 
 /// 토큰으로 시작하면 그 뒤를 돌려준다. 대소문자를 가리지 않는다.
+///
+/// **토큰 길이가 글자 경계가 아니면 토큰이 아니다** — 토큰은 ASCII 이므로 그 자리가 여러 바이트 글자의 한가운데이면
+/// 같을 수 없다. 바이트로 자르면 `scan_roots` 나 글롭 폴더 칸에 적은 `/srv/www/사이트` 에서 패닉했다(종료 7).
 pub(crate) fn strip_token<'a>(root: &'a str, token: &str) -> Option<&'a str> {
-    if root.len() < token.len() {
-        return None;
-    }
-    root[..token.len()]
-        .eq_ignore_ascii_case(token)
-        .then(|| &root[token.len()..])
+    root.get(..token.len())
+        .filter(|head| head.eq_ignore_ascii_case(token))
+        .map(|_| &root[token.len()..])
 }
 
 /// 프로세스 목록을 **필요한 것까지** 새로 고친다.
@@ -991,5 +991,20 @@ mod tests {
         );
         assert_eq!(strip_token("%APPDATA%\\x", "%ALLUSERPROFILES%"), None);
         assert_eq!(strip_token("%ALL%", "%ALLUSERPROFILES%"), None);
+    }
+
+    /// **토큰 길이가 글자 한가운데에 떨어져도 자르지 않는다.** 글롭 폴더 칸(코어 1.27.0)은 토큰이 없어도 펴는 쪽을
+    /// 지나므로, `'트'`(15..18바이트) · `'알'`(15..18바이트)을 17바이트에서 자르면 수집 단계가 패닉했다(종료 7).
+    #[test]
+    fn a_token_length_inside_a_character_is_not_a_token() {
+        assert_eq!(
+            strip_token("/srv/www/사이트/uploads", "%ALLUSERPROFILES%"),
+            None
+        );
+        assert_eq!(
+            strip_token("C:\\ProgramData\\알약", "%ALLUSERPROFILES%"),
+            None
+        );
+        assert_eq!(strip_token("/srv/www/사이트", "%FIXED_DISKS%"), None);
     }
 }
