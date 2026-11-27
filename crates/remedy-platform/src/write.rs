@@ -82,9 +82,37 @@ pub const SETID_BITS: u32 = 0o6000;
 /// 항목은 소유자와 같이 숫자 uid · gid 라 다른 기계에서는 같은 번호의 다른 사람이 사본을 읽고 고친다.
 const NOT_ON_AN_EXTRACTED_COPY: [&str; 3] = [
     "security.capability",
-    "system.posix_acl_access",
+    ACCESS_ACL,
     "system.posix_acl_default",
 ];
+
+/// 접근 ACL 을 담는 확장 속성.
+const ACCESS_ACL: &str = "system.posix_acl_access";
+
+/// mode 의 group 칸(`S_IRWXG`).
+const GROUP_BITS: u32 = 0o070;
+
+/// 접근 ACL 값(담아 둔 base64)에서 **소유 그룹 항목(`ACL_GROUP_OBJ` · `group::`)의 권한**(rwx 3비트)을 읽는다(이슈
+/// #172) — 풀지 못하면 `None`. 값은 리눅스 커널의 `posix_acl_xattr` 꼴이다 — little endian u32 version(2) 뒤로 8바이트
+/// 항목 {u16 tag · u16 perm · u32 id} 가 이어진다. `group::` 항목은 꼭 하나다.
+fn acl_group_obj(b64: &str) -> Option<u32> {
+    const VERSION: u32 = 2;
+    const HEAD: usize = 4;
+    const ENTRY: usize = 8;
+    const GROUP_OBJ: u16 = 0x04;
+    const PERM_BITS: u16 = 0o7;
+    let value = crate::meta::base64_decode(b64)?;
+    let (head, entries) = value.split_at_checked(HEAD)?;
+    if u32::from_le_bytes(head.try_into().ok()?) != VERSION || !entries.len().is_multiple_of(ENTRY)
+    {
+        return None;
+    }
+    let mut found = entries
+        .chunks_exact(ENTRY)
+        .filter(|e| u16::from_le_bytes([e[0], e[1]]) == GROUP_OBJ);
+    let perm = found.next().map(|e| u16::from_le_bytes([e[2], e[3]]))?;
+    (found.next().is_none() && perm & !PERM_BITS == 0).then_some(u32::from(perm))
+}
 
 impl FileMeta {
     /// 담아 둔 소유자(uid, gid) — 둘 다 있을 때만.
@@ -99,13 +127,23 @@ impl FileMeta {
     /// 권한으로 도는 실행 파일이 생긴다 — 권능(`cap_setuid` 등)은 setuid 와 같은 부류다. 소유자는 꺼낸 계정이다:
     /// 담아 둔 것은 숫자 uid · gid 라 다른 기계에서 꺼내면 같은 번호의 다른 계정이 사본의 소유자가 되고, 같은
     /// 기계에서도 원래 사용자가 분석용 사본을 고칠 수 있다. ACL 의 이름 붙은 항목(`user:1001:rw-`)도 같은 숫자라
-    /// 같은 까닭으로 붙이지 않는다([`NOT_ON_AN_EXTRACTED_COPY`]). 다른 확장 속성은 그대로 둔다. 소유자 칸이 비었다고
+    /// 같은 까닭으로 붙이지 않는다([`NOT_ON_AN_EXTRACTED_COPY`]). 접근 ACL 을 빼면 mode 의 group 칸은 그 ACL 의 소유 그룹
+    /// 항목(`group::`)의 권한으로 바꾼다 — 확장 ACL 이 있는 파일의 `st_mode` group 칸은 ACL mask 라, 그대로 두면 사본의
+    /// 소유 그룹(꺼낸 계정의 그룹 · setgid 폴더의 그룹)이 원래 `group::` 보다 넓은 권한을 얻는다. 그 값을 풀지 못하면
+    /// group 칸을 비운다(넓히지 않는 쪽). 다른 확장 속성은 그대로 둔다. 소유자 칸이 비었다고
     /// 계획 · 복원 뒤 보고에 서는 '담지 않았다' 줄은 꺼내기에서 사실이 아니므로 `remedy-core` 의 꺼내기가 뺀다.
     pub fn for_extract(&self) -> FileMeta {
         let mut xattrs = self.xattrs.clone();
         xattrs.retain(|name, _| !NOT_ON_AN_EXTRACTED_COPY.contains(&name.as_str()));
+        let group = self
+            .xattrs
+            .get(ACCESS_ACL)
+            .map(|v| acl_group_obj(v).unwrap_or(0));
         FileMeta {
-            mode: self.mode.map(|m| m & !SETID_BITS),
+            mode: self.mode.map(|m| {
+                let m = m & !SETID_BITS;
+                group.map_or(m, |g| (m & !GROUP_BITS) | (g << 3))
+            }),
             uid: None,
             gid: None,
             xattrs,

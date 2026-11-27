@@ -1969,3 +1969,44 @@ fn an_extracted_copy_gets_neither_the_file_capability_nor_the_posix_acls() {
         ["user.note"]
     );
 }
+
+/// 꺼낸 사본에서 접근 ACL 을 빼면 mode 의 group 칸을 ACL 의 소유 그룹 항목(`group::`)으로 바꾼다(이슈 #172) — 확장 ACL 이
+/// 있는 파일의 `st_mode` group 칸은 ACL mask 라, 그대로 두면 사본의 소유 그룹(꺼낸 계정의 그룹 · setgid 폴더의 그룹)이
+/// 원래 `group::` 보다 넓은 권한을 얻는다. 풀지 못하는 값이면 group 칸을 비운다(넓히지 않는 쪽). ACL 이 없으면 setuid ·
+/// setgid 만 뺀다.
+#[test]
+fn an_extracted_copy_without_its_acl_gives_the_owning_group_no_more_than_group_obj() {
+    // version 2 · user::rw- · user:1001:rw- · group::r-- · mask::rw- · other::--- (little endian)
+    const ACL: &str = "AgAAAAEABgD/////AgAGAOkDAAAEAAQA/////xAABgD/////IAAAAP////8=";
+    let with = |acl: Option<&str>, mode: u32| FileMeta {
+        mode: Some(mode),
+        xattrs: acl
+            .map(|v| ("system.posix_acl_access".to_string(), v.to_string()))
+            .into_iter()
+            .collect(),
+        ..Default::default()
+    };
+    assert_eq!(with(Some(ACL), 0o660).for_extract().mode, Some(0o640));
+    assert_eq!(with(Some(ACL), 0o102660).for_extract().mode, Some(0o100640));
+    // group::r-x 하나뿐인 값
+    assert_eq!(
+        with(Some("AgAAAAQABQD/////"), 0o660).for_extract().mode,
+        Some(0o650)
+    );
+    for broken in [
+        "!!!!",
+        "AgAAAA==",                     // 머리뿐 — group:: 이 없다
+        "AgAAAAEABgD/////",             // user:: 뿐
+        "AQAAAAQABAD/////",             // version 1
+        "AgAAAAQABAD///8=",             // 항목이 잘렸다
+        "AgAAAAQABAD/////BAAGAP////8=", // group:: 이 둘
+    ] {
+        assert_eq!(
+            with(Some(broken), 0o660).for_extract().mode,
+            Some(0o600),
+            "{broken}"
+        );
+    }
+    assert_eq!(with(None, 0o104755).for_extract().mode, Some(0o100755));
+    assert_eq!(with(None, 0o660).for_extract().mode, Some(0o660));
+}

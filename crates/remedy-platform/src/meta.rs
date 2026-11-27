@@ -325,8 +325,9 @@ fn base64_encode(v: &[u8]) -> String {
     out
 }
 
-#[cfg(unix)]
-fn base64_decode(s: &str) -> Option<Vec<u8>> {
+/// 담아 둔 확장 속성 값(base64)을 푼다. 플랫폼마다 둔다 — 꺼내기가 어느 기계에서든 담아 둔 접근 ACL 을 읽는다
+/// ([`FileMeta::for_extract`](crate::write::FileMeta::for_extract)).
+pub(crate) fn base64_decode(s: &str) -> Option<Vec<u8>> {
     fn val(c: u8) -> Option<u32> {
         match c {
             b'A'..=b'Z' => Some((c - b'A') as u32),
