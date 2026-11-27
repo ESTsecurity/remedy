@@ -309,6 +309,54 @@ fn what_the_plan_promised_but_the_restore_missed_is_said_after_restoring() {
     }
 }
 
+#[cfg(unix)]
+#[test]
+fn a_user_link_on_the_way_stops_the_restore_with_five_and_writes_nothing() {
+    // 1.26.0 에서 잰 꼴(이슈 #172 ①) — 격리된 파일의 부모를 사용자가 root 의 자리를 가리키는 링크로 바꿔 두자
+    // 제자리 복원이 그 링크를 따라 root 의 자리에 담아 둔 이름 · 바이트 · 소유자 · 4755 를 썼다. 가드가 막고(5)
+    // 아무것도 쓰지 않는다. root 로 돌면 링크를 남의 uid(4242)로 바꾸고, 아니면 링크가 이미 이 시험의 것이다.
+    use std::os::unix::fs::{lchown, symlink, MetadataExt};
+    let lab = Lab::new("linkguard");
+    let place = lab.path("root-place");
+    std::fs::create_dir_all(&place).unwrap();
+    let bin = lab.path("bin");
+    symlink(&place, &bin).unwrap();
+    if std::fs::metadata("/proc/self").is_ok_and(|m| m.uid() == 0) {
+        lchown(&bin, Some(4242), Some(4242)).unwrap();
+    }
+    let tool = lab.s("bin/tool");
+    std::fs::write(lab.path("pass.txt"), "열쇠말").unwrap();
+    make_container(
+        &lab.path("c.rq"),
+        vec![(
+            tool.as_str(),
+            b"x",
+            serde_json::json!({ "mode": 0o104755, "uid": 4242, "gid": 4242 }),
+        )],
+        "열쇠말",
+    );
+    let (code, out) = run(&[
+        "restore",
+        "--container",
+        &lab.s("c.rq"),
+        "--passphrase-file",
+        &lab.s("pass.txt"),
+        "--state-dir",
+        &lab.s("state"),
+        "--yes",
+    ]);
+    assert_eq!(code, 5, "가드 중단은 5 여야 한다\n{out}");
+    assert!(out.contains("링크를 따라 쓰지 않습니다"), "{out}");
+    assert!(
+        std::fs::read_dir(&place).unwrap().next().is_none(),
+        "링크가 가리킨 자리에 썼다\n{out}"
+    );
+    assert!(std::fs::symlink_metadata(&bin)
+        .unwrap()
+        .file_type()
+        .is_symlink());
+}
+
 #[test]
 fn a_wrong_passphrase_does_not_open_it() {
     let lab = Lab::new("wrongpass");

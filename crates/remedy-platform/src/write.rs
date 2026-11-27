@@ -122,6 +122,29 @@ impl RestoreReport {
     }
 }
 
+/// 되돌릴 자리로 가는 길에서 걸린 링크(이슈 #172 ①) — [`PlatformWrite::link_on_the_way`] 의 답.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LinkHit {
+    /// 되돌릴 자리 자체가 링크다([`LastLink::Refused`] 인 자리).
+    Itself { link: String, to: String },
+    /// 가는 길의 링크를 root 가 아닌 사용자가 가졌다.
+    NotRoot { link: String, uid: u32, to: String },
+    /// 링크가 너무 많이 이어진다(커널의 `ELOOP` 와 같은 상한).
+    TooMany { link: String },
+}
+
+/// 되돌릴 자리 **자체**가 링크일 때 어떻게 보는가 — 가운데 성분은 늘 같게 본다(root 의 링크는 따라가고, 사용자의
+/// 링크는 걸린다).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LastLink {
+    /// 누구의 링크든 걸린다 — 복원이 그 자리를 통째로 다시 쓴다(본문 · 소유자 · mode). 링크를 따라 쓰면 본문과
+    /// `chmod` 는 대상에, `lchown` 은 링크에 가서 둘이 갈린다 — 사용자의 본문이 root 소유 setuid 가 될 수 있다.
+    Refused,
+    /// 가운데 성분처럼 본다. 파일 안의 줄만 고치는 자리(cron · 텍스트 줄 — 치료도 그 링크를 따라 고쳤다)와, 복원이
+    /// 그 안에 링크를 다는 폴더다.
+    Followed,
+}
+
 /// 레지스트리 값 하나의 **원본 그대로** (설계-09 P7).
 ///
 /// 타입 번호와 바이트를 날것으로 든다. 우리 `RegValue` 열거형으로 옮기면
@@ -366,6 +389,22 @@ pub trait PlatformWrite {
         content: &[u8],
         meta: &FileMeta,
     ) -> Result<RestoreReport, PlatformError>;
+
+    /// 되돌릴 자리 `place` 로 가는 길에 **따라 쓰면 안 되는 링크**가 있는가(이슈 #172 ①). 있으면 그 링크.
+    ///
+    /// 복원은 root 로 돈다. 사용자가 자기 폴더를 root 의 자리를 가리키는 링크로 바꿔 두면 제자리 복원이 그 링크를
+    /// 따라 root 의 자리에 담아 둔 이름 · 바이트 · 소유자 · mode 를 쓴다 — 1.26.0 에서 쟀다(`/home/alice/bin` →
+    /// `/etc/…` 에 alice 소유 4755 파일). root 가 단 링크(`/bin` → `usr/bin`)는 따라가 그 너머의 성분도 본다.
+    /// 확인하지 못한 것은 `Err` 다 — '링크가 없다' 로 접지 않는다.
+    ///
+    /// 기본은 `None` 이다 — 시험 가짜, 그리고 Windows(접합점은 아직 보지 않는다 · 남는 한계).
+    fn link_on_the_way(
+        &self,
+        _place: &str,
+        _last: LastLink,
+    ) -> Result<Option<LinkHit>, PlatformError> {
+        Ok(None)
+    }
 
     /// 격리할 파일을 **읽어 낸다. 아직 지우지 않는다.**
     ///
@@ -1302,6 +1341,118 @@ pub fn rel_is_contained(rel: &str) -> bool {
         .all(|p| !p.is_empty() && p != "." && p != "..")
 }
 
+/// 길의 성분 하나를 `lstat` 한 답 — [`link_hit`] 이 받는다.
+#[cfg(unix)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum Node {
+    /// 없다 — 그 아래는 복원이 새로 만든다.
+    Missing,
+    /// 링크가 아니다(폴더 · 파일 · 그 밖).
+    Plain,
+    /// 링크 — 그 링크 자체의 소유자와 가리키는 문자열(`readlink`).
+    Link { uid: u32, to: std::path::PathBuf },
+}
+
+/// 링크를 따라가는 횟수의 상한 — 리눅스 커널의 `MAXSYMLINKS` 와 같다.
+#[cfg(unix)]
+const MAX_LINK_HOPS: usize = 40;
+
+/// `place` 로 가는 길을 커널처럼 한 성분씩 걸으며 링크를 본다(이슈 #172 ①) — **순수하다**: `lstat` 은 부르는 쪽이
+/// 준다. `place` 는 절대 경로다.
+///
+/// - 가운데 성분이 root 가 아닌 사용자의 링크면 걸린다([`LinkHit::NotRoot`]). root 의 링크는 따라가 그 너머의
+///   성분도 본다 — root 가 단 `/srv/share` → `/home/alice/share` 너머에서 alice 가 링크를 달 수 있는데, 적힌
+///   경로의 앞자리만 `lstat` 하면 그 링크는 커널이 말없이 따라가 보이지 않는다.
+/// - 자리 자체가 링크면 `last` 가 정한다([`LastLink`]).
+/// - 없는 성분에서 끝낸다 — 그 아래는 복원이 새로 만든다.
+/// - `..` 는 링크를 따라간 뒤의 자리에서 한 칸 오른다.
+#[cfg(unix)]
+pub(crate) fn link_hit(
+    place: &std::path::Path,
+    last: LastLink,
+    lstat: &mut dyn FnMut(&std::path::Path) -> std::io::Result<Node>,
+) -> std::io::Result<Option<LinkHit>> {
+    use std::path::{Path, PathBuf};
+    let show = |p: &Path| p.to_string_lossy().to_string();
+    let mut todo: std::collections::VecDeque<std::ffi::OsString> = link_parts(place).into();
+    let mut at = PathBuf::from("/");
+    let mut hops = 0;
+    while let Some(part) = todo.pop_front() {
+        if part == ".." {
+            at.pop();
+            continue;
+        }
+        let next = at.join(&part);
+        let (uid, to) = match lstat(&next)? {
+            Node::Missing => return Ok(None),
+            Node::Plain => {
+                at = next;
+                continue;
+            }
+            Node::Link { uid, to } => (uid, to),
+        };
+        let (link, to_s) = (show(&next), show(&to));
+        if todo.is_empty() && last == LastLink::Refused {
+            return Ok(Some(LinkHit::Itself { link, to: to_s }));
+        }
+        if uid != 0 {
+            return Ok(Some(LinkHit::NotRoot {
+                link,
+                uid,
+                to: to_s,
+            }));
+        }
+        hops += 1;
+        if hops > MAX_LINK_HOPS {
+            return Ok(Some(LinkHit::TooMany { link }));
+        }
+        // 상대 링크는 그 링크가 있는 폴더(`at`)에서 푼다.
+        if to.is_absolute() {
+            at = PathBuf::from("/");
+        }
+        for p in link_parts(&to).into_iter().rev() {
+            todo.push_front(p);
+        }
+    }
+    Ok(None)
+}
+
+/// 걸을 성분 — 이름과 `..`. 뿌리 · `.` 는 뺀다.
+#[cfg(unix)]
+fn link_parts(p: &std::path::Path) -> Vec<std::ffi::OsString> {
+    use std::path::Component;
+    p.components()
+        .filter_map(|c| match c {
+            Component::Normal(s) => Some(s.to_os_string()),
+            Component::ParentDir => Some("..".into()),
+            _ => None,
+        })
+        .collect()
+}
+
+/// 실제 `lstat` — 링크면 그 링크 자체의 소유자와 가리키는 문자열이다. 없거나(`ENOENT`) 파일 아래를 물었으면
+/// (`ENOTDIR`) 없는 것이다 — 그 아래에 쓰기는 스스로 실패한다.
+#[cfg(unix)]
+fn lstat_node(p: &std::path::Path) -> std::io::Result<Node> {
+    use std::os::unix::fs::MetadataExt;
+    match std::fs::symlink_metadata(p) {
+        Ok(md) if md.file_type().is_symlink() => Ok(Node::Link {
+            uid: md.uid(),
+            to: std::fs::read_link(p)?,
+        }),
+        Ok(_) => Ok(Node::Plain),
+        Err(e)
+            if matches!(
+                e.kind(),
+                std::io::ErrorKind::NotFound | std::io::ErrorKind::NotADirectory
+            ) =>
+        {
+            Ok(Node::Missing)
+        }
+        Err(e) => Err(e),
+    }
+}
+
 /// 줄을 **종단 문자까지 그대로** 갈라 놓는다.
 ///
 /// `lines()` 는 `\r\n` 과 `\n` 을 똑같이 버려서, 지우고 다시 이으면 파일 전체의
@@ -1975,6 +2126,28 @@ impl PlatformWrite for FsRestore {
             ),
         );
         Ok(report)
+    }
+
+    /// 경로를 성분마다 `lstat` 해 링크를 본다(`link_hit`). 상대 경로는 지금 폴더에서 푼다 — 쓰기도 그렇게 푼다.
+    ///
+    /// 남는 한계 — 이 물음과 실제 쓰기 사이의 창은 닫지 못한다. 경로를 성분마다 링크를 따르지 않고 여는
+    /// `openat` · `O_NOFOLLOW` 류가 std 에 없어, 그 사이에 바꾼 링크는 쓰기가 따라간다. 복원은 계획과 쓰기 직전에 두
+    /// 번 물어 그 창을 좁힌다(`remedy-core` 의 복원).
+    #[cfg(unix)]
+    fn link_on_the_way(
+        &self,
+        place: &str,
+        last: LastLink,
+    ) -> Result<Option<LinkHit>, PlatformError> {
+        let p = std::path::Path::new(place);
+        let abs = if p.is_absolute() {
+            p.to_path_buf()
+        } else {
+            std::env::current_dir()
+                .map_err(|e| PlatformError::io(place, e))?
+                .join(p)
+        };
+        link_hit(&abs, last, &mut lstat_node).map_err(|e| PlatformError::io(place, e))
     }
 
     fn quarantine_read(&self, path: &str) -> Result<(Vec<u8>, FileMeta), PlatformError> {

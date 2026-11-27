@@ -29,8 +29,8 @@ use crate::read::{
     WalkResult,
 };
 use crate::write::{
-    DirIndex, FileMeta, FsRestore, KillPredicate, LineAt, Owner, PersistenceIndex, PlatformWrite,
-    RemovedBy, RestoreReport, Target, VerifySite,
+    DirIndex, FileMeta, FsRestore, KillPredicate, LastLink, LineAt, LinkHit, Owner,
+    PersistenceIndex, PlatformWrite, RemovedBy, RestoreReport, Target, VerifySite,
 };
 use crate::PlatformError;
 use remedy_sdk::catalog::Platform;
@@ -742,6 +742,14 @@ impl PlatformWrite for Live {
         meta: &FileMeta,
     ) -> Result<RestoreReport, PlatformError> {
         FsRestore.restore_file(dest, content, meta)
+    }
+
+    fn link_on_the_way(
+        &self,
+        place: &str,
+        last: LastLink,
+    ) -> Result<Option<LinkHit>, PlatformError> {
+        FsRestore.link_on_the_way(place, last)
     }
 
     fn quarantine_read(&self, path: &str) -> Result<(Vec<u8>, FileMeta), PlatformError> {
