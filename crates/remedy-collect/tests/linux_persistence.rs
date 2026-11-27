@@ -571,6 +571,23 @@ fn a_locked_folder_inside_a_home_is_counted_as_denied() {
     assert_eq!(ids, vec!["/home/alice/.config/systemd/user/a.timer"]);
 }
 
+/// **앞 성분이 파일이라 있을 수 없는 자리는 거부가 아니다.** 홈의 `~/.config/systemd` 가 폴더가 아니라 파일이면
+/// `~/.config/systemd/user` 는 없는 자리다 — 실제 파일 시스템에서는 ENOTDIR 이고, `look` 은 그것을 '없음' 으로
+/// 답한다(`remedy-platform` 의 `local::look` 시험이 잰다). 잘못 만든 점파일 하나를 거부로 세면 그 기계의 유닛 ·
+/// 자동실행 룰이 모두 불완전(6)이 된다. 다른 홈은 그대로 읽는다.
+#[test]
+fn a_file_in_place_of_a_folder_inside_a_home_is_not_counted_as_denied() {
+    let fs = || {
+        Fs::new()
+            .file("/home/alice/.config/systemd/user/a.timer", TIMER)
+            .file("/home/bob/.config/systemd", "")
+    };
+    let (p, v, a) = three(fs, 10_000);
+    assert_eq!([p.denied_dirs, v.denied_dirs, a.denied_dirs], [0, 0, 0]);
+    let ids: Vec<&str> = p.records.iter().map(|r| r.id.as_str()).collect();
+    assert_eq!(ids, vec!["/home/alice/.config/systemd/user/a.timer"]);
+}
+
 /// **홈이 `max_files` 보다 많으면 잘림이다.** 이름 차례로 앞의 홈만 읽고, 다 읽지 못했다고 말한다.
 #[test]
 fn more_homes_than_max_files_is_truncated() {

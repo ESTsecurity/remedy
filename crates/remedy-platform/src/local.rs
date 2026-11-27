@@ -522,6 +522,7 @@ pub(crate) fn read_stream(
 /// |---|---|
 /// | `Ok` | `Present` |
 /// | `NotFound` | `Absent` — 이름 해석이 실패했다(설치되지 않은 제품 등) |
+/// | `NotADirectory` | `Absent` — 앞 성분이 폴더가 아니다(일반 파일 · 파일을 가리키는 링크). 그 경로는 있을 수 없다 |
 /// | `PermissionDenied` | `Locked` — 있는지조차 물을 수 없다 |
 /// | 그 밖 | `CannotTell` — 도달 불가 UNC · 준비 안 된 장치 · 심볼릭 고리 |
 ///
@@ -536,7 +537,9 @@ pub(crate) fn look(view: &impl PathView, path: &str) -> crate::read::Seen {
     match std::fs::metadata(view.for_access(path)) {
         Ok(_) => Seen::Present,
         Err(e) => match e.kind() {
-            ErrorKind::NotFound => Seen::Absent,
+            // ENOTDIR — `~/.config/systemd` 가 파일이면 `~/.config/systemd/user` 는 없는 자리다. '모름' 으로 읽으면
+            // 홈 안의 그 폴더가 거부로 세어져 그 기계의 해당 룰이 모두 불완전(6)이 됐다.
+            ErrorKind::NotFound | ErrorKind::NotADirectory => Seen::Absent,
             ErrorKind::PermissionDenied => Seen::Locked,
             _ => Seen::CannotTell,
         },
@@ -1006,5 +1009,36 @@ mod tests {
             None
         );
         assert_eq!(strip_token("/srv/www/사이트", "%FIXED_DISKS%"), None);
+    }
+
+    /// **앞 성분이 일반 파일인 자리는 없는 자리다**(ENOTDIR). 그 경로는 있을 수 없다 — 사용자 홈의
+    /// `~/.config/systemd` 가 파일이면 `~/.config/systemd/user` 는 systemd 도 읽지 못한다. 그것을 '모름' 으로 읽으면
+    /// 홈 안의 유닛 · 자동실행 폴더가 거부로 세어져, 그 기계의 해당 룰이 모두 불완전(6)이 됐다. 링크 고리(ELOOP)는
+    /// 그대로 '모름' 이다 — 있는지 끝까지 물을 수 없는 자리다.
+    #[test]
+    fn a_path_under_a_regular_file_is_not_there() {
+        use crate::read::Seen;
+        let d = lab("look-under-file");
+        std::fs::write(d.join("f"), b"x").expect("쓰기");
+        let sep = std::path::MAIN_SEPARATOR;
+        let base = d.to_str().unwrap();
+        assert_eq!(look(&Identity, &format!("{base}{sep}f")), Seen::Present);
+        for p in [
+            format!("{base}{sep}f{sep}sub"),
+            format!("{base}{sep}f{sep}sub{sep}deeper"),
+        ] {
+            assert_eq!(look(&Identity, &p), Seen::Absent, "{p}");
+        }
+        #[cfg(unix)]
+        {
+            let lp = d.join("loop");
+            std::os::unix::fs::symlink(&lp, &lp).expect("링크");
+            assert_eq!(
+                look(&Identity, lp.to_str().unwrap()),
+                Seen::CannotTell,
+                "링크 고리는 '모름' 이다"
+            );
+        }
+        let _ = std::fs::remove_dir_all(&d);
     }
 }
