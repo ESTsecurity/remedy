@@ -126,6 +126,68 @@ fn a_file_comes_back_with_its_owner_and_its_setuid_bit() {
     let _ = std::fs::remove_dir_all(&d);
 }
 
+/// 리스(lease)를 쥐는 자식 — 파일을 읽기로 열어 읽기 리스(`F_SETLEASE` 1024 · `F_RDLCK` 0)를 걸고 `ready` 를 알린다.
+/// 쓰는 쪽이 열면 커널이 SIGIO 를 보낸다 — 0.3초 더 쥐고 있다가 놓는다(`F_UNLCK` 2). 걸지 못하면 `no lease` 다.
+const LEASE_HOLDER: &str = r#"
+import fcntl, os, signal, sys, time
+fd = os.open(sys.argv[1], os.O_RDONLY)
+def let_go(sig, frame):
+    time.sleep(0.3)
+    fcntl.fcntl(fd, 1024, 2)
+signal.signal(signal.SIGIO, let_go)
+try:
+    fcntl.fcntl(fd, 1024, 0)
+except OSError as e:
+    print("no lease", e, flush=True)
+    sys.exit(0)
+print("ready", flush=True)
+time.sleep(30)
+"#;
+
+/// 되돌릴 자리의 파일에 다른 프로세스의 리스가 걸려 있으면 **그것이 풀리기를 기다려** 쓴다(이슈 #172) — 쓰기는 이름
+/// 붙은 파이프에서 멈추지 않으려고 `O_NONBLOCK` 으로 여는데, 리스(NFS 위임도 같은 장치)가 걸린 파일은 그때 기다리지
+/// 않고 `EWOULDBLOCK` 으로 열리지 않는다. 1.26.0 의 `std::fs::write` 는 기다렸다. 리스는 `fcntl(F_SETLEASE)` 라 이
+/// 시험(unsafe 를 쓰지 않는다) 대신 python3 자식이 건다 — python3 가 없거나 이 파일 시스템이 리스를 받지 않으면 재지
+/// 않는다.
+#[test]
+fn a_file_under_a_lease_is_written_once_the_lease_is_let_go() {
+    use std::io::BufRead;
+    let d = lab("lease");
+    let f = p(&d, "settings.conf");
+    std::fs::write(&f, b"old\n").expect("쓰기");
+    let child = std::process::Command::new("python3")
+        .args(["-I", "-c", LEASE_HOLDER, &f])
+        .stdout(std::process::Stdio::piped())
+        .spawn();
+    let Ok(mut child) = child else {
+        eprintln!("python3 가 없어 리스를 재지 않는다");
+        return;
+    };
+    let mut line = String::new();
+    let out = child.stdout.take().expect("표준 출력");
+    let _ = std::io::BufReader::new(out).read_line(&mut line);
+    if line.trim() != "ready" {
+        let _ = child.kill();
+        let _ = child.wait();
+        eprintln!("리스를 걸지 못해 재지 않는다: {line}");
+        return;
+    }
+
+    let started = std::time::Instant::now();
+    let got = Live::new().restore_file(&f, b"new\n", &FileMeta::default());
+    let waited = started.elapsed();
+    let _ = child.kill();
+    let _ = child.wait();
+
+    let r = got.expect("리스가 풀린 뒤 써야 한다");
+    assert_eq!(std::fs::read(&f).expect("읽기"), b"new\n", "{r:?}");
+    assert!(
+        waited >= std::time::Duration::from_millis(200),
+        "리스가 풀리기 전에 썼다: {waited:?}"
+    );
+    let _ = std::fs::remove_dir_all(&d);
+}
+
 #[test]
 fn planning_a_restore_warns_before_overwriting() {
     // 설계-02 §9 는 되살릴 수 없는 것을 **실행 전에** 말하라고 한다. 그 자리에

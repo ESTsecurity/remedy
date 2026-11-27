@@ -2118,7 +2118,9 @@ fn write_by_name(
 ///
 /// - `O_NOFOLLOW` — 자리가 링크면 `ELOOP` 로 열리지 않는다. 따라가지 않고 그 항목은 실패다.
 /// - `O_NONBLOCK` — 자리가 이름 붙은 파이프면 읽는 쪽을 기다리지 않는다. 기다리면 복원이 멈추고, 읽는 쪽이
-///   나타나면 담아 둔 본문을 그 사람에게 흘린다. 일반 파일에는 뜻이 없다.
+///   나타나면 담아 둔 본문을 그 사람에게 흘린다. 일반 파일에도 뜻이 하나 있다 — 다른 프로세스의 리스(lease)나 NFS
+///   위임이 걸린 파일은 기다리지 않고 `EWOULDBLOCK` 으로 열리지 않는다. 그때는 같은 플래그로 짧게 쉬며 다시 연다
+///   ([`waiting_out_a_lease`] — 1.26.0 의 쓰기는 리스가 풀릴 때까지 기다렸다).
 /// - 연 뒤 `fstat` 으로 일반 파일이고 이름이 하나(`nlink == 1`)인지 본다 — 하드 링크면 그 inode 는 다른 자리의
 ///   파일이기도 하다. 아니면 비우기 전에 실패한다. 그래서 `O_TRUNC` 로 열지 않고 본 뒤에 비운다.
 /// - 새 파일은 담아 둔 mode 가 있으면 0600 으로 만든다 — 본문을 쓰는 동안 남이 열어 두지 못하고, 끝에 그 mode 로
@@ -2181,13 +2183,18 @@ pub(crate) fn open_through_root_links(dest: &str) -> Result<std::fs::File, Platf
 fn open_nofollow(dest: &str, create_mode: u32) -> Result<std::fs::File, PlatformError> {
     use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
     let io = |e| PlatformError::io(dest, e);
-    let f = std::fs::OpenOptions::new()
-        .write(true)
-        .create(true)
-        .mode(create_mode)
-        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
-        .open(dest)
-        .map_err(|e| link_refused(dest, e))?;
+    let f = waiting_out_a_lease(
+        || {
+            std::fs::OpenOptions::new()
+                .write(true)
+                .create(true)
+                .mode(create_mode)
+                .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
+                .open(dest)
+        },
+        LEASE_WAIT,
+    )
+    .map_err(|e| link_refused(dest, e))?;
     let md = f.metadata().map_err(io)?;
     if !md.file_type().is_file() {
         return Err(PlatformError::refused(
@@ -2204,6 +2211,38 @@ fn open_nofollow(dest: &str, create_mode: u32) -> Result<std::fs::File, Platform
     }
     f.set_len(0).map_err(io)?;
     Ok(f)
+}
+
+/// 리스(lease) · NFS 위임이 걸린 파일의 열기를 다시 해 보는 시간의 상한([`waiting_out_a_lease`]) — 커널 기본
+/// `lease-break-time`(45초)에 여유를 둔다. 리스를 쥔 쪽이 그 안에 놓지 않으면 커널이 스스로 풀므로, 기본값의 기계에서는
+/// 1.26.0 의 쓰기(풀릴 때까지 기다렸다)와 같이 끝에는 열린다.
+#[cfg(unix)]
+const LEASE_WAIT: std::time::Duration = std::time::Duration::from_secs(60);
+
+/// 위 다시 열기 사이에 한 번 쉬는 길이.
+#[cfg(unix)]
+const LEASE_RETRY_PAUSE: std::time::Duration = std::time::Duration::from_millis(20);
+
+/// `open` 이 `EWOULDBLOCK`(`EAGAIN`)이면 짧게 쉬며 같은 열기를 다시 한다 — `wait` 가 지나면 그 오류 그대로다. 다른
+/// 오류는 다시 하지 않는다.
+///
+/// 쓰기는 `O_NONBLOCK` 으로 연다([`open_place`]). 다른 프로세스의 리스나 NFS 위임이 걸린 파일을 그 플래그로 열면 커널이
+/// 리스 풀기만 걸고 기다리지 않은 채 `EWOULDBLOCK` 을 돌려준다(`fcntl(2)` 의 Leases). 플래그를 빼고 다시 열지 않는다 —
+/// 그 사이 자리가 이름 붙은 파이프로 바뀌면 그 열기가 멈춘다.
+#[cfg(unix)]
+fn waiting_out_a_lease<T>(
+    mut open: impl FnMut() -> std::io::Result<T>,
+    wait: std::time::Duration,
+) -> std::io::Result<T> {
+    let started = std::time::Instant::now();
+    loop {
+        match open() {
+            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock && started.elapsed() < wait => {
+                std::thread::sleep(LEASE_RETRY_PAUSE);
+            }
+            got => return got,
+        }
+    }
 }
 
 /// 열기가 링크에서 멈췄으면(`O_NOFOLLOW` 의 `ELOOP`) 그 사유 한 줄 — 그 밖의 실패는 OS 가 준 그대로다. 경로

@@ -1867,6 +1867,57 @@ mod place_opened_once {
         assert_eq!(refused, Ok(true), "파이프 자리에서 멈췄거나 썼다");
         cleanup(&dir).ok();
     }
+
+    /// 리스(lease) · NFS 위임이 걸린 파일은 `O_NONBLOCK` 열기가 기다리지 않고 `EWOULDBLOCK` 으로 열리지 않는다 — 짧게
+    /// 쉬며 같은 열기를 다시 해, 리스가 풀리면 연다(1.26.0 의 쓰기는 풀릴 때까지 기다렸다).
+    #[test]
+    fn an_open_that_would_block_on_a_lease_is_tried_again() {
+        let mut calls = 0;
+        let got = waiting_out_a_lease(
+            || {
+                calls += 1;
+                if calls <= 3 {
+                    Err(std::io::Error::from(std::io::ErrorKind::WouldBlock))
+                } else {
+                    Ok(calls)
+                }
+            },
+            LEASE_WAIT,
+        );
+        assert_eq!(got.ok(), Some(4));
+    }
+
+    /// 상한까지 풀리지 않으면 그 오류 그대로 실패한다. 다른 오류(이름 붙은 파이프의 `ENXIO` 등)는 다시 열지 않는다.
+    #[test]
+    fn an_open_that_keeps_blocking_fails_at_the_limit() {
+        let wait = std::time::Duration::from_millis(60);
+        let mut calls = 0;
+        let started = std::time::Instant::now();
+        let got: std::io::Result<()> = waiting_out_a_lease(
+            || {
+                calls += 1;
+                Err(std::io::ErrorKind::WouldBlock.into())
+            },
+            wait,
+        );
+        let took = started.elapsed();
+        assert_eq!(
+            got.map_err(|e| e.kind()),
+            Err(std::io::ErrorKind::WouldBlock)
+        );
+        assert!(took >= wait && calls > 1, "{took:?} · {calls}번");
+
+        let mut calls = 0;
+        let got: std::io::Result<()> = waiting_out_a_lease(
+            || {
+                calls += 1;
+                Err(std::io::Error::from_raw_os_error(libc::ENXIO))
+            },
+            LEASE_WAIT,
+        );
+        assert!(got.is_err());
+        assert_eq!(calls, 1);
+    }
 }
 
 /// 꺼낸 사본에는 파일 권능도 **POSIX ACL** 도 붙이지 않는다(이슈 #172) — ACL 의 이름 붙은 항목은 소유자와 같이 숫자
