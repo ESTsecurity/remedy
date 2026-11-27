@@ -29,12 +29,13 @@ use crate::read::{
     WalkResult,
 };
 use crate::write::{
-    DirIndex, FileMeta, FsRestore, KillPredicate, LineAt, PersistenceIndex, PlatformWrite,
+    DirIndex, FileMeta, FsRestore, KillPredicate, LineAt, Owner, PersistenceIndex, PlatformWrite,
     RemovedBy, RestoreReport, Target, VerifySite,
 };
 use crate::PlatformError;
 use remedy_sdk::catalog::Platform;
 use remedy_sdk::normalize;
+use std::os::unix::fs::MetadataExt;
 
 /// 이 코어가 부르는 OS 관리 도구. **여기 없는 것은 부르지 않는다.**
 ///
@@ -888,11 +889,27 @@ impl PlatformWrite for Live {
                         Some((l.clone(), to.to_str()?.to_string()))
                     })
                     .collect();
+                // 소유자도 담는다(이슈 #172 ①) — 유닛은 본문을 읽은 그 파일의 것, 링크는 링크 자체의 것이다. 읽지
+                // 못한 것은 담지 않는다(되돌릴 때 그 자리의 소유자를 바꾸지 않는다).
+                let owner_of = |m: std::fs::Metadata| Owner {
+                    uid: m.uid(),
+                    gid: m.gid(),
+                };
+                let owner = std::fs::metadata(id).ok().map(owner_of);
+                let link_owners = links
+                    .iter()
+                    .filter_map(|l| {
+                        let m = std::fs::symlink_metadata(l).ok()?;
+                        Some((l.clone(), owner_of(m)))
+                    })
+                    .collect();
                 Ok((
                     bytes,
                     PersistenceIndex {
                         links,
                         link_targets,
+                        owner,
+                        link_owners,
                     },
                 ))
             }
@@ -976,6 +993,16 @@ impl PlatformWrite for Live {
             }
             None => {
                 std::fs::write(id, content).map_err(|e| PlatformError::io(id, e))?;
+                // 소유자는 담아 둔 것이 있을 때만 바꾼다 — 유닛과 **새로 단** 링크(이슈 #172 ①). 되돌리지 못해도
+                // 링크를 끝까지 단 뒤에 말한다: 꺼진 채로 두는 것보다 소유자만 틀린 편이 낫고, 그 사실은 숨기지 않는다.
+                let mut owner_err: Option<(String, std::io::Error)> = None;
+                let mut put_owner = |path: &str, o: Option<&Owner>| {
+                    let Some(o) = o else { return };
+                    if let Err(e) = std::os::unix::fs::lchown(path, Some(o.uid), Some(o.gid)) {
+                        owner_err.get_or_insert((path.to_string(), e));
+                    }
+                };
+                put_owner(id, index.owner.as_ref());
                 for l in &index.links {
                     if let Some(dir) = std::path::Path::new(l).parent() {
                         std::fs::create_dir_all(dir)
@@ -990,8 +1017,20 @@ impl PlatformWrite for Live {
                     // 담을 때 가리키던 문자열 그대로 단다. 그 칸이 없으면(1.25.3 까지의 격리물) 유닛 경로로 단다.
                     let to = index.link_targets.get(l).map_or(id, String::as_str);
                     std::os::unix::fs::symlink(to, l).map_err(|e| PlatformError::io(l, e))?;
+                    put_owner(l, index.link_owners.get(l));
                 }
-                Ok(())
+                match owner_err {
+                    None => Ok(()),
+                    // '되돌렸으나 …' 는 재부팅 삭제 예약을 취소하지 못한 복원과 같은 꼴이다(`remedy-core` 의 복원 ·
+                    // 실패로 센다).
+                    Some((path, e)) => {
+                        let why = remedy_sdk::i18n::current().pick(
+                            format!("되돌렸으나 소유자를 되돌리지 못했습니다: {e}"),
+                            format!("restored, but the owner could not be put back: {e}"),
+                        );
+                        Err(PlatformError::io(path, std::io::Error::new(e.kind(), why)))
+                    }
+                }
             }
         }
     }

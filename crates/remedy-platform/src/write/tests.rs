@@ -218,6 +218,130 @@ fn the_plan_warns_before_overwriting() {
     std::fs::remove_dir_all(&dir).ok();
 }
 
+/// 계획이 소유자를 말한다 — 담아 둔 소유자는 되돌린다고 적고, mode 보다 먼저 되돌린다(이슈 #172 ①).
+///
+/// chown 이 setuid · setgid 와 `security.capability` 를 지우므로 차례가 뜻을 갖는다 — mode 를 먼저 쓰면
+/// 소유자를 바꾸는 순간 그 비트가 사라진다. 1.26.0 은 소유자를 담지도 되돌리지도 않아, root 가 되돌린 사용자의
+/// 파일이 root 소유로 돌아왔다(setuid 이면 root 의 setuid).
+#[cfg(unix)]
+#[test]
+fn the_plan_says_the_owner_comes_back_before_the_mode() {
+    let dir = tmp("plan-owner");
+    let p = dir.join("x");
+    std::fs::write(&p, b"x").unwrap();
+    let s = p.to_str().unwrap();
+    let meta = capture_meta(s).unwrap();
+    std::fs::remove_file(&p).unwrap();
+
+    let r = FsRestore.plan_restore(s, &meta);
+    let at = |n: &str| r.restored.iter().position(|x| x == n);
+    assert!(
+        at("owner").is_some(),
+        "소유자를 되돌린다고 말하지 않는다: {r:?}"
+    );
+    assert!(at("owner") < at("mode"), "소유자를 mode 보다 먼저: {r:?}");
+    assert!(!r.lost.iter().any(|l| l.item == "owner"), "{r:?}");
+    cleanup(&dir).ok();
+}
+
+/// 소유자 칸이 없는 격리물(1.26.0 까지)은 **복원 전에** 소유자를 모른다고 말하고, setuid · setgid 가 있으면 그것을
+/// 빼고 되돌린다고 말한다(카드 결정 — 비트 빼기 + 복원 전 목록에 적기). 비트가 없는 mode 는 되돌린다고 적는다.
+#[cfg(unix)]
+#[test]
+fn the_plan_says_an_old_capture_comes_back_without_its_setid_bits() {
+    let dir = tmp("plan-old");
+    let s = dir.join("없음").to_string_lossy().to_string();
+    for (mode, setid) in [(0o104755, true), (0o102755, true), (0o100644, false)] {
+        let meta = FileMeta {
+            mode: Some(mode),
+            ..Default::default()
+        };
+        let r = FsRestore.plan_restore(&s, &meta);
+        assert!(r.lost.iter().any(|l| l.item == "owner"), "{mode:o}: {r:?}");
+        assert!(!r.restored.iter().any(|x| x == "owner"), "{mode:o}: {r:?}");
+        let mode_lost = r.lost.iter().find(|l| l.item == "mode");
+        assert_eq!(mode_lost.is_some(), setid, "{mode:o}: {r:?}");
+        assert_eq!(
+            r.restored.iter().any(|x| x == "mode"),
+            !setid,
+            "{mode:o}: {r:?}"
+        );
+        if let Some(l) = mode_lost {
+            assert!(l.reason.contains("setuid"), "{mode:o}: {r:?}");
+        }
+    }
+    cleanup(&dir).ok();
+}
+
+/// POSIX 소유자가 없는 플랫폼은 담아 둔 소유자를 되돌릴 수 없다고 미리 말한다 — mode 와 같은 자리다.
+#[cfg(not(unix))]
+#[test]
+fn a_posix_owner_is_named_as_lost_where_there_is_none() {
+    let meta = FileMeta {
+        uid: Some(4242),
+        gid: Some(4242),
+        mode: Some(0o100644),
+        ..Default::default()
+    };
+    let r = FsRestore.plan_restore("C:\\없는 자리\\x", &meta);
+    for want in ["owner", "mode"] {
+        assert!(r.lost.iter().any(|l| l.item == want), "{want}: {r:?}");
+        assert!(!r.restored.iter().any(|x| x == want), "{want}: {r:?}");
+    }
+}
+
+/// 1.26.0 까지의 격리물은 소유자 칸이 없다 — 그대로 읽히고(비어 있다), 비면 쓰지 않아 Windows 의 `meta` 는 전과
+/// 같은 바이트다. 담은 소유자는 `uid` · `gid` 이름 그대로 실린다(옛 엔진은 모르는 칸을 버리고 읽는다).
+#[test]
+fn a_file_meta_from_before_the_owner_still_reads() {
+    let old: FileMeta = serde_json::from_value(serde_json::json!({
+        "mtime_unix": 1, "mtime_nanos": 0, "readonly": false, "mode": 33261
+    }))
+    .unwrap();
+    assert_eq!((old.uid, old.gid), (None, None));
+    assert_eq!(old.mode, Some(33261));
+    assert_eq!(
+        serde_json::to_value(FileMeta::default()).unwrap(),
+        serde_json::json!({})
+    );
+    let m = FileMeta {
+        uid: Some(4242),
+        gid: Some(4243),
+        ..Default::default()
+    };
+    assert_eq!(
+        serde_json::to_value(&m).unwrap(),
+        serde_json::json!({ "uid": 4242, "gid": 4243 })
+    );
+}
+
+/// 되돌린 보고서에서 한 항목은 한 번만, 그리고 restored 와 lost 의 한쪽에만 선다.
+///
+/// 1.26.0 의 파일 복원은 끝에서 btime 을 조건 없이 lost 에 한 번 더 넣었다 — Unix 에서는 두 번, Windows 에서는
+/// 되돌린 btime 이 lost 에도 섰다. 복원 뒤 화면이 '계획이 되돌린다고 한 것 가운데 못 된 것' 을 찍으므로(이슈 #172 ①),
+/// 그 줄이 남으면 Windows 의 모든 파일 복원에 거짓 '복원 불가 btime' 이 찍힌다.
+#[test]
+fn each_item_is_reported_once_and_on_one_side() {
+    let dir = tmp("once");
+    let p = dir.join("x");
+    let s = p.to_str().unwrap();
+    std::fs::write(&p, b"seed").unwrap();
+    let meta = capture_meta(s).unwrap();
+    std::fs::remove_file(&p).unwrap();
+
+    let r = FsRestore.restore_file(s, b"x", &meta).unwrap();
+    for l in &r.lost {
+        let n = r.lost.iter().filter(|x| x.item == l.item).count();
+        assert_eq!(n, 1, "{} 가 lost 에 {n}번 선다: {r:?}", l.item);
+        assert!(
+            !r.restored.contains(&l.item),
+            "{} 가 restored 와 lost 에 함께 선다: {r:?}",
+            l.item
+        );
+    }
+    cleanup(&dir).ok();
+}
+
 /// 1.25.3 까지의 격리물은 `links` 만 든다 — 새 칸(`link_targets`)이 비어 그대로 읽히고(유닛 경로로
 /// 단다), 빈 칸은 쓰지 않아 cron · Windows 의 `meta` 가 전과 같은 바이트다(이슈 #166 ⑤).
 #[test]
@@ -228,6 +352,9 @@ fn a_persistence_index_from_before_link_targets_still_reads() {
     .unwrap();
     assert_eq!(old.links.len(), 1);
     assert!(old.link_targets.is_empty());
+    // 1.26.0 까지의 격리물에는 소유자 칸도 없다(이슈 #172 ①) — 비어 그대로 읽히고, 복원은 소유자를 바꾸지 않는다.
+    assert_eq!(old.owner, None);
+    assert!(old.link_owners.is_empty());
     assert_eq!(
         serde_json::to_value(PersistenceIndex::default()).unwrap(),
         serde_json::json!({})

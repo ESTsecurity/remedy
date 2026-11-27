@@ -24,7 +24,7 @@
 //! 해석되지 않으면 잘못된 권한이 붙는다. 다른 머신에서 필요한 것은 **내용을
 //! 되찾는 것**이고, 그 경로가 `--extract-to` 다 (설계-02 §9).
 
-use remedy_platform::write::{FileMeta, PlatformWrite, RestoreReport};
+use remedy_platform::write::{FileMeta, LostItem, PlatformWrite, RestoreReport};
 use remedy_quarantine::{ContentKey, Opened, QuarantineError, Sealed};
 use remedy_sdk::EntryKind;
 use std::collections::BTreeMap;
@@ -321,6 +321,12 @@ pub fn plan(
         }
 
         let meta: FileMeta = serde_json::from_value(me.meta.clone()).unwrap_or_default();
+        // 꺼내기는 setuid · setgid 를 빼고 쓴다 — 계획도 그 메타데이터로 센다([`apply`] 와 같다).
+        let meta = if extract_to.is_some() {
+            meta.for_extract()
+        } else {
+            meta
+        };
 
         // 꺼내기 모드에서는 원본 경로에 쓰지 않으므로 보호 검사가 성립하지 않는다.
         // 대신 컨테이너가 지시하는 경로를 **쓰지 않는다는 사실 자체**가 방어다.
@@ -471,6 +477,19 @@ fn extract_path(dir: &str, origin: &str) -> String {
     format!("{}{}{}", dir.trim_end_matches(['\\', '/']), sep, flat)
 }
 
+/// 계획이 되돌린다고 한 것 가운데 **되돌리지 못한 것** — 복원 뒤 화면이 항목마다 찍는다(이슈 #172 ①).
+///
+/// 1.26.0 은 복원 뒤의 보고서에서 되돌린 것만 찍어, 쓸 때에야 드러난 실패(남의 uid 로의 chown · 해석되지 않는
+/// SDDL · 나타낼 수 없는 시각)가 화면에서 사라졌다. 계획이 이미 '복원 불가' 로 적은 것(ctime · Unix 의 btime ·
+/// 옛 격리물의 소유자)은 다시 적지 않는다 — 그 줄은 복원 전에 찍혔다. 계획이 되돌린다고 하지 않은 칸(Windows 의
+/// sacl)도 적지 않는다.
+pub fn missed<'r>(planned: &RestoreReport, got: &'r RestoreReport) -> Vec<&'r LostItem> {
+    got.lost
+        .iter()
+        .filter(|l| planned.restored.contains(&l.item))
+        .collect()
+}
+
 /// 한 항목의 수행 결과.
 #[derive(Debug, Clone)]
 pub struct Outcome {
@@ -600,6 +619,13 @@ pub fn apply(
                 .map_err(|e| e.to_string())
         } else {
             let meta: FileMeta = serde_json::from_value(entry.meta.clone()).unwrap_or_default();
+            // **꺼낸 사본에 setuid · setgid 를 살리지 않는다**(이슈 #172 ①). 소유자는 둔다 — Windows 의 꺼내기가
+            // 담아 둔 SDDL 을 그대로 쓰는 것과 같다.
+            let meta = if plan.extract_to.is_some() {
+                meta.for_extract()
+            } else {
+                meta
+            };
             backend
                 .restore_file(&dest, &entry.content, &meta)
                 .map_err(|e| e.to_string())
@@ -1370,6 +1396,136 @@ mod tests {
         assert_eq!(out.len(), 1);
         assert!(out[0].result.is_ok(), "{:?}", out[0].result);
         assert_eq!(std::fs::read(&dest).unwrap(), b"\x00\x01\x02original");
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// 복원 뒤 화면이 찍는 것은 계획이 되돌린다고 했는데 못 된 것뿐이다(이슈 #172 ①) — 계획이 이미 '복원 불가' 로
+    /// 적은 것과 계획에 없던 칸은 다시 적지 않는다.
+    #[test]
+    fn after_restoring_only_what_the_plan_promised_and_missed_is_named() {
+        let mut planned = RestoreReport {
+            restored: ["content", "mtime", "owner", "mode"]
+                .map(String::from)
+                .to_vec(),
+            lost: vec![],
+        };
+        planned.lose("ctime", "x");
+        planned.lose("btime", "x");
+        let mut got = RestoreReport {
+            restored: ["content", "mtime"].map(String::from).to_vec(),
+            lost: vec![],
+        };
+        got.lose("ctime", "x");
+        got.lose("btime", "x");
+        got.lose("owner", "Operation not permitted (os error 1)");
+        got.lose("mode", "bits left off");
+        got.lose("sacl", "not captured");
+        let items: Vec<&str> = missed(&planned, &got)
+            .iter()
+            .map(|l| l.item.as_str())
+            .collect();
+        assert_eq!(items, ["owner", "mode"]);
+        assert_eq!(
+            missed(&planned, &got)[0].reason,
+            "Operation not permitted (os error 1)"
+        );
+
+        // 다 되돌렸으면 아무것도 적지 않는다.
+        assert!(missed(&planned, &planned).is_empty());
+    }
+
+    /// 꺼내기는 setuid · setgid 를 빼고 소유자는 둔다 — 나머지 칸은 그대로다.
+    #[test]
+    fn extracting_drops_the_setid_bits_but_keeps_the_owner() {
+        let m = FileMeta {
+            mtime_unix: Some(7),
+            mode: Some(0o106755),
+            uid: Some(4242),
+            gid: Some(4243),
+            ..Default::default()
+        };
+        let x = m.for_extract();
+        assert_eq!(x.mode, Some(0o100755));
+        assert_eq!((x.uid, x.gid), (Some(4242), Some(4243)));
+        assert_eq!(
+            FileMeta {
+                mode: m.mode,
+                ..x.clone()
+            },
+            m
+        );
+        assert_eq!(FileMeta::default().for_extract(), FileMeta::default());
+    }
+
+    /// 백엔드가 받은 메타데이터를 적는다(계획 · 쓰기). 되돌리기는 늘 성공한다.
+    #[derive(Default)]
+    struct Metas(std::cell::RefCell<Vec<(&'static str, FileMeta)>>);
+
+    impl PlatformWrite for Metas {
+        fn backend_name(&self) -> &'static str {
+            "metas"
+        }
+        fn plan_restore(&self, _dest: &str, meta: &FileMeta) -> RestoreReport {
+            self.0.borrow_mut().push(("plan", meta.clone()));
+            RestoreReport::default()
+        }
+        fn restore_file(
+            &self,
+            _dest: &str,
+            _content: &[u8],
+            meta: &FileMeta,
+        ) -> Result<RestoreReport, remedy_platform::PlatformError> {
+            self.0.borrow_mut().push(("write", meta.clone()));
+            Ok(RestoreReport::default())
+        }
+        fn quarantine_read(
+            &self,
+            _path: &str,
+        ) -> Result<(Vec<u8>, FileMeta), remedy_platform::PlatformError> {
+            Err(remedy_platform::PlatformError::Unsupported("읽지 않는다"))
+        }
+        fn destroy_file(&self, _path: &str) -> Result<(), remedy_platform::PlatformError> {
+            Err(remedy_platform::PlatformError::Unsupported("지우지 않는다"))
+        }
+        fn exists(&self, _path: &str) -> bool {
+            false
+        }
+    }
+
+    /// 꺼내기만 setuid · setgid 를 뺀 메타데이터를 계획과 쓰기에 넘긴다 — 제자리 복원은 담은 그대로다.
+    #[test]
+    fn only_extracting_hands_the_backend_a_meta_without_the_setid_bits() {
+        let dir = std::env::temp_dir().join("remedy-restore-extract-meta");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let origin = dir.join("tool").to_string_lossy().to_string();
+        let out = dir.join("out").to_string_lossy().to_string();
+        let (bytes, ck) = build(vec![Entry {
+            kind: EntryKind::File,
+            origin: origin.clone(),
+            meta: serde_json::json!({ "mode": 0o104755, "uid": 4242, "gid": 4242 }),
+            content: b"x".to_vec(),
+        }]);
+        let sealed = peek(&bytes).unwrap();
+        let opened = sealed.unlock(&ck).unwrap();
+        let guards = Guards {
+            protected: &protected(),
+            vouched: &nothing_vouched(),
+        };
+        for (extract, mode) in [(Some(out.as_str()), 0o100755), (None, 0o104755)] {
+            let b = Metas::default();
+            let p = plan(&opened, "r1", &b, &guards, &[], extract).unwrap();
+            apply(&p, &opened, &ck, &b).unwrap();
+            let seen = b.0.borrow();
+            assert_eq!(
+                seen.iter().map(|(k, _)| *k).collect::<Vec<_>>(),
+                ["plan", "write"]
+            );
+            for (k, m) in seen.iter() {
+                assert_eq!(m.mode, Some(mode), "{extract:?} {k}");
+                assert_eq!((m.uid, m.gid), (Some(4242), Some(4242)), "{extract:?} {k}");
+            }
+        }
         std::fs::remove_dir_all(&dir).ok();
     }
 

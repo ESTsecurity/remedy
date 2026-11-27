@@ -455,18 +455,37 @@ pub(super) fn cmd_restore(raw: &[String]) -> Result<Code, Failure> {
     let mut failed = 0;
     for o in &outcomes {
         match &o.result {
-            // 레지스트리 값처럼 되살린 속성이 없는 항목은 괄호를 열지 않는다 —
-            // 앞서는 `복원 [e0] …Locust  ()` 처럼 빈 괄호가 남았다 (2026-09-07).
-            Ok(r) if r.restored.is_empty() => {
-                outln!("  {} [{}] {}", lang.t("복원", "restored"), o.id, o.dest)
+            Ok(r) => {
+                // 레지스트리 값처럼 되살린 속성이 없는 항목은 괄호를 열지 않는다 —
+                // 앞서는 `복원 [e0] …Locust  ()` 처럼 빈 괄호가 남았다 (2026-09-07).
+                if r.restored.is_empty() {
+                    outln!("  {} [{}] {}", lang.t("복원", "restored"), o.id, o.dest)
+                } else {
+                    outln!(
+                        "  {} [{}] {}  ({})",
+                        lang.t("복원", "restored"),
+                        o.id,
+                        o.dest,
+                        r.restored.join(d.dot())
+                    )
+                }
+                // 계획이 되돌린다고 했는데 못 된 것 — 계획 쪽 줄과 같은 꼴이다. 본문은 돌아왔으므로 종료 코드는
+                // 그대로다(이슈 #172 ①).
+                let missed = plan
+                    .items
+                    .iter()
+                    .find(|i| i.id == o.id)
+                    .map(|i| remedy_core::restore::missed(&i.report, r))
+                    .unwrap_or_default();
+                for l in missed {
+                    outln!(
+                        "        {}  {}: {}",
+                        lang.t("복원 불가", "not restorable"),
+                        l.item,
+                        l.reason
+                    );
+                }
             }
-            Ok(r) => outln!(
-                "  {} [{}] {}  ({})",
-                lang.t("복원", "restored"),
-                o.id,
-                o.dest,
-                r.restored.join(d.dot())
-            ),
             Err(e) => {
                 failed += 1;
                 errln!("  {} [{}] {}  {e}", lang.t("실패", "FAILED"), o.id, o.dest);

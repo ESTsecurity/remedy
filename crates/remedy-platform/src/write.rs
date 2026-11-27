@@ -56,12 +56,43 @@ pub struct FileMeta {
     /// Linux 권한 비트.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mode: Option<u32>,
+    /// POSIX 소유자(uid · gid). `mode` 와 같은 `metadata` 에서 담는다(이슈 #172 ①).
+    ///
+    /// **mode 보다 먼저 되돌린다.** chown 이 setuid · setgid 비트와 `security.capability` 를 지우므로, mode 를
+    /// 먼저 쓰면 소유자를 바꾸는 순간 그 비트가 사라진다. 1.26.0 까지는 담지도 되돌리지도 않아 root 가 되돌린
+    /// 사용자의 파일이 root 소유로 돌아왔다 — 4755 이면 root 의 setuid 다. 칸이 없는 격리물(그 전의 것)은 소유자를
+    /// 모르므로 setuid · setgid 를 빼고 되돌린다. 비면 쓰지 않아 Windows 의 `meta` 는 전과 같은 바이트다.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub uid: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gid: Option<u32>,
     /// 확장 속성. 값은 임의 바이트라 base64 로 담는다.
     ///
     /// `security.selinux` 가 여기로 실려 온다. 정책이 거부하면 root 라도 되돌리지
     /// 못하므로(설계-02 §9) 그때는 보고서에 적힌다.
     #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
     pub xattrs: std::collections::BTreeMap<String, String>,
+}
+
+/// setuid · setgid 비트(`S_ISUID | S_ISGID`). 소유자가 돌아오지 않으면 되돌리는 mode 에서 뺀다.
+pub const SETID_BITS: u32 = 0o6000;
+
+impl FileMeta {
+    /// 담아 둔 소유자(uid, gid) — 둘 다 있을 때만.
+    pub fn owner(&self) -> Option<(u32, u32)> {
+        Some((self.uid?, self.gid?))
+    }
+
+    /// 꺼내기(`--extract-to`)에 쓸 메타데이터 — **setuid · setgid 를 빼고 소유자는 둔다**(이슈 #172 ①).
+    ///
+    /// 꺼낸 것은 원래 자리가 아닌 곳의 사본이다. 거기서 setuid 가 살아 있으면 꺼낸 폴더에 그 소유자의 권한으로 도는
+    /// 실행 파일이 생긴다. 소유자는 둔다 — Windows 의 꺼내기가 담아 둔 SDDL 을 그대로 쓰는 것과 같다.
+    pub fn for_extract(&self) -> FileMeta {
+        FileMeta {
+            mode: self.mode.map(|m| m & !SETID_BITS),
+            ..self.clone()
+        }
+    }
 }
 
 /// 복원이 실제로 무엇을 되살렸고 무엇을 못 살렸는가.
@@ -1123,6 +1154,23 @@ pub struct PersistenceIndex {
     /// 바이트다.
     #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
     pub link_targets: std::collections::BTreeMap<String, String>,
+    /// 유닛 파일의 소유자(이슈 #172 ①). 사용자 유닛(`~/.config/systemd/user`)은 그 사용자의 것인데, 지운 뒤 root
+    /// 가 다시 쓰면 root 소유로 돌아와 그 사용자가 자기 유닛을 고치지도 끄지도 못한다. 칸이 없으면(1.26.0 까지의
+    /// 격리물 · 읽지 못함) 소유자를 바꾸지 않는다 — 1.26.0 과 같다.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub owner: Option<Owner>,
+    /// 링크 경로 → 담을 때 **그 링크 자체**의 소유자. 복원이 새로 단 링크에만 쓴다(이미 있던 링크는 그대로 둔다).
+    ///
+    /// 두 칸 모두 비면 쓰지 않으므로 cron · Windows 의 `meta` 는 전과 같은 바이트다.
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub link_owners: std::collections::BTreeMap<String, Owner>,
+}
+
+/// 파일 · 링크 하나의 POSIX 소유자.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct Owner {
+    pub uid: u32,
+    pub gid: u32,
 }
 
 /// 지속성 항목이 **파일 안의 줄**일 때 그 자리 (cron).
@@ -1645,7 +1693,7 @@ fn read_text(path: &str) -> Result<String, PlatformError> {
 /// 이식 가능한 파일 복원. 플랫폼 백엔드가 이것을 쓴다.
 ///
 /// 여기 있는 것은 **어느 OS 에서나 같게 동작하는 부분**뿐이다 — 본문, 수정 시각,
-/// 읽기 전용 비트. SDDL·mode·xattr 처럼 OS 고유인 것은 각 백엔드가 덧붙이며,
+/// 읽기 전용 비트. SDDL·소유자·mode·xattr 처럼 OS 고유인 것은 `meta` 가 덧붙이며,
 /// 아직 없는 것은 조용히 넘기지 않고 `lost` 에 적는다.
 pub struct FsRestore;
 
@@ -1661,6 +1709,15 @@ fn note_cross_platform(meta: &FileMeta, report: &mut RestoreReport) {
             remedy_sdk::i18n::t(
                 "이 플랫폼에는 Windows 보안 디스크립터가 없습니다",
                 "this platform has no Windows security descriptors",
+            ),
+        );
+    }
+    if meta.owner().is_some() && !cfg!(unix) {
+        report.lose(
+            "owner",
+            remedy_sdk::i18n::t(
+                "이 플랫폼에는 POSIX 소유자가 없습니다",
+                "this platform has no POSIX owners",
             ),
         );
     }
@@ -1684,6 +1741,38 @@ fn note_cross_platform(meta: &FileMeta, report: &mut RestoreReport) {
     }
 }
 
+/// 계획의 소유자 · mode 칸(Unix) — 되돌리는 차례(`meta::restore_platform`)와 같게 소유자를 먼저 적는다.
+///
+/// 소유자 칸이 없는 Unix 격리물(1.26.0 까지 — mode 는 있고 uid 가 없다)은 소유자를 모른다고 **복원 전에** 적고,
+/// setuid · setgid 가 있으면 그것을 빼고 되돌린다고 적는다(이슈 #172 ①). mode 도 없는 것(다른 OS 에서 담은 것 ·
+/// 지속성 색인)은 소유자를 말하지 않는다 — 다른 OS 의 것은 `note_cross_platform` 이 말하고, 지속성 유닛의 소유자는
+/// 색인(`PersistenceIndex::owner`)이 따로 든다.
+fn plan_owner_and_mode(meta: &FileMeta, r: &mut RestoreReport) {
+    let known = meta.owner().is_some();
+    if known {
+        r.restored.push("owner".into());
+    } else if meta.mode.is_some() {
+        r.lose(
+            "owner",
+            remedy_sdk::i18n::t(
+                "격리할 때 소유자를 담지 않았습니다",
+                "the owner was not captured at quarantine",
+            ),
+        );
+    }
+    match meta.mode {
+        Some(m) if !known && m & SETID_BITS != 0 => r.lose(
+            "mode",
+            remedy_sdk::i18n::t(
+                "소유자를 모르므로 setuid · setgid 비트는 빼고 되돌립니다",
+                "the owner is unknown, so the setuid and setgid bits are left off",
+            ),
+        ),
+        Some(_) => r.restored.push("mode".into()),
+        None => {}
+    }
+}
+
 impl PlatformWrite for FsRestore {
     fn backend_name(&self) -> &'static str {
         "fs"
@@ -1701,8 +1790,8 @@ impl PlatformWrite for FsRestore {
         if meta.sddl.is_some() && cfg!(windows) {
             r.restored.push("sddl".into());
         }
-        if meta.mode.is_some() && cfg!(unix) {
-            r.restored.push("mode".into());
+        if cfg!(unix) {
+            plan_owner_and_mode(meta, &mut r);
         }
         note_cross_platform(meta, &mut r);
         // `ctime`(inode 변경 시각)은 어디에서도 설정할 수 없다. 커널이 우리가
@@ -1871,21 +1960,18 @@ impl PlatformWrite for FsRestore {
         // OS 고유 메타데이터는 **읽기 전용 다음에** 되돌린다. Unix 에서 `mode` 와
         // `readonly` 는 같은 비트를 건드리는데, 둘 다 있으면 더 구체적인 `mode` 가
         // 이겨야 한다. Windows 에서는 읽기 전용이 속성이고 DACL 쓰기는
-        // WRITE_DAC 권한이라 서로 막지 않는다.
+        // WRITE_DAC 권한이라 서로 막지 않는다. Unix 의 소유자 → mode → xattr 차례는
+        // `meta` 가 정한다(chown 이 setuid · setgid 를 지운다).
         crate::meta::restore_from(dest, meta, &mut report);
         note_cross_platform(meta, &mut report);
+        // btime 은 위에서 플랫폼마다 한 번 적었다. 1.26.0 은 여기서 조건 없이 한 번 더 적어 Unix 에서는 두 번,
+        // Windows 에서는 되돌린 btime 이 lost 에도 섰다 — 복원 뒤 화면이 '계획이 되돌린다고 했는데 못 된 것' 을
+        // 찍으면서(이슈 #172 ①) 그 줄이 Windows 의 모든 파일 복원에 거짓 '복원 불가 btime' 이 될 뻔했다.
         report.lose(
             "ctime",
             remedy_sdk::i18n::t(
                 "운영체제가 관리하는 값이라 복원할 수 없습니다",
                 "the operating system owns this value; it cannot be restored",
-            ),
-        );
-        report.lose(
-            "btime",
-            remedy_sdk::i18n::t(
-                "읽기만 가능한 값이라 복원할 수 없습니다",
-                "this value is read-only and cannot be restored",
             ),
         );
         Ok(report)
