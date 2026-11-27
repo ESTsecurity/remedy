@@ -143,6 +143,9 @@ pub(crate) fn walk(
 ///
 /// 폴더가 **없으면** 빈 결과다(못 본 것이 아니다). 있는데 열리지 않으면 `denied` 로
 /// 센다 — 재귀 걷기와 같은 규칙이다.
+///
+/// 폴더 칸이 드라이브 뿌리(`E:\*.lnk` 를 나눈 `E:`)이면 `E:\` 를 연다. Windows 에서 `E:` 는 그 드라이브의
+/// **지금 폴더**라, 그대로 열던 동안에는 뿌리가 아닌 곳을 걷고 `E:x.lnk` 처럼 구분자 없는 경로를 담았다.
 fn walk_glob(
     view: &impl PathView,
     dir: &str,
@@ -159,7 +162,11 @@ fn walk_glob(
     let mut truncated = false;
     let mut denied = 0usize;
     let mut denied_paths: Vec<String> = Vec::new();
-    let access = view.for_access(dir);
+    let access = if platform == remedy_sdk::catalog::Platform::Windows && dir.ends_with(':') {
+        view.for_access(&format!("{dir}\\"))
+    } else {
+        view.for_access(dir)
+    };
     match std::fs::read_dir(&access) {
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
         Err(_) => {
@@ -741,6 +748,45 @@ mod tests {
         let w = walk(&Identity, &gone, 100).expect("순회");
         assert!(w.entries.is_empty());
         assert_eq!(w.denied, 0);
+    }
+
+    /// **폴더 칸이 드라이브 뿌리인 글롭 뿌리는 그 드라이브의 뿌리를 연다.** `E:\*.lnk` 를 나누면 폴더 칸이 `E:` 인데
+    /// Windows 에서 `E:` 는 그 드라이브의 **지금 폴더**다 — 그대로 열면 뿌리가 아닌 곳(이 시험에서는 이 크레이트의
+    /// 폴더)을 걷고 `D:Cargo.toml` 처럼 구분자 없는 경로를 담았다. 담는 것은 뿌리 바로 아래의 맞는 파일뿐이다.
+    #[cfg(windows)]
+    #[test]
+    fn a_glob_root_on_a_drive_root_walks_the_root_of_that_drive() {
+        use remedy_sdk::catalog::Platform;
+        let cwd = std::env::current_dir().expect("지금 폴더");
+        assert!(
+            cwd.join("Cargo.toml").is_file(),
+            "전제: 지금 폴더에 맞는 파일이 있다"
+        );
+        let drive = cwd.to_str().unwrap()[..2].to_string();
+        let top = format!("{drive}\\");
+        assert_ne!(
+            cwd.to_str().unwrap(),
+            top,
+            "전제: 지금 폴더가 뿌리가 아니다"
+        );
+
+        let want_name = normalize::for_compare("*.toml", Platform::Windows);
+        let mut want: Vec<String> = std::fs::read_dir(&top)
+            .expect("뿌리")
+            .flatten()
+            .filter(|e| {
+                let n = e.file_name().to_string_lossy().to_string();
+                normalize::name_matches(&normalize::for_compare(&n, Platform::Windows), &want_name)
+            })
+            .filter(|e| e.metadata().is_ok_and(|m| !m.is_dir()))
+            .map(|e| format!("{top}{}", e.file_name().to_string_lossy()))
+            .collect();
+        want.sort();
+
+        let w = walk(&Identity, &format!("{drive}\\*.toml"), 10_000).expect("순회");
+        let got: Vec<&str> = w.entries.iter().map(|e| e.path.as_str()).collect();
+        assert_eq!(got, want, "뿌리 바로 아래의 맞는 파일만 담아야 한다");
+        assert_eq!((w.denied, w.truncated), (0, false));
     }
 
     /// 이름이 맞는 파일만 담고 **상한도 그것으로만 센다** — 폴더와 맞지 않는 파일은 담지도 세지도 않는다

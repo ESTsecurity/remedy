@@ -188,30 +188,30 @@ pub fn name_matches(text: &str, pattern: &str) -> bool {
 ///
 /// `parent` 가 [`glob_root`] 면 **그 폴더 바로 아래의 이름이 맞는 파일**만 안이다 —
 /// 폴더 자체와 하위 폴더는 밖이다.
+///
+/// 폴더 칸이 드라이브 뿌리(`E:\*.lnk`)이면 정규화가 끝 구분자를 남기므로(`e:\`) 떼고 레코드의 부모(`e:`)와
+/// 견준다 — 그대로 견주던 동안에는 그 뿌리 바로 아래의 어떤 파일도 안이 아니었다. 이름이 빈 것(뿌리 자체)은 밖이다.
 pub fn is_within(child: &str, parent: &str, platform: Platform) -> bool {
+    let sep = if platform == Platform::Windows {
+        '\\'
+    } else {
+        '/'
+    };
     if let Some((dir, pattern)) = glob_root(parent) {
         let c = for_compare(child, platform);
         let d = for_compare(dir, platform);
+        let d = d.strip_suffix(sep).unwrap_or(&d);
         let p = for_compare(pattern, platform);
-        let sep = if platform == Platform::Windows {
-            '\\'
-        } else {
-            '/'
-        };
-        return c
-            .rfind(sep)
-            .is_some_and(|cut| c[..cut] == d && name_matches(&c[cut + 1..], &p));
+        return c.rfind(sep).is_some_and(|cut| {
+            let name = &c[cut + 1..];
+            &c[..cut] == d && !name.is_empty() && name_matches(name, &p)
+        });
     }
     let c = for_compare(child, platform);
     let p = for_compare(parent, platform);
     if c == p {
         return true;
     }
-    let sep = if platform == Platform::Windows {
-        '\\'
-    } else {
-        '/'
-    };
     let prefix = if p.ends_with(sep) {
         p
     } else {
@@ -350,5 +350,26 @@ mod tests {
             !is_within("/tmp/A.SH", "/tmp/*.sh", l),
             "Linux 는 접지 않는다"
         );
+    }
+
+    /// **폴더 칸이 드라이브 뿌리인 글롭 뿌리**(`E:\*.lnk` — `%REMOVABLE%\*.lnk` 도 이 꼴로 펴진다)도 그 바로 아래의
+    /// 맞는 파일을 안으로 본다. 정규화가 뿌리에만 끝 구분자를 남기므로(`e:\`) 레코드의 부모(`e:`)와 그대로 견주면
+    /// 아무것도 안이 아니었다. 뿌리 자체 · 하위 폴더 · 다른 이름은 여전히 밖이다.
+    #[test]
+    fn a_glob_root_on_a_drive_root_holds_the_files_right_under_it() {
+        let w = Platform::Windows;
+        let root = r"E:\*.lnk";
+        assert!(is_within(r"E:\x.lnk", root, w));
+        assert!(
+            is_within(r"e:\X.LNK", root, w),
+            "Windows 는 대소문자를 접는다"
+        );
+        assert!(!is_within(r"E:\sub\x.lnk", root, w));
+        assert!(!is_within(r"E:\x.txt", root, w));
+        assert!(!is_within(r"F:\x.lnk", root, w));
+        // 이름 칸이 별표뿐인 꼴도 **뿌리 자체는 밖이다** — 드라이브를 통째로 겨눈 삭제가 상한을 지나면 안 된다.
+        for itself in [r"E:\", "E:"] {
+            assert!(!is_within(itself, r"E:\*", w), "{itself}");
+        }
     }
 }

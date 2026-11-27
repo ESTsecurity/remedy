@@ -892,6 +892,19 @@ mod tests {
         );
     }
 
+    /// 폴더 칸이 **드라이브 뿌리**인 글롭 뿌리(`E:\*.lnk`)도 그 바로 아래의 맞는 파일을 상한에 들인다. 정규화한
+    /// 폴더(`e:\`)를 레코드의 부모(`e:`)와 그대로 견주던 동안에는 맞은 파일의 치료를 늘 상한 밖으로 막았다.
+    #[test]
+    fn a_glob_root_on_a_drive_root_lets_the_files_right_under_it_go() {
+        let f = Fixture::new();
+        let file = action(1, Op::FileDelete, r"E:\x.lnk");
+        let v = check(&[file], &f.cx_roots(&[], 1, &[r"E:\*.lnk"]));
+        assert!(v.is_empty(), "{v:?}");
+
+        let deeper = action(1, Op::FileDelete, r"E:\sub\x.lnk");
+        assert!(!check(&[deeper], &f.cx_roots(&[], 1, &[r"E:\*.lnk"])).is_empty());
+    }
+
     #[test]
     fn g7_action_without_evidence_is_refused() {
         let f = Fixture::new();
