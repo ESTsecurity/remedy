@@ -954,6 +954,91 @@ fn a_unit_from_an_index_without_owners_comes_back_as_before() {
 }
 
 #[test]
+fn a_unit_file_that_is_a_trusted_root_link_comes_back_through_it() {
+    // `systemctl link` 로 단 유닛은 유닛 자리가 root 의 링크다 — 끄기는 활성화 링크만 지우므로 그 링크가 남는다.
+    // 되돌리기는 root 만 바꿀 수 있는 폴더에 놓인 root 의 링크를 따라 그 링크가 가리킨 파일에 쓰고, 링크는 그대로
+    // 둔다(이슈 #172). root 가 아니면 링크가 이 시험의 것이라 따라가지 않는다.
+    let d = lab("unit-root-link");
+    let real = p(&d, "opt-app.service");
+    let body = "[Service]\nExecStart=/x\n\n[Install]\nWantedBy=multi-user.target\n";
+    std::fs::write(&real, body).expect("쓰기");
+    let sys = d.join("system");
+    std::fs::create_dir_all(&sys).expect("디렉터리");
+    let unit = p(&sys, "app.service");
+    std::os::unix::fs::symlink(&real, &unit).expect("유닛 링크");
+    let wants = sys.join("multi-user.target.wants");
+    std::fs::create_dir_all(&wants).expect("디렉터리");
+    let link = wants.join("app.service");
+    std::os::unix::fs::symlink(&unit, &link).expect("활성화 링크");
+
+    let l = Live::new();
+    let (backup, index) = l.persistence_read(&unit).expect("담기");
+    l.persistence_disable(&unit, None).expect("끄기");
+    std::fs::write(&real, "changed\n").expect("쓰기");
+    let r = l.persistence_restore(&unit, &backup, &index);
+
+    if am_root() {
+        r.expect("믿는 root 링크를 따라 되돌리지 못했다");
+        assert_eq!(std::fs::read_to_string(&real).expect("읽기"), body);
+        assert!(std::fs::symlink_metadata(&unit)
+            .expect("유닛 자리")
+            .file_type()
+            .is_symlink());
+        assert!(
+            std::fs::symlink_metadata(&link).is_ok(),
+            "활성화 링크가 돌아오지 않았다"
+        );
+    } else {
+        r.expect_err("사용자의 링크를 따라 썼다");
+        assert_eq!(std::fs::read_to_string(&real).expect("읽기"), "changed\n");
+    }
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+#[test]
+fn a_unit_file_that_is_a_link_others_can_change_is_not_written_through() {
+    // 사용자의 링크 · 사용자가 바꿀 수 있는 폴더(0777)의 링크 · 하드 링크인 유닛 자리는 따라 쓰지 않는다 — 계획 뒤에
+    // 그 자리를 바꿔치면 그 너머(root 의 파일)에 담아 둔 유닛을 쓴다(이슈 #172). root 로 돌면 첫 링크를 남의
+    // uid(4242)로 바꾼다. root 가 아니면 링크 둘이 다 이 시험의 것이다.
+    use std::os::unix::fs::PermissionsExt;
+    let d = lab("unit-loose-link");
+    let target = p(&d, "root-file");
+    std::fs::write(&target, "keep\n").expect("쓰기");
+    let place = |name: &str| {
+        let dir = d.join(name);
+        std::fs::create_dir_all(&dir).expect("디렉터리");
+        p(&dir, "u.service")
+    };
+    let user_link = place("user");
+    std::os::unix::fs::symlink(&target, &user_link).expect("링크");
+    if am_root() {
+        std::os::unix::fs::lchown(&user_link, Some(4242), Some(4242)).expect("chown 링크");
+    }
+    let loose_link = place("loose");
+    std::os::unix::fs::symlink(&target, &loose_link).expect("링크");
+    std::fs::set_permissions(d.join("loose"), std::fs::Permissions::from_mode(0o777))
+        .expect("권한");
+    let hard_link = place("hard");
+    std::fs::hard_link(&target, &hard_link).expect("하드 링크");
+
+    let l = Live::new();
+    for unit in [&user_link, &loose_link, &hard_link] {
+        l.persistence_restore(
+            unit,
+            b"[Service]\nExecStart=/x\n",
+            &PersistenceIndex::default(),
+        )
+        .expect_err(unit);
+        assert_eq!(
+            std::fs::read_to_string(&target).expect("읽기"),
+            "keep\n",
+            "{unit} 너머에 썼다"
+        );
+    }
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+#[test]
 fn a_dangling_unit_link_comes_back_once_from_two_entries() {
     // 끊긴 링크도 담은 대상 그대로 돌아온다. 끄기 · 지우기가 같은 유닛을 하나씩 담아 복원이 두 번 도는데,
     // 둘째가 대상을 따라가 '없다' 고 읽으면 다시 달다가 EEXIST 로 실패한다 — 링크 자체를 본다.

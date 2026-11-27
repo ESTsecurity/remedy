@@ -157,8 +157,10 @@ pub enum LastLink {
     /// 누구의 링크든 걸린다 — 복원이 그 자리를 통째로 다시 쓴다(본문 · 소유자 · mode). 링크를 따라 쓰면 본문과
     /// `chmod` 는 대상에, `lchown` 은 링크에 가서 둘이 갈린다 — 사용자의 본문이 root 소유 setuid 가 될 수 있다.
     Refused,
-    /// 가운데 성분처럼 본다. 파일 안의 줄만 고치는 자리(cron · 텍스트 줄 — 치료도 그 링크를 따라 고쳤다)와, 복원이
-    /// 그 안에 링크를 다는 폴더다.
+    /// 가운데 성분처럼 본다. 파일 안의 줄만 고치는 자리(cron · 텍스트 줄 — 치료도 그 링크를 따라 고쳤다), 복원이
+    /// 그 안에 링크를 다는 폴더, 그리고 유닛 파일이다 — `systemctl link` 로 단 유닛은 그 자리가 root 의 링크다. 유닛
+    /// 쓰기는 `chmod` 를 하지 않고, 믿는 root 링크만 따라가 그 끝을 한 번 열어 본문과 소유자를 그 파일에 쓴다
+    /// (`open_through_root_links`).
     Followed,
 }
 
@@ -2121,20 +2123,63 @@ fn write_by_name(
 /// 성분을 링크로 바꾸면 그 너머에서 연다. 성분마다 `openat(O_NOFOLLOW)` 로 걷는 길은 std 에 없다.
 #[cfg(unix)]
 fn open_place(dest: &str, meta: &FileMeta) -> Result<std::fs::File, PlatformError> {
-    use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
     let path = std::path::Path::new(dest);
-    let io = |e| PlatformError::io(dest, e);
     if let Ok(md) = std::fs::symlink_metadata(path) {
         if md.file_type().is_file() && md.permissions().readonly() {
-            std::fs::remove_file(path).map_err(io)?;
+            std::fs::remove_file(path).map_err(|e| PlatformError::io(dest, e))?;
         }
     }
+    open_nofollow(dest, if meta.mode.is_some() { 0o600 } else { 0o666 })
+}
+
+/// 자리 자체의 **믿는 root 링크만 따라가** 그 끝을 [`open_nofollow`] 로 한 번 연다(리눅스 · 이슈 #172) — 유닛 파일
+/// 쓰기다([`LastLink::Followed`] 로 묻는 통째 쓰기). `systemctl link` 로 단 유닛은 유닛 자리가 root 의 링크라 그
+/// 너머에 써야 되돌아온다. 마지막 성분이 링크면 root 의 것이고 놓인 폴더를 root 만 바꿀 수 있을 때([`root_only`] ·
+/// 링크 가드와 같은 규칙)만 따라가고, 그 밖의 링크는 따라가지 않고 실패한다. 믿는 링크는 놓인 폴더를 root 만 바꾸므로
+/// 물은 뒤에 바뀌지 않고, 링크가 끝난 자리는 `O_NOFOLLOW` 로 열므로 물음과 열기 사이에 그 자리를 링크 · 하드 링크로
+/// 바꿔도 따라가지 않는다. 남는 것은 [`open_place`] 와 같이 가운데 성분이다. 읽기 전용 파일을 지우고 새로 만들지
+/// 않는다 — 앞의 `std::fs::write` 와 같이 그 파일에 쓴다.
+#[cfg(target_os = "linux")]
+pub(crate) fn open_through_root_links(dest: &str) -> Result<std::fs::File, PlatformError> {
+    use std::os::unix::fs::MetadataExt;
+    let mut at = std::path::PathBuf::from(dest);
+    for _ in 0..=MAX_LINK_HOPS {
+        let Ok(Node::Link { uid, to }) = lstat_node(&at) else {
+            return open_nofollow(&shown(&at), 0o666);
+        };
+        let folder = at.parent().map_or_else(
+            || std::path::PathBuf::from("/"),
+            std::path::Path::to_path_buf,
+        );
+        let trusted =
+            uid == 0 && std::fs::metadata(&folder).is_ok_and(|m| root_only(m.uid(), m.mode()));
+        if !trusted {
+            return Err(PlatformError::refused(
+                "쓸 자리가 믿을 수 없는 링크입니다(root 의 것이 아니거나 root 가 아닌 사용자도 바꿀 수 있는 폴더에 있습니다) — 링크를 따라 쓰지 않았습니다".into(),
+                "the place to write is a link that is not trusted (not root's, or in a folder users other than root can change) — nothing was written through it".into(),
+            ));
+        }
+        at = folder.join(to);
+    }
+    Err(PlatformError::refused(
+        "쓸 자리의 링크가 너무 많이 이어집니다 — 쓰지 않았습니다".into(),
+        "too many links at the place to write — it was not written".into(),
+    ))
+}
+
+/// 마지막 성분을 **따라가지 않고** 한 번 연다 — `O_WRONLY | O_CREAT | O_NOFOLLOW | O_NONBLOCK`. 일반 파일이고 이름이
+/// 하나(`nlink == 1`)인지 본 뒤에 비운다 — 까닭은 [`open_place`] 에 적었다. 새 파일은 `create_mode`(umask 를 뺀다)로
+/// 만든다.
+#[cfg(unix)]
+fn open_nofollow(dest: &str, create_mode: u32) -> Result<std::fs::File, PlatformError> {
+    use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
+    let io = |e| PlatformError::io(dest, e);
     let f = std::fs::OpenOptions::new()
         .write(true)
         .create(true)
-        .mode(if meta.mode.is_some() { 0o600 } else { 0o666 })
+        .mode(create_mode)
         .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
-        .open(path)
+        .open(dest)
         .map_err(|e| link_refused(dest, e))?;
     let md = f.metadata().map_err(io)?;
     if !md.file_type().is_file() {

@@ -512,8 +512,9 @@ fn extract_path(dir: &str, origin: &str) -> String {
 /// 묻는다(이슈 #172 ①).
 ///
 /// cron · 텍스트 줄은 그 파일 안의 줄만 고친다 — 치료도 그 자리의 링크(`/etc/resolv.conf` 같은 root 의 것)를 따라
-/// 고쳤다. 유닛은 유닛 파일을 통째로 쓰고, 활성화 링크는 그 폴더 안에 **링크를 단다**(이미 있으면 그대로 둔다 —
-/// 링크를 따라 쓰지 않는다). 디렉터리는 루트와 목차의 폴더 · 파일이다. 구조적 설정은 키만이 아니라 그 파일을
+/// 고쳤다. 유닛은 유닛 파일을 통째로 쓰되 그 자리의 root 링크(`systemctl link` 로 단 유닛)를 따라간다 — 쓰기도 믿는
+/// root 링크만 따라가 그 끝을 한 번 연다(리눅스 `persistence_restore`). 활성화 링크는 그 폴더 안에 **링크를 단다**(이미
+/// 있으면 그대로 둔다 — 링크를 따라 쓰지 않는다). 디렉터리는 루트와 목차의 폴더 · 파일이다. 구조적 설정은 키만이 아니라 그 파일을
 /// 통째로 담아 파일처럼 쓴다. 레지스트리 · 작업 · 예외 목록 · 부팅 구성은 파일 시스템에 쓰지 않는다.
 ///
 /// 종류를 `_` 로 닫지 않는다 — 새 종류가 생기면 여기서 컴파일이 멈춰 그 종류가 쓰는 자리를 묻게 한다.
@@ -534,7 +535,7 @@ fn write_places(kind: EntryKind, dest: &str, meta: &serde_json::Value) -> Vec<(S
         EntryKind::Unit => {
             let index: remedy_platform::write::PersistenceIndex =
                 serde_json::from_value(meta.clone()).unwrap_or_default();
-            let mut out = one(dest, Refused);
+            let mut out = one(dest, Followed);
             for l in &index.links {
                 let dir = match l.rsplit_once('/') {
                     Some((d, _)) if !d.is_empty() => d,
@@ -660,7 +661,8 @@ pub fn apply(
     // 이 물음과 각 쓰기 사이에 **마지막 성분**을 링크 · 하드 링크로 바꾸면 리눅스의 파일 쓰기(`restore_file`)가 그
     // 자리를 링크를 따르지 않고 한 번 열어 그 파일 하나로 끝까지 다루므로 따라가지 않고 그 항목이 실패한다. 남는
     // 한계는 **가운데 성분**의 바꿔치기다 — 쓰기가 부모 폴더를 이름으로 풀고, 성분마다 `openat(O_NOFOLLOW)` 로 걷는
-    // 길은 std 에 없다. 유닛 · 줄 자리의 쓰기는 마지막 성분도 이름으로 연다.
+    // 길은 std 에 없다. 유닛 파일 쓰기도 믿는 root 링크만 따라가 그 끝을 한 번 연다. 인증서 · 줄 자리의 쓰기는 마지막
+    // 성분도 이름으로 연다.
     if plan.extract_to.is_none() {
         let none = serde_json::Value::Null;
         for item in plan.allowed() {
@@ -2229,8 +2231,9 @@ mod tests {
     }
 
     /// 묻는 자리는 복원이 **쓰는 자리**다 — cron 은 그 파일, 유닛은 유닛 파일과 활성화 링크를 다는 폴더, 디렉터리는
-    /// 루트와 그 안의 폴더 · 파일. 줄만 고치는 자리와 링크를 다는 폴더는 자리 자체의 root 링크를 따라가고, 통째로
-    /// 다시 쓰는 자리는 자리 자체가 링크면 걸린다. 레지스트리 값은 파일 시스템에 쓰지 않는다.
+    /// 루트와 그 안의 폴더 · 파일. 줄만 고치는 자리 · 링크를 다는 폴더 · 유닛 파일(`systemctl link` 로 단 root 의
+    /// 링크일 수 있다)은 자리 자체의 root 링크를 따라가고, 그 밖에 통째로 다시 쓰는 자리는 자리 자체가 링크면 걸린다.
+    /// 레지스트리 값은 파일 시스템에 쓰지 않는다.
     #[test]
     fn the_places_asked_are_the_places_the_restore_writes() {
         use remedy_platform::write::LastLink::{Followed, Refused};
@@ -2284,7 +2287,7 @@ mod tests {
             ("/srv/cron/alice", Followed),
             ("/srv/app/a.conf", Followed),
             ("/srv/app/s.json", Refused),
-            (unit, Refused),
+            (unit, Followed),
             (wants, Followed),
             ("/srv/ext", Refused),
             ("/srv/ext/_metadata", Refused),

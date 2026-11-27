@@ -1000,17 +1000,17 @@ impl PlatformWrite for Live {
                 insert_line(&file, line_no, line)
             }
             None => {
-                std::fs::write(id, content).map_err(|e| PlatformError::io(id, e))?;
                 // 소유자는 담아 둔 것이 있을 때만 바꾼다 — 유닛과 **새로 단** 링크(이슈 #172 ①). 되돌리지 못해도
                 // 링크를 끝까지 단 뒤에 말한다: 꺼진 채로 두는 것보다 소유자만 틀린 편이 낫고, 그 사실은 숨기지 않는다.
-                let mut owner_err: Option<(String, std::io::Error)> = None;
+                let mut owner_err: Option<(String, std::io::Error)> =
+                    write_unit_file(id, content, index.owner.as_ref())?
+                        .map(|e| (id.to_string(), e));
                 let mut put_owner = |path: &str, o: Option<&Owner>| {
                     let Some(o) = o else { return };
                     if let Err(e) = std::os::unix::fs::lchown(path, Some(o.uid), Some(o.gid)) {
                         owner_err.get_or_insert((path.to_string(), e));
                     }
                 };
-                put_owner(id, index.owner.as_ref());
                 for l in &index.links {
                     if let Some(dir) = std::path::Path::new(l).parent() {
                         std::fs::create_dir_all(dir)
@@ -1406,6 +1406,23 @@ fn insert_line(file: &str, line_no: u32, line: &str) -> Result<(), PlatformError
     let i = (line_no as usize - 1).min(lines.len());
     lines.insert(i, line.to_string());
     write_lines(file, &lines)
+}
+
+/// 유닛 파일 하나를 담아 둔 본문 · 소유자로 되돌린다(이슈 #172) — 그 자리의 **믿는 root 링크만** 따라가 그 끝을 한 번
+/// 열고 그 파일 하나에 쓴다([`crate::write::open_through_root_links`]). `systemctl link` 로 단 root 의 유닛 링크는
+/// 따라가 되돌리고, 사용자의 링크 · 사용자가 바꿀 수 있는 폴더의 링크 · 하드 링크는 따라 쓰지 않고 실패한다. 소유자는
+/// 그 연 파일에 쓴다 — 담을 때도 본문을 읽은 그 파일의 소유자를 담았다(`persistence_read`). 소유자를
+/// 되돌리지 못했으면 그 까닭을 돌려준다 — 부르는 쪽이 링크까지 단 뒤에 말한다.
+fn write_unit_file(
+    id: &str,
+    content: &[u8],
+    owner: Option<&Owner>,
+) -> Result<Option<std::io::Error>, PlatformError> {
+    use std::io::Write;
+    let f = crate::write::open_through_root_links(id)?;
+    (&f).write_all(content)
+        .map_err(|e| PlatformError::io(id, e))?;
+    Ok(owner.and_then(|o| std::os::unix::fs::fchown(&f, Some(o.uid), Some(o.gid)).err()))
 }
 
 /// 이 유닛을 가리키는 **활성화 링크** 전부.
