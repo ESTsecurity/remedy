@@ -347,6 +347,9 @@ fn a_user_link_on_the_way_stops_the_restore_with_five_and_writes_nothing() {
     ]);
     assert_eq!(code, 5, "가드 중단은 5 여야 한다\n{out}");
     assert!(out.contains("링크를 따라 쓰지 않습니다"), "{out}");
+    // 끝 줄은 막은 까닭을 따른다 — 링크 가드만 막았으면 보호 대상의 줄이 아니다.
+    assert!(!out.contains("보호 대상에는 쓰지 않습니다"), "{out}");
+    assert!(out.contains(LINK_END_LINE), "{out}");
     assert!(
         std::fs::read_dir(&place).unwrap().next().is_none(),
         "링크가 가리킨 자리에 썼다\n{out}"
@@ -355,6 +358,54 @@ fn a_user_link_on_the_way_stops_the_restore_with_five_and_writes_nothing() {
         .unwrap()
         .file_type()
         .is_symlink());
+}
+
+/// 링크 가드가 막은 항목의 끝 줄.
+#[cfg(unix)]
+const LINK_END_LINE: &str = "주의: 복원도 쓰기입니다. 링크를 따라 다른 자리에 쓰지 않습니다.";
+
+#[cfg(unix)]
+#[test]
+fn a_link_hold_and_a_protected_hold_each_get_their_end_line() {
+    // 보호 대상과 링크 가드가 함께 막으면 끝 줄이 둘이다 — 지우는 중인 서비스의 줄과 같은 꼴이다.
+    use std::os::unix::fs::{lchown, symlink, MetadataExt};
+    let lab = Lab::new("linkguard-mixed");
+    let place = lab.path("root-place");
+    std::fs::create_dir_all(&place).unwrap();
+    let bin = lab.path("bin");
+    symlink(&place, &bin).unwrap();
+    if std::fs::metadata("/proc/self").is_ok_and(|m| m.uid() == 0) {
+        lchown(&bin, Some(4242), Some(4242)).unwrap();
+    }
+    let tool = lab.s("bin/tool");
+    let bait = "/etc/remedy-it-must-not-write-mixed";
+    std::fs::write(lab.path("pass.txt"), "열쇠말").unwrap();
+    make_container(
+        &lab.path("c.rq"),
+        vec![
+            (tool.as_str(), b"x", serde_json::json!({})),
+            (bait, b"bait", serde_json::json!({})),
+        ],
+        "열쇠말",
+    );
+    let (code, out) = run(&[
+        "restore",
+        "--container",
+        &lab.s("c.rq"),
+        "--passphrase-file",
+        &lab.s("pass.txt"),
+        "--state-dir",
+        &lab.s("state"),
+        "--yes",
+    ]);
+    assert_eq!(code, 5, "{out}");
+    assert!(
+        out.contains("주의: 복원도 쓰기입니다. 보호 대상에는 쓰지 않습니다."),
+        "{out}"
+    );
+    assert!(out.contains(LINK_END_LINE), "{out}");
+    assert!(!Path::new(bait).exists(), "보호 경로에 썼다");
+    assert!(std::fs::read_dir(&place).unwrap().next().is_none());
 }
 
 #[test]

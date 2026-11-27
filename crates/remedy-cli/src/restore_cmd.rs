@@ -405,14 +405,25 @@ pub(super) fn cmd_restore(raw: &[String]) -> Result<Code, Failure> {
             errln!("        {}", i.blocked.as_deref().unwrap_or(""));
         }
         errln!();
-        // 끝 줄은 막은 까닭을 따른다 — 지우는 중인 서비스는 다시 시작하면 풀리고, 보호 대상은 풀리지 않는다.
-        if blocked.iter().any(|i| !i.restart_first) {
+        // 끝 줄은 막은 까닭을 따른다 — 지우는 중인 서비스는 다시 시작하면 풀리고, 보호 대상은 풀리지 않는다. 링크
+        // 가드가 막은 항목은 보호 대상이 아니다(이슈 #172) — 섞이면 까닭마다 한 줄이다.
+        if blocked.iter().any(|i| !i.restart_first && !i.by_link) {
             errln!(
                 "  {} {}",
                 lang.t("주의:", "Note:"),
                 lang.t(
                     "복원도 쓰기입니다. 보호 대상에는 쓰지 않습니다.",
                     "restore is also a write; protected targets are left alone."
+                )
+            );
+        }
+        if blocked.iter().any(|i| i.by_link) {
+            errln!(
+                "  {} {}",
+                lang.t("주의:", "Note:"),
+                lang.t(
+                    "복원도 쓰기입니다. 링크를 따라 다른 자리에 쓰지 않습니다.",
+                    "restore is also a write; it does not write through a link to another place."
                 )
             );
         }

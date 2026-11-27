@@ -47,6 +47,8 @@ pub struct Item {
     /// **다시 시작한 뒤에는 막히지 않는다** — Windows 가 이 서비스를 지우는 중이라 막았다(2026-11-25). 화면이
     /// 끝 줄을 고른다('다시 시작한 뒤 다시 복원').
     pub restart_first: bool,
+    /// **링크 가드가 막았다**(이슈 #172) — 보호 대상이 아니라 가는 길의 링크 때문이다. 화면이 끝 줄을 고른다.
+    pub by_link: bool,
 }
 
 impl Item {
@@ -385,8 +387,10 @@ pub fn plan(
         // 꺼내기는 원래 자리에 쓰지 않으므로 묻지 않는다 — 꺼낼 자리의 마지막 성분이 링크 · 하드 링크면 쓰기가 따라가지
         // 않고 그 항목을 실패로 낸다(리눅스 `FsRestore::restore_file`). 꺼낼 폴더 자체를 남이 미리 만들 수 있는 자리로
         // 고르면 그 가운데 성분은 남는 한계다. 쓰기 직전에 한 번 더 본다([`apply`]).
+        let mut by_link = false;
         if blocked.is_none() && extract_to.is_none() {
             blocked = link_guard(backend, me.kind, &me.origin, &me.meta);
+            by_link = blocked.is_some();
         }
 
         // **Windows 가 지우는 중인 서비스에는 되돌려 쓰지 않는다**(2026-11-25 · 이슈 #172 ⑥).
@@ -457,6 +461,7 @@ pub fn plan(
             report,
             blocked,
             restart_first,
+            by_link,
         });
     }
 
@@ -1931,7 +1936,10 @@ mod tests {
 
         let blocked: Vec<&Item> = p.blocked().collect();
         assert_eq!(blocked.len(), 2, "{:?}", p.items);
-        assert!(blocked.iter().all(|i| i.restart_first), "{blocked:?}");
+        assert!(
+            blocked.iter().all(|i| i.restart_first && !i.by_link),
+            "{blocked:?}"
+        );
         assert!(p.allowed().all(|i| i.dest == "/srv/x.bin"), "{:?}", p.items);
         assert_eq!(
             *b.asked.borrow(),
@@ -2220,6 +2228,10 @@ mod tests {
         assert!(
             why.contains("'/srv/home/alice/bin' → '/etc/remedy-lab-d7'") && why.contains("4242"),
             "{why}"
+        );
+        assert!(
+            blocked[0].by_link && !blocked[0].restart_first,
+            "{blocked:?}"
         );
         assert!(blocked[0].report.restored.is_empty(), "{:?}", blocked[0]);
         assert!(
