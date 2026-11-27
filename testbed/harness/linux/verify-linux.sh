@@ -384,10 +384,12 @@ check "B2 기대 Op 이 전부 계획에 든다" \
 #
 # bob 의 자동실행(`remedy-lab-user.desktop`)은 수집되지만(A4) 어느 룰에도 걸리지 않는다 — 홈 찾기가 넓힌 자리의
 # 남아야 할 것이다. 이것이 없으면 그 파일이 계획에 들어 격리되고 D5 가 같은 바이트로 되돌려도 모든 칸이 통과한다
-# (autostart 조건을 `remedy-lab` 으로 넓힌 변이로 2026-11-27 에 잼).
+# (autostart 조건을 `remedy-lab` 으로 넓힌 변이로 2026-11-27 에 잼). 홈의 큰 자리 채우기(`remedy-lab-big.bin`)도
+# 같다 — alice 의 것은 scan_roots(`/home/alice/bin`) 안에서 수집 · 해시되고 도구 룰과 이름 앞부분이 같다(도구 조건을
+# `contains "/home/alice/bin/remedy-lab"` 으로 넓힌 변이가 그 파일을 격리하고도 31칸 모두 통과한 것을 2026-11-27 에 잼).
 bad=""
 for d in "REMEDY-LAB.marker" "keepme.conf" "decoy-ca.crt" "innocent-cron" \
-         "innocentinnocentinnocentinnoce" "remedy-lab-user.desktop"; do
+         "innocentinnocentinnocentinnoce" "remedy-lab-user.desktop" "remedy-lab-big.bin"; do
     grep -q "$d" "$PLAN" && bad="$bad $d"
 done
 check "B3 남아야 할 것이 계획에 없다" \
@@ -481,13 +483,16 @@ for p in "/opt/remedy-lab/REMEDY-LAB.marker" \
          "/usr/share/applications/remedy-lab.desktop" \
          "/etc/hosts" \
          "$HOME/.config/google-chrome/Default/Extensions/innocentinnocentinnocentinnoce" \
-         "/home/bob/.config/autostart/remedy-lab-user.desktop"; do
+         "/home/bob/.config/autostart/remedy-lab-user.desktop" \
+         "/home/alice/bin/remedy-lab-big.bin" \
+         "/home/bob/bin/remedy-lab-big.bin"; do
     [ "$(present "$OUT/after.json" "$(printf '%s' "$p" | sed 's/[.[\*^$]/\\&/g')")" = "true" ] \
-        || stay_bad="$stay_bad $(basename "$p")"
+        || stay_bad="$stay_bad $p"
 done
+# 자리는 경로째 적는다 — 홈의 큰 자리 채우기 둘은 이름이 같다.
 check "C3 남아야 할 것이 전부 남았다 (G3)" \
     "$([ -z "$stay_bad" ] && echo 1 || echo 0)" \
-    "$([ -z "$stay_bad" ] && echo "사라짐 0건 / 10자리" || echo "사라짐:$stay_bad")"
+    "$([ -z "$stay_bad" ] && echo "사라짐 0건 / 12자리" || echo "사라짐:$stay_bad")"
 
 # ── 줄·키 단위 Op 은 줄·키만 뺐는가 ────────────────────────────────
 #

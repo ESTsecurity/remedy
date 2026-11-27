@@ -94,6 +94,9 @@ PATHS=(
     /home/bob/.config/systemd/user/default.target.wants/remedy-lab-user.service
     /home/bob/.config/autostart/remedy-lab-user.desktop
     /etc/remedy-lab-d7
+    # 글롭 폴더 칸의 토큰이 담는 큰 자리 채우기(13 절) — 남아야 할 것이다. alice 의 것은 lab-plugin 의 scan_roots 안이다.
+    /home/alice/bin/remedy-lab-big.bin
+    /home/bob/bin/remedy-lab-big.bin
 )
 
 printf '{\n  "captured": "%s",\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
