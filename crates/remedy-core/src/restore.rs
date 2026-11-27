@@ -696,6 +696,23 @@ pub fn apply(
             }
         };
 
+        // **메타데이터도 색인과 같아야 한다**(이슈 #172). 계획 · 링크 가드는 색인의 meta 로 쓸 자리를 정하고, 쓰기는
+        // 본문의 meta 로 유닛의 활성화 링크 · 폴더 목차를 만든다 — 다르면 가드가 묻지 않은 자리에 쓴다. 봉인할 때 둘에
+        // 같은 값을 넣으므로 정직한 컨테이너는 어긋나지 않는다. 아래 경로 검사와 같은 꼴로 그 항목을 실패로 둔다.
+        let indexed = opened.manifest.entries.iter().find(|m| m.id == item.id);
+        if indexed.is_none_or(|m| m.meta != entry.meta) {
+            out.push(Outcome {
+                id: item.id.clone(),
+                dest: item.dest.clone(),
+                result: Err(remedy_sdk::i18n::current().pick(
+                    "색인과 본문의 메타데이터가 다릅니다 — 쓰지 않았습니다".to_string(),
+                    "the index and the body disagree on the metadata — nothing was written"
+                        .to_string(),
+                )),
+            });
+            continue;
+        }
+
         // 컨테이너를 두 번 읽지 않는다. 계획을 만들 때 본 경로와 지금 쓰는 경로가
         // 같아야 한다 — 다르면 계획에 없던 곳에 쓰는 것이다.
         let dest = if plan.extract_to.is_some() {
@@ -2123,6 +2140,15 @@ mod tests {
             self.wrote.borrow_mut().push(dest.to_string());
             Ok(RestoreReport::default())
         }
+        fn persistence_restore(
+            &self,
+            id: &str,
+            _content: &[u8],
+            _index: &remedy_platform::write::PersistenceIndex,
+        ) -> Result<(), remedy_platform::PlatformError> {
+            self.wrote.borrow_mut().push(id.to_string());
+            Ok(())
+        }
         fn quarantine_read(
             &self,
             _path: &str,
@@ -2341,6 +2367,43 @@ mod tests {
         assert!(
             msg.contains("nothing was written") && !msg.chars().any(|c| ('가'..='힣').contains(&c)),
             "{msg}"
+        );
+        assert!(b.wrote.borrow().is_empty(), "{:?}", b.wrote.borrow());
+    }
+
+    /// **색인과 본문의 메타데이터가 다르면 그 항목을 쓰지 않는다**(이슈 #172) — 계획과 쓰기 직전의 링크 가드는 색인의
+    /// meta 로 쓸 자리를 정하고, 쓰기는 본문의 meta 로 유닛의 활성화 링크 · 폴더 목차를 만든다. 둘이 다르면 가드가
+    /// 묻지 않은 자리(사용자가 링크로 바꾼 `x.wants`)에 쓴다. 봉인할 때 둘에 같은 값을 넣으므로 정직한 컨테이너는
+    /// 어긋나지 않는다 — 경로가 다를 때와 같은 꼴로 그 항목을 실패로 둔다.
+    #[test]
+    fn an_item_whose_index_and_body_disagree_on_the_meta_is_not_written() {
+        let unit = "/srv/home/bob/.config/systemd/user/u.service";
+        let (bytes, ck) = build(vec![Entry {
+            kind: EntryKind::Unit,
+            origin: unit.into(),
+            meta: serde_json::json!({
+                "links": ["/srv/home/bob/.config/systemd/user/x.wants/u.service"]
+            }),
+            content: b"[Unit]\n".to_vec(),
+        }]);
+        let sealed = peek(&bytes).unwrap();
+        let mut opened = sealed.unlock(&ck).unwrap();
+        opened.manifest.entries[0].meta = serde_json::json!({ "links": [] });
+        let b = Links::default();
+        let guards = Guards {
+            protected: &protected(),
+            vouched: &nothing_vouched(),
+        };
+        let p = plan(&opened, "r1", &b, &guards, &[], None).unwrap();
+        assert_eq!(p.allowed().count(), 1, "{:?}", p.items);
+
+        let out = apply(&p, &opened, &ck, &b).unwrap();
+        assert!(
+            out[0]
+                .result
+                .as_ref()
+                .is_err_and(|e| e.contains("disagree on the metadata")),
+            "{out:?}"
         );
         assert!(b.wrote.borrow().is_empty(), "{:?}", b.wrote.borrow());
     }
