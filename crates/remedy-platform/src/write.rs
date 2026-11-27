@@ -127,11 +127,13 @@ impl FileMeta {
     /// 권한으로 도는 실행 파일이 생긴다 — 권능(`cap_setuid` 등)은 setuid 와 같은 부류다. 소유자는 꺼낸 계정이다:
     /// 담아 둔 것은 숫자 uid · gid 라 다른 기계에서 꺼내면 같은 번호의 다른 계정이 사본의 소유자가 되고, 같은
     /// 기계에서도 원래 사용자가 분석용 사본을 고칠 수 있다. ACL 의 이름 붙은 항목(`user:1001:rw-`)도 같은 숫자라
-    /// 같은 까닭으로 붙이지 않는다([`NOT_ON_AN_EXTRACTED_COPY`]). 접근 ACL 을 빼면 mode 의 group 칸은 그 ACL 의 소유 그룹
-    /// 항목(`group::`)의 권한으로 바꾼다 — 확장 ACL 이 있는 파일의 `st_mode` group 칸은 ACL mask 라, 그대로 두면 사본의
-    /// 소유 그룹(꺼낸 계정의 그룹 · setgid 폴더의 그룹)이 원래 `group::` 보다 넓은 권한을 얻는다. 그 값을 풀지 못하면
-    /// group 칸을 비운다(넓히지 않는 쪽). 다른 확장 속성은 그대로 둔다. 소유자 칸이 비었다고
-    /// 계획 · 복원 뒤 보고에 서는 '담지 않았다' 줄은 꺼내기에서 사실이 아니므로 `remedy-core` 의 꺼내기가 뺀다.
+    /// 같은 까닭으로 붙이지 않는다([`NOT_ON_AN_EXTRACTED_COPY`]). 접근 ACL 을 빼면 mode 의 group 칸은 소유 그룹의 실효
+    /// 권한(acl(5) — 그 ACL 의 소유 그룹 항목 `group::` 과 mask 가 함께 허락하는 권한)으로 둔다. 확장 ACL 이 있는 파일의
+    /// `st_mode` group 칸은 ACL mask 라, 그 칸을 그대로 두면 mask 가 `group::` 보다 넓은 파일에서, `group::` 만으로 두면
+    /// ACL 을 단 뒤 `chmod` 로 mask 만 좁힌 파일에서 사본의 소유 그룹(꺼낸 계정의 그룹 · setgid 폴더의 그룹)이 원래보다
+    /// 넓은 권한을 얻는다 — 그래서 둘이 함께 허락하는 비트만 남긴다. 그 값을 풀지 못하면 group 칸을 비운다(넓히지 않는
+    /// 쪽). 다른 확장 속성은 그대로 둔다. 소유자 칸이 비었다고 계획 · 복원 뒤 보고에 서는 '담지 않았다' 줄은 꺼내기에서
+    /// 사실이 아니므로 `remedy-core` 의 꺼내기가 뺀다.
     pub fn for_extract(&self) -> FileMeta {
         let mut xattrs = self.xattrs.clone();
         xattrs.retain(|name, _| !NOT_ON_AN_EXTRACTED_COPY.contains(&name.as_str()));
@@ -142,7 +144,7 @@ impl FileMeta {
         FileMeta {
             mode: self.mode.map(|m| {
                 let m = m & !SETID_BITS;
-                group.map_or(m, |g| (m & !GROUP_BITS) | (g << 3))
+                group.map_or(m, |g| (m & !GROUP_BITS) | ((g << 3) & m & GROUP_BITS))
             }),
             uid: None,
             gid: None,

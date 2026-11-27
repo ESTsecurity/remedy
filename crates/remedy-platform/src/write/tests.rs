@@ -2011,14 +2011,17 @@ fn an_extracted_copy_gets_neither_the_file_capability_nor_the_posix_acls() {
     );
 }
 
-/// 꺼낸 사본에서 접근 ACL 을 빼면 mode 의 group 칸을 ACL 의 소유 그룹 항목(`group::`)으로 바꾼다(이슈 #172) — 확장 ACL 이
-/// 있는 파일의 `st_mode` group 칸은 ACL mask 라, 그대로 두면 사본의 소유 그룹(꺼낸 계정의 그룹 · setgid 폴더의 그룹)이
-/// 원래 `group::` 보다 넓은 권한을 얻는다. 풀지 못하는 값이면 group 칸을 비운다(넓히지 않는 쪽). ACL 이 없으면 setuid ·
-/// setgid 만 뺀다.
+/// 꺼낸 사본에서 접근 ACL 을 빼면 mode 의 group 칸을 소유 그룹의 **실효 권한**(ACL 의 `group::` 과 mask 가 함께 허락하는
+/// 것)으로 둔다(이슈 #172) — 확장 ACL 이 있는 파일의 `st_mode` group 칸은 ACL mask 라, 그대로 두면 mask 가 `group::` 보다
+/// 넓은 파일에서 사본의 소유 그룹(꺼낸 계정의 그룹 · setgid 폴더의 그룹)이 원래보다 넓은 권한을 얻는다. `group::` 으로
+/// 통째로 바꾸면 반대 꼴(ACL 을 단 뒤 `chmod` 로 mask 만 좁힌 파일)에서 넓어진다. 풀지 못하는 값이면 group 칸을 비운다
+/// (넓히지 않는 쪽). ACL 이 없으면 setuid · setgid 만 뺀다.
 #[test]
-fn an_extracted_copy_without_its_acl_gives_the_owning_group_no_more_than_group_obj() {
+fn an_extracted_copy_without_its_acl_gives_the_owning_group_no_more_than_its_effective_access() {
     // version 2 · user::rw- · user:1001:rw- · group::r-- · mask::rw- · other::--- (little endian)
     const ACL: &str = "AgAAAAEABgD/////AgAGAOkDAAAEAAQA/////xAABgD/////IAAAAP////8=";
+    // version 2 · user::rw- · user:1001:rw- · group::rw- · mask::r-- · other::--- — `setfacl -m u:1001:rw` 뒤 `chmod 640`
+    const NARROW_MASK: &str = "AgAAAAEABgD/////AgAGAOkDAAAEAAYA/////xAABAD/////IAAAAP////8=";
     let with = |acl: Option<&str>, mode: u32| FileMeta {
         mode: Some(mode),
         xattrs: acl
@@ -2029,9 +2032,13 @@ fn an_extracted_copy_without_its_acl_gives_the_owning_group_no_more_than_group_o
     };
     assert_eq!(with(Some(ACL), 0o660).for_extract().mode, Some(0o640));
     assert_eq!(with(Some(ACL), 0o102660).for_extract().mode, Some(0o100640));
-    // group::r-x 하나뿐인 값
     assert_eq!(
-        with(Some("AgAAAAQABQD/////"), 0o660).for_extract().mode,
+        with(Some(NARROW_MASK), 0o100640).for_extract().mode,
+        Some(0o100640)
+    );
+    // group::r-x 하나뿐인 값 — mode 의 group 칸(rwx)과 겹쳐 r-x 가 남는다
+    assert_eq!(
+        with(Some("AgAAAAQABQD/////"), 0o670).for_extract().mode,
         Some(0o650)
     );
     for broken in [
