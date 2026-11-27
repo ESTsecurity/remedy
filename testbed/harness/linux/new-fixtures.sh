@@ -30,7 +30,9 @@
 # 사용자만 지운다** — GECOS 칸의 표지(`USER_TAG`)로 가리고, 표지가 없는 같은 이름의
 # 사용자나 사용자 없는 홈 자리가 있으면 건드리지 않고 멈춘다. `/home/b` · `/home/test`
 # 도 이 스크립트가 만든 것(표지가 든 파일 · `LINKHOME` 을 가리키는 링크)이 아니면
-# 멈춘다. 이 확인은 모두 **아무것도 만들기 전에** 한다(0 절).
+# 멈춘다. uid 4242 · 4243 을 다른 이름이 쓰거나, 사용자 없는 그룹 alice · bob 이
+# 있거나, www-data 사용자 · 그룹이 없어도 멈춘다. 이 확인은 모두 **아무것도 만들기
+# 전에** 한다(0 절).
 #
 # # 쓰는 법
 #
@@ -138,14 +140,25 @@ if [ -L /home/test ]; then
 elif [ -e /home/test ]; then
     echo "링크 홈 자리(test)에 링크가 아닌 것이 있다 — 건드리지 않는다"; exit 1
 fi
-for u in alice bob; do
+# 12 절의 `useradd -m -U -u` 와 `chown www-data` 가 실패할 자리도 여기서 본다 — uid 4242 · 4243 을 다른 이름이 쓰거나,
+# 사용자 없는 그룹 alice · bob 이 있거나, www-data 사용자 · 그룹이 없으면 12 절에서 멈춰 같은 픽스처가 남았다
+# (2026-11-27 — 다섯 갈래 모두 `/etc/cron.d/remedy-lab` 등 다섯 자리가 남는 것을 잼).
+for spec in alice:4242 bob:4243; do
+    u="${spec%%:*}"; uid="${spec#*:}"
     if getent passwd "$u" > /dev/null; then
         [ "$(getent passwd "$u" | cut -d: -f5)" = "$USER_TAG" ] \
             || { echo "이 스크립트가 만들지 않은 사용자 $u 가 있다 — 건드리지 않는다"; exit 1; }
     elif [ -e "/home/$u" ]; then
         echo "사용자 없는 홈 자리가 있다($u) — 건드리지 않는다"; exit 1
+    elif getent group "$u" > /dev/null; then
+        echo "사용자 없는 그룹이 있다($u) — 건드리지 않는다"; exit 1
     fi
+    owner="$(getent passwd "$uid" | cut -d: -f1)"
+    [ -z "$owner" ] || [ "$owner" = "$u" ] \
+        || { echo "다른 사용자($owner)가 쓰는 uid 가 있다($uid) — 건드리지 않는다"; exit 1; }
 done
+getent passwd www-data > /dev/null && getent group www-data > /dev/null \
+    || { echo "www-data 사용자 · 그룹이 없다 — 그 소유의 픽스처를 만들 수 없다"; exit 1; }
 
 mkdir -p "$LAB"
 
@@ -292,8 +305,8 @@ fi
 # 치료하고 제자리로 되돌려 소유자(uid:gid) · mode · 링크 자체의 소유자가 같은가를 본다. 도구 자리는 무해한
 # 자리 채우기 바이트다 — ELF 가 아니고 아무도 실행하지 않는다.
 #
-# 파일 자리(`b`) · 링크 홈 자리(`test`) · 같은 이름의 남의 사용자는 0 절이 이미 보았다 — 여기 오면 모두 이 스크립트의
-# 것이거나 없다.
+# 파일 자리(`b`) · 링크 홈 자리(`test`) · 같은 이름의 남의 사용자 · 남이 쓰는 uid · 사용자 없는 그룹 · www-data 는
+# 0 절이 이미 보았다 — 여기 오면 모두 이 스크립트의 것이거나 없다(www-data 는 있다).
 for spec in alice:4242 bob:4243; do
     u="${spec%%:*}"; uid="${spec#*:}"
     getent passwd "$u" > /dev/null && continue
