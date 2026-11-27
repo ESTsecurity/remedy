@@ -20,7 +20,9 @@
 #![cfg(target_os = "linux")]
 
 use remedy_platform::linux::{Live, NOT_IMPLEMENTED_YET};
-use remedy_platform::write::{FileMeta, KillPredicate, LineAt, PersistenceIndex, PlatformWrite};
+use remedy_platform::write::{
+    FileMeta, KillPredicate, LineAt, Owner, PersistenceIndex, PlatformWrite,
+};
 use remedy_platform::PlatformError;
 use remedy_sdk::catalog::Op;
 use std::path::PathBuf;
@@ -65,6 +67,202 @@ fn a_file_survives_quarantine_and_comes_back() {
         "{report:?}"
     );
 
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// 이 시험 프로세스가 root 인가 — `/proc/self` 의 소유자가 실효 uid 다.
+///
+/// 아래 소유자 시험은 **환경에 따라 다른 것을 주장한다**(`can_refresh_ca_store` 와 같다). 남의 uid 로 chown 하는
+/// 길은 root 에서만 열리고, CI 러너는 root 가 아니다 — 그래서 컨테이너(root)와 러너 두 곳에서 돌아야 두 갈래를
+/// 다 잰다.
+fn am_root() -> bool {
+    use std::os::unix::fs::MetadataExt;
+    std::fs::metadata("/proc/self").is_ok_and(|m| m.uid() == 0)
+}
+
+/// 이 프로세스가 만든 파일의 소유자 — root 가 아닌 회차의 기대값이다.
+fn own_ids(dir: &std::path::Path) -> (u32, u32) {
+    use std::os::unix::fs::MetadataExt;
+    let m = std::fs::metadata(dir).expect("실험 디렉터리");
+    (m.uid(), m.gid())
+}
+
+fn ids(path: &str) -> (u32, u32) {
+    use std::os::unix::fs::MetadataExt;
+    let m = std::fs::symlink_metadata(path).expect("메타데이터");
+    (m.uid(), m.gid())
+}
+
+#[test]
+fn a_file_comes_back_with_its_owner_and_its_setuid_bit() {
+    // root 가 되돌린 사용자의 파일은 **그 사용자의 것**으로 돌아와야 한다. 1.26.0 은 소유자를 담지 않아 root 소유로
+    // 되돌렸고, 4755 이면 root 의 setuid 가 됐다(이슈 #172 ①). chown 이 setuid 를 지우므로 mode 를 소유자 뒤에
+    // 되돌려야 4755 가 남는다.
+    use std::os::unix::fs::PermissionsExt;
+    let d = lab("owner-file");
+    let f = p(&d, "tool");
+    std::fs::write(&f, b"placeholder\n").expect("쓰기");
+    let want = if am_root() {
+        std::os::unix::fs::lchown(&f, Some(4242), Some(4242)).expect("chown");
+        (4242, 4242)
+    } else {
+        own_ids(&d)
+    };
+    std::fs::set_permissions(&f, std::fs::Permissions::from_mode(0o4755)).expect("chmod");
+
+    let l = Live::new();
+    let (content, meta) = l.quarantine_read(&f).expect("담기");
+    l.destroy_file(&f).expect("지우기");
+    let r = l.restore_file(&f, &content, &meta).expect("되돌리기");
+
+    assert_eq!(ids(&f), want, "소유자가 다르게 돌아왔다: {r:?}");
+    let mode = std::fs::metadata(&f)
+        .expect("메타데이터")
+        .permissions()
+        .mode();
+    assert_eq!(mode & 0o7777, 0o4755, "mode 가 다르게 돌아왔다: {r:?}");
+    assert!(r.restored.contains(&"owner".to_string()), "{r:?}");
+
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// 배포되는 백엔드도 **꺼낼 폴더**를 묻는다(이슈 #172) — 가짜 백엔드의 기본값(묻지 않음)에 머물면 꺼내기가 남이 바꿀
+/// 수 있는 폴더로 그대로 쓴다. 이 프로세스의 폴더로 재므로 root 가 아니어도 돈다.
+#[test]
+fn the_live_backend_asks_about_the_folder_to_extract_to() {
+    use remedy_platform::write::ExtractDirHit;
+    use std::os::unix::fs::PermissionsExt;
+    let d = lab("extract-dir");
+    let l = Live::new();
+    let mode = |m: u32| std::fs::set_permissions(&d, std::fs::Permissions::from_mode(m));
+    let dir = d.to_string_lossy().to_string();
+
+    mode(0o700).expect("chmod");
+    assert_eq!(l.extract_dir_problem(&dir).expect("묻기"), None);
+    assert_eq!(
+        l.extract_dir_problem(&format!("{dir}/")).expect("묻기"),
+        None
+    );
+    mode(0o1777).expect("chmod");
+    assert_eq!(
+        l.extract_dir_problem(&dir).expect("묻기"),
+        Some(ExtractDirHit::OthersCanWrite { mode: 0o1777 })
+    );
+    mode(0o755).expect("chmod");
+    assert_eq!(l.extract_dir_problem(&p(&d, "new")).expect("묻기"), None);
+    let file = p(&d, "file");
+    std::fs::write(&file, b"x").expect("쓰기");
+    assert_eq!(
+        l.extract_dir_problem(&file).expect("묻기"),
+        Some(ExtractDirHit::NotAFolder)
+    );
+    let link = p(&d, "link");
+    std::os::unix::fs::symlink(&d, &link).expect("링크");
+    assert_eq!(
+        l.extract_dir_problem(&link).expect("묻기"),
+        Some(ExtractDirHit::NotAFolder)
+    );
+    assert_eq!(
+        l.extract_dir_problem(&format!("{link}/")).expect("묻기"),
+        Some(ExtractDirHit::NotAFolder),
+        "끝의 / 로 링크를 따라갔다"
+    );
+
+    // 위 폴더도 본다 — 없는 폴더는 가장 가까운 있는 위 폴더부터, 있는 폴더는 그 위부터. 링크를 지난 길은 푼 실제
+    // 경로로 본다(링크 자체의 0777 로 막지 않는다).
+    let real = std::fs::canonicalize(&d).expect("실제 경로");
+    let above = Some(ExtractDirHit::AboveOthersCanWrite {
+        folder: real.to_string_lossy().to_string(),
+        mode: 0o777,
+    });
+    let inner = p(&d, "inner");
+    std::fs::create_dir(&inner).expect("폴더");
+    std::fs::set_permissions(&inner, std::fs::Permissions::from_mode(0o755)).expect("chmod");
+    mode(0o777).expect("chmod");
+    assert_eq!(
+        l.extract_dir_problem(&p(&d, "new/deeper")).expect("묻기"),
+        above
+    );
+    assert_eq!(l.extract_dir_problem(&inner).expect("묻기"), above);
+    mode(0o755).expect("chmod");
+    assert_eq!(l.extract_dir_problem(&inner).expect("묻기"), None);
+    assert_eq!(
+        l.extract_dir_problem(&format!("{link}/new")).expect("묻기"),
+        None,
+        "링크 자체의 권한으로 막았다"
+    );
+
+    // 만들기는 없는 위 폴더까지 0755 로 만들고, 있는 폴더는 그대로 둔다.
+    let made = p(&d, "made/deeper");
+    l.make_extract_dir(&made).expect("만들기");
+    l.make_extract_dir(&made).expect("다시 만들기");
+    for at in [p(&d, "made"), made] {
+        let m = std::fs::metadata(&at).expect("메타데이터");
+        assert!(m.is_dir(), "{at}");
+        assert_eq!(m.permissions().mode() & 0o7777, 0o755, "{at}");
+    }
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// 리스(lease)를 쥐는 자식 — 파일을 읽기로 열어 읽기 리스(`F_SETLEASE` 1024 · `F_RDLCK` 0)를 걸고 `ready` 를 알린다.
+/// 쓰는 쪽이 열면 커널이 SIGIO 를 보낸다 — 0.3초 더 쥐고 있다가 놓는다(`F_UNLCK` 2). 걸지 못하면 `no lease` 다.
+const LEASE_HOLDER: &str = r#"
+import fcntl, os, signal, sys, time
+fd = os.open(sys.argv[1], os.O_RDONLY)
+def let_go(sig, frame):
+    time.sleep(0.3)
+    fcntl.fcntl(fd, 1024, 2)
+signal.signal(signal.SIGIO, let_go)
+try:
+    fcntl.fcntl(fd, 1024, 0)
+except OSError as e:
+    print("no lease", e, flush=True)
+    sys.exit(0)
+print("ready", flush=True)
+time.sleep(30)
+"#;
+
+/// 되돌릴 자리의 파일에 다른 프로세스의 리스가 걸려 있으면 **그것이 풀리기를 기다려** 쓴다(이슈 #172) — 쓰기는 이름
+/// 붙은 파이프에서 멈추지 않으려고 `O_NONBLOCK` 으로 여는데, 리스(NFS 위임도 같은 장치)가 걸린 파일은 그때 기다리지
+/// 않고 `EWOULDBLOCK` 으로 열리지 않는다. 1.26.0 의 `std::fs::write` 는 기다렸다. 리스는 `fcntl(F_SETLEASE)` 라 이
+/// 시험(unsafe 를 쓰지 않는다) 대신 python3 자식이 건다 — python3 가 없거나 이 파일 시스템이 리스를 받지 않으면 재지
+/// 않는다.
+#[test]
+fn a_file_under_a_lease_is_written_once_the_lease_is_let_go() {
+    use std::io::BufRead;
+    let d = lab("lease");
+    let f = p(&d, "settings.conf");
+    std::fs::write(&f, b"old\n").expect("쓰기");
+    let child = std::process::Command::new("python3")
+        .args(["-I", "-c", LEASE_HOLDER, &f])
+        .stdout(std::process::Stdio::piped())
+        .spawn();
+    let Ok(mut child) = child else {
+        eprintln!("python3 가 없어 리스를 재지 않는다");
+        return;
+    };
+    let mut line = String::new();
+    let out = child.stdout.take().expect("표준 출력");
+    let _ = std::io::BufReader::new(out).read_line(&mut line);
+    if line.trim() != "ready" {
+        let _ = child.kill();
+        let _ = child.wait();
+        eprintln!("리스를 걸지 못해 재지 않는다: {line}");
+        return;
+    }
+
+    let started = std::time::Instant::now();
+    let got = Live::new().restore_file(&f, b"new\n", &FileMeta::default());
+    let waited = started.elapsed();
+    let _ = child.kill();
+    let _ = child.wait();
+
+    let r = got.expect("리스가 풀린 뒤 써야 한다");
+    assert_eq!(std::fs::read(&f).expect("읽기"), b"new\n", "{r:?}");
+    assert!(
+        waited >= std::time::Duration::from_millis(200),
+        "리스가 풀리기 전에 썼다: {waited:?}"
+    );
     let _ = std::fs::remove_dir_all(&d);
 }
 
@@ -768,6 +966,215 @@ fn a_unit_link_comes_back_with_the_target_string_it_had() {
         PathBuf::from(&unit)
     );
 
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+#[test]
+fn a_unit_and_its_link_come_back_with_their_owners() {
+    // 사용자 유닛(`~/.config/systemd/user`)과 그 활성화 링크는 그 사용자의 것이다. 지운 뒤 root 가 다시 쓰면
+    // root 소유로 돌아오고, 그 사용자는 자기 유닛을 고치지도 끄지도 못한다(이슈 #172 ①).
+    let d = lab("owner-unit");
+    let unit = p(&d, "upd.service");
+    let body = "[Service]\nExecStart=/x\n\n[Install]\nWantedBy=default.target\n";
+    std::fs::write(&unit, body).expect("쓰기");
+    let wants = d.join("default.target.wants");
+    std::fs::create_dir_all(&wants).expect("디렉터리");
+    let link = wants.join("upd.service").to_string_lossy().to_string();
+    std::os::unix::fs::symlink(&unit, &link).expect("링크");
+    let want = if am_root() {
+        std::os::unix::fs::lchown(&unit, Some(4243), Some(4243)).expect("chown 유닛");
+        std::os::unix::fs::lchown(&link, Some(4243), Some(4243)).expect("chown 링크");
+        (4243, 4243)
+    } else {
+        own_ids(&d)
+    };
+
+    let l = Live::new();
+    let (backup, index) = l.persistence_read(&unit).expect("담기");
+    let owner = Owner {
+        uid: want.0,
+        gid: want.1,
+    };
+    assert_eq!(index.owner, Some(owner), "{index:?}");
+    assert_eq!(index.link_owners.get(&link), Some(&owner), "{index:?}");
+    l.persistence_delete(&unit, None).expect("지우기");
+    l.persistence_restore(&unit, &backup, &index)
+        .expect("되돌리기");
+
+    assert_eq!(std::fs::read_to_string(&unit).expect("읽기"), body);
+    assert_eq!(ids(&unit), want, "유닛의 소유자가 다르게 돌아왔다");
+    assert_eq!(ids(&link), want, "링크 자체의 소유자가 다르게 돌아왔다");
+
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+#[test]
+fn a_unit_owner_that_cannot_be_put_back_is_said_after_the_links_are_back() {
+    // 소유자를 되돌리지 못해도 유닛과 링크는 끝까지 되돌린다 — 꺼진 채로 두지 않는다. 그리고 '되돌렸으나 …' 로
+    // 실패를 말한다(재부팅 삭제 예약 취소와 같은 꼴 · 종료 3). root 가 아니면 남의 uid(0)로 chown 하지 못한다.
+    // root 이면 그 길이 열리므로 nobody(65534)로 돌아오는지 본다.
+    let d = lab("owner-unit-fail");
+    let unit = p(&d, "upd.service");
+    std::fs::write(&unit, "[Service]\nExecStart=/x\n").expect("쓰기");
+    let wants = d.join("default.target.wants");
+    std::fs::create_dir_all(&wants).expect("디렉터리");
+    let link = wants.join("upd.service").to_string_lossy().to_string();
+    std::os::unix::fs::symlink(&unit, &link).expect("링크");
+
+    let l = Live::new();
+    let (backup, mut index) = l.persistence_read(&unit).expect("담기");
+    let root = am_root();
+    let other = if root {
+        Owner {
+            uid: 65534,
+            gid: 65534,
+        }
+    } else {
+        Owner { uid: 0, gid: 0 }
+    };
+    index.owner = Some(other);
+    index.link_owners.insert(link.clone(), other);
+    l.persistence_delete(&unit, None).expect("지우기");
+    let r = l.persistence_restore(&unit, &backup, &index);
+
+    assert!(
+        std::path::Path::new(&unit).exists(),
+        "유닛이 돌아오지 않았다"
+    );
+    assert!(
+        std::fs::symlink_metadata(&link).is_ok(),
+        "소유자 실패에 링크까지 버렸다 — 꺼진 채로 돌아온 것이다"
+    );
+    if root {
+        r.expect("root 인데 소유자를 되돌리지 못했다");
+        assert_eq!(ids(&unit), (65534, 65534));
+        assert_eq!(ids(&link), (65534, 65534));
+    } else {
+        let e = r.expect_err("남의 uid 로 되돌렸다고 한다");
+        let msg = format!("{e}");
+        assert!(
+            msg.contains(remedy_sdk::i18n::t(
+                "되돌렸으나 소유자를 되돌리지 못했습니다",
+                "restored, but the owner could not be put back"
+            )),
+            "{msg}"
+        );
+    }
+
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+#[test]
+fn a_unit_from_an_index_without_owners_comes_back_as_before() {
+    // 1.26.0 까지의 격리물은 소유자 칸이 없다 — 유닛과 링크는 전처럼 돌아오고 소유자는 바꾸지 않는다(되돌리는
+    // 사람의 것).
+    let d = lab("owner-unit-old");
+    let unit = p(&d, "upd.service");
+    std::fs::write(&unit, "[Service]\nExecStart=/x\n").expect("쓰기");
+    let wants = d.join("multi-user.target.wants");
+    std::fs::create_dir_all(&wants).expect("디렉터리");
+    let link = wants.join("upd.service").to_string_lossy().to_string();
+    std::os::unix::fs::symlink(&unit, &link).expect("링크");
+
+    let l = Live::new();
+    let (backup, index) = l.persistence_read(&unit).expect("담기");
+    let old = PersistenceIndex {
+        links: index.links.clone(),
+        link_targets: index.link_targets.clone(),
+        ..Default::default()
+    };
+    l.persistence_delete(&unit, None).expect("지우기");
+    l.persistence_restore(&unit, &backup, &old)
+        .expect("옛 꼴로 되돌리기");
+    let me = own_ids(&d);
+    assert_eq!(ids(&unit), me);
+    assert_eq!(ids(&link), me);
+
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+#[test]
+fn a_unit_file_that_is_a_trusted_root_link_comes_back_through_it() {
+    // `systemctl link` 로 단 유닛은 유닛 자리가 root 의 링크다 — 끄기는 활성화 링크만 지우므로 그 링크가 남는다.
+    // 되돌리기는 root 만 바꿀 수 있는 폴더에 놓인 root 의 링크를 따라 그 링크가 가리킨 파일에 쓰고, 링크는 그대로
+    // 둔다(이슈 #172). root 가 아니면 링크가 이 시험의 것이라 따라가지 않는다.
+    let d = lab("unit-root-link");
+    let real = p(&d, "opt-app.service");
+    let body = "[Service]\nExecStart=/x\n\n[Install]\nWantedBy=multi-user.target\n";
+    std::fs::write(&real, body).expect("쓰기");
+    let sys = d.join("system");
+    std::fs::create_dir_all(&sys).expect("디렉터리");
+    let unit = p(&sys, "app.service");
+    std::os::unix::fs::symlink(&real, &unit).expect("유닛 링크");
+    let wants = sys.join("multi-user.target.wants");
+    std::fs::create_dir_all(&wants).expect("디렉터리");
+    let link = wants.join("app.service");
+    std::os::unix::fs::symlink(&unit, &link).expect("활성화 링크");
+
+    let l = Live::new();
+    let (backup, index) = l.persistence_read(&unit).expect("담기");
+    l.persistence_disable(&unit, None).expect("끄기");
+    std::fs::write(&real, "changed\n").expect("쓰기");
+    let r = l.persistence_restore(&unit, &backup, &index);
+
+    if am_root() {
+        r.expect("믿는 root 링크를 따라 되돌리지 못했다");
+        assert_eq!(std::fs::read_to_string(&real).expect("읽기"), body);
+        assert!(std::fs::symlink_metadata(&unit)
+            .expect("유닛 자리")
+            .file_type()
+            .is_symlink());
+        assert!(
+            std::fs::symlink_metadata(&link).is_ok(),
+            "활성화 링크가 돌아오지 않았다"
+        );
+    } else {
+        r.expect_err("사용자의 링크를 따라 썼다");
+        assert_eq!(std::fs::read_to_string(&real).expect("읽기"), "changed\n");
+    }
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+#[test]
+fn a_unit_file_that_is_a_link_others_can_change_is_not_written_through() {
+    // 사용자의 링크 · 사용자가 바꿀 수 있는 폴더(0777)의 링크 · 하드 링크인 유닛 자리는 따라 쓰지 않는다 — 계획 뒤에
+    // 그 자리를 바꿔치면 그 너머(root 의 파일)에 담아 둔 유닛을 쓴다(이슈 #172). root 로 돌면 첫 링크를 남의
+    // uid(4242)로 바꾼다. root 가 아니면 링크 둘이 다 이 시험의 것이다.
+    use std::os::unix::fs::PermissionsExt;
+    let d = lab("unit-loose-link");
+    let target = p(&d, "root-file");
+    std::fs::write(&target, "keep\n").expect("쓰기");
+    let place = |name: &str| {
+        let dir = d.join(name);
+        std::fs::create_dir_all(&dir).expect("디렉터리");
+        p(&dir, "u.service")
+    };
+    let user_link = place("user");
+    std::os::unix::fs::symlink(&target, &user_link).expect("링크");
+    if am_root() {
+        std::os::unix::fs::lchown(&user_link, Some(4242), Some(4242)).expect("chown 링크");
+    }
+    let loose_link = place("loose");
+    std::os::unix::fs::symlink(&target, &loose_link).expect("링크");
+    std::fs::set_permissions(d.join("loose"), std::fs::Permissions::from_mode(0o777))
+        .expect("권한");
+    let hard_link = place("hard");
+    std::fs::hard_link(&target, &hard_link).expect("하드 링크");
+
+    let l = Live::new();
+    for unit in [&user_link, &loose_link, &hard_link] {
+        l.persistence_restore(
+            unit,
+            b"[Service]\nExecStart=/x\n",
+            &PersistenceIndex::default(),
+        )
+        .expect_err(unit);
+        assert_eq!(
+            std::fs::read_to_string(&target).expect("읽기"),
+            "keep\n",
+            "{unit} 너머에 썼다"
+        );
+    }
     let _ = std::fs::remove_dir_all(&d);
 }
 

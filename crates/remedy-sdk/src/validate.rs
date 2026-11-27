@@ -165,6 +165,7 @@ pub fn validate(m: &PluginManifest) -> Vec<SchemaIssue> {
 
     check_unconfirmed(m, &mut issues);
     check_hash_large(m, &mut issues);
+    check_glob_tokens(m, &mut issues);
     check_labels(m, &mut issues);
 
     if m.detect.is_empty() {
@@ -631,6 +632,44 @@ fn check_hash_large(m: &PluginManifest, issues: &mut Vec<SchemaIssue>) {
             .with_valid("min_core: \"1.3.0\" 이상".to_string()),
         );
     }
+}
+
+/// `collect_extra` 글롭의 **폴더 칸에 쓴 토큰**(`%ALLUSERPROFILES%` · `%ProgramData%` …) — 코어 1.27.0 부터 편다.
+///
+/// - **`min_core` 는 1.27.0 이상.** 낮은 코어는 이 칸을 읽으므로 로드에서 멈추지 않는다 — 폴더를 펴지 않고 원문
+///   그대로 상한과 견줘 *scan_roots 밖* 으로 보고하고, 그 본문에 걸린 규칙은 미평가로 남아 판정이 6 이 된다. 린트는
+///   같은 토큰이면 덮는다고 보므로(`root_covers`) 작성 시점에 그 차이가 보이지 않는다. 룰만 바뀐 출시가 낮은 코어에
+///   그 룰을 실으면 그 기계들이 말없이 6 을 낸다 — 요구 판을 적어야 로드 단계가 그 차이를 말한다([`check_min_core`]).
+/// - 이름 칸은 보지 않는다 — 펴는 것은 폴더 칸뿐이다.
+fn check_glob_tokens(m: &PluginManifest, issues: &mut Vec<SchemaIssue>) {
+    let Some(i) = m.collect_extra.iter().position(
+        |c| matches!(c, crate::manifest::CollectExtra::Glob(g) if glob_folder_has_token(&g.glob)),
+    ) else {
+        return;
+    };
+    const SINCE: (u64, u64, u64) = (1, 27, 0);
+    if semver3(&m.min_core).is_some_and(|v| v < SINCE) {
+        issues.push(
+            SchemaIssue::new(
+                "min_core",
+                format!(
+                    "collect_extra[{i}].glob 의 폴더 칸 토큰은 코어 1.27.0 부터 편다 — min_core '{}' 로는 낮은 \
+                     코어가 그 폴더를 scan_roots 밖으로 보고 본문을 담지 못한다",
+                    m.min_core
+                ),
+                "설계-02 §10",
+            )
+            .with_valid("min_core: \"1.27.0\" 이상".to_string()),
+        );
+    }
+}
+
+/// 글롭의 폴더 칸(마지막 `/` · `\` 앞)에 `%이름%` 꼴이 있는가.
+fn glob_folder_has_token(glob: &str) -> bool {
+    let dir = glob.rfind(['/', '\\']).map_or("", |cut| &glob[..cut]);
+    dir.find('%')
+        .and_then(|open| dir[open + 1..].find('%'))
+        .is_some_and(|len| len > 0)
 }
 
 /// 이 코어가 플러그인이 요구하는 버전을 만족하는가 (설계-02 §10 — `schema_version`

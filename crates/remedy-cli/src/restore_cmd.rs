@@ -276,8 +276,9 @@ pub(super) fn cmd_restore(raw: &[String]) -> Result<Code, Failure> {
         &a.list("entry"),
         extract_to,
     )
+    // 꺼낼 폴더를 막은 것은 가드다(5 · 이슈 #172). 그 밖의 계획 오류(복원할 항목이 없음)는 앞과 같이 사용법 오류다.
     .map_err(|e| Failure {
-        code: Code::UsageError,
+        code: e.exit_code(),
         message: e.to_string(),
     })?;
 
@@ -405,14 +406,25 @@ pub(super) fn cmd_restore(raw: &[String]) -> Result<Code, Failure> {
             errln!("        {}", i.blocked.as_deref().unwrap_or(""));
         }
         errln!();
-        // 끝 줄은 막은 까닭을 따른다 — 지우는 중인 서비스는 다시 시작하면 풀리고, 보호 대상은 풀리지 않는다.
-        if blocked.iter().any(|i| !i.restart_first) {
+        // 끝 줄은 막은 까닭을 따른다 — 지우는 중인 서비스는 다시 시작하면 풀리고, 보호 대상은 풀리지 않는다. 링크
+        // 가드가 막은 항목은 보호 대상이 아니다(이슈 #172) — 섞이면 까닭마다 한 줄이다.
+        if blocked.iter().any(|i| !i.restart_first && !i.by_link) {
             errln!(
                 "  {} {}",
                 lang.t("주의:", "Note:"),
                 lang.t(
                     "복원도 쓰기입니다. 보호 대상에는 쓰지 않습니다.",
                     "restore is also a write; protected targets are left alone."
+                )
+            );
+        }
+        if blocked.iter().any(|i| i.by_link) {
+            errln!(
+                "  {} {}",
+                lang.t("주의:", "Note:"),
+                lang.t(
+                    "복원도 쓰기입니다. 링크를 따라 다른 자리에 쓰지 않습니다.",
+                    "restore is also a write; it does not write through a link to another place."
                 )
             );
         }
@@ -455,18 +467,37 @@ pub(super) fn cmd_restore(raw: &[String]) -> Result<Code, Failure> {
     let mut failed = 0;
     for o in &outcomes {
         match &o.result {
-            // 레지스트리 값처럼 되살린 속성이 없는 항목은 괄호를 열지 않는다 —
-            // 앞서는 `복원 [e0] …Locust  ()` 처럼 빈 괄호가 남았다 (2026-09-07).
-            Ok(r) if r.restored.is_empty() => {
-                outln!("  {} [{}] {}", lang.t("복원", "restored"), o.id, o.dest)
+            Ok(r) => {
+                // 레지스트리 값처럼 되살린 속성이 없는 항목은 괄호를 열지 않는다 —
+                // 앞서는 `복원 [e0] …Locust  ()` 처럼 빈 괄호가 남았다 (2026-09-07).
+                if r.restored.is_empty() {
+                    outln!("  {} [{}] {}", lang.t("복원", "restored"), o.id, o.dest)
+                } else {
+                    outln!(
+                        "  {} [{}] {}  ({})",
+                        lang.t("복원", "restored"),
+                        o.id,
+                        o.dest,
+                        r.restored.join(d.dot())
+                    )
+                }
+                // 계획이 되돌린다고 했는데 못 된 것 — 계획 쪽 줄과 같은 꼴이다. 본문은 돌아왔으므로 종료 코드는
+                // 그대로다(이슈 #172 ①).
+                let missed = plan
+                    .items
+                    .iter()
+                    .find(|i| i.id == o.id)
+                    .map(|i| remedy_core::restore::missed(&i.report, r))
+                    .unwrap_or_default();
+                for l in missed {
+                    outln!(
+                        "        {}  {}: {}",
+                        lang.t("복원 불가", "not restorable"),
+                        l.item,
+                        l.reason
+                    );
+                }
             }
-            Ok(r) => outln!(
-                "  {} [{}] {}  ({})",
-                lang.t("복원", "restored"),
-                o.id,
-                o.dest,
-                r.restored.join(d.dot())
-            ),
             Err(e) => {
                 failed += 1;
                 errln!("  {} [{}] {}  {e}", lang.t("실패", "FAILED"), o.id, o.dest);

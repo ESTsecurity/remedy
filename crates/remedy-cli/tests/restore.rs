@@ -232,6 +232,182 @@ fn extract_mode_never_touches_the_original_path() {
     assert_eq!(got.len(), 1, "꺼낸 파일이 없다");
 }
 
+/// `--yes` 로 되돌리고 그 화면에서 '복원 [e0]' 줄 뒤만 돌려준다 — 계획 쪽의 '복원 불가' 줄과 가르기 위해서다.
+fn restore_and_take_the_after_part(
+    lab: &Lab,
+    dest: &str,
+    meta: serde_json::Value,
+) -> (i32, String) {
+    std::fs::write(lab.path("pass.txt"), "열쇠말").unwrap();
+    make_container(&lab.path("c.rq"), vec![(dest, b"x", meta)], "열쇠말");
+    let (code, out) = run(&[
+        "restore",
+        "--container",
+        &lab.s("c.rq"),
+        "--passphrase-file",
+        &lab.s("pass.txt"),
+        "--state-dir",
+        &lab.s("state"),
+        "--yes",
+    ]);
+    let after = out
+        .split_once("  복원 [e0]")
+        .map(|(_, a)| a.to_string())
+        .unwrap_or_else(|| panic!("복원 줄이 없다\n{out}"));
+    (code, after)
+}
+
+#[cfg(windows)]
+#[test]
+fn what_the_plan_promised_but_the_restore_missed_is_said_after_restoring() {
+    // 계획은 담아 둔 SDDL 을 되돌린다고 하지만 그 문자열이 SDDL 이 아니라는 것은 쓸 때에야 안다. 1.26.0 은 복원
+    // 뒤의 보고서를 찍지 않아 '복원 [e0] … (content · …)' 줄만 남고 못 된 것이 화면에서 사라졌다(이슈 #172 ①).
+    // 종료 코드는 그대로 0 이다 — 본문은 돌아왔다.
+    let lab = Lab::new("missed");
+    let dest = lab.s("payload.bin");
+    let meta = serde_json::json!({ "sddl": "이건 SDDL 이 아니다" });
+    let (code, after) = restore_and_take_the_after_part(&lab, &dest, meta);
+    assert_eq!(code, 0, "{after}");
+    assert!(
+        after.contains("복원 불가  sddl: SDDL 을 해석하지 못했습니다"),
+        "되돌린 뒤 못 된 것을 말하지 않는다\n{after}"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn what_the_plan_promised_but_the_restore_missed_is_said_after_restoring() {
+    // 계획은 담아 둔 소유자를 되돌린다고 하지만 남의 uid 로 chown 하는 길은 root 에서만 열린다 — root 가 아닌
+    // 회차는 쓸 때에야 막힌다. 1.26.0 은 소유자를 되돌리지 않고 복원 뒤의 보고서도 찍지 않았다(이슈 #172 ①).
+    // 소유자를 되돌리지 못하면 setuid · setgid 를 뺀다 — 남의 것이던 4755 가 되돌린 사람의 4755 가 되지 않는다.
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
+    let lab = Lab::new("missed");
+    let dest = lab.s("tool");
+    let root = std::fs::metadata("/proc/self").is_ok_and(|m| m.uid() == 0);
+    let meta = serde_json::json!({ "uid": 65534, "gid": 65534, "mode": 0o104755 });
+    let (code, after) = restore_and_take_the_after_part(&lab, &dest, meta);
+    assert_eq!(code, 0, "{after}");
+    let md = std::fs::metadata(&dest).unwrap();
+    // 가운뎃점은 터미널이 UTF-8 이 아니면 `|` 로 찍힌다 — 칸 이름의 차례만 본다.
+    let first = after.lines().next().unwrap_or("");
+    if root {
+        let (o, m) = (first.find("owner"), first.find("mode"));
+        assert!(
+            o.is_some() && o < m,
+            "소유자를 mode 보다 먼저 되돌린다\n{after}"
+        );
+        assert_eq!(md.uid(), 65534, "{after}");
+        assert_eq!(md.permissions().mode() & 0o7777, 0o4755, "{after}");
+        assert!(!after.contains("복원 불가"), "{after}");
+    } else {
+        assert!(after.contains("복원 불가  owner: "), "{after}");
+        assert!(
+            after.contains("복원 불가  mode: 소유자를 되돌리지 못해"),
+            "{after}"
+        );
+        assert_eq!(md.permissions().mode() & 0o7777, 0o755, "{after}");
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn a_user_link_on_the_way_stops_the_restore_with_five_and_writes_nothing() {
+    // 1.26.0 에서 잰 꼴(이슈 #172 ①) — 격리된 파일의 부모를 사용자가 root 의 자리를 가리키는 링크로 바꿔 두자
+    // 제자리 복원이 그 링크를 따라 root 의 자리에 담아 둔 이름 · 바이트 · 소유자 · 4755 를 썼다. 가드가 막고(5)
+    // 아무것도 쓰지 않는다. root 로 돌면 링크를 남의 uid(4242)로 바꾸고, 아니면 링크가 이미 이 시험의 것이다.
+    use std::os::unix::fs::{lchown, symlink, MetadataExt};
+    let lab = Lab::new("linkguard");
+    let place = lab.path("root-place");
+    std::fs::create_dir_all(&place).unwrap();
+    let bin = lab.path("bin");
+    symlink(&place, &bin).unwrap();
+    if std::fs::metadata("/proc/self").is_ok_and(|m| m.uid() == 0) {
+        lchown(&bin, Some(4242), Some(4242)).unwrap();
+    }
+    let tool = lab.s("bin/tool");
+    std::fs::write(lab.path("pass.txt"), "열쇠말").unwrap();
+    make_container(
+        &lab.path("c.rq"),
+        vec![(
+            tool.as_str(),
+            b"x",
+            serde_json::json!({ "mode": 0o104755, "uid": 4242, "gid": 4242 }),
+        )],
+        "열쇠말",
+    );
+    let (code, out) = run(&[
+        "restore",
+        "--container",
+        &lab.s("c.rq"),
+        "--passphrase-file",
+        &lab.s("pass.txt"),
+        "--state-dir",
+        &lab.s("state"),
+        "--yes",
+    ]);
+    assert_eq!(code, 5, "가드 중단은 5 여야 한다\n{out}");
+    assert!(out.contains("링크를 따라 쓰지 않습니다"), "{out}");
+    // 끝 줄은 막은 까닭을 따른다 — 링크 가드만 막았으면 보호 대상의 줄이 아니다.
+    assert!(!out.contains("보호 대상에는 쓰지 않습니다"), "{out}");
+    assert!(out.contains(LINK_END_LINE), "{out}");
+    assert!(
+        std::fs::read_dir(&place).unwrap().next().is_none(),
+        "링크가 가리킨 자리에 썼다\n{out}"
+    );
+    assert!(std::fs::symlink_metadata(&bin)
+        .unwrap()
+        .file_type()
+        .is_symlink());
+}
+
+/// 링크 가드가 막은 항목의 끝 줄.
+#[cfg(unix)]
+const LINK_END_LINE: &str = "주의: 복원도 쓰기입니다. 링크를 따라 다른 자리에 쓰지 않습니다.";
+
+#[cfg(unix)]
+#[test]
+fn a_link_hold_and_a_protected_hold_each_get_their_end_line() {
+    // 보호 대상과 링크 가드가 함께 막으면 끝 줄이 둘이다 — 지우는 중인 서비스의 줄과 같은 꼴이다.
+    use std::os::unix::fs::{lchown, symlink, MetadataExt};
+    let lab = Lab::new("linkguard-mixed");
+    let place = lab.path("root-place");
+    std::fs::create_dir_all(&place).unwrap();
+    let bin = lab.path("bin");
+    symlink(&place, &bin).unwrap();
+    if std::fs::metadata("/proc/self").is_ok_and(|m| m.uid() == 0) {
+        lchown(&bin, Some(4242), Some(4242)).unwrap();
+    }
+    let tool = lab.s("bin/tool");
+    let bait = "/etc/remedy-it-must-not-write-mixed";
+    std::fs::write(lab.path("pass.txt"), "열쇠말").unwrap();
+    make_container(
+        &lab.path("c.rq"),
+        vec![
+            (tool.as_str(), b"x", serde_json::json!({})),
+            (bait, b"bait", serde_json::json!({})),
+        ],
+        "열쇠말",
+    );
+    let (code, out) = run(&[
+        "restore",
+        "--container",
+        &lab.s("c.rq"),
+        "--passphrase-file",
+        &lab.s("pass.txt"),
+        "--state-dir",
+        &lab.s("state"),
+        "--yes",
+    ]);
+    assert_eq!(code, 5, "{out}");
+    assert!(
+        out.contains("주의: 복원도 쓰기입니다. 보호 대상에는 쓰지 않습니다."),
+        "{out}"
+    );
+    assert!(out.contains(LINK_END_LINE), "{out}");
+    assert!(!Path::new(bait).exists(), "보호 경로에 썼다");
+    assert!(std::fs::read_dir(&place).unwrap().next().is_none());
+}
+
 #[test]
 fn a_wrong_passphrase_does_not_open_it() {
     let lab = Lab::new("wrongpass");

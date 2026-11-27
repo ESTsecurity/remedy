@@ -380,7 +380,7 @@ impl<P: FsRead + EnvRead> Collector<P> {
         }
         // 사용자마다 자기 유닛을 둔다. **여기를 빠뜨리면 사용자 권한만으로
         // 심어진 지속성이 통째로 안 보인다** — 그리고 그것이 가장 흔한 자리다.
-        for (owner, home) in self.homes_for(&mut h) {
+        for (owner, home) in self.homes_for(scope, &mut h) {
             let dir = format!("{home}/.config/systemd/user");
             for (path, u, enabled) in self.units_in(&dir, scope, ".timer", &mut h) {
                 h.records
@@ -397,14 +397,24 @@ impl<P: FsRead + EnvRead> Collector<P> {
     }
 
     /// 폴더 하나의 **파일만** 돌려준다. 없으면 조용히 비고, 못 열면 센다.
+    ///
+    /// **있는지조차 물을 수 없는 폴더도 센다**(잠김 · 모름). 홈 찾기는 홈 안을 열지 않으므로(코어 1.27.0), root 가
+    /// 0700 홈을 지나지 못하는 마운트(NFS root_squash 등)에서는 홈 안의 유닛 · 자동실행 폴더가 여기서 처음
+    /// 잠김으로 답한다 — `exists` 로 물으면 그것이 '없음' 이 되어 그 홈을 못 본 수집이 말없이 0건으로 끝났다.
+    /// 앞 성분이 파일이라 있을 수 없는 자리(`~/.config/systemd` 가 파일)는 `look` 이 '없음' 으로 답한다.
     fn list_files<T>(
         &self,
         dir: &str,
         scope: &Scope,
         h: &mut Harvest<T>,
     ) -> Vec<remedy_platform::read::FsEntry> {
-        if !self.platform.exists(dir) {
-            return Vec::new();
+        match self.platform.look(dir) {
+            Seen::Present => {}
+            Seen::Absent => return Vec::new(),
+            Seen::Locked | Seen::CannotTell => {
+                h.deny(dir);
+                return Vec::new();
+            }
         }
         match self.platform.walk(dir, scope.max_files.max(1)) {
             Ok(w) => {
@@ -444,7 +454,7 @@ impl<P: FsRead + EnvRead> Collector<P> {
             .iter()
             .map(|d| (d.to_string(), "system"))
             .collect();
-        for (_, home) in self.homes_for(&mut h) {
+        for (_, home) in self.homes_for(scope, &mut h) {
             dirs.push((format!("{home}/.config/autostart"), "user"));
         }
         for (dir, scope_name) in dirs {
@@ -600,7 +610,7 @@ impl<P: FsRead + EnvRead> Collector<P> {
             .chain(systemd::USER_DIRS.iter())
             .map(|d| d.to_string())
             .collect();
-        for (_, home) in self.homes_for(&mut h) {
+        for (_, home) in self.homes_for(scope, &mut h) {
             dirs.push(format!("{home}/.config/systemd/user"));
         }
         for d in dirs {
@@ -716,25 +726,33 @@ impl<P: FsRead + EnvRead> Collector<P> {
 
     /// 사용자 홈. `(사용자, 홈 경로)`.
     ///
+    /// **`/home` 바로 아래의 폴더만** 홈이다(코어 1.27.0) — 파일(쿼터의 `aquota.user` 등)과 링크는 담지 않고, 홈
+    /// 안의 폴더(`~/.aws`)를 홈으로 세지 않는다. `/home` 을 상한 1 로 걷던 동안에는 첫 파일에서 걷기가 끝나
+    /// 쿼터 파일 뒤의 홈을 말없이 빠뜨리고, 첫 홈의 이름 차례 맨 앞 폴더를 홈으로 담았다(#172).
+    ///
+    /// `/home` 을 **물을 수조차 없으면**(잠김 · 모름) 거부로 센다 — 못 본 홈을 없는 홈으로 보지 않는다. 홈이
+    /// `max_files` 보다 많으면 이름 차례로 앞의 것만 담고 잘림을 세운다.
+    ///
     /// `/etc/passwd` 를 파싱하지 않는 이유는 `remedy-platform` 의
     /// `%ALLUSERPROFILES%` 와 같다 — 거기엔 사람이 아닌 계정이 섞여 있고, 그것을
     /// 열면 범위가 `/nonexistent` · `/var/lib/*` 로 번진다.
-    fn homes_for<T>(&self, h: &mut Harvest<T>) -> Vec<(String, String)> {
+    fn homes_for<T>(&self, scope: &Scope, h: &mut Harvest<T>) -> Vec<(String, String)> {
         let mut out = Vec::new();
-        if self.platform.exists("/home") {
-            match self.platform.walk("/home", 1) {
+        match self.platform.look("/home") {
+            Seen::Absent => {}
+            Seen::Locked | Seen::CannotTell => h.deny("/home"),
+            Seen::Present => match self.platform.subdirs("/home", scope.max_files) {
                 Ok(w) => {
+                    h.truncated |= w.truncated;
                     h.absorb_denied(w.denied, w.denied_paths);
                     for e in w.entries {
-                        if e.is_dir && !e.is_reparse {
-                            if let Some(n) = e.path.rsplit('/').next() {
-                                out.push((n.to_string(), e.path.clone()));
-                            }
+                        if let Some(n) = e.path.rsplit('/').next() {
+                            out.push((n.to_string(), e.path.clone()));
                         }
                     }
                 }
                 Err(_) => h.deny("/home"),
-            }
+            },
         }
         if self.platform.exists("/root") {
             out.push(("root".to_string(), "/root".to_string()));
@@ -926,21 +944,33 @@ fn root_look<P: FsRead + RegistryRead>(p: &P, root: &str) -> Seen {
     } else {
         // 글롭 뿌리(`…\Temp\*.js`)는 **그 폴더**를 묻는다 — 꼴째 물으면 어떤 파일도
         // 그 이름으로 있지 않아 늘 '없는 뿌리' 가 된다. 위 레지스트리 갈래와 같은 일이다.
-        p.look(root_dir(root))
+        p.look(&root_dir(root))
     }
 }
 
 /// 있는지 물을 자리 — 글롭 뿌리면 그 폴더, 아니면 뿌리 그대로.
-fn root_dir(root: &str) -> &str {
-    remedy_sdk::normalize::glob_root(root)
-        .map(|(dir, _)| dir)
-        .unwrap_or(root)
+///
+/// 글롭 뿌리의 폴더는 걷는 쪽과 같은 [`normalize::glob_dir_to_open`] 으로 바꿔 묻는다. Windows 에서 폴더 칸이
+/// 드라이브 뿌리(`E:\*.lnk` 의 `E:`)이면 `E:\` 다 — `E:` 를 그대로 물으면 그 드라이브의 지금 폴더를 묻게 되어,
+/// 걷기는 뿌리를 여는데 묻기는 다른 자리를 보았다.
+fn root_dir(root: &str) -> std::borrow::Cow<'_, str> {
+    match normalize::glob_root(root) {
+        Some((dir, _)) => {
+            let host = if cfg!(windows) {
+                remedy_sdk::catalog::Platform::Windows
+            } else {
+                remedy_sdk::catalog::Platform::Linux
+            };
+            normalize::glob_dir_to_open(dir, host)
+        }
+        None => std::borrow::Cow::Borrowed(root),
+    }
 }
 
 /// 뿌리가 있는가. 수집기들이 걷기 전에 거르는 데 쓴다 — 글롭 뿌리는 그 폴더를 본다
 /// (위 `root_look` 과 같은 이유).
 pub(crate) fn root_exists<P: FsRead>(p: &P, root: &str) -> bool {
-    p.exists(root_dir(root))
+    p.exists(&root_dir(root))
 }
 
 /// 이 경로의 **파일 이름**이 `hash_large` 의 꼴 하나에 맞는가 — 글롭 뿌리와 같은 규칙이다

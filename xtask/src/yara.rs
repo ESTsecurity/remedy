@@ -69,8 +69,21 @@ fn parse(args: &[String]) -> Result<Args, String> {
         max_bytes: get("--max-bytes")
             .and_then(|v| v.parse().ok())
             .unwrap_or(16 * 1024 * 1024),
-        list: get("--list").and_then(|v| v.parse().ok()).unwrap_or(20),
+        list: list_lines(args)?,
     })
+}
+
+/// 목록마다 보일 줄 수(`--list <수>` · 빼면 20).
+///
+/// 값이 없거나 0 이상의 정수가 아니면 **멈춘다** — 말없이 20 이 되면 사유를 다 보려던 사람이 잘린 목록을
+/// 전부로 읽는다(`--list all` · `--list -1` · 맨 끝의 `--list` · `--list --ext js`).
+fn list_lines(args: &[String]) -> Result<usize, String> {
+    let Some(i) = args.iter().position(|a| a == "--list") else {
+        return Ok(20);
+    };
+    let v = args.get(i + 1).ok_or("--list <수> 의 값이 없다")?;
+    v.parse()
+        .map_err(|_| format!("--list 는 0 이상의 정수여야 한다: {v}"))
 }
 
 /// 플러그인 디렉터리 기준 상대 이름(`rules/x.yar`)으로 읽는다.
@@ -351,5 +364,39 @@ mod tests {
         let got = clean(&d, &[]);
         let _ = std::fs::remove_dir_all(&d);
         assert_eq!(got, Ok(()));
+    }
+
+    /// 꼭 필요한 셋(`--rules` · `--scan` · `--expect`) 뒤에 `extra` 를 붙여 읽고 목록 줄 수만 본다.
+    fn list_of(extra: &[&str]) -> Result<usize, String> {
+        let mut args: Vec<String> = ["--rules", "r", "--scan", "s", "--expect", "clean"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        args.extend(extra.iter().map(|s| s.to_string()));
+        parse(&args).map(|a| a.list)
+    }
+
+    #[test]
+    fn a_list_value_that_is_not_a_count_stops() {
+        // 예전에는 넷 다 말없이 20줄이 되어, 사유를 다 보려던 사람이 잘린 목록을 전부로 읽었다.
+        for extra in [
+            &["--list", "all"][..],
+            &["--list"],
+            &["--list", "-1"],
+            &["--list", "--ext", "js"],
+        ] {
+            let got = list_of(extra);
+            assert!(
+                got.as_ref().is_err_and(|e| e.contains("--list")),
+                "{extra:?}: {got:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_list_count_and_the_default_twenty_stay() {
+        assert_eq!(list_of(&[]), Ok(20));
+        assert_eq!(list_of(&["--list", "5"]), Ok(5));
+        assert_eq!(list_of(&["--ext", "js", "--list", "120"]), Ok(120));
     }
 }

@@ -218,6 +218,130 @@ fn the_plan_warns_before_overwriting() {
     std::fs::remove_dir_all(&dir).ok();
 }
 
+/// 계획이 소유자를 말한다 — 담아 둔 소유자는 되돌린다고 적고, mode 보다 먼저 되돌린다(이슈 #172 ①).
+///
+/// chown 이 setuid · setgid 와 `security.capability` 를 지우므로 차례가 뜻을 갖는다 — mode 를 먼저 쓰면
+/// 소유자를 바꾸는 순간 그 비트가 사라진다. 1.26.0 은 소유자를 담지도 되돌리지도 않아, root 가 되돌린 사용자의
+/// 파일이 root 소유로 돌아왔다(setuid 이면 root 의 setuid).
+#[cfg(unix)]
+#[test]
+fn the_plan_says_the_owner_comes_back_before_the_mode() {
+    let dir = tmp("plan-owner");
+    let p = dir.join("x");
+    std::fs::write(&p, b"x").unwrap();
+    let s = p.to_str().unwrap();
+    let meta = capture_meta(s).unwrap();
+    std::fs::remove_file(&p).unwrap();
+
+    let r = FsRestore.plan_restore(s, &meta);
+    let at = |n: &str| r.restored.iter().position(|x| x == n);
+    assert!(
+        at("owner").is_some(),
+        "소유자를 되돌린다고 말하지 않는다: {r:?}"
+    );
+    assert!(at("owner") < at("mode"), "소유자를 mode 보다 먼저: {r:?}");
+    assert!(!r.lost.iter().any(|l| l.item == "owner"), "{r:?}");
+    cleanup(&dir).ok();
+}
+
+/// 소유자 칸이 없는 격리물(1.26.0 까지)은 **복원 전에** 소유자를 모른다고 말하고, setuid · setgid 가 있으면 그것을
+/// 빼고 되돌린다고 말한다(카드 결정 — 비트 빼기 + 복원 전 목록에 적기). 비트가 없는 mode 는 되돌린다고 적는다.
+#[cfg(unix)]
+#[test]
+fn the_plan_says_an_old_capture_comes_back_without_its_setid_bits() {
+    let dir = tmp("plan-old");
+    let s = dir.join("없음").to_string_lossy().to_string();
+    for (mode, setid) in [(0o104755, true), (0o102755, true), (0o100644, false)] {
+        let meta = FileMeta {
+            mode: Some(mode),
+            ..Default::default()
+        };
+        let r = FsRestore.plan_restore(&s, &meta);
+        assert!(r.lost.iter().any(|l| l.item == "owner"), "{mode:o}: {r:?}");
+        assert!(!r.restored.iter().any(|x| x == "owner"), "{mode:o}: {r:?}");
+        let mode_lost = r.lost.iter().find(|l| l.item == "mode");
+        assert_eq!(mode_lost.is_some(), setid, "{mode:o}: {r:?}");
+        assert_eq!(
+            r.restored.iter().any(|x| x == "mode"),
+            !setid,
+            "{mode:o}: {r:?}"
+        );
+        if let Some(l) = mode_lost {
+            assert!(l.reason.contains("setuid"), "{mode:o}: {r:?}");
+        }
+    }
+    cleanup(&dir).ok();
+}
+
+/// POSIX 소유자가 없는 플랫폼은 담아 둔 소유자를 되돌릴 수 없다고 미리 말한다 — mode 와 같은 자리다.
+#[cfg(not(unix))]
+#[test]
+fn a_posix_owner_is_named_as_lost_where_there_is_none() {
+    let meta = FileMeta {
+        uid: Some(4242),
+        gid: Some(4242),
+        mode: Some(0o100644),
+        ..Default::default()
+    };
+    let r = FsRestore.plan_restore("C:\\없는 자리\\x", &meta);
+    for want in ["owner", "mode"] {
+        assert!(r.lost.iter().any(|l| l.item == want), "{want}: {r:?}");
+        assert!(!r.restored.iter().any(|x| x == want), "{want}: {r:?}");
+    }
+}
+
+/// 1.26.0 까지의 격리물은 소유자 칸이 없다 — 그대로 읽히고(비어 있다), 비면 쓰지 않아 Windows 의 `meta` 는 전과
+/// 같은 바이트다. 담은 소유자는 `uid` · `gid` 이름 그대로 실린다(옛 엔진은 모르는 칸을 버리고 읽는다).
+#[test]
+fn a_file_meta_from_before_the_owner_still_reads() {
+    let old: FileMeta = serde_json::from_value(serde_json::json!({
+        "mtime_unix": 1, "mtime_nanos": 0, "readonly": false, "mode": 33261
+    }))
+    .unwrap();
+    assert_eq!((old.uid, old.gid), (None, None));
+    assert_eq!(old.mode, Some(33261));
+    assert_eq!(
+        serde_json::to_value(FileMeta::default()).unwrap(),
+        serde_json::json!({})
+    );
+    let m = FileMeta {
+        uid: Some(4242),
+        gid: Some(4243),
+        ..Default::default()
+    };
+    assert_eq!(
+        serde_json::to_value(&m).unwrap(),
+        serde_json::json!({ "uid": 4242, "gid": 4243 })
+    );
+}
+
+/// 되돌린 보고서에서 한 항목은 한 번만, 그리고 restored 와 lost 의 한쪽에만 선다.
+///
+/// 1.26.0 의 파일 복원은 끝에서 btime 을 조건 없이 lost 에 한 번 더 넣었다 — Unix 에서는 두 번, Windows 에서는
+/// 되돌린 btime 이 lost 에도 섰다. 복원 뒤 화면이 '계획이 되돌린다고 한 것 가운데 못 된 것' 을 찍으므로(이슈 #172 ①),
+/// 그 줄이 남으면 Windows 의 모든 파일 복원에 거짓 '복원 불가 btime' 이 찍힌다.
+#[test]
+fn each_item_is_reported_once_and_on_one_side() {
+    let dir = tmp("once");
+    let p = dir.join("x");
+    let s = p.to_str().unwrap();
+    std::fs::write(&p, b"seed").unwrap();
+    let meta = capture_meta(s).unwrap();
+    std::fs::remove_file(&p).unwrap();
+
+    let r = FsRestore.restore_file(s, b"x", &meta).unwrap();
+    for l in &r.lost {
+        let n = r.lost.iter().filter(|x| x.item == l.item).count();
+        assert_eq!(n, 1, "{} 가 lost 에 {n}번 선다: {r:?}", l.item);
+        assert!(
+            !r.restored.contains(&l.item),
+            "{} 가 restored 와 lost 에 함께 선다: {r:?}",
+            l.item
+        );
+    }
+    cleanup(&dir).ok();
+}
+
 /// 1.25.3 까지의 격리물은 `links` 만 든다 — 새 칸(`link_targets`)이 비어 그대로 읽히고(유닛 경로로
 /// 단다), 빈 칸은 쓰지 않아 cron · Windows 의 `meta` 가 전과 같은 바이트다(이슈 #166 ⑤).
 #[test]
@@ -228,6 +352,9 @@ fn a_persistence_index_from_before_link_targets_still_reads() {
     .unwrap();
     assert_eq!(old.links.len(), 1);
     assert!(old.link_targets.is_empty());
+    // 1.26.0 까지의 격리물에는 소유자 칸도 없다(이슈 #172 ①) — 비어 그대로 읽히고, 복원은 소유자를 바꾸지 않는다.
+    assert_eq!(old.owner, None);
+    assert!(old.link_owners.is_empty());
     assert_eq!(
         serde_json::to_value(PersistenceIndex::default()).unwrap(),
         serde_json::json!({})
@@ -1211,4 +1338,725 @@ mod trait_default_tests {
             Ok(false)
         ));
     }
+}
+
+/// 링크 가드(이슈 #172 ①)의 걷기 — 가짜 `lstat` 으로 잰다. 경로마다 답을 정해 두고, 물은 차례를 적는다.
+#[cfg(unix)]
+mod link_walk {
+    use super::super::{link_hit, LastLink, LinkHit, Node};
+    use std::path::{Path, PathBuf};
+
+    fn link(uid: u32, to: &str) -> Node {
+        Node::Link {
+            uid,
+            to: PathBuf::from(to),
+        }
+    }
+
+    fn plain(uid: u32, mode: u32) -> Node {
+        Node::Plain { uid, mode }
+    }
+
+    /// root 의 0755 폴더 — 흔한 시스템 폴더다.
+    fn root_dir() -> Node {
+        plain(0, 0o40755)
+    }
+
+    /// alice(4242)의 0755 폴더 — 홈 같은 자리다.
+    fn alice_dir() -> Node {
+        plain(4242, 0o40755)
+    }
+
+    /// `map` 에 없는 경로는 없는 것으로 답한다 — 뿌리(`/`)만 따로 적지 않으면 root 의 0755 폴더다. 물은 경로를
+    /// 차례대로 돌려준다.
+    fn walk(
+        place: &str,
+        last: LastLink,
+        map: &[(&str, Node)],
+    ) -> (std::io::Result<Option<LinkHit>>, Vec<String>) {
+        let mut asked = Vec::new();
+        let got = link_hit(Path::new(place), last, &mut |p: &Path| {
+            let s = p.to_string_lossy().to_string();
+            asked.push(s.clone());
+            Ok(match map.iter().find(|(k, _)| *k == s) {
+                Some((_, n)) => n.clone(),
+                None if s == "/" => root_dir(),
+                None => Node::Missing,
+            })
+        });
+        (got, asked)
+    }
+
+    /// 1.26.0 에서 잰 꼴 — alice 가 자기 `~/bin` 을 root 의 폴더를 가리키는 링크로 바꿨다.
+    #[test]
+    fn a_user_link_on_the_way_is_a_hit() {
+        let map = [
+            ("/home", root_dir()),
+            ("/home/alice", alice_dir()),
+            ("/home/alice/bin", link(4242, "/etc/remedy-lab-d7")),
+        ];
+        for last in [LastLink::Refused, LastLink::Followed] {
+            let (got, _) = walk("/home/alice/bin/tool", last, &map);
+            assert_eq!(
+                got.unwrap(),
+                Some(LinkHit::NotRoot {
+                    link: "/home/alice/bin".into(),
+                    uid: 4242,
+                    to: "/etc/remedy-lab-d7".into(),
+                }),
+                "{last:?}"
+            );
+        }
+    }
+
+    /// root 가 단 링크(merged /usr 의 `/bin` → `usr/bin`)는 걸리지 않는다 — 그 링크가 놓인 폴더(`/`)를 root 만 바꿀
+    /// 수 있는지 묻고, 따라가 그 너머의 성분을 본다. 상대 링크는 그 링크가 있는 폴더에서 푼다.
+    #[test]
+    fn a_root_link_on_the_way_is_followed() {
+        let map = [
+            ("/bin", link(0, "usr/bin")),
+            ("/usr", root_dir()),
+            ("/usr/bin", root_dir()),
+        ];
+        let (got, asked) = walk("/bin/remedy-x", LastLink::Refused, &map);
+        assert_eq!(got.unwrap(), None);
+        assert_eq!(
+            asked,
+            ["/bin", "/", "/usr", "/usr/bin", "/usr/bin/remedy-x"]
+        );
+    }
+
+    /// root 의 링크라도 그 링크가 놓인 폴더를 root 가 아닌 사용자가 바꿀 수 있으면 걸린다(이슈 #172) — alice 의 폴더
+    /// · group 이나 누구나 쓰는 root 의 폴더에는 다른 자리의 root 링크를 옮겨 놓을 수 있다.
+    #[test]
+    fn a_root_link_in_a_folder_others_can_change_is_a_hit() {
+        for folder in [alice_dir(), plain(0, 0o40777), plain(0, 0o40775)] {
+            let map = [
+                ("/home", root_dir()),
+                ("/home/alice", folder.clone()),
+                ("/home/alice/bin", link(0, "/etc")),
+                ("/etc", root_dir()),
+            ];
+            let (got, asked) = walk("/home/alice/bin/tool", LastLink::Refused, &map);
+            assert_eq!(
+                got.unwrap(),
+                Some(LinkHit::LooseFolder {
+                    link: "/home/alice/bin".into(),
+                    to: "/etc".into(),
+                }),
+                "{folder:?}"
+            );
+            assert_eq!(asked.last().map(String::as_str), Some("/home/alice"));
+        }
+    }
+
+    /// root 의 sticky 폴더(`/tmp` 의 1777)에서는 남이 가진 이름을 옮기거나 지우지 못하므로 그 안의 root 링크를
+    /// 따라간다. 흔한 root 링크(`/lib` → `usr/lib` · `/var/run` → `../run` · `/etc/resolv.conf` →
+    /// `../run/systemd/resolve/stub-resolv.conf`)도 막히지 않는다.
+    #[test]
+    fn the_usual_root_links_are_followed() {
+        let map = [
+            ("/tmp", plain(0, 0o41777)),
+            ("/tmp/x", link(0, "/srv")),
+            ("/srv", root_dir()),
+            ("/lib", link(0, "usr/lib")),
+            ("/usr", root_dir()),
+            ("/usr/lib", root_dir()),
+            ("/var", root_dir()),
+            ("/var/run", link(0, "../run")),
+            ("/run", root_dir()),
+            ("/run/systemd", root_dir()),
+            ("/run/systemd/resolve", root_dir()),
+            ("/run/systemd/resolve/stub-resolv.conf", plain(0, 0o100644)),
+            ("/etc", root_dir()),
+            (
+                "/etc/resolv.conf",
+                link(0, "../run/systemd/resolve/stub-resolv.conf"),
+            ),
+        ];
+        for (place, last) in [
+            ("/tmp/x/tool", LastLink::Refused),
+            ("/lib/x86_64-linux-gnu/x.so", LastLink::Refused),
+            ("/var/run/x.pid", LastLink::Refused),
+            ("/etc/resolv.conf", LastLink::Followed),
+        ] {
+            let (got, _) = walk(place, last, &map);
+            assert_eq!(got.unwrap(), None, "{place}");
+        }
+    }
+
+    /// root 의 링크 너머에서 사용자가 링크를 달았으면 걸린다 — 적힌 경로의 앞자리만 보면 놓친다.
+    #[test]
+    fn a_user_link_beyond_a_root_link_is_a_hit() {
+        let map = [
+            ("/srv", root_dir()),
+            ("/srv/share", link(0, "../home/alice/share")),
+            ("/home", root_dir()),
+            ("/home/alice", alice_dir()),
+            ("/home/alice/share", link(4242, "/etc")),
+        ];
+        let (got, _) = walk("/srv/share/x", LastLink::Refused, &map);
+        assert_eq!(
+            got.unwrap(),
+            Some(LinkHit::NotRoot {
+                link: "/home/alice/share".into(),
+                uid: 4242,
+                to: "/etc".into(),
+            })
+        );
+    }
+
+    /// 되돌릴 자리 자체가 링크면 — 통째로 다시 쓰는 자리는 누구의 링크든 걸린다(쓰기와 `chmod` 는 대상에,
+    /// `lchown` 은 링크에 간다). 줄만 고치는 자리는 가운데 성분처럼 root 의 링크를 따라간다.
+    #[test]
+    fn the_place_itself_being_a_link() {
+        let map = [
+            ("/etc", root_dir()),
+            ("/etc/resolv.conf", link(0, "../run/resolv.conf")),
+            ("/run", root_dir()),
+            ("/run/resolv.conf", plain(0, 0o100644)),
+            ("/home", root_dir()),
+            ("/home/alice", alice_dir()),
+            ("/home/alice/.bashrc", link(4242, "/etc/sudoers")),
+        ];
+        let (got, _) = walk("/etc/resolv.conf", LastLink::Refused, &map);
+        assert_eq!(
+            got.unwrap(),
+            Some(LinkHit::Itself {
+                link: "/etc/resolv.conf".into(),
+                to: "../run/resolv.conf".into(),
+            })
+        );
+        let (got, asked) = walk("/etc/resolv.conf", LastLink::Followed, &map);
+        assert_eq!(got.unwrap(), None);
+        assert_eq!(asked.last().map(String::as_str), Some("/run/resolv.conf"));
+        let (got, _) = walk("/home/alice/.bashrc", LastLink::Followed, &map);
+        assert_eq!(
+            got.unwrap(),
+            Some(LinkHit::NotRoot {
+                link: "/home/alice/.bashrc".into(),
+                uid: 4242,
+                to: "/etc/sudoers".into(),
+            })
+        );
+    }
+
+    /// 없는 성분에서 걷기를 끝낸다 — 그 아래는 복원이 새로 만든다. 더 묻지 않는다.
+    #[test]
+    fn a_missing_part_ends_the_walk() {
+        let map = [("/srv", root_dir())];
+        let (got, asked) = walk("/srv/gone/deeper/x", LastLink::Refused, &map);
+        assert_eq!(got.unwrap(), None);
+        assert_eq!(asked, ["/srv", "/srv/gone"]);
+    }
+
+    /// 없는 성분 뒤에 `..` 가 남으면 걸린다(이슈 #172) — 쓰기는 없는 폴더를 만든 뒤 그 `..` 로 걷지 않은 길(alice 가
+    /// 링크로 바꾼 `~/bin`)에 올라간다.
+    #[test]
+    fn climbing_past_a_missing_part_is_a_hit() {
+        let map = [
+            ("/home", root_dir()),
+            ("/home/alice", alice_dir()),
+            ("/home/alice/bin", link(4242, "/etc")),
+        ];
+        let (got, asked) = walk("/home/alice/gone/../bin/tool", LastLink::Refused, &map);
+        assert_eq!(
+            got.unwrap(),
+            Some(LinkHit::ClimbsPastMissing {
+                missing: "/home/alice/gone".into(),
+            })
+        );
+        assert_eq!(asked, ["/home", "/home/alice", "/home/alice/gone"]);
+    }
+
+    /// `..` 는 링크를 따라간 뒤의 자리에서 한 칸 오른다 — 커널과 같다.
+    #[test]
+    fn dot_dot_climbs_from_where_the_link_led() {
+        let map = [
+            ("/a", link(0, "/b/c")),
+            ("/b", root_dir()),
+            ("/b/c", root_dir()),
+        ];
+        let (got, asked) = walk("/a/../d", LastLink::Refused, &map);
+        assert_eq!(got.unwrap(), None);
+        assert_eq!(asked, ["/a", "/", "/b", "/b/c", "/b/d"]);
+    }
+
+    /// 끝없이 이어지는 링크는 걸린다(따라가는 횟수에 상한이 있다).
+    #[test]
+    fn a_link_loop_is_a_hit() {
+        let map = [("/l", link(0, "/l"))];
+        let (got, _) = walk("/l/x", LastLink::Refused, &map);
+        assert_eq!(got.unwrap(), Some(LinkHit::TooMany { link: "/l".into() }));
+    }
+
+    /// 묻지 못한 것을 '링크가 없다' 로 접지 않는다.
+    #[test]
+    fn a_part_that_cannot_be_asked_is_an_error() {
+        let got = link_hit(Path::new("/srv/x"), LastLink::Refused, &mut |_: &Path| {
+            Err(std::io::Error::from(std::io::ErrorKind::PermissionDenied))
+        });
+        assert!(got.is_err(), "{got:?}");
+    }
+}
+
+/// 실제 파일 시스템의 링크 가드 — 임시 폴더에 링크를 단다. root 로 돌면 링크를 남의 uid(4242)로 바꾸고, root 가
+/// 아니면 링크가 이미 root 가 아닌 사용자(이 시험)의 것이다.
+#[cfg(unix)]
+#[test]
+fn the_live_check_sees_the_links_on_the_way() {
+    use std::os::unix::fs::{lchown, symlink, MetadataExt};
+    let dir = tmp("link-guard");
+    let target = dir.join("root-place");
+    std::fs::create_dir_all(&target).unwrap();
+    let user_dir = dir.join("bin");
+    symlink(&target, &user_dir).unwrap();
+    let root = std::fs::metadata("/proc/self").is_ok_and(|m| m.uid() == 0);
+    if root {
+        lchown(&user_dir, Some(4242), Some(4242)).unwrap();
+    }
+    let uid = std::fs::symlink_metadata(&user_dir).unwrap().uid();
+    assert_ne!(uid, 0);
+    let s = |p: &std::path::Path| p.to_string_lossy().to_string();
+
+    let got = FsRestore
+        .link_on_the_way(&s(&user_dir.join("tool")), LastLink::Refused)
+        .unwrap();
+    assert_eq!(
+        got,
+        Some(LinkHit::NotRoot {
+            link: s(&user_dir),
+            uid,
+            to: s(&target),
+        })
+    );
+
+    // 자리 자체가 링크 — 누구의 것이든.
+    let itself = dir.join("tool");
+    symlink(target.join("tool"), &itself).unwrap();
+    let got = FsRestore
+        .link_on_the_way(&s(&itself), LastLink::Refused)
+        .unwrap();
+    assert!(matches!(got, Some(LinkHit::Itself { .. })), "{got:?}");
+
+    // 링크가 없는 길 · 없는 자리 · root 의 링크(`/bin` 이 merged /usr 면 링크, 아니면 폴더).
+    for clean in [
+        s(&target.join("tool")),
+        s(&dir.join("gone/deeper/x")),
+        "/bin/remedy-link-guard-none".to_string(),
+    ] {
+        assert_eq!(
+            FsRestore
+                .link_on_the_way(&clean, LastLink::Refused)
+                .unwrap(),
+            None,
+            "{clean}"
+        );
+    }
+    assert!(
+        std::fs::read_dir(&target).unwrap().next().is_none(),
+        "묻기만 했는데 썼다"
+    );
+    cleanup(&dir).ok();
+}
+
+/// root 의 링크는 **그 링크가 놓인 폴더를 root 만 바꿀 수 있을 때만** 믿는다(이슈 #172) — 사용자가 쓸 수 있는
+/// 폴더에는 다른 자리에 있던 root 의 링크를 rename 해 놓을 수 있다. root 로 돌면 이 시험이 단 링크가 root 의 것이라
+/// 폴더를 남(4242)의 것 · 누구나 쓰는 0777 로 바꿔 본다. root 의 sticky 폴더(1777)와 0755 폴더의 root 링크는 따라간다.
+/// root 가 아니면 링크가 이 시험의 것이라 어느 폴더에서든 걸린다.
+#[cfg(unix)]
+#[test]
+fn a_root_link_is_followed_only_in_a_folder_only_root_can_change() {
+    use std::os::unix::fs::{chown, symlink, MetadataExt, PermissionsExt};
+    let dir = tmp("root-link-folder");
+    let target = dir.join("root-place");
+    std::fs::create_dir_all(&target).unwrap();
+    let root = std::fs::metadata("/proc/self").is_ok_and(|m| m.uid() == 0);
+    let s = |p: &std::path::Path| p.to_string_lossy().to_string();
+    let case = |name: &str, mode: u32, owner: Option<u32>| {
+        let folder = dir.join(name);
+        std::fs::create_dir_all(&folder).unwrap();
+        symlink(&target, folder.join("bin")).unwrap();
+        if let Some(o) = owner {
+            chown(&folder, Some(o), Some(o)).unwrap();
+        }
+        std::fs::set_permissions(&folder, std::fs::Permissions::from_mode(mode)).unwrap();
+        FsRestore
+            .link_on_the_way(&s(&folder.join("bin/tool")), LastLink::Refused)
+            .unwrap()
+    };
+    let users = case("users", 0o755, root.then_some(4242));
+    let open = case("open", 0o777, None);
+    let group = case("group", 0o775, None);
+    let sticky = case("sticky", 0o1777, None);
+    let tight = case("tight", 0o755, None);
+
+    assert!(users.is_some(), "남의 폴더의 root 링크를 따라갔다");
+    assert!(open.is_some(), "누구나 쓰는 폴더의 root 링크를 따라갔다");
+    assert!(group.is_some(), "group 이 쓰는 폴더의 root 링크를 따라갔다");
+    if root {
+        assert_eq!(sticky, None);
+        assert_eq!(tight, None);
+    } else {
+        assert!(sticky.is_some() && tight.is_some(), "{sticky:?} {tight:?}");
+    }
+    assert!(std::fs::read_dir(&target).unwrap().next().is_none());
+    cleanup(&dir).ok();
+}
+
+/// 없는 폴더 아래에서 `..` 로 되짚는 경로는 막는다(이슈 #172) — 걷기가 없는 성분에서 끝나면 그 뒤의 `..` 가 되짚는
+/// 길을 보지 못한다. 쓰기의 `create_dir_all` 은 없는 폴더를 만든 뒤 그 `..` 로 올라가 사용자가 바꾼 링크를 따른다.
+/// 길의 성분이 다 있으면 `..` 는 커널처럼 되짚어 걷는다 — 그 링크가 걸린다.
+#[cfg(unix)]
+#[test]
+fn climbing_with_dot_dot_below_a_missing_folder_is_held_back() {
+    use std::os::unix::fs::{lchown, symlink, MetadataExt};
+    let dir = tmp("dot-dot-missing");
+    let target = dir.join("root-place");
+    std::fs::create_dir_all(&target).unwrap();
+    let bin = dir.join("bin");
+    symlink(&target, &bin).unwrap();
+    if std::fs::metadata("/proc/self").is_ok_and(|m| m.uid() == 0) {
+        lchown(&bin, Some(4242), Some(4242)).unwrap();
+    }
+    let place = format!("{}/gone/../bin/tool", dir.to_string_lossy());
+
+    let got = FsRestore
+        .link_on_the_way(&place, LastLink::Refused)
+        .unwrap();
+    assert!(got.is_some(), "없는 폴더 뒤의 `..` 를 걷지 않고 통과시켰다");
+
+    std::fs::create_dir_all(dir.join("gone")).unwrap();
+    let got = FsRestore
+        .link_on_the_way(&place, LastLink::Refused)
+        .unwrap();
+    assert!(
+        matches!(&got, Some(LinkHit::NotRoot { link, .. }) if *link == bin.to_string_lossy()),
+        "{got:?}"
+    );
+    assert!(std::fs::read_dir(&target).unwrap().next().is_none());
+    cleanup(&dir).ok();
+}
+
+/// 복원 쓰기가 마지막 성분을 **한 번 열고 그 파일 하나로** 끝까지 다루는가(이슈 #172) — 그 자리가 링크 · 하드
+/// 링크 · 일반 파일이 아닌 것이면 그 파일에 쓰지 않고 실패한다. 꺼내기도 같은 길을 지난다.
+#[cfg(unix)]
+mod place_opened_once {
+    use super::super::*;
+    use super::{cleanup, tmp};
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
+
+    fn keep(dir: &std::path::Path) -> std::path::PathBuf {
+        let target = dir.join("target");
+        std::fs::write(&target, b"keep").unwrap();
+        std::fs::set_permissions(&target, std::fs::Permissions::from_mode(0o644)).unwrap();
+        target
+    }
+
+    fn mode(p: &std::path::Path) -> u32 {
+        std::fs::metadata(p).unwrap().mode() & 0o7777
+    }
+
+    /// 이 시험 프로세스의 실효 uid · gid — `/proc/self` 의 소유자다. 그 값으로 담으면 root 가 아니어도 chown 이 된다.
+    fn me() -> (u32, u32) {
+        let m = std::fs::metadata("/proc/self").unwrap();
+        (m.uid(), m.gid())
+    }
+
+    fn meta_4755() -> FileMeta {
+        let (uid, gid) = me();
+        FileMeta {
+            mode: Some(0o104755),
+            uid: Some(uid),
+            gid: Some(gid),
+            ..Default::default()
+        }
+    }
+
+    /// 연 뒤 그 이름을 링크로 바꿔도 **링크 너머는 그대로다** — 쓰기 · 시각 · 소유자 · mode 가 이름으로 다시 풀면
+    /// 링크를 따라 그 너머에 담아 둔 본문 · mode 를 쓴다(1.26.0 의 경로 기반 `chmod`). 사용자가 자기 폴더에서
+    /// root 가 만든 이름이 생기는 순간(inotify)을 보고 바꿔치면 늘 이기는 경쟁이다 — 여기서는 연 직후에 바꾼다.
+    #[test]
+    fn the_steps_after_opening_go_to_the_opened_file_not_to_what_the_name_points_at_now() {
+        let dir = tmp("swap-after-open");
+        let target = keep(&dir);
+        let name = dir.join("tool");
+        let moved = dir.join("tool.moved");
+        let s = name.to_string_lossy().to_string();
+        let meta = FileMeta {
+            mtime_unix: Some(1_000_000),
+            ..meta_4755()
+        };
+        let f = open_place(&s, &meta).unwrap();
+        std::fs::rename(&name, &moved).unwrap();
+        std::os::unix::fs::symlink(&target, &name).unwrap();
+
+        let mut r = RestoreReport::default();
+        write_opened(&f, &s, b"new", &meta, &mut r).unwrap();
+        drop(f);
+
+        assert_eq!(std::fs::read(&target).unwrap(), b"keep", "{r:?}");
+        assert_eq!(mode(&target), 0o644, "링크 너머의 mode 가 바뀌었다: {r:?}");
+        assert_eq!(std::fs::read(&moved).unwrap(), b"new", "{r:?}");
+        assert_eq!(mode(&moved), 0o4755, "연 파일에 mode 가 가지 않았다: {r:?}");
+        assert_eq!(std::fs::metadata(&moved).unwrap().mtime(), 1_000_000);
+        for want in ["content", "mtime", "owner", "mode"] {
+            assert!(r.restored.iter().any(|x| x == want), "{want}: {r:?}");
+        }
+        cleanup(&dir).ok();
+    }
+
+    /// 자리에 링크가 있으면 따라 쓰지 않는다 — 꺼낼 폴더 안에 둔 링크(꺼내기는 꺼낼 폴더만 묻고 그 안의 자리는 묻지
+    /// 않는다)와, 계획 · 쓰기 직전 물음 뒤에 바뀐 제자리의 링크가 이 꼴이다.
+    #[test]
+    fn a_link_at_the_place_is_not_written_through() {
+        let dir = tmp("link-at-place");
+        let target = keep(&dir);
+        let place = dir.join("_srv_x");
+        std::os::unix::fs::symlink(&target, &place).unwrap();
+
+        let got = FsRestore.restore_file(&place.to_string_lossy(), b"new", &meta_4755());
+        assert!(got.is_err(), "{got:?}");
+        assert_eq!(std::fs::read(&target).unwrap(), b"keep");
+        assert_eq!(mode(&target), 0o644);
+        assert!(std::fs::symlink_metadata(&place)
+            .unwrap()
+            .file_type()
+            .is_symlink());
+        cleanup(&dir).ok();
+    }
+
+    /// 자리의 파일에 다른 이름(하드 링크)이 있으면 쓰지 않는다 — 그 inode 는 다른 자리의 파일이기도 하다.
+    #[test]
+    fn a_hard_link_at_the_place_is_not_written_to() {
+        let dir = tmp("hard-link-at-place");
+        let target = keep(&dir);
+        let place = dir.join("tool");
+        std::fs::hard_link(&target, &place).unwrap();
+        let ino = std::fs::metadata(&target).unwrap().ino();
+
+        let got = FsRestore.restore_file(&place.to_string_lossy(), b"new", &meta_4755());
+        assert!(got.is_err(), "{got:?}");
+        let md = std::fs::metadata(&target).unwrap();
+        assert_eq!(std::fs::read(&target).unwrap(), b"keep");
+        assert_eq!((md.ino(), md.nlink(), md.mode() & 0o7777), (ino, 2, 0o644));
+        cleanup(&dir).ok();
+    }
+
+    /// 자리가 일반 파일이 아니면(이름 붙은 파이프) 기다리지 않고 실패한다 — 쓰는 쪽으로 열면 읽는 쪽이 나타날 때까지
+    /// 멈추고, 나타나면 담아 둔 본문을 그 사람에게 흘린다.
+    #[test]
+    fn a_fifo_at_the_place_is_refused_without_waiting() {
+        let dir = tmp("fifo-at-place");
+        let place = dir.join("tool");
+        let ok = std::process::Command::new("mkfifo")
+            .arg(&place)
+            .status()
+            .unwrap();
+        assert!(ok.success());
+        let s = place.to_string_lossy().to_string();
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let _ = tx.send(
+                FsRestore
+                    .restore_file(&s, b"new", &FileMeta::default())
+                    .is_err(),
+            );
+        });
+        let refused = rx.recv_timeout(std::time::Duration::from_secs(10));
+        assert_eq!(refused, Ok(true), "파이프 자리에서 멈췄거나 썼다");
+        cleanup(&dir).ok();
+    }
+
+    /// 리스(lease) · NFS 위임이 걸린 파일은 `O_NONBLOCK` 열기가 기다리지 않고 `EWOULDBLOCK` 으로 열리지 않는다 — 짧게
+    /// 쉬며 같은 열기를 다시 해, 리스가 풀리면 연다(1.26.0 의 쓰기는 풀릴 때까지 기다렸다).
+    #[test]
+    fn an_open_that_would_block_on_a_lease_is_tried_again() {
+        let mut calls = 0;
+        let got = waiting_out_a_lease(
+            || {
+                calls += 1;
+                if calls <= 3 {
+                    Err(std::io::Error::from(std::io::ErrorKind::WouldBlock))
+                } else {
+                    Ok(calls)
+                }
+            },
+            LEASE_WAIT,
+        );
+        assert_eq!(got.ok(), Some(4));
+    }
+
+    /// 상한까지 풀리지 않으면 그 오류 그대로 실패한다. 다른 오류(이름 붙은 파이프의 `ENXIO` 등)는 다시 열지 않는다.
+    #[test]
+    fn an_open_that_keeps_blocking_fails_at_the_limit() {
+        let wait = std::time::Duration::from_millis(60);
+        let mut calls = 0;
+        let started = std::time::Instant::now();
+        let got: std::io::Result<()> = waiting_out_a_lease(
+            || {
+                calls += 1;
+                Err(std::io::ErrorKind::WouldBlock.into())
+            },
+            wait,
+        );
+        let took = started.elapsed();
+        assert_eq!(
+            got.map_err(|e| e.kind()),
+            Err(std::io::ErrorKind::WouldBlock)
+        );
+        assert!(took >= wait && calls > 1, "{took:?} · {calls}번");
+
+        let mut calls = 0;
+        let got: std::io::Result<()> = waiting_out_a_lease(
+            || {
+                calls += 1;
+                Err(std::io::Error::from_raw_os_error(libc::ENXIO))
+            },
+            LEASE_WAIT,
+        );
+        assert!(got.is_err());
+        assert_eq!(calls, 1);
+    }
+}
+
+/// 이미 있는 꺼낼 폴더는 지금 계정의 것이고 group · other 가 쓸 수 없어야 한다(이슈 #172) — sticky 도 받지 않는다.
+/// 폴더가 아니면(링크 · 파일) 걸린다.
+#[cfg(unix)]
+#[test]
+fn a_folder_to_extract_to_must_be_ours_and_closed_to_others() {
+    let me = 0;
+    assert_eq!(extract_dir_hit(true, 0, 0o040755, me), None);
+    assert_eq!(extract_dir_hit(true, 0, 0o040700, me), None);
+    assert_eq!(
+        extract_dir_hit(true, 4242, 0o040755, me),
+        Some(ExtractDirHit::NotMine { uid: 4242, me })
+    );
+    for mode in [0o040777, 0o041777, 0o040775, 0o040757] {
+        assert_eq!(
+            extract_dir_hit(true, 0, mode, me),
+            Some(ExtractDirHit::OthersCanWrite {
+                mode: mode & 0o7777
+            }),
+            "{mode:o}"
+        );
+    }
+    assert_eq!(
+        extract_dir_hit(false, 0, 0o120777, me),
+        Some(ExtractDirHit::NotAFolder)
+    );
+    assert_eq!(extract_dir_hit(true, 1000, 0o040755, 1000), None);
+}
+
+/// 꺼낼 폴더의 위 폴더는 root 와 지금 계정만 그 안의 이름을 바꿀 수 있어야 한다(이슈 #172) — 둘 가운데 하나의 것이고
+/// group · other 쓰기가 없거나 sticky 다. 지금 계정이 root 면 링크를 믿는 폴더 조건([`root_only`])과 같다.
+#[cfg(unix)]
+#[test]
+fn a_folder_above_the_folder_to_extract_to_must_be_closed_to_others() {
+    let at = |uid: u32, mode: u32, me: u32| above_hit("/x", uid, mode, me);
+    let theirs = |uid: u32| {
+        Some(ExtractDirHit::AboveSomeoneElses {
+            folder: "/x".into(),
+            uid,
+        })
+    };
+    let open = |mode: u32| {
+        Some(ExtractDirHit::AboveOthersCanWrite {
+            folder: "/x".into(),
+            mode,
+        })
+    };
+    for me in [0, 1000] {
+        assert_eq!(at(0, 0o040755, me), None);
+        assert_eq!(at(0, 0o040700, me), None);
+        assert_eq!(at(0, 0o041777, me), None, "root 의 sticky");
+        assert_eq!(at(4242, 0o040755, me), theirs(4242));
+        assert_eq!(at(4242, 0o041777, me), theirs(4242), "남의 sticky");
+        assert_eq!(at(0, 0o040777, me), open(0o777));
+        assert_eq!(at(0, 0o040775, me), open(0o775));
+        assert_eq!(at(0, 0o042757, me), open(0o2757));
+    }
+    assert_eq!(at(1000, 0o040755, 1000), None);
+    assert_eq!(at(1000, 0o040777, 1000), open(0o777));
+    for uid in [0, 1000, 4242] {
+        for mode in [0o040755, 0o040775, 0o040757, 0o041777, 0o040777, 0o041755] {
+            assert_eq!(
+                at(uid, mode, 0).is_none(),
+                root_only(uid, mode),
+                "{uid} {mode:o}"
+            );
+        }
+    }
+}
+
+/// 꺼낸 사본에는 파일 권능도 **POSIX ACL** 도 붙이지 않는다(이슈 #172) — ACL 의 이름 붙은 항목은 소유자와 같이 숫자
+/// uid · gid 라, 다른 기계에서 꺼내면 같은 번호의 다른 사람이 사본을 읽고 고친다. 다른 확장 속성은 그대로다.
+#[test]
+fn an_extracted_copy_gets_neither_the_file_capability_nor_the_posix_acls() {
+    let x = |name: &str| (name.to_string(), "AgAAAAEABgD/////".to_string());
+    let m = FileMeta {
+        xattrs: [
+            x("system.posix_acl_access"),
+            x("system.posix_acl_default"),
+            x("security.capability"),
+            x("user.note"),
+        ]
+        .into_iter()
+        .collect(),
+        ..Default::default()
+    };
+    assert_eq!(
+        m.for_extract().xattrs.keys().collect::<Vec<_>>(),
+        ["user.note"]
+    );
+}
+
+/// 꺼낸 사본에서 접근 ACL 을 빼면 mode 의 group 칸을 소유 그룹의 **실효 권한**(ACL 의 `group::` 과 mask 가 함께 허락하는
+/// 것)으로 둔다(이슈 #172) — 확장 ACL 이 있는 파일의 `st_mode` group 칸은 ACL mask 라, 그대로 두면 mask 가 `group::` 보다
+/// 넓은 파일에서 사본의 소유 그룹(꺼낸 계정의 그룹 · setgid 폴더의 그룹)이 원래보다 넓은 권한을 얻는다. `group::` 으로
+/// 통째로 바꾸면 반대 꼴(ACL 을 단 뒤 `chmod` 로 mask 만 좁힌 파일)에서 넓어진다. 풀지 못하는 값이면 group 칸을 비운다
+/// (넓히지 않는 쪽). ACL 이 없으면 setuid · setgid 만 뺀다.
+#[test]
+fn an_extracted_copy_without_its_acl_gives_the_owning_group_no_more_than_its_effective_access() {
+    // version 2 · user::rw- · user:1001:rw- · group::r-- · mask::rw- · other::--- (little endian)
+    const ACL: &str = "AgAAAAEABgD/////AgAGAOkDAAAEAAQA/////xAABgD/////IAAAAP////8=";
+    // version 2 · user::rw- · user:1001:rw- · group::rw- · mask::r-- · other::--- — 0660 파일에 `setfacl -m u:1001:rw` 뒤
+    // `chmod 640`(setfacl 은 `group::` 을 시작 mode 의 group 칸으로 두고 mask 만 다시 셈한다 — 0644 에서 시작하면
+    // `group::r--` 가 된다)
+    const NARROW_MASK: &str = "AgAAAAEABgD/////AgAGAOkDAAAEAAYA/////xAABAD/////IAAAAP////8=";
+    let with = |acl: Option<&str>, mode: u32| FileMeta {
+        mode: Some(mode),
+        xattrs: acl
+            .map(|v| ("system.posix_acl_access".to_string(), v.to_string()))
+            .into_iter()
+            .collect(),
+        ..Default::default()
+    };
+    assert_eq!(with(Some(ACL), 0o660).for_extract().mode, Some(0o640));
+    assert_eq!(with(Some(ACL), 0o102660).for_extract().mode, Some(0o100640));
+    assert_eq!(
+        with(Some(NARROW_MASK), 0o100640).for_extract().mode,
+        Some(0o100640)
+    );
+    // group::r-x 하나뿐인 값 — mode 의 group 칸(rwx)과 겹쳐 r-x 가 남는다
+    assert_eq!(
+        with(Some("AgAAAAQABQD/////"), 0o670).for_extract().mode,
+        Some(0o650)
+    );
+    for broken in [
+        "!!!!",
+        "AgAAAA==",                     // 머리뿐 — group:: 이 없다
+        "AgAAAAEABgD/////",             // user:: 뿐
+        "AQAAAAQABAD/////",             // version 1
+        "AgAAAAQABAD///8=",             // 항목이 잘렸다
+        "AgAAAAQABAD/////BAAGAP////8=", // group:: 이 둘
+    ] {
+        assert_eq!(
+            with(Some(broken), 0o660).for_extract().mode,
+            Some(0o600),
+            "{broken}"
+        );
+    }
+    assert_eq!(with(None, 0o104755).for_extract().mode, Some(0o100755));
+    assert_eq!(with(None, 0o660).for_extract().mode, Some(0o660));
 }

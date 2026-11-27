@@ -254,7 +254,7 @@ fn main() -> ExitCode {
              cargo xtask fixture --out <파일> --dest-prefix <VM 경로> [--passphrase-out <파일>] \
              [--org-secret-out <파일>]\n  \
              cargo xtask yara --rules <룰 디렉터리> --scan <디렉터리>... --expect <match|clean> \
-             [--rule <이름>] [--ext js] [--max-bytes <수>]\n  \
+             [--rule <이름>] [--ext js] [--max-bytes <수>] [--list <수>]\n  \
              cargo xtask console-diff <이번 캡처>...\n  \
              cargo xtask console-normalize <캡처>...\n  \
              cargo xtask console-doc [<문서>]\n  \

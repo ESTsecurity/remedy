@@ -7,13 +7,20 @@
 //!
 //! # 되돌리지 못하는 것을 조용히 넘기지 않는다
 //!
-//! SACL 포착에는 `SeSecurityPrivilege` 가, 소유자 변경에는 `SeRestorePrivilege`
+//! **Windows** — SACL 포착에는 `SeSecurityPrivilege` 가, 소유자 변경에는 `SeRestorePrivilege`
 //! 가 필요하다(설계-02 §9). 이 코드는 그 특권을 켜지 않는다 — 켜려면 unsafe 로
 //! 토큰을 만져야 하고, 이 크레이트는 `forbid(unsafe_code)` 를 유지한다.
 //!
 //! 그래서 SACL 은 포착하지 않고, 소유자 복원은 **실패하면 나머지를 살린 뒤 그
 //! 사실을 보고서에 적는다.** 못 한 것을 못 했다고 말하는 편이, 다 된 것처럼
 //! 보이고 권한만 틀린 파일을 남기는 것보다 낫다.
+//!
+//! **Unix** — 소유자(uid · gid) · mode · 확장 속성을 담고, 복원 쓰기가 연 파일 하나에(`fchown` · `fchmod` ·
+//! `fsetxattr` — 이름으로 다시 풀지 않는다) **소유자 → mode → 확장 속성** 차례로 되돌린다.
+//! chown 이 setuid · setgid 비트와 `security.capability` 를 지우기 때문이다. 남의 uid 로 바꾸는 길은 root 에서만
+//! 열린다. 소유자를 되돌리지 못했거나 담지 않았으면(1.26.0 까지의 격리물) **setuid · setgid 를 빼고** mode 를
+//! 되돌리고 그 사실을 적는다 — 그대로 쓰면 남의 것이던 setuid 가 되돌린 사람(대개 root)의 setuid 가 된다.
+//! 1.26.0 까지는 소유자를 담지도 되돌리지도 않아, root 가 되돌린 사용자의 파일이 root 소유로 돌아왔다(이슈 #172 ①).
 //!
 //! # 상속이 대개 옳다
 //!
@@ -22,6 +29,8 @@
 //! 이 모듈이 값을 하는 자리는 명시적 ACE 나 비표준 소유자가 있던 파일이다 —
 //! 제거를 방해하려고 ACL 을 건 악성코드, 그리고 오탐으로 격리된 사용자 문서.
 
+#[cfg(unix)]
+use crate::write::SETID_BITS;
 use crate::write::{FileMeta, RestoreReport};
 
 /// 지금 있는 파일의 OS 고유 메타데이터를 `meta` 에 채운다.
@@ -29,9 +38,18 @@ pub fn capture_into(path: &str, meta: &mut FileMeta) {
     capture_platform(path, meta);
 }
 
-/// 담아 둔 OS 고유 메타데이터를 되돌린다.
+/// 담아 둔 OS 고유 메타데이터를 이름으로 되돌린다(Windows 의 `SetNamedSecurityInfo`). Unix 는 [`restore_onto`] 다.
+#[cfg(not(unix))]
 pub fn restore_from(path: &str, meta: &FileMeta, report: &mut RestoreReport) {
     restore_platform(path, meta, report);
+}
+
+/// 담아 둔 OS 고유 메타데이터를 **연 파일에** 되돌린다(Unix · 이슈 #172) — `fchown` · `fchmod` · `fsetxattr` 다. 이름으로
+/// 다시 풀지 않으므로, 연 뒤 그 이름이 링크로 바뀌어도 링크 너머에 가지 않는다. 1.26.0 은 쓰고 난 뒤 같은 이름으로
+/// `chmod` 를 불러, 그 사이에 이름을 링크로 바꾸면 링크 너머(root 의 파일)에 담아 둔 mode 를 썼다.
+#[cfg(unix)]
+pub fn restore_onto(file: &std::fs::File, meta: &FileMeta, report: &mut RestoreReport) {
+    restore_platform(file, meta, report);
 }
 
 // ────────────────────────────────────────────────────────── Windows
@@ -183,9 +201,12 @@ fn dacl_is_protected(sddl: &str) -> bool {
 
 #[cfg(unix)]
 fn capture_platform(path: &str, meta: &mut FileMeta) {
-    use std::os::unix::fs::PermissionsExt;
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
     if let Ok(md) = std::fs::metadata(path) {
         meta.mode = Some(md.permissions().mode());
+        // 소유자도 같은 `metadata` 에서 — mode 와 같은 순간의 것이다(이슈 #172 ①).
+        meta.uid = Some(md.uid());
+        meta.gid = Some(md.gid());
     }
     // 확장 속성. SELinux 컨텍스트(`security.selinux`)도 여기로 실려 온다.
     // 값은 임의 바이트라 base64 로 담는다.
@@ -204,17 +225,67 @@ fn capture_platform(path: &str, meta: &mut FileMeta) {
 }
 
 #[cfg(unix)]
-fn restore_platform(path: &str, meta: &FileMeta, report: &mut RestoreReport) {
+fn restore_platform(file: &std::fs::File, meta: &FileMeta, report: &mut RestoreReport) {
+    use remedy_sdk::i18n::t;
     use std::os::unix::fs::PermissionsExt;
+    use xattr::FileExt;
 
+    // 1. 소유자. **mode · xattr 보다 먼저다** — chown 이 setuid · setgid 비트와 `security.capability` 를
+    //    지운다(root 가 불러도 그렇다). 연 파일에 한다(fchown): 바꾸는 것은 방금 쓴 그 파일이다.
+    let owner_back = match meta.owner() {
+        Some((uid, gid)) => match std::os::unix::fs::fchown(file, Some(uid), Some(gid)) {
+            Ok(()) => {
+                report.restored.push("owner".into());
+                true
+            }
+            // 남의 uid 로 바꾸는 길은 root 에서만 열린다 — 그 밖에서는 EPERM 이다.
+            Err(e) => {
+                report.lose("owner", e.to_string());
+                false
+            }
+        },
+        None => {
+            // 1.26.0 까지의 격리물. 계획이 이미 같은 말을 적었다(`write::plan_owner_and_mode`). 꺼내기도 소유자를
+            // 비워(`FileMeta::for_extract`) 여기로 온다 — 그때 이 줄은 사실이 아니므로 `remedy-core` 의 꺼내기가 뺀다.
+            if meta.mode.is_some() {
+                report.lose(
+                    "owner",
+                    t(
+                        "격리할 때 소유자를 담지 않았습니다",
+                        "the owner was not captured at quarantine",
+                    ),
+                );
+            }
+            false
+        }
+    };
+
+    // 2. mode. 소유자가 돌아오지 않았으면 **setuid · setgid 를 뺀다** — 그대로 쓰면 남의 것이던 setuid 가
+    //    되돌린 사람(대개 root)의 setuid 가 된다. 뺀 것은 lost 에 적는다(되돌리지 못한 mode 다).
     if let Some(mode) = meta.mode {
-        let perm = std::fs::Permissions::from_mode(mode);
-        match std::fs::set_permissions(path, perm) {
+        let strip = !owner_back && mode & SETID_BITS != 0;
+        let perm = std::fs::Permissions::from_mode(if strip { mode & !SETID_BITS } else { mode });
+        match file.set_permissions(perm) {
+            Ok(()) if strip => report.lose(
+                "mode",
+                if meta.owner().is_some() {
+                    t(
+                        "소유자를 되돌리지 못해 setuid · setgid 비트를 빼고 되돌렸습니다",
+                        "the owner could not be put back, so the setuid and setgid bits were left off",
+                    )
+                } else {
+                    t(
+                        "소유자를 모르므로 setuid · setgid 비트를 빼고 되돌렸습니다",
+                        "the owner is unknown, so the setuid and setgid bits were left off",
+                    )
+                },
+            ),
             Ok(()) => report.restored.push("mode".into()),
             Err(e) => report.lose("mode", e.to_string()),
         }
     }
 
+    // 3. 확장 속성 — 소유자 다음이어야 `security.capability` 가 남는다.
     for (name, b64) in &meta.xattrs {
         let Some(value) = base64_decode(b64) else {
             report.lose(
@@ -223,7 +294,7 @@ fn restore_platform(path: &str, meta: &FileMeta, report: &mut RestoreReport) {
             );
             continue;
         };
-        match xattr::set(path, name, &value) {
+        match file.set_xattr(name, &value) {
             Ok(()) => report.restored.push(format!("xattr:{name}")),
             // SELinux 정책이 거부하면 root 라도 실패한다 (설계-02 §9).
             Err(e) => report.lose(format!("xattr:{name}"), e.to_string()),
@@ -254,8 +325,9 @@ fn base64_encode(v: &[u8]) -> String {
     out
 }
 
-#[cfg(unix)]
-fn base64_decode(s: &str) -> Option<Vec<u8>> {
+/// 담아 둔 확장 속성 값(base64)을 푼다. 플랫폼마다 둔다 — 꺼내기가 어느 기계에서든 담아 둔 접근 ACL 을 읽는다
+/// ([`FileMeta::for_extract`](crate::write::FileMeta::for_extract)).
+pub(crate) fn base64_decode(s: &str) -> Option<Vec<u8>> {
     fn val(c: u8) -> Option<u32> {
         match c {
             b'A'..=b'Z' => Some((c - b'A') as u32),
@@ -310,9 +382,10 @@ mod tests {
     use super::*;
 
     /// **못 되돌린 사유는 복원 화면에 그대로 나간다** — `RestoreReport::lose` 가
-    /// `lost` 에 넣고 `main.rs` 가 항목마다 `되살리지 못함 <항목>  <사유>` 로
-    /// 찍는다. §3 이 `write.rs` 의 `lose()` 호출을 두 언어로 고칠 때 이 파일은
-    /// 목록에 없었다.
+    /// `lost` 에 넣고 `restore_cmd.rs` 가 `복원 불가  <항목>: <사유>` 로 찍는다. 복원
+    /// 전에는 계획의 것을, 복원 뒤에는 계획이 되돌린다고 했는데 못 된 것
+    /// (`remedy_core::restore::missed`)을. §3 이 `write.rs` 의 `lose()` 호출을 두
+    /// 언어로 고칠 때 이 파일은 목록에 없었다.
     ///
     /// **이름을 그대로 둔 것**은 아래 시험들을 고치지 않기 위해서다.
     /// **OS 가 준 문구는 우리가 고칠 수 없다** (§4). 한국어 Windows 는
@@ -327,7 +400,14 @@ mod tests {
         s
     }
 
+    /// Unix 는 그 자리를 열어 연 파일에 되돌린다(복원 쓰기와 같은 길 — `write::FsRestore::restore_file`).
     fn restore_from(path: &str, meta: &FileMeta, report: &mut RestoreReport) {
+        #[cfg(unix)]
+        {
+            let f = std::fs::OpenOptions::new().write(true).open(path).unwrap();
+            super::restore_onto(&f, meta, report);
+        }
+        #[cfg(not(unix))]
         super::restore_from(path, meta, report);
         for l in &report.lost {
             let ours = 우리_문구만(&l.reason);
@@ -364,6 +444,11 @@ mod tests {
         assert!(meta.sddl.is_some(), "SDDL 을 포착하지 못했다");
         #[cfg(unix)]
         assert!(meta.mode.is_some(), "mode 를 포착하지 못했다");
+        #[cfg(unix)]
+        assert!(
+            meta.uid.is_some() && meta.gid.is_some(),
+            "소유자를 포착하지 못했다: {meta:?}"
+        );
 
         // 지웠다가 되돌린다 — 격리·복원이 실제로 하는 일이다.
         std::fs::remove_file(&p).unwrap();
@@ -380,8 +465,89 @@ mod tests {
             assert!(report.lost.iter().any(|l| l.item == "sacl"), "{report:?}");
         }
         #[cfg(unix)]
-        assert!(report.restored.iter().any(|r| r == "mode"), "{report:?}");
+        for want in ["owner", "mode"] {
+            assert!(report.restored.iter().any(|r| r == want), "{report:?}");
+        }
 
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// 담은 소유자가 남의 것(nobody · 65534)인 4755 를 되돌린다(이슈 #172 ①).
+    ///
+    /// **환경에 따라 다른 것을 주장한다** — 남의 uid 로 chown 하는 길은 root 에서만 열린다. root 이면 소유자가
+    /// 돌아오고 4755 가 남는다(chown 이 비트를 지우므로 mode 가 그 뒤여야 한다). root 가 아니면 chown 이 EPERM
+    /// 으로 막히고, 그때 4755 를 그대로 쓰면 남의 것이던 setuid 가 되돌린 사람의 setuid 가 된다 — 비트를 빼고
+    /// owner · mode 를 둘 다 lost 에 적는다. 그래서 컨테이너(root)와 CI 러너(root 아님) 두 곳에서 돌아야 두 갈래를
+    /// 다 잰다.
+    #[cfg(unix)]
+    #[test]
+    fn the_setuid_bits_come_back_only_with_the_owner() {
+        use std::os::unix::fs::{MetadataExt, PermissionsExt};
+        let root = std::fs::metadata("/proc/self").is_ok_and(|m| m.uid() == 0);
+        let dir = tmp("setid");
+        let p = dir.join("tool");
+        let s = p.to_str().unwrap();
+        std::fs::write(&p, b"x").unwrap();
+        std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o4755)).unwrap();
+        let mut meta = FileMeta::default();
+        capture_into(s, &mut meta);
+        meta.uid = Some(65534);
+        meta.gid = Some(65534);
+        std::fs::remove_file(&p).unwrap();
+        std::fs::write(&p, b"x").unwrap();
+
+        let mut report = RestoreReport::default();
+        restore_from(s, &meta, &mut report);
+        let md = std::fs::metadata(&p).unwrap();
+        let back = |n: &str| report.restored.iter().any(|r| r == n);
+        let lost = |n: &str| report.lost.iter().any(|l| l.item == n);
+        if root {
+            assert!(back("owner") && back("mode"), "{report:?}");
+            assert_eq!((md.uid(), md.gid()), (65534, 65534), "{report:?}");
+            assert_eq!(md.mode() & 0o7777, 0o4755, "{report:?}");
+        } else {
+            assert!(lost("owner") && lost("mode"), "{report:?}");
+            assert!(!back("owner") && !back("mode"), "{report:?}");
+            assert_eq!(md.mode() & 0o7777, 0o755, "{report:?}");
+        }
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// 소유자 칸이 없는 격리물(1.26.0 까지)은 소유자를 모른다 — setuid · setgid 를 빼고 되돌리고, 그 사실과 소유자를
+    /// 담지 않았다는 것을 lost 에 적는다(카드 결정). 비트가 없는 mode 는 그대로 돌아온다.
+    #[cfg(unix)]
+    #[test]
+    fn an_old_capture_without_an_owner_comes_back_without_its_setid_bits() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tmp("old-setid");
+        for (mode, want) in [(0o106755, 0o755), (0o100640, 0o640)] {
+            let p = dir.join(format!("{mode:o}"));
+            let s = p.to_str().unwrap();
+            std::fs::write(&p, b"x").unwrap();
+            let meta = FileMeta {
+                mode: Some(mode),
+                ..Default::default()
+            };
+            let mut report = RestoreReport::default();
+            restore_from(s, &meta, &mut report);
+            let got = std::fs::metadata(&p).unwrap().permissions().mode() & 0o7777;
+            assert_eq!(got, want, "{mode:o}: {report:?}");
+            assert!(
+                report.lost.iter().any(|l| l.item == "owner"),
+                "{mode:o}: {report:?}"
+            );
+            let setid = mode & 0o6000 != 0;
+            assert_eq!(
+                report.lost.iter().any(|l| l.item == "mode"),
+                setid,
+                "{mode:o}: {report:?}"
+            );
+            assert_eq!(
+                report.restored.iter().any(|r| r == "mode"),
+                !setid,
+                "{mode:o}: {report:?}"
+            );
+        }
         std::fs::remove_dir_all(&dir).ok();
     }
 

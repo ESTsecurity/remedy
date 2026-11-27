@@ -143,6 +143,10 @@ pub(crate) fn walk(
 ///
 /// 폴더가 **없으면** 빈 결과다(못 본 것이 아니다). 있는데 열리지 않으면 `denied` 로
 /// 센다 — 재귀 걷기와 같은 규칙이다.
+///
+/// 폴더 칸이 드라이브 뿌리(`E:\*.lnk` 를 나눈 `E:`)이면 `E:\` 를 연다(`normalize::glob_dir_to_open` — 뿌리가
+/// 있는지 묻는 쪽도 그것을 지난다). Windows 에서 `E:` 는 그 드라이브의 **지금 폴더**라, 그대로 열던 동안에는
+/// 뿌리가 아닌 곳을 걷고 `E:x.lnk` 처럼 구분자 없는 경로를 담았다.
 fn walk_glob(
     view: &impl PathView,
     dir: &str,
@@ -159,7 +163,7 @@ fn walk_glob(
     let mut truncated = false;
     let mut denied = 0usize;
     let mut denied_paths: Vec<String> = Vec::new();
-    let access = view.for_access(dir);
+    let access = view.for_access(&normalize::glob_dir_to_open(dir, platform));
     match std::fs::read_dir(&access) {
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
         Err(_) => {
@@ -304,6 +308,68 @@ pub(crate) fn walk_files(
         stack.extend(subdirs);
     }
 
+    out.sort_by(|a, b| a.path.cmp(&b.path));
+    Ok(WalkResult {
+        entries: out,
+        truncated,
+        denied,
+        denied_paths,
+    })
+}
+
+/// [`FsRead::subdirs`](crate::read::FsRead::subdirs) 의 실제 구현 — `dir` **바로 아래의 폴더만**(코어 1.27.0).
+///
+/// `read_dir` 한 번으로 바로 아래만 읽고 `file_type().is_dir()` 인 것만 담는다 — `file_type` 은 링크를 따라가지
+/// 않으므로 폴더를 가리키는 링크(Windows 의 접합점도)는 빠진다. 상한은 담은 폴더 수로 센다 — 파일은 세지 않는다.
+///
+/// 폴더가 **없으면** 빈 결과다(못 본 것이 아니다). 있는데 열리지 않으면 `denied` 로 센다 — [`walk_glob`] 과 같은
+/// 규칙이다.
+pub(crate) fn subdirs(
+    view: &impl PathView,
+    dir: &str,
+    limit: usize,
+) -> Result<WalkResult, PlatformError> {
+    let mut out = Vec::new();
+    let mut truncated = false;
+    let mut denied = 0usize;
+    let mut denied_paths: Vec<String> = Vec::new();
+    let access = view.for_access(dir);
+    match std::fs::read_dir(&access) {
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        Err(_) => {
+            denied = 1;
+            denied_paths.push(normalize::nfc(&view.for_record(&access)));
+        }
+        Ok(rd) => {
+            crate::progress::enter_dir(&access);
+            let mut entries: Vec<_> = rd.flatten().collect();
+            entries.sort_by_key(|e| e.file_name());
+            for e in entries {
+                crate::progress::tick_entry();
+                if !e.file_type().is_ok_and(|t| t.is_dir()) {
+                    continue;
+                }
+                if out.len() >= limit {
+                    truncated = true;
+                    break;
+                }
+                let md = match e.metadata() {
+                    Ok(m) => m,
+                    Err(_) => continue,
+                };
+                let accessed = e.path().to_string_lossy().to_string();
+                out.push(FsEntry {
+                    path: normalize::nfc(&view.for_record(&accessed)),
+                    is_dir: true,
+                    is_reparse: false,
+                    size: 0,
+                    mtime: rfc3339(md.modified()).unwrap_or_else(|| "1970-01-01T00:00:00Z".into()),
+                    ctime: rfc3339(md.created()),
+                    mode: unix_mode(&md),
+                });
+            }
+        }
+    }
     out.sort_by(|a, b| a.path.cmp(&b.path));
     Ok(WalkResult {
         entries: out,
@@ -460,6 +526,7 @@ pub(crate) fn read_stream(
 /// |---|---|
 /// | `Ok` | `Present` |
 /// | `NotFound` | `Absent` — 이름 해석이 실패했다(설치되지 않은 제품 등) |
+/// | `NotADirectory` | `Absent` — 앞 성분이 폴더가 아니다(일반 파일 · 파일을 가리키는 링크). 그 경로는 있을 수 없다 |
 /// | `PermissionDenied` | `Locked` — 있는지조차 물을 수 없다 |
 /// | 그 밖 | `CannotTell` — 도달 불가 UNC · 준비 안 된 장치 · 심볼릭 고리 |
 ///
@@ -474,7 +541,9 @@ pub(crate) fn look(view: &impl PathView, path: &str) -> crate::read::Seen {
     match std::fs::metadata(view.for_access(path)) {
         Ok(_) => Seen::Present,
         Err(e) => match e.kind() {
-            ErrorKind::NotFound => Seen::Absent,
+            // ENOTDIR — `~/.config/systemd` 가 파일이면 `~/.config/systemd/user` 는 없는 자리다. '모름' 으로 읽으면
+            // 홈 안의 그 폴더가 거부로 세어져 그 기계의 해당 룰이 모두 불완전(6)이 됐다.
+            ErrorKind::NotFound | ErrorKind::NotADirectory => Seen::Absent,
             ErrorKind::PermissionDenied => Seen::Locked,
             _ => Seen::CannotTell,
         },
@@ -521,13 +590,13 @@ pub(crate) fn expand_percent(s: &str) -> String {
 }
 
 /// 토큰으로 시작하면 그 뒤를 돌려준다. 대소문자를 가리지 않는다.
+///
+/// **토큰 길이가 글자 경계가 아니면 토큰이 아니다** — 토큰은 ASCII 이므로 그 자리가 여러 바이트 글자의 한가운데이면
+/// 같을 수 없다. 바이트로 자르면 `scan_roots` 나 글롭 폴더 칸에 적은 `/srv/www/사이트` 에서 패닉했다(종료 7).
 pub(crate) fn strip_token<'a>(root: &'a str, token: &str) -> Option<&'a str> {
-    if root.len() < token.len() {
-        return None;
-    }
-    root[..token.len()]
-        .eq_ignore_ascii_case(token)
-        .then(|| &root[token.len()..])
+    root.get(..token.len())
+        .filter(|head| head.eq_ignore_ascii_case(token))
+        .map(|_| &root[token.len()..])
 }
 
 /// 프로세스 목록을 **필요한 것까지** 새로 고친다.
@@ -678,6 +747,45 @@ mod tests {
         assert_eq!(w.denied, 0);
     }
 
+    /// **폴더 칸이 드라이브 뿌리인 글롭 뿌리는 그 드라이브의 뿌리를 연다.** `E:\*.lnk` 를 나누면 폴더 칸이 `E:` 인데
+    /// Windows 에서 `E:` 는 그 드라이브의 **지금 폴더**다 — 그대로 열면 뿌리가 아닌 곳(이 시험에서는 이 크레이트의
+    /// 폴더)을 걷고 `D:Cargo.toml` 처럼 구분자 없는 경로를 담았다. 담는 것은 뿌리 바로 아래의 맞는 파일뿐이다.
+    #[cfg(windows)]
+    #[test]
+    fn a_glob_root_on_a_drive_root_walks_the_root_of_that_drive() {
+        use remedy_sdk::catalog::Platform;
+        let cwd = std::env::current_dir().expect("지금 폴더");
+        assert!(
+            cwd.join("Cargo.toml").is_file(),
+            "전제: 지금 폴더에 맞는 파일이 있다"
+        );
+        let drive = cwd.to_str().unwrap()[..2].to_string();
+        let top = format!("{drive}\\");
+        assert_ne!(
+            cwd.to_str().unwrap(),
+            top,
+            "전제: 지금 폴더가 뿌리가 아니다"
+        );
+
+        let want_name = normalize::for_compare("*.toml", Platform::Windows);
+        let mut want: Vec<String> = std::fs::read_dir(&top)
+            .expect("뿌리")
+            .flatten()
+            .filter(|e| {
+                let n = e.file_name().to_string_lossy().to_string();
+                normalize::name_matches(&normalize::for_compare(&n, Platform::Windows), &want_name)
+            })
+            .filter(|e| e.metadata().is_ok_and(|m| !m.is_dir()))
+            .map(|e| format!("{top}{}", e.file_name().to_string_lossy()))
+            .collect();
+        want.sort();
+
+        let w = walk(&Identity, &format!("{drive}\\*.toml"), 10_000).expect("순회");
+        let got: Vec<&str> = w.entries.iter().map(|e| e.path.as_str()).collect();
+        assert_eq!(got, want, "뿌리 바로 아래의 맞는 파일만 담아야 한다");
+        assert_eq!((w.denied, w.truncated), (0, false));
+    }
+
     /// 이름이 맞는 파일만 담고 **상한도 그것으로만 센다** — 폴더와 맞지 않는 파일은 담지도 세지도 않는다
     /// (코어 1.11.0). 대소문자는 어느 플랫폼에서나 가리지 않는다(`APP.JAR`).
     #[test]
@@ -713,6 +821,77 @@ mod tests {
         // 상한에 닿으면 잘림이 선다.
         let w = walk_files(&Identity, root, 1, &names, false).expect("순회");
         assert!(w.truncated && w.entries.len() == 1);
+    }
+
+    fn leaf_names(w: &WalkResult) -> Vec<&str> {
+        w.entries
+            .iter()
+            .map(|e| e.path.rsplit(['\\', '/']).next().unwrap())
+            .collect()
+    }
+
+    /// L1 — **바로 아래의 폴더만** 담는다(코어 1.27.0 · 홈 찾기). 파일(`aquota.user`) · 홈 안의 폴더(`alice/.aaa`)
+    /// · 폴더를 가리키는 링크는 담지 않는다(링크는 유닉스에서만 만든다 — Windows 는 권한이 있어야 만든다).
+    #[test]
+    fn subdirs_lists_only_the_folders_directly_under() {
+        let d = lab("subdirs");
+        std::fs::create_dir_all(d.join("alice").join(".aaa")).expect("하위");
+        std::fs::create_dir(d.join("bob")).expect("하위");
+        std::fs::write(d.join("aquota.user"), b"x").expect("쓰기");
+        std::fs::write(d.join("alice").join(".bash_logout"), b"x").expect("쓰기");
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(d.join("bob"), d.join("link")).expect("링크");
+
+        let w = subdirs(&Identity, d.to_str().unwrap(), 100).expect("읽기");
+        assert_eq!(leaf_names(&w), vec!["alice", "bob"]);
+        assert!(w.entries.iter().all(|e| e.is_dir && !e.is_reparse));
+        assert_eq!((w.denied, w.truncated), (0, false));
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    /// L2 — 상한은 **폴더 수**로 센다. 파일이 많아도 잘리지 않고, 폴더가 넘치면 이름 차례로 앞의 것만 담고
+    /// 잘림을 세운다.
+    #[test]
+    fn subdirs_counts_only_folders_against_the_limit() {
+        let d = lab("subdirs-limit");
+        for i in 0..5 {
+            std::fs::write(d.join(format!("aquota.{i}")), b"x").expect("쓰기");
+        }
+        for n in ["test", "alice", "bob"] {
+            std::fs::create_dir(d.join(n)).expect("하위");
+        }
+        let root = d.to_str().unwrap();
+        let w = subdirs(&Identity, root, 3).expect("읽기");
+        assert_eq!(leaf_names(&w), vec!["alice", "bob", "test"]);
+        assert!(!w.truncated, "파일까지 세었다");
+
+        let w = subdirs(&Identity, root, 2).expect("읽기");
+        assert_eq!(leaf_names(&w), vec!["alice", "bob"]);
+        assert!(w.truncated, "상한에 걸렸는데 말하지 않았다");
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    /// L3 — 없는 폴더는 빈 결과다. `/home` 이 없는 기계는 정상이다 — 못 본 것으로 세면 그 신호가 죽는다.
+    #[test]
+    fn subdirs_of_a_missing_folder_is_empty_not_denied() {
+        let d = lab("subdirs-missing");
+        let w = subdirs(&Identity, d.join("nope").to_str().unwrap(), 10).expect("읽기");
+        assert!(w.entries.is_empty());
+        assert_eq!((w.denied, w.truncated), (0, false));
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    /// L4 — 있는데 열리지 않는 자리는 **거부로 센다**. 폴더가 아닌 자리(파일)로 잰다 — 권한을 빼서 막는 시험은
+    /// root 에게 열려 컨테이너(root)에서 공허해진다.
+    #[test]
+    fn subdirs_of_a_place_that_will_not_open_is_denied() {
+        let d = lab("subdirs-denied");
+        let f = d.join("aquota.user");
+        std::fs::write(&f, b"x").expect("쓰기");
+        let w = subdirs(&Identity, f.to_str().unwrap(), 10).expect("읽기");
+        assert!(w.entries.is_empty());
+        assert_eq!((w.denied, w.denied_paths.len()), (1, 1));
+        let _ = std::fs::remove_dir_all(&d);
     }
 
     /// 걷기 뒤에 짚어 읽기 — 끝을 넘은 자리는 있는 데까지, 길이는 늘 지금 길이다.
@@ -858,5 +1037,51 @@ mod tests {
         );
         assert_eq!(strip_token("%APPDATA%\\x", "%ALLUSERPROFILES%"), None);
         assert_eq!(strip_token("%ALL%", "%ALLUSERPROFILES%"), None);
+    }
+
+    /// **토큰 길이가 글자 한가운데에 떨어져도 자르지 않는다.** 글롭 폴더 칸(코어 1.27.0)은 토큰이 없어도 펴는 쪽을
+    /// 지나므로, `'트'`(15..18바이트) · `'알'`(15..18바이트)을 17바이트에서 자르면 수집 단계가 패닉했다(종료 7).
+    #[test]
+    fn a_token_length_inside_a_character_is_not_a_token() {
+        assert_eq!(
+            strip_token("/srv/www/사이트/uploads", "%ALLUSERPROFILES%"),
+            None
+        );
+        assert_eq!(
+            strip_token("C:\\ProgramData\\알약", "%ALLUSERPROFILES%"),
+            None
+        );
+        assert_eq!(strip_token("/srv/www/사이트", "%FIXED_DISKS%"), None);
+    }
+
+    /// **앞 성분이 일반 파일인 자리는 없는 자리다**(ENOTDIR). 그 경로는 있을 수 없다 — 사용자 홈의
+    /// `~/.config/systemd` 가 파일이면 `~/.config/systemd/user` 는 systemd 도 읽지 못한다. 그것을 '모름' 으로 읽으면
+    /// 홈 안의 유닛 · 자동실행 폴더가 거부로 세어져, 그 기계의 해당 룰이 모두 불완전(6)이 됐다. 링크 고리(ELOOP)는
+    /// 그대로 '모름' 이다 — 있는지 끝까지 물을 수 없는 자리다.
+    #[test]
+    fn a_path_under_a_regular_file_is_not_there() {
+        use crate::read::Seen;
+        let d = lab("look-under-file");
+        std::fs::write(d.join("f"), b"x").expect("쓰기");
+        let sep = std::path::MAIN_SEPARATOR;
+        let base = d.to_str().unwrap();
+        assert_eq!(look(&Identity, &format!("{base}{sep}f")), Seen::Present);
+        for p in [
+            format!("{base}{sep}f{sep}sub"),
+            format!("{base}{sep}f{sep}sub{sep}deeper"),
+        ] {
+            assert_eq!(look(&Identity, &p), Seen::Absent, "{p}");
+        }
+        #[cfg(unix)]
+        {
+            let lp = d.join("loop");
+            std::os::unix::fs::symlink(&lp, &lp).expect("링크");
+            assert_eq!(
+                look(&Identity, lp.to_str().unwrap()),
+                Seen::CannotTell,
+                "링크 고리는 '모름' 이다"
+            );
+        }
+        let _ = std::fs::remove_dir_all(&d);
     }
 }

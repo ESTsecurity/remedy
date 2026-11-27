@@ -56,12 +56,102 @@ pub struct FileMeta {
     /// Linux 권한 비트.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mode: Option<u32>,
+    /// POSIX 소유자(uid · gid). `mode` 와 같은 `metadata` 에서 담는다(이슈 #172 ①).
+    ///
+    /// **mode 보다 먼저 되돌린다.** chown 이 setuid · setgid 비트와 `security.capability` 를 지우므로, mode 를
+    /// 먼저 쓰면 소유자를 바꾸는 순간 그 비트가 사라진다. 1.26.0 까지는 담지도 되돌리지도 않아 root 가 되돌린
+    /// 사용자의 파일이 root 소유로 돌아왔다 — 4755 이면 root 의 setuid 다. 칸이 없는 격리물(그 전의 것)은 소유자를
+    /// 모르므로 setuid · setgid 를 빼고 되돌린다. 비면 쓰지 않아 Windows 의 `meta` 는 전과 같은 바이트다.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub uid: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gid: Option<u32>,
     /// 확장 속성. 값은 임의 바이트라 base64 로 담는다.
     ///
     /// `security.selinux` 가 여기로 실려 온다. 정책이 거부하면 root 라도 되돌리지
     /// 못하므로(설계-02 §9) 그때는 보고서에 적힌다.
     #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
     pub xattrs: std::collections::BTreeMap<String, String>,
+}
+
+/// setuid · setgid 비트(`S_ISUID | S_ISGID`). 소유자가 돌아오지 않으면 되돌리는 mode 에서 뺀다.
+pub const SETID_BITS: u32 = 0o6000;
+
+/// 꺼낸 사본에는 붙이지 않는 확장 속성([`FileMeta::for_extract`]) — 파일 권능(`security.capability`)과 POSIX ACL
+/// (`system.posix_acl_access` · `system.posix_acl_default`)이다. 권능은 setuid 와 같은 부류이고, ACL 의 이름 붙은
+/// 항목은 소유자와 같이 숫자 uid · gid 라 다른 기계에서는 같은 번호의 다른 사람이 사본을 읽고 고친다.
+const NOT_ON_AN_EXTRACTED_COPY: [&str; 3] = [
+    "security.capability",
+    ACCESS_ACL,
+    "system.posix_acl_default",
+];
+
+/// 접근 ACL 을 담는 확장 속성.
+const ACCESS_ACL: &str = "system.posix_acl_access";
+
+/// mode 의 group 칸(`S_IRWXG`).
+const GROUP_BITS: u32 = 0o070;
+
+/// 접근 ACL 값(담아 둔 base64)에서 **소유 그룹 항목(`ACL_GROUP_OBJ` · `group::`)의 권한**(rwx 3비트)을 읽는다(이슈
+/// #172) — 풀지 못하면 `None`. 값은 리눅스 커널의 `posix_acl_xattr` 꼴이다 — little endian u32 version(2) 뒤로 8바이트
+/// 항목 {u16 tag · u16 perm · u32 id} 가 이어진다. `group::` 항목은 꼭 하나다.
+fn acl_group_obj(b64: &str) -> Option<u32> {
+    const VERSION: u32 = 2;
+    const HEAD: usize = 4;
+    const ENTRY: usize = 8;
+    const GROUP_OBJ: u16 = 0x04;
+    const PERM_BITS: u16 = 0o7;
+    let value = crate::meta::base64_decode(b64)?;
+    let (head, entries) = value.split_at_checked(HEAD)?;
+    if u32::from_le_bytes(head.try_into().ok()?) != VERSION || !entries.len().is_multiple_of(ENTRY)
+    {
+        return None;
+    }
+    let mut found = entries
+        .chunks_exact(ENTRY)
+        .filter(|e| u16::from_le_bytes([e[0], e[1]]) == GROUP_OBJ);
+    let perm = found.next().map(|e| u16::from_le_bytes([e[2], e[3]]))?;
+    (found.next().is_none() && perm & !PERM_BITS == 0).then_some(u32::from(perm))
+}
+
+impl FileMeta {
+    /// 담아 둔 소유자(uid, gid) — 둘 다 있을 때만.
+    pub fn owner(&self) -> Option<(u32, u32)> {
+        Some((self.uid?, self.gid?))
+    }
+
+    /// 꺼내기(`--extract-to`)에 쓸 메타데이터 — **setuid · setgid 와 파일 권능(`security.capability`) · POSIX ACL 을
+    /// 빼고 소유자를 비운다**(이슈 #172).
+    ///
+    /// 꺼낸 것은 원래 자리가 아닌 곳의 사본이다. 거기서 setuid · setgid 나 파일 권능이 살아 있으면 꺼낸 폴더에 남의
+    /// 권한으로 도는 실행 파일이 생긴다 — 권능(`cap_setuid` 등)은 setuid 와 같은 부류다. 소유자는 꺼낸 계정이다:
+    /// 담아 둔 것은 숫자 uid · gid 라 다른 기계에서 꺼내면 같은 번호의 다른 계정이 사본의 소유자가 되고, 같은
+    /// 기계에서도 원래 사용자가 분석용 사본을 고칠 수 있다. ACL 의 이름 붙은 항목(`user:1001:rw-`)도 같은 숫자라
+    /// 같은 까닭으로 붙이지 않는다([`NOT_ON_AN_EXTRACTED_COPY`]). 접근 ACL 을 빼면 mode 의 group 칸은 소유 그룹의 실효
+    /// 권한(acl(5) — 그 ACL 의 소유 그룹 항목 `group::` 과 mask 가 함께 허락하는 권한)으로 둔다. 확장 ACL 이 있는 파일의
+    /// `st_mode` group 칸은 ACL mask 라, 그 칸을 그대로 두면 mask 가 `group::` 보다 넓은 파일에서, `group::` 만으로 두면
+    /// ACL 을 단 뒤 `chmod` 로 mask 만 좁힌 파일에서 사본의 소유 그룹(꺼낸 계정의 그룹 · setgid 폴더의 그룹)이 원래보다
+    /// 넓은 권한을 얻는다 — 그래서 둘이 함께 허락하는 비트만 남긴다. 그 값을 풀지 못하면 group 칸을 비운다(넓히지 않는
+    /// 쪽). 다른 확장 속성은 그대로 둔다. 소유자 칸이 비었다고 계획 · 복원 뒤 보고에 서는 '담지 않았다' 줄은 꺼내기에서
+    /// 사실이 아니므로 `remedy-core` 의 꺼내기가 뺀다.
+    pub fn for_extract(&self) -> FileMeta {
+        let mut xattrs = self.xattrs.clone();
+        xattrs.retain(|name, _| !NOT_ON_AN_EXTRACTED_COPY.contains(&name.as_str()));
+        let group = self
+            .xattrs
+            .get(ACCESS_ACL)
+            .map(|v| acl_group_obj(v).unwrap_or(0));
+        FileMeta {
+            mode: self.mode.map(|m| {
+                let m = m & !SETID_BITS;
+                group.map_or(m, |g| (m & !GROUP_BITS) | ((g << 3) & m & GROUP_BITS))
+            }),
+            uid: None,
+            gid: None,
+            xattrs,
+            ..self.clone()
+        }
+    }
 }
 
 /// 복원이 실제로 무엇을 되살렸고 무엇을 못 살렸는가.
@@ -89,6 +179,57 @@ impl RestoreReport {
             reason: reason.into(),
         });
     }
+}
+
+/// 되돌릴 자리로 가는 길에서 걸린 링크(이슈 #172 ①) — [`PlatformWrite::link_on_the_way`] 의 답.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LinkHit {
+    /// 되돌릴 자리 자체가 링크다([`LastLink::Refused`] 인 자리).
+    Itself { link: String, to: String },
+    /// 가는 길의 링크를 root 가 아닌 사용자가 가졌다.
+    NotRoot { link: String, uid: u32, to: String },
+    /// 가는 길의 링크는 root 의 것이지만, 그 링크가 놓인 폴더를 root 가 아닌 사용자도 바꿀 수 있다 — 사용자가 다른
+    /// 자리의 root 링크를 그 폴더로 옮겨 놓았을 수 있다.
+    LooseFolder { link: String, to: String },
+    /// 없는 폴더 `missing` 아래에서 `..` 로 되짚는다 — 복원이 그 폴더를 새로 만든 뒤 걷지 않은 길로 올라간다.
+    ClimbsPastMissing { missing: String },
+    /// 링크가 너무 많이 이어진다(커널의 `ELOOP` 와 같은 상한).
+    TooMany { link: String },
+}
+
+/// 되돌릴 자리 **자체**가 링크일 때 어떻게 보는가 — 가운데 성분은 늘 같게 본다(root 의 링크는 따라가고, 사용자의
+/// 링크는 걸린다).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LastLink {
+    /// 누구의 링크든 걸린다 — 복원이 그 자리를 통째로 다시 쓴다(본문 · 소유자 · mode). 링크를 따라 쓰면 본문과
+    /// `chmod` 는 대상에, `lchown` 은 링크에 가서 둘이 갈린다 — 사용자의 본문이 root 소유 setuid 가 될 수 있다.
+    Refused,
+    /// 가운데 성분처럼 본다. 파일 안의 줄만 고치는 자리(cron · 텍스트 줄 — 치료도 그 링크를 따라 고쳤다), 복원이
+    /// 그 안에 링크를 다는 폴더, 그리고 유닛 파일이다 — `systemctl link` 로 단 유닛은 그 자리가 root 의 링크다. 유닛
+    /// 쓰기는 `chmod` 를 하지 않고, 믿는 root 링크만 따라가 그 끝을 한 번 열어 본문과 소유자를 그 파일에 쓴다
+    /// (`open_through_root_links`).
+    Followed,
+}
+
+/// 꺼낼 폴더를 **지금 계정만 바꿀 수 있는 자리**로 볼 수 없는 까닭(이슈 #172) — 이미 있는 그 폴더, 또는 그 위
+/// 폴더다. [`PlatformWrite::extract_dir_problem`] 의 답.
+///
+/// 남이 그 폴더를 바꿀 수 있으면 남이 미리 둔 이름에 꺼낸다 — 링크면 그 너머에 root 소유 파일이 생기고, 남의 일반
+/// 파일이면 root 가 그 파일을 비우고 담아 둔 본문을 쓰므로 사본이 그 사람의 것으로 남는다. 위 폴더를 남이 바꿀 수
+/// 있으면 그 사람이 꺼내는 도중에 같은 부모 안의 이름 바꾸기로 꺼낼 폴더를 링크와 바꿔친다 — 나머지 항목이 그 너머에
+/// 쓰인다.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ExtractDirHit {
+    /// 폴더가 아니다(링크 · 파일 등 — 링크는 따라가지 않고 본다).
+    NotAFolder,
+    /// 지금 계정(실효 uid `me`)이 아닌 `uid` 의 폴더다.
+    NotMine { uid: u32, me: u32 },
+    /// group · other 가 쓸 수 있다(`mode` 는 권한 비트) — sticky 라도 그 안에 새 이름은 누구나 만든다.
+    OthersCanWrite { mode: u32 },
+    /// 위 폴더 `folder`(링크를 푼 실제 경로)가 root 도 지금 계정도 아닌 `uid` 의 것이다.
+    AboveSomeoneElses { folder: String, uid: u32 },
+    /// 위 폴더 `folder`(링크를 푼 실제 경로)를 group · other 가 쓸 수 있고 sticky 가 아니다(`mode` 는 권한 비트).
+    AboveOthersCanWrite { folder: String, mode: u32 },
 }
 
 /// 레지스트리 값 하나의 **원본 그대로** (설계-09 P7).
@@ -335,6 +476,42 @@ pub trait PlatformWrite {
         content: &[u8],
         meta: &FileMeta,
     ) -> Result<RestoreReport, PlatformError>;
+
+    /// 되돌릴 자리 `place` 로 가는 길에 **따라 쓰면 안 되는 링크**가 있는가(이슈 #172 ①). 있으면 그 링크.
+    ///
+    /// 복원은 root 로 돈다. 사용자가 자기 폴더를 root 의 자리를 가리키는 링크로 바꿔 두면 제자리 복원이 그 링크를
+    /// 따라 root 의 자리에 담아 둔 이름 · 바이트 · 소유자 · mode 를 쓴다 — 1.26.0 에서 쟀다(`/home/alice/bin` →
+    /// `/etc/…` 에 alice 소유 4755 파일). root 가 단 링크(`/bin` → `usr/bin`)는 따라가 그 너머의 성분도 본다.
+    /// 확인하지 못한 것은 `Err` 다 — '링크가 없다' 로 접지 않는다.
+    ///
+    /// 기본은 `None` 이다 — 시험 가짜, 그리고 Windows(접합점은 아직 보지 않는다 · 남는 한계).
+    fn link_on_the_way(
+        &self,
+        _place: &str,
+        _last: LastLink,
+    ) -> Result<Option<LinkHit>, PlatformError> {
+        Ok(None)
+    }
+
+    /// 꺼낼 폴더 `dir` 이 **이미 있으면** 지금 계정만 바꿀 수 있는 폴더인가, 그리고 그 **위 폴더**(없으면 가장 가까운
+    /// 있는 위 폴더부터 뿌리까지 · 링크를 푼 실제 경로)를 root 와 지금 계정 밖의 사용자가 바꿀 수 없는가(이슈 #172) —
+    /// 아니면 그 까닭. 가는 길의 링크는 [`PlatformWrite::link_on_the_way`] 가 묻는다. 없는 폴더는 쓰기 직전에
+    /// [`PlatformWrite::make_extract_dir`] 가 만들고 이것을 다시 묻는다. 확인하지 못한 것은 `Err` 다.
+    ///
+    /// 기본은 `None` 이다 — 시험 가짜, 그리고 Windows(꺼내기 동작은 앞과 같다).
+    fn extract_dir_problem(&self, _dir: &str) -> Result<Option<ExtractDirHit>, PlatformError> {
+        Ok(None)
+    }
+
+    /// 꺼낼 폴더 `dir` 이 없으면 **만든다**(이슈 #172) — 꺼내기가 쓰기 직전에 부르고, 곧바로
+    /// [`PlatformWrite::extract_dir_problem`] 을 폴더가 있는 꼴로 다시 묻는다. 첫 항목의 쓰기가 만들게 두면 그 물음과 첫
+    /// 쓰기 사이에 남이 같은 이름의 폴더를 먼저 만들 수 있다(`/tmp` 같은 sticky 폴더 바로 아래). 이미 폴더가 있으면
+    /// 그대로 둔다.
+    ///
+    /// 기본은 아무것도 하지 않는다 — 시험 가짜, 그리고 Windows(쓰기가 항목마다 만든다 · 앞과 같다).
+    fn make_extract_dir(&self, _dir: &str) -> Result<(), PlatformError> {
+        Ok(())
+    }
 
     /// 격리할 파일을 **읽어 낸다. 아직 지우지 않는다.**
     ///
@@ -1123,6 +1300,23 @@ pub struct PersistenceIndex {
     /// 바이트다.
     #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
     pub link_targets: std::collections::BTreeMap<String, String>,
+    /// 유닛 파일의 소유자(이슈 #172 ①). 사용자 유닛(`~/.config/systemd/user`)은 그 사용자의 것인데, 지운 뒤 root
+    /// 가 다시 쓰면 root 소유로 돌아와 그 사용자가 자기 유닛을 고치지도 끄지도 못한다. 칸이 없으면(1.26.0 까지의
+    /// 격리물 · 읽지 못함) 소유자를 바꾸지 않는다 — 1.26.0 과 같다.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub owner: Option<Owner>,
+    /// 링크 경로 → 담을 때 **그 링크 자체**의 소유자. 복원이 새로 단 링크에만 쓴다(이미 있던 링크는 그대로 둔다).
+    ///
+    /// 두 칸 모두 비면 쓰지 않으므로 cron · Windows 의 `meta` 는 전과 같은 바이트다.
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub link_owners: std::collections::BTreeMap<String, Owner>,
+}
+
+/// 파일 · 링크 하나의 POSIX 소유자.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct Owner {
+    pub uid: u32,
+    pub gid: u32,
 }
 
 /// 지속성 항목이 **파일 안의 줄**일 때 그 자리 (cron).
@@ -1252,6 +1446,237 @@ pub fn rel_is_contained(rel: &str) -> bool {
     }
     rel.split('/')
         .all(|p| !p.is_empty() && p != "." && p != "..")
+}
+
+/// 길의 성분 하나를 `lstat` 한 답 — [`link_hit`] 이 받는다.
+#[cfg(unix)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum Node {
+    /// 없다 — 그 아래는 복원이 새로 만든다.
+    Missing,
+    /// 링크가 아니다(폴더 · 파일 · 그 밖) — 그 소유자와 `st_mode`. 폴더이면 그 안의 root 링크를 믿을지를 이것으로
+    /// 본다([`root_only`]).
+    Plain { uid: u32, mode: u32 },
+    /// 링크 — 그 링크 자체의 소유자와 가리키는 문자열(`readlink`).
+    Link { uid: u32, to: std::path::PathBuf },
+}
+
+/// 링크를 따라가는 횟수의 상한 — 리눅스 커널의 `MAXSYMLINKS` 와 같다.
+#[cfg(unix)]
+const MAX_LINK_HOPS: usize = 40;
+
+/// 이 폴더 안의 이름을 **root 만 바꿀 수 있는가**(이슈 #172) — root 의 것이고 group · other 가 쓸 수 없거나, root 의
+/// sticky 폴더다(남이 가진 이름을 옮기거나 지우지 못한다). 이런 폴더에 놓인 root 링크만 믿는다 — 사용자가 쓸 수
+/// 있는 폴더에는 다른 자리에 있던 root 의 링크를 rename 해 놓을 수 있다. 커널의 `fs.protected_symlinks` 와 같은
+/// 생각이다. 남는 한계 — sticky 폴더에도 **새 이름**은 누구나 만들 수 있으므로, 사용자가 쓸 수 있는 다른 폴더에
+/// root 의 링크가 있으면 그것을 sticky 폴더의 새 이름으로 옮겨 놓을 수는 있다.
+#[cfg(unix)]
+fn root_only(uid: u32, mode: u32) -> bool {
+    only_root_and(0, uid, mode)
+}
+
+/// 이 폴더 안의 이름을 **root 와 `me` 만 바꿀 수 있는가**(이슈 #172) — 그 둘 가운데 하나의 것이고 group · other 가 쓸
+/// 수 없거나 sticky 다. [`root_only`] 와 같은 생각이고, `me` 가 0 이면 그것과 같다. 꺼낼 폴더의 위 폴더가 이것을
+/// 지나야 한다([`above_hit`]).
+#[cfg(unix)]
+fn only_root_and(me: u32, uid: u32, mode: u32) -> bool {
+    const STICKY: u32 = 0o1000;
+    (uid == 0 || uid == me) && (mode & GROUP_OTHER_WRITE == 0 || mode & STICKY != 0)
+}
+
+/// 꺼낼 폴더의 위 폴더 하나가 걸리는 까닭(이슈 #172) — **순수하다**. `folder` 는 링크를 푼 실제 경로, `uid` · `mode` 는
+/// 그 자리의 `lstat`, `me` 는 지금 계정의 실효 uid 다. 그 안의 이름을 root 와 지금 계정만 바꿀 수 있어야 한다
+/// ([`only_root_and`]). 꺼낼 폴더 자신([`extract_dir_hit`])과 달리 sticky 는 받는다 — 그 아래 성분도 root 나 지금
+/// 계정의 것이라, sticky 인 위 폴더에서 남이 그 이름을 옮기거나 지우지 못한다. 남이 바꿀 수 있는 위 폴더에서는 그
+/// 사람이 꺼내는 도중에 같은 부모 안의 이름 바꾸기로 꺼낼 폴더를 링크와 바꿔친다.
+#[cfg(unix)]
+pub(crate) fn above_hit(folder: &str, uid: u32, mode: u32, me: u32) -> Option<ExtractDirHit> {
+    if only_root_and(me, uid, mode) {
+        None
+    } else if uid != 0 && uid != me {
+        Some(ExtractDirHit::AboveSomeoneElses {
+            folder: folder.to_string(),
+            uid,
+        })
+    } else {
+        Some(ExtractDirHit::AboveOthersCanWrite {
+            folder: folder.to_string(),
+            mode: mode & 0o7777,
+        })
+    }
+}
+
+/// group · other 의 쓰기 비트(`S_IWGRP | S_IWOTH`).
+#[cfg(unix)]
+const GROUP_OTHER_WRITE: u32 = 0o022;
+
+/// 이미 있는 꺼낼 폴더가 걸리는 까닭(이슈 #172) — **순수하다**. `is_dir` · `uid` · `mode` 는 그 자리의 `lstat`, `me` 는
+/// 지금 계정의 실효 uid 다. [`root_only`] 와 달리 sticky 도 받지 않는다 — sticky 폴더에도 새 이름은 누구나 만들므로
+/// 남이 꺼낼 이름을 먼저 둘 수 있다(`/tmp` 바로 아래로 꺼내기).
+#[cfg(unix)]
+pub(crate) fn extract_dir_hit(is_dir: bool, uid: u32, mode: u32, me: u32) -> Option<ExtractDirHit> {
+    if !is_dir {
+        Some(ExtractDirHit::NotAFolder)
+    } else if uid != me {
+        Some(ExtractDirHit::NotMine { uid, me })
+    } else if mode & GROUP_OTHER_WRITE != 0 {
+        Some(ExtractDirHit::OthersCanWrite {
+            mode: mode & 0o7777,
+        })
+    } else {
+        None
+    }
+}
+
+/// `place` 로 가는 길을 커널처럼 한 성분씩 걸으며 링크를 본다(이슈 #172 ①) — **순수하다**: `lstat` 은 부르는 쪽이
+/// 준다. `place` 는 절대 경로다.
+///
+/// - 가운데 성분이 root 가 아닌 사용자의 링크면 걸린다([`LinkHit::NotRoot`]). root 의 링크는 그 링크가 놓인 폴더를
+///   root 만 바꿀 수 있으면([`root_only`]) 따라가 그 너머의 성분도 보고, 아니면 걸린다([`LinkHit::LooseFolder`]).
+///   너머를 보는 까닭 — root 가 단 `/srv/share` → `/home/alice/share` 너머에서 alice 가 링크를 달 수 있는데, 적힌
+///   경로의 앞자리만 `lstat` 하면 그 링크는 커널이 말없이 따라가 보이지 않는다.
+/// - 자리 자체가 링크면 `last` 가 정한다([`LastLink`]).
+/// - 없는 성분에서 끝낸다 — 그 아래는 복원이 새로 만든다. 그 뒤에 `..` 가 남았으면 걸린다
+///   ([`LinkHit::ClimbsPastMissing`]) — 쓰기의 `create_dir_all` 이 없는 폴더를 만든 뒤 그 `..` 로 걷지 않은 길에
+///   올라가 거기의 링크를 따른다.
+/// - `..` 는 링크를 따라간 뒤의 자리에서 한 칸 오른다.
+#[cfg(unix)]
+pub(crate) fn link_hit(
+    place: &std::path::Path,
+    last: LastLink,
+    lstat: &mut dyn FnMut(&std::path::Path) -> std::io::Result<Node>,
+) -> std::io::Result<Option<LinkHit>> {
+    use std::path::PathBuf;
+    let mut todo: std::collections::VecDeque<std::ffi::OsString> = link_parts(place).into();
+    let mut at = PathBuf::from("/");
+    let mut hops = 0;
+    while let Some(part) = todo.pop_front() {
+        if part == ".." {
+            at.pop();
+            continue;
+        }
+        let next = at.join(&part);
+        let (uid, to) = match lstat(&next)? {
+            Node::Missing => {
+                let climbs = todo.iter().any(|p| p == "..");
+                return Ok(climbs.then(|| LinkHit::ClimbsPastMissing {
+                    missing: shown(&next),
+                }));
+            }
+            Node::Plain { .. } => {
+                at = next;
+                continue;
+            }
+            Node::Link { uid, to } => (uid, to),
+        };
+        let refused_here = todo.is_empty() && last == LastLink::Refused;
+        if let Some(hit) = link_problem(&next, uid, &to, &at, refused_here, lstat)? {
+            return Ok(Some(hit));
+        }
+        hops += 1;
+        if hops > MAX_LINK_HOPS {
+            return Ok(Some(LinkHit::TooMany { link: shown(&next) }));
+        }
+        // 상대 링크는 그 링크가 있는 폴더(`at`)에서 푼다.
+        if to.is_absolute() {
+            at = PathBuf::from("/");
+        }
+        for p in link_parts(&to).into_iter().rev() {
+            todo.push_front(p);
+        }
+    }
+    Ok(None)
+}
+
+/// 걷다 만난 링크 `link`(폴더 `folder` 안 · 가리키는 문자열 `to`)를 따라가면 안 되는 까닭 — 따라가도 되면 `None`.
+/// `refused_here` 는 그 링크가 되돌릴 자리 자체이고 그 자리가 [`LastLink::Refused`] 라는 뜻이다.
+#[cfg(unix)]
+fn link_problem(
+    link: &std::path::Path,
+    uid: u32,
+    to: &std::path::Path,
+    folder: &std::path::Path,
+    refused_here: bool,
+    lstat: &mut dyn FnMut(&std::path::Path) -> std::io::Result<Node>,
+) -> std::io::Result<Option<LinkHit>> {
+    let (link, to) = (shown(link), shown(to));
+    if refused_here {
+        return Ok(Some(LinkHit::Itself { link, to }));
+    }
+    if uid != 0 {
+        return Ok(Some(LinkHit::NotRoot { link, uid, to }));
+    }
+    Ok(match lstat(folder)? {
+        Node::Plain { uid, mode } if root_only(uid, mode) => None,
+        _ => Some(LinkHit::LooseFolder { link, to }),
+    })
+}
+
+#[cfg(unix)]
+fn shown(p: &std::path::Path) -> String {
+    p.to_string_lossy().to_string()
+}
+
+/// 걸을 성분 — 이름과 `..`. 뿌리 · `.` 는 뺀다.
+#[cfg(unix)]
+fn link_parts(p: &std::path::Path) -> Vec<std::ffi::OsString> {
+    use std::path::Component;
+    p.components()
+        .filter_map(|c| match c {
+            Component::Normal(s) => Some(s.to_os_string()),
+            Component::ParentDir => Some("..".into()),
+            _ => None,
+        })
+        .collect()
+}
+
+/// 실제 `lstat` — 링크면 그 링크 자체의 소유자와 가리키는 문자열이다. 없거나(`ENOENT`) 파일 아래를 물었으면
+/// (`ENOTDIR`) 없는 것이다 — 그 아래에 쓰기는 스스로 실패한다.
+#[cfg(unix)]
+fn lstat_node(p: &std::path::Path) -> std::io::Result<Node> {
+    use std::os::unix::fs::MetadataExt;
+    match std::fs::symlink_metadata(p) {
+        Ok(md) if md.file_type().is_symlink() => Ok(Node::Link {
+            uid: md.uid(),
+            to: std::fs::read_link(p)?,
+        }),
+        Ok(md) => Ok(Node::Plain {
+            uid: md.uid(),
+            mode: md.mode(),
+        }),
+        Err(e) if is_missing(&e) => Ok(Node::Missing),
+        Err(e) => Err(e),
+    }
+}
+
+/// 없는 자리라는 답인가 — 없거나(`ENOENT`) 파일 아래를 물었다(`ENOTDIR`).
+#[cfg(unix)]
+fn is_missing(e: &std::io::Error) -> bool {
+    matches!(
+        e.kind(),
+        std::io::ErrorKind::NotFound | std::io::ErrorKind::NotADirectory
+    )
+}
+
+/// `at` 을, 없으면 가장 가까운 있는 위 폴더를 **푼 실제 경로**(이슈 #172 · 꺼낼 폴더의 위 폴더). 상대 경로는 지금
+/// 폴더에서 푼다 — 쓰기도 그렇게 푼다.
+#[cfg(unix)]
+fn nearest_real(at: &str) -> std::io::Result<std::path::PathBuf> {
+    let p = std::path::Path::new(at);
+    let mut p = if p.is_absolute() {
+        p.to_path_buf()
+    } else {
+        std::env::current_dir()?.join(p)
+    };
+    loop {
+        let e = match std::fs::canonicalize(&p) {
+            Ok(real) => return Ok(real),
+            Err(e) => e,
+        };
+        if !is_missing(&e) || !p.pop() {
+            return Err(e);
+        }
+    }
 }
 
 /// 줄을 **종단 문자까지 그대로** 갈라 놓는다.
@@ -1645,7 +2070,7 @@ fn read_text(path: &str) -> Result<String, PlatformError> {
 /// 이식 가능한 파일 복원. 플랫폼 백엔드가 이것을 쓴다.
 ///
 /// 여기 있는 것은 **어느 OS 에서나 같게 동작하는 부분**뿐이다 — 본문, 수정 시각,
-/// 읽기 전용 비트. SDDL·mode·xattr 처럼 OS 고유인 것은 각 백엔드가 덧붙이며,
+/// 읽기 전용 비트. SDDL·소유자·mode·xattr 처럼 OS 고유인 것은 `meta` 가 덧붙이며,
 /// 아직 없는 것은 조용히 넘기지 않고 `lost` 에 적는다.
 pub struct FsRestore;
 
@@ -1661,6 +2086,15 @@ fn note_cross_platform(meta: &FileMeta, report: &mut RestoreReport) {
             remedy_sdk::i18n::t(
                 "이 플랫폼에는 Windows 보안 디스크립터가 없습니다",
                 "this platform has no Windows security descriptors",
+            ),
+        );
+    }
+    if meta.owner().is_some() && !cfg!(unix) {
+        report.lose(
+            "owner",
+            remedy_sdk::i18n::t(
+                "이 플랫폼에는 POSIX 소유자가 없습니다",
+                "this platform has no POSIX owners",
             ),
         );
     }
@@ -1684,6 +2118,369 @@ fn note_cross_platform(meta: &FileMeta, report: &mut RestoreReport) {
     }
 }
 
+/// 계획의 소유자 · mode 칸(Unix) — 되돌리는 차례(`meta::restore_platform`)와 같게 소유자를 먼저 적는다.
+///
+/// 소유자 칸이 없는 Unix 격리물(1.26.0 까지 — mode 는 있고 uid 가 없다)은 소유자를 모른다고 **복원 전에** 적고,
+/// setuid · setgid 가 있으면 그것을 빼고 되돌린다고 적는다(이슈 #172 ①). mode 도 없는 것(다른 OS 에서 담은 것 ·
+/// 지속성 색인)은 소유자를 말하지 않는다 — 다른 OS 의 것은 `note_cross_platform` 이 말하고, 지속성 유닛의 소유자는
+/// 색인(`PersistenceIndex::owner`)이 따로 든다. 꺼내기도 소유자를 비워(`FileMeta::for_extract`) 이 갈래로 온다 —
+/// 그때의 소유자 줄은 `remedy-core` 의 꺼내기가 뺀다.
+fn plan_owner_and_mode(meta: &FileMeta, r: &mut RestoreReport) {
+    let known = meta.owner().is_some();
+    if known {
+        r.restored.push("owner".into());
+    } else if meta.mode.is_some() {
+        r.lose(
+            "owner",
+            remedy_sdk::i18n::t(
+                "격리할 때 소유자를 담지 않았습니다",
+                "the owner was not captured at quarantine",
+            ),
+        );
+    }
+    match meta.mode {
+        Some(m) if !known && m & SETID_BITS != 0 => r.lose(
+            "mode",
+            remedy_sdk::i18n::t(
+                "소유자를 모르므로 setuid · setgid 비트는 빼고 되돌립니다",
+                "the owner is unknown, so the setuid and setgid bits are left off",
+            ),
+        ),
+        Some(_) => r.restored.push("mode".into()),
+        None => {}
+    }
+}
+
+/// 이름으로 쓰고 이름으로 메타데이터를 되돌린다 — Windows(와 Unix 가 아닌 플랫폼)의 복원 쓰기. Unix 는
+/// `open_place` · `write_opened` 다.
+#[cfg(not(unix))]
+fn write_by_name(
+    path: &std::path::Path,
+    dest: &str,
+    content: &[u8],
+    meta: &FileMeta,
+    report: &mut RestoreReport,
+) -> Result<(), PlatformError> {
+    // 읽기 전용이던 파일이 그 자리에 남아 있으면 쓰기가 막힌다. **권한을 푸는
+    // 대신 지운다** — `set_readonly(false)` 는 Unix 에서 0o666 이 되어 원래보다
+    // 넓은 권한을 준다. 어차피 내용을 통째로 덮어쓰므로 지우고 새로 만드는
+    // 편이 의미도 맞다.
+    if let Ok(md) = std::fs::metadata(path) {
+        if md.permissions().readonly() {
+            std::fs::remove_file(path).map_err(|e| PlatformError::io(dest, e))?;
+        }
+    }
+
+    std::fs::write(path, content).map_err(|e| PlatformError::io(dest, e))?;
+    report.restored.push("content".into());
+
+    if let Some(secs) = meta.mtime_unix {
+        let nanos = meta.mtime_nanos.unwrap_or(0);
+        match system_time(secs, nanos) {
+            Some(t) => {
+                let f = std::fs::File::options()
+                    .write(true)
+                    .open(path)
+                    .map_err(|e| PlatformError::io(dest, e))?;
+                match f.set_modified(t) {
+                    Ok(()) => report.restored.push("mtime".into()),
+                    Err(e) => report.lose("mtime", e.to_string()),
+                }
+            }
+            None => report.lose(
+                "mtime",
+                remedy_sdk::i18n::t(
+                    "표현할 수 없는 시각입니다",
+                    "the timestamp cannot be represented",
+                ),
+            ),
+        }
+    }
+
+    // **생성 시각은 Windows 에서만 되돌린다.**
+    //
+    // 격리로 지운 파일을 되살리면 그 자리에 *새* 파일이 생기고, 생성 시각은
+    // 되살린 순간이 된다. 그것을 고치지 않으면 감염 전후 지문 대조(G2)가
+    // 어긋나고, 파일이 언제 만들어졌는지를 근거로 삼는 분석도 어긋난다.
+    //
+    // NTFS 의 파일 터널링(같은 이름·같은 디렉터리로 15초 안에 다시 만들면
+    // 생성 시각을 물려준다)이 짧은 왕복을 가려 준 적이 있다 — **그 초록은
+    // 복원 능력이 아니라 타이밍이었다** (2026-08-28 v1 점검).
+    #[cfg(windows)]
+    if let Some(secs) = meta.btime_unix {
+        use std::os::windows::fs::FileTimesExt;
+        let nanos = meta.btime_nanos.unwrap_or(0);
+        match system_time(secs, nanos) {
+            Some(t) => {
+                let f = std::fs::File::options()
+                    .write(true)
+                    .open(path)
+                    .map_err(|e| PlatformError::io(dest, e))?;
+                let times = std::fs::FileTimes::new().set_created(t);
+                match f.set_times(times) {
+                    Ok(()) => report.restored.push("btime".into()),
+                    Err(e) => report.lose("btime", e.to_string()),
+                }
+            }
+            None => report.lose(
+                "btime",
+                remedy_sdk::i18n::t(
+                    "표현할 수 없는 시각입니다",
+                    "the timestamp cannot be represented",
+                ),
+            ),
+        }
+    }
+    #[cfg(not(windows))]
+    report.lose(
+        "btime",
+        remedy_sdk::i18n::t(
+            "이 운영체제에서는 이 값을 바꿀 수 없습니다",
+            "this operating system cannot set this value",
+        ),
+    );
+
+    // 읽기 전용은 **마지막에** 건다. 먼저 걸면 그 뒤의 쓰기가 막힌다.
+    //
+    // 푸는 쪽은 부르지 않는다. 방금 만든 파일은 이미 쓰기 가능하고,
+    // `set_readonly(false)` 를 부르면 Unix 에서 0o666 이 되어 원래보다 넓어진다.
+    if let Some(ro) = meta.readonly {
+        if ro {
+            let md = std::fs::metadata(path).map_err(|e| PlatformError::io(dest, e))?;
+            let mut p = md.permissions();
+            p.set_readonly(true);
+            match std::fs::set_permissions(path, p) {
+                Ok(()) => report.restored.push("readonly".into()),
+                Err(e) => report.lose("readonly", e.to_string()),
+            }
+        } else {
+            report.restored.push("readonly".into());
+        }
+    }
+
+    // OS 고유 메타데이터는 **읽기 전용 다음에** 되돌린다. Unix 에서 `mode` 와
+    // `readonly` 는 같은 비트를 건드리는데, 둘 다 있으면 더 구체적인 `mode` 가
+    // 이겨야 한다. Windows 에서는 읽기 전용이 속성이고 DACL 쓰기는
+    // WRITE_DAC 권한이라 서로 막지 않는다.
+    crate::meta::restore_from(dest, meta, report);
+    Ok(())
+}
+
+/// 되돌릴 자리(마지막 성분)를 **한 번 연다**(Unix · 이슈 #172) — 그 뒤의 본문 · 수정 시각 · 읽기 전용 · 소유자 ·
+/// mode · 확장 속성은 모두 이 파일 하나로 한다([`write_opened`]). 같은 이름으로 다시 풀지 않으므로, 연 뒤 그 이름을
+/// 링크로 바꿔도 링크 너머에 가지 않는다. 꺼내기도 이 길을 지난다 — 꺼낼 자리에 미리 둔 링크 · 하드 링크를 따라
+/// 쓰지 않는다.
+///
+/// - `O_NOFOLLOW` — 자리가 링크면 `ELOOP` 로 열리지 않는다. 따라가지 않고 그 항목은 실패다.
+/// - `O_NONBLOCK` — 자리가 이름 붙은 파이프면 읽는 쪽을 기다리지 않는다. 기다리면 복원이 멈추고, 읽는 쪽이
+///   나타나면 담아 둔 본문을 그 사람에게 흘린다. 일반 파일에도 뜻이 하나 있다 — 다른 프로세스의 리스(lease)나 NFS
+///   위임이 걸린 파일은 기다리지 않고 `EWOULDBLOCK` 으로 열리지 않는다. 그때는 같은 플래그로 짧게 쉬며 다시 연다
+///   ([`waiting_out_a_lease`] — 1.26.0 의 쓰기는 리스가 풀릴 때까지 기다렸다).
+/// - 연 뒤 `fstat` 으로 일반 파일이고 이름이 하나(`nlink == 1`)인지 본다 — 하드 링크면 그 inode 는 다른 자리의
+///   파일이기도 하다. 아니면 비우기 전에 실패한다. 그래서 `O_TRUNC` 로 열지 않고 본 뒤에 비운다.
+/// - 새 파일은 담아 둔 mode 가 있으면 0600 으로 만든다 — 본문을 쓰는 동안 남이 열어 두지 못하고, 끝에 그 mode 로
+///   바꾼다. 없으면 앞과 같은 0666(umask 를 뺀다)이다.
+/// - 읽기 전용 파일이 그 자리에 있으면 앞과 같이 지우고 새로 만든다. 링크인지는 `lstat` 으로 본다 — 링크는 지우지
+///   않고 열기에서 실패한다. 이름을 지우는 것은 하드 링크의 다른 이름에 닿지 않는다.
+///
+/// 남는 것은 **가운데 성분**의 바꿔치기다 — 부모 폴더는 이름으로 풀므로, 링크 가드의 물음과 이 열기 사이에 가운데
+/// 성분을 링크로 바꾸면 그 너머에서 연다. 성분마다 `openat(O_NOFOLLOW)` 로 걷는 길은 std 에 없다.
+#[cfg(unix)]
+fn open_place(dest: &str, meta: &FileMeta) -> Result<std::fs::File, PlatformError> {
+    let path = std::path::Path::new(dest);
+    if let Ok(md) = std::fs::symlink_metadata(path) {
+        if md.file_type().is_file() && md.permissions().readonly() {
+            std::fs::remove_file(path).map_err(|e| PlatformError::io(dest, e))?;
+        }
+    }
+    open_nofollow(dest, if meta.mode.is_some() { 0o600 } else { 0o666 })
+}
+
+/// 자리 자체의 **믿는 root 링크만 따라가** 그 끝을 [`open_nofollow`] 로 한 번 연다(리눅스 · 이슈 #172) — 유닛 파일
+/// 쓰기다([`LastLink::Followed`] 로 묻는 통째 쓰기). `systemctl link` 로 단 유닛은 유닛 자리가 root 의 링크라 그
+/// 너머에 써야 되돌아온다. 마지막 성분이 링크면 root 의 것이고 놓인 폴더를 root 만 바꿀 수 있을 때([`root_only`] ·
+/// 링크 가드와 같은 규칙)만 따라가고, 그 밖의 링크는 따라가지 않고 실패한다. 믿는 링크는 놓인 폴더를 root 만 바꾸므로
+/// 물은 뒤에 바뀌지 않고, 링크가 끝난 자리는 `O_NOFOLLOW` 로 열므로 물음과 열기 사이에 그 자리를 링크 · 하드 링크로
+/// 바꿔도 따라가지 않는다. 남는 것은 [`open_place`] 와 같이 가운데 성분이다. 읽기 전용 파일을 지우고 새로 만들지
+/// 않는다 — 앞의 `std::fs::write` 와 같이 그 파일에 쓴다.
+#[cfg(target_os = "linux")]
+pub(crate) fn open_through_root_links(dest: &str) -> Result<std::fs::File, PlatformError> {
+    use std::os::unix::fs::MetadataExt;
+    let mut at = std::path::PathBuf::from(dest);
+    for _ in 0..=MAX_LINK_HOPS {
+        let Ok(Node::Link { uid, to }) = lstat_node(&at) else {
+            return open_nofollow(&shown(&at), 0o666);
+        };
+        let folder = at.parent().map_or_else(
+            || std::path::PathBuf::from("/"),
+            std::path::Path::to_path_buf,
+        );
+        let trusted =
+            uid == 0 && std::fs::metadata(&folder).is_ok_and(|m| root_only(m.uid(), m.mode()));
+        if !trusted {
+            return Err(PlatformError::refused(
+                "쓸 자리가 믿을 수 없는 링크입니다(root 의 것이 아니거나 root 가 아닌 사용자도 바꿀 수 있는 폴더에 있습니다) — 링크를 따라 쓰지 않았습니다".into(),
+                "the place to write is a link that is not trusted (not root's, or in a folder users other than root can change) — nothing was written through it".into(),
+            ));
+        }
+        at = folder.join(to);
+    }
+    Err(PlatformError::refused(
+        "쓸 자리의 링크가 너무 많이 이어집니다 — 쓰지 않았습니다".into(),
+        "too many links at the place to write — it was not written".into(),
+    ))
+}
+
+/// 마지막 성분을 **따라가지 않고** 한 번 연다 — `O_WRONLY | O_CREAT | O_NOFOLLOW | O_NONBLOCK`. 일반 파일이고 이름이
+/// 하나(`nlink == 1`)인지 본 뒤에 비운다 — 까닭은 [`open_place`] 에 적었다. 새 파일은 `create_mode`(umask 를 뺀다)로
+/// 만든다.
+#[cfg(unix)]
+fn open_nofollow(dest: &str, create_mode: u32) -> Result<std::fs::File, PlatformError> {
+    use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
+    let io = |e| PlatformError::io(dest, e);
+    let f = waiting_out_a_lease(
+        || {
+            std::fs::OpenOptions::new()
+                .write(true)
+                .create(true)
+                .mode(create_mode)
+                .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
+                .open(dest)
+        },
+        LEASE_WAIT,
+    )
+    .map_err(|e| link_refused(dest, e))?;
+    let md = f.metadata().map_err(io)?;
+    if !md.file_type().is_file() {
+        return Err(PlatformError::refused(
+            "쓸 자리가 일반 파일이 아닙니다 — 그 자리에 쓰지 않았습니다".into(),
+            "the place to write is not a regular file — it was not written".into(),
+        ));
+    }
+    if md.nlink() != 1 {
+        let n = md.nlink();
+        return Err(PlatformError::refused(
+            format!("쓸 자리의 파일에 다른 이름이 걸려 있습니다(하드 링크 · 링크 수 {n}) — 그 파일에 쓰지 않았습니다"),
+            format!("the file at the place to write has other names (hard link · link count {n}) — it was not written"),
+        ));
+    }
+    f.set_len(0).map_err(io)?;
+    Ok(f)
+}
+
+/// 리스(lease) · NFS 위임이 걸린 파일의 열기를 다시 해 보는 시간의 상한([`waiting_out_a_lease`]) — 커널 기본
+/// `lease-break-time`(45초)에 여유를 둔다. 리스를 쥔 쪽이 그 안에 놓지 않으면 커널이 스스로 풀므로, 기본값의 기계에서는
+/// 1.26.0 의 쓰기(풀릴 때까지 기다렸다)와 같이 끝에는 열린다.
+#[cfg(unix)]
+const LEASE_WAIT: std::time::Duration = std::time::Duration::from_secs(60);
+
+/// 위 다시 열기 사이에 한 번 쉬는 길이.
+#[cfg(unix)]
+const LEASE_RETRY_PAUSE: std::time::Duration = std::time::Duration::from_millis(20);
+
+/// `open` 이 `EWOULDBLOCK`(`EAGAIN`)이면 짧게 쉬며 같은 열기를 다시 한다 — `wait` 가 지나면 그 오류 그대로다. 다른
+/// 오류는 다시 하지 않는다.
+///
+/// 쓰기는 `O_NONBLOCK` 으로 연다([`open_place`]). 다른 프로세스의 리스나 NFS 위임이 걸린 파일을 그 플래그로 열면 커널이
+/// 리스 풀기만 걸고 기다리지 않은 채 `EWOULDBLOCK` 을 돌려준다(`fcntl(2)` 의 Leases). 플래그를 빼고 다시 열지 않는다 —
+/// 그 사이 자리가 이름 붙은 파이프로 바뀌면 그 열기가 멈춘다.
+#[cfg(unix)]
+fn waiting_out_a_lease<T>(
+    mut open: impl FnMut() -> std::io::Result<T>,
+    wait: std::time::Duration,
+) -> std::io::Result<T> {
+    let started = std::time::Instant::now();
+    loop {
+        match open() {
+            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock && started.elapsed() < wait => {
+                std::thread::sleep(LEASE_RETRY_PAUSE);
+            }
+            got => return got,
+        }
+    }
+}
+
+/// 열기가 링크에서 멈췄으면(`O_NOFOLLOW` 의 `ELOOP`) 그 사유 한 줄 — 그 밖의 실패는 OS 가 준 그대로다. 경로
+/// 가운데의 링크가 너무 많이 이어져도 `ELOOP` 이므로 자리 자체가 링크인지 `lstat` 으로 본다.
+#[cfg(unix)]
+fn link_refused(dest: &str, e: std::io::Error) -> PlatformError {
+    let itself = || std::fs::symlink_metadata(dest).is_ok_and(|m| m.file_type().is_symlink());
+    if e.raw_os_error() == Some(libc::ELOOP) && itself() {
+        PlatformError::refused(
+            "쓸 자리가 링크입니다 — 링크를 따라 쓰지 않았습니다".into(),
+            "the place to write is a link — nothing was written through it".into(),
+        )
+    } else {
+        PlatformError::io(dest, e)
+    }
+}
+
+/// [`open_place`] 가 연 파일 하나에 본문 · 수정 시각 · 읽기 전용 · OS 메타데이터를 차례로 쓴다(Unix) — 이름으로
+/// 다시 풀지 않는다. 차례는 앞과 같다: 본문 → 수정 시각 → 읽기 전용 → 소유자 → mode → 확장 속성. 읽기 전용을
+/// mode 보다 먼저 거는 것은 둘 다 있으면 더 구체적인 mode 가 이겨야 하기 때문이고, 소유자 → mode → 확장 속성
+/// 차례는 `meta` 가 정한다(chown 이 setuid · setgid 와 `security.capability` 를 지운다).
+#[cfg(unix)]
+fn write_opened(
+    f: &std::fs::File,
+    dest: &str,
+    content: &[u8],
+    meta: &FileMeta,
+    report: &mut RestoreReport,
+) -> Result<(), PlatformError> {
+    use std::io::Write;
+    let mut w = f;
+    w.write_all(content)
+        .map_err(|e| PlatformError::io(dest, e))?;
+    report.restored.push("content".into());
+    restore_mtime_onto(f, meta, report);
+    report.lose(
+        "btime",
+        remedy_sdk::i18n::t(
+            "이 운영체제에서는 이 값을 바꿀 수 없습니다",
+            "this operating system cannot set this value",
+        ),
+    );
+    // 푸는 쪽은 부르지 않는다 — `set_readonly(false)` 는 0o666 이 되어 원래보다 넓어진다.
+    match meta.readonly {
+        Some(true) => {
+            let mut p = f
+                .metadata()
+                .map_err(|e| PlatformError::io(dest, e))?
+                .permissions();
+            p.set_readonly(true);
+            match f.set_permissions(p) {
+                Ok(()) => report.restored.push("readonly".into()),
+                Err(e) => report.lose("readonly", e.to_string()),
+            }
+        }
+        Some(false) => report.restored.push("readonly".into()),
+        None => {}
+    }
+    crate::meta::restore_onto(f, meta, report);
+    Ok(())
+}
+
+/// 담아 둔 수정 시각을 연 파일에 되돌린다(`futimens`).
+#[cfg(unix)]
+fn restore_mtime_onto(f: &std::fs::File, meta: &FileMeta, report: &mut RestoreReport) {
+    let Some(secs) = meta.mtime_unix else {
+        return;
+    };
+    match system_time(secs, meta.mtime_nanos.unwrap_or(0)) {
+        Some(t) => match f.set_modified(t) {
+            Ok(()) => report.restored.push("mtime".into()),
+            Err(e) => report.lose("mtime", e.to_string()),
+        },
+        None => report.lose(
+            "mtime",
+            remedy_sdk::i18n::t(
+                "표현할 수 없는 시각입니다",
+                "the timestamp cannot be represented",
+            ),
+        ),
+    }
+}
+
 impl PlatformWrite for FsRestore {
     fn backend_name(&self) -> &'static str {
         "fs"
@@ -1701,8 +2498,8 @@ impl PlatformWrite for FsRestore {
         if meta.sddl.is_some() && cfg!(windows) {
             r.restored.push("sddl".into());
         }
-        if meta.mode.is_some() && cfg!(unix) {
-            r.restored.push("mode".into());
+        if cfg!(unix) {
+            plan_owner_and_mode(meta, &mut r);
         }
         note_cross_platform(meta, &mut r);
         // `ctime`(inode 변경 시각)은 어디에서도 설정할 수 없다. 커널이 우리가
@@ -1771,109 +2568,19 @@ impl PlatformWrite for FsRestore {
             }
         }
 
-        // 읽기 전용이던 파일이 그 자리에 남아 있으면 쓰기가 막힌다. **권한을 푸는
-        // 대신 지운다** — `set_readonly(false)` 는 Unix 에서 0o666 이 되어 원래보다
-        // 넓은 권한을 준다. 어차피 내용을 통째로 덮어쓰므로 지우고 새로 만드는
-        // 편이 의미도 맞다.
-        if let Ok(md) = std::fs::metadata(path) {
-            if md.permissions().readonly() {
-                std::fs::remove_file(path).map_err(|e| PlatformError::io(dest, e))?;
-            }
+        // Unix 는 마지막 성분을 **한 번 열고** 그 파일 하나로 끝까지 다룬다(이슈 #172). Windows 는 앞과 같이 이름으로
+        // 쓴다.
+        #[cfg(unix)]
+        {
+            let f = open_place(dest, meta)?;
+            write_opened(&f, dest, content, meta, &mut report)?;
         }
-
-        std::fs::write(path, content).map_err(|e| PlatformError::io(dest, e))?;
-        report.restored.push("content".into());
-
-        if let Some(secs) = meta.mtime_unix {
-            let nanos = meta.mtime_nanos.unwrap_or(0);
-            match system_time(secs, nanos) {
-                Some(t) => {
-                    let f = std::fs::File::options()
-                        .write(true)
-                        .open(path)
-                        .map_err(|e| PlatformError::io(dest, e))?;
-                    match f.set_modified(t) {
-                        Ok(()) => report.restored.push("mtime".into()),
-                        Err(e) => report.lose("mtime", e.to_string()),
-                    }
-                }
-                None => report.lose(
-                    "mtime",
-                    remedy_sdk::i18n::t(
-                        "표현할 수 없는 시각입니다",
-                        "the timestamp cannot be represented",
-                    ),
-                ),
-            }
-        }
-
-        // **생성 시각은 Windows 에서만 되돌린다.**
-        //
-        // 격리로 지운 파일을 되살리면 그 자리에 *새* 파일이 생기고, 생성 시각은
-        // 되살린 순간이 된다. 그것을 고치지 않으면 감염 전후 지문 대조(G2)가
-        // 어긋나고, 파일이 언제 만들어졌는지를 근거로 삼는 분석도 어긋난다.
-        //
-        // NTFS 의 파일 터널링(같은 이름·같은 디렉터리로 15초 안에 다시 만들면
-        // 생성 시각을 물려준다)이 짧은 왕복을 가려 준 적이 있다 — **그 초록은
-        // 복원 능력이 아니라 타이밍이었다** (2026-08-28 v1 점검).
-        #[cfg(windows)]
-        if let Some(secs) = meta.btime_unix {
-            use std::os::windows::fs::FileTimesExt;
-            let nanos = meta.btime_nanos.unwrap_or(0);
-            match system_time(secs, nanos) {
-                Some(t) => {
-                    let f = std::fs::File::options()
-                        .write(true)
-                        .open(path)
-                        .map_err(|e| PlatformError::io(dest, e))?;
-                    let times = std::fs::FileTimes::new().set_created(t);
-                    match f.set_times(times) {
-                        Ok(()) => report.restored.push("btime".into()),
-                        Err(e) => report.lose("btime", e.to_string()),
-                    }
-                }
-                None => report.lose(
-                    "btime",
-                    remedy_sdk::i18n::t(
-                        "표현할 수 없는 시각입니다",
-                        "the timestamp cannot be represented",
-                    ),
-                ),
-            }
-        }
-        #[cfg(not(windows))]
-        report.lose(
-            "btime",
-            remedy_sdk::i18n::t(
-                "이 운영체제에서는 이 값을 바꿀 수 없습니다",
-                "this operating system cannot set this value",
-            ),
-        );
-
-        // 읽기 전용은 **마지막에** 건다. 먼저 걸면 그 뒤의 쓰기가 막힌다.
-        //
-        // 푸는 쪽은 부르지 않는다. 방금 만든 파일은 이미 쓰기 가능하고,
-        // `set_readonly(false)` 를 부르면 Unix 에서 0o666 이 되어 원래보다 넓어진다.
-        if let Some(ro) = meta.readonly {
-            if ro {
-                let md = std::fs::metadata(path).map_err(|e| PlatformError::io(dest, e))?;
-                let mut p = md.permissions();
-                p.set_readonly(true);
-                match std::fs::set_permissions(path, p) {
-                    Ok(()) => report.restored.push("readonly".into()),
-                    Err(e) => report.lose("readonly", e.to_string()),
-                }
-            } else {
-                report.restored.push("readonly".into());
-            }
-        }
-
-        // OS 고유 메타데이터는 **읽기 전용 다음에** 되돌린다. Unix 에서 `mode` 와
-        // `readonly` 는 같은 비트를 건드리는데, 둘 다 있으면 더 구체적인 `mode` 가
-        // 이겨야 한다. Windows 에서는 읽기 전용이 속성이고 DACL 쓰기는
-        // WRITE_DAC 권한이라 서로 막지 않는다.
-        crate::meta::restore_from(dest, meta, &mut report);
+        #[cfg(not(unix))]
+        write_by_name(path, dest, content, meta, &mut report)?;
         note_cross_platform(meta, &mut report);
+        // btime 은 위에서 플랫폼마다 한 번 적었다. 1.26.0 은 여기서 조건 없이 한 번 더 적어 Unix 에서는 두 번,
+        // Windows 에서는 되돌린 btime 이 lost 에도 섰다 — 복원 뒤 화면이 '계획이 되돌린다고 했는데 못 된 것' 을
+        // 찍으면서(이슈 #172 ①) 그 줄이 Windows 의 모든 파일 복원에 거짓 '복원 불가 btime' 이 될 뻔했다.
         report.lose(
             "ctime",
             remedy_sdk::i18n::t(
@@ -1881,14 +2588,84 @@ impl PlatformWrite for FsRestore {
                 "the operating system owns this value; it cannot be restored",
             ),
         );
-        report.lose(
-            "btime",
-            remedy_sdk::i18n::t(
-                "읽기만 가능한 값이라 복원할 수 없습니다",
-                "this value is read-only and cannot be restored",
-            ),
-        );
         Ok(report)
+    }
+
+    /// 경로를 성분마다 `lstat` 해 링크를 본다(`link_hit`). 상대 경로는 지금 폴더에서 푼다 — 쓰기도 그렇게 푼다.
+    ///
+    /// 이 물음과 실제 쓰기 사이에 **마지막 성분**을 링크 · 하드 링크로 바꾸면 쓰기가 따라가지 않고 실패한다 — 쓰기는
+    /// 그 자리를 `O_NOFOLLOW` 로 한 번 열고 그 파일 하나로 끝까지 다룬다(`open_place`). 남는 한계는 **가운데
+    /// 성분**이다 — 쓰기가 부모 폴더를 이름으로 풀므로, 그 사이에 가운데 성분을 링크로 바꾸면 그 너머에서 연다. 성분마다
+    /// `openat(O_NOFOLLOW)` 로 걷는 길은 std 에 없다. 복원은 계획과 쓰기 직전에 두 번 물어 그 창을 좁힌다(`remedy-core`
+    /// 의 복원).
+    #[cfg(unix)]
+    fn link_on_the_way(
+        &self,
+        place: &str,
+        last: LastLink,
+    ) -> Result<Option<LinkHit>, PlatformError> {
+        let p = std::path::Path::new(place);
+        let abs = if p.is_absolute() {
+            p.to_path_buf()
+        } else {
+            std::env::current_dir()
+                .map_err(|e| PlatformError::io(place, e))?
+                .join(p)
+        };
+        link_hit(&abs, last, &mut lstat_node).map_err(|e| PlatformError::io(place, e))
+    }
+
+    /// 그 자리를 `lstat` 해(링크를 따라가지 않는다) [`extract_dir_hit`] 로 보고, 그 자리(없으면 가장 가까운 있는 위
+    /// 폴더)를 푼 실제 경로의 성분을 뿌리까지 [`above_hit`] 로 본다. 위 폴더를 실제 경로로 보는 까닭 — 가는 길의 링크는
+    /// `link_on_the_way` 가 이미 가렸고, 적힌 경로의 root 링크(Fedora Silverblue 의 `/root` → `var/roothome` 등)를
+    /// 그대로 보면 링크 자체의 mode(0777)로 거짓으로 막는다. 그래서 따라간 root 링크 앞의 적힌 성분(사용자 폴더 안의
+    /// root 폴더에 놓인 root 링크면 그 사용자 폴더)은 보지 않는다 — 남는 가운데 성분 경쟁의 한 꼴이다(`remedy-core` 의
+    /// 복원). 지금 계정은 `/proc/self/status` 의 실효 uid 다 — 읽지 못하면 확인하지 못한 것이다.
+    #[cfg(unix)]
+    fn extract_dir_problem(&self, dir: &str) -> Result<Option<ExtractDirHit>, PlatformError> {
+        use std::os::unix::fs::MetadataExt;
+        let me = crate::read::effective_uid().ok_or_else(|| {
+            PlatformError::refused(
+                "지금 계정의 실효 uid 를 읽지 못했습니다(/proc/self/status)".into(),
+                "could not read the effective uid of this account (/proc/self/status)".into(),
+            )
+        })?;
+        // 끝의 `/` 는 뗀다 — 남기면 `lstat` 이 그 자리의 링크를 따라간다.
+        let at = match dir.trim_end_matches('/') {
+            "" => "/",
+            d => d,
+        };
+        match std::fs::symlink_metadata(at) {
+            Ok(md) => {
+                let hit = extract_dir_hit(md.file_type().is_dir(), md.uid(), md.mode(), me);
+                if hit.is_some() {
+                    return Ok(hit);
+                }
+            }
+            Err(e) if is_missing(&e) => {}
+            Err(e) => return Err(PlatformError::io(dir, e)),
+        }
+        let real = nearest_real(at).map_err(|e| PlatformError::io(dir, e))?;
+        for folder in real.ancestors() {
+            let md = std::fs::symlink_metadata(folder).map_err(|e| PlatformError::io(dir, e))?;
+            if let Some(hit) = above_hit(&shown(folder), md.uid(), md.mode(), me) {
+                return Ok(Some(hit));
+            }
+        }
+        Ok(None)
+    }
+
+    /// 0755 로 만든다 — umask 와 겹쳐도 group · other 쓰기가 생기지 않는다(1.26.0 은 첫 쓰기가 기본 umask 022 로 같은
+    /// 권한을 냈다). 없는 위 폴더도 같은 권한으로 만든다.
+    #[cfg(unix)]
+    fn make_extract_dir(&self, dir: &str) -> Result<(), PlatformError> {
+        use std::os::unix::fs::DirBuilderExt;
+        const MODE: u32 = 0o755;
+        std::fs::DirBuilder::new()
+            .recursive(true)
+            .mode(MODE)
+            .create(dir)
+            .map_err(|e| PlatformError::io(dir, e))
     }
 
     fn quarantine_read(&self, path: &str) -> Result<(Vec<u8>, FileMeta), PlatformError> {

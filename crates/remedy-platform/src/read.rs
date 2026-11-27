@@ -94,6 +94,33 @@ pub trait FsRead {
         Ok(w)
     }
 
+    /// `dir` **바로 아래의 폴더만** 돌려준다(코어 1.27.0) — 파일과 링크는 담지 않고 그 아래로 내려가지 않으며,
+    /// 상한도 담은 폴더 수로 센다. 폴더가 없으면 빈 결과, 있는데 열리지 않으면 `denied` 다.
+    ///
+    /// 리눅스의 홈 찾기(`/home` 바로 아래)가 쓴다. [`walk`](Self::walk) 를 상한 1 로 걸어 폴더를 고르던 동안에는
+    /// `walk` 가 폴더를 세지 않고 내려가다 첫 파일에서 끝나, `/home` 의 쿼터 파일 뒤의 홈을 빠뜨리고 첫 홈 안의
+    /// 폴더를 홈으로 담았다(#172).
+    ///
+    /// 기본 구현은 `walk` 뒤 거르기다 — 시험용 가짜가 같은 답을 내게 한다. 걷기가 잘렸으면 바로 아래를 다 보지
+    /// 못했을 수 있어 잘림을 그대로 두고, 걷기가 센 거부도 옮긴다. 실제 백엔드는 바로 아래만 읽는다.
+    fn subdirs(&self, dir: &str, limit: usize) -> Result<WalkResult, PlatformError> {
+        let mut w = self.walk(dir, limit)?;
+        let base = dir.trim_end_matches(['/', '\\']);
+        w.entries.retain(|e| {
+            e.is_dir
+                && !e.is_reparse
+                && e.path
+                    .strip_prefix(base)
+                    .and_then(|rest| rest.strip_prefix(['/', '\\']))
+                    .is_some_and(|name| !name.is_empty() && !name.contains(['/', '\\']))
+        });
+        if w.entries.len() > limit {
+            w.entries.truncate(limit);
+            w.truncated = true;
+        }
+        Ok(w)
+    }
+
     /// 파일 본문. `max` 를 넘으면 `None` — 자르지 않는다. 잘린 내용으로 해시하면
     /// 그 해시는 아무 의미가 없다.
     fn read_file(&self, path: &str, max: u64) -> Result<Option<Vec<u8>>, PlatformError>;
@@ -373,8 +400,15 @@ fn platform_elevated() -> Option<bool> {
 /// 새로 기대는 것이 없다.
 #[cfg(unix)]
 fn platform_elevated() -> Option<bool> {
+    effective_uid().map(|u| u == 0)
+}
+
+/// 이 프로세스의 **실효(effective) uid** — `/proc/self/status` 에서 읽는다([`platform_elevated`] 와 같은 까닭으로
+/// `libc::geteuid` 를 부르지 않는다). 읽지 못하면 `None` 이다.
+#[cfg(unix)]
+pub(crate) fn effective_uid() -> Option<u32> {
     let text = std::fs::read_to_string("/proc/self/status").ok()?;
-    euid_is_root(&text)
+    euid_of(&text)
 }
 
 /// `/proc/self/status` 에서 **유효 UID** 를 읽는다.
@@ -386,10 +420,9 @@ fn platform_elevated() -> Option<bool> {
 /// 순수 함수로 떼어 둔 이유는 여기가 이 검사에서 유일하게 틀릴 수 있는
 /// 자리이기 때문이다. 파일을 읽는 부분은 틀릴 데가 없다.
 #[cfg(unix)]
-fn euid_is_root(status: &str) -> Option<bool> {
+fn euid_of(status: &str) -> Option<u32> {
     let line = status.lines().find(|l| l.starts_with("Uid:"))?;
-    let euid = line.split_whitespace().nth(2)?;
-    Some(euid == "0")
+    line.split_whitespace().nth(2)?.parse().ok()
 }
 
 #[cfg(not(any(windows, unix)))]
@@ -889,9 +922,87 @@ mod boot_tests {
     }
 }
 
+#[cfg(test)]
+mod subdirs_tests {
+    use super::*;
+
+    /// `walk` 만 아는 가짜 — 무엇을 물어도 같은 걷기 결과를 낸다. 기본 `subdirs` 가 그것을 어떻게 거르는지만 본다.
+    struct Walked(WalkResult);
+    impl FsRead for Walked {
+        fn walk(&self, _root: &str, _limit: usize) -> Result<WalkResult, PlatformError> {
+            Ok(WalkResult {
+                entries: self.0.entries.clone(),
+                truncated: self.0.truncated,
+                denied: self.0.denied,
+                denied_paths: self.0.denied_paths.clone(),
+            })
+        }
+        fn read_file(&self, _path: &str, _max: u64) -> Result<Option<Vec<u8>>, PlatformError> {
+            Ok(None)
+        }
+        fn look(&self, _path: &str) -> Seen {
+            Seen::Present
+        }
+    }
+
+    fn entry(path: &str, is_dir: bool, is_reparse: bool) -> FsEntry {
+        FsEntry {
+            path: path.into(),
+            is_dir,
+            is_reparse,
+            size: 0,
+            mtime: "2026-11-26T00:00:00Z".into(),
+            ctime: None,
+            mode: None,
+        }
+    }
+
+    fn names(w: &WalkResult) -> Vec<&str> {
+        w.entries.iter().map(|e| e.path.as_str()).collect()
+    }
+
+    /// 걷기가 담은 것 가운데 **바로 아래의 폴더만** 남는다 — 파일 · 링크 · 홈 안의 폴더는 빠지고, 상한은 남은
+    /// 폴더 수로 센다. 걷기의 거부와 잘림은 그대로 옮긴다(다 보지 못한 것을 다 봤다고 하지 않는다).
+    #[test]
+    fn the_default_subdirs_keeps_only_folders_directly_under() {
+        let fs = Walked(WalkResult {
+            entries: vec![
+                entry("/home/alice", true, false),
+                entry("/home/alice/.aaa", true, false),
+                entry("/home/alice/.bash_logout", false, false),
+                entry("/home/b", false, false),
+                entry("/home/bob", true, false),
+                entry("/home/x", true, true),
+                entry("/home/test", true, false),
+                entry("/homework", true, false),
+            ],
+            truncated: false,
+            denied: 1,
+            denied_paths: vec!["/home/test/private".into()],
+        });
+        let w = fs.subdirs("/home", 10).expect("읽기");
+        assert_eq!(names(&w), vec!["/home/alice", "/home/bob", "/home/test"]);
+        assert_eq!((w.truncated, w.denied), (false, 1));
+        assert_eq!(w.denied_paths, vec!["/home/test/private".to_string()]);
+        // 끝의 구분 문자는 같은 폴더다.
+        assert_eq!(names(&fs.subdirs("/home/", 10).expect("읽기")).len(), 3);
+
+        let w = fs.subdirs("/home", 2).expect("읽기");
+        assert_eq!(names(&w), vec!["/home/alice", "/home/bob"]);
+        assert!(w.truncated, "폴더가 상한을 넘었는데 말하지 않았다");
+
+        let mut cut = fs;
+        cut.0.truncated = true;
+        assert!(cut.subdirs("/home", 10).expect("읽기").truncated);
+    }
+}
+
 #[cfg(all(test, unix))]
 mod elevation_tests {
-    use super::euid_is_root;
+    /// 관리자 판정([`super::platform_elevated`])이 보는 것 — 실효 uid 가 0 인가.
+    fn euid_is_root(status: &str) -> Option<bool> {
+        super::euid_of(status).map(|u| u == 0)
+    }
 
     #[test]
     fn the_effective_uid_is_the_second_number_not_the_first() {

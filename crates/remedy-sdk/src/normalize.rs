@@ -8,6 +8,7 @@
 //! 규칙이 SDK 에 있어야 양쪽이 공유할 수 있다.
 
 use crate::catalog::Platform;
+use std::borrow::Cow;
 use unicode_normalization::UnicodeNormalization;
 
 /// 비교 전에 항상 거치는 유니코드 정규화.
@@ -137,6 +138,20 @@ pub fn glob_root(root: &str) -> Option<(&str, &str)> {
     name.contains(['*', '?']).then_some((dir, name))
 }
 
+/// 글롭 뿌리의 폴더 칸을 **열거나 있는지 물을 자리**로 바꾼다 — Windows 에서 폴더 칸이 드라이브 뿌리(`E:\*.lnk` 를
+/// 나눈 `E:`)이면 `E:\` 다. 다른 꼴과 리눅스는 그대로다.
+///
+/// Windows 에서 `E:` 는 그 드라이브의 **지금 폴더**다. 걷는 쪽(`remedy-platform` 의 글롭 걷기)과 있는지 묻는 쪽
+/// (`remedy-collect` 의 뿌리 묻기)이 이것 하나를 지나 같은 자리를 본다 — 걷기만 `E:\` 로 바꿨던 동안에는 묻는 쪽이
+/// 지금 폴더를 물어, 그 폴더가 없으면 멀쩡한 뿌리를 없는 뿌리로 세어 걷지 않고 잠겼으면 읽지 못한 자리로 셌다.
+pub fn glob_dir_to_open(dir: &str, platform: Platform) -> Cow<'_, str> {
+    if platform == Platform::Windows && dir.ends_with(':') {
+        Cow::Owned(format!("{dir}\\"))
+    } else {
+        Cow::Borrowed(dir)
+    }
+}
+
 /// 잎 이름이 꼴 가운데 하나에 맞는가 — **대소문자를 가리지 않는다**(코어 1.11.0 · `file_names` ·
 /// `archive_members`).
 ///
@@ -188,30 +203,30 @@ pub fn name_matches(text: &str, pattern: &str) -> bool {
 ///
 /// `parent` 가 [`glob_root`] 면 **그 폴더 바로 아래의 이름이 맞는 파일**만 안이다 —
 /// 폴더 자체와 하위 폴더는 밖이다.
+///
+/// 폴더 칸이 드라이브 뿌리(`E:\*.lnk`)이면 정규화가 끝 구분자를 남기므로(`e:\`) 떼고 레코드의 부모(`e:`)와
+/// 견준다 — 그대로 견주던 동안에는 그 뿌리 바로 아래의 어떤 파일도 안이 아니었다. 이름이 빈 것(뿌리 자체)은 밖이다.
 pub fn is_within(child: &str, parent: &str, platform: Platform) -> bool {
+    let sep = if platform == Platform::Windows {
+        '\\'
+    } else {
+        '/'
+    };
     if let Some((dir, pattern)) = glob_root(parent) {
         let c = for_compare(child, platform);
         let d = for_compare(dir, platform);
+        let d = d.strip_suffix(sep).unwrap_or(&d);
         let p = for_compare(pattern, platform);
-        let sep = if platform == Platform::Windows {
-            '\\'
-        } else {
-            '/'
-        };
-        return c
-            .rfind(sep)
-            .is_some_and(|cut| c[..cut] == d && name_matches(&c[cut + 1..], &p));
+        return c.rfind(sep).is_some_and(|cut| {
+            let name = &c[cut + 1..];
+            &c[..cut] == d && !name.is_empty() && name_matches(name, &p)
+        });
     }
     let c = for_compare(child, platform);
     let p = for_compare(parent, platform);
     if c == p {
         return true;
     }
-    let sep = if platform == Platform::Windows {
-        '\\'
-    } else {
-        '/'
-    };
     let prefix = if p.ends_with(sep) {
         p
     } else {
@@ -350,5 +365,41 @@ mod tests {
             !is_within("/tmp/A.SH", "/tmp/*.sh", l),
             "Linux 는 접지 않는다"
         );
+    }
+
+    /// **폴더 칸이 드라이브 뿌리인 글롭 뿌리**(`E:\*.lnk` — `%REMOVABLE%\*.lnk` 도 이 꼴로 펴진다)도 그 바로 아래의
+    /// 맞는 파일을 안으로 본다. 정규화가 뿌리에만 끝 구분자를 남기므로(`e:\`) 레코드의 부모(`e:`)와 그대로 견주면
+    /// 아무것도 안이 아니었다. 뿌리 자체 · 하위 폴더 · 다른 이름은 여전히 밖이다.
+    #[test]
+    fn a_glob_root_on_a_drive_root_holds_the_files_right_under_it() {
+        let w = Platform::Windows;
+        let root = r"E:\*.lnk";
+        assert!(is_within(r"E:\x.lnk", root, w));
+        assert!(
+            is_within(r"e:\X.LNK", root, w),
+            "Windows 는 대소문자를 접는다"
+        );
+        assert!(!is_within(r"E:\sub\x.lnk", root, w));
+        assert!(!is_within(r"E:\x.txt", root, w));
+        assert!(!is_within(r"F:\x.lnk", root, w));
+        // 이름 칸이 별표뿐인 꼴도 **뿌리 자체는 밖이다** — 드라이브를 통째로 겨눈 삭제가 상한을 지나면 안 된다.
+        for itself in [r"E:\", "E:"] {
+            assert!(!is_within(itself, r"E:\*", w), "{itself}");
+        }
+    }
+
+    /// 걷기와 묻기가 함께 쓰는 열 자리 — Windows 의 드라이브 뿌리 폴더 칸(`E:`)만 `E:\` 가 되고, 다른 꼴과 리눅스는
+    /// 그대로다.
+    #[test]
+    fn a_drive_root_folder_part_opens_the_root_of_that_drive_on_windows_only() {
+        let (w, l) = (Platform::Windows, Platform::Linux);
+        assert_eq!(glob_dir_to_open("E:", w), r"E:\");
+        assert_eq!(glob_dir_to_open("e:", w), r"e:\");
+        for same in [r"E:\Temp", r"C:\Windows\Temp", "/tmp"] {
+            assert_eq!(glob_dir_to_open(same, w), same, "{same}");
+        }
+        for same in ["E:", "/tmp", "/", "/opt/a:"] {
+            assert_eq!(glob_dir_to_open(same, l), same, "{same}");
+        }
     }
 }

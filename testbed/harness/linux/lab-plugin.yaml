@@ -47,6 +47,8 @@ scan_roots:
   # 나머지 사용자는 감염된 채 남는다. Linux 에서 이 토큰은 `/home/*` 와
   # `/root` 로 풀린다 (`remedy-platform/src/linux.rs`).
   - "%ALLUSERPROFILES%/.config/google-chrome/Default/Extensions"
+  # 사용자의 setuid 도구 (이슈 #172 — 복원이 소유자를 되돌리는가 · new-fixtures.sh 12 절).
+  - "/home/alice/bin"
 
 subjects:
   [
@@ -81,6 +83,17 @@ detect:
     subject: file
     where:
       - { field: path, op: equals, value: "/opt/remedy-lab/payload.so" }
+
+  # 소유자가 root 가 아닌 파일 둘 (이슈 #172). 제자리 복원이 소유자(uid:gid)와
+  # setuid 를 함께 되돌리는가 — root 로 되돌린 사용자의 4755 는 root 의 4755 다.
+  - id: tool
+    subject: file
+    where:
+      - { field: path, op: equals, value: "/home/alice/bin/remedy-lab-tool" }
+  - id: www
+    subject: file
+    where:
+      - { field: path, op: equals, value: "/opt/remedy-lab/www.dat" }
 
   # ── text_config.remove_line ─────────────────────────────
   #
@@ -137,7 +150,8 @@ detect:
 
   # ── persistence.delete ──────────────────────────────────
   #
-  # /etc/cron.d 의 다른 파일은 남아야 한다.
+  # /etc/cron.d 의 다른 파일은 남아야 한다. bob 의 사용자 timer 도 이 이름으로
+  # 걸린다 — 홈을 빠뜨리지 않고 찾았을 때만(이슈 #172).
   - id: cron
     subject: persistence
     where:
@@ -147,7 +161,8 @@ detect:
   #
   # Linux 에서 이 둘은 **순수 파일 조작**이다 — `.wants/` 링크를 지우고 유닛
   # 파일을 지운다. `systemctl` 을 부르지 않으므로 systemd 가 PID 1 이 아닌
-  # 컨테이너에서도 잰다.
+  # 컨테이너에서도 잰다. bob 의 사용자 서비스와 그 활성화 링크도 이 이름으로
+  # 걸린다(이슈 #172 — 위 timer 와 같다).
   - id: unit
     subject: service
     where:
@@ -179,6 +194,8 @@ remediate:
   # 직접 고르지 않는다 (22-remediate-recipes.md).
   remove:
     - { ref: payload }
+    - { ref: tool }
+    - { ref: www }
     - { ref: textline }
     - { ref: jsonkey }
     - { ref: shortcut }
