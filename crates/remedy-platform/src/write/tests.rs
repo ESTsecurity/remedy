@@ -2020,7 +2020,9 @@ fn an_extracted_copy_gets_neither_the_file_capability_nor_the_posix_acls() {
 fn an_extracted_copy_without_its_acl_gives_the_owning_group_no_more_than_its_effective_access() {
     // version 2 · user::rw- · user:1001:rw- · group::r-- · mask::rw- · other::--- (little endian)
     const ACL: &str = "AgAAAAEABgD/////AgAGAOkDAAAEAAQA/////xAABgD/////IAAAAP////8=";
-    // version 2 · user::rw- · user:1001:rw- · group::rw- · mask::r-- · other::--- — `setfacl -m u:1001:rw` 뒤 `chmod 640`
+    // version 2 · user::rw- · user:1001:rw- · group::rw- · mask::r-- · other::--- — 0660 파일에 `setfacl -m u:1001:rw` 뒤
+    // `chmod 640`(setfacl 은 `group::` 을 시작 mode 의 group 칸으로 두고 mask 만 다시 셈한다 — 0644 에서 시작하면
+    // `group::r--` 가 된다)
     const NARROW_MASK: &str = "AgAAAAEABgD/////AgAGAOkDAAAEAAYA/////xAABAD/////IAAAAP////8=";
     let with = |acl: Option<&str>, mode: u32| FileMeta {
         mode: Some(mode),
