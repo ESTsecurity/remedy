@@ -43,7 +43,9 @@
 #       상한과 견줘 그 줄을 낸다(1.26.0)
 #   A10 홈마다(alice · bob) 약 20 MB 의 `bin/remedy-lab-big.bin` 본문이 담긴다 — 기본 상한 8 MB 를 넘으므로
 #       `max_size: 32MB` 가 펴진 홈마다 걸려야 하고, 레코드의 content_ref 가 그 홈의 파일 해시와 같아야 한다
-#   D5  꺼내기(D3) 뒤 제자리로 복원한다 — 종료 0
+#   D5  꺼내기(D3) 뒤 제자리로 복원한다 — 종료 0 · 실패 줄 0. CA 도구가 없는 이미지(C1 · C2b)는 종료 3 이고
+#       실패 줄은 치료가 거부한 인증서 항목 하나뿐이어야 한다 — 복원도 같은 까닭으로 거부한다. 그 자리는 D5b 로
+#       못 잼에 남긴다
 #   D6  치료가 지운 자리마다 치료 전과 복원 뒤가 같다 — 종류 · 크기 · 해시 · mode · 소유자(uid:gid) · 링크가
 #       가리키는 곳과 링크 자체의 소유자. alice 의 4755 도구 · www-data 의 640 파일 · bob 의 유닛 둘과 활성화
 #       링크는 치료됐어야 한다(아니면 '치료되지 않음' 으로 적고 실패다)
@@ -552,8 +554,23 @@ if [ "$JUDGE_NEW" = 1 ]; then
     "$BIN" restore --run "$RUN" --state-dir "$STATE" --yes > "$OUT/restore-inplace.log" 2>&1
     rc=$?
     n_back="$(grep -c '^  복원 \[' "$OUT/restore-inplace.log")"
-    check_new "D5 제자리로 복원한다" "$([ $rc -eq 0 ] && echo 1 || echo 0)" \
-        "exit=$rc (기대 0) · 복원 줄 ${n_back:-?}건"
+    # CA 도구가 없는 이미지에서는 치료가 거부한 인증서(C1)의 격리 항목을 복원도 같은 까닭으로 거부해 3(부분
+    # 실패)이 정상이다. 실패 줄이 그 한 항목 말고도 있으면 3 이라도 실패다. `grep -c` 는 0건이면 "0" 을 찍는다.
+    d5_fail="$(grep '^  실패 \[' "$OUT/restore-inplace.log")"
+    d5_nf="$(printf '%s' "$d5_fail" | grep -c '^')"
+    d5_other="$(printf '%s' "$d5_fail" \
+        | grep -vc '^  실패 \[e[0-9]*\] /usr/local/share/ca-certificates/lab-ca\.crt ')"
+    [ -z "$CA_TOOL" ] && d5_rc=3 || d5_rc=0
+    [ -z "$CA_TOOL" ] && d5_nf_want=1 || d5_nf_want=0
+    check_new "D5 제자리로 복원한다" \
+        "$([ $rc -eq $d5_rc ] && [ "$d5_nf" -eq "$d5_nf_want" ] && [ "$d5_other" -eq 0 ] && echo 1 || echo 0)" \
+        "exit=$rc (기대 $d5_rc) · 복원 줄 ${n_back:-?}건 · 실패 줄 ${d5_nf}건$(
+           [ "$d5_other" -gt 0 ] && echo " (인증서 밖 ${d5_other}건)")"
+    # 잴 수 없던 자리를 이름으로 남긴다(C2b 와 같다).
+    if [ -z "$CA_TOOL" ]; then
+        check_new "D5b 신뢰 저장소에 인증서를 되돌린다" "-" \
+            "이 이미지에 update-ca-certificates 가 없다 — 치료처럼 복원도 거부가 옳은 동작이다"
+    fi
     bash "$HERE/capture-state.sh" > "$OUT/restored.json"
 
     # 치료가 지운 자리(치료 전 있음 → 치료 뒤 없음)마다 치료 전과 복원 뒤의 줄이 같은가. 줄은 capture-state 가
