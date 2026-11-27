@@ -20,9 +20,9 @@
 #
 # # 이슈 #172 의 칸 (엔진 1.27.0 부터)
 #
-# 홈 찾기(A4 · A5 · A6 · A7)와 리눅스 복원의 소유자 · 링크(D5 · D6 · D7)다. 1.27.0 이 고친 결함을 재므로
-# 그 앞의 엔진이면 칸마다 `건너뜀 — 엔진 <판> < 1.27.0` 을 적고 판정하지 않는다 — 실패로 세지 않고 결과
-# JSON 에도 넣지 않는다(`host/Invoke-WinwyvernVerify.ps1` 의 H 칸과 같다). 엔진 판은 `--version` 의
+# 홈 찾기(A4 · A5 · A6 · A7) · 글롭 폴더 칸의 토큰(A8 · A9 · A10)과 리눅스 복원의 소유자 · 링크(D5 · D6 ·
+# D7)다. 1.27.0 이 고친 결함을 재므로 그 앞의 엔진이면 칸마다 `건너뜀 — 엔진 <판> < 1.27.0` 을 적고 판정하지
+# 않는다 — 실패로 세지 않고 결과 JSON 에도 넣지 않는다(`host/Invoke-WinwyvernVerify.ps1` 의 H 칸과 같다). 엔진 판은 `--version` 의
 # `<제품> <판> (remedy)` 줄에서 읽고, 읽지 못하면 멈춘다(종료 2 — 조용히 건너뛰지 않는다).
 #
 # **공개본에서 결함을 재현할 때만** 환경 `JUDGE_ALL=1` 로 판 게이트를 넘긴다(호스트에서는
@@ -36,6 +36,13 @@
 #       드러나지 않으므로, 그 둘을 잠시 치우고 따로 걷는다
 #   A6  두 수집 모두 잘림이 서지 않는다
 #   A7  홈 자리의 링크(test)를 홈으로 담지 않는다(첫 수집)
+#   A8  `collect_extra` 글롭의 폴더 칸에 `%ALLUSERPROFILES%` 를 쓴 룰(`glob-plugin.yaml` · min_core 1.27.0)이
+#       린트를 지난다 — 오류 0 · 경고 0. 1.27.0 앞의 엔진은 그 min_core 를 받지 않으므로 JUDGE_ALL 회차는
+#       min_core 만 낮춘 사본을 쓴다(결과 폴더의 `glob-plugin-low.yaml`)
+#   A9  그 룰의 collect 가 종료 0 이고 'scan_roots 밖' 줄이 0이다 — 폴더 칸을 펴지 않으면 원문 그대로
+#       상한과 견줘 그 줄을 낸다(1.26.0)
+#   A10 홈마다(alice · bob) 약 20 MB 의 `bin/remedy-lab-big.bin` 본문이 담긴다 — 기본 상한 8 MB 를 넘으므로
+#       `max_size: 32MB` 가 펴진 홈마다 걸려야 하고, 레코드의 content_ref 가 그 홈의 파일 해시와 같아야 한다
 #   D5  꺼내기(D3) 뒤 제자리로 복원한다 — 종료 0
 #   D6  치료가 지운 자리마다 치료 전과 복원 뒤가 같다 — 종류 · 크기 · 해시 · mode · 소유자(uid:gid) · 링크가
 #       가리키는 곳과 링크 자체의 소유자. alice 의 4755 도구 · www-data 의 640 파일 · bob 의 유닛 둘과 활성화
@@ -76,12 +83,13 @@ NEW_SINCE=1.27.0
 ENGINE="$("$BIN" --version 2>&1 \
     | sed -nE 's/.* ([0-9]+\.[0-9]+\.[0-9]+)(-[0-9A-Za-z.]+)? \(remedy\).*/\1/p' | head -1)"
 [ -n "$ENGINE" ] || { echo "엔진 버전을 읽지 못했다(--version) — #172 칸을 돌릴지 정할 수 없다."; exit 2; }
+# ENGINE_NEW 는 엔진이 그 판 이상인가 — JUDGE_ALL 로 판정하는 낮은 엔진과 가른다(A8 의 룰 사본).
 if [ "$(printf '%s\n%s\n' "$NEW_SINCE" "$ENGINE" | sort -V | head -1)" = "$NEW_SINCE" ]; then
-    JUDGE_NEW=1; JUDGE_WHY="판정 — 엔진 $ENGINE ≥ $NEW_SINCE"
+    ENGINE_NEW=1; JUDGE_NEW=1; JUDGE_WHY="판정 — 엔진 $ENGINE ≥ $NEW_SINCE"
 elif [ "${JUDGE_ALL:-0}" = 1 ]; then
-    JUDGE_NEW=1; JUDGE_WHY="판정 — JUDGE_ALL=1 · 엔진 $ENGINE 에서 결함을 재현한다"
+    ENGINE_NEW=0; JUDGE_NEW=1; JUDGE_WHY="판정 — JUDGE_ALL=1 · 엔진 $ENGINE 에서 결함을 재현한다"
 else
-    JUDGE_NEW=0; JUDGE_WHY="건너뜀 — 엔진 $ENGINE < $NEW_SINCE"
+    ENGINE_NEW=0; JUDGE_NEW=0; JUDGE_WHY="건너뜀 — 엔진 $ENGINE < $NEW_SINCE"
 fi
 
 mkdir -p "$OUT"
@@ -131,8 +139,9 @@ skip_new() {
 
 # artifacts.json 의 한 절(`persistence` 등)에서 id 가 정확히 <id> 인 레코드의 칸 하나(따옴표째). 없으면 빈 값.
 # 레코드는 들여쓰기 4칸의 `{` … `}` 이고 칸은 6칸이다(serde_json 의 예쁜 출력) — jq 없는 이미지를 전제한다.
+# 열쇠 칸은 환경 REC_KEY 로 바꾼다 — `file` 절은 `path` 다(`REC_KEY=path rec_field …`).
 rec_field() {
-    awk -v sec="  \"$2\": [" -v id="      \"id\": \"$3\"," -v f="      \"$4\": " '
+    awk -v sec="  \"$2\": [" -v id="      \"${REC_KEY:-id}\": \"$3\"," -v f="      \"$4\": " '
         index($0, sec) == 1 { insec = 1; next }
         insec && /^  []}]/ { insec = 0 }
         insec && /^    \{/ { buf = ""; inrec = 1 }
@@ -283,6 +292,55 @@ if [ "$JUDGE_NEW" = 1 ]; then
         "$([ "$l1" = 0 ] && echo 1 || echo 0)" "링크 홈의 레코드 ${l1:-?}건"
 else
     skip_new "A4" "A5" "A6" "A7"
+fi
+
+# ── 글롭 폴더 칸의 토큰 (이슈 #172 ② · 엔진 1.27.0 부터) ────────────
+#
+# `glob-plugin.yaml` 이 `%ALLUSERPROFILES%/bin/remedy-lab-big*`(max_size 32MB)로 홈마다의 큰 자리 채우기를 담는다
+# (new-fixtures.sh 13 절). 1.27.0 앞의 엔진은 그 룰의 min_core 를 받지 않고 멈추므로 — 그것은 결함이 아니라
+# 로드 검사다 — JUDGE_ALL 회차는 min_core 만 낮춘 사본으로 결함 자체를 잰다.
+if [ "$JUDGE_NEW" = 1 ]; then
+    GP="$HERE/glob-plugin.yaml"; GP_NOTE=""
+    if [ "$ENGINE_NEW" != 1 ]; then
+        GP="$OUT/glob-plugin-low.yaml"; GP_NOTE=" · min_core 를 1.0.0 으로 낮춘 사본"
+        sed 's/^min_core: "1\.27\.0"$/min_core: "1.0.0"/' "$HERE/glob-plugin.yaml" > "$GP"
+    fi
+    "$BIN" plugin lint "$GP" > "$OUT/lint-glob.log" 2>&1
+    rcl=$?
+    # 수만 읽는다 — 구분자는 로캘을 따른다(UTF-8 이 아닌 컨테이너에서는 `·` 가 `|` 다).
+    sum="$(grep '^합계:' "$OUT/lint-glob.log" | tail -1)"
+    le="$(printf '%s' "$sum" | sed -n 's/^합계: 오류 \([0-9]*\) .*/\1/p')"
+    lw="$(printf '%s' "$sum" | sed -n 's/.* 경고 \([0-9]*\)$/\1/p')"
+    check_new "A8 글롭 폴더 칸에 토큰을 쓴 룰이 린트를 지난다" \
+        "$([ "$rcl" -eq 0 ] && [ "$le" = 0 ] && [ "$lw" = 0 ] && echo 1 || echo 0)" \
+        "lint exit=$rcl · 오류 ${le:-?} · 경고 ${lw:-?}$GP_NOTE"
+
+    "$BIN" collect --plugin "$GP" --out "$OUT/artifacts-glob.json" > "$OUT/collect-glob.log" 2>&1
+    rcg=$?
+    outside="$(grep -c 'scan_roots 밖' "$OUT/collect-glob.log")"
+    check_new "A9 글롭 폴더 칸의 토큰을 편다 — 'scan_roots 밖' 0줄" \
+        "$([ "$rcg" -eq 0 ] && [ "$outside" = 0 ] && echo 1 || echo 0)" \
+        "collect exit=$rcg · 'scan_roots 밖' ${outside:-?}줄$GP_NOTE"
+
+    # 레코드의 content_ref 가 그 홈 파일의 해시이고 그 본문이 blobs 에 있는가 — 홈마다 첫 줄이 달라 해시가 다르다.
+    a10_bad=""; a10_n=0
+    for u in alice bob; do
+        p="/home/$u/bin/remedy-lab-big.bin"
+        want="$(sha256sum "$p" 2>/dev/null | cut -d' ' -f1)"
+        got="$(REC_KEY=path rec_field "$OUT/artifacts-glob.json" file "$p" content_ref)"
+        if [ -n "$want" ] && [ "$got" = "\"sha256:$want\"" ] \
+            && grep -q "\"sha256:$want\": \"" "$OUT/artifacts-glob.json"; then
+            a10_n=$((a10_n + 1))
+        else
+            a10_bad="$a10_bad $u(${got:-본문 없음})"
+        fi
+    done
+    check_new "A10 홈마다 그 홈의 본문이 담긴다(max_size 32MB)" \
+        "$([ -z "$a10_bad" ] && echo 1 || echo 0)" \
+        "$([ -z "$a10_bad" ] && echo "약 20 MB 본문 ${a10_n}/2 — 그 홈 파일의 해시" \
+           || echo "빠짐:$a10_bad")"
+else
+    skip_new "A8" "A9" "A10"
 fi
 
 # ════════════════════════════════════════════════════════════════════

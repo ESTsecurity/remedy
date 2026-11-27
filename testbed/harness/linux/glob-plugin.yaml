@@ -1,0 +1,36 @@
+# 이슈 #172 ② — `collect_extra` 글롭의 폴더 칸에 쓴 토큰을 펴는가 (엔진 1.27.0 · `verify-linux.sh` A8 · A9 · A10).
+#
+# 실제 위협을 다루지 않는다. 본문만 담는 수집 실험이다 — `collect` 만 돌고 치료하지 않는다.
+#
+# `new-fixtures.sh` 13 절이 홈마다(alice · bob) `bin/remedy-lab-big.bin` 을 둔다. 약 20 MB 의 무해한 자리
+# 채우기 바이트이고, 기본 상한(8 MB)을 넘으므로 `max_size` 가 펴진 홈마다 걸려야 담긴다.
+#
+# 1.26.0 은 폴더 칸을 펴지 않고 원문(`%ALLUSERPROFILES%/bin`) 그대로 상한과 견줘 *scan_roots 밖* 으로 보고했다 —
+# 린트는 같은 토큰이라 통과시켰다. 그래서 이 룰은 `min_core` 1.27.0 을 적어야 로드를 지난다(코어의 로드 검사).
+# 그 앞의 엔진에서 결함을 재현할 때(`JUDGE_ALL=1`) 하네스가 `min_core` 만 낮춘 사본을 쓴다.
+
+schema_version: 1
+id: remedy-lab-glob-token
+version: 1.0.0
+min_core: "1.27.0"
+platforms: [linux]
+name:
+  ko: "글롭 폴더 칸 토큰 실험 플러그인"
+  en: "Glob folder token lab plugin"
+
+scan_roots:
+  - "%ALLUSERPROFILES%/bin"
+
+subjects: [file]
+
+detect:
+  - id: big
+    subject: file
+    where:
+      - { field: path, op: ends_with, value: "/bin/remedy-lab-big.bin" }
+
+verdict:
+  require: "big"
+
+collect_extra:
+  - { glob: "%ALLUSERPROFILES%/bin/remedy-lab-big*", max_size: 32MB }

@@ -330,6 +330,19 @@ DESKTOP
 chown -R bob:bob /home/bob/.config || { echo "bob 의 설정 폴더 소유자를 바꾸지 못했다"; exit 1; }
 chown -h bob:bob "$UNITS/default.target.wants/remedy-lab-user.service"
 
+# ── 13. 글롭 폴더 칸의 토큰 (이슈 #172 ②) ───────────────────────────
+#
+# `glob-plugin.yaml` 이 `%ALLUSERPROFILES%/bin/remedy-lab-big*` 로 홈마다 담는다. 기본 상한 8 MB 를 넘는 약 20 MB
+# 의 무해한 자리 채우기 바이트다(0 으로 채웠고 아무도 실행하지 않는다). 홈마다 첫 줄이 달라 해시로 어느 홈의
+# 본문인지 가린다. 두 홈을 합쳐 본문 총량 상한(64 MB) 안이다. 홈째 지우므로 정리할 것이 따로 없다.
+BIG_BYTES=$((20 * 1024 * 1024))
+for u in alice bob; do
+    mkdir -p "/home/$u/bin"
+    { printf 'REMEDY-LAB glob token placeholder for %s\n' "$u"; head -c "$BIG_BYTES" /dev/zero; } \
+        > "/home/$u/bin/remedy-lab-big.bin" || { echo "$u 의 큰 자리 채우기를 만들지 못했다"; exit 1; }
+    chown "$u:$u" "/home/$u/bin" "/home/$u/bin/remedy-lab-big.bin"
+done
+
 mkdir -p "$D7_ROOT"
 chmod 755 "$D7_ROOT"
 
