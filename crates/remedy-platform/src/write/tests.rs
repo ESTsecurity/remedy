@@ -1353,7 +1353,22 @@ mod link_walk {
         }
     }
 
-    /// `map` 에 없는 경로는 없는 것으로 답한다. 물은 경로를 차례대로 돌려준다.
+    fn plain(uid: u32, mode: u32) -> Node {
+        Node::Plain { uid, mode }
+    }
+
+    /// root 의 0755 폴더 — 흔한 시스템 폴더다.
+    fn root_dir() -> Node {
+        plain(0, 0o40755)
+    }
+
+    /// alice(4242)의 0755 폴더 — 홈 같은 자리다.
+    fn alice_dir() -> Node {
+        plain(4242, 0o40755)
+    }
+
+    /// `map` 에 없는 경로는 없는 것으로 답한다 — 뿌리(`/`)만 따로 적지 않으면 root 의 0755 폴더다. 물은 경로를
+    /// 차례대로 돌려준다.
     fn walk(
         place: &str,
         last: LastLink,
@@ -1363,10 +1378,11 @@ mod link_walk {
         let got = link_hit(Path::new(place), last, &mut |p: &Path| {
             let s = p.to_string_lossy().to_string();
             asked.push(s.clone());
-            Ok(map
-                .iter()
-                .find(|(k, _)| *k == s)
-                .map_or(Node::Missing, |(_, n)| n.clone()))
+            Ok(match map.iter().find(|(k, _)| *k == s) {
+                Some((_, n)) => n.clone(),
+                None if s == "/" => root_dir(),
+                None => Node::Missing,
+            })
         });
         (got, asked)
     }
@@ -1375,8 +1391,8 @@ mod link_walk {
     #[test]
     fn a_user_link_on_the_way_is_a_hit() {
         let map = [
-            ("/home", Node::Plain),
-            ("/home/alice", Node::Plain),
+            ("/home", root_dir()),
+            ("/home/alice", alice_dir()),
             ("/home/alice/bin", link(4242, "/etc/remedy-lab-d7")),
         ];
         for last in [LastLink::Refused, LastLink::Followed] {
@@ -1393,28 +1409,90 @@ mod link_walk {
         }
     }
 
-    /// root 가 단 링크(merged /usr 의 `/bin` → `usr/bin`)는 걸리지 않는다 — 따라가 그 너머의 성분을 본다. 상대
-    /// 링크는 그 링크가 있는 폴더에서 푼다.
+    /// root 가 단 링크(merged /usr 의 `/bin` → `usr/bin`)는 걸리지 않는다 — 그 링크가 놓인 폴더(`/`)를 root 만 바꿀
+    /// 수 있는지 묻고, 따라가 그 너머의 성분을 본다. 상대 링크는 그 링크가 있는 폴더에서 푼다.
     #[test]
     fn a_root_link_on_the_way_is_followed() {
         let map = [
             ("/bin", link(0, "usr/bin")),
-            ("/usr", Node::Plain),
-            ("/usr/bin", Node::Plain),
+            ("/usr", root_dir()),
+            ("/usr/bin", root_dir()),
         ];
         let (got, asked) = walk("/bin/remedy-x", LastLink::Refused, &map);
         assert_eq!(got.unwrap(), None);
-        assert_eq!(asked, ["/bin", "/usr", "/usr/bin", "/usr/bin/remedy-x"]);
+        assert_eq!(
+            asked,
+            ["/bin", "/", "/usr", "/usr/bin", "/usr/bin/remedy-x"]
+        );
+    }
+
+    /// root 의 링크라도 그 링크가 놓인 폴더를 root 가 아닌 사용자가 바꿀 수 있으면 걸린다(이슈 #172) — alice 의 폴더
+    /// · group 이나 누구나 쓰는 root 의 폴더에는 다른 자리의 root 링크를 옮겨 놓을 수 있다.
+    #[test]
+    fn a_root_link_in_a_folder_others_can_change_is_a_hit() {
+        for folder in [alice_dir(), plain(0, 0o40777), plain(0, 0o40775)] {
+            let map = [
+                ("/home", root_dir()),
+                ("/home/alice", folder.clone()),
+                ("/home/alice/bin", link(0, "/etc")),
+                ("/etc", root_dir()),
+            ];
+            let (got, asked) = walk("/home/alice/bin/tool", LastLink::Refused, &map);
+            assert_eq!(
+                got.unwrap(),
+                Some(LinkHit::LooseFolder {
+                    link: "/home/alice/bin".into(),
+                    to: "/etc".into(),
+                }),
+                "{folder:?}"
+            );
+            assert_eq!(asked.last().map(String::as_str), Some("/home/alice"));
+        }
+    }
+
+    /// root 의 sticky 폴더(`/tmp` 의 1777)에서는 남이 가진 이름을 옮기거나 지우지 못하므로 그 안의 root 링크를
+    /// 따라간다. 흔한 root 링크(`/lib` → `usr/lib` · `/var/run` → `../run` · `/etc/resolv.conf` →
+    /// `../run/systemd/resolve/stub-resolv.conf`)도 막히지 않는다.
+    #[test]
+    fn the_usual_root_links_are_followed() {
+        let map = [
+            ("/tmp", plain(0, 0o41777)),
+            ("/tmp/x", link(0, "/srv")),
+            ("/srv", root_dir()),
+            ("/lib", link(0, "usr/lib")),
+            ("/usr", root_dir()),
+            ("/usr/lib", root_dir()),
+            ("/var", root_dir()),
+            ("/var/run", link(0, "../run")),
+            ("/run", root_dir()),
+            ("/run/systemd", root_dir()),
+            ("/run/systemd/resolve", root_dir()),
+            ("/run/systemd/resolve/stub-resolv.conf", plain(0, 0o100644)),
+            ("/etc", root_dir()),
+            (
+                "/etc/resolv.conf",
+                link(0, "../run/systemd/resolve/stub-resolv.conf"),
+            ),
+        ];
+        for (place, last) in [
+            ("/tmp/x/tool", LastLink::Refused),
+            ("/lib/x86_64-linux-gnu/x.so", LastLink::Refused),
+            ("/var/run/x.pid", LastLink::Refused),
+            ("/etc/resolv.conf", LastLink::Followed),
+        ] {
+            let (got, _) = walk(place, last, &map);
+            assert_eq!(got.unwrap(), None, "{place}");
+        }
     }
 
     /// root 의 링크 너머에서 사용자가 링크를 달았으면 걸린다 — 적힌 경로의 앞자리만 보면 놓친다.
     #[test]
     fn a_user_link_beyond_a_root_link_is_a_hit() {
         let map = [
-            ("/srv", Node::Plain),
+            ("/srv", root_dir()),
             ("/srv/share", link(0, "../home/alice/share")),
-            ("/home", Node::Plain),
-            ("/home/alice", Node::Plain),
+            ("/home", root_dir()),
+            ("/home/alice", alice_dir()),
             ("/home/alice/share", link(4242, "/etc")),
         ];
         let (got, _) = walk("/srv/share/x", LastLink::Refused, &map);
@@ -1433,12 +1511,12 @@ mod link_walk {
     #[test]
     fn the_place_itself_being_a_link() {
         let map = [
-            ("/etc", Node::Plain),
+            ("/etc", root_dir()),
             ("/etc/resolv.conf", link(0, "../run/resolv.conf")),
-            ("/run", Node::Plain),
-            ("/run/resolv.conf", Node::Plain),
-            ("/home", Node::Plain),
-            ("/home/alice", Node::Plain),
+            ("/run", root_dir()),
+            ("/run/resolv.conf", plain(0, 0o100644)),
+            ("/home", root_dir()),
+            ("/home/alice", alice_dir()),
             ("/home/alice/.bashrc", link(4242, "/etc/sudoers")),
         ];
         let (got, _) = walk("/etc/resolv.conf", LastLink::Refused, &map);
@@ -1466,10 +1544,29 @@ mod link_walk {
     /// 없는 성분에서 걷기를 끝낸다 — 그 아래는 복원이 새로 만든다. 더 묻지 않는다.
     #[test]
     fn a_missing_part_ends_the_walk() {
-        let map = [("/srv", Node::Plain)];
+        let map = [("/srv", root_dir())];
         let (got, asked) = walk("/srv/gone/deeper/x", LastLink::Refused, &map);
         assert_eq!(got.unwrap(), None);
         assert_eq!(asked, ["/srv", "/srv/gone"]);
+    }
+
+    /// 없는 성분 뒤에 `..` 가 남으면 걸린다(이슈 #172) — 쓰기는 없는 폴더를 만든 뒤 그 `..` 로 걷지 않은 길(alice 가
+    /// 링크로 바꾼 `~/bin`)에 올라간다.
+    #[test]
+    fn climbing_past_a_missing_part_is_a_hit() {
+        let map = [
+            ("/home", root_dir()),
+            ("/home/alice", alice_dir()),
+            ("/home/alice/bin", link(4242, "/etc")),
+        ];
+        let (got, asked) = walk("/home/alice/gone/../bin/tool", LastLink::Refused, &map);
+        assert_eq!(
+            got.unwrap(),
+            Some(LinkHit::ClimbsPastMissing {
+                missing: "/home/alice/gone".into(),
+            })
+        );
+        assert_eq!(asked, ["/home", "/home/alice", "/home/alice/gone"]);
     }
 
     /// `..` 는 링크를 따라간 뒤의 자리에서 한 칸 오른다 — 커널과 같다.
@@ -1477,12 +1574,12 @@ mod link_walk {
     fn dot_dot_climbs_from_where_the_link_led() {
         let map = [
             ("/a", link(0, "/b/c")),
-            ("/b", Node::Plain),
-            ("/b/c", Node::Plain),
+            ("/b", root_dir()),
+            ("/b/c", root_dir()),
         ];
         let (got, asked) = walk("/a/../d", LastLink::Refused, &map);
         assert_eq!(got.unwrap(), None);
-        assert_eq!(asked, ["/a", "/b", "/b/c", "/b/d"]);
+        assert_eq!(asked, ["/a", "/", "/b", "/b/c", "/b/d"]);
     }
 
     /// 끝없이 이어지는 링크는 걸린다(따라가는 횟수에 상한이 있다).
@@ -1560,6 +1657,84 @@ fn the_live_check_sees_the_links_on_the_way() {
         std::fs::read_dir(&target).unwrap().next().is_none(),
         "묻기만 했는데 썼다"
     );
+    cleanup(&dir).ok();
+}
+
+/// root 의 링크는 **그 링크가 놓인 폴더를 root 만 바꿀 수 있을 때만** 믿는다(이슈 #172) — 사용자가 쓸 수 있는
+/// 폴더에는 다른 자리에 있던 root 의 링크를 rename 해 놓을 수 있다. root 로 돌면 이 시험이 단 링크가 root 의 것이라
+/// 폴더를 남(4242)의 것 · 누구나 쓰는 0777 로 바꿔 본다. root 의 sticky 폴더(1777)와 0755 폴더의 root 링크는 따라간다.
+/// root 가 아니면 링크가 이 시험의 것이라 어느 폴더에서든 걸린다.
+#[cfg(unix)]
+#[test]
+fn a_root_link_is_followed_only_in_a_folder_only_root_can_change() {
+    use std::os::unix::fs::{chown, symlink, MetadataExt, PermissionsExt};
+    let dir = tmp("root-link-folder");
+    let target = dir.join("root-place");
+    std::fs::create_dir_all(&target).unwrap();
+    let root = std::fs::metadata("/proc/self").is_ok_and(|m| m.uid() == 0);
+    let s = |p: &std::path::Path| p.to_string_lossy().to_string();
+    let case = |name: &str, mode: u32, owner: Option<u32>| {
+        let folder = dir.join(name);
+        std::fs::create_dir_all(&folder).unwrap();
+        symlink(&target, folder.join("bin")).unwrap();
+        if let Some(o) = owner {
+            chown(&folder, Some(o), Some(o)).unwrap();
+        }
+        std::fs::set_permissions(&folder, std::fs::Permissions::from_mode(mode)).unwrap();
+        FsRestore
+            .link_on_the_way(&s(&folder.join("bin/tool")), LastLink::Refused)
+            .unwrap()
+    };
+    let users = case("users", 0o755, root.then_some(4242));
+    let open = case("open", 0o777, None);
+    let group = case("group", 0o775, None);
+    let sticky = case("sticky", 0o1777, None);
+    let tight = case("tight", 0o755, None);
+
+    assert!(users.is_some(), "남의 폴더의 root 링크를 따라갔다");
+    assert!(open.is_some(), "누구나 쓰는 폴더의 root 링크를 따라갔다");
+    assert!(group.is_some(), "group 이 쓰는 폴더의 root 링크를 따라갔다");
+    if root {
+        assert_eq!(sticky, None);
+        assert_eq!(tight, None);
+    } else {
+        assert!(sticky.is_some() && tight.is_some(), "{sticky:?} {tight:?}");
+    }
+    assert!(std::fs::read_dir(&target).unwrap().next().is_none());
+    cleanup(&dir).ok();
+}
+
+/// 없는 폴더 아래에서 `..` 로 되짚는 경로는 막는다(이슈 #172) — 걷기가 없는 성분에서 끝나면 그 뒤의 `..` 가 되짚는
+/// 길을 보지 못한다. 쓰기의 `create_dir_all` 은 없는 폴더를 만든 뒤 그 `..` 로 올라가 사용자가 바꾼 링크를 따른다.
+/// 길의 성분이 다 있으면 `..` 는 커널처럼 되짚어 걷는다 — 그 링크가 걸린다.
+#[cfg(unix)]
+#[test]
+fn climbing_with_dot_dot_below_a_missing_folder_is_held_back() {
+    use std::os::unix::fs::{lchown, symlink, MetadataExt};
+    let dir = tmp("dot-dot-missing");
+    let target = dir.join("root-place");
+    std::fs::create_dir_all(&target).unwrap();
+    let bin = dir.join("bin");
+    symlink(&target, &bin).unwrap();
+    if std::fs::metadata("/proc/self").is_ok_and(|m| m.uid() == 0) {
+        lchown(&bin, Some(4242), Some(4242)).unwrap();
+    }
+    let place = format!("{}/gone/../bin/tool", dir.to_string_lossy());
+
+    let got = FsRestore
+        .link_on_the_way(&place, LastLink::Refused)
+        .unwrap();
+    assert!(got.is_some(), "없는 폴더 뒤의 `..` 를 걷지 않고 통과시켰다");
+
+    std::fs::create_dir_all(dir.join("gone")).unwrap();
+    let got = FsRestore
+        .link_on_the_way(&place, LastLink::Refused)
+        .unwrap();
+    assert!(
+        matches!(&got, Some(LinkHit::NotRoot { link, .. }) if *link == bin.to_string_lossy()),
+        "{got:?}"
+    );
+    assert!(std::fs::read_dir(&target).unwrap().next().is_none());
     cleanup(&dir).ok();
 }
 

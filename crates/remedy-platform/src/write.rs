@@ -141,6 +141,11 @@ pub enum LinkHit {
     Itself { link: String, to: String },
     /// 가는 길의 링크를 root 가 아닌 사용자가 가졌다.
     NotRoot { link: String, uid: u32, to: String },
+    /// 가는 길의 링크는 root 의 것이지만, 그 링크가 놓인 폴더를 root 가 아닌 사용자도 바꿀 수 있다 — 사용자가 다른
+    /// 자리의 root 링크를 그 폴더로 옮겨 놓았을 수 있다.
+    LooseFolder { link: String, to: String },
+    /// 없는 폴더 `missing` 아래에서 `..` 로 되짚는다 — 복원이 그 폴더를 새로 만든 뒤 걷지 않은 길로 올라간다.
+    ClimbsPastMissing { missing: String },
     /// 링크가 너무 많이 이어진다(커널의 `ELOOP` 와 같은 상한).
     TooMany { link: String },
 }
@@ -1359,8 +1364,9 @@ pub fn rel_is_contained(rel: &str) -> bool {
 pub(crate) enum Node {
     /// 없다 — 그 아래는 복원이 새로 만든다.
     Missing,
-    /// 링크가 아니다(폴더 · 파일 · 그 밖).
-    Plain,
+    /// 링크가 아니다(폴더 · 파일 · 그 밖) — 그 소유자와 `st_mode`. 폴더이면 그 안의 root 링크를 믿을지를 이것으로
+    /// 본다([`root_only`]).
+    Plain { uid: u32, mode: u32 },
     /// 링크 — 그 링크 자체의 소유자와 가리키는 문자열(`readlink`).
     Link { uid: u32, to: std::path::PathBuf },
 }
@@ -1369,14 +1375,29 @@ pub(crate) enum Node {
 #[cfg(unix)]
 const MAX_LINK_HOPS: usize = 40;
 
+/// 이 폴더 안의 이름을 **root 만 바꿀 수 있는가**(이슈 #172) — root 의 것이고 group · other 가 쓸 수 없거나, root 의
+/// sticky 폴더다(남이 가진 이름을 옮기거나 지우지 못한다). 이런 폴더에 놓인 root 링크만 믿는다 — 사용자가 쓸 수
+/// 있는 폴더에는 다른 자리에 있던 root 의 링크를 rename 해 놓을 수 있다. 커널의 `fs.protected_symlinks` 와 같은
+/// 생각이다. 남는 한계 — sticky 폴더에도 **새 이름**은 누구나 만들 수 있으므로, 사용자가 쓸 수 있는 다른 폴더에
+/// root 의 링크가 있으면 그것을 sticky 폴더의 새 이름으로 옮겨 놓을 수는 있다.
+#[cfg(unix)]
+fn root_only(uid: u32, mode: u32) -> bool {
+    const GROUP_OTHER_WRITE: u32 = 0o022;
+    const STICKY: u32 = 0o1000;
+    uid == 0 && (mode & GROUP_OTHER_WRITE == 0 || mode & STICKY != 0)
+}
+
 /// `place` 로 가는 길을 커널처럼 한 성분씩 걸으며 링크를 본다(이슈 #172 ①) — **순수하다**: `lstat` 은 부르는 쪽이
 /// 준다. `place` 는 절대 경로다.
 ///
-/// - 가운데 성분이 root 가 아닌 사용자의 링크면 걸린다([`LinkHit::NotRoot`]). root 의 링크는 따라가 그 너머의
-///   성분도 본다 — root 가 단 `/srv/share` → `/home/alice/share` 너머에서 alice 가 링크를 달 수 있는데, 적힌
+/// - 가운데 성분이 root 가 아닌 사용자의 링크면 걸린다([`LinkHit::NotRoot`]). root 의 링크는 그 링크가 놓인 폴더를
+///   root 만 바꿀 수 있으면([`root_only`]) 따라가 그 너머의 성분도 보고, 아니면 걸린다([`LinkHit::LooseFolder`]).
+///   너머를 보는 까닭 — root 가 단 `/srv/share` → `/home/alice/share` 너머에서 alice 가 링크를 달 수 있는데, 적힌
 ///   경로의 앞자리만 `lstat` 하면 그 링크는 커널이 말없이 따라가 보이지 않는다.
 /// - 자리 자체가 링크면 `last` 가 정한다([`LastLink`]).
-/// - 없는 성분에서 끝낸다 — 그 아래는 복원이 새로 만든다.
+/// - 없는 성분에서 끝낸다 — 그 아래는 복원이 새로 만든다. 그 뒤에 `..` 가 남았으면 걸린다
+///   ([`LinkHit::ClimbsPastMissing`]) — 쓰기의 `create_dir_all` 이 없는 폴더를 만든 뒤 그 `..` 로 걷지 않은 길에
+///   올라가 거기의 링크를 따른다.
 /// - `..` 는 링크를 따라간 뒤의 자리에서 한 칸 오른다.
 #[cfg(unix)]
 pub(crate) fn link_hit(
@@ -1384,8 +1405,7 @@ pub(crate) fn link_hit(
     last: LastLink,
     lstat: &mut dyn FnMut(&std::path::Path) -> std::io::Result<Node>,
 ) -> std::io::Result<Option<LinkHit>> {
-    use std::path::{Path, PathBuf};
-    let show = |p: &Path| p.to_string_lossy().to_string();
+    use std::path::PathBuf;
     let mut todo: std::collections::VecDeque<std::ffi::OsString> = link_parts(place).into();
     let mut at = PathBuf::from("/");
     let mut hops = 0;
@@ -1396,27 +1416,25 @@ pub(crate) fn link_hit(
         }
         let next = at.join(&part);
         let (uid, to) = match lstat(&next)? {
-            Node::Missing => return Ok(None),
-            Node::Plain => {
+            Node::Missing => {
+                let climbs = todo.iter().any(|p| p == "..");
+                return Ok(climbs.then(|| LinkHit::ClimbsPastMissing {
+                    missing: shown(&next),
+                }));
+            }
+            Node::Plain { .. } => {
                 at = next;
                 continue;
             }
             Node::Link { uid, to } => (uid, to),
         };
-        let (link, to_s) = (show(&next), show(&to));
-        if todo.is_empty() && last == LastLink::Refused {
-            return Ok(Some(LinkHit::Itself { link, to: to_s }));
-        }
-        if uid != 0 {
-            return Ok(Some(LinkHit::NotRoot {
-                link,
-                uid,
-                to: to_s,
-            }));
+        let refused_here = todo.is_empty() && last == LastLink::Refused;
+        if let Some(hit) = link_problem(&next, uid, &to, &at, refused_here, lstat)? {
+            return Ok(Some(hit));
         }
         hops += 1;
         if hops > MAX_LINK_HOPS {
-            return Ok(Some(LinkHit::TooMany { link }));
+            return Ok(Some(LinkHit::TooMany { link: shown(&next) }));
         }
         // 상대 링크는 그 링크가 있는 폴더(`at`)에서 푼다.
         if to.is_absolute() {
@@ -1427,6 +1445,35 @@ pub(crate) fn link_hit(
         }
     }
     Ok(None)
+}
+
+/// 걷다 만난 링크 `link`(폴더 `folder` 안 · 가리키는 문자열 `to`)를 따라가면 안 되는 까닭 — 따라가도 되면 `None`.
+/// `refused_here` 는 그 링크가 되돌릴 자리 자체이고 그 자리가 [`LastLink::Refused`] 라는 뜻이다.
+#[cfg(unix)]
+fn link_problem(
+    link: &std::path::Path,
+    uid: u32,
+    to: &std::path::Path,
+    folder: &std::path::Path,
+    refused_here: bool,
+    lstat: &mut dyn FnMut(&std::path::Path) -> std::io::Result<Node>,
+) -> std::io::Result<Option<LinkHit>> {
+    let (link, to) = (shown(link), shown(to));
+    if refused_here {
+        return Ok(Some(LinkHit::Itself { link, to }));
+    }
+    if uid != 0 {
+        return Ok(Some(LinkHit::NotRoot { link, uid, to }));
+    }
+    Ok(match lstat(folder)? {
+        Node::Plain { uid, mode } if root_only(uid, mode) => None,
+        _ => Some(LinkHit::LooseFolder { link, to }),
+    })
+}
+
+#[cfg(unix)]
+fn shown(p: &std::path::Path) -> String {
+    p.to_string_lossy().to_string()
 }
 
 /// 걸을 성분 — 이름과 `..`. 뿌리 · `.` 는 뺀다.
@@ -1452,7 +1499,10 @@ fn lstat_node(p: &std::path::Path) -> std::io::Result<Node> {
             uid: md.uid(),
             to: std::fs::read_link(p)?,
         }),
-        Ok(_) => Ok(Node::Plain),
+        Ok(md) => Ok(Node::Plain {
+            uid: md.uid(),
+            mode: md.mode(),
+        }),
         Err(e)
             if matches!(
                 e.kind(),

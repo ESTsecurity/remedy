@@ -605,6 +605,14 @@ fn link_why(hit: &LinkHit) -> String {
             format!("되돌릴 자리로 가는 길에 root 가 아닌 사용자(uid {uid})의 링크가 있습니다 — '{link}' → '{to}'. 링크를 따라 쓰지 않습니다 — 내용이 필요하면 --extract-to 로 꺼내십시오"),
             format!("a link owned by a user other than root (uid {uid}) is on the way to the restore place — '{link}' → '{to}'; not writing through it — to get the content, take it out with --extract-to"),
         ),
+        LinkHit::LooseFolder { link, to } => lang.pick(
+            format!("되돌릴 자리로 가는 길에 root 의 링크가 있지만 그 링크가 놓인 폴더를 root 가 아닌 사용자도 바꿀 수 있습니다 — '{link}' → '{to}'. 링크를 따라 쓰지 않습니다 — 내용이 필요하면 --extract-to 로 꺼내십시오"),
+            format!("a link owned by root is on the way to the restore place, but users other than root can change the folder it is in — '{link}' → '{to}'; not writing through it — to get the content, take it out with --extract-to"),
+        ),
+        LinkHit::ClimbsPastMissing { missing } => lang.pick(
+            format!("되돌릴 자리의 경로가 없는 폴더 '{missing}' 아래에서 '..' 로 되짚어 올라갑니다 — 확인하지 못하는 길이라 쓰지 않습니다"),
+            format!("the restore path climbs back with '..' below the missing folder '{missing}' — that way cannot be checked; not writing"),
+        ),
         LinkHit::TooMany { link } => lang.pick(
             format!("되돌릴 자리로 가는 길의 링크가 너무 많이 이어집니다 — '{link}'. 쓰지 않습니다"),
             format!("too many links on the way to the restore place — '{link}'; not writing"),
