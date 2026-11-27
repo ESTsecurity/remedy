@@ -21,7 +21,7 @@
 # # 이슈 #172 의 칸 (엔진 1.27.0 부터)
 #
 # 홈 찾기(A4 · A5 · A6 · A7) · 글롭 폴더 칸의 토큰(A8 · A9 · A10)과 리눅스 복원의 소유자 · 링크(D5 · D6 ·
-# D7) · 꺼낸 사본(D8)이다. 1.27.0 이 고친 결함을 재므로 그 앞의 엔진이면 칸마다 `건너뜀 — 엔진 <판> < 1.27.0` 을 적고 판정하지
+# D7) · 꺼낸 사본(D8) · 꺼낼 폴더(D9)이다. 1.27.0 이 고친 결함을 재므로 그 앞의 엔진이면 칸마다 `건너뜀 — 엔진 <판> < 1.27.0` 을 적고 판정하지
 # 않는다 — 실패로 세지 않고 결과 JSON 에도 넣지 않는다(`host/Invoke-WinwyvernVerify.ps1` 의 H 칸과 같다). 엔진 판은 `--version` 의
 # `<제품> <판> (remedy)` 줄에서 읽고, 읽지 못하면 멈춘다(종료 2 — 조용히 건너뛰지 않는다).
 #
@@ -54,8 +54,11 @@
 #   D8  alice 의 4755 도구 항목을 컨테이너 안의 빈 폴더로 꺼낸 사본이 꺼낸 계정(root 회차는 0:0)의 것이고 setuid ·
 #       setgid 가 없다 — `--out` 에 남기는 D3 의 사본은 호스트가 붙인 폴더에 있어 소유자 · mode 를 믿을 수 없다. 파일
 #       권능(`security.capability`)은 이미지에 `setcap` 이 없어 코어 단위 시험만 잰다
+#   D9  alice 의 폴더 안에 alice 가 둔 링크(→ root 소유의 빈 폴더 `/etc/remedy-lab-d9`)를 꺼낼 폴더로 주고 회차 전부를
+#       꺼낸다 — 종료 5 · 링크가 가리킨 자리에 생긴 것 0개 · 링크 그대로. 그 링크를 따라 꺼내면 root 가 root 의 자리에
+#       사용자가 미리 알 수 있는 이름(원본 경로를 평평하게 한 것)과 사용자가 정한 바이트로 root 소유 파일을 만든다(1.26.0)
 #
-# 칸 수는 엔진 1.27.0 부터 31 이다(CA 도구가 없는 이미지는 못 잼 C2b · D5b 를 더해 33). 그 앞의 엔진은 위 열하나를
+# 칸 수는 엔진 1.27.0 부터 32 이다(CA 도구가 없는 이미지는 못 잼 C2b · D5b 를 더해 34). 그 앞의 엔진은 위 열둘을
 # 건너뛰어 20 이다(CA 도구가 없으면 C2b 를 더해 21).
 #
 # # 쓰는 법 (컨테이너 안)
@@ -681,8 +684,34 @@ $BU/systemd/user/remedy-lab-user.timer $BU/systemd/user/default.target.wants/rem
         "$([ "$rc8" = 0 ] && [ -n "$ex" ] && [ "$ex_own" = "$me" ] && [ $((0$ex_mode & 06000)) -eq 0 ] \
            && echo 1 || echo 0)" \
         "exit=$rc8 · 항목 ${eid:-없음} · $([ -z "$ex" ] && echo "도구 사본 없음" || echo "도구 사본 ${ex_own} · mode ${ex_mode}") — 기대 꺼낸 계정 $me · setuid · setgid 없음 (치료 전 $(fld "$tb" owner) · $(fld "$tb" mode))"
+
+    # 꺼낼 폴더 자리에 사용자가 미리 둔 링크 — root 의 빈 폴더를 가리킨다. 가드의 사유 문구가 사용자의 링크를 보면
+    # `--extract-to` 로 꺼내라고 권하므로, 그 사용자에게 돌려주려고 그의 폴더 안으로 꺼내는 일이 자연스럽다. 그 링크를
+    # 따라 꺼내면 root 가 root 의 자리에 원본 경로를 평평하게 한 이름으로 root 소유 파일을 만든다. 회차 전부를 꺼낸다.
+    D9_ROOT=/etc/remedy-lab-d9
+    D9_LINK=/home/alice/restored
+    if [ -z "$RUN" ] || [ ! -d "$D9_ROOT" ] || [ -L "$D9_ROOT" ] \
+        || [ -n "$(find "$D9_ROOT" -mindepth 1 2>/dev/null | head -1)" ] || [ -e "$D9_LINK" ] || [ -L "$D9_LINK" ]; then
+        check_new "D9 꺼낼 폴더 자리의 사용자 링크를 따라 꺼내지 않는다" 0 \
+            "잴 수 없다 — 회차 ${RUN:-없음} · $D9_ROOT 가 빈 폴더가 아니거나 $D9_LINK 자리에 무언가 있다"
+    else
+        ln -s "$D9_ROOT" "$D9_LINK"
+        chown -h alice:alice "$D9_LINK"
+        "$BIN" restore --run "$RUN" --state-dir "$STATE" --yes --extract-to "$D9_LINK" \
+            > "$OUT/restore-extract-link.log" 2>&1
+        rc9=$?
+        wrote9="$(find "$D9_ROOT" -mindepth 1 2>/dev/null | wc -l)"
+        what9="$(find "$D9_ROOT" -mindepth 1 -exec stat -c '%n %u:%g %a' {} \; 2>/dev/null | head -2 | tr '\n' ' ')"
+        link9_ok=0
+        [ -L "$D9_LINK" ] && [ "$(readlink "$D9_LINK")" = "$D9_ROOT" ] \
+            && [ "$(stat -c %u "$D9_LINK")" = 4242 ] && link9_ok=1
+        rm -f "$D9_LINK"
+        check_new "D9 꺼낼 폴더 자리의 사용자 링크를 따라 꺼내지 않는다" \
+            "$([ $rc9 -eq 5 ] && [ "$wrote9" = 0 ] && [ "$link9_ok" = 1 ] && echo 1 || echo 0)" \
+            "exit=$rc9 (기대 5) · 링크가 가리킨 자리에 생긴 것 ${wrote9}개${what9:+ [예: ${what9% }]} · 링크 그대로 $([ "$link9_ok" = 1 ] && echo 예 || echo 아니오)"
+    fi
 else
-    skip_new "D5" "D6" "D7" "D8"
+    skip_new "D5" "D6" "D7" "D8" "D9"
 fi
 
 # ════════════════════════════════════════════════════════════════════

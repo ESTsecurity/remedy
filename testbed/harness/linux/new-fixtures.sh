@@ -48,10 +48,11 @@ FORCE=0
 EXTROOT="${EXTROOT:-$HOME/.config/google-chrome/Default/Extensions}"
 EVIL_EXT=remedylabremedylabremedylabremed
 GOOD_EXT=innocentinnocentinnocentinnoce
-# 사용자 홈(12 절). 링크 홈이 가리키는 폴더와, 복원이 링크를 따라가는지 재는 root 소유의 빈 폴더.
+# 사용자 홈(12 절). 링크 홈이 가리키는 폴더와, 복원(D7) · 꺼내기(D9)가 링크를 따라가는지 재는 root 소유의 빈 폴더.
 USER_TAG="remedy-lab fixture"
 LINKHOME=/opt/remedy-lab-linkhome
 D7_ROOT=/etc/remedy-lab-d7
+D9_ROOT=/etc/remedy-lab-d9
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -107,7 +108,7 @@ if [ "$CLEAN" -eq 1 ]; then
     done
     [ -f /home/b ] && grep -q 'REMEDY-LAB' /home/b && rm -f /home/b
     [ -L /home/test ] && [ "$(readlink /home/test)" = "$LINKHOME" ] && rm -f /home/test
-    rm -rf "$LINKHOME" "$D7_ROOT"
+    rm -rf "$LINKHOME" "$D7_ROOT" "$D9_ROOT"
     # 줄 단위로 넣은 것은 줄 단위로 뺀다.
     if [ -f /etc/hosts ]; then
         sed -i '/lab\.remedy\.invalid/d' /etc/hosts
@@ -357,8 +358,8 @@ for u in alice bob; do
     chown "$u:$u" "/home/$u/bin" "/home/$u/bin/remedy-lab-big.bin"
 done
 
-mkdir -p "$D7_ROOT"
-chmod 755 "$D7_ROOT"
+mkdir -p "$D7_ROOT" "$D9_ROOT"
+chmod 755 "$D7_ROOT" "$D9_ROOT"
 
 echo "픽스처를 만들었다."
 pid="$(labproc_pid || true)"
