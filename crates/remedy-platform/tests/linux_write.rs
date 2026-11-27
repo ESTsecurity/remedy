@@ -126,6 +126,50 @@ fn a_file_comes_back_with_its_owner_and_its_setuid_bit() {
     let _ = std::fs::remove_dir_all(&d);
 }
 
+/// 배포되는 백엔드도 **꺼낼 폴더**를 묻는다(이슈 #172) — 가짜 백엔드의 기본값(묻지 않음)에 머물면 꺼내기가 남이 바꿀
+/// 수 있는 폴더로 그대로 쓴다. 이 프로세스의 폴더로 재므로 root 가 아니어도 돈다.
+#[test]
+fn the_live_backend_asks_about_the_folder_to_extract_to() {
+    use remedy_platform::write::ExtractDirHit;
+    use std::os::unix::fs::PermissionsExt;
+    let d = lab("extract-dir");
+    let l = Live::new();
+    let mode = |m: u32| std::fs::set_permissions(&d, std::fs::Permissions::from_mode(m));
+    let dir = d.to_string_lossy().to_string();
+
+    mode(0o700).expect("chmod");
+    assert_eq!(l.extract_dir_problem(&dir).expect("묻기"), None);
+    assert_eq!(
+        l.extract_dir_problem(&format!("{dir}/")).expect("묻기"),
+        None
+    );
+    mode(0o1777).expect("chmod");
+    assert_eq!(
+        l.extract_dir_problem(&dir).expect("묻기"),
+        Some(ExtractDirHit::OthersCanWrite { mode: 0o1777 })
+    );
+    mode(0o755).expect("chmod");
+    assert_eq!(l.extract_dir_problem(&p(&d, "new")).expect("묻기"), None);
+    let file = p(&d, "file");
+    std::fs::write(&file, b"x").expect("쓰기");
+    assert_eq!(
+        l.extract_dir_problem(&file).expect("묻기"),
+        Some(ExtractDirHit::NotAFolder)
+    );
+    let link = p(&d, "link");
+    std::os::unix::fs::symlink(&d, &link).expect("링크");
+    assert_eq!(
+        l.extract_dir_problem(&link).expect("묻기"),
+        Some(ExtractDirHit::NotAFolder)
+    );
+    assert_eq!(
+        l.extract_dir_problem(&format!("{link}/")).expect("묻기"),
+        Some(ExtractDirHit::NotAFolder),
+        "끝의 / 로 링크를 따라갔다"
+    );
+    let _ = std::fs::remove_dir_all(&d);
+}
+
 /// 리스(lease)를 쥐는 자식 — 파일을 읽기로 열어 읽기 리스(`F_SETLEASE` 1024 · `F_RDLCK` 0)를 걸고 `ready` 를 알린다.
 /// 쓰는 쪽이 열면 커널이 SIGIO 를 보낸다 — 0.3초 더 쥐고 있다가 놓는다(`F_UNLCK` 2). 걸지 못하면 `no lease` 다.
 const LEASE_HOLDER: &str = r#"

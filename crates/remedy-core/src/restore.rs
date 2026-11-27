@@ -25,7 +25,9 @@
 //! 해석되지 않으면 잘못된 권한이 붙는다. 다른 머신에서 필요한 것은 **내용을
 //! 되찾는 것**이고, 그 경로가 `--extract-to` 다 (설계-02 §9).
 
-use remedy_platform::write::{FileMeta, LastLink, LinkHit, LostItem, PlatformWrite, RestoreReport};
+use remedy_platform::write::{
+    ExtractDirHit, FileMeta, LastLink, LinkHit, LostItem, PlatformWrite, RestoreReport,
+};
 use remedy_quarantine::{ContentKey, Opened, QuarantineError, Sealed};
 use remedy_sdk::EntryKind;
 use std::collections::BTreeMap;
@@ -113,6 +115,10 @@ pub enum RestoreError {
         dest: String,
         why: String,
     },
+    /// 꺼낼 폴더(`--extract-to`)를 남이 바꿀 수 있거나 그 길에 따라 쓰면 안 되는 링크가 있다(이슈 #172). 계획에서도
+    /// 쓰기 직전에도 본다. 아무것도 쓰지 않았다.
+    #[error("{why}")]
+    ExtractDir { why: String },
 }
 
 impl RestoreError {
@@ -125,7 +131,9 @@ impl RestoreError {
             RestoreError::Platform(remedy_platform::PlatformError::NoSpace(_)) => {
                 ExitCode::GuardStop
             }
-            RestoreError::Blocked | RestoreError::LinkOnTheWay { .. } => ExitCode::GuardStop,
+            RestoreError::Blocked
+            | RestoreError::LinkOnTheWay { .. }
+            | RestoreError::ExtractDir { .. } => ExitCode::GuardStop,
             _ => ExitCode::UsageError,
         }
     }
@@ -325,6 +333,14 @@ pub fn plan(
     let lang = remedy_sdk::i18n::current();
     let mut items = Vec::new();
 
+    // **꺼낼 폴더를 먼저 묻는다**(이슈 #172) — 남이 바꿀 수 있는 폴더로 꺼내면 그 사람이 미리 둔 이름을 따라 root 가
+    // 쓴다([`extract_dir_guard`]). 항목마다가 아니라 폴더 하나의 일이므로 계획 전체를 멈춘다(5).
+    if let Some(dir) = extract_to {
+        if let Some(why) = extract_dir_guard(backend, dir) {
+            return Err(RestoreError::ExtractDir { why });
+        }
+    }
+
     for me in &opened.manifest.entries {
         if !only.is_empty() && !only.contains(&me.id) {
             continue;
@@ -384,9 +400,9 @@ pub fn plan(
         // **사용자의 링크를 따라 root 로 쓰지 않는다**(이슈 #172 ①). 복원은 root 로 돈다 — 사용자가 자기 폴더를
         // root 의 자리를 가리키는 링크로 바꿔 두자 1.26.0 은 그 너머에 담아 둔 이름 · 바이트 · 소유자 · mode 를 썼다
         // (`/home/alice/bin` → `/etc/…` 에 alice 소유 4755). 보호 목록은 적힌 경로만 보므로 이것을 보지 못한다.
-        // 꺼내기는 원래 자리에 쓰지 않으므로 묻지 않는다 — 꺼낼 자리의 마지막 성분이 링크 · 하드 링크면 쓰기가 따라가지
-        // 않고 그 항목을 실패로 낸다(리눅스 `FsRestore::restore_file`). 꺼낼 폴더 자체를 남이 미리 만들 수 있는 자리로
-        // 고르면 그 가운데 성분은 남는 한계다. 쓰기 직전에 한 번 더 본다([`apply`]).
+        // 꺼내기는 원래 자리에 쓰지 않으므로 묻지 않는다 — 꺼낼 폴더는 위에서 물었고, 그 안의 자리의 마지막 성분이
+        // 링크 · 하드 링크면 쓰기가 따라가지 않고 그 항목을 실패로 낸다(리눅스 `FsRestore::restore_file`). 쓰기 직전에
+        // 한 번 더 본다([`apply`]).
         let mut by_link = false;
         if blocked.is_none() && extract_to.is_none() {
             blocked = link_guard(backend, me.kind, &me.origin, &me.meta);
@@ -604,16 +620,16 @@ fn link_why(hit: &LinkHit) -> String {
     let lang = remedy_sdk::i18n::current();
     match hit {
         LinkHit::Itself { link, to } => lang.pick(
-            format!("되돌릴 자리가 링크입니다 — '{link}' → '{to}'. 링크를 따라 쓰지 않습니다 — 내용이 필요하면 --extract-to 로 꺼내십시오"),
-            format!("the restore place is a link — '{link}' → '{to}'; not writing through it — to get the content, take it out with --extract-to"),
+            format!("되돌릴 자리가 링크입니다 — '{link}' → '{to}'. 링크를 따라 쓰지 않습니다 — 내용이 필요하면 root 만 바꿀 수 있는 새 폴더(예: /root 아래)로 --extract-to 해 꺼내십시오"),
+            format!("the restore place is a link — '{link}' → '{to}'; not writing through it — to get the content, take it out with --extract-to into a new folder that only root can change (for example under /root)"),
         ),
         LinkHit::NotRoot { link, uid, to } => lang.pick(
-            format!("되돌릴 자리로 가는 길에 root 가 아닌 사용자(uid {uid})의 링크가 있습니다 — '{link}' → '{to}'. 링크를 따라 쓰지 않습니다 — 내용이 필요하면 --extract-to 로 꺼내십시오"),
-            format!("a link owned by a user other than root (uid {uid}) is on the way to the restore place — '{link}' → '{to}'; not writing through it — to get the content, take it out with --extract-to"),
+            format!("되돌릴 자리로 가는 길에 root 가 아닌 사용자(uid {uid})의 링크가 있습니다 — '{link}' → '{to}'. 링크를 따라 쓰지 않습니다 — 내용이 필요하면 root 만 바꿀 수 있는 새 폴더(예: /root 아래)로 --extract-to 해 꺼내십시오"),
+            format!("a link owned by a user other than root (uid {uid}) is on the way to the restore place — '{link}' → '{to}'; not writing through it — to get the content, take it out with --extract-to into a new folder that only root can change (for example under /root)"),
         ),
         LinkHit::LooseFolder { link, to } => lang.pick(
-            format!("되돌릴 자리로 가는 길에 root 의 링크가 있지만 그 링크가 놓인 폴더를 root 가 아닌 사용자도 바꿀 수 있습니다 — '{link}' → '{to}'. 링크를 따라 쓰지 않습니다 — 내용이 필요하면 --extract-to 로 꺼내십시오"),
-            format!("a link owned by root is on the way to the restore place, but users other than root can change the folder it is in — '{link}' → '{to}'; not writing through it — to get the content, take it out with --extract-to"),
+            format!("되돌릴 자리로 가는 길에 root 의 링크가 있지만 그 링크가 놓인 폴더를 root 가 아닌 사용자도 바꿀 수 있습니다 — '{link}' → '{to}'. 링크를 따라 쓰지 않습니다 — 내용이 필요하면 root 만 바꿀 수 있는 새 폴더(예: /root 아래)로 --extract-to 해 꺼내십시오"),
+            format!("a link owned by root is on the way to the restore place, but users other than root can change the folder it is in — '{link}' → '{to}'; not writing through it — to get the content, take it out with --extract-to into a new folder that only root can change (for example under /root)"),
         ),
         LinkHit::ClimbsPastMissing { missing } => lang.pick(
             format!("되돌릴 자리의 경로가 없는 폴더 '{missing}' 아래에서 '..' 로 되짚어 올라갑니다 — 확인하지 못하는 길이라 쓰지 않습니다"),
@@ -622,6 +638,83 @@ fn link_why(hit: &LinkHit) -> String {
         LinkHit::TooMany { link } => lang.pick(
             format!("되돌릴 자리로 가는 길의 링크가 너무 많이 이어집니다 — '{link}'. 쓰지 않습니다"),
             format!("too many links on the way to the restore place — '{link}'; not writing"),
+        ),
+    }
+}
+
+/// 꺼낼 폴더 `dir` 에 꺼내면 안 되는 까닭(이슈 #172) — 됐으면 `None`. 계획과 쓰기 직전에 묻는다.
+///
+/// 1.26.0 은 꺼낼 폴더와 그 위 성분을 묻지 않았다 — 사용자가 `~/restored` 를 `/etc/cron.d` 를 가리키는 자기 링크로
+/// 미리 두면 root 가 그 너머에 root 소유 파일을 만들고, 그 자리에 미리 둔 일반 파일이면 root 가 그 파일을 비우고 담아
+/// 둔 본문을 써 사본이 그 사람의 것으로 남았다. 그래서 (1) 그 경로를 제자리 복원과 같은 링크 가드로 묻고(폴더 자체가
+/// 링크면 누구의 것이든 걸린다), (2) 폴더가 이미 있으면 지금 계정의 것이고 group · other 가 쓸 수 없어야 한다(sticky
+/// 도 받지 않는다). 없으면 쓰기가 지금 계정으로 새로 만든다. 그 폴더에는 남이 이름을 미리 둘 수 없으므로 같은 이름을
+/// 다시 꺼내는 덮어쓰기는 막지 않는다. 확인하지 못한 것도 막는다. Windows 는 둘 다 묻지 않는다(백엔드 기본값).
+fn extract_dir_guard(backend: &dyn PlatformWrite, dir: &str) -> Option<String> {
+    let lang = remedy_sdk::i18n::current();
+    let what = match backend.link_on_the_way(dir, LastLink::Refused) {
+        Ok(Some(hit)) => extract_link_what(&hit),
+        Err(e) => lang.pick(
+            format!("가는 길의 링크를 확인하지 못했습니다: {e}"),
+            format!("the links on the way could not be checked: {e}"),
+        ),
+        Ok(None) => match backend.extract_dir_problem(dir) {
+            Ok(None) => return None,
+            Ok(Some(hit)) => extract_dir_what(&hit),
+            Err(e) => lang.pick(
+                format!("확인하지 못했습니다: {e}"),
+                format!("it could not be checked: {e}"),
+            ),
+        },
+    };
+    Some(lang.pick(
+        format!("꺼낼 폴더 '{dir}': {what} — 아무것도 쓰지 않았습니다. 꺼낼 폴더는 root 만 바꿀 수 있는 새 폴더(예: /root 아래)로 고르십시오"),
+        format!("folder to extract to '{dir}': {what} — nothing was written. Pick a new folder that only root can change (for example under /root)"),
+    ))
+}
+
+/// 꺼낼 폴더로 가는 길에서 걸린 링크 — [`extract_dir_guard`] 의 가운데 토막.
+fn extract_link_what(hit: &LinkHit) -> String {
+    let lang = remedy_sdk::i18n::current();
+    match hit {
+        LinkHit::Itself { link, to } => lang.pick(
+            format!("링크입니다('{link}' → '{to}')"),
+            format!("it is a link ('{link}' → '{to}')"),
+        ),
+        LinkHit::NotRoot { link, uid, to } => lang.pick(
+            format!("가는 길에 root 가 아닌 사용자(uid {uid})의 링크가 있습니다('{link}' → '{to}')"),
+            format!("a link owned by a user other than root (uid {uid}) is on the way ('{link}' → '{to}')"),
+        ),
+        LinkHit::LooseFolder { link, to } => lang.pick(
+            format!("가는 길에 root 의 링크가 있지만 그 링크가 놓인 폴더를 root 가 아닌 사용자도 바꿀 수 있습니다('{link}' → '{to}')"),
+            format!("a link owned by root is on the way, but users other than root can change the folder it is in ('{link}' → '{to}')"),
+        ),
+        LinkHit::ClimbsPastMissing { missing } => lang.pick(
+            format!("없는 폴더 '{missing}' 아래에서 '..' 로 되짚어 올라갑니다"),
+            format!("the path climbs back with '..' below the missing folder '{missing}'"),
+        ),
+        LinkHit::TooMany { link } => lang.pick(
+            format!("가는 길의 링크가 너무 많이 이어집니다('{link}')"),
+            format!("too many links on the way ('{link}')"),
+        ),
+    }
+}
+
+/// 이미 있는 꺼낼 폴더가 걸린 까닭 — [`extract_dir_guard`] 의 가운데 토막.
+fn extract_dir_what(hit: &ExtractDirHit) -> String {
+    let lang = remedy_sdk::i18n::current();
+    match hit {
+        ExtractDirHit::NotAFolder => lang.pick(
+            "폴더가 아닙니다".to_string(),
+            "it is not a folder".to_string(),
+        ),
+        ExtractDirHit::NotMine { uid, me } => lang.pick(
+            format!("지금 계정(uid {me})이 아니라 uid {uid} 의 폴더입니다"),
+            format!("the folder belongs to uid {uid}, not to this account (uid {me})"),
+        ),
+        ExtractDirHit::OthersCanWrite { mode } => lang.pick(
+            format!("다른 사용자도 그 안에 이름을 만들거나 바꿀 수 있습니다(권한 {mode:04o})"),
+            format!("other users can create or change names in it (mode {mode:04o})"),
         ),
     }
 }
@@ -667,8 +760,12 @@ pub fn apply(
     // 자리를 링크를 따르지 않고 한 번 열어 그 파일 하나로 끝까지 다루므로 따라가지 않고 그 항목이 실패한다. 남는
     // 한계는 **가운데 성분**의 바꿔치기다 — 쓰기가 부모 폴더를 이름으로 풀고, 성분마다 `openat(O_NOFOLLOW)` 로 걷는
     // 길은 std 에 없다. 유닛 파일 쓰기도 믿는 root 링크만 따라가 그 끝을 한 번 연다. 인증서 · 줄 자리의 쓰기는 마지막
-    // 성분도 이름으로 연다.
-    if plan.extract_to.is_none() {
+    // 성분도 이름으로 연다. 꺼내기는 꺼낼 폴더를 계획과 같이 다시 묻는다([`extract_dir_guard`]).
+    if let Some(dir) = &plan.extract_to {
+        if let Some(why) = extract_dir_guard(backend, dir) {
+            return Err(RestoreError::ExtractDir { why });
+        }
+    } else {
         let none = serde_json::Value::Null;
         for item in plan.allowed() {
             let meta = opened
@@ -2247,11 +2344,64 @@ mod tests {
             ]
         );
 
+        // 꺼내기는 원래 자리가 아니라 꺼낼 폴더 하나만 묻는다.
         let b = Links::default();
         b.hit(tool, Some(alice_link()));
         let (_, _, p) = open_and_plan(vec![entry(tool)], &b, Some("/srv/out"));
         assert_eq!(p.blocked().count(), 0, "{:?}", p.items);
-        assert!(b.asked.borrow().is_empty(), "{:?}", b.asked.borrow());
+        assert_eq!(
+            *b.asked.borrow(),
+            [("/srv/out".to_string(), LastLink::Refused)]
+        );
+    }
+
+    /// **꺼낼 폴더로 가는 길에 따라 쓰면 안 되는 링크가 있으면 꺼내지 않는다**(이슈 #172) — 1.26.0 은 꺼낼 폴더와 그
+    /// 위 성분을 묻지 않아, 사용자가 미리 둔 링크 폴더(`~/restored` → `/etc/cron.d`)를 따라 root 소유 파일을 그 너머에
+    /// 만들었다. 계획에서 멈추고(5), 사유는 무엇이 걸렸는지와 고를 폴더를 말한다.
+    #[test]
+    fn a_folder_to_extract_to_behind_a_link_is_refused_before_any_write() {
+        let b = Links::default();
+        b.hit(
+            "/srv/out",
+            Some(remedy_platform::write::LinkHit::Itself {
+                link: "/srv/out".into(),
+                to: "/etc/cron.d".into(),
+            }),
+        );
+        let (bytes, ck) = build(vec![entry("/srv/home/alice/bin/tool")]);
+        let sealed = peek(&bytes).unwrap();
+        let opened = sealed.unlock(&ck).unwrap();
+        let guards = Guards {
+            protected: &protected(),
+            vouched: &nothing_vouched(),
+        };
+        let err = plan(&opened, "r1", &b, &guards, &[], Some("/srv/out"))
+            .expect_err("링크 너머로 꺼낼 계획을 세웠다");
+        assert_eq!(err.exit_code(), remedy_sdk::artifact::ExitCode::GuardStop);
+        let msg = err.to_string();
+        assert!(
+            msg.contains("'/srv/out' → '/etc/cron.d'")
+                && msg.contains("/root")
+                && msg.contains("nothing was written")
+                && !msg.chars().any(|c| ('가'..='힣').contains(&c)),
+            "{msg}"
+        );
+        assert!(b.wrote.borrow().is_empty(), "{:?}", b.wrote.borrow());
+    }
+
+    /// 꺼낼 폴더도 **쓰기 직전에 다시 본다** — 계획을 보인 뒤 그 폴더가 링크로 바뀌면 아무것도 쓰지 않고 멈춘다(5).
+    #[test]
+    fn a_link_put_at_the_folder_to_extract_to_after_the_plan_stops_before_any_write() {
+        let b = Links::default();
+        let (bytes, ck, p) = open_and_plan(vec![entry("/srv/a.bin")], &b, Some("/srv/out"));
+        assert_eq!(p.allowed().count(), 1, "{:?}", p.items);
+
+        b.hit("/srv/out", Some(alice_link()));
+        let sealed = peek(&bytes).unwrap();
+        let opened = sealed.unlock(&ck).unwrap();
+        let err = apply(&p, &opened, &ck, &b).expect_err("링크로 바뀐 꺼낼 폴더에 썼다");
+        assert_eq!(err.exit_code(), remedy_sdk::artifact::ExitCode::GuardStop);
+        assert!(b.wrote.borrow().is_empty(), "{:?}", b.wrote.borrow());
     }
 
     /// 묻지 못한 길은 '링크가 없다' 로 접지 않는다 — 막는다.
@@ -2520,6 +2670,126 @@ mod tests {
                 .is_some_and(|w| w.starts_with("the restore place is a link")),
             "{why:?}"
         );
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// 배포되는 백엔드로 **꺼낼 폴더**를 잰다(이슈 #172 · root 회차). 꺼낼 폴더를 남이 미리 만들 수 있으면 그 폴더의
+    /// 링크를 따라 root 가 쓰거나, 남이 미리 둔 파일에 root 가 담아 둔 본문을 쓴다. 그래서 그 폴더가 링크이거나, 이미
+    /// 있는데 지금 계정의 것이 아니거나, group · other 가 쓸 수 있으면(sticky 라도) 꺼내지 않는다(5). 지금 계정만
+    /// 바꿀 수 있는 폴더와 새 폴더는 지금처럼 꺼내고, 같은 이름을 다시 꺼내면 덮어쓴다 — 그 폴더에는 남이 이름을
+    /// 미리 둘 수 없으므로 덮어쓰기를 막지 않는다.
+    #[cfg(unix)]
+    #[test]
+    fn a_folder_to_extract_to_that_others_can_change_is_refused() {
+        use remedy_sdk::artifact::ExitCode;
+        use std::os::unix::fs::{chown, lchown, symlink, MetadataExt, PermissionsExt};
+        if !std::fs::metadata("/proc/self").is_ok_and(|m| m.uid() == 0) {
+            eprintln!("root 가 아니라 남의 폴더 · 링크를 만들 수 없다 — 재지 않는다");
+            return;
+        }
+        let lab = std::env::temp_dir().join("remedy-restore-extract-dir");
+        let _ = std::fs::remove_dir_all(&lab);
+        let mk = |name: &str, mode: u32| {
+            let d = lab.join(name);
+            std::fs::create_dir_all(&d).unwrap();
+            std::fs::set_permissions(&d, std::fs::Permissions::from_mode(mode)).unwrap();
+            d
+        };
+        mk("", 0o755);
+        let target = mk("target", 0o755);
+        let u = mk("u", 0o755);
+        chown(&u, Some(4242), Some(4242)).unwrap();
+        let restored = u.join("restored");
+        symlink(&target, &restored).unwrap();
+        lchown(&restored, Some(4242), Some(4242)).unwrap();
+        let theirs = mk("theirs", 0o755);
+        chown(&theirs, Some(4242), Some(4242)).unwrap();
+        let open = mk("open", 0o777);
+        let sticky = mk("sticky", 0o1777);
+        let mine = mk("mine", 0o755);
+        let fresh = lab.join("mine").join("fresh");
+
+        let (bytes, ck) = build(vec![entry("/srv/x")]);
+        let sealed = peek(&bytes).unwrap();
+        let opened = sealed.unlock(&ck).unwrap();
+        let guards = Guards {
+            protected: &protected(),
+            vouched: &nothing_vouched(),
+        };
+        let backend = default_backend();
+        let extract = |dir: &std::path::Path| -> Result<usize, ExitCode> {
+            let d = dir.to_string_lossy();
+            let p =
+                plan(&opened, "r1", &backend, &guards, &[], Some(&d)).map_err(|e| e.exit_code())?;
+            let out = apply(&p, &opened, &ck, &backend).map_err(|e| e.exit_code())?;
+            Ok(out.iter().filter(|o| o.result.is_ok()).count())
+        };
+        let names = |d: &std::path::Path| -> Vec<String> {
+            std::fs::read_dir(d)
+                .map(|rd| {
+                    rd.flatten()
+                        .map(|e| e.file_name().to_string_lossy().to_string())
+                        .collect()
+                })
+                .unwrap_or_default()
+        };
+
+        let got = extract(&restored);
+        assert!(
+            names(&target).is_empty(),
+            "링크가 가리킨 자리에 생겼다: {:?}",
+            names(&target)
+        );
+        assert_eq!(got, Err(ExitCode::GuardStop), "남의 링크 폴더");
+        for (dir, what) in [
+            (&theirs, "남의 폴더"),
+            (&open, "0777 폴더"),
+            (&sticky, "1777 폴더"),
+        ] {
+            let got = extract(dir);
+            assert!(names(dir).is_empty(), "{what} 에 꺼냈다: {:?}", names(dir));
+            assert_eq!(got, Err(ExitCode::GuardStop), "{what}");
+        }
+
+        for dir in [&mine, &fresh] {
+            assert_eq!(extract(dir), Ok(1), "{}", dir.display());
+            assert_eq!(names(dir), ["_srv_x"], "{}", dir.display());
+        }
+        let copy = mine.join("_srv_x");
+        std::fs::write(&copy, b"stale").unwrap();
+        assert_eq!(extract(&mine), Ok(1), "같은 이름을 다시 꺼내기");
+        assert_eq!(std::fs::read(&copy).unwrap(), b"payload");
+        let md = std::fs::metadata(&fresh).unwrap();
+        assert_eq!(
+            (md.uid(), md.mode() & 0o7777),
+            (0, 0o755),
+            "새로 만든 꺼낼 폴더"
+        );
+        std::fs::remove_dir_all(&lab).ok();
+    }
+
+    /// 꺼낼 폴더를 계획 뒤에 남이 바꿀 수 있게 바꾸면 쓰기 직전에 다시 보아 멈춘다(root 회차 · 이슈 #172).
+    #[cfg(unix)]
+    #[test]
+    fn a_folder_to_extract_to_opened_up_after_the_plan_stops_before_any_write() {
+        use std::os::unix::fs::{MetadataExt, PermissionsExt};
+        if !std::fs::metadata("/proc/self").is_ok_and(|m| m.uid() == 0) {
+            eprintln!("root 가 아니라 재지 않는다");
+            return;
+        }
+        let dir = std::env::temp_dir().join("remedy-restore-extract-dir-late");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let d = dir.to_string_lossy().to_string();
+        let backend = default_backend();
+        let (bytes, ck, p) = open_and_plan(vec![entry("/srv/x")], &backend, Some(d.as_str()));
+        std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o777)).unwrap();
+        let sealed = peek(&bytes).unwrap();
+        let opened = sealed.unlock(&ck).unwrap();
+        let err = apply(&p, &opened, &ck, &backend).expect_err("열린 꺼낼 폴더에 썼다");
+        assert_eq!(err.exit_code(), remedy_sdk::artifact::ExitCode::GuardStop);
+        assert!(std::fs::read_dir(&dir).unwrap().next().is_none(), "썼다");
         std::fs::remove_dir_all(&dir).ok();
     }
 

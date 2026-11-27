@@ -29,7 +29,7 @@ use crate::read::{
     WalkResult,
 };
 use crate::write::{
-    DirIndex, FileMeta, FsRestore, KillPredicate, LastLink, LineAt, LinkHit, Owner,
+    DirIndex, ExtractDirHit, FileMeta, FsRestore, KillPredicate, LastLink, LineAt, LinkHit, Owner,
     PersistenceIndex, PlatformWrite, RemovedBy, RestoreReport, Target, VerifySite,
 };
 use crate::PlatformError;
@@ -750,6 +750,10 @@ impl PlatformWrite for Live {
         last: LastLink,
     ) -> Result<Option<LinkHit>, PlatformError> {
         FsRestore.link_on_the_way(place, last)
+    }
+
+    fn extract_dir_problem(&self, dir: &str) -> Result<Option<ExtractDirHit>, PlatformError> {
+        FsRestore.extract_dir_problem(dir)
     }
 
     fn quarantine_read(&self, path: &str) -> Result<(Vec<u8>, FileMeta), PlatformError> {

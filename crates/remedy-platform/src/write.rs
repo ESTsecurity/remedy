@@ -171,6 +171,21 @@ pub enum LastLink {
     Followed,
 }
 
+/// 이미 있는 꺼낼 폴더를 **지금 계정만 바꿀 수 있는 폴더**로 볼 수 없는 까닭(이슈 #172) —
+/// [`PlatformWrite::extract_dir_problem`] 의 답.
+///
+/// 남이 그 폴더를 바꿀 수 있으면 남이 미리 둔 이름에 꺼낸다 — 링크면 그 너머에 root 소유 파일이 생기고, 남의 일반
+/// 파일이면 root 가 그 파일을 비우고 담아 둔 본문을 쓰므로 사본이 그 사람의 것으로 남는다.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ExtractDirHit {
+    /// 폴더가 아니다(링크 · 파일 등 — 링크는 따라가지 않고 본다).
+    NotAFolder,
+    /// 지금 계정(실효 uid `me`)이 아닌 `uid` 의 폴더다.
+    NotMine { uid: u32, me: u32 },
+    /// group · other 가 쓸 수 있다(`mode` 는 권한 비트) — sticky 라도 그 안에 새 이름은 누구나 만든다.
+    OthersCanWrite { mode: u32 },
+}
+
 /// 레지스트리 값 하나의 **원본 그대로** (설계-09 P7).
 ///
 /// 타입 번호와 바이트를 날것으로 든다. 우리 `RegValue` 열거형으로 옮기면
@@ -429,6 +444,15 @@ pub trait PlatformWrite {
         _place: &str,
         _last: LastLink,
     ) -> Result<Option<LinkHit>, PlatformError> {
+        Ok(None)
+    }
+
+    /// 꺼낼 폴더 `dir` 이 **이미 있으면** 지금 계정만 바꿀 수 있는 폴더인가(이슈 #172) — 아니면 그 까닭. 없으면 `None`
+    /// 이다 — 그 위 성분은 [`PlatformWrite::link_on_the_way`] 가 묻고, 쓰기가 지금 계정으로 새로 만든다. 확인하지
+    /// 못한 것은 `Err` 다.
+    ///
+    /// 기본은 `None` 이다 — 시험 가짜, 그리고 Windows(꺼내기 동작은 앞과 같다).
+    fn extract_dir_problem(&self, _dir: &str) -> Result<Option<ExtractDirHit>, PlatformError> {
         Ok(None)
     }
 
@@ -1391,9 +1415,30 @@ const MAX_LINK_HOPS: usize = 40;
 /// root 의 링크가 있으면 그것을 sticky 폴더의 새 이름으로 옮겨 놓을 수는 있다.
 #[cfg(unix)]
 fn root_only(uid: u32, mode: u32) -> bool {
-    const GROUP_OTHER_WRITE: u32 = 0o022;
     const STICKY: u32 = 0o1000;
     uid == 0 && (mode & GROUP_OTHER_WRITE == 0 || mode & STICKY != 0)
+}
+
+/// group · other 의 쓰기 비트(`S_IWGRP | S_IWOTH`).
+#[cfg(unix)]
+const GROUP_OTHER_WRITE: u32 = 0o022;
+
+/// 이미 있는 꺼낼 폴더가 걸리는 까닭(이슈 #172) — **순수하다**. `is_dir` · `uid` · `mode` 는 그 자리의 `lstat`, `me` 는
+/// 지금 계정의 실효 uid 다. [`root_only`] 와 달리 sticky 도 받지 않는다 — sticky 폴더에도 새 이름은 누구나 만들므로
+/// 남이 꺼낼 이름을 먼저 둘 수 있다(`/tmp` 바로 아래로 꺼내기).
+#[cfg(unix)]
+pub(crate) fn extract_dir_hit(is_dir: bool, uid: u32, mode: u32, me: u32) -> Option<ExtractDirHit> {
+    if !is_dir {
+        Some(ExtractDirHit::NotAFolder)
+    } else if uid != me {
+        Some(ExtractDirHit::NotMine { uid, me })
+    } else if mode & GROUP_OTHER_WRITE != 0 {
+        Some(ExtractDirHit::OthersCanWrite {
+            mode: mode & 0o7777,
+        })
+    } else {
+        None
+    }
 }
 
 /// `place` 로 가는 길을 커널처럼 한 성분씩 걸으며 링크를 본다(이슈 #172 ①) — **순수하다**: `lstat` 은 부르는 쪽이
@@ -2458,6 +2503,42 @@ impl PlatformWrite for FsRestore {
                 .join(p)
         };
         link_hit(&abs, last, &mut lstat_node).map_err(|e| PlatformError::io(place, e))
+    }
+
+    /// 그 자리를 `lstat` 해(링크를 따라가지 않는다) [`extract_dir_hit`] 로 본다. 지금 계정은 `/proc/self/status` 의
+    /// 실효 uid 다 — 읽지 못하면 확인하지 못한 것이다.
+    #[cfg(unix)]
+    fn extract_dir_problem(&self, dir: &str) -> Result<Option<ExtractDirHit>, PlatformError> {
+        use std::os::unix::fs::MetadataExt;
+        // 끝의 `/` 는 뗀다 — 남기면 `lstat` 이 그 자리의 링크를 따라간다.
+        let at = match dir.trim_end_matches('/') {
+            "" => "/",
+            d => d,
+        };
+        let md = match std::fs::symlink_metadata(at) {
+            Ok(md) => md,
+            Err(e)
+                if matches!(
+                    e.kind(),
+                    std::io::ErrorKind::NotFound | std::io::ErrorKind::NotADirectory
+                ) =>
+            {
+                return Ok(None)
+            }
+            Err(e) => return Err(PlatformError::io(dir, e)),
+        };
+        let me = crate::read::effective_uid().ok_or_else(|| {
+            PlatformError::refused(
+                "지금 계정의 실효 uid 를 읽지 못했습니다(/proc/self/status)".into(),
+                "could not read the effective uid of this account (/proc/self/status)".into(),
+            )
+        })?;
+        Ok(extract_dir_hit(
+            md.file_type().is_dir(),
+            md.uid(),
+            md.mode(),
+            me,
+        ))
     }
 
     fn quarantine_read(&self, path: &str) -> Result<(Vec<u8>, FileMeta), PlatformError> {

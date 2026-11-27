@@ -276,8 +276,9 @@ pub(super) fn cmd_restore(raw: &[String]) -> Result<Code, Failure> {
         &a.list("entry"),
         extract_to,
     )
+    // 꺼낼 폴더를 막은 것은 가드다(5 · 이슈 #172). 그 밖의 계획 오류(복원할 항목이 없음)는 앞과 같이 사용법 오류다.
     .map_err(|e| Failure {
-        code: Code::UsageError,
+        code: e.exit_code(),
         message: e.to_string(),
     })?;
 

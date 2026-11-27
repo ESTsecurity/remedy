@@ -400,8 +400,15 @@ fn platform_elevated() -> Option<bool> {
 /// 새로 기대는 것이 없다.
 #[cfg(unix)]
 fn platform_elevated() -> Option<bool> {
+    effective_uid().map(|u| u == 0)
+}
+
+/// 이 프로세스의 **실효(effective) uid** — `/proc/self/status` 에서 읽는다([`platform_elevated`] 와 같은 까닭으로
+/// `libc::geteuid` 를 부르지 않는다). 읽지 못하면 `None` 이다.
+#[cfg(unix)]
+pub(crate) fn effective_uid() -> Option<u32> {
     let text = std::fs::read_to_string("/proc/self/status").ok()?;
-    euid_is_root(&text)
+    euid_of(&text)
 }
 
 /// `/proc/self/status` 에서 **유효 UID** 를 읽는다.
@@ -413,10 +420,9 @@ fn platform_elevated() -> Option<bool> {
 /// 순수 함수로 떼어 둔 이유는 여기가 이 검사에서 유일하게 틀릴 수 있는
 /// 자리이기 때문이다. 파일을 읽는 부분은 틀릴 데가 없다.
 #[cfg(unix)]
-fn euid_is_root(status: &str) -> Option<bool> {
+fn euid_of(status: &str) -> Option<u32> {
     let line = status.lines().find(|l| l.starts_with("Uid:"))?;
-    let euid = line.split_whitespace().nth(2)?;
-    Some(euid == "0")
+    line.split_whitespace().nth(2)?.parse().ok()
 }
 
 #[cfg(not(any(windows, unix)))]
@@ -993,7 +999,10 @@ mod subdirs_tests {
 
 #[cfg(all(test, unix))]
 mod elevation_tests {
-    use super::euid_is_root;
+    /// 관리자 판정([`super::platform_elevated`])이 보는 것 — 실효 uid 가 0 인가.
+    fn euid_is_root(status: &str) -> Option<bool> {
+        super::euid_of(status).map(|u| u == 0)
+    }
 
     #[test]
     fn the_effective_uid_is_the_second_number_not_the_first() {

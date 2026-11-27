@@ -1806,8 +1806,8 @@ mod place_opened_once {
         cleanup(&dir).ok();
     }
 
-    /// 자리에 링크가 있으면 따라 쓰지 않는다 — 꺼낼 폴더에 미리 둔 링크(꺼내기는 링크 가드를 묻지 않는다)와, 계획 ·
-    /// 쓰기 직전 물음 뒤에 바뀐 제자리의 링크가 이 꼴이다.
+    /// 자리에 링크가 있으면 따라 쓰지 않는다 — 꺼낼 폴더 안에 둔 링크(꺼내기는 꺼낼 폴더만 묻고 그 안의 자리는 묻지
+    /// 않는다)와, 계획 · 쓰기 직전 물음 뒤에 바뀐 제자리의 링크가 이 꼴이다.
     #[test]
     fn a_link_at_the_place_is_not_written_through() {
         let dir = tmp("link-at-place");
@@ -1918,6 +1918,34 @@ mod place_opened_once {
         assert!(got.is_err());
         assert_eq!(calls, 1);
     }
+}
+
+/// 이미 있는 꺼낼 폴더는 지금 계정의 것이고 group · other 가 쓸 수 없어야 한다(이슈 #172) — sticky 도 받지 않는다.
+/// 폴더가 아니면(링크 · 파일) 걸린다.
+#[cfg(unix)]
+#[test]
+fn a_folder_to_extract_to_must_be_ours_and_closed_to_others() {
+    let me = 0;
+    assert_eq!(extract_dir_hit(true, 0, 0o040755, me), None);
+    assert_eq!(extract_dir_hit(true, 0, 0o040700, me), None);
+    assert_eq!(
+        extract_dir_hit(true, 4242, 0o040755, me),
+        Some(ExtractDirHit::NotMine { uid: 4242, me })
+    );
+    for mode in [0o040777, 0o041777, 0o040775, 0o040757] {
+        assert_eq!(
+            extract_dir_hit(true, 0, mode, me),
+            Some(ExtractDirHit::OthersCanWrite {
+                mode: mode & 0o7777
+            }),
+            "{mode:o}"
+        );
+    }
+    assert_eq!(
+        extract_dir_hit(false, 0, 0o120777, me),
+        Some(ExtractDirHit::NotAFolder)
+    );
+    assert_eq!(extract_dir_hit(true, 1000, 0o040755, 1000), None);
 }
 
 /// 꺼낸 사본에는 파일 권능도 **POSIX ACL** 도 붙이지 않는다(이슈 #172) — ACL 의 이름 붙은 항목은 소유자와 같이 숫자
