@@ -513,13 +513,15 @@ fn extract_path(dir: &str, origin: &str) -> String {
 ///
 /// cron · 텍스트 줄은 그 파일 안의 줄만 고친다 — 치료도 그 자리의 링크(`/etc/resolv.conf` 같은 root 의 것)를 따라
 /// 고쳤다. 유닛은 유닛 파일을 통째로 쓰고, 활성화 링크는 그 폴더 안에 **링크를 단다**(이미 있으면 그대로 둔다 —
-/// 링크를 따라 쓰지 않는다). 디렉터리는 루트와 목차의 폴더 · 파일이다. 레지스트리 · 작업 · 예외 목록 · 부팅 구성은
-/// 파일 시스템에 쓰지 않는다.
+/// 링크를 따라 쓰지 않는다). 디렉터리는 루트와 목차의 폴더 · 파일이다. 구조적 설정은 키만이 아니라 그 파일을
+/// 통째로 담아 파일처럼 쓴다. 레지스트리 · 작업 · 예외 목록 · 부팅 구성은 파일 시스템에 쓰지 않는다.
+///
+/// 종류를 `_` 로 닫지 않는다 — 새 종류가 생기면 여기서 컴파일이 멈춰 그 종류가 쓰는 자리를 묻게 한다.
 fn write_places(kind: EntryKind, dest: &str, meta: &serde_json::Value) -> Vec<(String, LastLink)> {
     use LastLink::{Followed, Refused};
     let one = |place: &str, last| vec![(place.to_string(), last)];
     match kind {
-        EntryKind::File | EntryKind::FileStream => one(dest, Refused),
+        EntryKind::File | EntryKind::FileStream | EntryKind::StructuredConfig => one(dest, Refused),
         EntryKind::CertStore if !is_registry_target(dest) => one(dest, Refused),
         EntryKind::TextLine => one(dest, Followed),
         EntryKind::Cron => match dest.rsplit_once(':') {
@@ -554,7 +556,13 @@ fn write_places(kind: EntryKind, dest: &str, meta: &serde_json::Value) -> Vec<(S
                 .map(|p| (p, Refused))
                 .collect()
         }
-        _ => Vec::new(),
+        EntryKind::CertStore
+        | EntryKind::RegistryValue
+        | EntryKind::RegistryKey
+        | EntryKind::Task
+        | EntryKind::Service
+        | EntryKind::AvExclusion
+        | EntryKind::BootConfig => Vec::new(),
     }
 }
 
@@ -2236,6 +2244,11 @@ mod tests {
                     serde_json::json!({ "line_no": 2 }),
                 ),
                 with(
+                    EntryKind::StructuredConfig,
+                    "/srv/app/s.json",
+                    serde_json::json!({ "file": {}, "key_path": "a" }),
+                ),
+                with(
                     EntryKind::Unit,
                     unit,
                     serde_json::json!({ "links": [format!("{wants}/u.service")] }),
@@ -2262,6 +2275,7 @@ mod tests {
         let want = [
             ("/srv/cron/alice", Followed),
             ("/srv/app/a.conf", Followed),
+            ("/srv/app/s.json", Refused),
             (unit, Refused),
             (wants, Followed),
             ("/srv/ext", Refused),
@@ -2271,6 +2285,27 @@ mod tests {
         ]
         .map(|(s, l)| (s.to_string(), l));
         assert_eq!(*b.asked.borrow(), want);
+    }
+
+    /// 구조적 설정(JSON · XML · YAML 의 키를 뺀 항목)도 그 파일을 통째로 다시 쓴다 — 키를 뺀 파일은 남으므로 사용자가
+    /// 그 이름이나 부모 폴더를 자기 링크로 바꿔 두기만 하면 된다. 가드가 이 종류를 묻지 않던 동안에는 쓰기가 그 링크를
+    /// 따라 root 의 파일을 담아 둔 JSON 으로 덮을 수 있었다.
+    #[test]
+    fn a_link_on_the_way_to_a_structured_config_holds_it_back() {
+        let s = "/srv/home/alice/.config/app/settings.json";
+        let b = Links::default();
+        b.hit(s, Some(alice_link()));
+        let (_, _, p) = open_and_plan(
+            vec![Entry {
+                kind: EntryKind::StructuredConfig,
+                origin: s.into(),
+                meta: serde_json::json!({ "file": {}, "key_path": "a" }),
+                content: b"{}".to_vec(),
+            }],
+            &b,
+            None,
+        );
+        assert_eq!(p.blocked().count(), 1, "{:?}", p.items);
     }
 
     /// **쓰기 직전에 다시 본다** — 계획을 보이고 사람이 확인하는 사이에 폴더가 링크로 바뀌면 아무것도 쓰지 않고
