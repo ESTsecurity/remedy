@@ -52,8 +52,8 @@
 #   D7  격리된 도구의 부모(/home/alice/bin)를 root 소유 빈 폴더(/etc/remedy-lab-d7)를 가리키는 alice 소유의
 #       링크로 바꾸고 그 항목만 제자리 복원 — 종료 5 · 링크가 가리킨 자리에 생긴 것 0개 · 링크 그대로
 #   D8  alice 의 4755 도구 항목을 컨테이너 안의 빈 폴더로 꺼낸 사본이 꺼낸 계정(root 회차는 0:0)의 것이고 setuid ·
-#       setgid 가 없다 — D3 의 사본은 호스트가 붙인 폴더에 있어 소유자 · mode 를 믿을 수 없다. 파일 권능
-#       (`security.capability`)은 이미지에 `setcap` 이 없어 코어 단위 시험만 잰다
+#       setgid 가 없다 — `--out` 에 남기는 D3 의 사본은 호스트가 붙인 폴더에 있어 소유자 · mode 를 믿을 수 없다. 파일
+#       권능(`security.capability`)은 이미지에 `setcap` 이 없어 코어 단위 시험만 잰다
 #
 # 칸 수는 엔진 1.27.0 부터 31 이다(CA 도구가 없는 이미지는 못 잼 C2b · D5b 를 더해 33). 그 앞의 엔진은 위 열하나를
 # 건너뛰어 20 이다(CA 도구가 없으면 C2b 를 더해 21).
@@ -535,10 +535,16 @@ check "D1 run_id 를 알 수 있다" "$([ -n "$RUN" ] && echo 1 || echo 0)" "${R
 rc=$?
 check "D2 --yes 없이는 계획만 보인다" "$([ $rc -le 2 ] && echo 1 || echo 0)" "exit=$rc"
 
+# 꺼낼 폴더는 컨테이너 안에 새로 만든 root 의 0700 폴더다. **`--out` 아래로 꺼내지 않는다** — 그 자리는 호스트가 붙인
+# 폴더라 WSL 에서 Windows 드라이브(9p)를 붙이면 1000:1000 · 777 로 보이고, 엔진 1.27.0 은 이미 있는 꺼낼 폴더가 꺼내는
+# 계정의 것이 아니거나 남이 쓸 수 있으면 5 로 멈춘다. 결과 폴더를 다시 쓰는 회차(같은 태그 · `--keep`)가 앞 회차의
+# `extracted` 로 그렇게 멈췄고, 그 회차의 D4 는 앞 회차가 남긴 사본으로 통과했다(2026-11-27 잼). 세고 잰 뒤
+# `--out/extracted` 에 복사해 남긴다. 1.27.0 앞의 엔진도 같은 자리로 꺼낸다.
+D3_DIR="$(mktemp -d /tmp/remedy-lab-d3.XXXXXX)"
 "$BIN" restore --run "$RUN" --state-dir "$STATE" --yes \
-    --extract-to "$OUT/extracted" > "$OUT/restore.log" 2>&1
+    --extract-to "$D3_DIR" > "$OUT/restore.log" 2>&1
 rc=$?
-n_ex=$(find "$OUT/extracted" -type f 2>/dev/null | wc -l)
+n_ex=$(find "$D3_DIR" -type f 2>/dev/null | wc -l)
 check "D3 격리물을 꺼낼 수 있다" \
     "$([ $rc -le 1 ] && [ "$n_ex" -gt 0 ] && echo 1 || echo 0)" \
     "exit=$rc · 꺼낸 파일 ${n_ex}개"
@@ -550,12 +556,14 @@ got_sha=""
 if [ -n "$want_sha" ]; then
     # **이름으로 찾지 않는다.** 꺼낸 자리의 이름이 원본과 같다는 보장이 없고,
     # 여기서 재려는 것은 이름이 아니라 **바이트가 같은 것이 돌아왔는가**다.
-    got_sha="$(find "$OUT/extracted" -type f -exec sha256sum {} \; 2>/dev/null \
+    got_sha="$(find "$D3_DIR" -type f -exec sha256sum {} \; 2>/dev/null \
                  | cut -d' ' -f1 | grep -x "$want_sha" | head -1)"
 fi
 check "D4 꺼낸 것이 원본과 바이트가 같다" \
     "$([ -n "$want_sha" ] && [ "$want_sha" = "$got_sha" ] && echo 1 || echo 0)" \
     "$(printf '%.12s' "${want_sha:-없음}") vs $(printf '%.12s' "${got_sha:-없음}")"
+rm -rf "$OUT/extracted" && mkdir -p "$OUT/extracted" && cp -R "$D3_DIR/." "$OUT/extracted/" 2>/dev/null
+rm -rf "$D3_DIR"
 
 # ── 제자리 복원 · 소유자 · 링크 (이슈 #172 · 엔진 1.27.0 부터) ──────
 #
@@ -646,8 +654,8 @@ $BU/systemd/user/remedy-lab-user.timer $BU/systemd/user/default.target.wants/rem
     fi
 
     # 꺼낸 사본은 꺼낸 계정의 것이고 setuid · setgid 가 없는가. 담아 둔 소유자는 번호라 다른 기계에서는 같은 번호의
-    # 다른 계정이고, setuid 를 단 사본은 꺼낸 폴더에 그 소유자의 권한으로 도는 실행 파일이 된다. **D3 의 사본으로 재지
-    # 않는다** — 그 자리(`--out`)는 호스트가 붙인 폴더라, WSL 에서 Windows 드라이브(9p)를 붙이면 모든 파일이 1000:1000 ·
+    # 다른 계정이고, setuid 를 단 사본은 꺼낸 폴더에 그 소유자의 권한으로 도는 실행 파일이 된다. **`--out` 에 남긴 D3 의
+    # 사본으로 재지 않는다** — 그 자리는 호스트가 붙인 폴더라, WSL 에서 Windows 드라이브(9p)를 붙이면 모든 파일이 1000:1000 ·
     # 777 로 보인다(2026-11-27 잼). 도구 항목 하나만 컨테이너 안의 빈 폴더로 한 번 더 꺼내 거기서 잰다(D7 처럼 같은 회차를
     # 다시 연다). 파일 권능(`security.capability`)은 이 이미지에 `setcap` 이 없어 여기서 재지 않는다 — 코어의 단위 시험
     # `extracting_drops_the_setid_bits_the_file_capability_and_the_owner` 가 잰다.
