@@ -209,11 +209,13 @@ pub enum LastLink {
     Followed,
 }
 
-/// 이미 있는 꺼낼 폴더를 **지금 계정만 바꿀 수 있는 폴더**로 볼 수 없는 까닭(이슈 #172) —
-/// [`PlatformWrite::extract_dir_problem`] 의 답.
+/// 꺼낼 폴더를 **지금 계정만 바꿀 수 있는 자리**로 볼 수 없는 까닭(이슈 #172) — 이미 있는 그 폴더, 또는 그 위
+/// 폴더다. [`PlatformWrite::extract_dir_problem`] 의 답.
 ///
 /// 남이 그 폴더를 바꿀 수 있으면 남이 미리 둔 이름에 꺼낸다 — 링크면 그 너머에 root 소유 파일이 생기고, 남의 일반
-/// 파일이면 root 가 그 파일을 비우고 담아 둔 본문을 쓰므로 사본이 그 사람의 것으로 남는다.
+/// 파일이면 root 가 그 파일을 비우고 담아 둔 본문을 쓰므로 사본이 그 사람의 것으로 남는다. 위 폴더를 남이 바꿀 수
+/// 있으면 그 사람이 꺼내는 도중에 같은 부모 안의 이름 바꾸기로 꺼낼 폴더를 링크와 바꿔친다 — 나머지 항목이 그 너머에
+/// 쓰인다.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ExtractDirHit {
     /// 폴더가 아니다(링크 · 파일 등 — 링크는 따라가지 않고 본다).
@@ -222,6 +224,10 @@ pub enum ExtractDirHit {
     NotMine { uid: u32, me: u32 },
     /// group · other 가 쓸 수 있다(`mode` 는 권한 비트) — sticky 라도 그 안에 새 이름은 누구나 만든다.
     OthersCanWrite { mode: u32 },
+    /// 위 폴더 `folder`(링크를 푼 실제 경로)가 root 도 지금 계정도 아닌 `uid` 의 것이다.
+    AboveSomeoneElses { folder: String, uid: u32 },
+    /// 위 폴더 `folder`(링크를 푼 실제 경로)를 group · other 가 쓸 수 있고 sticky 가 아니다(`mode` 는 권한 비트).
+    AboveOthersCanWrite { folder: String, mode: u32 },
 }
 
 /// 레지스트리 값 하나의 **원본 그대로** (설계-09 P7).
@@ -485,13 +491,24 @@ pub trait PlatformWrite {
         Ok(None)
     }
 
-    /// 꺼낼 폴더 `dir` 이 **이미 있으면** 지금 계정만 바꿀 수 있는 폴더인가(이슈 #172) — 아니면 그 까닭. 없으면 `None`
-    /// 이다 — 그 위 성분은 [`PlatformWrite::link_on_the_way`] 가 묻고, 쓰기가 지금 계정으로 새로 만든다. 확인하지
-    /// 못한 것은 `Err` 다.
+    /// 꺼낼 폴더 `dir` 이 **이미 있으면** 지금 계정만 바꿀 수 있는 폴더인가, 그리고 그 **위 폴더**(없으면 가장 가까운
+    /// 있는 위 폴더부터 뿌리까지)를 root 와 지금 계정 밖의 사용자가 바꿀 수 없는가(이슈 #172) — 아니면 그 까닭. 가는
+    /// 길의 링크는 [`PlatformWrite::link_on_the_way`] 가 묻는다. 없는 폴더는 쓰기 직전에
+    /// [`PlatformWrite::make_extract_dir`] 가 만들고 이것을 다시 묻는다. 확인하지 못한 것은 `Err` 다.
     ///
     /// 기본은 `None` 이다 — 시험 가짜, 그리고 Windows(꺼내기 동작은 앞과 같다).
     fn extract_dir_problem(&self, _dir: &str) -> Result<Option<ExtractDirHit>, PlatformError> {
         Ok(None)
+    }
+
+    /// 꺼낼 폴더 `dir` 이 없으면 **만든다**(이슈 #172) — 꺼내기가 쓰기 직전에 부르고, 곧바로
+    /// [`PlatformWrite::extract_dir_problem`] 을 폴더가 있는 꼴로 다시 묻는다. 첫 항목의 쓰기가 만들게 두면 그 물음과 첫
+    /// 쓰기 사이에 남이 같은 이름의 폴더를 먼저 만들 수 있다(`/tmp` 같은 sticky 폴더 바로 아래). 이미 폴더가 있으면
+    /// 그대로 둔다.
+    ///
+    /// 기본은 아무것도 하지 않는다 — 시험 가짜, 그리고 Windows(쓰기가 항목마다 만든다 · 앞과 같다).
+    fn make_extract_dir(&self, _dir: &str) -> Result<(), PlatformError> {
+        Ok(())
     }
 
     /// 격리할 파일을 **읽어 낸다. 아직 지우지 않는다.**
@@ -1453,8 +1470,38 @@ const MAX_LINK_HOPS: usize = 40;
 /// root 의 링크가 있으면 그것을 sticky 폴더의 새 이름으로 옮겨 놓을 수는 있다.
 #[cfg(unix)]
 fn root_only(uid: u32, mode: u32) -> bool {
+    only_root_and(0, uid, mode)
+}
+
+/// 이 폴더 안의 이름을 **root 와 `me` 만 바꿀 수 있는가**(이슈 #172) — 그 둘 가운데 하나의 것이고 group · other 가 쓸
+/// 수 없거나 sticky 다. [`root_only`] 와 같은 생각이고, `me` 가 0 이면 그것과 같다. 꺼낼 폴더의 위 폴더가 이것을
+/// 지나야 한다([`above_hit`]).
+#[cfg(unix)]
+fn only_root_and(me: u32, uid: u32, mode: u32) -> bool {
     const STICKY: u32 = 0o1000;
-    uid == 0 && (mode & GROUP_OTHER_WRITE == 0 || mode & STICKY != 0)
+    (uid == 0 || uid == me) && (mode & GROUP_OTHER_WRITE == 0 || mode & STICKY != 0)
+}
+
+/// 꺼낼 폴더의 위 폴더 하나가 걸리는 까닭(이슈 #172) — **순수하다**. `folder` 는 링크를 푼 실제 경로, `uid` · `mode` 는
+/// 그 자리의 `lstat`, `me` 는 지금 계정의 실효 uid 다. 그 안의 이름을 root 와 지금 계정만 바꿀 수 있어야 한다
+/// ([`only_root_and`]). 꺼낼 폴더 자신([`extract_dir_hit`])과 달리 sticky 는 받는다 — 그 아래 성분도 root 나 지금
+/// 계정의 것이라, sticky 인 위 폴더에서 남이 그 이름을 옮기거나 지우지 못한다. 남이 바꿀 수 있는 위 폴더에서는 그
+/// 사람이 꺼내는 도중에 같은 부모 안의 이름 바꾸기로 꺼낼 폴더를 링크와 바꿔친다.
+#[cfg(unix)]
+pub(crate) fn above_hit(folder: &str, uid: u32, mode: u32, me: u32) -> Option<ExtractDirHit> {
+    if only_root_and(me, uid, mode) {
+        None
+    } else if uid != 0 && uid != me {
+        Some(ExtractDirHit::AboveSomeoneElses {
+            folder: folder.to_string(),
+            uid,
+        })
+    } else {
+        Some(ExtractDirHit::AboveOthersCanWrite {
+            folder: folder.to_string(),
+            mode: mode & 0o7777,
+        })
+    }
 }
 
 /// group · other 의 쓰기 비트(`S_IWGRP | S_IWOTH`).
@@ -1595,15 +1642,38 @@ fn lstat_node(p: &std::path::Path) -> std::io::Result<Node> {
             uid: md.uid(),
             mode: md.mode(),
         }),
-        Err(e)
-            if matches!(
-                e.kind(),
-                std::io::ErrorKind::NotFound | std::io::ErrorKind::NotADirectory
-            ) =>
-        {
-            Ok(Node::Missing)
-        }
+        Err(e) if is_missing(&e) => Ok(Node::Missing),
         Err(e) => Err(e),
+    }
+}
+
+/// 없는 자리라는 답인가 — 없거나(`ENOENT`) 파일 아래를 물었다(`ENOTDIR`).
+#[cfg(unix)]
+fn is_missing(e: &std::io::Error) -> bool {
+    matches!(
+        e.kind(),
+        std::io::ErrorKind::NotFound | std::io::ErrorKind::NotADirectory
+    )
+}
+
+/// `at` 을, 없으면 가장 가까운 있는 위 폴더를 **푼 실제 경로**(이슈 #172 · 꺼낼 폴더의 위 폴더). 상대 경로는 지금
+/// 폴더에서 푼다 — 쓰기도 그렇게 푼다.
+#[cfg(unix)]
+fn nearest_real(at: &str) -> std::io::Result<std::path::PathBuf> {
+    let p = std::path::Path::new(at);
+    let mut p = if p.is_absolute() {
+        p.to_path_buf()
+    } else {
+        std::env::current_dir()?.join(p)
+    };
+    loop {
+        let e = match std::fs::canonicalize(&p) {
+            Ok(real) => return Ok(real),
+            Err(e) => e,
+        };
+        if !is_missing(&e) || !p.pop() {
+            return Err(e);
+        }
     }
 }
 
@@ -2543,40 +2613,56 @@ impl PlatformWrite for FsRestore {
         link_hit(&abs, last, &mut lstat_node).map_err(|e| PlatformError::io(place, e))
     }
 
-    /// 그 자리를 `lstat` 해(링크를 따라가지 않는다) [`extract_dir_hit`] 로 본다. 지금 계정은 `/proc/self/status` 의
-    /// 실효 uid 다 — 읽지 못하면 확인하지 못한 것이다.
+    /// 그 자리를 `lstat` 해(링크를 따라가지 않는다) [`extract_dir_hit`] 로 보고, 그 자리(없으면 가장 가까운 있는 위
+    /// 폴더)를 푼 실제 경로의 성분을 뿌리까지 [`above_hit`] 로 본다. 위 폴더를 실제 경로로 보는 까닭 — 가는 길의 링크는
+    /// `link_on_the_way` 가 이미 가렸고, 적힌 경로의 root 링크(Fedora Silverblue 의 `/root` → `var/roothome` 등)를
+    /// 그대로 보면 링크 자체의 mode(0777)로 거짓으로 막는다. 지금 계정은 `/proc/self/status` 의 실효 uid 다 — 읽지
+    /// 못하면 확인하지 못한 것이다.
     #[cfg(unix)]
     fn extract_dir_problem(&self, dir: &str) -> Result<Option<ExtractDirHit>, PlatformError> {
         use std::os::unix::fs::MetadataExt;
-        // 끝의 `/` 는 뗀다 — 남기면 `lstat` 이 그 자리의 링크를 따라간다.
-        let at = match dir.trim_end_matches('/') {
-            "" => "/",
-            d => d,
-        };
-        let md = match std::fs::symlink_metadata(at) {
-            Ok(md) => md,
-            Err(e)
-                if matches!(
-                    e.kind(),
-                    std::io::ErrorKind::NotFound | std::io::ErrorKind::NotADirectory
-                ) =>
-            {
-                return Ok(None)
-            }
-            Err(e) => return Err(PlatformError::io(dir, e)),
-        };
         let me = crate::read::effective_uid().ok_or_else(|| {
             PlatformError::refused(
                 "지금 계정의 실효 uid 를 읽지 못했습니다(/proc/self/status)".into(),
                 "could not read the effective uid of this account (/proc/self/status)".into(),
             )
         })?;
-        Ok(extract_dir_hit(
-            md.file_type().is_dir(),
-            md.uid(),
-            md.mode(),
-            me,
-        ))
+        // 끝의 `/` 는 뗀다 — 남기면 `lstat` 이 그 자리의 링크를 따라간다.
+        let at = match dir.trim_end_matches('/') {
+            "" => "/",
+            d => d,
+        };
+        match std::fs::symlink_metadata(at) {
+            Ok(md) => {
+                let hit = extract_dir_hit(md.file_type().is_dir(), md.uid(), md.mode(), me);
+                if hit.is_some() {
+                    return Ok(hit);
+                }
+            }
+            Err(e) if is_missing(&e) => {}
+            Err(e) => return Err(PlatformError::io(dir, e)),
+        }
+        let real = nearest_real(at).map_err(|e| PlatformError::io(dir, e))?;
+        for folder in real.ancestors() {
+            let md = std::fs::symlink_metadata(folder).map_err(|e| PlatformError::io(dir, e))?;
+            if let Some(hit) = above_hit(&shown(folder), md.uid(), md.mode(), me) {
+                return Ok(Some(hit));
+            }
+        }
+        Ok(None)
+    }
+
+    /// 0755 로 만든다 — umask 와 겹쳐도 group · other 쓰기가 생기지 않는다(1.26.0 은 첫 쓰기가 기본 umask 022 로 같은
+    /// 권한을 냈다). 없는 위 폴더도 같은 권한으로 만든다.
+    #[cfg(unix)]
+    fn make_extract_dir(&self, dir: &str) -> Result<(), PlatformError> {
+        use std::os::unix::fs::DirBuilderExt;
+        const MODE: u32 = 0o755;
+        std::fs::DirBuilder::new()
+            .recursive(true)
+            .mode(MODE)
+            .create(dir)
+            .map_err(|e| PlatformError::io(dir, e))
     }
 
     fn quarantine_read(&self, path: &str) -> Result<(Vec<u8>, FileMeta), PlatformError> {

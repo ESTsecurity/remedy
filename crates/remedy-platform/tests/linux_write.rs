@@ -167,6 +167,40 @@ fn the_live_backend_asks_about_the_folder_to_extract_to() {
         Some(ExtractDirHit::NotAFolder),
         "끝의 / 로 링크를 따라갔다"
     );
+
+    // 위 폴더도 본다 — 없는 폴더는 가장 가까운 있는 위 폴더부터, 있는 폴더는 그 위부터. 링크를 지난 길은 푼 실제
+    // 경로로 본다(링크 자체의 0777 로 막지 않는다).
+    let real = std::fs::canonicalize(&d).expect("실제 경로");
+    let above = Some(ExtractDirHit::AboveOthersCanWrite {
+        folder: real.to_string_lossy().to_string(),
+        mode: 0o777,
+    });
+    let inner = p(&d, "inner");
+    std::fs::create_dir(&inner).expect("폴더");
+    std::fs::set_permissions(&inner, std::fs::Permissions::from_mode(0o755)).expect("chmod");
+    mode(0o777).expect("chmod");
+    assert_eq!(
+        l.extract_dir_problem(&p(&d, "new/deeper")).expect("묻기"),
+        above
+    );
+    assert_eq!(l.extract_dir_problem(&inner).expect("묻기"), above);
+    mode(0o755).expect("chmod");
+    assert_eq!(l.extract_dir_problem(&inner).expect("묻기"), None);
+    assert_eq!(
+        l.extract_dir_problem(&format!("{link}/new")).expect("묻기"),
+        None,
+        "링크 자체의 권한으로 막았다"
+    );
+
+    // 만들기는 없는 위 폴더까지 0755 로 만들고, 있는 폴더는 그대로 둔다.
+    let made = p(&d, "made/deeper");
+    l.make_extract_dir(&made).expect("만들기");
+    l.make_extract_dir(&made).expect("다시 만들기");
+    for at in [p(&d, "made"), made] {
+        let m = std::fs::metadata(&at).expect("메타데이터");
+        assert!(m.is_dir(), "{at}");
+        assert_eq!(m.permissions().mode() & 0o7777, 0o755, "{at}");
+    }
     let _ = std::fs::remove_dir_all(&d);
 }
 

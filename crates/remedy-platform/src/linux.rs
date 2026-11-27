@@ -756,6 +756,10 @@ impl PlatformWrite for Live {
         FsRestore.extract_dir_problem(dir)
     }
 
+    fn make_extract_dir(&self, dir: &str) -> Result<(), PlatformError> {
+        FsRestore.make_extract_dir(dir)
+    }
+
     fn quarantine_read(&self, path: &str) -> Result<(Vec<u8>, FileMeta), PlatformError> {
         FsRestore.quarantine_read(path)
     }

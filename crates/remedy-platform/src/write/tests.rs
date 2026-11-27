@@ -1948,6 +1948,47 @@ fn a_folder_to_extract_to_must_be_ours_and_closed_to_others() {
     assert_eq!(extract_dir_hit(true, 1000, 0o040755, 1000), None);
 }
 
+/// 꺼낼 폴더의 위 폴더는 root 와 지금 계정만 그 안의 이름을 바꿀 수 있어야 한다(이슈 #172) — 둘 가운데 하나의 것이고
+/// group · other 쓰기가 없거나 sticky 다. 지금 계정이 root 면 링크를 믿는 폴더 조건([`root_only`])과 같다.
+#[cfg(unix)]
+#[test]
+fn a_folder_above_the_folder_to_extract_to_must_be_closed_to_others() {
+    let at = |uid: u32, mode: u32, me: u32| above_hit("/x", uid, mode, me);
+    let theirs = |uid: u32| {
+        Some(ExtractDirHit::AboveSomeoneElses {
+            folder: "/x".into(),
+            uid,
+        })
+    };
+    let open = |mode: u32| {
+        Some(ExtractDirHit::AboveOthersCanWrite {
+            folder: "/x".into(),
+            mode,
+        })
+    };
+    for me in [0, 1000] {
+        assert_eq!(at(0, 0o040755, me), None);
+        assert_eq!(at(0, 0o040700, me), None);
+        assert_eq!(at(0, 0o041777, me), None, "root 의 sticky");
+        assert_eq!(at(4242, 0o040755, me), theirs(4242));
+        assert_eq!(at(4242, 0o041777, me), theirs(4242), "남의 sticky");
+        assert_eq!(at(0, 0o040777, me), open(0o777));
+        assert_eq!(at(0, 0o040775, me), open(0o775));
+        assert_eq!(at(0, 0o042757, me), open(0o2757));
+    }
+    assert_eq!(at(1000, 0o040755, 1000), None);
+    assert_eq!(at(1000, 0o040777, 1000), open(0o777));
+    for uid in [0, 1000, 4242] {
+        for mode in [0o040755, 0o040775, 0o040757, 0o041777, 0o040777, 0o041755] {
+            assert_eq!(
+                at(uid, mode, 0).is_none(),
+                root_only(uid, mode),
+                "{uid} {mode:o}"
+            );
+        }
+    }
+}
+
 /// 꺼낸 사본에는 파일 권능도 **POSIX ACL** 도 붙이지 않는다(이슈 #172) — ACL 의 이름 붙은 항목은 소유자와 같이 숫자
 /// uid · gid 라, 다른 기계에서 꺼내면 같은 번호의 다른 사람이 사본을 읽고 고친다. 다른 확장 속성은 그대로다.
 #[test]
