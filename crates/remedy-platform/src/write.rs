@@ -494,8 +494,8 @@ pub trait PlatformWrite {
     }
 
     /// 꺼낼 폴더 `dir` 이 **이미 있으면** 지금 계정만 바꿀 수 있는 폴더인가, 그리고 그 **위 폴더**(없으면 가장 가까운
-    /// 있는 위 폴더부터 뿌리까지)를 root 와 지금 계정 밖의 사용자가 바꿀 수 없는가(이슈 #172) — 아니면 그 까닭. 가는
-    /// 길의 링크는 [`PlatformWrite::link_on_the_way`] 가 묻는다. 없는 폴더는 쓰기 직전에
+    /// 있는 위 폴더부터 뿌리까지 · 링크를 푼 실제 경로)를 root 와 지금 계정 밖의 사용자가 바꿀 수 없는가(이슈 #172) —
+    /// 아니면 그 까닭. 가는 길의 링크는 [`PlatformWrite::link_on_the_way`] 가 묻는다. 없는 폴더는 쓰기 직전에
     /// [`PlatformWrite::make_extract_dir`] 가 만들고 이것을 다시 묻는다. 확인하지 못한 것은 `Err` 다.
     ///
     /// 기본은 `None` 이다 — 시험 가짜, 그리고 Windows(꺼내기 동작은 앞과 같다).
@@ -2618,8 +2618,9 @@ impl PlatformWrite for FsRestore {
     /// 그 자리를 `lstat` 해(링크를 따라가지 않는다) [`extract_dir_hit`] 로 보고, 그 자리(없으면 가장 가까운 있는 위
     /// 폴더)를 푼 실제 경로의 성분을 뿌리까지 [`above_hit`] 로 본다. 위 폴더를 실제 경로로 보는 까닭 — 가는 길의 링크는
     /// `link_on_the_way` 가 이미 가렸고, 적힌 경로의 root 링크(Fedora Silverblue 의 `/root` → `var/roothome` 등)를
-    /// 그대로 보면 링크 자체의 mode(0777)로 거짓으로 막는다. 지금 계정은 `/proc/self/status` 의 실효 uid 다 — 읽지
-    /// 못하면 확인하지 못한 것이다.
+    /// 그대로 보면 링크 자체의 mode(0777)로 거짓으로 막는다. 그래서 따라간 root 링크 앞의 적힌 성분(사용자 폴더 안의
+    /// root 폴더에 놓인 root 링크면 그 사용자 폴더)은 보지 않는다 — 남는 가운데 성분 경쟁의 한 꼴이다(`remedy-core` 의
+    /// 복원). 지금 계정은 `/proc/self/status` 의 실효 uid 다 — 읽지 못하면 확인하지 못한 것이다.
     #[cfg(unix)]
     fn extract_dir_problem(&self, dir: &str) -> Result<Option<ExtractDirHit>, PlatformError> {
         use std::os::unix::fs::MetadataExt;
