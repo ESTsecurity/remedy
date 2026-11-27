@@ -517,6 +517,10 @@ fn extract_report(mut r: RestoreReport) -> RestoreReport {
 
 /// 꺼내기 모드의 대상 경로. **드라이브 문자와 구분자를 평평하게 만든다** —
 /// 원본 경로를 그대로 이어 붙이면 `..` 이나 절대 경로가 대상 디렉터리를 벗어난다.
+///
+/// 꺼낼 폴더와 잇는 구분자는 Windows 에서만 그 폴더를 따라 `\` 를 고른다. Unix 에서는 늘 `/` 다 — `\` 는 이름의
+/// 글자라, 그것을 구분자로 골라 이으면 가드가 묻는 폴더(`/root/a\b`)와 쓰기가 만드는 자리(`/root` 아래)가 갈린다(이슈
+/// #172).
 fn extract_path(dir: &str, origin: &str) -> String {
     let mut flat = String::with_capacity(origin.len());
     for c in origin.chars() {
@@ -525,8 +529,12 @@ fn extract_path(dir: &str, origin: &str) -> String {
             _ => flat.push(c),
         }
     }
-    let sep = if dir.contains('\\') { '\\' } else { '/' };
-    format!("{}{}{}", dir.trim_end_matches(['\\', '/']), sep, flat)
+    if cfg!(windows) {
+        let sep = if dir.contains('\\') { '\\' } else { '/' };
+        format!("{}{}{}", dir.trim_end_matches(['\\', '/']), sep, flat)
+    } else {
+        format!("{}/{}", dir.trim_end_matches('/'), flat)
+    }
 }
 
 /// 제자리 복원이 이 항목에서 **쓰는 파일 시스템 자리**와, 그 자리 자체가 링크일 때 어떻게 보는가 — 링크 가드가
@@ -1567,15 +1575,39 @@ mod tests {
             .contains(remedy_sdk::i18n::t("절대 경로", "absolute path")));
     }
 
+    /// 리눅스에서는 꺼낼 폴더 이름의 역슬래시도 **이름의 글자**다(이슈 #172) — 그것을 구분자로 골라 이으면 가드가 묻는
+    /// 폴더와 쓰기가 만드는 폴더가 갈린다(`/root/a\b` 를 묻고 `/root` 바로 아래에 `a\b\_srv_x` 를 썼다).
+    #[cfg(unix)]
+    #[test]
+    fn a_backslash_in_the_folder_to_extract_to_is_part_of_its_name_on_unix() {
+        for (dir, folder) in [
+            ("/root/a\\b", "/root/a\\b"),
+            ("/root/a\\b/", "/root/a\\b"),
+            ("/root/a\\", "/root/a\\"),
+        ] {
+            let at = extract_path(dir, "/srv/x");
+            assert_eq!(
+                std::path::Path::new(&at).parent(),
+                Some(std::path::Path::new(folder)),
+                "{at}"
+            );
+        }
+    }
+
     #[test]
     fn extract_mode_flattens_the_path() {
         // 원본 경로를 그대로 이어 붙이면 `..` 이나 절대 경로가 대상 밖으로 나간다.
         // 드라이브 문자의 `:` 와 뒤따르는 `\` 가 각각 바뀌므로 `_` 가 둘이다.
         // 읽기 좋게 줄이지 않는 이유는, 줄이면 서로 다른 원본이 같은 이름으로
         // 겹칠 수 있어서다.
+        // 잇는 구분자는 Windows 에서만 꺼낼 폴더를 따라 `\` 다 — Unix 에서 `\` 는 이름의 글자다.
         assert_eq!(
             extract_path("D:\\out", "C:\\Users\\a\\x.exe"),
-            "D:\\out\\C__Users_a_x.exe"
+            if cfg!(windows) {
+                "D:\\out\\C__Users_a_x.exe"
+            } else {
+                "D:\\out/C__Users_a_x.exe"
+            }
         );
         assert_eq!(
             extract_path("/tmp/out", "../../etc/passwd"),
