@@ -77,19 +77,31 @@ pub struct FileMeta {
 /// setuid · setgid 비트(`S_ISUID | S_ISGID`). 소유자가 돌아오지 않으면 되돌리는 mode 에서 뺀다.
 pub const SETID_BITS: u32 = 0o6000;
 
+/// 파일 권능(file capability)의 확장 속성 이름 — 꺼낸 사본에는 붙이지 않는다([`FileMeta::for_extract`]).
+const FILE_CAPABILITY_XATTR: &str = "security.capability";
+
 impl FileMeta {
     /// 담아 둔 소유자(uid, gid) — 둘 다 있을 때만.
     pub fn owner(&self) -> Option<(u32, u32)> {
         Some((self.uid?, self.gid?))
     }
 
-    /// 꺼내기(`--extract-to`)에 쓸 메타데이터 — **setuid · setgid 를 빼고 소유자는 둔다**(이슈 #172 ①).
+    /// 꺼내기(`--extract-to`)에 쓸 메타데이터 — **setuid · setgid 와 파일 권능(`security.capability`)을 빼고 소유자를
+    /// 비운다**(이슈 #172).
     ///
-    /// 꺼낸 것은 원래 자리가 아닌 곳의 사본이다. 거기서 setuid 가 살아 있으면 꺼낸 폴더에 그 소유자의 권한으로 도는
-    /// 실행 파일이 생긴다. 소유자는 둔다 — Windows 의 꺼내기가 담아 둔 SDDL 을 그대로 쓰는 것과 같다.
+    /// 꺼낸 것은 원래 자리가 아닌 곳의 사본이다. 거기서 setuid · setgid 나 파일 권능이 살아 있으면 꺼낸 폴더에 남의
+    /// 권한으로 도는 실행 파일이 생긴다 — 권능(`cap_setuid` 등)은 setuid 와 같은 부류다. 소유자는 꺼낸 계정이다:
+    /// 담아 둔 것은 숫자 uid · gid 라 다른 기계에서 꺼내면 같은 번호의 다른 계정이 사본의 소유자가 되고, 같은
+    /// 기계에서도 원래 사용자가 분석용 사본을 고칠 수 있다. 다른 확장 속성은 그대로 둔다. 소유자 칸이 비었다고
+    /// 계획 · 복원 뒤 보고에 서는 '담지 않았다' 줄은 꺼내기에서 사실이 아니므로 `remedy-core` 의 꺼내기가 뺀다.
     pub fn for_extract(&self) -> FileMeta {
+        let mut xattrs = self.xattrs.clone();
+        xattrs.remove(FILE_CAPABILITY_XATTR);
         FileMeta {
             mode: self.mode.map(|m| m & !SETID_BITS),
+            uid: None,
+            gid: None,
+            xattrs,
             ..self.clone()
         }
     }
@@ -1897,7 +1909,8 @@ fn note_cross_platform(meta: &FileMeta, report: &mut RestoreReport) {
 /// 소유자 칸이 없는 Unix 격리물(1.26.0 까지 — mode 는 있고 uid 가 없다)은 소유자를 모른다고 **복원 전에** 적고,
 /// setuid · setgid 가 있으면 그것을 빼고 되돌린다고 적는다(이슈 #172 ①). mode 도 없는 것(다른 OS 에서 담은 것 ·
 /// 지속성 색인)은 소유자를 말하지 않는다 — 다른 OS 의 것은 `note_cross_platform` 이 말하고, 지속성 유닛의 소유자는
-/// 색인(`PersistenceIndex::owner`)이 따로 든다.
+/// 색인(`PersistenceIndex::owner`)이 따로 든다. 꺼내기도 소유자를 비워(`FileMeta::for_extract`) 이 갈래로 온다 —
+/// 그때의 소유자 줄은 `remedy-core` 의 꺼내기가 뺀다.
 fn plan_owner_and_mode(meta: &FileMeta, r: &mut RestoreReport) {
     let known = meta.owner().is_some();
     if known {
@@ -1921,6 +1934,254 @@ fn plan_owner_and_mode(meta: &FileMeta, r: &mut RestoreReport) {
         ),
         Some(_) => r.restored.push("mode".into()),
         None => {}
+    }
+}
+
+/// 이름으로 쓰고 이름으로 메타데이터를 되돌린다 — Windows(와 Unix 가 아닌 플랫폼)의 복원 쓰기. Unix 는
+/// `open_place` · `write_opened` 다.
+#[cfg(not(unix))]
+fn write_by_name(
+    path: &std::path::Path,
+    dest: &str,
+    content: &[u8],
+    meta: &FileMeta,
+    report: &mut RestoreReport,
+) -> Result<(), PlatformError> {
+    // 읽기 전용이던 파일이 그 자리에 남아 있으면 쓰기가 막힌다. **권한을 푸는
+    // 대신 지운다** — `set_readonly(false)` 는 Unix 에서 0o666 이 되어 원래보다
+    // 넓은 권한을 준다. 어차피 내용을 통째로 덮어쓰므로 지우고 새로 만드는
+    // 편이 의미도 맞다.
+    if let Ok(md) = std::fs::metadata(path) {
+        if md.permissions().readonly() {
+            std::fs::remove_file(path).map_err(|e| PlatformError::io(dest, e))?;
+        }
+    }
+
+    std::fs::write(path, content).map_err(|e| PlatformError::io(dest, e))?;
+    report.restored.push("content".into());
+
+    if let Some(secs) = meta.mtime_unix {
+        let nanos = meta.mtime_nanos.unwrap_or(0);
+        match system_time(secs, nanos) {
+            Some(t) => {
+                let f = std::fs::File::options()
+                    .write(true)
+                    .open(path)
+                    .map_err(|e| PlatformError::io(dest, e))?;
+                match f.set_modified(t) {
+                    Ok(()) => report.restored.push("mtime".into()),
+                    Err(e) => report.lose("mtime", e.to_string()),
+                }
+            }
+            None => report.lose(
+                "mtime",
+                remedy_sdk::i18n::t(
+                    "표현할 수 없는 시각입니다",
+                    "the timestamp cannot be represented",
+                ),
+            ),
+        }
+    }
+
+    // **생성 시각은 Windows 에서만 되돌린다.**
+    //
+    // 격리로 지운 파일을 되살리면 그 자리에 *새* 파일이 생기고, 생성 시각은
+    // 되살린 순간이 된다. 그것을 고치지 않으면 감염 전후 지문 대조(G2)가
+    // 어긋나고, 파일이 언제 만들어졌는지를 근거로 삼는 분석도 어긋난다.
+    //
+    // NTFS 의 파일 터널링(같은 이름·같은 디렉터리로 15초 안에 다시 만들면
+    // 생성 시각을 물려준다)이 짧은 왕복을 가려 준 적이 있다 — **그 초록은
+    // 복원 능력이 아니라 타이밍이었다** (2026-08-28 v1 점검).
+    #[cfg(windows)]
+    if let Some(secs) = meta.btime_unix {
+        use std::os::windows::fs::FileTimesExt;
+        let nanos = meta.btime_nanos.unwrap_or(0);
+        match system_time(secs, nanos) {
+            Some(t) => {
+                let f = std::fs::File::options()
+                    .write(true)
+                    .open(path)
+                    .map_err(|e| PlatformError::io(dest, e))?;
+                let times = std::fs::FileTimes::new().set_created(t);
+                match f.set_times(times) {
+                    Ok(()) => report.restored.push("btime".into()),
+                    Err(e) => report.lose("btime", e.to_string()),
+                }
+            }
+            None => report.lose(
+                "btime",
+                remedy_sdk::i18n::t(
+                    "표현할 수 없는 시각입니다",
+                    "the timestamp cannot be represented",
+                ),
+            ),
+        }
+    }
+    #[cfg(not(windows))]
+    report.lose(
+        "btime",
+        remedy_sdk::i18n::t(
+            "이 운영체제에서는 이 값을 바꿀 수 없습니다",
+            "this operating system cannot set this value",
+        ),
+    );
+
+    // 읽기 전용은 **마지막에** 건다. 먼저 걸면 그 뒤의 쓰기가 막힌다.
+    //
+    // 푸는 쪽은 부르지 않는다. 방금 만든 파일은 이미 쓰기 가능하고,
+    // `set_readonly(false)` 를 부르면 Unix 에서 0o666 이 되어 원래보다 넓어진다.
+    if let Some(ro) = meta.readonly {
+        if ro {
+            let md = std::fs::metadata(path).map_err(|e| PlatformError::io(dest, e))?;
+            let mut p = md.permissions();
+            p.set_readonly(true);
+            match std::fs::set_permissions(path, p) {
+                Ok(()) => report.restored.push("readonly".into()),
+                Err(e) => report.lose("readonly", e.to_string()),
+            }
+        } else {
+            report.restored.push("readonly".into());
+        }
+    }
+
+    // OS 고유 메타데이터는 **읽기 전용 다음에** 되돌린다. Unix 에서 `mode` 와
+    // `readonly` 는 같은 비트를 건드리는데, 둘 다 있으면 더 구체적인 `mode` 가
+    // 이겨야 한다. Windows 에서는 읽기 전용이 속성이고 DACL 쓰기는
+    // WRITE_DAC 권한이라 서로 막지 않는다.
+    crate::meta::restore_from(dest, meta, report);
+    Ok(())
+}
+
+/// 되돌릴 자리(마지막 성분)를 **한 번 연다**(Unix · 이슈 #172) — 그 뒤의 본문 · 수정 시각 · 읽기 전용 · 소유자 ·
+/// mode · 확장 속성은 모두 이 파일 하나로 한다([`write_opened`]). 같은 이름으로 다시 풀지 않으므로, 연 뒤 그 이름을
+/// 링크로 바꿔도 링크 너머에 가지 않는다. 꺼내기도 이 길을 지난다 — 꺼낼 자리에 미리 둔 링크 · 하드 링크를 따라
+/// 쓰지 않는다.
+///
+/// - `O_NOFOLLOW` — 자리가 링크면 `ELOOP` 로 열리지 않는다. 따라가지 않고 그 항목은 실패다.
+/// - `O_NONBLOCK` — 자리가 이름 붙은 파이프면 읽는 쪽을 기다리지 않는다. 기다리면 복원이 멈추고, 읽는 쪽이
+///   나타나면 담아 둔 본문을 그 사람에게 흘린다. 일반 파일에는 뜻이 없다.
+/// - 연 뒤 `fstat` 으로 일반 파일이고 이름이 하나(`nlink == 1`)인지 본다 — 하드 링크면 그 inode 는 다른 자리의
+///   파일이기도 하다. 아니면 비우기 전에 실패한다. 그래서 `O_TRUNC` 로 열지 않고 본 뒤에 비운다.
+/// - 새 파일은 담아 둔 mode 가 있으면 0600 으로 만든다 — 본문을 쓰는 동안 남이 열어 두지 못하고, 끝에 그 mode 로
+///   바꾼다. 없으면 앞과 같은 0666(umask 를 뺀다)이다.
+/// - 읽기 전용 파일이 그 자리에 있으면 앞과 같이 지우고 새로 만든다. 링크인지는 `lstat` 으로 본다 — 링크는 지우지
+///   않고 열기에서 실패한다. 이름을 지우는 것은 하드 링크의 다른 이름에 닿지 않는다.
+///
+/// 남는 것은 **가운데 성분**의 바꿔치기다 — 부모 폴더는 이름으로 풀므로, 링크 가드의 물음과 이 열기 사이에 가운데
+/// 성분을 링크로 바꾸면 그 너머에서 연다. 성분마다 `openat(O_NOFOLLOW)` 로 걷는 길은 std 에 없다.
+#[cfg(unix)]
+fn open_place(dest: &str, meta: &FileMeta) -> Result<std::fs::File, PlatformError> {
+    use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
+    let path = std::path::Path::new(dest);
+    let io = |e| PlatformError::io(dest, e);
+    if let Ok(md) = std::fs::symlink_metadata(path) {
+        if md.file_type().is_file() && md.permissions().readonly() {
+            std::fs::remove_file(path).map_err(io)?;
+        }
+    }
+    let f = std::fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .mode(if meta.mode.is_some() { 0o600 } else { 0o666 })
+        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
+        .open(path)
+        .map_err(|e| link_refused(dest, e))?;
+    let md = f.metadata().map_err(io)?;
+    if !md.file_type().is_file() {
+        return Err(PlatformError::refused(
+            "쓸 자리가 일반 파일이 아닙니다 — 그 자리에 쓰지 않았습니다".into(),
+            "the place to write is not a regular file — it was not written".into(),
+        ));
+    }
+    if md.nlink() != 1 {
+        let n = md.nlink();
+        return Err(PlatformError::refused(
+            format!("쓸 자리의 파일에 다른 이름이 걸려 있습니다(하드 링크 · 링크 수 {n}) — 그 파일에 쓰지 않았습니다"),
+            format!("the file at the place to write has other names (hard link · link count {n}) — it was not written"),
+        ));
+    }
+    f.set_len(0).map_err(io)?;
+    Ok(f)
+}
+
+/// 열기가 링크에서 멈췄으면(`O_NOFOLLOW` 의 `ELOOP`) 그 사유 한 줄 — 그 밖의 실패는 OS 가 준 그대로다. 경로
+/// 가운데의 링크가 너무 많이 이어져도 `ELOOP` 이므로 자리 자체가 링크인지 `lstat` 으로 본다.
+#[cfg(unix)]
+fn link_refused(dest: &str, e: std::io::Error) -> PlatformError {
+    let itself = || std::fs::symlink_metadata(dest).is_ok_and(|m| m.file_type().is_symlink());
+    if e.raw_os_error() == Some(libc::ELOOP) && itself() {
+        PlatformError::refused(
+            "쓸 자리가 링크입니다 — 링크를 따라 쓰지 않았습니다".into(),
+            "the place to write is a link — nothing was written through it".into(),
+        )
+    } else {
+        PlatformError::io(dest, e)
+    }
+}
+
+/// [`open_place`] 가 연 파일 하나에 본문 · 수정 시각 · 읽기 전용 · OS 메타데이터를 차례로 쓴다(Unix) — 이름으로
+/// 다시 풀지 않는다. 차례는 앞과 같다: 본문 → 수정 시각 → 읽기 전용 → 소유자 → mode → 확장 속성. 읽기 전용을
+/// mode 보다 먼저 거는 것은 둘 다 있으면 더 구체적인 mode 가 이겨야 하기 때문이고, 소유자 → mode → 확장 속성
+/// 차례는 `meta` 가 정한다(chown 이 setuid · setgid 와 `security.capability` 를 지운다).
+#[cfg(unix)]
+fn write_opened(
+    f: &std::fs::File,
+    dest: &str,
+    content: &[u8],
+    meta: &FileMeta,
+    report: &mut RestoreReport,
+) -> Result<(), PlatformError> {
+    use std::io::Write;
+    let mut w = f;
+    w.write_all(content)
+        .map_err(|e| PlatformError::io(dest, e))?;
+    report.restored.push("content".into());
+    restore_mtime_onto(f, meta, report);
+    report.lose(
+        "btime",
+        remedy_sdk::i18n::t(
+            "이 운영체제에서는 이 값을 바꿀 수 없습니다",
+            "this operating system cannot set this value",
+        ),
+    );
+    // 푸는 쪽은 부르지 않는다 — `set_readonly(false)` 는 0o666 이 되어 원래보다 넓어진다.
+    match meta.readonly {
+        Some(true) => {
+            let mut p = f
+                .metadata()
+                .map_err(|e| PlatformError::io(dest, e))?
+                .permissions();
+            p.set_readonly(true);
+            match f.set_permissions(p) {
+                Ok(()) => report.restored.push("readonly".into()),
+                Err(e) => report.lose("readonly", e.to_string()),
+            }
+        }
+        Some(false) => report.restored.push("readonly".into()),
+        None => {}
+    }
+    crate::meta::restore_onto(f, meta, report);
+    Ok(())
+}
+
+/// 담아 둔 수정 시각을 연 파일에 되돌린다(`futimens`).
+#[cfg(unix)]
+fn restore_mtime_onto(f: &std::fs::File, meta: &FileMeta, report: &mut RestoreReport) {
+    let Some(secs) = meta.mtime_unix else {
+        return;
+    };
+    match system_time(secs, meta.mtime_nanos.unwrap_or(0)) {
+        Some(t) => match f.set_modified(t) {
+            Ok(()) => report.restored.push("mtime".into()),
+            Err(e) => report.lose("mtime", e.to_string()),
+        },
+        None => report.lose(
+            "mtime",
+            remedy_sdk::i18n::t(
+                "표현할 수 없는 시각입니다",
+                "the timestamp cannot be represented",
+            ),
+        ),
     }
 }
 
@@ -2011,109 +2272,15 @@ impl PlatformWrite for FsRestore {
             }
         }
 
-        // 읽기 전용이던 파일이 그 자리에 남아 있으면 쓰기가 막힌다. **권한을 푸는
-        // 대신 지운다** — `set_readonly(false)` 는 Unix 에서 0o666 이 되어 원래보다
-        // 넓은 권한을 준다. 어차피 내용을 통째로 덮어쓰므로 지우고 새로 만드는
-        // 편이 의미도 맞다.
-        if let Ok(md) = std::fs::metadata(path) {
-            if md.permissions().readonly() {
-                std::fs::remove_file(path).map_err(|e| PlatformError::io(dest, e))?;
-            }
+        // Unix 는 마지막 성분을 **한 번 열고** 그 파일 하나로 끝까지 다룬다(이슈 #172). Windows 는 앞과 같이 이름으로
+        // 쓴다.
+        #[cfg(unix)]
+        {
+            let f = open_place(dest, meta)?;
+            write_opened(&f, dest, content, meta, &mut report)?;
         }
-
-        std::fs::write(path, content).map_err(|e| PlatformError::io(dest, e))?;
-        report.restored.push("content".into());
-
-        if let Some(secs) = meta.mtime_unix {
-            let nanos = meta.mtime_nanos.unwrap_or(0);
-            match system_time(secs, nanos) {
-                Some(t) => {
-                    let f = std::fs::File::options()
-                        .write(true)
-                        .open(path)
-                        .map_err(|e| PlatformError::io(dest, e))?;
-                    match f.set_modified(t) {
-                        Ok(()) => report.restored.push("mtime".into()),
-                        Err(e) => report.lose("mtime", e.to_string()),
-                    }
-                }
-                None => report.lose(
-                    "mtime",
-                    remedy_sdk::i18n::t(
-                        "표현할 수 없는 시각입니다",
-                        "the timestamp cannot be represented",
-                    ),
-                ),
-            }
-        }
-
-        // **생성 시각은 Windows 에서만 되돌린다.**
-        //
-        // 격리로 지운 파일을 되살리면 그 자리에 *새* 파일이 생기고, 생성 시각은
-        // 되살린 순간이 된다. 그것을 고치지 않으면 감염 전후 지문 대조(G2)가
-        // 어긋나고, 파일이 언제 만들어졌는지를 근거로 삼는 분석도 어긋난다.
-        //
-        // NTFS 의 파일 터널링(같은 이름·같은 디렉터리로 15초 안에 다시 만들면
-        // 생성 시각을 물려준다)이 짧은 왕복을 가려 준 적이 있다 — **그 초록은
-        // 복원 능력이 아니라 타이밍이었다** (2026-08-28 v1 점검).
-        #[cfg(windows)]
-        if let Some(secs) = meta.btime_unix {
-            use std::os::windows::fs::FileTimesExt;
-            let nanos = meta.btime_nanos.unwrap_or(0);
-            match system_time(secs, nanos) {
-                Some(t) => {
-                    let f = std::fs::File::options()
-                        .write(true)
-                        .open(path)
-                        .map_err(|e| PlatformError::io(dest, e))?;
-                    let times = std::fs::FileTimes::new().set_created(t);
-                    match f.set_times(times) {
-                        Ok(()) => report.restored.push("btime".into()),
-                        Err(e) => report.lose("btime", e.to_string()),
-                    }
-                }
-                None => report.lose(
-                    "btime",
-                    remedy_sdk::i18n::t(
-                        "표현할 수 없는 시각입니다",
-                        "the timestamp cannot be represented",
-                    ),
-                ),
-            }
-        }
-        #[cfg(not(windows))]
-        report.lose(
-            "btime",
-            remedy_sdk::i18n::t(
-                "이 운영체제에서는 이 값을 바꿀 수 없습니다",
-                "this operating system cannot set this value",
-            ),
-        );
-
-        // 읽기 전용은 **마지막에** 건다. 먼저 걸면 그 뒤의 쓰기가 막힌다.
-        //
-        // 푸는 쪽은 부르지 않는다. 방금 만든 파일은 이미 쓰기 가능하고,
-        // `set_readonly(false)` 를 부르면 Unix 에서 0o666 이 되어 원래보다 넓어진다.
-        if let Some(ro) = meta.readonly {
-            if ro {
-                let md = std::fs::metadata(path).map_err(|e| PlatformError::io(dest, e))?;
-                let mut p = md.permissions();
-                p.set_readonly(true);
-                match std::fs::set_permissions(path, p) {
-                    Ok(()) => report.restored.push("readonly".into()),
-                    Err(e) => report.lose("readonly", e.to_string()),
-                }
-            } else {
-                report.restored.push("readonly".into());
-            }
-        }
-
-        // OS 고유 메타데이터는 **읽기 전용 다음에** 되돌린다. Unix 에서 `mode` 와
-        // `readonly` 는 같은 비트를 건드리는데, 둘 다 있으면 더 구체적인 `mode` 가
-        // 이겨야 한다. Windows 에서는 읽기 전용이 속성이고 DACL 쓰기는
-        // WRITE_DAC 권한이라 서로 막지 않는다. Unix 의 소유자 → mode → xattr 차례는
-        // `meta` 가 정한다(chown 이 setuid · setgid 를 지운다).
-        crate::meta::restore_from(dest, meta, &mut report);
+        #[cfg(not(unix))]
+        write_by_name(path, dest, content, meta, &mut report)?;
         note_cross_platform(meta, &mut report);
         // btime 은 위에서 플랫폼마다 한 번 적었다. 1.26.0 은 여기서 조건 없이 한 번 더 적어 Unix 에서는 두 번,
         // Windows 에서는 되돌린 btime 이 lost 에도 섰다 — 복원 뒤 화면이 '계획이 되돌린다고 했는데 못 된 것' 을
@@ -2130,9 +2297,11 @@ impl PlatformWrite for FsRestore {
 
     /// 경로를 성분마다 `lstat` 해 링크를 본다(`link_hit`). 상대 경로는 지금 폴더에서 푼다 — 쓰기도 그렇게 푼다.
     ///
-    /// 남는 한계 — 이 물음과 실제 쓰기 사이의 창은 닫지 못한다. 경로를 성분마다 링크를 따르지 않고 여는
-    /// `openat` · `O_NOFOLLOW` 류가 std 에 없어, 그 사이에 바꾼 링크는 쓰기가 따라간다. 복원은 계획과 쓰기 직전에 두
-    /// 번 물어 그 창을 좁힌다(`remedy-core` 의 복원).
+    /// 이 물음과 실제 쓰기 사이에 **마지막 성분**을 링크 · 하드 링크로 바꾸면 쓰기가 따라가지 않고 실패한다 — 쓰기는
+    /// 그 자리를 `O_NOFOLLOW` 로 한 번 열고 그 파일 하나로 끝까지 다룬다(`open_place`). 남는 한계는 **가운데
+    /// 성분**이다 — 쓰기가 부모 폴더를 이름으로 풀므로, 그 사이에 가운데 성분을 링크로 바꾸면 그 너머에서 연다. 성분마다
+    /// `openat(O_NOFOLLOW)` 로 걷는 길은 std 에 없다. 복원은 계획과 쓰기 직전에 두 번 물어 그 창을 좁힌다(`remedy-core`
+    /// 의 복원).
     #[cfg(unix)]
     fn link_on_the_way(
         &self,

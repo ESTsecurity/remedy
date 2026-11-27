@@ -329,7 +329,7 @@ pub fn plan(
         }
 
         let meta: FileMeta = serde_json::from_value(me.meta.clone()).unwrap_or_default();
-        // 꺼내기는 setuid · setgid 를 빼고 쓴다 — 계획도 그 메타데이터로 센다([`apply`] 와 같다).
+        // 꺼내기는 setuid · setgid · 파일 권능 · 소유자를 빼고 쓴다 — 계획도 그 메타데이터로 센다([`apply`] 와 같다).
         let meta = if extract_to.is_some() {
             meta.for_extract()
         } else {
@@ -382,7 +382,9 @@ pub fn plan(
         // **사용자의 링크를 따라 root 로 쓰지 않는다**(이슈 #172 ①). 복원은 root 로 돈다 — 사용자가 자기 폴더를
         // root 의 자리를 가리키는 링크로 바꿔 두자 1.26.0 은 그 너머에 담아 둔 이름 · 바이트 · 소유자 · mode 를 썼다
         // (`/home/alice/bin` → `/etc/…` 에 alice 소유 4755). 보호 목록은 적힌 경로만 보므로 이것을 보지 못한다.
-        // 꺼내기는 원래 자리에 쓰지 않으므로 묻지 않는다. 쓰기 직전에 한 번 더 본다([`apply`]).
+        // 꺼내기는 원래 자리에 쓰지 않으므로 묻지 않는다 — 꺼낼 자리의 마지막 성분이 링크 · 하드 링크면 쓰기가 따라가지
+        // 않고 그 항목을 실패로 낸다(리눅스 `FsRestore::restore_file`). 꺼낼 폴더 자체를 남이 미리 만들 수 있는 자리로
+        // 고르면 그 가운데 성분은 남는 한계다. 쓰기 직전에 한 번 더 본다([`apply`]).
         if blocked.is_none() && extract_to.is_none() {
             blocked = link_guard(backend, me.kind, &me.origin, &me.meta);
         }
@@ -440,6 +442,8 @@ pub fn plan(
                     | EntryKind::BootConfig
             ) {
             RestoreReport::default()
+        } else if extract_to.is_some() {
+            extract_report(backend.plan_restore(&dest, &meta))
         } else {
             backend.plan_restore(&dest, &meta)
         };
@@ -477,6 +481,17 @@ pub fn plan(
         extract_to: extract_to.map(str::to_string),
         space,
     })
+}
+
+/// 꺼내기의 보고서(계획 · 복원 뒤) — **POSIX 소유자 줄을 뺀다**(이슈 #172). 꺼내기는 소유자를 쓰지 않는다
+/// ([`FileMeta::for_extract`] 가 uid · gid 를 비운다 — 꺼낸 사본은 꺼낸 계정의 것이다). 그 칸이 비었다고 백엔드가 적는
+/// '격리할 때 소유자를 담지 않았습니다' 는 꺼낸 사본에 대해 사실이 아니다. Windows 의 소유자 줄(담아 둔 SDDL 의
+/// 소유자를 쓰다 막힌 것)은 사실이므로 그대로 둔다.
+fn extract_report(mut r: RestoreReport) -> RestoreReport {
+    if cfg!(unix) {
+        r.lost.retain(|l| l.item != "owner");
+    }
+    r
 }
 
 /// 꺼내기 모드의 대상 경로. **드라이브 문자와 구분자를 평평하게 만든다** —
@@ -626,8 +641,10 @@ pub fn apply(
     // **링크도 쓰기 직전에 다시 본다**(이슈 #172 ①). 계획을 보이고 사람이 확인하는 사이에 폴더가 링크로 바뀔 수
     // 있다. 걸리면 아무것도 쓰지 않고 멈춘다 — 계획에서 막은 것과 같은 5 다.
     //
-    // 남는 한계 — 이 물음과 각 쓰기 사이의 짧은 창은 남는다. 경로를 성분마다 링크를 따르지 않고 여는 `openat` ·
-    // `O_NOFOLLOW` 류가 std 에 없어, 그 사이에 바꾼 링크는 쓰기가 따라간다.
+    // 이 물음과 각 쓰기 사이에 **마지막 성분**을 링크 · 하드 링크로 바꾸면 리눅스의 파일 쓰기(`restore_file`)가 그
+    // 자리를 링크를 따르지 않고 한 번 열어 그 파일 하나로 끝까지 다루므로 따라가지 않고 그 항목이 실패한다. 남는
+    // 한계는 **가운데 성분**의 바꿔치기다 — 쓰기가 부모 폴더를 이름으로 풀고, 성분마다 `openat(O_NOFOLLOW)` 로 걷는
+    // 길은 std 에 없다. 유닛 · 줄 자리의 쓰기는 마지막 성분도 이름으로 연다.
     if plan.extract_to.is_none() {
         let none = serde_json::Value::Null;
         for item in plan.allowed() {
@@ -755,15 +772,13 @@ pub fn apply(
                 .map_err(|e| e.to_string())
         } else {
             let meta: FileMeta = serde_json::from_value(entry.meta.clone()).unwrap_or_default();
-            // **꺼낸 사본에 setuid · setgid 를 살리지 않는다**(이슈 #172 ①). 소유자는 둔다 — Windows 의 꺼내기가
-            // 담아 둔 SDDL 을 그대로 쓰는 것과 같다.
-            let meta = if plan.extract_to.is_some() {
-                meta.for_extract()
-            } else {
-                meta
-            };
+            // **꺼낸 사본에 setuid · setgid · 파일 권능을 살리지 않고, 담아 둔 소유자로 바꾸지 않는다**(이슈 #172) —
+            // 꺼낸 사본은 꺼낸 계정의 것이다([`FileMeta::for_extract`]).
+            let extract = plan.extract_to.is_some();
+            let meta = if extract { meta.for_extract() } else { meta };
             backend
                 .restore_file(&dest, &entry.content, &meta)
+                .map(|r| if extract { extract_report(r) } else { r })
                 .map_err(|e| e.to_string())
         };
 
@@ -1570,27 +1585,97 @@ mod tests {
         assert!(missed(&planned, &planned).is_empty());
     }
 
-    /// 꺼내기는 setuid · setgid 를 빼고 소유자는 둔다 — 나머지 칸은 그대로다.
+    /// 꺼내기는 setuid · setgid 와 파일 권능(`security.capability`)을 빼고 소유자를 비운다 — 꺼낸 사본은 꺼낸 계정의
+    /// 것이다. 나머지 칸(다른 확장 속성 포함)은 그대로다.
+    ///
+    /// 앞서는 소유자를 두라고 주장했다. 담아 둔 것은 숫자 uid 라 다른 기계에서 꺼내면 같은 번호의 다른 계정이 사본의
+    /// 소유자가 되고, 같은 기계에서도 감염된 계정이 분석용 사본을 고칠 수 있다. 권능은 setuid 와 같은 부류다 — 남은
+    /// 채로 꺼내면 누구든 그 사본을 실행해 권능을 얻는다.
     #[test]
-    fn extracting_drops_the_setid_bits_but_keeps_the_owner() {
+    fn extracting_drops_the_setid_bits_the_file_capability_and_the_owner() {
         let m = FileMeta {
             mtime_unix: Some(7),
             mode: Some(0o106755),
             uid: Some(4242),
             gid: Some(4243),
+            xattrs: [
+                (
+                    "security.capability".to_string(),
+                    "AQAAAgAAAAA=".to_string(),
+                ),
+                ("user.note".to_string(), "eA==".to_string()),
+            ]
+            .into_iter()
+            .collect(),
             ..Default::default()
         };
         let x = m.for_extract();
         assert_eq!(x.mode, Some(0o100755));
-        assert_eq!((x.uid, x.gid), (Some(4242), Some(4243)));
+        assert_eq!((x.uid, x.gid), (None, None));
+        assert_eq!(x.xattrs.keys().collect::<Vec<_>>(), ["user.note"]);
+        let mut rest = m.clone();
+        rest.xattrs.remove("security.capability");
         assert_eq!(
             FileMeta {
                 mode: m.mode,
+                uid: m.uid,
+                gid: m.gid,
                 ..x.clone()
             },
-            m
+            rest
         );
         assert_eq!(FileMeta::default().for_extract(), FileMeta::default());
+    }
+
+    /// 꺼낸 사본은 꺼낸 계정의 소유다 — 담아 둔 uid · gid 로 바꾸지 않고, 계획 · 복원 뒤 보고에 '소유자를 담지
+    /// 않았다' 같은 소유자 줄도 서지 않는다(꺼내기는 소유자를 쓰지 않는다). root 로 돌면 담아 둔 4242 가 아니라 0:0
+    /// 이어야 한다.
+    #[cfg(unix)]
+    #[test]
+    fn an_extracted_copy_belongs_to_whoever_extracted_it() {
+        use std::os::unix::fs::MetadataExt;
+        let me = std::fs::metadata("/proc/self").unwrap();
+        let dir = std::env::temp_dir().join("remedy-restore-extract-owner");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let out = dir.join("out").to_string_lossy().to_string();
+        let file = |origin: &str, meta| Entry {
+            kind: EntryKind::File,
+            origin: origin.into(),
+            meta,
+            content: b"x".to_vec(),
+        };
+        let (bytes, ck) = build(vec![
+            file(
+                "/home/alice/secret.pdf",
+                serde_json::json!({ "mode": 0o100600, "uid": 4242, "gid": 4243 }),
+            ),
+            // 1.26.0 까지의 격리물 — 소유자 칸이 없다.
+            file(
+                "/home/alice/old.pdf",
+                serde_json::json!({ "mode": 0o100644 }),
+            ),
+        ]);
+        let sealed = peek(&bytes).unwrap();
+        let opened = sealed.unlock(&ck).unwrap();
+        let guards = Guards {
+            protected: &protected(),
+            vouched: &nothing_vouched(),
+        };
+        let p = plan(&opened, "r1", &FsRestore, &guards, &[], Some(&out)).unwrap();
+        let owner_said = |r: &RestoreReport| {
+            r.restored.iter().any(|x| x == "owner") || r.lost.iter().any(|l| l.item == "owner")
+        };
+        for i in &p.items {
+            assert!(!owner_said(&i.report), "{}: {:?}", i.dest, i.report);
+        }
+        for o in apply(&p, &opened, &ck, &FsRestore).unwrap() {
+            let r = o.result.as_ref().unwrap();
+            assert!(!owner_said(r), "{}: {r:?}", o.dest);
+            let md = std::fs::metadata(&o.dest).unwrap();
+            assert_eq!((md.uid(), md.gid()), (me.uid(), me.gid()), "{}", o.dest);
+        }
+        std::fs::remove_dir_all(&dir).ok();
     }
 
     /// 백엔드가 받은 메타데이터를 적는다(계획 · 쓰기). 되돌리기는 늘 성공한다.
@@ -1628,7 +1713,7 @@ mod tests {
         }
     }
 
-    /// 꺼내기만 setuid · setgid 를 뺀 메타데이터를 계획과 쓰기에 넘긴다 — 제자리 복원은 담은 그대로다.
+    /// 꺼내기만 setuid · setgid 와 소유자를 뺀 메타데이터를 계획과 쓰기에 넘긴다 — 제자리 복원은 담은 그대로다.
     #[test]
     fn only_extracting_hands_the_backend_a_meta_without_the_setid_bits() {
         let dir = std::env::temp_dir().join("remedy-restore-extract-meta");
@@ -1648,7 +1733,11 @@ mod tests {
             protected: &protected(),
             vouched: &nothing_vouched(),
         };
-        for (extract, mode) in [(Some(out.as_str()), 0o100755), (None, 0o104755)] {
+        let kept = (Some(4242), Some(4242));
+        for (extract, mode, owner) in [
+            (Some(out.as_str()), 0o100755, (None, None)),
+            (None, 0o104755, kept),
+        ] {
             let b = Metas::default();
             let p = plan(&opened, "r1", &b, &guards, &[], extract).unwrap();
             apply(&p, &opened, &ck, &b).unwrap();
@@ -1659,7 +1748,7 @@ mod tests {
             );
             for (k, m) in seen.iter() {
                 assert_eq!(m.mode, Some(mode), "{extract:?} {k}");
-                assert_eq!((m.uid, m.gid), (Some(4242), Some(4242)), "{extract:?} {k}");
+                assert_eq!((m.uid, m.gid), owner, "{extract:?} {k}");
             }
         }
         std::fs::remove_dir_all(&dir).ok();

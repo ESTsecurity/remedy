@@ -35,3 +35,4 @@ windows-permissions = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
 xattr = { workspace = true }
+libc = { workspace = true }

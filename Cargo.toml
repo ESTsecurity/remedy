@@ -97,6 +97,11 @@ fs4 = "1"
 windows-permissions = "0.2"
 # Linux 확장 속성. SELinux 컨텍스트도 여기로 실려 온다 (설계-02 §9).
 xattr = "1"
+# 복원이 되돌릴 자리를 여는 플래그(`O_NOFOLLOW` · `O_NONBLOCK`)와 `ELOOP` — **상수만 쓴다.** 여는 것은 std 의
+# `OpenOptionsExt::custom_flags` 라 함수를 부르지 않고, 쓰는 크레이트는 forbid(unsafe_code) 를 유지한다. 플래그
+# 값은 아키텍처마다 달라(x86_64 와 aarch64 의 `O_NOFOLLOW` 가 다르다) 손으로 적지 않는다. sysinfo 가 이미
+# 끌어오는 판이라 새 크레이트가 늘지 않는다.
+libc = "0.2"
 
 # ── 신뢰 — 플러그인 서명 (P10, 설계-03 §3 G8 · 설계-01 미결 5) ───────
 # 검증. **의존성이 0 개다**(2026-08-25 실측). 배포 바이너리가 서명을 확인하는

@@ -2421,6 +2421,7 @@ version = "1.27.0"
 dependencies = [
  "base64 0.22.1",
  "fs4",
+ "libc",
  "remedy-sdk",
  "remedy-winmods",
  "remedy-wintrust",

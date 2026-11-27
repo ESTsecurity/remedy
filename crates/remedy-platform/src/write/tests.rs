@@ -1562,3 +1562,134 @@ fn the_live_check_sees_the_links_on_the_way() {
     );
     cleanup(&dir).ok();
 }
+
+/// 복원 쓰기가 마지막 성분을 **한 번 열고 그 파일 하나로** 끝까지 다루는가(이슈 #172) — 그 자리가 링크 · 하드
+/// 링크 · 일반 파일이 아닌 것이면 그 파일에 쓰지 않고 실패한다. 꺼내기도 같은 길을 지난다.
+#[cfg(unix)]
+mod place_opened_once {
+    use super::super::*;
+    use super::{cleanup, tmp};
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
+
+    fn keep(dir: &std::path::Path) -> std::path::PathBuf {
+        let target = dir.join("target");
+        std::fs::write(&target, b"keep").unwrap();
+        std::fs::set_permissions(&target, std::fs::Permissions::from_mode(0o644)).unwrap();
+        target
+    }
+
+    fn mode(p: &std::path::Path) -> u32 {
+        std::fs::metadata(p).unwrap().mode() & 0o7777
+    }
+
+    /// 이 시험 프로세스의 실효 uid · gid — `/proc/self` 의 소유자다. 그 값으로 담으면 root 가 아니어도 chown 이 된다.
+    fn me() -> (u32, u32) {
+        let m = std::fs::metadata("/proc/self").unwrap();
+        (m.uid(), m.gid())
+    }
+
+    fn meta_4755() -> FileMeta {
+        let (uid, gid) = me();
+        FileMeta {
+            mode: Some(0o104755),
+            uid: Some(uid),
+            gid: Some(gid),
+            ..Default::default()
+        }
+    }
+
+    /// 연 뒤 그 이름을 링크로 바꿔도 **링크 너머는 그대로다** — 쓰기 · 시각 · 소유자 · mode 가 이름으로 다시 풀면
+    /// 링크를 따라 그 너머에 담아 둔 본문 · mode 를 쓴다(1.26.0 의 경로 기반 `chmod`). 사용자가 자기 폴더에서
+    /// root 가 만든 이름이 생기는 순간(inotify)을 보고 바꿔치면 늘 이기는 경쟁이다 — 여기서는 연 직후에 바꾼다.
+    #[test]
+    fn the_steps_after_opening_go_to_the_opened_file_not_to_what_the_name_points_at_now() {
+        let dir = tmp("swap-after-open");
+        let target = keep(&dir);
+        let name = dir.join("tool");
+        let moved = dir.join("tool.moved");
+        let s = name.to_string_lossy().to_string();
+        let meta = FileMeta {
+            mtime_unix: Some(1_000_000),
+            ..meta_4755()
+        };
+        let f = open_place(&s, &meta).unwrap();
+        std::fs::rename(&name, &moved).unwrap();
+        std::os::unix::fs::symlink(&target, &name).unwrap();
+
+        let mut r = RestoreReport::default();
+        write_opened(&f, &s, b"new", &meta, &mut r).unwrap();
+        drop(f);
+
+        assert_eq!(std::fs::read(&target).unwrap(), b"keep", "{r:?}");
+        assert_eq!(mode(&target), 0o644, "링크 너머의 mode 가 바뀌었다: {r:?}");
+        assert_eq!(std::fs::read(&moved).unwrap(), b"new", "{r:?}");
+        assert_eq!(mode(&moved), 0o4755, "연 파일에 mode 가 가지 않았다: {r:?}");
+        assert_eq!(std::fs::metadata(&moved).unwrap().mtime(), 1_000_000);
+        for want in ["content", "mtime", "owner", "mode"] {
+            assert!(r.restored.iter().any(|x| x == want), "{want}: {r:?}");
+        }
+        cleanup(&dir).ok();
+    }
+
+    /// 자리에 링크가 있으면 따라 쓰지 않는다 — 꺼낼 폴더에 미리 둔 링크(꺼내기는 링크 가드를 묻지 않는다)와, 계획 ·
+    /// 쓰기 직전 물음 뒤에 바뀐 제자리의 링크가 이 꼴이다.
+    #[test]
+    fn a_link_at_the_place_is_not_written_through() {
+        let dir = tmp("link-at-place");
+        let target = keep(&dir);
+        let place = dir.join("_srv_x");
+        std::os::unix::fs::symlink(&target, &place).unwrap();
+
+        let got = FsRestore.restore_file(&place.to_string_lossy(), b"new", &meta_4755());
+        assert!(got.is_err(), "{got:?}");
+        assert_eq!(std::fs::read(&target).unwrap(), b"keep");
+        assert_eq!(mode(&target), 0o644);
+        assert!(std::fs::symlink_metadata(&place)
+            .unwrap()
+            .file_type()
+            .is_symlink());
+        cleanup(&dir).ok();
+    }
+
+    /// 자리의 파일에 다른 이름(하드 링크)이 있으면 쓰지 않는다 — 그 inode 는 다른 자리의 파일이기도 하다.
+    #[test]
+    fn a_hard_link_at_the_place_is_not_written_to() {
+        let dir = tmp("hard-link-at-place");
+        let target = keep(&dir);
+        let place = dir.join("tool");
+        std::fs::hard_link(&target, &place).unwrap();
+        let ino = std::fs::metadata(&target).unwrap().ino();
+
+        let got = FsRestore.restore_file(&place.to_string_lossy(), b"new", &meta_4755());
+        assert!(got.is_err(), "{got:?}");
+        let md = std::fs::metadata(&target).unwrap();
+        assert_eq!(std::fs::read(&target).unwrap(), b"keep");
+        assert_eq!((md.ino(), md.nlink(), md.mode() & 0o7777), (ino, 2, 0o644));
+        cleanup(&dir).ok();
+    }
+
+    /// 자리가 일반 파일이 아니면(이름 붙은 파이프) 기다리지 않고 실패한다 — 쓰는 쪽으로 열면 읽는 쪽이 나타날 때까지
+    /// 멈추고, 나타나면 담아 둔 본문을 그 사람에게 흘린다.
+    #[test]
+    fn a_fifo_at_the_place_is_refused_without_waiting() {
+        let dir = tmp("fifo-at-place");
+        let place = dir.join("tool");
+        let ok = std::process::Command::new("mkfifo")
+            .arg(&place)
+            .status()
+            .unwrap();
+        assert!(ok.success());
+        let s = place.to_string_lossy().to_string();
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let _ = tx.send(
+                FsRestore
+                    .restore_file(&s, b"new", &FileMeta::default())
+                    .is_err(),
+            );
+        });
+        let refused = rx.recv_timeout(std::time::Duration::from_secs(10));
+        assert_eq!(refused, Ok(true), "파이프 자리에서 멈췄거나 썼다");
+        cleanup(&dir).ok();
+    }
+}
