@@ -1868,3 +1868,25 @@ mod place_opened_once {
         cleanup(&dir).ok();
     }
 }
+
+/// 꺼낸 사본에는 파일 권능도 **POSIX ACL** 도 붙이지 않는다(이슈 #172) — ACL 의 이름 붙은 항목은 소유자와 같이 숫자
+/// uid · gid 라, 다른 기계에서 꺼내면 같은 번호의 다른 사람이 사본을 읽고 고친다. 다른 확장 속성은 그대로다.
+#[test]
+fn an_extracted_copy_gets_neither_the_file_capability_nor_the_posix_acls() {
+    let x = |name: &str| (name.to_string(), "AgAAAAEABgD/////".to_string());
+    let m = FileMeta {
+        xattrs: [
+            x("system.posix_acl_access"),
+            x("system.posix_acl_default"),
+            x("security.capability"),
+            x("user.note"),
+        ]
+        .into_iter()
+        .collect(),
+        ..Default::default()
+    };
+    assert_eq!(
+        m.for_extract().xattrs.keys().collect::<Vec<_>>(),
+        ["user.note"]
+    );
+}

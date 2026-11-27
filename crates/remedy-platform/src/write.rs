@@ -77,8 +77,14 @@ pub struct FileMeta {
 /// setuid · setgid 비트(`S_ISUID | S_ISGID`). 소유자가 돌아오지 않으면 되돌리는 mode 에서 뺀다.
 pub const SETID_BITS: u32 = 0o6000;
 
-/// 파일 권능(file capability)의 확장 속성 이름 — 꺼낸 사본에는 붙이지 않는다([`FileMeta::for_extract`]).
-const FILE_CAPABILITY_XATTR: &str = "security.capability";
+/// 꺼낸 사본에는 붙이지 않는 확장 속성([`FileMeta::for_extract`]) — 파일 권능(`security.capability`)과 POSIX ACL
+/// (`system.posix_acl_access` · `system.posix_acl_default`)이다. 권능은 setuid 와 같은 부류이고, ACL 의 이름 붙은
+/// 항목은 소유자와 같이 숫자 uid · gid 라 다른 기계에서는 같은 번호의 다른 사람이 사본을 읽고 고친다.
+const NOT_ON_AN_EXTRACTED_COPY: [&str; 3] = [
+    "security.capability",
+    "system.posix_acl_access",
+    "system.posix_acl_default",
+];
 
 impl FileMeta {
     /// 담아 둔 소유자(uid, gid) — 둘 다 있을 때만.
@@ -86,17 +92,18 @@ impl FileMeta {
         Some((self.uid?, self.gid?))
     }
 
-    /// 꺼내기(`--extract-to`)에 쓸 메타데이터 — **setuid · setgid 와 파일 권능(`security.capability`)을 빼고 소유자를
-    /// 비운다**(이슈 #172).
+    /// 꺼내기(`--extract-to`)에 쓸 메타데이터 — **setuid · setgid 와 파일 권능(`security.capability`) · POSIX ACL 을
+    /// 빼고 소유자를 비운다**(이슈 #172).
     ///
     /// 꺼낸 것은 원래 자리가 아닌 곳의 사본이다. 거기서 setuid · setgid 나 파일 권능이 살아 있으면 꺼낸 폴더에 남의
     /// 권한으로 도는 실행 파일이 생긴다 — 권능(`cap_setuid` 등)은 setuid 와 같은 부류다. 소유자는 꺼낸 계정이다:
     /// 담아 둔 것은 숫자 uid · gid 라 다른 기계에서 꺼내면 같은 번호의 다른 계정이 사본의 소유자가 되고, 같은
-    /// 기계에서도 원래 사용자가 분석용 사본을 고칠 수 있다. 다른 확장 속성은 그대로 둔다. 소유자 칸이 비었다고
+    /// 기계에서도 원래 사용자가 분석용 사본을 고칠 수 있다. ACL 의 이름 붙은 항목(`user:1001:rw-`)도 같은 숫자라
+    /// 같은 까닭으로 붙이지 않는다([`NOT_ON_AN_EXTRACTED_COPY`]). 다른 확장 속성은 그대로 둔다. 소유자 칸이 비었다고
     /// 계획 · 복원 뒤 보고에 서는 '담지 않았다' 줄은 꺼내기에서 사실이 아니므로 `remedy-core` 의 꺼내기가 뺀다.
     pub fn for_extract(&self) -> FileMeta {
         let mut xattrs = self.xattrs.clone();
-        xattrs.remove(FILE_CAPABILITY_XATTR);
+        xattrs.retain(|name, _| !NOT_ON_AN_EXTRACTED_COPY.contains(&name.as_str()));
         FileMeta {
             mode: self.mode.map(|m| m & !SETID_BITS),
             uid: None,
