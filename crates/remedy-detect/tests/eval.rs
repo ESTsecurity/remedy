@@ -1652,3 +1652,236 @@ fn from_narrows_archive_entries_by_the_archive_on_disk() {
     assert_eq!(hits, [app.as_str()], "{:?}", body.evidence);
     assert_eq!(body.verdicts.len(), 1, "{:?}", body.issues);
 }
+
+// ─────────────────────────────────────────── 지금 도는 커널 (`kernel` · 코어 1.28.0)
+
+/// 깔린 커널 전부가 아니라 **지금 도는 커널의 패키지 하나**를 고르는 꼴 — `kernel` 에서 capture 한 값을 `package`
+/// 의 이름 · 판에 보간한다. rpm 판은 `[epoch:]판-개정` 이라(`package.rs`) epoch 이 붙은 꼴을 `ends_with ':…'` 로
+/// 받는다. `in` 목록 안의 `${}` 는 참조로 세지 않으므로 any 안의 equals 로 적는다.
+///
+/// 이어지지 않으면 확인 필요다 — 0 은 이어진 패키지 위에서만 난다.
+const KERNEL_MANIFEST: &str = r#"
+schema_version: 1
+id: running-kernel
+version: 0.1.0
+min_core: "1.28.0"
+platforms: [linux]
+kind: check
+name: { ko: "예시", en: "Sample" }
+scan_roots: ["/var/lib/dpkg/status"]
+subjects: [package, kernel]
+detect:
+  - id: run
+    subject: kernel
+    where:
+      - { field: release, op: exists }
+    capture: { r: "release", n: "release_noarch" }
+  - id: linked
+    subject: package
+    where:
+      any:
+        - { field: name, op: equals, value: "linux-image-${run.r}" }
+        - { field: version, op: equals, value: "${run.n}" }
+        - { field: version, op: ends_with, value: ":${run.n}" }
+verdict:
+  require: "linked"
+  unconfirmed:
+    - when: "not linked"
+      why: { ko: "지금 도는 커널의 패키지를 찾지 못했습니다", en: "the running kernel's package was not found" }
+"#;
+
+const OSRELEASE: &str = "/proc/sys/kernel/osrelease";
+
+fn running(release: &str, noarch: &str) -> remedy_artifacts::KernelRecord {
+    remedy_artifacts::KernelRecord {
+        release: release.into(),
+        build: "#1 SMP PREEMPT_DYNAMIC Debian 6.1.187-1 (2026-09-07)".into(),
+        release_noarch: noarch.into(),
+        signature: String::new(),
+    }
+}
+
+fn kpkg(name: &str, version: &str, manager: &str) -> PackageRecord {
+    PackageRecord {
+        name: name.into(),
+        version: version.into(),
+        upstream_version: String::new(),
+        revision: String::new(),
+        arch: "amd64".into(),
+        source: String::new(),
+        manager: manager.into(),
+        vendor: String::new(),
+    }
+}
+
+/// 수집기의 `harvest!` 와 같은 차례로 담는다 — 거부 · 잘림을 합치고, 빈 목록도 담는다.
+fn kernel_eval(
+    kernel: remedy_artifacts::Harvest<remedy_artifacts::KernelRecord>,
+    pkgs: &[PackageRecord],
+) -> remedy_sdk::artifact::ScanBody {
+    let mut sc = Scope::diagnostic(Vec::new(), Platform::Linux);
+    sc.subjects = vec![Subject::Package, Subject::Kernel];
+    let mut o = Observations::default();
+    o.put(Subject::Package, pkgs);
+    o.absorb(&kernel);
+    o.put(Subject::Kernel, &kernel.records);
+    let host = HostInfo {
+        hostname: "H".into(),
+        os: "linux".into(),
+        version: String::new(),
+        arch: "amd64".into(),
+    };
+    let core = CoreInfo {
+        version: "0".into(),
+        build: "d".into(),
+    };
+    let env = remedy_artifacts::assemble(
+        "r".into(),
+        "2026-11-28T00:00:00Z".into(),
+        host,
+        core,
+        &sc,
+        o,
+    );
+    let mut body = evaluate(
+        &Snapshot::from_envelope(&env),
+        &manifest(KERNEL_MANIFEST),
+        &sc,
+    )
+    .unwrap();
+    assert!(body.issues.is_empty(), "{:?}", body.issues);
+    // 파이프라인이 하는 대로(`remedy-core` 의 `pipeline.rs`) 스냅샷이 아는 관측(거부 · 잘림)에 평가가 아는 것을
+    // 얹는다 — 종료 코드는 이 합친 관측으로 정해진다.
+    body.observation = remedy_sdk::artifact::Observation {
+        unevaluated_rules: std::mem::take(&mut body.observation.unevaluated_rules),
+        unreadable_versions: std::mem::take(&mut body.observation.unreadable_versions),
+        unconfirmed: std::mem::take(&mut body.observation.unconfirmed),
+        ..env.body.observation()
+    };
+    body
+}
+
+fn one(
+    r: remedy_artifacts::KernelRecord,
+) -> remedy_artifacts::Harvest<remedy_artifacts::KernelRecord> {
+    remedy_artifacts::Harvest {
+        records: vec![r],
+        ..Default::default()
+    }
+}
+
+/// `linked` 가 고른 패키지 이름 · 판.
+fn linked(body: &remedy_sdk::artifact::ScanBody) -> Vec<String> {
+    body.evidence
+        .iter()
+        .filter(|e| e.rule == "linked")
+        .map(|e| {
+            format!(
+                "{} {}",
+                e.target["name"].as_str().unwrap_or(""),
+                e.target["version"].as_str().unwrap_or("")
+            )
+        })
+        .collect()
+}
+
+/// dpkg 는 **이름**으로 잇는다 — 커널 두 판이 함께 깔려 있어도 지금 도는 쪽 하나만 고른다.
+#[test]
+fn the_running_kernel_picks_its_own_dpkg_package_by_name() {
+    let pkgs = [
+        kpkg("linux-image-6.1.0-50-amd64", "6.1.176-1", "dpkg"),
+        kpkg("linux-image-6.1.0-53-amd64", "6.1.187-1", "dpkg"),
+        kpkg("linux-image-amd64", "6.1.187-1", "dpkg"),
+    ];
+    for (release, want) in [
+        ("6.1.0-53-amd64", "linux-image-6.1.0-53-amd64 6.1.187-1"),
+        ("6.1.0-50-amd64", "linux-image-6.1.0-50-amd64 6.1.176-1"),
+    ] {
+        let body = kernel_eval(one(running(release, release)), &pkgs);
+        assert_eq!(linked(&body), [want], "{release}");
+        assert_eq!(body.verdicts.len(), 1, "{release}");
+        assert!(body.observation.unconfirmed.is_empty(), "{release}");
+    }
+}
+
+/// rpm 은 **판**으로 잇는다 — `release_noarch` 가 `판-개정` 과 같고, epoch 이 붙으면 `:` 뒤가 같다. 앞이 더 긴
+/// 판(`15.10…`)은 `:` 경계 때문에 잇지 않는다.
+#[test]
+fn an_rpm_kernel_links_by_version_with_or_without_epoch() {
+    let pkgs = [
+        kpkg("kernel-core", "5.14.0-427.13.1.el9_4", "rpm"),
+        kpkg("kernel-core", "5.14.0-503.23.1.el9_5", "rpm"),
+        kpkg("kernel", "1:5.10.228-219.884.amzn2", "rpm"),
+        kpkg("kernel", "2:15.10.228-219.884.amzn2", "rpm"),
+    ];
+    let body = kernel_eval(
+        one(running(
+            "5.14.0-503.23.1.el9_5.x86_64",
+            "5.14.0-503.23.1.el9_5",
+        )),
+        &pkgs,
+    );
+    assert_eq!(linked(&body), ["kernel-core 5.14.0-503.23.1.el9_5"]);
+    let body = kernel_eval(
+        one(running(
+            "5.10.228-219.884.amzn2.x86_64",
+            "5.10.228-219.884.amzn2",
+        )),
+        &pkgs,
+    );
+    assert_eq!(linked(&body), ["kernel 1:5.10.228-219.884.amzn2"]);
+}
+
+/// 이어지는 패키지가 없으면 판정이 서지 않고 룰의 확인 필요가 선다(6) — 컨테이너 · 직접 지은 커널의 꼴이다.
+#[test]
+fn a_running_kernel_without_its_package_is_unconfirmed() {
+    let pkgs = [kpkg("linux-image-6.1.0-53-amd64", "6.1.187-1", "dpkg")];
+    let body = kernel_eval(
+        one(running(
+            "5.15.167.4-microsoft-standard-WSL2",
+            "5.15.167.4-microsoft-standard-WSL2",
+        )),
+        &pkgs,
+    );
+    assert!(linked(&body).is_empty());
+    assert!(body.verdicts.is_empty());
+    assert_eq!(body.observation.unconfirmed.len(), 1);
+    assert!(
+        !body.observation.is_complete_for_check(),
+        "확인 필요인데 0 으로 끝난다"
+    );
+}
+
+/// `kernel` 이 0건이면 그 값을 보간하는 자식은 **평가하지 않는다** — 빈 값으로 펴서 `linux-image-` 와 맞추지 않는다.
+#[test]
+fn with_no_kernel_record_the_linked_rule_is_not_evaluated() {
+    let pkgs = [kpkg("linux-image-", "", "dpkg"), kpkg("x", ":", "rpm")];
+    let body = kernel_eval(remedy_artifacts::Harvest::default(), &pkgs);
+    assert!(
+        linked(&body).is_empty(),
+        "빈 보간으로 패키지를 이었다: {:?}",
+        body.evidence
+    );
+    assert!(body.verdicts.is_empty());
+    assert_eq!(body.observation.unconfirmed.len(), 1);
+}
+
+/// `osrelease` 를 못 읽은 수집(0건 + 거부)은 **확인 필요 줄이 없어도** 6 이다 — 리눅스의 거부는 점검도 건너뛰지
+/// 않는다(`check_skips_denied`). 문이 닫힌 룰도 그 기계에서 0 을 내지 않는다.
+#[test]
+fn a_denied_kernel_read_is_incomplete_even_without_the_rules_unconfirmed_line() {
+    let mut h = remedy_artifacts::Harvest::<remedy_artifacts::KernelRecord>::default();
+    h.deny(OSRELEASE);
+    let body = kernel_eval(h, &[]);
+    assert!(body.verdicts.is_empty());
+    assert_eq!(body.observation.denied_dirs, 1);
+    assert_eq!(body.observation.denied_paths, [OSRELEASE]);
+    let without_rule = remedy_sdk::artifact::Observation {
+        unconfirmed: Vec::new(),
+        ..body.observation.clone()
+    };
+    assert!(
+        !without_rule.is_complete_for_check(),
+        "못 읽은 커널 위에서 '없다' 를 말한다"
+    );
+}
