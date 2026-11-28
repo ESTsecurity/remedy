@@ -278,7 +278,9 @@ DB 를 **파일로 직접 읽고**(`dpkg status` · `apk installed` · rpm DB) �
 | `release_noarch` | 끝의 `.<아키텍처>` 와 그 뒤 `+<변형>` 을 뗀 `release`(`…el9_5.x86_64+rt` → `…el9_5`) — rpm 판과 견준다 |
 | `signature` | `/proc/version_signature` — Ubuntu 커널만 낸다. 없으면 `""` |
 
-capture 해 `package` 에 잇고 **이은 패키지 하나로** 판정한다 — dpkg 는 이름, rpm 은 판이다(epoch 이 붙으면 `1:판`):
+capture 해 `package` 에 잇고 **이은 패키지로** 판정한다 — dpkg 는 이름이라 하나, rpm 은 판이라 같은 판의 커널
+패키지(`kernel-core` · `kernel-modules` …)가 함께 이어진다(epoch 이 붙으면 `1:판`). 이름이 같아도 판은 바뀌므로 그
+판으로 지금 도는지도 본다:
 
 ```yaml
 - id: run
@@ -292,13 +294,27 @@ capture 해 `package` 에 잇고 **이은 패키지 하나로** 판정한다 —
       - { field: name,    op: equals,    value: "linux-image-${run.r}" }
       - { field: version, op: equals,    value: "${run.n}" }
       - { field: version, op: ends_with, value: ":${run.n}" }
+- id: run_deb            # Debian 꼴 개정(`1` · `1~bpo12+1` · Ubuntu 의 `49.49` 는 아님)으로 이은 판
+  subject: package
+  where:
+    - { field: name,     op: equals,  value: "linux-image-${run.r}" }
+    - { field: revision, op: matches, value: '^[0-9]+([~+][^.]*)?$' }
+  capture: { v: "version" }
+- id: run_deb_build_ok   # 그 판으로 지금 돈다
+  subject: kernel
+  where: [{ field: build, op: contains, value: " Debian ${run_deb.v} (" }]
 ```
 
+- **0 은 이어지고 분류된 고친 판에서만 낸다.** `unconfirmed` 로 6 을 내는 줄이 셋 든다 — 잇지 못함(`not run_linked`) ·
+  이었는데 판 분류에 들지 않음(`run_linked and not (<분류 규칙 전부>)`) · 이은 판으로 돌지 않음(`run_deb and not
+  run_deb_build_ok` — 같은 이름에 새 판을 깔고 다시 시작하지 않은 기계). 하나라도 빠지면 그 기계가 0 이다. Ubuntu 는
+  `signature` 에 든 판을 이은 판과 견준다. 깔린 다른 판으로 대신하면 틀린 0 이 나간다
+- 컨테이너는 보통 호스트의 커널이 보여(VM · 샌드박스로 격리하는 런타임이면 그 런타임의 커널) 이미지의 패키지와
+  이어지지 않는다
 - **`in` 목록에 `${}` 를 넣지 않는다** — 목록 안의 값은 참조로 세지 않아 `run` 을 부모로 잇지 않고(차례 · 그룹이
   빠진다) 린트도 그 이름을 보지 않는다. 위처럼 `any` 안의 `equals` 로 쓴다
-- **0 은 이어진 고친 판에서만 낸다.** 잇지 못하면 `unconfirmed`(`not run_linked`)로 6 이다 — 컨테이너는 호스트의
-  커널이 보여 이미지의 패키지와 이어지지 않는다. 깔린 다른 판으로 대신하면 틀린 0 이 나간다
-- `kernel` 을 못 읽으면 0건 + 거부라 6 이다(`/proc` 이 없는 chroot 포함)
+- `kernel` 을 못 읽으면 0건 + 거부라 6 이다(`/proc` 이 없는 chroot 포함 · 까닭 줄은 접근 거부로 적힌다)
+- 린트는 `release exists` 하나뿐인 `run` 에 그룹 폭증을 경고하지만 `kernel` 은 늘 한 건이다
 
 ## 선언한 자리 밖의 런타임 — 찾으면 확인 필요
 
