@@ -316,7 +316,7 @@ detect:
 - id: run_ub_sig_ok
   subject: kernel
   where: [{ field: signature, op: contains, value: "Ubuntu ${run_ub.u}-" }]
-# vulnerable · fixed: 이은 패키지의 판 분류(§패키지)
+# vulnerable · fixed: run_linked 의 any 셋 + 판 분류(§패키지) — 잇지 않은 fixed 는 둘째 줄을 끈다
 verdict:
   require: "vulnerable"
   unconfirmed:
@@ -335,10 +335,9 @@ verdict:
   6 이다(틀린 0 보다 안전한 쪽)
 - 컨테이너는 보통 호스트의 커널이 보여(VM · 샌드박스 런타임이면 그 커널) 이미지의 패키지와 이어지지 않는다
 - **`in` 목록에 `${}` 를 넣지 않는다** — 목록 안은 참조로 세지 않아 `run` 을 부모로 잇지 않고(차례 · 그룹이 빠진다)
-  린트도 보지 않는다. 위처럼 `any` 안의 `equals` 로 쓴다
+  린트도 보지 않는다. `any` 안의 `equals` 로 쓴다
 - `kernel` 을 못 읽으면 0건 + 거부라 6 이다(`/proc` 이 없는 chroot 포함 · 까닭 줄은 접근 거부로 적힌다)
-- 린트의 경고 둘은 그대로 둔다 — `release exists` 하나뿐인 `run` 의 그룹 폭증(`kernel` 은 늘 한 건)과 근거
-  하나(판 대조를 더해 끄지 않는다)
+- 린트의 경고 둘은 그대로 둔다 — `run` 의 그룹 폭증(`kernel` 은 늘 한 건)과 근거 하나(판 대조를 더해 끄지 않는다)
 
 ## 선언한 자리 밖의 런타임 — 찾으면 확인 필요
 
