@@ -1637,6 +1637,78 @@ fn the_value_that_decided_it_is_shown() {
     assert!(!out[0].contains("path"), "필드 이름이 샜다: {}", out[0]);
 }
 
+/// 지금 도는 커널의 줄은 판 대조에 쓴 칸을 **받는 사람의 낱말로** 적는다(코어 1.28.0) — 칸 이름 그대로면
+/// `6.1.0-53-amd64  (build #1 SMP …)` 로 선다(가이드 예제를 지어낸 관측에 돌린 evaluate). 영어 화면은 칸
+/// 이름 그대로다. `release` 는 이름과 같아 괄호에 되풀이하지 않는다.
+#[test]
+fn a_running_kernel_line_names_its_field_in_the_readers_words() {
+    let kernel = |id: &str, field: &str, release: &str, noarch: &str, build: &str, sig: &str| {
+        let mut e = ev(
+            id,
+            Subject::Kernel,
+            serde_json::json!({
+                "release": release, "build": build, "release_noarch": noarch, "signature": sig,
+            }),
+        );
+        e.matched = vec![MatchedPredicate {
+            field: field.into(),
+            op: "contains".into(),
+            value: None,
+        }];
+        e
+    };
+    let deb = "#1 SMP PREEMPT_DYNAMIC Debian 6.1.187-1 (2026-09-07)";
+    let ub = "#49-Ubuntu SMP PREEMPT_DYNAMIC Mon Nov  4 02:06:24 UTC 2024";
+    let sig = "Ubuntu 6.8.0-49.49-generic 6.8.12";
+    let el = "5.14.0-503.23.1.el9_5";
+    let e = vec![
+        kernel("e0", "build", "6.1.0-53-amd64", "6.1.0-53-amd64", deb, ""),
+        kernel(
+            "e1",
+            "signature",
+            "6.8.0-49-generic",
+            "6.8.0-49-generic",
+            ub,
+            sig,
+        ),
+        kernel(
+            "e2",
+            "release_noarch",
+            &format!("{el}.x86_64"),
+            el,
+            "#1 SMP",
+            "",
+        ),
+        kernel(
+            "e3",
+            "release",
+            "6.12.48+deb13-amd64",
+            "6.12.48+deb13-amd64",
+            "#1",
+            "",
+        ),
+    ];
+    let g = [group("g0", &["e0", "e1", "e2", "e3"], true)];
+    assert_eq!(
+        check_findings(&e, &g, &[], Lang::Ko, FINDINGS_SHOWN),
+        vec![
+            format!("   1. 6.1.0-53-amd64  (빌드 {deb})"),
+            format!("   2. 6.8.0-49-generic  (Ubuntu 버전 표시 {sig})"),
+            format!("   3. {el}.x86_64  (커널 버전 {el})"),
+            "   4. 6.12.48+deb13-amd64".to_string(),
+        ]
+    );
+    assert_eq!(
+        check_findings(&e, &g, &[], Lang::En, FINDINGS_SHOWN),
+        vec![
+            format!("   1. 6.1.0-53-amd64  (build {deb})"),
+            format!("   2. 6.8.0-49-generic  (signature {sig})"),
+            format!("   3. {el}.x86_64  (release_noarch {el})"),
+            "   4. 6.12.48+deb13-amd64".to_string(),
+        ]
+    );
+}
+
 /// **잘리는 갈래가 실제로 돈다.** 재지 않으면 죽은 코드다.
 #[test]
 fn the_overflow_line_appears_and_verbose_shows_all() {

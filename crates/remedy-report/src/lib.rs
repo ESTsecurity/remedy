@@ -751,6 +751,12 @@ fn field_word(field: &str, lang: Lang) -> Option<String> {
         "source" => ("원본 패키지", "source package"),
         // 아카이브 안을 끝까지 못 본 까닭(코어 1.11.0) — 값은 언어와 무관한 짧은 낱말이다(`too_large` 등).
         "error" => ("못 본 까닭", "not read"),
+        // 지금 도는 커널의 칸(코어 1.28.0) — 판 대조에 쓴 `uname -v` 값이 `(build #1 SMP …)` 로 섰다. 이 이름들은
+        // 카탈로그에서 `kernel` 만 쓴다(다른 subject 의 줄은 바뀌지 않는다). 영어는 칸 이름 그대로다.
+        "build" => ("빌드", "build"),
+        "signature" => ("Ubuntu 버전 표시", "signature"),
+        "release" => ("커널 버전", "release"),
+        "release_noarch" => ("커널 버전", "release_noarch"),
         other => (other, other),
     };
     Some(lang.pick(ko.to_string(), en.to_string()))
