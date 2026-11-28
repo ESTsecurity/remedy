@@ -778,7 +778,8 @@ impl Subject {
             // **지금 도는 커널** 하나가 레코드 하나다(코어 1.28.0). `release` 는 `uname -r`, `build` 는 `uname -v` 와 같고,
             // `release_noarch` 는 `release` 끝의 `.<아키텍처>` · `+<변형>` 을 뗀 값(rpm 판과 잇는 칸), `signature` 는
             // Ubuntu 의 `/proc/version_signature`(없으면 빈 문자열)다. 룰은 이 값을 capture 해 `package` 의 이름 · 판에
-            // 보간한다 — 깔린 커널 전부가 아니라 **지금 도는 커널의 패키지 하나**로 판정하려고.
+            // 보간한다 — 깔린 커널 전부가 아니라 **지금 도는 커널의 패키지**로 판정하려고(dpkg 는 이름이라 하나 · rpm 은
+            // 판이라 같은 판의 커널 패키지 여럿).
             Subject::Kernel => &["release", "build", "release_noarch", "signature"],
         }
     }

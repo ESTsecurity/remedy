@@ -1655,7 +1655,7 @@ fn from_narrows_archive_entries_by_the_archive_on_disk() {
 
 // ─────────────────────────────────────────── 지금 도는 커널 (`kernel` · 코어 1.28.0)
 
-/// 깔린 커널 전부가 아니라 **지금 도는 커널의 패키지 하나**를 고르는 꼴 — `kernel` 에서 capture 한 값을 `package`
+/// 깔린 커널 전부가 아니라 **지금 도는 커널의 패키지**를 고르는 꼴 — `kernel` 에서 capture 한 값을 `package`
 /// 의 이름 · 판에 보간한다. rpm 판은 `[epoch:]판-개정` 이라(`package.rs`) epoch 이 붙은 꼴을 `ends_with ':…'` 로
 /// 받는다. `in` 목록 안의 `${}` 는 참조로 세지 않으므로 any 안의 equals 로 적는다.
 ///
