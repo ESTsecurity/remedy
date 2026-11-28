@@ -70,6 +70,9 @@ subjects:
     # 이름 있는 UNIX 소켓 — `/proc/net/unix` (코어 1.2.0). 데몬이 없는 컨테이너에는
     # 거의 없다 — 소켓이 있는 기계는 `corpus-unix-sockets.yaml` 로 따로 뜬다.
     unix_socket,
+    # 지금 도는 커널 — `/proc/sys/kernel/osrelease` · `version` · `/proc/version_signature` (코어 1.28.0).
+    # 늘 한 건이다. 컨테이너에서 뜨면 호스트의 커널이 담긴다 — 커널만 따로 뜨는 것은 `corpus-kernel.yaml`.
+    kernel,
   ]
 
 # 드롭인 디렉터리 — 확장자가 없어서 접미사 축으로는 닿지 않는다 (C-5).

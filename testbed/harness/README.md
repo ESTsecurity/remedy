@@ -2316,6 +2316,7 @@ Windows 쪽은 VM 스냅샷으로 격리를 얻는다. Linux 는 **컨테이너*
 | `linux/invoke-linux-verify.sh` | 호스트 | 컨테이너를 띄워 위를 부른다(환경 `JUDGE_ALL` 을 넘겨 준다) |
 | `linux/fixtures/*.crt` | — | 자기서명 시험용 인증서 둘. 2126년까지 유효하다 |
 | `linux/corpus-all-subjects.yaml` | — | 코퍼스용. **아무것도 맞히지 않는다** |
+| `linux/corpus-kernel.yaml` | 컨테이너 | 코퍼스용 — 지금 도는 커널 **만**(코어 1.28.0). 그 앞에 뜬 스냅샷에는 `kernel` 배열이 없어 따로 뜬다. 컨테이너에서 뜨면 호스트의 커널이 담긴다 — `corpus/clean/docker-debian12-kernel.json.gz` 는 WSL2 위 bookworm 컨테이너에서 떠 WSL2 커널이다. **아무것도 맞히지 않는다** |
 | `linux/new-corpus-snapshot.sh` | 랩 기계 | 청정 스냅샷 |
 | `linux/invoke-corpus-snapshot.sh` | 호스트 | 여러 배포판의 청정 스냅샷을 컨테이너에서 떠 온다 |
 | `linux/new-threat-fixtures.sh` | 컨테이너 | AI 시험 위협의 감염 상태를 세운다 |
