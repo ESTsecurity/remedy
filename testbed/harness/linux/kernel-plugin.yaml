@@ -1,4 +1,4 @@
-# 지금 도는 커널에서 그 패키지를 잇는 실험 룰 (엔진 하네스 K1 · K2 · 코어 1.28.0).
+# 지금 도는 커널에서 그 패키지를 잇는 실험 룰 (엔진 하네스 K1 · K2 · `remedy-cli` 시험 H1 · 코어 1.28.0).
 #
 # 실제 위협을 다루지 않는다. `kernel` 의 `release` 를 capture 해 dpkg 기록의 이름 `linux-image-<release>` 와 잇는
 # 꼴(커널 결함을 보는 점검 룰이 쓸 꼴)이 **실제 수집**에서 서는지만 본다 — 이어지면 판정이 서고(2), 그 이름의
@@ -7,8 +7,10 @@
 # - `verify-linux.sh` 의 K1 · K2: K1 은 이 룰로 수집한 kernel 한 건을 `uname` 과 견준다. K2 — 컨테이너는 호스트의
 #   커널을 쓰므로 이미지의 dpkg DB 에 그 이름이 없다. 하네스가 그 이름의 기록을 잠시 넣어 이어짐을 세우고, 뺀 뒤
 #   서지 않음을 본다.
+# - `crates/remedy-cli/tests/running_kernel.rs`(H1): CI 리눅스 잡의 `cargo test` 가 러너 호스트에서 돌고, 기대값은
+#   그 자리의 `dpkg-query` 로 정한다.
 #
-# 칸이나 이름을 바꾸면 하네스를 함께 고친다.
+# 칸이나 이름을 바꾸면 두 자리를 함께 고친다.
 
 schema_version: 1
 id: remedy-lab-kernel

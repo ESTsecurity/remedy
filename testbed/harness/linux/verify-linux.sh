@@ -63,7 +63,8 @@
 # subject `kernel` 이 1.28.0 에서 생겼다. 그 앞의 엔진은 이 subject 를 선언한 룰을 읽지 못하므로(모르는 subject 를
 # 역직렬화에서 거부한다) 칸마다 `건너뜀 — 엔진 <판> < 1.28.0` 을 적고 판정하지 않는다. `JUDGE_ALL=1` 도 이 칸을
 # 넘기지 않는다 — 앞의 엔진에서 재현할 결함이 없다. 컨테이너는 커널을 호스트와 함께 쓰므로 여기서 읽는 값은
-# 호스트의 것이다.
+# 호스트의 것이다. 러너 호스트(컨테이너 밖)의 실물은 `crates/remedy-cli/tests/running_kernel.rs`(H1)가 CI 리눅스
+# 잡의 `cargo test` 에서 잰다.
 #
 #   K1  `kernel-plugin.yaml` 의 collect 가 kernel 한 건을 담는다 — release = `uname -r` · build = `uname -v` ·
 #       release_noarch 가 규칙대로(닫힌 목록의 `.<아키텍처>` 꼬리와 그 뒤 `+<변형>` 을 뗀다 — 하네스가 따로 셈한다) ·
