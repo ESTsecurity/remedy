@@ -106,6 +106,38 @@ printf '%s\n' \
     '```' \
     '' \
     '* **C**' >"$BASE/edge.md"
+# 알아두실 점 접기의 한 줄 꼴(`<details><summary>…</summary>` — 룰 조각의 꼴)과 닫는 줄의 꼴 — 들여 쓴 닫는 줄 · 끝 공백이 붙은
+# 닫는 줄은 펴고, 글과 같은 줄에서 닫는 접기는 펴지 않고 원문 그대로 둔다(여는 줄만 지우면 짝이 어긋나 태그를 민 뒤에야 멈춘다).
+printf '%s\n' \
+    '### 프로그램' \
+    '' \
+    '* **A** (Linux)\' \
+    '  설명 A.' \
+    '' \
+    '<details><summary><b>알아두실 점 및 자세한 내용 보기</b></summary>' \
+    '' \
+    '* 알 A' \
+    '' \
+    '  </details>' \
+    '' \
+    '### 시험 점검' \
+    '' \
+    '* **B**\' \
+    '  설명 B.' \
+    '' \
+    '<details><summary><b>알아두실 점 및 자세한 내용 보기</b></summary>' \
+    '' \
+    '* 알 B' \
+    '' \
+    '</details> ' \
+    '' \
+    '### 그 밖' \
+    '' \
+    '* **C**' \
+    '' \
+    '<details><summary><b>알아두실 점 및 자세한 내용 보기</b></summary>' \
+    '' \
+    '* 알 C</details>' >"$BASE/close.md"
 
 # 기대 2절 본문(머리 줄 · '지난 버전의 변경 내용은' 줄 사이 — 틀의 앞뒤 빈 줄은 뺀다).
 printf '%s\n' \
@@ -212,6 +244,53 @@ printf '%s\n' \
     '* **C**' \
     '' \
     '</details>' >"$BASE/edge.exp"
+printf '%s\n' \
+    '### 프로그램' \
+    '' \
+    '* **A** (Linux)' \
+    '' \
+    '<details>' \
+    '<summary><b>알아두실 점 및 자세한 내용 보기</b></summary>' \
+    '' \
+    '* **A** (Linux)\' \
+    '  설명 A.' \
+    '' \
+    '* **알아두실 점**' \
+    '' \
+    '  * 알 A' \
+    '' \
+    '</details>' \
+    '' \
+    '### 시험 점검' \
+    '' \
+    '* **B**' \
+    '' \
+    '<details>' \
+    '<summary><b>알아두실 점 및 자세한 내용 보기</b></summary>' \
+    '' \
+    '* **B**\' \
+    '  설명 B.' \
+    '' \
+    '* **알아두실 점**' \
+    '' \
+    '  * 알 B' \
+    '' \
+    '</details>' \
+    '' \
+    '### 그 밖' \
+    '' \
+    '* **C**' \
+    '' \
+    '<details>' \
+    '<summary><b>알아두실 점 및 자세한 내용 보기</b></summary>' \
+    '' \
+    '* **C**' \
+    '' \
+    '<details><summary><b>알아두실 점 및 자세한 내용 보기</b></summary>' \
+    '' \
+    '* 알 C</details>' \
+    '' \
+    '</details>' >"$BASE/close.exp"
 
 pass=0
 fail=0
@@ -251,6 +330,8 @@ render v9.9.9-rc.1 '^## 2\. 변경 내용 \(프로그램 1\.25\.3 → 9\.9\.9 ·
     --prev v1.25.3 --prev-name "$P" --engine 9.9.9 --rules 2099.01.01 --changes engine.md
 render rules-2099.01.01 '^## 2\. 변경 내용 \(프로그램 1\.25\.3 그대로 · 룰 2026\.11\.21 → 2099\.01\.01\)$' 3 edge.exp \
     --prev rules-2026.11.21 --prev-name "$P" --engine 1.25.3 --changes edge.md
+render rules-2099.01.01 '^## 2\. 변경 내용 \(프로그램 1\.25\.3 그대로 · 룰 2026\.11\.21 → 2099\.01\.01\)$' 3 close.exp \
+    --prev rules-2026.11.21 --prev-name "$P" --engine 1.25.3 --changes close.md
 
 # 멈춤 장치 — 사본을 하나씩 깨뜨려 종료 1(값이 모자라면 2)과 그 까닭이 나오는지.
 guard() { # 이름 · 기대 종료 코드 · 기대 낱말 · 사본을 고치는 셸 · 스크립트 인자…
@@ -273,6 +354,8 @@ guard head-swapped 1 "위협 표의 머리가" "sed -i 's/^| 룰 | 하는 일 | 
 guard no-table 1 "위협 표를 짓지 못했다" ": > table.md" "${R[@]}" --changes rules.md
 guard open-fence 1 "닫히지 않은 코드 블록" "add_line '$FENCE'" "${R[@]}" --changes rules.md
 guard details-mismatch 1 "짝이 맞지 않는다" "add_line '<details>'" "${R[@]}" --changes rules.md
+# 닫히지 않은 알아두실 점 접기 — 펴지 않으므로 마지막 확인이 짝을 본다(펴며 여는 줄을 지우면 짝이 맞아 보였다).
+guard notes-unclosed 1 "짝이 맞지 않는다" "add_line '<details><summary><b>알아두실 점 및 자세한 내용 보기</b></summary>'" "${R[@]}" --changes rules.md
 guard relative-link 1 "상대 링크" "add_line '* 자세한 것은 [안내](docs/a.md) 에 있습니다.'" "${R[@]}" --changes rules.md
 guard leftover-slot 1 "채우지 못한 자리" "printf '\n{{FOO}}\n' >> .github/release-notes.md" "${R[@]}" --changes rules.md
 guard v-without-rules 2 "룰 버전이 없다" ":" v9.9.9 --prev v1.25.3 --engine 9.9.9 --table table.md --changes engine.md

@@ -58,5 +58,6 @@ rules: [php-2026-11-check-linux, php-2026-11-check-windows]
 - git 바탕(PR 은 받는 가지 · [`개발-안내.md`](../개발-안내.md#커밋하기-전에))보다 `version` 이 바뀐 룰(새 룰 포함)마다 바탕
   뒤에 더한 조각이 그 룰을 적었는가
 
-미리 보기 — `bash ci/release-notes.sh <다음 태그>`(v 태그는 `--rules <룰 버전>` 도)가 다음 출시의 릴리스 본문을 낸다.
+미리 보기 — `bash ci/release-notes.sh <다음 태그>`(v 태그는 `--rules <룰 버전>` 도 · 머리의 프로그램 칸은 `Cargo.toml` 의
+버전이라 엔진 버전을 올린 뒤에 부른다)가 다음 출시의 릴리스 본문을 낸다.
 `cargo xtask changes --since <지금 Latest 의 태그>` 는 그 *2. 변경 내용* 의 원문(접기 안의 글 · 업데이트 내역 파일의 칸)을 낸다.
