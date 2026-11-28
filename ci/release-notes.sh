@@ -17,9 +17,10 @@
 #
 # 채우는 것:
 #   {{CHANGES}}              이 태그가 지금 Latest 뒤에 새로 실은 업데이트 내역 조각(docs/changes/)을 모은 칸의 짧은 꼴(아래
-#                            brief) — 첫 화면은 칸마다 꼭대기 항목의 제목 줄, 나머지는 그 칸의 접기 하나에 원문 그대로. 조각이
-#                            없으면 멈춘다(바뀐 내용이 빠진 본문을 올리지 않는다). 2026-11-21 부터 — 전에는 업데이트 내역 파일의
-#                            칸 · 2026-11-28 부터 짧은 꼴 — 전에는 원문 그대로라 v1.27.0 의 2절이 본문의 66% 였다
+#                            brief) — 첫 화면은 칸마다 꼭대기 항목의 제목 줄, 그 아래 알아두실 점 접기(딸린 제목과 함께)와 자세한
+#                            내용 접기(그 밖의 원문 그대로). 조각이 없으면 멈춘다(바뀐 내용이 빠진 본문을 올리지 않는다).
+#                            2026-11-21 부터 — 전에는 업데이트 내역 파일의 칸 · 2026-11-28 부터 짧은 꼴 — 전에는 원문 그대로라
+#                            v1.27.0 의 2절이 본문의 66% 였다
 #   {{SINCE}}                (프로그램 <칸> · 룰 <칸>) — 칸마다 지난 공개본의 값과 같으면 `<값> 그대로`, 다르면 `<지난 값> →
 #                            <이번 값>`(예: `(프로그램 1.26.0 → 1.27.0 · 룰 2026.11.27 그대로)`). 차례는 Release 이름과 같다.
 #                            2026-11-28 부터 — 전에는 태그 종류마다 한 칸(`룰 X` → `프로그램 Y`)이라 종류가 다른 두 출시 사이에서
@@ -103,16 +104,17 @@ esac
 [ -n "$engine" ] || engine=$prev_engine
 
 # ── 바뀐 내용의 짧은 꼴 ────────────────────────────────────────────────────────────────────────────
-# 첫 화면에는 ### 칸마다 꼭대기 항목(들여 쓰지 않은 · <details> 밖 · 코드 블록 밖의 '* ' 줄)의 제목 줄만 끝의 \ 하나를 떼고
-# 두고, 설명 · 하위 줄 · 알아두실 점은 그 칸의 접기 하나에 원문 그대로 둔다(제목 줄도 함께 — 아래에서 펴는 접기의 여는 · 닫는
-# 줄 말고는 원문의 줄을 빼지 않는다). 원문의
-# 꼭대기 접기 가운데 조각 안내의 꼴('알아두실 점 및 자세한 내용 보기')은 펴서 '* **알아두실 점**' 항목 아래 두 칸 들인 줄로
-# 둔다 — 한 번 열면 다 보이게. 다른 꼴의 접기와, 그 접기만 닫는 줄(앞뒤 공백만 둔 `</details>`)로 닫히지 않는 접기는 그대로
-# 남긴다(아래 note_closes_alone). 낱말로 골라 올리거나 문장을 자르지 않는다 — 첫 화면에 둘 것은
-# 조각을 쓰는 사람이 꼭대기 항목으로 적는다(docs/changes/README.md). 조각의 꼴과 업데이트 내역 파일은 그대로다(cargo xtask
-# changes · views 는 원문을 낸다).
-NOTE_LABEL='알아두실 점 및 자세한 내용 보기'
-NOTE_SUMMARY="<summary><b>$NOTE_LABEL</b></summary>"
+# ### 칸마다 첫 화면에는 꼭대기 항목(들여 쓰지 않은 · <details> 밖 · 코드 블록 밖의 '* ' 줄)의 제목 줄만 끝의 \ 하나를 떼고
+# 두고, 그 아래에 접기를 둘까지 이 차례로 둔다(2026-11-28).
+#   알아두실 점       칸의 꼭대기 접기 가운데 조각 안내의 꼴('알아두실 점 및 자세한 내용 보기')이고, 그 접기만 닫는 줄(앞뒤
+#                     공백만 둔 `</details>` · 아래 note_closes_alone)로 닫히고, 앞에 꼭대기 항목이 있는 것을 모은다 — 접기마다
+#                     바로 앞의 가장 가까운 꼭대기 항목의 제목 줄 한 줄과 그 아래 두 칸 들인 접기 안쪽 줄, 원문 차례대로 ·
+#                     접기 사이는 빈 줄. 고객이 할 일이 긴 설명 뒤로 밀리지 않게 한다(v1.27.0 은 한 접기 안에서 설명 뒤였다).
+#   자세한 내용 보기  칸의 원문에서 위로 옮긴 접기(여는 줄 · summary · 안쪽 · 닫는 줄)만 뺀 나머지 그대로 — 제목 줄 · 줄 끝의 \ ·
+#                     하위 줄 · 다른 꼴의 접기 · 펴지 못한 접기도. 남는 것이 제목 줄과 빈 줄뿐이면 두지 않는다.
+# 낱말로 골라 올리거나 문장을 자르지 않는다 — 첫 화면에 둘 것은 조각을 쓰는 사람이 꼭대기 항목으로 적는다
+# (docs/changes/README.md). 조각의 꼴과 업데이트 내역 파일은 그대로다(cargo xtask changes · views 는 원문을 낸다).
+NOTE_SUMMARY='<summary><b>알아두실 점 및 자세한 내용 보기</b></summary>'
 
 # $1 안에 $2 가 든 수 — REPLY 에(줄마다 부르므로 하위 셸을 띄우지 않는다).
 count_of() {
@@ -120,10 +122,11 @@ count_of() {
     REPLY=$(((${#1} - ${#t}) / ${#2}))
 }
 
-# 정한 꼴의 접기가 칸의 $1 번째 줄(여는 줄 다음)부터 그 접기만 닫는 줄 — 앞뒤 공백만 둔 `</details>` — 로 닫히는가(펴도
-# 되는가). 깊이와 코드 블록은 brief_rest 와 같게 센다. 같은 줄에서 글과 함께 닫거나 닫히지 않으면 1 — 그 접기는 펴지 않고
-# 원문 그대로 둔다. 편 뒤 닫는 줄을 알아보지 못하면 여는 줄만 빠져 짝이 어긋나고, 그 멈춤은 태그를 민 뒤의 본문 짓기에서야
-# 드러난다(2026-11-28 반박 검토에서 찾았다 — PR 의 `cargo xtask fragments` 는 개수만 센다). 칸의 줄은 brief_section 의 body 다.
+# 정한 꼴의 접기가 칸의 $1 번째 줄(여는 줄 다음)부터 그 접기만 닫는 줄 — 앞뒤 공백만 둔 `</details>` — 로 닫히는가(옮겨도
+# 되는가 · 닫는 줄의 차례는 REPLY 에). 깊이와 코드 블록은 brief_keep 과 같게 센다. 같은 줄에서 글과 함께 닫거나 닫히지 않으면
+# 1 — 그 접기는 옮기지 않고 원문 그대로 둔다. 닫는 줄을 알아보지 못한 채 옮기면 짝이 어긋나고, 그 멈춤은 태그를 민 뒤의 본문
+# 짓기에서야 드러난다(2026-11-28 반박 검토에서 찾았다 — PR 의 `cargo xtask fragments` 는 개수만 센다). 칸의 줄은
+# brief_section 의 body 다.
 note_closes_alone() {
     local k l depth=1 fence=0
     for ((k = $1; k < ${#body[@]}; k++)); do
@@ -134,6 +137,7 @@ note_closes_alone() {
             count_of "$l" '</details>'
             depth=$((depth - REPLY))
             if [ "$depth" -le 0 ]; then
+                REPLY=$k
                 [[ $l =~ ^[[:space:]]*'</details>'[[:space:]]*$ ]]
                 return
             fi
@@ -143,83 +147,99 @@ note_closes_alone() {
     return 1
 }
 
-# 칸 안 꼭대기 줄 하나($1 · 그다음 줄 $2 · 칸 안 차례 $3) — 제목이면 첫 화면과 접기에 두고, 정한 꼴의 접기를 여는 줄이고 그
-# 접기만 닫는 줄로 닫히면 '* **알아두실 점**' 으로 바꿔 편다(여는 줄이 <details> · <summary> 두 줄이면 다음 줄도 먹는다 —
-# b_eat). 둘 다 아니면 1.
-brief_top() {
-    local from
-    if [[ $1 == '* '* ]]; then
-        b_titles+=("${1%\\}")
-        b_fold+=("$1")
-        return 0
-    fi
-    if [ "$1" = '<details>' ] && [ "$2" = "$NOTE_SUMMARY" ]; then
-        from=$(($3 + 2))
-    elif [ "$1" = "<details>$NOTE_SUMMARY" ]; then
-        from=$(($3 + 1))
+# 칸의 꼭대기 줄 body[$1] 이 옮길 수 있는 알아두실 점 접기를 여는가 — 정한 꼴이고(여는 줄이 <details> · <summary> 두 줄이거나
+# 한 줄) · 그 접기만 닫는 줄로 닫히고 · 앞에 딸릴 꼭대기 항목(b_top)이 있으면 알아두실 점 접기에 더하고 REPLY 에 닫는 줄의
+# 차례를 둔다. 아니면 1 — 그 줄은 자세한 내용 접기에 원문 그대로 남는다.
+brief_note() {
+    local from end
+    [ -n "$b_top" ] || return 1
+    if [ "${body[$1]}" = '<details>' ] && [ "${body[$1+1]-}" = "$NOTE_SUMMARY" ]; then
+        from=$(($1 + 2))
+    elif [ "${body[$1]}" = "<details>$NOTE_SUMMARY" ]; then
+        from=$(($1 + 1))
     else
         return 1
     fi
     note_closes_alone "$from" || return 1
-    [ "$from" = $(($3 + 1)) ] || b_eat=1
-    b_fold+=('* **알아두실 점**')
-    b_flat=1 b_depth=1 b_notes=1 b_other=1
+    end=$REPLY
+    note_add "$from" "$end"
+    REPLY=$end
 }
 
-# 그 밖의 줄 — <details> 깊이와 코드 블록을 따라가며 접기에 둔다. 편 접기 안의 줄은 두 칸 들이고, 그 접기를 닫는 줄(깊이가
-# 0 으로 돌아가는 줄 — note_closes_alone 이 그 접기만 닫는 줄임을 보았다)은 뺀다(그 뒤 빈 줄이 앞의 빈 줄과 겹치면 하나만 —
-# b_skip).
-brief_rest() {
-    local line=$1 o c
+# 알아두실 점 접기의 한 덩이 — 딸린 제목 줄과 body[$1] ~ body[$2 - 1](앞뒤의 빈 줄은 뗀다)을 두 칸 들여. 덩이 사이는 빈 줄.
+note_add() {
+    local k=$1 e=$2
+    while [ "$k" -lt "$e" ] && [ -z "${body[k]}" ]; do k=$((k + 1)); done
+    while [ "$e" -gt "$k" ] && [ -z "${body[e-1]}" ]; do e=$((e - 1)); done
+    [ ${#b_notes[@]} = 0 ] || b_notes+=('')
+    b_notes+=("$b_top")
+    for (( ; k < e; k++)); do
+        if [ -n "${body[k]}" ]; then b_notes+=("  ${body[k]}"); else b_notes+=(''); fi
+    done
+}
+
+# 칸의 그 밖의 줄 — 자세한 내용 접기에 원문 그대로 둔다. <details> 깊이와 코드 블록을 따라가며, 꼭대기 항목의 제목 줄(끝의 \ 는
+# 뗀다)은 첫 화면에도 두고 뒤의 알아두실 점이 딸릴 항목(b_top)으로 삼는다. 제목 아닌 글이 한 줄이라도 있으면 b_other.
+brief_keep() {
+    local line=$1
+    if [ "$b_fence" = 0 ] && [ "$b_depth" = 0 ] && [[ $line == '* '* ]]; then
+        b_top=${line%\\}
+        b_titles+=("$b_top")
+    elif [ -n "$line" ]; then
+        b_other=1
+    fi
     if [ "$b_fence" = 0 ]; then
         count_of "$line" '<details>'
-        o=$REPLY
+        b_depth=$((b_depth + REPLY))
         count_of "$line" '</details>'
-        c=$REPLY
-        [ "$o" = 0 ] || b_notes=1
-        if [ "$b_flat" = 1 ] && [ $((b_depth + o - c)) -le 0 ]; then
-            b_flat=0 b_depth=0 b_skip=1
-            return 0
-        fi
-        b_depth=$((b_depth + o - c))
+        b_depth=$((b_depth - REPLY))
     fi
     [[ ! $line =~ ^[[:space:]]*\`\`\` ]] || b_fence=$((1 - b_fence))
-    [ -z "$line" ] || b_other=1
-    if [ "$b_flat" = 1 ] && [ -n "$line" ]; then b_fold+=("  $line"); else b_fold+=("$line"); fi
+    b_fold+=("$line")
 }
 
-# 칸 하나를 낸다 — 머리 · 빈 줄 · 제목 줄들 · (제목 아닌 글이 있으면) 빈 줄과 접기. 접기의 이름은 칸 안에 <details> 가 있으면
-# 알아두실 점을 밝힌다.
+# 접기 하나 — 이름 · 안쪽 줄들. 앞에 낸 줄(제목 · 앞 접기)이 있으면 빈 줄 하나를 사이에 둔다(b_gap).
+brief_fold() {
+    [ "$b_gap" = 0 ] || printf '\n'
+    b_gap=1
+    printf '%s\n' '<details>' "<summary><b>$1</b></summary>" ''
+    shift
+    printf '%s\n' "$@" '' '</details>'
+}
+
+# 칸 하나를 낸다 — 머리 · 빈 줄 · 제목 줄들 · (있으면) 알아두실 점 접기 · (제목 아닌 글이 있으면) 자세한 내용 접기.
 brief_print() {
-    local label='자세한 내용 보기'
     while [ ${#b_fold[@]} -gt 0 ] && [ -z "${b_fold[${#b_fold[@]}-1]}" ]; do unset 'b_fold[${#b_fold[@]}-1]'; done
     printf '%s\n' "$1" ''
-    [ ${#b_titles[@]} = 0 ] || printf '%s\n' "${b_titles[@]}"
-    [ "$b_other" = 1 ] || return 0
-    [ "$b_notes" = 0 ] || label=$NOTE_LABEL
-    [ ${#b_titles[@]} = 0 ] || printf '\n'
-    printf '%s\n' '<details>' "<summary><b>$label</b></summary>" '' "${b_fold[@]}" '' '</details>'
+    b_gap=0
+    if [ ${#b_titles[@]} -gt 0 ]; then
+        printf '%s\n' "${b_titles[@]}"
+        b_gap=1
+    fi
+    [ ${#b_notes[@]} = 0 ] || brief_fold '알아두실 점' "${b_notes[@]}"
+    [ "$b_other" = 0 ] || brief_fold '자세한 내용 보기' "${b_fold[@]}"
 }
 
-# 칸 하나 — 머리 줄 · 그 칸의 줄들. 상태는 b_* 에 칸마다 새로 둔다.
+# 칸 하나 — 머리 줄 · 그 칸의 줄들. 상태는 b_* 에 칸마다 새로 둔다. 옮긴 접기 뒤의 빈 줄이 앞의 빈 줄과 겹치면 하나만(b_skip).
 brief_section() {
     local head=$1 line j
     shift
     local -a body=("$@")
-    b_titles=()
-    b_fold=()
-    b_depth=0 b_fence=0 b_flat=0 b_notes=0 b_other=0 b_skip=0 b_eat=0
+    b_titles=() b_notes=() b_fold=()
+    b_depth=0 b_fence=0 b_other=0 b_skip=0 b_top=''
     for ((j = 0; j < ${#body[@]}; j++)); do
         line=${body[j]}
-        if [ "$b_eat" = 1 ]; then b_eat=0; continue; fi
+        # 앞의 빈 줄은 뗀다(뒤의 빈 줄은 brief_print 가).
+        if [ ${#b_fold[@]} = 0 ] && [ -z "$line" ]; then continue; fi
         if [ "$b_skip" = 1 ]; then
             b_skip=0
             if [ -z "$line" ] && [ -z "${b_fold[${#b_fold[@]}-1]}" ]; then continue; fi
         fi
-        # 앞의 빈 줄은 뗀다(뒤의 빈 줄은 brief_print 가).
-        if [ ${#b_fold[@]} = 0 ] && [ -z "$line" ]; then continue; fi
-        if [ "$b_fence" = 0 ] && [ "$b_depth" = 0 ] && brief_top "$line" "${body[j+1]-}" "$j"; then continue; fi
-        brief_rest "$line"
+        if [ "$b_fence" = 0 ] && [ "$b_depth" = 0 ] && brief_note "$j"; then
+            j=$REPLY b_skip=1
+            continue
+        fi
+        brief_keep "$line"
     done
     brief_print "$head"
 }
