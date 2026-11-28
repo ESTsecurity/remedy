@@ -36,7 +36,10 @@ fn closed_sets_have_the_declared_size() {
     // 읽고, 닫는 Op 은 없다(설계-01 D11 의 덧붙임).
     // 20 → 21: `archive_entry` (2026-11-12 · 코어 1.11.0). jar · war · ear 안의 항목 — YARA 는 압축된
     // 항목 속을 못 본다. **찾기 전용**이다 — 아카이브 안을 고치는 Op 은 없다.
-    assert_eq!(Subject::ALL.len(), 21, "설계-02 §3 은 subject 21종이다");
+    // 21 → 22: `kernel` (2026-11-28 · 코어 1.28.0). 깔린 커널 패키지는 다음 부팅을 말하고 커널 결함은
+    // **지금 도는** 커널로 판정해야 한다 — `uname -r` · `uname -v` 와 같은 값을 /proc 에서 읽는다.
+    // **Linux 전용**이고 찾기 전용이다 — 커널을 바꾸는 Op 은 없다.
+    assert_eq!(Subject::ALL.len(), 22, "설계-02 §3 은 subject 22종이다");
     assert_eq!(Op::ALL.len(), 29, "설계-03 §2 는 Op 29종이다");
     // 12 → 14. `version_lt`·`version_gt` 를 더했다 — `lt` 는 수와 RFC3339 시각만
     // 봐서 `8.2.29` 를 견주지 못했고, 고치면 `1.10` 에서 순서가 뒤집힌다.
@@ -840,6 +843,7 @@ fn the_gate_matches_what_the_catalog_says_is_implemented() {
     assert_eq!(IMPLEMENTED_THROUGH, Phase::P12);
 
     // P2·P4 가 subject 19종을 전부 열었다 (설계-09 §3.3). 20번째 `unix_socket`(코어 1.2.0)도 P4 표면이다.
+    // 22번째 `kernel`(코어 1.28.0)도 같다 — 수집 표면이 P4 다.
     let pending: Vec<&str> = Subject::ALL
         .iter()
         .filter(|s| s.info().implemented_in > IMPLEMENTED_THROUGH)

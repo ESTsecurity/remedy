@@ -1,5 +1,5 @@
 {
-  "count": 21,
+  "count": 22,
   "subjects": [
     {
       "enumerated": {},
@@ -555,6 +555,22 @@
       "scoping": "path",
       "summary": "아카이브(jar · war · ear · zip) 안의 항목 — 안쪽 경로 · 크기 · 해시 · 작은 글자 내용",
       "windows": true
+    },
+    {
+      "enumerated": {},
+      "fields": [
+        "release",
+        "build",
+        "release_noarch",
+        "signature"
+      ],
+      "id": "kernel",
+      "implemented_in": "P4",
+      "linux": true,
+      "linux_from": "P12",
+      "scoping": "fixed",
+      "summary": "지금 도는 커널 — `uname -r` · `uname -v` 와 같은 값",
+      "windows": false
     }
   ]
 }

@@ -615,6 +615,12 @@ const UNMEASURED: &[(&str, &str, &str)] = &[
          `file_names: [\"*.jar\", \"*.war\", \"*.ear\"]` 로 한 번 뜨면 C 인지 D 인지 갈리고, 있으면 메워진다",
     ),
     ("archive_entry", "linux", "D — 위와 같다"),
+    (
+        "kernel",
+        "linux",
+        "D — 코퍼스 스냅샷이 이 subject 가 생기기 전(코어 1.28.0 · 2026-11-28)에 떠져 그 자리를 안 봤다. \
+         리눅스에서는 늘 한 건이라 C 일 수 없다 — `subjects: [kernel]` 로 한 번 뜨면 메워진다",
+    ),
 ];
 
 /// 비어 있는 subject 마다 **왜 비었는지가 적혀 있는가.**

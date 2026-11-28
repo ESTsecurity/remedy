@@ -346,7 +346,7 @@ remediate.remove: data did not match any variant of untagged enum RemoveTarget a
 
 ```
 경고 subjects.firewall_rule: Linux 에 개념은 있으나 이 코어의 'firewall_rule' 수집기가 Windows 전용이다. Windows 에서는 동작하지만 **Linux 에서는 0건**이 된다
-      쓸 수 있는 것: Linux 에서 수집되는 subject: persistence · autorun · service · process · file · indicator · text_config · structured_config · shortcut · hosts_entry · browser_extension · cert_store · package · unix_socket · archive_entry
+      쓸 수 있는 것: Linux 에서 수집되는 subject: persistence · autorun · service · process · file · indicator · text_config · structured_config · shortcut · hosts_entry · browser_extension · cert_store · package · unix_socket · archive_entry · kernel
       근거: 설계-09 P12
 ```
 

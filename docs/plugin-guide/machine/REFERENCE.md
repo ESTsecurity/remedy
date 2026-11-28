@@ -8,7 +8,7 @@
 - 스키마 버전: 1
 - 현재 구현된 Phase: P12
 
-## 관찰 대상 21종
+## 관찰 대상 22종
 
 **Windows** · **Linux** 열은 *이 코어가 그 플랫폼에서 수집하기 시작하는 Phase* 다.
 
@@ -37,6 +37,7 @@
 | `package` | — | P12 | 설치된 패키지. 배포판이 백포트한 판을 가리는 유일한 길 |
 | `unix_socket` | — | P12 | 이름 있는 UNIX 소켓. 추상 이름은 `@` 로 시작한다 — 상주 임플란트가 여는 자리 |
 | `archive_entry` | P4 | P12 | 아카이브(jar · war · ear · zip) 안의 항목 — 안쪽 경로 · 크기 · 해시 · 작은 글자 내용 |
+| `kernel` | — | P12 | 지금 도는 커널 — `uname -r` · `uname -v` 와 같은 값 |
 
 ### subject 별 필드 (닫힌 집합)
 
@@ -63,6 +64,7 @@
 - **`package`** — `name` · `version` · `upstream_version` · `revision` · `arch` · `source` · `manager` · `vendor`
 - **`unix_socket`** — `name` · `inode` · `listening` · `kind`
 - **`archive_entry`** — `archive` · `path` · `name` · `depth` · `size` · `sha256` · `text` · `error`
+- **`kernel`** — `release` · `build` · `release_noarch` · `signature`
 
 ## 매니페스트 칸 (닫힌 집합)
 

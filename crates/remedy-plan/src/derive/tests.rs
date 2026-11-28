@@ -1120,11 +1120,17 @@ fn a_subject_we_collect_can_actually_be_cleaned_there() {
         //
         // `archive_entry`(코어 1.11.0)도 그렇다 — jar 를 고치는 것은 치료가 아니다. 클래스를 빼면 서명 ·
         // 무결성을 보는 앱이 멈추고, 어느 판으로 올릴지는 그 앱을 만든 쪽의 일이다(설계-02 §3 의 덧붙임).
+        //
+        // `kernel`(코어 1.28.0)도 그렇다 — 지금 도는 커널은 판정의 근거일 뿐이다. 커널을 올리거나 다시 시작하는
+        // 것은 운영자의 일이고, 다시 시작하지 않은 기계를 가르는 것이 이 subject 를 연 까닭이다.
         if ops.ops().is_empty() {
             assert!(
                 matches!(
                     x,
-                    Subject::Package | Subject::UnixSocket | Subject::ArchiveEntry
+                    Subject::Package
+                        | Subject::UnixSocket
+                        | Subject::ArchiveEntry
+                        | Subject::Kernel
                 ),
                 "'{}' 의 제거 Op 이 비어 있다. 치료가 영원히 없는 subject 라면 \
                  이 시험에 이름을 적고 그 이유를 카탈로그에 적을 것",

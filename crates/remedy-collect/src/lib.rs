@@ -1204,6 +1204,10 @@ where
     // UNIX 소켓도 자리가 정해져 있다 — `/proc/net/unix` 를 파일로 읽는다(코어 1.2.0).
     remedy_platform::progress::set_stage("unix_socket");
     harvest!(Subject::UnixSocket, unix_socket::unix_sockets(p, scope)?);
+    // 지금 도는 커널도 커널이 정한 자리다 — `/proc/sys/kernel` 의 두 값과 `/proc/version_signature` 를 파일로
+    // 읽는다(코어 1.28.0).
+    remedy_platform::progress::set_stage("kernel");
+    harvest!(Subject::Kernel, kernel::kernel(p, scope)?);
 
     // `indicator` 는 **마지막이다.** 앞의 관찰에서 뽑아내므로 그것들이 먼저
     // 담겨 있어야 한다.

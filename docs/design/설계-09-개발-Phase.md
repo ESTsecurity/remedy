@@ -124,12 +124,12 @@
 >
 > 실행기·복원기·왕복 시험은 P8 에서 이미 만들었다. 없는 것은 판정 재료뿐이다.
 
-### 3.3 subject 21종 → Phase
+### 3.3 subject 22종 → Phase
 
 | Phase | subject |
 |---|---|
 | **P2** | `file` · `persistence` |
-| **P4** | `autorun` · `service` · `process` · `registry_value` · `registry_key` · `text_config` · `structured_config` · `shortcut` · `hosts_entry` · `browser_extension` · `av_exclusion` · `cert_store` · `proxy_config` · `firewall_rule` · `boot_config` · `indicator` · `package` · `unix_socket` · `archive_entry` |
+| **P4** | `autorun` · `service` · `process` · `registry_value` · `registry_key` · `text_config` · `structured_config` · `shortcut` · `hosts_entry` · `browser_extension` · `av_exclusion` · `cert_store` · `proxy_config` · `firewall_rule` · `boot_config` · `indicator` · `package` · `unix_socket` · `archive_entry` · `kernel` |
 
 > `package` 는 P12 회차(2026-10-27 · C-2)에 더해졌는데 **P4** 다. 이 칸은
 > *"언제 커밋했는가"* 가 아니라 **어느 표면이 소유하는가**이고 수집 표면은
@@ -145,6 +145,10 @@
 > `archive_entry` 도 같은 까닭으로 **P4** 다(코어 1.11.0 · 2026-11-12). jar · war · ear 안의 항목을
 > 읽는 **찾기 전용** subject 이고 두 플랫폼에서 돈다 — `file` 이 기록한 파일을 연다. log4j 점검을
 > 룰만으로 짜 보니 YARA 가 압축된 항목의 속을 못 봐서 열었다(설계-02 §3 의 덧붙임).
+>
+> `kernel` 도 같은 까닭으로 **P4** 다(코어 1.28.0 · 2026-11-28). 지금 도는 커널(`uname -r` ·
+> `uname -v` 와 같은 값)을 /proc 에서 파일로 읽는 **Linux 전용 · 찾기 전용** subject 이고, 커널
+> 결함 점검이 깔린 패키지가 아니라 도는 커널로 판정하려고 열었다(설계-02 §3 의 덧붙임).
 
 ### 3.4 CLI 명령 → Phase
 

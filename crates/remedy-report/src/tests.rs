@@ -1275,7 +1275,7 @@ fn sub_second_runs_do_not_say_zero() {
 // ───────────────────────────────────────── 점검 결과 항목 (2026-10-28)
 //
 // 점검 화면이 `취약 N건` 이라는 **수만** 내고 끝나던 자리다. 재는 것은 둘 —
-// **subject 21종이 전부 이름을 낸다**(빈 줄이 나가면 사용자가 아무것도 못 한다)
+// **subject 22종이 전부 이름을 낸다**(빈 줄이 나가면 사용자가 아무것도 못 한다)
 // 와 **잘리는 갈래가 실제로 돈다**(안 재면 죽은 코드다).
 
 use remedy_sdk::artifact::{Evidence, EvidenceGroup, MatchedPredicate};
@@ -1351,7 +1351,7 @@ fn group(id: &str, evidence: &[&str], verdict: bool) -> EvidenceGroup {
     }
 }
 
-/// **21종 전부가 이름을 낸다.** 카탈로그가 적은 식별 필드를 주면 그것이 나오고,
+/// **22종 전부가 이름을 낸다.** 카탈로그가 적은 식별 필드를 주면 그것이 나오고,
 /// 모르는 모양을 주어도 subject 의 id 로 떨어진다 — 빈 줄은 없다.
 #[test]
 fn every_subject_names_its_target() {
@@ -1457,6 +1457,12 @@ fn every_subject_names_its_target() {
             Subject::ArchiveEntry,
             serde_json::json!({"archive": "/opt/app.war", "path": "WEB-INF/lib/log4j-core-2.14.1.jar"}),
             "/opt/app.war!/WEB-INF/lib/log4j-core-2.14.1.jar",
+        ),
+        // 지금 도는 커널은 `uname -r` 과 같은 값이 곧 찾아갈 단서다 — 그 판의 패키지를 찾는다.
+        (
+            Subject::Kernel,
+            serde_json::json!({"release": "6.1.0-53-amd64", "build": "#1 SMP PREEMPT_DYNAMIC Debian 6.1.187-1 (2026-09-07)"}),
+            "6.1.0-53-amd64",
         ),
     ];
     // 카탈로그의 subject 가 하나도 빠지지 않았는가 — 새 subject 를 더하고 여기를

@@ -377,6 +377,8 @@ pub fn evidence_label(subject: remedy_sdk::catalog::Subject, target: &serde_json
             (Some(a), Some(p)) => Some(format!("{a}!/{p}")),
             (a, _) => a,
         },
+        // 지금 도는 커널은 `uname -r` 과 같은 값이 찾아갈 단서다 — 그 판의 커널 패키지를 찾는다(코어 1.28.0).
+        S::Kernel => first_of(target, &["release"]),
     };
     named.unwrap_or_else(|| subject.info().id.to_string())
 }
