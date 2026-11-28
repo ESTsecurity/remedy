@@ -266,6 +266,40 @@ DB 를 **파일로 직접 읽고**(`dpkg status` · `apk installed` · rpm DB) �
 모르는 설치본이 그 자리다. 찾은 것이 앞선다(2). 이것 없이 판정을 세우지 않으면
 0 이 나가고, 0 은 *"이 기계는 괜찮다"* 로 읽힌다.
 
+## 실행 중 커널로 판정하는 법 — `kernel`
+
+깔린 커널 패키지는 **다음 부팅**의 커널이다 — 고친 커널을 깔고 다시 시작하지 않은 기계를 못 가르고, 두 판이
+깔리면 어느 쪽으로 도는지 모른다. `kernel` 은 지금 도는 커널 한 건이다(코어 1.28.0 · Linux 전용 · `scan_roots` 를
+보지 않는다).
+
+| 칸 | |
+|---|---|
+| `release` · `build` | `uname -r` · `uname -v` 와 같은 값. Debian 은 `build` 에 `Debian <패키지 판> (날짜)` 가 든다 |
+| `release_noarch` | 끝의 `.<아키텍처>` 와 그 뒤 `+<변형>` 을 뗀 `release`(`…el9_5.x86_64+rt` → `…el9_5`) — rpm 판과 견준다 |
+| `signature` | `/proc/version_signature` — Ubuntu 커널만 낸다. 없으면 `""` |
+
+capture 해 `package` 에 잇고 **이은 패키지 하나로** 판정한다 — dpkg 는 이름, rpm 은 판이다(epoch 이 붙으면 `1:판`):
+
+```yaml
+- id: run
+  subject: kernel
+  where: [{ field: release, op: exists }]
+  capture: { r: "release", n: "release_noarch" }
+- id: run_linked
+  subject: package
+  where:
+    any:
+      - { field: name,    op: equals,    value: "linux-image-${run.r}" }
+      - { field: version, op: equals,    value: "${run.n}" }
+      - { field: version, op: ends_with, value: ":${run.n}" }
+```
+
+- **`in` 목록에 `${}` 를 넣지 않는다** — 목록 안의 값은 참조로 세지 않아 `run` 을 부모로 잇지 않고(차례 · 그룹이
+  빠진다) 린트도 그 이름을 보지 않는다. 위처럼 `any` 안의 `equals` 로 쓴다
+- **0 은 이어진 고친 판에서만 낸다.** 잇지 못하면 `unconfirmed`(`not run_linked`)로 6 이다 — 컨테이너는 호스트의
+  커널이 보여 이미지의 패키지와 이어지지 않는다. 깔린 다른 판으로 대신하면 틀린 0 이 나간다
+- `kernel` 을 못 읽으면 0건 + 거부라 6 이다(`/proc` 이 없는 chroot 포함)
+
 ## 선언한 자리 밖의 런타임 — 찾으면 확인 필요
 
 `scan_roots` 밖의 설치본은 수집되지 않아 0 으로 끝난다(실측: 같은 취약 PHP 가 `C:\php` 면 2,

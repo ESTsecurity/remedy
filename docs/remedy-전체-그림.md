@@ -457,7 +457,7 @@ flowchart TB
 이 프로그램이 할 수 있는 일의 경계가 곧 이 목록이기 때문이다. 늘리려면 코어를
 고치고 새 판을 내야 하고, 그래서 **룰만 배포해서 늘릴 수는 없다.**
 
-### subject 21종 — 무엇을 볼 수 있는가
+### subject 22종 — 무엇을 볼 수 있는가
 
 ```mermaid
 flowchart TB
@@ -490,16 +490,21 @@ flowchart TB
         s17[process]
         s18[indicator]
     end
-    subgraph SK["Linux 전용 2"]
+    subgraph SK["Linux 전용 3"]
         s19[package]
         s20[unix_socket]
+        s22[kernel]
     end
 ```
 
-> `package` 와 `unix_socket` 은 **Linux 전용**이다(`windows: false`). 둘 다 정해진 자리를
-> 파일로 직접 읽고(dpkg·apk·rpm DB · `/proc/net/unix`) **치료 Op 이 없다** — 패키지를 올리는 것은
-> 공급사의 일이고, 소켓을 닫는 것은 치료가 아니다(그 소켓을 연 프로세스가 다시 연다). `unix_socket`
-> 은 코어 1.2.0 에서 더했다 — Ebury 의 현재 주 탐지법이 추상 소켓 이름이다(설계-01 D11 덧붙임).
+> `package` · `unix_socket` · `kernel` 은 **Linux 전용**이다(`windows: false`). 셋 다 정해진 자리를
+> 파일로 직접 읽고(dpkg·apk·rpm DB · `/proc/net/unix` · `/proc/sys/kernel`) **치료 Op 이 없다** — 패키지를 올리는 것은
+> 공급사의 일이고, 소켓을 닫는 것은 치료가 아니며(그 소켓을 연 프로세스가 다시 연다), 커널을 올리고 다시 시작하는 것은
+> 운영자의 일이다. `unix_socket` 은 코어 1.2.0 에서 더했다 — Ebury 의 현재 주 탐지법이 추상 소켓 이름이다(설계-01 D11 덧붙임).
+>
+> `kernel` 은 코어 1.28.0 에서 더했다 — 지금 도는 커널(`uname -r` · `uname -v` 와 같은 값) 한 건이다. 깔린 커널
+> 패키지는 다음 부팅의 커널이라, 그것만 보는 커널 결함 점검은 고친 커널을 깔고 다시 시작하지 않은 기계를 가르지
+> 못했다. 룰은 이 값을 `package` 의 이름 · 판에 보간해 지금 도는 커널의 패키지 하나로 판정한다(설계-02 §3 덧붙임).
 >
 > `archive_entry` 는 코어 1.11.0 에서 더했다 — jar · war · ear 안의 항목(안쪽 경로 · 해시 · 작은 글자
 > 내용)을 읽는 **찾기 전용** subject 다. log4j 점검을 룰만으로 짜 보니 YARA 가 압축된 항목의 속을 못 봤다.
