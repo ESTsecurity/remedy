@@ -573,6 +573,30 @@ pub struct UnixSocketRecord {
     pub kind: String,
 }
 
+/// 지금 도는 커널 (Linux · `/proc/sys/kernel/osrelease` · `version` · `/proc/version_signature` · 코어 1.28.0).
+///
+/// 깔린 커널 패키지는 **다음 부팅**을 말하고, 커널 결함을 판정할 것은 **지금 도는** 커널이다 — 고친 커널을 깔고
+/// 다시 시작하지 않은 기계는 패키지만 보면 고친 것으로 읽힌다. 룰은 이 레코드의 값을 capture 해 `package` 의
+/// 이름 · 판에 보간해서 *"지금 도는 커널의 패키지"* 하나를 고른다.
+///
+/// 리눅스에서는 늘 한 건이다. 칸 하나라도 읽지 못하면 레코드를 담지 않고 거부 · 잘림으로 남는다 — 빈 칸은
+/// *"없다"* 로 읽히기 때문이다(`signature` 의 빈 문자열은 *"Ubuntu 커널이 아니다"* 다).
+///
+/// 찾기 전용이다 — 커널을 바꾸는 Op 은 없고 있어서도 안 된다.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct KernelRecord {
+    /// `/proc/sys/kernel/osrelease` — `uname -r` 과 같다(`6.1.0-53-amd64` · `5.14.0-503.23.1.el9_5.x86_64`).
+    pub release: String,
+    /// `/proc/sys/kernel/version` — `uname -v` 와 같다. Debian 은 `Debian <패키지 판> (날짜)` 를,
+    /// Alpine 은 `-Alpine` 을 담는다(`#1 SMP PREEMPT_DYNAMIC Debian 6.1.187-1 (2026-09-07)`).
+    pub build: String,
+    /// `release` 끝의 `.<아키텍처>` 와 그 뒤 `+<변형>` 을 뗀 값 — rpm 판(`판-개정`)과 잇는 칸이다
+    /// (`5.14.0-503.23.1.el9_5.x86_64+rt` → `5.14.0-503.23.1.el9_5`). 그 꼬리가 없으면 `release` 그대로다.
+    pub release_noarch: String,
+    /// `/proc/version_signature` — Ubuntu 커널만 이 파일을 낸다. 없으면 빈 문자열이다.
+    pub signature: String,
+}
+
 /// 프록시 설정.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProxyConfigRecord {

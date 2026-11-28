@@ -19,6 +19,7 @@ pub mod derived;
 pub mod desktop;
 pub mod extra;
 pub mod initscripts;
+pub mod kernel;
 mod owner;
 pub mod package;
 pub mod peversion;
