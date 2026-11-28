@@ -1275,7 +1275,7 @@ fn sub_second_runs_do_not_say_zero() {
 // ───────────────────────────────────────── 점검 결과 항목 (2026-10-28)
 //
 // 점검 화면이 `취약 N건` 이라는 **수만** 내고 끝나던 자리다. 재는 것은 둘 —
-// **subject 21종이 전부 이름을 낸다**(빈 줄이 나가면 사용자가 아무것도 못 한다)
+// **subject 22종이 전부 이름을 낸다**(빈 줄이 나가면 사용자가 아무것도 못 한다)
 // 와 **잘리는 갈래가 실제로 돈다**(안 재면 죽은 코드다).
 
 use remedy_sdk::artifact::{Evidence, EvidenceGroup, MatchedPredicate};
@@ -1351,7 +1351,7 @@ fn group(id: &str, evidence: &[&str], verdict: bool) -> EvidenceGroup {
     }
 }
 
-/// **21종 전부가 이름을 낸다.** 카탈로그가 적은 식별 필드를 주면 그것이 나오고,
+/// **22종 전부가 이름을 낸다.** 카탈로그가 적은 식별 필드를 주면 그것이 나오고,
 /// 모르는 모양을 주어도 subject 의 id 로 떨어진다 — 빈 줄은 없다.
 #[test]
 fn every_subject_names_its_target() {
@@ -1457,6 +1457,12 @@ fn every_subject_names_its_target() {
             Subject::ArchiveEntry,
             serde_json::json!({"archive": "/opt/app.war", "path": "WEB-INF/lib/log4j-core-2.14.1.jar"}),
             "/opt/app.war!/WEB-INF/lib/log4j-core-2.14.1.jar",
+        ),
+        // 지금 도는 커널은 `uname -r` 과 같은 값이 곧 찾아갈 단서다 — 그 판의 패키지를 찾는다.
+        (
+            Subject::Kernel,
+            serde_json::json!({"release": "6.1.0-53-amd64", "build": "#1 SMP PREEMPT_DYNAMIC Debian 6.1.187-1 (2026-09-07)"}),
+            "6.1.0-53-amd64",
         ),
     ];
     // 카탈로그의 subject 가 하나도 빠지지 않았는가 — 새 subject 를 더하고 여기를
@@ -1629,6 +1635,78 @@ fn the_value_that_decided_it_is_shown() {
         out[0]
     );
     assert!(!out[0].contains("path"), "필드 이름이 샜다: {}", out[0]);
+}
+
+/// 지금 도는 커널의 줄은 판 대조에 쓴 칸을 **받는 사람의 낱말로** 적는다(코어 1.28.0) — 칸 이름 그대로면
+/// `6.1.0-53-amd64  (build #1 SMP …)` 로 선다(가이드 예제를 지어낸 관측에 돌린 evaluate). 영어 화면은 칸
+/// 이름 그대로다. `release` 는 이름과 같아 괄호에 되풀이하지 않는다.
+#[test]
+fn a_running_kernel_line_names_its_field_in_the_readers_words() {
+    let kernel = |id: &str, field: &str, release: &str, noarch: &str, build: &str, sig: &str| {
+        let mut e = ev(
+            id,
+            Subject::Kernel,
+            serde_json::json!({
+                "release": release, "build": build, "release_noarch": noarch, "signature": sig,
+            }),
+        );
+        e.matched = vec![MatchedPredicate {
+            field: field.into(),
+            op: "contains".into(),
+            value: None,
+        }];
+        e
+    };
+    let deb = "#1 SMP PREEMPT_DYNAMIC Debian 6.1.187-1 (2026-09-07)";
+    let ub = "#49-Ubuntu SMP PREEMPT_DYNAMIC Mon Nov  4 02:06:24 UTC 2024";
+    let sig = "Ubuntu 6.8.0-49.49-generic 6.8.12";
+    let el = "5.14.0-503.23.1.el9_5";
+    let e = vec![
+        kernel("e0", "build", "6.1.0-53-amd64", "6.1.0-53-amd64", deb, ""),
+        kernel(
+            "e1",
+            "signature",
+            "6.8.0-49-generic",
+            "6.8.0-49-generic",
+            ub,
+            sig,
+        ),
+        kernel(
+            "e2",
+            "release_noarch",
+            &format!("{el}.x86_64"),
+            el,
+            "#1 SMP",
+            "",
+        ),
+        kernel(
+            "e3",
+            "release",
+            "6.12.48+deb13-amd64",
+            "6.12.48+deb13-amd64",
+            "#1",
+            "",
+        ),
+    ];
+    let g = [group("g0", &["e0", "e1", "e2", "e3"], true)];
+    assert_eq!(
+        check_findings(&e, &g, &[], Lang::Ko, FINDINGS_SHOWN),
+        vec![
+            format!("   1. 6.1.0-53-amd64  (빌드 {deb})"),
+            format!("   2. 6.8.0-49-generic  (Ubuntu 버전 표시 {sig})"),
+            format!("   3. {el}.x86_64  (커널 버전 {el})"),
+            "   4. 6.12.48+deb13-amd64".to_string(),
+        ]
+    );
+    assert_eq!(
+        check_findings(&e, &g, &[], Lang::En, FINDINGS_SHOWN),
+        vec![
+            format!("   1. 6.1.0-53-amd64  (build {deb})"),
+            format!("   2. 6.8.0-49-generic  (signature {sig})"),
+            format!("   3. {el}.x86_64  (release_noarch {el})"),
+            "   4. 6.12.48+deb13-amd64".to_string(),
+        ]
+    );
 }
 
 /// **잘리는 갈래가 실제로 돈다.** 재지 않으면 죽은 코드다.

@@ -58,8 +58,25 @@
 #       꺼낸다 — 종료 5 · 링크가 가리킨 자리에 생긴 것 0개 · 링크 그대로. 그 링크를 따라 꺼내면 root 가 root 의 자리에
 #       사용자가 미리 알 수 있는 이름(원본 경로를 평평하게 한 것)과 사용자가 정한 바이트로 root 소유 파일을 만든다(1.26.0)
 #
-# 칸 수는 엔진 1.27.0 부터 32 이다(CA 도구가 없는 이미지는 못 잼 C2b · D5b 를 더해 34). 그 앞의 엔진은 위 열둘을
-# 건너뛰어 20 이다(CA 도구가 없으면 C2b 를 더해 21).
+# # 지금 도는 커널의 칸 (엔진 1.28.0 부터)
+#
+# subject `kernel` 이 1.28.0 에서 생겼다. 그 앞의 엔진은 이 subject 를 선언한 룰을 읽지 못하므로(모르는 subject 를
+# 역직렬화에서 거부한다) 칸마다 `건너뜀 — 엔진 <판> < 1.28.0` 을 적고 판정하지 않는다. `JUDGE_ALL=1` 도 이 칸을
+# 넘기지 않는다 — 앞의 엔진에서 재현할 결함이 없다. 컨테이너는 커널을 호스트와 함께 쓰므로 여기서 읽는 값은
+# 호스트의 것이다. 러너 호스트(컨테이너 밖)의 실물은 `crates/remedy-cli/tests/running_kernel.rs`(H1)가 CI 리눅스
+# 잡의 `cargo test` 에서 잰다.
+#
+#   K1  `kernel-plugin.yaml` 의 collect 가 kernel 한 건을 담는다 — release = `uname -r` · build = `uname -v` ·
+#       release_noarch 가 규칙대로(닫힌 목록의 `.<아키텍처>` 꼬리와 그 뒤 `+<변형>` 을 뗀다 — 하네스가 따로 셈한다) ·
+#       signature 가 /proc/version_signature 의 유무와 값에 맞다 · 거부 · 잘림 0
+#   K2  dpkg 기록에 `linux-image-$(uname -r)` 이름의 자리 채우기를 잠시 넣으면 그 룰의 scan 이 그 기록을 이어
+#       판정이 서고(2), 되돌리면 서지 않는다(0). 이미지의 기록에 그 이름이 이미 있으면 '없으면 서지 않는다' 를 잴 수
+#       없어 못 잼이다. `--force` 회차(컨테이너 밖일 수 있다)는 기계의 패키지 DB 를 고치지 않고 못 잼으로 남긴다
+#   K3  kernel 을 선언하지 않은 룰(`lab-plugin.yaml`)의 결과 — A1 의 artifacts.json 과 B1 의 결과 폴더 — 에 kernel
+#       배열이 없다(대조: K1 의 artifacts 에는 있다)
+#
+# 칸 수는 엔진 1.28.0 부터 35 다(CA 도구가 없는 이미지는 못 잼 C2b · D5b 를 더해 37). 1.27.0 은 K1 ~ K3 을
+# 건너뛰어 32(34)이고, 그 앞의 엔진은 #172 의 열둘도 건너뛰어 20 이다(CA 도구가 없으면 C2b 를 더해 21).
 #
 # # 쓰는 법 (컨테이너 안)
 #
@@ -101,6 +118,13 @@ elif [ "${JUDGE_ALL:-0}" = 1 ]; then
     ENGINE_NEW=0; JUDGE_NEW=1; JUDGE_WHY="판정 — JUDGE_ALL=1 · 엔진 $ENGINE 에서 결함을 재현한다"
 else
     ENGINE_NEW=0; JUDGE_NEW=0; JUDGE_WHY="건너뜀 — 엔진 $ENGINE < $NEW_SINCE"
+fi
+# 지금 도는 커널의 칸을 판정하는가(머리말) — JUDGE_ALL 과 상관없이 엔진 판만 본다.
+KERNEL_SINCE=1.28.0
+if [ "$(printf '%s\n%s\n' "$KERNEL_SINCE" "$ENGINE" | sort -V | head -1)" = "$KERNEL_SINCE" ]; then
+    JUDGE_K=1; JUDGE_K_WHY="판정 — 엔진 $ENGINE ≥ $KERNEL_SINCE"
+else
+    JUDGE_K=0; JUDGE_K_WHY="건너뜀 — 엔진 $ENGINE < $KERNEL_SINCE"
 fi
 
 mkdir -p "$OUT"
@@ -147,6 +171,15 @@ skip_new() {
         printf '  건너뜀 %-44s %s\n' "$n" "엔진 $ENGINE < $NEW_SINCE"
     done
 }
+# 지금 도는 커널의 칸(엔진 1.28.0 부터). 따로 세어 끝 줄이 판 둘을 갈라 적는다.
+SKIPPED_K=0
+skip_kernel() {
+    local n
+    for n in "$@"; do
+        SKIPPED_K=$((SKIPPED_K + 1))
+        printf '  건너뜀 %-44s %s\n' "$n" "엔진 $ENGINE < $KERNEL_SINCE"
+    done
+}
 
 # artifacts.json 의 한 절(`persistence` 등)에서 id 가 정확히 <id> 인 레코드의 칸 하나(따옴표째). 없으면 빈 값.
 # 레코드는 들여쓰기 4칸의 `{` … `}` 이고 칸은 6칸이다(serde_json 의 예쁜 출력) — jq 없는 이미지를 전제한다.
@@ -166,6 +199,39 @@ rec_field() {
             }
         }' "$1"
 }
+
+# 한 절의 레코드 수 · 레코드마다 칸 하나(따옴표째) — 열쇠 칸이 없는 절(`kernel`)을 읽는다. 꼴은 rec_field 와 같다.
+# 빈 절은 한 줄(`"kernel": []`)이라 절 안으로 들어가지 않는다 — 들어가면 다음 절의 레코드를 센다.
+sec_count() {
+    awk -v sec="  \"$2\": [" '
+        index($0, sec) == 1 { if ($0 !~ /\[\],?$/) insec = 1; next }
+        insec && /^  []}]/ { insec = 0 }
+        insec && /^    \{/ { n++ }
+        END { print n + 0 }' "$1"
+}
+sec_field() {
+    awk -v sec="  \"$2\": [" -v f="      \"$3\": " '
+        index($0, sec) == 1 { if ($0 !~ /\[\],?$/) insec = 1; next }
+        insec && /^  []}]/ { insec = 0 }
+        insec && index($0, f) == 1 { v = substr($0, length(f) + 1); sub(/,$/, "", v); print v }' "$1"
+}
+
+# `release_noarch` 를 엔진과 따로 셈한다(K1) — 끝의 `+<변형>`(비지 않은 영숫자 · `_` · `-`)을 떼고, 남은 것이
+# 닫힌 목록의 `.<아키텍처>` 로 끝나고 그 앞이 비지 않았으면 그 앞을, 아니면 원문 그대로.
+noarch_of() {
+    local r="$1" b="$1" v a
+    case "$r" in
+        *+*) v="${r##*+}"
+             case "$v" in ''|*[!A-Za-z0-9_-]*) ;; *) b="${r%+*}" ;; esac ;;
+    esac
+    for a in x86_64 aarch64 ppc64le s390x i686 armv7hl riscv64; do
+        case "$b" in ?*."$a") printf '%s' "${b%."$a"}"; return ;; esac
+    done
+    printf '%s' "$r"
+}
+
+# JSON 문자열 이스케이프 — 결과 파일을 쓸 때(아래 판정)와 레코드의 값과 견줄 때(K1).
+jesc() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'; }
 
 # ── 이 이미지가 잴 수 없는 것 ───────────────────────────────────────
 #
@@ -216,6 +282,7 @@ echo "═══ Linux 실기기 검증 ═══"
 echo "  이미지  $( . /etc/os-release 2>/dev/null; echo "${PRETTY_NAME:-불명}" )"
 echo "  PID 1   $(cat /proc/1/comm 2>/dev/null || echo 불명)"
 echo "  #172 칸 $JUDGE_WHY"
+echo "  kernel 칸 $JUDGE_K_WHY"
 echo
 
 # ── 픽스처 ──────────────────────────────────────────────────────────
@@ -751,10 +818,89 @@ check "F2 그것이 기능을 막지 않았다" \
     "$([ "$old_fail" -eq 0 ] && echo "여기까지 실패 0건" || echo "앞선 실패 ${old_fail}건")$(
        [ "$FAIL_NEW" -gt 0 ] && echo " · #172 칸의 실패 ${FAIL_NEW}건은 따로 센다")"
 
+# ════════════════════════════════════════════════════════════════════
+# K. 지금 도는 커널 (엔진 1.28.0 부터)
+# ════════════════════════════════════════════════════════════════════
+#
+# F2 뒤에 둔다 — 이 칸들은 서명과 상관없는 새 subject 를 잰다. K2 가 dpkg 기록을 잠시 고치므로 앞 절들이 끝난 뒤다.
+echo "── K. 지금 도는 커널 ──"
+KP="$HERE/kernel-plugin.yaml"
+if [ "$JUDGE_K" = 1 ]; then
+    KA="$OUT/artifacts-kernel.json"
+    "$BIN" collect --plugin "$KP" --out "$KA" > "$OUT/collect-kernel.log" 2>&1
+    rck=$?
+    nk="$(sec_count "$KA" kernel)"
+    krel="$(uname -r)"; kver="$(uname -v)"; knoarch="$(noarch_of "$krel")"
+    if [ -e /proc/version_signature ]; then ksig="$(cat /proc/version_signature)"; ksig_why="있음"
+    else ksig=""; ksig_why="없음"; fi
+    k1_bad=""
+    [ "$(sec_field "$KA" kernel release)" = "\"$(jesc "$krel")\"" ] || k1_bad="$k1_bad release"
+    [ "$(sec_field "$KA" kernel build)" = "\"$(jesc "$kver")\"" ] || k1_bad="$k1_bad build"
+    [ "$(sec_field "$KA" kernel release_noarch)" = "\"$(jesc "$knoarch")\"" ] || k1_bad="$k1_bad release_noarch"
+    [ "$(sec_field "$KA" kernel signature)" = "\"$(jesc "$ksig")\"" ] || k1_bad="$k1_bad signature"
+    kden="$(grep -o '"denied_dirs": [0-9]*' "$KA" | sed 's/.*: //' | head -1)"
+    ktr="$(grep -c '"truncated": true' "$KA")"
+    check "K1 지금 도는 커널 한 건이 uname 과 같다" \
+        "$([ "$rck" -eq 0 ] && [ "$nk" = 1 ] && [ -z "$k1_bad" ] && [ "${kden:-x}" = 0 ] && [ "$ktr" = 0 ] \
+           && echo 1 || echo 0)" \
+        "collect exit=$rck · kernel ${nk}건 · release $krel · release_noarch $knoarch · signature $ksig_why$(
+           [ -n "$k1_bad" ] && echo " · 어긋남:$k1_bad") · 거부 ${kden:-?} · 잘림 ${ktr}"
+
+    # 이미지의 dpkg 기록에 호스트 커널의 이름이 있을 리 없다 — 있으면 '없으면 서지 않는다' 를 잴 수 없다. 자리 채우기의
+    # 이름은 release 원문 그대로다. dpkg 는 이름을 소문자로 읽어(WSL 의 `…-WSL2` 를 `dpkg-query` 가 모른다 · 2026-11-28
+    # 잼) 대문자가 든 이름은 dpkg 가 쓸 수 없는 기록이지만, 수집기는 파일의 원문을 읽으므로 이음을 재는 데는 맞다.
+    DPKG=/var/lib/dpkg/status
+    KPKG="linux-image-$krel"
+    if [ -n "$FORCE" ]; then
+        # 컨테이너 밖일 수 있다 — 그 기계의 패키지 DB 는 고치지 않는다.
+        check "K2 그 이름의 dpkg 기록이 있을 때만 잇는다" "-" "--force 회차는 $DPKG 를 고치지 않는다"
+    elif [ ! -f "$DPKG" ]; then
+        check "K2 그 이름의 dpkg 기록이 있을 때만 잇는다" "-" "이 이미지에 $DPKG 가 없다"
+    elif grep -qxF "Package: $KPKG" "$DPKG"; then
+        check "K2 그 이름의 dpkg 기록이 있을 때만 잇는다" "-" \
+            "이미지의 dpkg 기록에 $KPKG 가 이미 있다 — 없을 때 서지 않는가를 잴 수 없다"
+    else
+        KS="$OUT/scan-kernel"
+        rm -rf "$KS" && mkdir -p "$KS"
+        dsha="$(sha256sum "$DPKG" | cut -d' ' -f1)"
+        cp -p "$DPKG" /tmp/remedy-lab-dpkg-status
+        printf '\nPackage: %s\nStatus: install ok installed\nPriority: optional\nSection: kernel\nArchitecture: %s\nVersion: 0.0.0-remedy-lab\nDescription: remedy lab placeholder - not a kernel\n' \
+            "$KPKG" "$(dpkg --print-architecture 2>/dev/null || echo amd64)" >> "$DPKG"
+        "$BIN" scan --plugin "$KP" --out-dir "$KS/with" > "$KS/with.log" 2>&1
+        rcw=$?
+        cp -p /tmp/remedy-lab-dpkg-status "$DPKG" && rm -f /tmp/remedy-lab-dpkg-status
+        back="$([ "$(sha256sum "$DPKG" | cut -d' ' -f1)" = "$dsha" ] && echo 예 || echo 아니오)"
+        "$BIN" scan --plugin "$KP" --out-dir "$KS/without" > "$KS/without.log" 2>&1
+        rcwo=$?
+        # 이어진 기록의 이름이 scan.json 의 증거에 있는가(따옴표째 — 다른 이름의 일부와 맞지 않게).
+        nw="$(grep -c "\"$(jesc "$KPKG")\"" "$KS/with/scan.json" 2>/dev/null)"
+        nwo="$(grep -c "\"$(jesc "$KPKG")\"" "$KS/without/scan.json" 2>/dev/null)"
+        check "K2 그 이름의 dpkg 기록이 있을 때만 잇는다" \
+            "$([ "$rcw" -eq 2 ] && [ "${nw:-0}" -ge 1 ] && [ "$rcwo" -eq 0 ] && [ "${nwo:-1}" = 0 ] \
+               && [ "$back" = 예 ] && echo 1 || echo 0)" \
+            "$KPKG — 넣으면 scan exit=$rcw (기대 2) · 증거 ${nw:-?}줄 / 되돌리면 exit=$rcwo (기대 0) · ${nwo:-?}줄 · 기록 되돌림 $back"
+    fi
+
+    # kernel 을 선언하지 않은 룰의 결과에 그 배열이 없는가. 대조 — K1 의 artifacts 에는 있어야 패턴이 산다.
+    k3_bad=""; k3_n=0
+    for f in "$OUT/artifacts.json" "$OUT"/scan/*.json; do
+        [ -f "$f" ] || continue
+        k3_n=$((k3_n + 1))
+        grep -qF '"kernel":' "$f" && k3_bad="$k3_bad $(basename "$f")"
+    done
+    k3_ctrl="$(grep -cF '"kernel":' "$KA")"
+    check "K3 kernel 을 선언하지 않은 룰의 결과에 kernel 이 없다" \
+        "$([ -z "$k3_bad" ] && [ "$k3_n" -ge 2 ] && [ "$k3_ctrl" -ge 1 ] && echo 1 || echo 0)" \
+        "$([ -z "$k3_bad" ] && echo "담긴 파일 0 / ${k3_n}개" || echo "담김:$k3_bad") · 대조(kernel 을 선언한 룰) ${k3_ctrl}줄"
+else
+    skip_kernel "K1" "K2" "K3"
+fi
+
 # ── 판정 ────────────────────────────────────────────────────────────
 echo
 echo "통과 $PASS · 실패 $FAIL · 못잼 $UNMEASURED  (전체 $((PASS + FAIL + UNMEASURED)))$(
-     [ "$SKIPPED" -gt 0 ] && echo " · 건너뜀 $SKIPPED — 엔진 $ENGINE < $NEW_SINCE")"
+     [ "$SKIPPED" -gt 0 ] && echo " · 건너뜀 $SKIPPED — 엔진 $ENGINE < $NEW_SINCE")$(
+     [ "$SKIPPED_K" -gt 0 ] && echo " · 건너뜀 $SKIPPED_K — 엔진 $ENGINE < $KERNEL_SINCE")"
 [ "$UNMEASURED" -gt 0 ] && echo "  ** 못 잰 것은 통과가 아니다. 위 노란 줄이 무엇을 못 봤는지 말한다."
 
 # Windows 쪽과 같은 모양으로 남기되 `ok` 가 셋째 값을 갖는다 — 못 잰 것은
@@ -763,8 +909,7 @@ echo "통과 $PASS · 실패 $FAIL · 못잼 $UNMEASURED  (전체 $((PASS + FAIL
 #
 # 이름과 detail 은 **쓰는 자리에서** JSON 문자열로 이스케이프한다(`capture-state.sh` 의 `esc` 와 같다). detail 에는
 # 레코드의 값이 따옴표째 실린다 — A5 의 `principal="bob"` 이 이 파일을 JSON 으로 읽히지 않게 했다(2026-11-27).
-# 칸마다 막지 않고 여기서 막아야 앞으로 더할 칸까지 덮는다.
-jesc() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'; }
+# 칸마다 막지 않고 여기서 막아야 앞으로 더할 칸까지 덮는다(`jesc` 는 위 도움 함수들 곁에 있다).
 {
     printf '[\n'
     first=1

@@ -1,0 +1,42 @@
+# 코퍼스용 — 지금 도는 커널 **만** 모은다 (코어 1.28.0 · 2026-11-28).
+#
+# # 왜 따로 있나
+#
+# `kernel` 은 리눅스에서 늘 한 건이지만, 이 subject 가 생기기 전(코어 1.28.0)에 뜬 스냅샷에는 그 배열이 없다.
+# 그러면 그 subject 를 쓰는 룰이 청정 코퍼스를 한 건도 마주하지 않고, 빈 자리의 까닭을 적는 시험
+# (`remedy-core/tests/corpus.rs` 의 `every_empty_subject_has_a_recorded_reason`)이 그 자리를 '못 잼' 으로 든다.
+# 옛 스냅샷을 다시 뜨지 않고 커널 하나만 담는다 — 값은 `uname -r` · `uname -v` 와 같고 사람의 것이 없다.
+#
+# **컨테이너 안에서 뜨면 호스트의 커널이 담긴다** — 컨테이너는 커널을 호스트와 함께 쓴다. 이 저장소의
+# `docker-debian12-kernel` 은 WSL2 위 docker 의 bookworm 컨테이너에서 떠 WSL2 커널이 담겼다.
+#
+# 쓰는 법(root · `cargo xtask corpus` 가 호스트명 등을 씻는다):
+#
+#     docker run --rm --pull=never -v "$PWD:/repo:ro" -v <remedy>:/usr/local/bin/remedy:ro -v <폴더>:/out \
+#         rust:1.96-bookworm remedy collect --plugin /repo/testbed/harness/linux/corpus-kernel.yaml --out /out/kernel.json
+#     cargo xtask corpus --in <폴더>/kernel.json --label <기계>-kernel --out corpus/clean
+#
+# 넣기 전에 **값을 한 번 읽는다** — `release` 의 꼬리(`CONFIG_LOCALVERSION`)는 커널을 지은 사람이 정한다.
+schema_version: 1
+id: linux-corpus-kernel
+version: 1.0.0
+min_core: "1.28.0"
+platforms: [linux]
+name:
+  ko: "코퍼스용 — 지금 도는 커널만"
+  en: "corpus fixture - running kernel only"
+
+# `kernel` 은 `scan_roots` 를 보지 않는다(커널이 정한 자리). 상한은 비울 수 없으므로 그 자리를 적는다 —
+# 파일 subject 를 선언하지 않았으므로 걷지 않는다.
+scan_roots:
+  - "/proc/sys/kernel/osrelease"
+subjects: [kernel]
+
+detect:
+  # **아무것도 맞히지 않는다.** 있을 수 없는 판을 겨눈다.
+  - id: never
+    subject: kernel
+    where:
+      - { field: release, op: equals, value: "remedy-corpus-never-matches" }
+
+verdict: { require: "never" }

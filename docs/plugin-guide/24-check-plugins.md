@@ -266,6 +266,79 @@ DB 를 **파일로 직접 읽고**(`dpkg status` · `apk installed` · rpm DB) �
 모르는 설치본이 그 자리다. 찾은 것이 앞선다(2). 이것 없이 판정을 세우지 않으면
 0 이 나가고, 0 은 *"이 기계는 괜찮다"* 로 읽힌다.
 
+## 실행 중 커널로 판정하는 법 — `kernel`
+
+깔린 커널 패키지는 **다음 부팅**의 커널이다 — 고친 커널을 깔고 다시 시작하지 않은 기계를 못 가르고, 두 판이
+깔리면 어느 쪽으로 도는지 모른다. `kernel` 은 지금 도는 커널 한 건이다(코어 1.28.0 · Linux 전용 · `scan_roots` 를
+보지 않는다).
+
+| 칸 | |
+|---|---|
+| `release` · `build` | `uname -r` · `uname -v` 와 같은 값. Debian 은 `build` 에 `Debian <패키지 판> (날짜)` 가 든다 |
+| `release_noarch` | 끝의 `.<아키텍처>` 와 그 뒤 `+<변형>` 을 뗀 `release`(`…el9_5.x86_64+rt` → `…el9_5`) — rpm 판과 견준다 |
+| `signature` | `/proc/version_signature` — Ubuntu 커널만 낸다. 없으면 `""` |
+
+capture 해 `package` 에 잇고 **이은 패키지로** 판정한다 — dpkg 는 이름이라 하나, rpm 은 판이라 같은 판의 커널
+패키지(`kernel-core` · `kernel-modules` …)가 함께 이어진다(epoch 이 붙으면 `1:판`). dpkg 는 같은 이름에 판이 바뀌므로
+그 판으로 지금 도는지도 견준다 — Debian 은 `build`, Ubuntu 는 `signature`:
+
+```yaml
+detect:
+- id: run
+  subject: kernel
+  where: [{ field: release, op: exists }]
+  capture: { r: "release", n: "release_noarch" }
+- id: run_linked
+  subject: package
+  where:
+    any:
+      - { field: name,    op: equals,    value: "linux-image-${run.r}" }
+      - { field: version, op: equals,    value: "${run.n}" }
+      - { field: version, op: ends_with, value: ":${run.n}" }
+- id: run_named
+  subject: package
+  where: [{ field: name, op: equals, value: "linux-image-${run.r}" }]
+- id: run_deb    # Debian 꼴 개정(`1` · `1~bpo12+1`)
+  subject: package
+  where:
+    - { field: name,     op: equals,  value: "linux-image-${run.r}" }
+    - { field: revision, op: matches, value: '^[0-9]+([~+][^.]*)?$' }
+  capture: { v: "version" }
+- id: run_deb_build_ok
+  subject: kernel
+  where: [{ field: build, op: contains, value: " Debian ${run_deb.v} (" }]
+- id: run_ub     # Ubuntu 꼴 개정(`49.49`)
+  subject: package
+  where:
+    - { field: name,     op: equals,   value: "linux-image-${run.r}" }
+    - { field: revision, op: contains, value: "." }
+  capture: { u: "version" }
+- id: run_ub_sig_ok
+  subject: kernel
+  where: [{ field: signature, op: contains, value: "Ubuntu ${run_ub.u}-" }]
+# vulnerable · fixed: run_linked 의 any 셋 + 판 분류(§패키지) — 잇지 않은 fixed 는 둘째 줄을 끈다
+verdict:
+  require: "vulnerable"
+  unconfirmed:
+    - when: "not run_linked"
+      why: { ko: "잇지 못했습니다", en: "not linked" }
+    - when: "run_linked and not (vulnerable or fixed)"
+      why: { ko: "가르지 못합니다", en: "unclassified" }
+    - when: "run_named and not (run_deb_build_ok or run_ub_sig_ok)"
+      why: { ko: "이은 판으로 돌지 않습니다", en: "not running the linked version" }
+```
+
+- **`require` 에는 판 분류만 둔다** — 판 대조를 넣으면 `run_deb` 이 서지 않는 Ubuntu · rpm 의 영향 판이 0 이다(실측).
+  판 대조는 셋째 확인 필요 줄로 막는다
+- **0 은 이어지고 분류된 고친 판에서만 낸다.** 확인 필요 줄이 하나라도 빠지면 그 기계가 0 이다 — 셋째가 같은 이름에
+  새 판을 깔고 다시 시작하지 않은 기계다. 그 밖의 dpkg 파생(Kali 의 `1kali1` 등)은 셋째 줄에 걸려 고친 판으로 돌아도
+  6 이다(틀린 0 보다 안전한 쪽)
+- 컨테이너는 보통 호스트의 커널이 보여(VM · 샌드박스 런타임이면 그 커널) 이미지의 패키지와 이어지지 않는다
+- **`in` 목록에 `${}` 를 넣지 않는다** — 목록 안은 참조로 세지 않아 `run` 을 부모로 잇지 않고(차례 · 그룹이 빠진다)
+  린트도 보지 않는다. `any` 안의 `equals` 로 쓴다
+- `kernel` 을 못 읽으면 0건 + 거부라 6 이다(`/proc` 이 없는 chroot 포함 · 까닭 줄은 접근 거부로 적힌다)
+- 린트의 경고 둘은 그대로 둔다 — `run` 의 그룹 폭증(`kernel` 은 늘 한 건)과 근거 하나(판 대조를 더해 끄지 않는다)
+
 ## 선언한 자리 밖의 런타임 — 찾으면 확인 필요
 
 `scan_roots` 밖의 설치본은 수집되지 않아 0 으로 끝난다(실측: 같은 취약 PHP 가 `C:\php` 면 2,

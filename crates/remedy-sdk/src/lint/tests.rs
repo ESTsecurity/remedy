@@ -683,6 +683,10 @@ verdict: {{ require: 'r' }}
     ///
     /// 2026-11-12 에 `archive_entry` 를 더하며 다시 멈췄고 `Path` 를 골랐다 — 여는 아카이브는 `file` 이
     /// `scan_roots` 안에서 기록한 파일이라, 경로 루트가 없으면 그 subject 는 아무것도 열지 못한다.
+    ///
+    /// 2026-11-28 에 `kernel` 을 더하며 다시 멈췄고 `Fixed` 를 골랐다 — 커널이 정한 자리
+    /// (`/proc/sys/kernel/osrelease` · `version` · `/proc/version_signature`) 셋만 읽어 `scan_roots` 를 보지
+    /// 않는다. 그 자리를 `scan_roots` 에 적게 하면 패키지 DB 자리를 적는 점검 룰마다 /proc 줄이 늘 뿐이다.
     #[test]
     fn every_subject_declares_how_it_is_scoped() {
         let n = Subject::ALL.len();
@@ -690,8 +694,9 @@ verdict: {{ require: 'r' }}
             .into_iter()
             .filter(|s| matches!(s.info().scoping, Scoping::Fixed))
             .count();
-        assert_eq!(n, 21);
+        assert_eq!(n, 22);
         assert_eq!(Subject::ArchiveEntry.info().scoping, Scoping::Path);
+        assert_eq!(Subject::Kernel.info().scoping, Scoping::Fixed);
         // 전부 Fixed 면 이 검사는 아무것도 막지 못한다.
         assert!(fixed < n, "scan_roots 를 받는 subject 가 하나도 없다");
     }

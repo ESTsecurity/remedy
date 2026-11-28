@@ -56,7 +56,7 @@ scan_roots:
 
 | `scan_roots` 가 범위를 정한다 | `file` · `text_config` · `structured_config` · `shortcut` · `browser_extension` · `registry_value` · `registry_key` · `archive_entry` |
 |---|---|
-| **무관하게 수집된다** | `persistence` · `autorun` · `process` · `service` · `av_exclusion` · `firewall_rule` · `hosts_entry` · `cert_store` · `proxy_config` · `boot_config` · `indicator` · `package` · `unix_socket` |
+| **무관하게 수집된다** | `persistence` · `autorun` · `process` · `service` · `av_exclusion` · `firewall_rule` · `hosts_entry` · `cert_store` · `proxy_config` · `boot_config` · `indicator` · `package` · `unix_socket` · `kernel` |
 
 > **레지스트리 값·키는 `scan_roots` 에 레지스트리 루트를 적어야 모인다.**
 > 수집기가 `scan_roots` 에서 `HKLM\…` 모양인 것만 골라 그 아래를 훑는다.

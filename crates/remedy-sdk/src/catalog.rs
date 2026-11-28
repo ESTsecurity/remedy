@@ -1,4 +1,4 @@
-//! 닫힌 집합 카탈로그 — subject 21종 · Op 29종 · 연산자 15종 · capture 함수 9종.
+//! 닫힌 집합 카탈로그 — subject 22종 · Op 29종 · 연산자 15종 · capture 함수 9종.
 //!
 //! 각 항목의 메타데이터는 **exhaustive match** 로 붙인다. 변이를 추가하면
 //! 메타데이터를 채우기 전까지 컴파일이 되지 않는다. 표를 따로 두면 언젠가
@@ -134,7 +134,7 @@ impl Scoping {
 }
 // ─────────────────────────────────────────────────────────── Subject
 
-/// 관찰 대상 타입 21종 (설계-02 §3).
+/// 관찰 대상 타입 22종 (설계-02 §3).
 ///
 /// 순서는 설계-02 §3 표와 같다. 사람이 두 목록을 대조할 일이 남아 있는 한
 /// 순서가 같은 편이 낫다.
@@ -164,6 +164,7 @@ pub enum Subject {
     Package,
     UnixSocket,
     ArchiveEntry,
+    Kernel,
 }
 
 /// subject 하나에 대해 코어가 아는 모든 것.
@@ -277,7 +278,7 @@ pub const RETIRED_SUBJECTS: [(&str, &str); 1] = [(
 )];
 
 impl Subject {
-    pub const ALL: [Subject; 21] = [
+    pub const ALL: [Subject; 22] = [
         Subject::Persistence,
         Subject::Autorun,
         Subject::Service,
@@ -299,6 +300,7 @@ impl Subject {
         Subject::Package,
         Subject::UnixSocket,
         Subject::ArchiveEntry,
+        Subject::Kernel,
     ];
 
     /// 메타데이터. `match` 가 exhaustive 하므로 변이를 추가하면 여기서 막힌다.
@@ -773,6 +775,12 @@ impl Subject {
             Subject::ArchiveEntry => &[
                 "archive", "path", "name", "depth", "size", "sha256", "text", "error",
             ],
+            // **지금 도는 커널** 하나가 레코드 하나다(코어 1.28.0). `release` 는 `uname -r`, `build` 는 `uname -v` 와 같고,
+            // `release_noarch` 는 `release` 끝의 `.<아키텍처>` · `+<변형>` 을 뗀 값(rpm 판과 잇는 칸), `signature` 는
+            // Ubuntu 의 `/proc/version_signature`(없으면 빈 문자열)다. 룰은 이 값을 capture 해 `package` 의 이름 · 판에
+            // 보간한다 — 깔린 커널 전부가 아니라 **지금 도는 커널의 패키지**로 판정하려고(dpkg 는 이름이라 하나 · rpm 은
+            // 판이라 같은 판의 커널 패키지 여럿).
+            Subject::Kernel => &["release", "build", "release_noarch", "signature"],
         }
     }
 
@@ -1031,6 +1039,21 @@ impl Subject {
                 linux: true,
                 linux_from: Some(Phase::P12),
                 summary: "아카이브(jar · war · ear · zip) 안의 항목 — 안쪽 경로 · 크기 · 해시 · 작은 글자 내용",
+            },
+            // **지금 도는 커널**(코어 1.28.0 · 2026-11-28). 커널 결함 점검이 깔린 커널 패키지만 보니, 고친 커널을 깔고
+            // 다시 시작하지 않은 기계를 가르지 못했다 — 두 판이 함께 깔리면 확인 필요(6)였고, 이름 모를 커널로 도는
+            // 기계는 이상 없음(0)으로 틀렸다. 커널이 정한 파일 셋을 읽는 **Linux 전용 · 찾기 전용** subject 다 — 커널을
+            // 바꾸는 Op 은 없다. 리눅스에서는 늘 한 건이고, 못 읽으면 0건 + 거부(점검은 6)다.
+            Subject::Kernel => SubjectInfo {
+                id: "kernel",
+                // 커널이 정한 자리(`/proc/sys/kernel/osrelease` · `version` · `/proc/version_signature`)다. `scan_roots` 를
+                // 보지 않는다.
+                scoping: Scoping::Fixed,
+                implemented_in: Phase::P4,
+                windows: false,
+                linux: true,
+                linux_from: Some(Phase::P12),
+                summary: "지금 도는 커널 — `uname -r` · `uname -v` 와 같은 값",
             },
         }
     }

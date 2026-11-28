@@ -377,6 +377,8 @@ pub fn evidence_label(subject: remedy_sdk::catalog::Subject, target: &serde_json
             (Some(a), Some(p)) => Some(format!("{a}!/{p}")),
             (a, _) => a,
         },
+        // 지금 도는 커널은 `uname -r` 과 같은 값이 찾아갈 단서다 — 그 판의 커널 패키지를 찾는다(코어 1.28.0).
+        S::Kernel => first_of(target, &["release"]),
     };
     named.unwrap_or_else(|| subject.info().id.to_string())
 }
@@ -749,6 +751,14 @@ fn field_word(field: &str, lang: Lang) -> Option<String> {
         "source" => ("원본 패키지", "source package"),
         // 아카이브 안을 끝까지 못 본 까닭(코어 1.11.0) — 값은 언어와 무관한 짧은 낱말이다(`too_large` 등).
         "error" => ("못 본 까닭", "not read"),
+        // 지금 도는 커널의 칸(코어 1.28.0) — 판 대조에 쓴 `uname -v` 값이 `(build #1 SMP …)` 로 섰다. 영어는 칸 이름
+        // 그대로다. **이 표는 subject 를 받지 않는다.** 지금은 카탈로그에서 이 맨 이름 넷을 `kernel` 만 써서(`file` 은
+        // `signature.*`) 다른 subject 의 줄이 바뀌지 않지만, 다른 subject 가 같은 맨 이름 칸을 더하면 그 줄도 이 낱말로
+        // 조용히 선다. 그 조건을 보는 시험은 없다 — 그런 칸을 더할 때 이 네 줄을 subject 와 짝으로 가른다.
+        "build" => ("빌드", "build"),
+        "signature" => ("Ubuntu 버전 표시", "signature"),
+        "release" => ("커널 버전", "release"),
+        "release_noarch" => ("커널 버전", "release_noarch"),
         other => (other, other),
     };
     Some(lang.pick(ko.to_string(), en.to_string()))

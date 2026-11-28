@@ -14,9 +14,9 @@ pub mod scope;
 pub use record::{
     ArchiveEntryRecord, AutorunRecord, AvExclusionRecord, BootConfigRecord, BrowserExtensionRecord,
     CertStoreRecord, FileRecord, FirewallRuleRecord, HostsEntryRecord, IndicatorRecord,
-    PackageRecord, PersistenceRecord, ProcessRecord, ProxyConfigRecord, RegistryKeyRecord,
-    RegistryValueRecord, ServiceRecord, ShortcutRecord, Signature, StructuredConfigRecord,
-    TextConfigRecord, UnixSocketRecord, WinTask, Zone,
+    KernelRecord, PackageRecord, PersistenceRecord, ProcessRecord, ProxyConfigRecord,
+    RegistryKeyRecord, RegistryValueRecord, ServiceRecord, ShortcutRecord, Signature,
+    StructuredConfigRecord, TextConfigRecord, UnixSocketRecord, WinTask, Zone,
 };
 pub use scope::{Scope, MAX_LARGE_HASH_BYTES};
 

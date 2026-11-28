@@ -58,6 +58,9 @@
 #
 #     JUDGE_ALL=1 testbed/harness/linux/invoke-linux-verify.sh --bin <공개본 remedy>
 #
+# **지금 도는 커널의 칸(K1 ~ K3)은 엔진 1.28.0 부터 판정한다** — `JUDGE_ALL` 은 그 칸을 넘기지 않는다(앞의 엔진은
+# 그 subject 를 선언한 룰을 읽지 못한다).
+#
 # 결과는 `testbed/harness/results/linux-<시각>/verify-linux.json` 에 남는다.
 
 set -u
@@ -127,7 +130,7 @@ if [ "$KEEP" -eq 0 ]; then
     # 중간 산출물은 지운다. 판정과 상태 diff 만 남긴다 — 저장소에 커밋되는
     # 것은 결과이지 스캔 부산물이 아니다.
     rm -rf "$OUT/scan" "$OUT/state" "$OUT/extracted" "$OUT/artifacts.json" "$OUT/artifacts-a5.json" \
-        "$OUT/artifacts-glob.json"
+        "$OUT/artifacts-glob.json" "$OUT/artifacts-kernel.json" "$OUT/scan-kernel"
 fi
 
 exit "$rc"

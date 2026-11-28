@@ -90,6 +90,7 @@ signed_malware:                      # 서명된 악성코드 예외. 목록 자
 | `package` | (수집기 없음 — MSI·winget 은 개념만 있다) | dpkg `status`, apk `installed`, rpm DB(SQLite·BDB·NDB · 코어 1.3.0) | `name, version, upstream_version, revision, arch, source, manager(dpkg\|apk\|rpm), vendor(rpm)` |
 | `unix_socket` | (해당 없음) | `/proc/net/unix` 의 이름 있는 소켓 — 추상 이름은 `@` 로 시작 | `name, inode, listening, kind(stream\|dgram\|seqpacket)` — **찾기 전용**(코어 1.2.0) |
 | `archive_entry` | jar · war · ear · zip 안의 항목 — 목록(중앙 디렉터리)과 압축을 풀어 읽는다 | (같다) | `archive, path, name, depth, size, sha256, text, error` — **찾기 전용**(코어 1.11.0). `file` 이 기록한 파일 가운데 zip 꼴을 열고 `archive_members` 의 잎 이름 꼴에 맞는 항목만 담는다 |
+| `kernel` | (해당 없음) | 지금 도는 커널 — `/proc/sys/kernel/osrelease` · `version`(`uname -r` · `uname -v` 와 같다) · `/proc/version_signature`(Ubuntu) | `release, build, release_noarch, signature` — **찾기 전용**(코어 1.28.0). 리눅스에서 늘 한 건이고, 못 읽으면 0건 + 거부 |
 
 OS 고유 필드 예: `win.task.register_path`, `win.task.principal.run_level`, `win.registry.hive`, `linux.systemd.unit_path`, `linux.cron.file`.
 
@@ -104,6 +105,8 @@ OS 고유 필드 예: `win.task.register_path`, `win.task.principal.run_level`, 
 > `unix_socket` 은 그것과 다르다 — **듣고 있는 이름 있는 UNIX 소켓**이고, 상주 임플란트가 떠 있는 동안 계속 열려 있는 자리다. Ebury 의 현재 주 탐지법이 그 이름이다. 지울 Op 은 여전히 없다(찾기 전용). 구분의 근거는 설계-01 D11 의 덧붙임.
 >
 > `archive_entry` 는 **아카이브 안의 라이브러리**를 보는 자리다(코어 1.11.0). log4j 점검을 룰만으로 짜 보니 YARA 는 원본 바이트만 봐서 압축된 항목의 속(실제 jar 의 `pom.properties` · 압축된 war 안의 jar)을 못 봤고, 본문 상한(파일 8 MiB · 검사 64 MiB)에 큰 앱과 jar 가 많은 서버가 걸렸다. 항목 하나가 레코드 하나라 한 항목의 좌표와 내용(`path` · `text`)을 한 `where` 로 견준다. 무엇이 취약한지는 룰의 몫이다 — 코어는 Java 지식을 갖지 않는다. 고치는 Op 은 없다 — jar 를 고치면 서명 · 무결성을 보는 앱이 멈춘다.
+>
+> `kernel` 은 **지금 도는 커널**을 보는 자리다(코어 1.28.0). 깔린 커널 패키지는 다음 부팅을 말해서, 고친 커널을 깔고 다시 시작하지 않은 기계를 가르지 못했다. 룰은 `release` · `release_noarch` 를 capture 해 `package` 의 이름 · 판에 보간하고, 그렇게 이어진 패키지로 판정한다(dpkg 는 이름이라 하나 · rpm 은 판이라 같은 판의 커널 패키지 여럿) — 어느 배포판의 어느 이름과 잇는지, 이은 판으로 지금 도는지(`build` · `signature`)를 견주는 것은 룰의 몫이다. 고치는 Op 은 없다 — 커널을 올리고 다시 시작하는 것은 운영자의 일이다.
 
 ### v1 열거 범위와 그 밖의 것
 
